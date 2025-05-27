@@ -3,6 +3,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'net.neoforged.moddev' version '2.0.78'
+    id 'io.freefair.lombok' version '8.7.1'
 }
 
 tasks.named('wrapper', Wrapper).configure {
@@ -153,4 +154,19 @@ idea {
         downloadSources = true
         downloadJavadoc = true
     }
+}
+
+tasks.register('sourcesJar', Jar) {
+    dependsOn delombok
+    from delombok.outputs.files
+    archiveClassifier = "sources"
+}
+
+artifacts {
+    archives sourcesJar
+}
+
+
+lombok {
+    version = "1.18.34"
 }

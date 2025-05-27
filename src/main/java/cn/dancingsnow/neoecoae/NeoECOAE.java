@@ -1,12 +1,12 @@
 package cn.dancingsnow.neoecoae;
 
 
+import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -21,6 +21,7 @@ public class NeoECOAE {
     public static final NERegistrate REGISTRATE = NERegistrate.create(MOD_ID);
 
     public NeoECOAE(IEventBus modBus, ModContainer modContainer) {
+        NEItems.register();
         NEBlocks.register();
         NEBlockEntities.register();
         logger.info("Hello World!");

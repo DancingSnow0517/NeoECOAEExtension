@@ -1,6 +1,6 @@
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-package cn.dancingsnow.neoecoae.blocks;
+package cn.dancingsnow.neoecoae.items;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 

@@ -1,0 +1,9 @@
+// 1.21.1	2025-05-28T05:43:40.0296251	Registrate Provider for neoecoae [Registries, Data Maps, Recipes, Advancements, Loot Tables, Tags (blocks), Tags (enchantments), Tags (items), Tags (fluids), Tags (entity_types), generic_server_provider, Blockstates, Item models, Lang (en_us/en_ud), generic_client_provider]
+8c2935a1e46a8597dc05d4f0013fef69801e1d88 assets/neoecoae/lang/en_ud.json
+6895f051d02bff19ee312054f32c30296a1734df assets/neoecoae/lang/en_us.json
+3030b35ba1491c8bf2a05496c9b546ebcab9df6e assets/neoecoae/models/item/eco_fluid_storage_cell_16m.json
+9b10fdb886e35f834979148e6bb2b4c1544928d2 assets/neoecoae/models/item/eco_fluid_storage_cell_256m.json
+102d3c23dd5f744cb392f71a007ab4aec3740a34 assets/neoecoae/models/item/eco_fluid_storage_cell_64m.json
+9230888f4d6abc2084d9d9c1de524508ca5add76 assets/neoecoae/models/item/eco_item_storage_cell_16m.json
+26503a4de6cae093dcd95154a470e4e54bfa56ab assets/neoecoae/models/item/eco_item_storage_cell_256m.json
+f5d2109d7107eaa5b7835b39fc236efc14eec345 assets/neoecoae/models/item/eco_item_storage_cell_64m.json
