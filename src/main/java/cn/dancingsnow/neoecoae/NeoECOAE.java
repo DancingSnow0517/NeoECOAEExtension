@@ -1,20 +1,34 @@
 package cn.dancingsnow.neoecoae;
 
 
-import com.tterrag.registrate.Registrate;
+import cn.dancingsnow.neoecoae.all.NEBlockEntities;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Mod(NeoECOAE.MOD_ID)
 public class NeoECOAE {
+    private final Logger logger = LoggerFactory.getLogger(MOD_ID);
     public static final String MOD_ID = "neoecoae";
 
-    public static final Registrate REGISTRATE = Registrate.create(MOD_ID);
+    public static final NERegistrate REGISTRATE = NERegistrate.create(MOD_ID);
 
     public NeoECOAE(IEventBus modBus, ModContainer modContainer) {
+        NEBlocks.register();
+        NEBlockEntities.register();
+        logger.info("Hello World!");
+        modBus.addListener(NeoECOAE::onCommonSetup);
+    }
 
+    public static void onCommonSetup(FMLCommonSetupEvent e) {
+        REGISTRATE.runCommonSetup();
     }
 
     public static ResourceLocation id(String path) {
