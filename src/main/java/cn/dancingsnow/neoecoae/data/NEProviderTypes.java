@@ -6,6 +6,6 @@ import com.tterrag.registrate.providers.ProviderType;
 public class NEProviderTypes {
     public static final ProviderType<CellModelProvider> CELL_MODEL = ProviderType.registerProvider(
         "cell_model",
-        c -> new CellModelProvider(c.output(), c.parent().getModid(), c.fileHelper())
+        c -> new CellModelProvider(c.parent(), c.output(), c.fileHelper())
     );
 }
