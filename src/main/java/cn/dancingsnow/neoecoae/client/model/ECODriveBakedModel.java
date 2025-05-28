@@ -14,6 +14,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.client.ChunkRenderTypeSet;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import org.jetbrains.annotations.NotNull;
@@ -25,12 +26,56 @@ import java.util.List;
 import java.util.Map;
 
 public class ECODriveBakedModel extends DelegateBakedModel {
-
+    private static final RenderContext.QuadTransform[] FACING_TRANSFORM = new RenderContext.QuadTransform[Direction.values().length];
     private final Map<Item, BakedModel> cellModels;
     private final BakedModel defaultModel;
     private final BakedModel driveFullBase;
-    private final Transformation modelTransform;
     private final RenderContext.QuadTransform transform;
+
+    static {
+        FACING_TRANSFORM[Direction.NORTH.ordinal()] = quad -> {
+            Vector3f pos = new Vector3f();
+            for (int i = 0; i < 4; i++) {
+                quad.copyPos(i, pos);
+                pos.y += 2 / 16f;
+                pos.x += 2 / 16f;
+                quad.pos(i, pos);
+            }
+            return false;
+        };
+        FACING_TRANSFORM[Direction.SOUTH.ordinal()] = quad -> {
+            Vector3f pos = new Vector3f();
+            for (int i = 0; i < 4; i++) {
+                quad.copyPos(i, pos);
+                pos.y += 2 / 16f;
+                pos.x += 14 / 16f;
+                pos.z += 16 / 16f;
+                quad.pos(i, pos);
+            }
+            return false;
+        };
+        FACING_TRANSFORM[Direction.EAST.ordinal()] = quad -> {
+            Vector3f pos = new Vector3f();
+            for (int i = 0; i < 4; i++) {
+                quad.copyPos(i, pos);
+                pos.y += 2 / 16f;
+                pos.x += 16 / 16f;
+                pos.z += 2 / 16f;
+                quad.pos(i, pos);
+            }
+            return false;
+        };
+        FACING_TRANSFORM[Direction.WEST.ordinal()] = quad -> {
+            Vector3f pos = new Vector3f();
+            for (int i = 0; i < 4; i++) {
+                quad.copyPos(i, pos);
+                pos.y += 2 / 16f;
+                pos.z += 14 / 16f;
+                quad.pos(i, pos);
+            }
+            return false;
+        };
+    }
 
     protected ECODriveBakedModel(
         BakedModel base,
@@ -43,7 +88,6 @@ public class ECODriveBakedModel extends DelegateBakedModel {
         this.cellModels = cellModels;
         this.defaultModel = defaultModel;
         this.driveFullBase = driveFullBase;
-        this.modelTransform = modelTransform;
         this.transform = createTransform(modelTransform);
     }
 
@@ -76,6 +120,7 @@ public class ECODriveBakedModel extends DelegateBakedModel {
             for (BakedQuad quad : model.getQuads(state, side, rand, data, renderType)) {
                 quadView.fromVanilla(quad, side);
                 transform.transform(quadView);
+                FACING_TRANSFORM[state.getValue(BlockStateProperties.HORIZONTAL_FACING).ordinal()].transform(quadView);
                 quads.add(quadView.toBlockBakedQuad());
             }
         }
