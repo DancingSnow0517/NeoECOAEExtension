@@ -3,6 +3,7 @@
   "block.neoecoae.computation_interface": "Computation Interface",
   "block.neoecoae.crafting_casing": "Crafting Casing",
   "block.neoecoae.crafting_interface": "Crafting Interface",
+  "block.neoecoae.eco_drive": "ECO - Crystal Oscillator Drive",
   "block.neoecoae.storage_casing": "Storage Casing",
   "block.neoecoae.storage_interface": "Storage Interface",
   "item.neoecoae.eco_fluid_storage_cell_16m": "ECO - LE4 Storage Matrix (Fluid)",

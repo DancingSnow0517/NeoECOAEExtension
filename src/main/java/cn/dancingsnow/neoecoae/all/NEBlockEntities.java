@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.all;
 
-import appeng.api.AECapabilities;
+import cn.dancingsnow.neoecoae.blocks.entity.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -71,6 +71,16 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.STORAGE_INTERFACE)
         .validBlock(NEBlocks.STORAGE_INTERFACE)
+        .register();
+
+    public static final NEBlockEntityEntry<ECODriveBlockEntity> ECO_DRIVE = REGISTRATE
+        .blockEntityClusterElement(
+            "eco_drive",
+            () -> null,
+            ECODriveBlockEntity::new
+        )
+        .forBlock(NEBlocks.ECO_DRIVE)
+        .validBlock(NEBlocks.ECO_DRIVE)
         .register();
 
     public static void register() {
