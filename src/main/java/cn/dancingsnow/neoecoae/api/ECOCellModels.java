@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
+import lombok.Getter;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.Material;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 public class ECOCellModels {
+    @Getter
     private static final Map<Item, ResourceLocation> registry = new IdentityHashMap<>();
     private static final Map<Item, BakedModel> bakedModels = new IdentityHashMap<>();
     public static final ResourceLocation DEFAULT_MODEL = NeoECOAE.id("cell/storage_cell_l4_item");
@@ -30,7 +32,7 @@ public class ECOCellModels {
         register(NEItems.ECO_FLUID_CELL_256M, NeoECOAE.id("cell/storage_cell_l9_fluid"));
     }
 
-    public static ResourceLocation getModel(Item item) {
+    public static ResourceLocation getModelLocation(Item item) {
         return registry.getOrDefault(item, DEFAULT_MODEL);
     }
 
@@ -47,7 +49,7 @@ public class ECOCellModels {
         return bakedModels.computeIfAbsent(
             item,
             it -> baker.bake(
-                getModel(item),
+                getModelLocation(item),
                 modelState,
                 textureGetter
             )

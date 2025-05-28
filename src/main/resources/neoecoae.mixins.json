@@ -4,7 +4,9 @@
   "package": "cn.dancingsnow.neoecoae.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
-  "client": [],
+  "client": [
+    "ModelBakeryMixin"
+  ],
   "server": [],
   "injectors": {
     "defaultRequire": 1
