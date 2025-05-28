@@ -1,0 +1,11 @@
+{
+  "values": [
+    "neoecoae:computation_casing",
+    "neoecoae:crafting_casing",
+    "neoecoae:storage_casing",
+    "neoecoae:computation_interface",
+    "neoecoae:crafting_interface",
+    "neoecoae:storage_interface",
+    "neoecoae:eco_drive"
+  ]
+}

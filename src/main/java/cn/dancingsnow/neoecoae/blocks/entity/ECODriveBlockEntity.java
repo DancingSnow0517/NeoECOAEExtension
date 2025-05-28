@@ -12,13 +12,15 @@ import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoPersistBlockEntity;
 import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 import lombok.Getter;
-import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriveBlockEntity>
     implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
@@ -69,5 +71,13 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
     @Override
     public IManagedStorage getRootStorage() {
         return getSyncStorage();
+    }
+
+    @Override
+    public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
+        super.addAdditionalDrops(level, pos, drops);
+        if (cellStack != null) {
+            drops.add(cellStack);
+        }
     }
 }
