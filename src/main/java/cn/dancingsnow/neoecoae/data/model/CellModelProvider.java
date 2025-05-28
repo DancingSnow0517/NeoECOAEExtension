@@ -21,7 +21,7 @@ public class CellModelProvider extends ModelProvider<BlockModelBuilder> implemen
     private final AbstractRegistrate<?> parent;
 
     public CellModelProvider(AbstractRegistrate<?> parent, PackOutput output, ExistingFileHelper existingFileHelper) {
-        super(output, parent.getModid(), "cell", BlockModelBuilder::new, existingFileHelper);
+        super(output, parent.getModid(), "block/cell", BlockModelBuilder::new, existingFileHelper);
         this.parent = parent;
     }
 
@@ -31,11 +31,11 @@ public class CellModelProvider extends ModelProvider<BlockModelBuilder> implemen
     }
 
     public void cellModel(String name) {
-        cellModel(name, modLoc("cell/" + name), modLoc("cell/led/" + name));
+        cellModel(name, modLoc("block/cell/" + name), modLoc("block/cell/led/" + name));
     }
 
     public void cellModel(String name, ResourceLocation texture, ResourceLocation led) {
-        withExistingParent(name, NeoECOAE.id("cell/storage_cell"))
+        withExistingParent(name, NeoECOAE.id("block/cell/storage_cell"))
             .texture("1", texture)
             .texture("2", led)
             .texture("particle", texture);

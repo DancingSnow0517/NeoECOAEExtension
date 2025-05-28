@@ -11,8 +11,12 @@ import com.lowdragmc.lowdraglib.syncdata.blockentity.IAsyncAutoSyncBlockEntity;
 import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoPersistBlockEntity;
 import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
+import com.lowdragmc.lowdraglib.syncdata.managed.IRef;
 import lombok.Getter;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -50,7 +54,7 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
 
     public void setCellStack(@Nullable ItemStack cellStack) {
         this.cellStack = cellStack;
-        requestModelDataUpdate();
+        markDirty("cellStack");
     }
 
     @Override
@@ -64,8 +68,20 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
     }
 
     @Override
+    public void onSyncChanged(IRef ref, boolean isDirty) {
+        IManaged.super.onSyncChanged(ref, isDirty);
+        if (level instanceof ClientLevel) {
+            onChangedClient();
+        }
+    }
+
+    @Override
     public void onChanged() {
         setChanged();
+    }
+
+    private void onChangedClient() {
+        Minecraft.getInstance().execute(this::requestModelDataUpdate);
     }
 
     @Override

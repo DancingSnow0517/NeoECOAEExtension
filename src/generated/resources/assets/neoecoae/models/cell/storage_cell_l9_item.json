@@ -1,8 +1,0 @@
-{
-  "parent": "neoecoae:cell/storage_cell",
-  "textures": {
-    "1": "neoecoae:cell/storage_cell_l9_item",
-    "2": "neoecoae:cell/led/storage_cell_l9_item",
-    "particle": "neoecoae:cell/storage_cell_l9_item"
-  }
-}
