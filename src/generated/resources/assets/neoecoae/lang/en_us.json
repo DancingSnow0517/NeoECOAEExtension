@@ -1,7 +1,10 @@
 {
   "block.neoecoae.computation_casing": "Computation Casing",
+  "block.neoecoae.computation_interface": "Computation Interface",
   "block.neoecoae.crafting_casing": "Crafting Casing",
+  "block.neoecoae.crafting_interface": "Crafting Interface",
   "block.neoecoae.storage_casing": "Storage Casing",
+  "block.neoecoae.storage_interface": "Storage Interface",
   "item.neoecoae.eco_fluid_storage_cell_16m": "ECO - LE4 Storage Matrix (Fluid)",
   "item.neoecoae.eco_fluid_storage_cell_256m": "ECO - LE9 Storage Matrix (Fluid)",
   "item.neoecoae.eco_fluid_storage_cell_64m": "ECO - LE6 Storage Matrix (Fluid)",

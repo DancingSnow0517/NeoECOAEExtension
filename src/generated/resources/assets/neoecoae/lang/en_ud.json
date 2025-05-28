@@ -1,7 +1,10 @@
 {
   "block.neoecoae.computation_casing": "buısɐƆ uoıʇɐʇndɯoƆ",
+  "block.neoecoae.computation_interface": "ǝɔɐɟɹǝʇuI uoıʇɐʇndɯoƆ",
   "block.neoecoae.crafting_casing": "buısɐƆ buıʇɟɐɹƆ",
+  "block.neoecoae.crafting_interface": "ǝɔɐɟɹǝʇuI buıʇɟɐɹƆ",
   "block.neoecoae.storage_casing": "buısɐƆ ǝbɐɹoʇS",
+  "block.neoecoae.storage_interface": "ǝɔɐɟɹǝʇuI ǝbɐɹoʇS",
   "item.neoecoae.eco_fluid_storage_cell_16m": ")pınןℲ( xıɹʇɐW ǝbɐɹoʇS ㄣƎꞀ - OƆƎ",
   "item.neoecoae.eco_fluid_storage_cell_256m": ")pınןℲ( xıɹʇɐW ǝbɐɹoʇS 6ƎꞀ - OƆƎ",
   "item.neoecoae.eco_fluid_storage_cell_64m": ")pınןℲ( xıɹʇɐW ǝbɐɹoʇS 9ƎꞀ - OƆƎ",
