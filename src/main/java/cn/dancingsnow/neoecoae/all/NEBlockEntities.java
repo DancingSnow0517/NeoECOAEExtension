@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.blocks.entity.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -81,6 +82,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.ECO_DRIVE)
         .validBlock(NEBlocks.ECO_DRIVE)
+        .renderer(() -> ECODriveRenderer::new)
         .register();
 
     public static void register() {

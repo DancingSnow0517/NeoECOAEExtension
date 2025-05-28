@@ -6,7 +6,10 @@ import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.builders.BlockEntityBuilder;
 import com.tterrag.registrate.builders.BuilderCallback;
 import com.tterrag.registrate.util.entry.RegistryEntry;
+import com.tterrag.registrate.util.nullness.NonNullFunction;
 import com.tterrag.registrate.util.nullness.NonNullSupplier;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -34,6 +37,11 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
         BlockEntityFactory<T> factory
     ) {
         return new NEBlockEntityBuilder<>(owner, parent, name, callback, factory);
+    }
+
+    @Override
+    public NEBlockEntityBuilder<T, P> renderer(NonNullSupplier<NonNullFunction<BlockEntityRendererProvider.Context, BlockEntityRenderer<? super T>>> renderer) {
+        return (NEBlockEntityBuilder<T, P>) super.renderer(renderer);
     }
 
     @Override

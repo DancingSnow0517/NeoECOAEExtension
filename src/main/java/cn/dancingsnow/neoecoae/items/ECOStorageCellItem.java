@@ -99,7 +99,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         );
     }
 
-    public ECOStorageCell getCellInventory(ItemStack stack) {
+    public static ECOStorageCell getCellInventory(ItemStack stack) {
         return new ECOStorageCell(stack, null);
     }
 }
