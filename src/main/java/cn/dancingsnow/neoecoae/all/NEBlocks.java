@@ -92,7 +92,7 @@ public class NEBlocks {
         })
         .item()
         .model((ctx, provider) -> {
-            provider.getBuilder(ctx.getName()).parent(new ModelFile.UncheckedModelFile(provider.modLoc("block/builtin/eco_drive")));
+            provider.withExistingParent(ctx.getName(), provider.modLoc("block/eco_drive_empty"));
         })
         .build()
         .lang("ECO - Crystal Oscillator Drive")
