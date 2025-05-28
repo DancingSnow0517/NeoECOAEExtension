@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.client.model.data.ECODriveModelData;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.lowdragmc.lowdraglib.syncdata.IManaged;
@@ -16,6 +17,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.client.model.data.ModelData;
 import org.jetbrains.annotations.Nullable;
 
 public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriveBlockEntity>
@@ -25,7 +27,6 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     @Getter
-    @Setter
     @DescSynced
     @Persisted
     @Nullable
@@ -40,6 +41,15 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
         super(type, pos, blockState, factory.create());
     }
 
+    @Override
+    public ModelData getModelData() {
+        return ECODriveModelData.create(cellStack == null ? ItemStack.EMPTY : cellStack);
+    }
+
+    public void setCellStack(@Nullable ItemStack cellStack) {
+        this.cellStack = cellStack;
+        requestModelDataUpdate();
+    }
 
     @Override
     public ManagedFieldHolder getFieldHolder() {

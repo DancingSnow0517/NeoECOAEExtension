@@ -20,7 +20,6 @@ public class MachineCasingBlockEntity<C extends NECluster<C>> extends NEBlockEnt
         NEClusterCalculator.Factory<MachineCasingBlockEntity<C>, C> factory
     ) {
         super(type, pos, blockState, factory.create());
-
     }
 
     @Override

@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
@@ -25,6 +26,7 @@ public class NeoECOAE {
         NEItems.register();
         NEBlocks.register();
         NEBlockEntities.register();
+        NEDataGen.configureDataGen();
         logger.info("Hello World!");
     }
 
