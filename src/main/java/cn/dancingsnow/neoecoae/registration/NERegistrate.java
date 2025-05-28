@@ -18,6 +18,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -47,6 +48,7 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     public NERegistrate registerEventListeners(IEventBus bus) {
         super.registerEventListeners(bus);
         bus.addListener(this::onCommonSetup);
+        bus.addListener(this::onRegisterCapabilities);
         return self();
     }
 
@@ -84,6 +86,15 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
             //noinspection rawtypes
             if (entry instanceof NEBlockEntityEntry entityEntry) {
                 entityEntry.onCommonSetup(event);
+            }
+        }
+    }
+
+    public void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
+        for (RegistryEntry<BlockEntityType<?>, BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
+            //noinspection rawtypes
+            if (entry instanceof NEBlockEntityEntry entityEntry) {
+                entityEntry.onRegisterCapabilies(event);
             }
         }
     }

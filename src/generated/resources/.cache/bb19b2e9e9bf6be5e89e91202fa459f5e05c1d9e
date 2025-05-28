@@ -1,14 +1,22 @@
-// 1.21.1	2025-05-28T17:32:12.2701512	Registrate Provider for neoecoae [Registries, Data Maps, Recipes, Advancements, Loot Tables, Tags (blocks), Tags (enchantments), Tags (items), Tags (fluids), Tags (entity_types), generic_server_provider, Blockstates, Item models, Lang (en_us/en_ud), generic_client_provider]
+// 1.21.1	2025-05-28T21:06:38.1319927	Registrate Provider for neoecoae [Registries, Data Maps, Recipes, Advancements, Loot Tables, Tags (blocks), Tags (enchantments), Tags (items), Tags (fluids), Tags (entity_types), generic_server_provider, Blockstates, Item models, Lang (en_us/en_ud), generic_client_provider]
 7c0bb45e09d4fdc3e29fbaf5667399b21142498f assets/neoecoae/blockstates/computation_casing.json
+f73dda2bec433fa591aacdb17471e85231d4537e assets/neoecoae/blockstates/computation_interface.json
 c6ad562305ba9788a9b49064bb925333e6600aba assets/neoecoae/blockstates/crafting_casing.json
+2b1d2e798977247bf89369891b76bb2f5f007a35 assets/neoecoae/blockstates/crafting_interface.json
 d7c0ba051954316a62e13339b627986d94639e40 assets/neoecoae/blockstates/storage_casing.json
-4bc8bba545962243f4d723310f27d2896d8d857b assets/neoecoae/lang/en_ud.json
-7464d3bad5b4ccda9d0e69c93950d3fb0f9d3c64 assets/neoecoae/lang/en_us.json
+758a00159f28fe6005161f7f0f933919f29ab14a assets/neoecoae/blockstates/storage_interface.json
+60646f4998a10b723576cfe2f1257f107e795398 assets/neoecoae/lang/en_ud.json
+660af468c97433ce44b0d6b2b0e5196b6e0e71ed assets/neoecoae/lang/en_us.json
 ee36588cfa80fb9739909ab94166cd3461f28930 assets/neoecoae/models/block/computation_casing.json
+16b0741f28d6f0a6bb8d49680c2bb2ad97ad6fd6 assets/neoecoae/models/block/computation_interface.json
 5e9019ea4cfe3724c8fd3cd8f223b017271c5aa8 assets/neoecoae/models/block/crafting_casing.json
+5d5c97b7c2699e32d231269f33f45148575e9d90 assets/neoecoae/models/block/crafting_interface.json
 282f1f341fd7d2bc382421fa69103e940ed73440 assets/neoecoae/models/block/storage_casing.json
+e3a1ef9c85565f661fc44d90f456d07000e0d61a assets/neoecoae/models/block/storage_interface.json
 509774ac56344fb8fdc4f188f962c7dc4fe70ef8 assets/neoecoae/models/item/computation_casing.json
+e0342c68eda3dc89e51dd4c33507ec16b2164024 assets/neoecoae/models/item/computation_interface.json
 810c7eb8868d8ab846ef1f7b3f312f8f2978120f assets/neoecoae/models/item/crafting_casing.json
+b45afa74773ef2b530684d34685edba1becd5da4 assets/neoecoae/models/item/crafting_interface.json
 3030b35ba1491c8bf2a05496c9b546ebcab9df6e assets/neoecoae/models/item/eco_fluid_storage_cell_16m.json
 9b10fdb886e35f834979148e6bb2b4c1544928d2 assets/neoecoae/models/item/eco_fluid_storage_cell_256m.json
 102d3c23dd5f744cb392f71a007ab4aec3740a34 assets/neoecoae/models/item/eco_fluid_storage_cell_64m.json
@@ -16,6 +24,10 @@ ee36588cfa80fb9739909ab94166cd3461f28930 assets/neoecoae/models/block/computatio
 26503a4de6cae093dcd95154a470e4e54bfa56ab assets/neoecoae/models/item/eco_item_storage_cell_256m.json
 f5d2109d7107eaa5b7835b39fc236efc14eec345 assets/neoecoae/models/item/eco_item_storage_cell_64m.json
 48079ab820c9abf77c8b9cd66761961c9e4e9cae assets/neoecoae/models/item/storage_casing.json
+38f86fbcb583b2b83df55250b914c3988fc66209 assets/neoecoae/models/item/storage_interface.json
 d498caa355283660f7b6a995aee43a6e1de736ae data/neoecoae/loot_table/blocks/computation_casing.json
+e28483130caa64e0560cdf099e0a29cdcb56a645 data/neoecoae/loot_table/blocks/computation_interface.json
 fc3a8efc5995c98576d050686f902b7e6249dd16 data/neoecoae/loot_table/blocks/crafting_casing.json
+a2cefcb4c7700aeb8960dfe83a0648bb8609d80a data/neoecoae/loot_table/blocks/crafting_interface.json
 08558ea6c2a3d44b29c1d9dcd0716322c4b72be5 data/neoecoae/loot_table/blocks/storage_casing.json
+edd81b006476e446e3b61a2bd6b99e76e1a9123d data/neoecoae/loot_table/blocks/storage_interface.json

@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.builders.BlockEntityBuilder;
 import com.tterrag.registrate.builders.BuilderCallback;
-import com.tterrag.registrate.util.entry.BlockEntityEntry;
 import com.tterrag.registrate.util.entry.RegistryEntry;
 import com.tterrag.registrate.util.nullness.NonNullSupplier;
 import net.minecraft.world.level.block.Block;

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.all;
 
+import appeng.api.AECapabilities;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;

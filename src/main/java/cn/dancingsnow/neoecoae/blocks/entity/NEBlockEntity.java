@@ -3,13 +3,13 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.IGridNodeListener;
 import appeng.blockentity.grid.AENetworkedBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -30,9 +30,27 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         this.calculator = calculator;
         getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
             .addService(IGridMultiblock.class, this::getMultiblockNodes);
+        onGridConnectableSidesChanged();
     }
 
+    @Override
+    public void onReady() {
+        onGridConnectableSidesChanged();
+        super.onReady();
+    }
 
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        if (reason != IGridNodeListener.State.GRID_BOOT) {
+            this.updateState(false);
+        }
+    }
+
+    protected void updateState(boolean updateExposed) {
+        if (updateExposed) {
+            onGridConnectableSidesChanged();
+        }
+    }
 
     private Iterator<IGridNode> getMultiblockNodes() {
         if (cluster == null) {
@@ -56,6 +74,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     public void updateCluster(C cluster) {
         this.cluster = cluster;
+        updateState(true);
     }
 
     @Override
