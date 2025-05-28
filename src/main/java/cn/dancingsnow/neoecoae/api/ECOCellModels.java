@@ -23,13 +23,13 @@ public class ECOCellModels {
     public static final ResourceLocation DEFAULT_MODEL = NeoECOAE.id("cell/storage_cell_l4_item");
 
     static {
-        register(NEItems.ECO_ITEM_CELL_16M, NeoECOAE.id("cell/storage_cell_l4_item"));
-        register(NEItems.ECO_ITEM_CELL_64M, NeoECOAE.id("cell/storage_cell_l6_item"));
-        register(NEItems.ECO_ITEM_CELL_256M, NeoECOAE.id("cell/storage_cell_l9_item"));
+        register(NEItems.ECO_ITEM_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_item"));
+        register(NEItems.ECO_ITEM_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_item"));
+        register(NEItems.ECO_ITEM_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_item"));
 
-        register(NEItems.ECO_FLUID_CELL_16M, NeoECOAE.id("cell/storage_cell_l4_fluid"));
-        register(NEItems.ECO_FLUID_CELL_64M, NeoECOAE.id("cell/storage_cell_l6_fluid"));
-        register(NEItems.ECO_FLUID_CELL_256M, NeoECOAE.id("cell/storage_cell_l9_fluid"));
+        register(NEItems.ECO_FLUID_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fluid"));
+        register(NEItems.ECO_FLUID_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fluid"));
+        register(NEItems.ECO_FLUID_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_fluid"));
     }
 
     public static ResourceLocation getModelLocation(Item item) {
@@ -42,17 +42,11 @@ public class ECOCellModels {
 
     public static BakedModel getModel(
         Item item,
-        ModelState modelState,
-        ModelBaker baker,
-        Function<Material, TextureAtlasSprite> textureGetter
+        Function<ResourceLocation, BakedModel> modelBaker
     ) {
         return bakedModels.computeIfAbsent(
             item,
-            it -> baker.bake(
-                getModelLocation(item),
-                modelState,
-                textureGetter
-            )
+            it -> modelBaker.apply(getModelLocation(item))
         );
     }
 }
