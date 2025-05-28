@@ -6,6 +6,7 @@ import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 
 import java.util.function.Supplier;
@@ -22,7 +23,7 @@ public class NEBlockEntityEntry<T extends NEBlockEntity<?, T>> extends BlockEnti
         this.blockSupplier = blockSupplier;
     }
 
-    public void runCommonSetup() {
+    public void onCommonSetup(FMLCommonSetupEvent event) {
         //noinspection unchecked
         blockSupplier.get().setBlockEntity(
             (Class<T>) getDelegate().value().create(BlockPos.ZERO, blockSupplier.get().defaultBlockState()).getClass(),
