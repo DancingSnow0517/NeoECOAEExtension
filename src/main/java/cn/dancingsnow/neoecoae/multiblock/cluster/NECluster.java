@@ -32,11 +32,13 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
 
     @Override
     public void destroy() {
-
     }
 
     public void updateFormed(boolean formed) {
+    }
 
+    public boolean shouldCasingHide(NEBlockEntity<T, ?> blockEntity) {
+        return true;
     }
 
     public void addBlockEntity(NEBlockEntity<T, ?> blockEntity) {

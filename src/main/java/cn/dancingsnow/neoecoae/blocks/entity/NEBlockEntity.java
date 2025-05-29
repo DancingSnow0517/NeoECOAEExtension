@@ -8,11 +8,13 @@ import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkedBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.util.iterators.ChainedIterator;
+import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -78,6 +80,12 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     }
 
     protected void updateState(boolean updateExposed) {
+        boolean formed = this.cluster != null;
+        level.setBlock(
+            worldPosition,
+            level.getBlockState(worldPosition).setValue(NEBlock.FORMED, formed),
+            Block.UPDATE_CLIENTS
+        );
         if (updateExposed) {
             onGridConnectableSidesChanged();
         }
@@ -117,6 +125,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     public void disconnect(boolean update) {
         if (this.cluster != null) {
             this.cluster.destroy();
+            this.cluster = null;
+            if (update) {
+                updateState(true);
+            }
         }
     }
 

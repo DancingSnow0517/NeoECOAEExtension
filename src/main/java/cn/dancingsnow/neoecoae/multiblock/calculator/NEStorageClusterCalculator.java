@@ -6,11 +6,13 @@ import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.storage.MachineEnergyCell;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageCluster> {
@@ -25,9 +27,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        int xSize = max.getX() - min.getX() + 1;
         int ySize = max.getY() - min.getY() + 1;
-        int zSize = max.getZ() - min.getZ() + 1;
 
         if (ySize != 3) {
             return false;
@@ -47,7 +47,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
         Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
         Direction down = top.getOpposite();
-        Direction left = strategy.getSide(controllerState, RelativeSide.LEFT);
+        Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
         Direction right = left.getOpposite();
         if (validateCasing(level, controllerPos, top, down, left)) return false;
         if (validateCasing(level, controllerPos, top, down, back)) return false;
@@ -76,28 +76,62 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             NEBlocks.STORAGE_VENT
         );
         if (ventStart.equals(ventEnd)) {
-            if (validateBlock(level, ventStart, BlockState::is, NEBlocks.ECO_DRIVE)) {
-
+            if (!validateBlock(level, ventStart, BlockState::is, NEBlocks.STORAGE_VENT)) {
+                return false;
             }
         }
-        return false;
+        if (!validateEnergyCell(
+            level,
+            right,
+            controllerPos.relative(back).relative(top).relative(right)
+        )) {
+            return false;
+        }
+        if (!validateEnergyCell(
+            level,
+            right,
+            controllerPos.relative(back).relative(down).relative(right)
+        )) {
+            return false;
+        }
+        BlockPos.MutableBlockPos tailCasing = storageBlocksEnd.mutable().move(right).move(top);
+        if (validateCasing(level, tailCasing, top, down)) return false;
+        tailCasing.move(back);
+        return !validateCasing(level, tailCasing, top, down);
+    }
+
+    private boolean validateEnergyCell(Level level, Direction direction, BlockPos start) {
+        BlockPos end = expandTowards(
+            level,
+            direction,
+            start,
+            it -> it.getBlock() instanceof MachineEnergyCell
+        );
+        if (start.equals(end)) {
+            return validateBlock(level, start, it -> it.getBlock() instanceof MachineEnergyCell);
+        }
+        return true;
     }
 
     private boolean validateCasing(ServerLevel level, BlockPos controllerPos, Direction top, Direction down, Direction direction) {
-        if (!validateBlock(level, controllerPos.relative(direction), BlockState::is, NEBlocks.STORAGE_CASING)) {
+        return validateCasing(level, controllerPos.relative(direction), top, down);
+    }
+
+    private boolean validateCasing(ServerLevel level, BlockPos centerPos, Direction top, Direction down) {
+        if (!validateBlock(level, centerPos, BlockState::is, NEBlocks.STORAGE_CASING)) {
             return true;
         }
-        if (!validateBlock(level, controllerPos.relative(direction).relative(top), BlockState::is, NEBlocks.STORAGE_CASING)) {
+        if (!validateBlock(level, centerPos.relative(top), BlockState::is, NEBlocks.STORAGE_CASING)) {
             return true;
         }
-        return !validateBlock(level, controllerPos.relative(direction).relative(down), BlockState::is, NEBlocks.STORAGE_CASING);
+        return !validateBlock(level, centerPos.relative(down), BlockState::is, NEBlocks.STORAGE_CASING);
     }
 
     private boolean validateInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down) {
-        if (!validateBlock(level, interfacePos, BlockState::is, NEBlocks.STORAGE_CASING)) {
+        if (!validateBlock(level, interfacePos, BlockState::is, NEBlocks.STORAGE_INTERFACE)) {
             return true;
         }
-        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, NEBlocks.STORAGE_INTERFACE)) {
+        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, NEBlocks.STORAGE_CASING)) {
             return true;
         }
         return !validateBlock(level, interfacePos.relative(down), BlockState::is, NEBlocks.STORAGE_CASING);

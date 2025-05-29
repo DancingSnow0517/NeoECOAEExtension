@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
 import appeng.me.cluster.MBCalculator;
-import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
@@ -14,7 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.function.BiPredicate;
-import java.util.function.Supplier;
+import java.util.function.Predicate;
 
 public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
     public NEClusterCalculator(NEBlockEntity<C, ?> t) {
@@ -34,10 +33,9 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             if (blockEntity == null) {
                 throw new IllegalStateException("Expected NEBlockEntity at %s, but got null.".formatted(blockPos));
             }
-            blockEntity.updateCluster(c);
             c.addBlockEntity(blockEntity);
         }
-
+        c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
         c.updateFormed(true);
     }
 
@@ -49,6 +47,10 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {
         NEClusterCalculator<C> create(NEBlockEntity<C, ?> blockEntity);
+    }
+
+    public static <T> boolean validateBlock(Level level, BlockPos pos, Predicate<BlockState> fn) {
+        return fn.test(level.getBlockState(pos));
     }
 
     public static <T> boolean validateBlock(Level level, BlockPos pos, BiPredicate<BlockState, T> fn, T value) {
@@ -69,6 +71,26 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
                     mutable.getZ() + direction.getStepZ()
                 )
             ).is(type)
+        ) {
+            mutable.set(
+                mutable.getX() + direction.getStepX(),
+                mutable.getY() + direction.getStepY(),
+                mutable.getZ() + direction.getStepZ()
+            );
+        }
+        return mutable;
+    }
+
+    public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Predicate<BlockState> fn) {
+        BlockPos.MutableBlockPos mutable = start.mutable();
+        while (
+            fn.test(level.getBlockState(
+                new BlockPos(
+                    mutable.getX() + direction.getStepX(),
+                    mutable.getY() + direction.getStepY(),
+                    mutable.getZ() + direction.getStepZ()
+                )
+            ))
         ) {
             mutable.set(
                 mutable.getX() + direction.getStepX(),
