@@ -76,7 +76,16 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
-        .defaultBlockstate()
+        .blockstate((ctx, prov) -> {
+            prov.simpleBlock(
+                ctx.get(),
+                prov.models().cubeColumn(
+                    ctx.getName(),
+                    prov.modLoc("block/" + ctx.getName()),
+                    prov.modLoc("block/" + ctx.getName() + "_top")
+                )
+            );
+        })
         .register();
 
     public static final BlockEntry<ECODriveBlock> ECO_DRIVE = REGISTRATE
@@ -97,6 +106,8 @@ public class NEBlocks {
         .build()
         .lang("ECO - Crystal Oscillator Drive")
         .register();
+
+
 
     public static void register() {
 

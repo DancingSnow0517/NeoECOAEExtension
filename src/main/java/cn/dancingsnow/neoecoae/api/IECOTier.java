@@ -47,6 +47,13 @@ public interface IECOTier {
     long getStorageTotalBytes();
 
     /**
+     * 存储系统储电方块每个方块储电量
+     *
+     * @return 储电量
+     */
+    long getPowerStorageSize();
+
+    /**
      * 存储系统存储矩阵类型数量
      *
      * @param keyType 根据 {@link AEKeyType} 不同，类型数量
