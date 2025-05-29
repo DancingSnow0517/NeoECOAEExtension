@@ -1,12 +1,10 @@
-package cn.dancingsnow.neoecoae.blocks.entity;
+package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.energy.IAEPowerStorage;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
-import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.lowdragmc.lowdraglib.syncdata.IManaged;
 import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
@@ -19,8 +17,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
-public class MachineEnergyCellBlockEntity
-    extends NEBlockEntity<NEStorageCluster, MachineEnergyCellBlockEntity>
+public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<MachineEnergyCellBlockEntity>
     implements IAEPowerStorage, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(MachineEnergyCellBlockEntity.class);
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -37,7 +34,7 @@ public class MachineEnergyCellBlockEntity
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState, NEStorageClusterCalculator::new);
+        super(type, pos, blockState);
         getMainNode().addService(IAEPowerStorage.class, this);
         this.tier = tier;
     }

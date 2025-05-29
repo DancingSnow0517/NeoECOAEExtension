@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -39,8 +40,17 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @Override
     public void onReady() {
-        onGridConnectableSidesChanged();
         super.onReady();
+        onGridConnectableSidesChanged();
+        if (level instanceof ServerLevel serverLevel) {
+            calculator.calculateMultiblock(serverLevel, worldPosition);
+        }
+    }
+
+    public void updateMultiBlock(BlockPos changedPos) {
+        if (level instanceof ServerLevel serverLevel) {
+            calculator.updateMultiblockAfterNeighborUpdate(serverLevel, worldPosition, changedPos);
+        }
     }
 
     @Override

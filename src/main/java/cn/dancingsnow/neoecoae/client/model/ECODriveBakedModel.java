@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.client.model;
 import appeng.client.render.DelegateBakedModel;
 import appeng.thirdparty.fabric.MutableQuadView;
 import appeng.thirdparty.fabric.RenderContext;
-import cn.dancingsnow.neoecoae.blocks.ECODriveBlock;
+import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.client.model.data.ECODriveModelData;
 import com.mojang.math.Transformation;
 import net.minecraft.client.renderer.RenderType;

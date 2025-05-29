@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.multiblock.calculator;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;

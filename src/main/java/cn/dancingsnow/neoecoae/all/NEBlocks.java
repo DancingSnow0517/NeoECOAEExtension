@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.all;
 
-import cn.dancingsnow.neoecoae.blocks.ECODriveBlock;
-import cn.dancingsnow.neoecoae.blocks.ECOStorageSystem;
+import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystem;
 import cn.dancingsnow.neoecoae.blocks.MachineCasing;
-import cn.dancingsnow.neoecoae.blocks.MachineEnergyCell;
-import cn.dancingsnow.neoecoae.blocks.ECOStorageVent;
+import cn.dancingsnow.neoecoae.blocks.storage.MachineEnergyCell;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVent;
 import cn.dancingsnow.neoecoae.blocks.MachineInterface;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;

@@ -1,8 +1,9 @@
-package cn.dancingsnow.neoecoae.blocks;
+package cn.dancingsnow.neoecoae.blocks.storage;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -32,7 +33,7 @@ public class ECOStorageSystem extends NEBlock<ECOStorageSystemBlockEntity> {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (level instanceof ServerLevel) {
-            getBlockEntity(level, pos).test();
+            getBlockEntity(level, pos);
         }
         return InteractionResult.SUCCESS;
     }

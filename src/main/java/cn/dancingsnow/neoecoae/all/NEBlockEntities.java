@@ -1,13 +1,15 @@
 package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.blocks.entity.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOStorageSystemBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOStorageVentBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.MachineEnergyCellBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.MachineEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -23,7 +25,7 @@ public class NEBlockEntities {
     public static final BlockEntityEntry<MachineCasingBlockEntity<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
         .<MachineCasingBlockEntity<NEComputationCluster>, NEComputationCluster>blockEntityClusterElement(
             "computation_casing",
-            e -> null,
+            NEComputationClusterCalculator::new,
             MachineCasingBlockEntity::new
         )
         .forBlock(NEBlocks.COMPUTATION_CASING)
@@ -33,7 +35,7 @@ public class NEBlockEntities {
     public static final BlockEntityEntry<MachineCasingBlockEntity<NECraftingCluster>> CRAFTING_CASING = REGISTRATE
         .<MachineCasingBlockEntity<NECraftingCluster>, NECraftingCluster>blockEntityClusterElement(
             "crafting_casing",
-            e -> null,
+            NECraftingClusterCalculator::new,
             MachineCasingBlockEntity::new
         )
         .forBlock(NEBlocks.CRAFTING_CASING)
@@ -53,7 +55,7 @@ public class NEBlockEntities {
     public static final BlockEntityEntry<MachineInterfaceBlockEntity<NEComputationCluster>> COMPUTATION_INTERFACE = REGISTRATE
         .<MachineInterfaceBlockEntity<NEComputationCluster>, NEComputationCluster>blockEntityClusterElement(
             "computation_interface",
-            e -> null,
+            NEComputationClusterCalculator::new,
             MachineInterfaceBlockEntity::new
         )
         .forBlock(NEBlocks.COMPUTATION_INTERFACE)
@@ -63,7 +65,7 @@ public class NEBlockEntities {
     public static final BlockEntityEntry<MachineInterfaceBlockEntity<NECraftingCluster>> CRAFTING_INTERFACE = REGISTRATE
         .<MachineInterfaceBlockEntity<NECraftingCluster>, NECraftingCluster>blockEntityClusterElement(
             "crafting_interface",
-            e -> null,
+            NECraftingClusterCalculator::new,
             MachineInterfaceBlockEntity::new
         )
         .forBlock(NEBlocks.CRAFTING_INTERFACE)

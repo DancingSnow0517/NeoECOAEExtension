@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.blocks.entity.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
