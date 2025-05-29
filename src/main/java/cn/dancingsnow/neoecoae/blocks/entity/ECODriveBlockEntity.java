@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
+import cn.dancingsnow.neoecoae.blocks.ECODriveBlock;
 import cn.dancingsnow.neoecoae.client.model.data.ECODriveModelData;
+import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.lowdragmc.lowdraglib.syncdata.IEnhancedManaged;
@@ -19,6 +22,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -28,6 +32,61 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECODriveBlockEntity.class);
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
+
+    public final IItemHandler HANDLER = new IItemHandler() {
+
+        @Override
+        public int getSlots() {
+            return 1;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return cellStack != null ? cellStack : ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (cellStack != null) {
+                return stack;
+            } else {
+                if (stack.isEmpty()) {
+                    return ItemStack.EMPTY;
+                }
+                if (!simulate) {
+                    setCellStack(stack.copyWithCount(1));
+                }
+                ItemStack copy = stack.copy();
+                copy.shrink(1);
+                return copy;
+            }
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (cellStack == null) {
+                return ItemStack.EMPTY;
+            }
+            if (amount <= 0) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack copy = cellStack.copyWithCount(1);
+            if (!simulate) {
+                setCellStack(null);
+            }
+            return copy;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return 1;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return stack.getItem() instanceof ECOStorageCellItem;
+        }
+    };
 
     @Getter
     @DescSynced
@@ -52,6 +111,11 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
 
     public void setCellStack(@Nullable ItemStack cellStack) {
         this.cellStack = cellStack;
+        if (cellStack != null) {
+            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, true));
+        } else {
+            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, false));
+        }
     }
 
     @Override
@@ -86,5 +150,13 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
         if (cellStack != null) {
             drops.add(cellStack);
         }
+    }
+
+    @Nullable
+    public ECOStorageCell getCellInventory() {
+        if (cellStack != null) {
+            return ECOStorageCellItem.getCellInventory(cellStack);
+        }
+        return null;
     }
 }

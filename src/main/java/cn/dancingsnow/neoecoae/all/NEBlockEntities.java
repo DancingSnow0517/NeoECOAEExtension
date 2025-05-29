@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.registration.NEBlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
+import net.neoforged.neoforge.capabilities.Capabilities;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -83,6 +84,13 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.ECO_DRIVE)
         .validBlock(NEBlocks.ECO_DRIVE)
         .renderer(() -> ECODriveRenderer::new)
+        .registerCapability(event -> {
+            event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                NEBlockEntities.ECO_DRIVE.get(),
+                (be, side) -> be.HANDLER
+            );
+        })
         .register();
 
     public static void register() {

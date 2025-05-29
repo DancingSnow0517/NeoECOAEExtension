@@ -1,18 +1,16 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
+import appeng.client.render.tesr.CellLedRenderer;
 import cn.dancingsnow.neoecoae.blocks.entity.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.Direction;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec2;
@@ -27,11 +25,9 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
     @Override
     public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
-        ItemStack cellStack = blockEntity.getCellStack();
-        if (cellStack != null && cellStack.getItem() instanceof ECOStorageCellItem) {
-            ECOStorageCell cellInventory = ECOStorageCellItem.getCellInventory(cellStack);
+        ECOStorageCell cellInventory = blockEntity.getCellInventory();
+        if (cellInventory != null) {
             int stateColor = cellInventory.getStatus().getStateColor();
-
 
             BlockState blockState = blockEntity.getBlockState();
             Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
@@ -42,46 +38,42 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
             poseStack.mulPose(face.getRotation());
             poseStack.translate(0, -0.50001, 0);
 
-            float pixel = 1f / 22;
+            float pixel = 1f / 16;
             float sizeX = pixel * 1;
             float sizeY = pixel * 2;
 
-            Vec2 offset = new Vec2(-0.29f, -0.267f);
+            Vec2 offset = new Vec2(-5 * pixel, -5 * pixel);
 
-            float xStart = offset.x - sizeX / 2;
-            float zStart = offset.y - sizeY / 2;
+            float xStart = offset.x;
+            float zStart = offset.y;
             float xEnd = offset.x + sizeX;
             float zEnd = offset.y + sizeY;
 
-            VertexConsumer consumer = bufferSource.getBuffer(RenderType.SOLID);
-
             Matrix4f matrix = poseStack.last().pose();
-            Matrix3f normalMatrix  = poseStack.last().normal();
+            Matrix3f normalMatrix = poseStack.last().normal();
 
             Vector3f normal = new Vector3f(0, 1, 0);
             normalMatrix.transform(normal);
 
+            VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
+
             consumer.addVertex(matrix, xStart, 0, zStart)
                 .setColor(stateColor >> 16 & 0xFF, stateColor >> 8 & 0xff, stateColor & 0xFF, 255)
-                .setUv(0, 0) // uv0
-                .setLight(LightTexture.FULL_BRIGHT) // uv2
+                .setLight(LightTexture.FULL_BRIGHT)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setNormal(normal.x(), normal.y(), normal.z());
             consumer.addVertex(matrix, xEnd, 0, zStart)
-                .setColor(stateColor)
-                .setUv(0, 0)
+                .setColor(stateColor >> 16 & 0xFF, stateColor >> 8 & 0xff, stateColor & 0xFF, 255)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(LightTexture.FULL_BRIGHT)
                 .setNormal(normal.x(), normal.y(), normal.z());
             consumer.addVertex(matrix, xEnd, 0, zEnd)
-                .setColor(stateColor)
-                .setUv(0, 0)
+                .setColor(stateColor >> 16 & 0xFF, stateColor >> 8 & 0xff, stateColor & 0xFF, 255)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(LightTexture.FULL_BRIGHT)
                 .setNormal(normal.x(), normal.y(), normal.z());
             consumer.addVertex(matrix, xStart, 0, zEnd)
-                .setColor(stateColor)
-                .setUv(0, 0)
+                .setColor(stateColor >> 16 & 0xFF, stateColor >> 8 & 0xff, stateColor & 0xFF, 255)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(LightTexture.FULL_BRIGHT)
                 .setNormal(normal.x(), normal.y(), normal.z());

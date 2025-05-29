@@ -6,6 +6,7 @@
   "block.neoecoae.eco_drive": "ECO - Crystal Oscillator Drive",
   "block.neoecoae.storage_casing": "Storage Casing",
   "block.neoecoae.storage_interface": "Storage Interface",
+  "config.jade.plugin_neoecoae.eco_drive": "ECO Drive",
   "item.neoecoae.eco_fluid_storage_cell_16m": "ECO - LE4 Storage Matrix (Fluid)",
   "item.neoecoae.eco_fluid_storage_cell_256m": "ECO - LE9 Storage Matrix (Fluid)",
   "item.neoecoae.eco_fluid_storage_cell_64m": "ECO - LE6 Storage Matrix (Fluid)",
