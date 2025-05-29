@@ -1,155 +1,51 @@
 {
-    "credit": "Made with Blockbench",
-    "textures": {
-        "1": "ecoaeextension:blocks/storage_arrays_controller_south",
-        "2": "ecoaeextension:blocks/storage_arrays_controller_up",
-        "3": "ecoaeextension:blocks/storage_arrays_controller_east_c",
-        "4": "ecoaeextension:blocks/storage_arrays_controller_c_north",
-        "5": "ecoaeextension:blocks/storage_arrays_controller_down",
-        "6": "ecoaeextension:blocks/storage_arrays_controller_c_west",
-        "7": "ecoaeextension:blocks/0",
-        "8": "ecoaeextension:blocks/bloom/storage_arrays_controller_c_north",
-        "9": "ecoaeextension:blocks/bloom/storage_arrays_controller_west_v2",
-        "10": "ecoaeextension:blocks/bloom/storage_arrays_controller_c_west",
-        "particle": "ecoaeextension:blocks/storage_arrays_controller_east_c"
-    },
-    "elements": [
-        {
-            "from": [
-                0,
-                -16,
-                0
-            ],
-            "to": [
-                32,
-                32,
-                32
-            ],
-            "faces": {
-                "north": {
-                    "uv": [
-                        0,
-                        0,
-                        10.66667,
-                        16
-                    ],
-                    "texture": "#4"
-                },
-                "east": {
-                    "uv": [
-                        0,
-                        0,
-                        10.66667,
-                        16
-                    ],
-                    "texture": "#6"
-                },
-                "south": {
-                    "uv": [
-                        0,
-                        0,
-                        10.66667,
-                        16
-                    ],
-                    "texture": "#1"
-                },
-                "west": {
-                    "uv": [
-                        10.66667,
-                        0,
-                        0,
-                        16
-                    ],
-                    "texture": "#3"
-                },
-                "up": {
-                    "uv": [
-                        0,
-                        0,
-                        16,
-                        16
-                    ],
-                    "texture": "#2"
-                },
-                "down": {
-                    "uv": [
-                        0,
-                        0,
-                        16,
-                        16
-                    ],
-                    "texture": "#5"
-                }
-            }
-        },
-        {
-            "name": "bloom",
-            "from": [
-                0,
-                -16,
-                0
-            ],
-            "to": [
-                32,
-                32,
-                32
-            ],
-            "faces": {
-                "north": {
-                    "uv": [
-                        0,
-                        0,
-                        10.66667,
-                        16
-                    ],
-                    "texture": "#8"
-                },
-                "east": {
-                    "uv": [
-                        0,
-                        0,
-                        10.66667,
-                        16
-                    ],
-                    "texture": "#10"
-                },
-                "south": {
-                    "uv": [
-                        10.66667,
-                        0,
-                        0,
-                        16
-                    ],
-                    "texture": "#9"
-                },
-                "west": {
-                    "uv": [
-                        10.66667,
-                        0,
-                        0,
-                        16
-                    ],
-                    "texture": "#7"
-                },
-                "up": {
-                    "uv": [
-                        0,
-                        0,
-                        16,
-                        16
-                    ],
-                    "texture": "#7"
-                },
-                "down": {
-                    "uv": [
-                        0,
-                        0,
-                        16,
-                        16
-                    ],
-                    "texture": "#7"
-                }
-            }
-        }
-    ]
+	"credit": "Made with Blockbench",
+	"textures": {
+		"1": "neoecoae:block/storage/storage_arrays_controller_south",
+		"2": "neoecoae:block/storage/storage_arrays_controller_up",
+		"3": "neoecoae:block/storage/l6/storage_arrays_controller_b_west",
+		"4": "neoecoae:block/storage/l6/storage_arrays_controller_b_east",
+		"5": "neoecoae:block/storage/storage_arrays_controller_down",
+		"6": "neoecoae:block/storage/l6/storage_arrays_controller_b_north",
+
+		"8": "neoecoae:block/storage/l6/led/storage_arrays_controller_b_north",
+		"9": "neoecoae:block/storage/l6/led/storage_arrays_controller_b_west",
+		"10": "neoecoae:block/storage/led/storage_arrays_controller_west",
+
+		"particle": "neoecoae:block/storage/storage_arrays_controller_b_west"
+	},
+	"elements": [
+		{
+			"from": [0, -16, 0],
+			"to": [32, 32, 32],
+			"faces": {
+				"north": {"uv": [0, 0, 10.66667, 16], "texture": "#6"},
+				"east": {"uv": [0, 0, 10.66667, 16], "texture": "#3"},
+				"south": {"uv": [0, 0, 10.66667, 16], "texture": "#1"},
+				"west": {"uv": [10.66667, 0, 0, 16], "texture": "#4"},
+				"up": {"uv": [0, 0, 16, 16], "texture": "#2"},
+				"down": {"uv": [0, 0, 16, 16], "texture": "#5"}
+			}
+		},
+		{
+			"name": "bloom",
+			"from": [0, -16, 0],
+			"to": [32, 32, 32],
+			"faces": {
+				"north": {"uv": [0, 0, 10.66667, 16], "texture": "#8"},
+				"east": {"uv": [0, 0, 10.66667, 16], "texture": "#9"},
+				"south": {"uv": [10.66667, 0, 0, 16], "texture": "#10"}
+			}
+		}
+	],
+	"groups": [
+		{
+			"name": "bone",
+			"origin": [0, 0, 0],
+			"color": 0,
+			"children": []
+		},
+		0,
+		1
+	]
 }

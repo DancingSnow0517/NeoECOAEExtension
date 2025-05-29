@@ -230,7 +230,7 @@ public class NEBlocks {
                         prov.modLoc("block/storage_system_side"),
                         prov.modLoc("block/storage_system_side")
                     ).texture("particle", prov.modLoc("block/" + ctx.getName()));
-                ModelFile formedModel = new ModelFile.UncheckedModelFile(prov.modLoc("block" + ctx.getName() + "_formed"));
+                ModelFile formedModel = new ModelFile.UncheckedModelFile(prov.modLoc("block/" + ctx.getName() + "_formed"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
