@@ -15,7 +15,7 @@ public class MachineEnergyCell extends NEBlock<MachineEnergyCellBlockEntity> {
     public static final IntegerProperty LEVEL = IntegerProperty.create("level", 0, 4);
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
-    protected MachineEnergyCell(Properties properties) {
+    public MachineEnergyCell(Properties properties) {
         super(properties);
         registerDefaultState(
             getStateDefinition().any()

@@ -1,9 +1,11 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOStorageVentBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.MachineEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -126,6 +128,36 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.STORAGE_SYSTEM_L9)
         .validBlock(NEBlocks.STORAGE_SYSTEM_L9)
+        .register();
+
+    public static final NEBlockEntityEntry<MachineEnergyCellBlockEntity> ENERGY_CELL_L4 = REGISTRATE
+        .tierBlockEntityBlockLinked(
+            "energy_cell_l4",
+            ECOTier.L4,
+            MachineEnergyCellBlockEntity::new
+        )
+        .forBlock(NEBlocks.ENERGY_CELL_L4)
+        .validBlock(NEBlocks.ENERGY_CELL_L4)
+        .register();
+
+    public static final NEBlockEntityEntry<MachineEnergyCellBlockEntity> ENERGY_CELL_L6 = REGISTRATE
+        .tierBlockEntityBlockLinked(
+            "energy_cell_l6",
+            ECOTier.L6,
+            MachineEnergyCellBlockEntity::new
+        )
+        .forBlock(NEBlocks.ENERGY_CELL_L6)
+        .validBlock(NEBlocks.ENERGY_CELL_L6)
+        .register();
+
+    public static final NEBlockEntityEntry<MachineEnergyCellBlockEntity> ENERGY_CELL_L9 = REGISTRATE
+        .tierBlockEntityBlockLinked(
+            "energy_cell_l9",
+            ECOTier.L9,
+            MachineEnergyCellBlockEntity::new
+        )
+        .forBlock(NEBlocks.ENERGY_CELL_L9)
+        .validBlock(NEBlocks.ENERGY_CELL_L9)
         .register();
 
     public static void register() {

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.blocks.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.ECOStorageSystem;
 import cn.dancingsnow.neoecoae.blocks.MachineCasing;
+import cn.dancingsnow.neoecoae.blocks.MachineEnergyCell;
 import cn.dancingsnow.neoecoae.blocks.ECOStorageVent;
 import cn.dancingsnow.neoecoae.blocks.MachineInterface;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -10,11 +11,11 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
-import org.apache.commons.io.function.Uncheck;
 
 import java.util.Locale;
 
@@ -110,6 +111,75 @@ public class NEBlocks {
         })
         .build()
         .lang("ECO - Crystal Oscillator Drive")
+        .register();
+
+    public static final BlockEntry<MachineEnergyCell> ENERGY_CELL_L4 = REGISTRATE
+        .block("energy_cell_l4", MachineEnergyCell::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, provider) -> {
+            provider.getVariantBuilder(ctx.get())
+                .forAllStatesExcept(state -> {
+                    int level = state.getValue(MachineEnergyCell.LEVEL);
+                    return ConfiguredModel.builder()
+                        .modelFile(provider.models().getExistingFile(provider.modLoc("%s_%d".formatted(ctx.getName(), level))))
+                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .build();
+                }, MachineEnergyCell.FORMED);
+        })
+        .item()
+        .properties(p -> p.rarity(Rarity.UNCOMMON))
+        .model((ctx, provider) -> {
+            provider.withExistingParent(ctx.getName(), provider.modLoc("block/%s_%d".formatted(ctx.getName(), 4)));
+        })
+        .build()
+        .lang("ECO - LT4 High Density Energy Cell")
+        .register();
+
+    public static final BlockEntry<MachineEnergyCell> ENERGY_CELL_L6 = REGISTRATE
+        .block("energy_cell_l6", MachineEnergyCell::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, provider) -> {
+            provider.getVariantBuilder(ctx.get())
+                .forAllStatesExcept(state -> {
+                    int level = state.getValue(MachineEnergyCell.LEVEL);
+                    return ConfiguredModel.builder()
+                        .modelFile(provider.models().getExistingFile(provider.modLoc("%s_%d".formatted(ctx.getName(), level))))
+                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .build();
+                }, MachineEnergyCell.FORMED);
+        })
+        .item()
+        .properties(p -> p.rarity(Rarity.UNCOMMON))
+        .model((ctx, provider) -> {
+            provider.withExistingParent(ctx.getName(), provider.modLoc("block/%s_%d".formatted(ctx.getName(), 4)));
+        })
+        .build()
+        .lang("ECO - LT6 High Density Energy Cell")
+        .register();
+
+    public static final BlockEntry<MachineEnergyCell> ENERGY_CELL_L9 = REGISTRATE
+        .block("energy_cell_l9", MachineEnergyCell::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, provider) -> {
+            provider.getVariantBuilder(ctx.get())
+                .forAllStatesExcept(state -> {
+                    int level = state.getValue(MachineEnergyCell.LEVEL);
+                    return ConfiguredModel.builder()
+                        .modelFile(provider.models().getExistingFile(provider.modLoc("%s_%d".formatted(ctx.getName(), level))))
+                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .build();
+                }, MachineEnergyCell.FORMED);
+        })
+        .item()
+        .properties(p -> p.rarity(Rarity.UNCOMMON))
+        .model((ctx, provider) -> {
+            provider.withExistingParent(ctx.getName(), provider.modLoc("block/%s_%d".formatted(ctx.getName(), 4)));
+        })
+        .build()
+        .lang("ECO - LT9 High Density Energy Cell")
         .register();
 
     public static final BlockEntry<ECOStorageVent> STORAGE_VENT = REGISTRATE

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.registration;
 
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
@@ -7,13 +8,11 @@ import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.builders.BlockEntityBuilder;
 import com.tterrag.registrate.builders.NoConfigBuilder;
 import com.tterrag.registrate.util.entry.RegistryEntry;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
@@ -55,12 +54,24 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     public <T extends NEBlockEntity<C, T>, C extends NECluster<C>> NEBlockEntityBuilder<T, NERegistrate> blockEntityClusterElement(
         String name,
         NEClusterCalculator.Factory<T, C> tcFactory,
-        ClusterBlockEntityFactory<T, C> factory
+        NEBlockEntityBuilder.ClusterBlockEntityFactory<T, C> factory
     ) {
         return blockEntityBlockLinked(
             this,
             name,
             ((type, pos, state) -> factory.create(type, pos, state, tcFactory))
+        );
+    }
+
+    public <T extends NEBlockEntity<C, T>, C extends NECluster<C>> NEBlockEntityBuilder<T, NERegistrate> tierBlockEntityBlockLinked(
+        String name,
+        IECOTier tier,
+        NEBlockEntityBuilder.TierBlockEntityFactory<T, C> factory
+    ) {
+        return blockEntityBlockLinked(
+            this,
+            name,
+            (type, pos, state) -> factory.create(type, pos, state, tier)
         );
     }
 
@@ -97,9 +108,5 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
                 entityEntry.onRegisterCapabilies(event);
             }
         }
-    }
-
-    public interface ClusterBlockEntityFactory<T extends NEBlockEntity<C, T>, C extends NECluster<C>> {
-        T create(BlockEntityType<T> type, BlockPos pos, BlockState state, NEClusterCalculator.Factory<T, C> tcFactory);
     }
 }
