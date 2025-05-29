@@ -5,6 +5,7 @@ import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.energy.IAEPowerStorage;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.lowdragmc.lowdraglib.syncdata.IManaged;
 import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
@@ -36,7 +37,7 @@ public class MachineEnergyCellBlockEntity
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState, null);
+        super(type, pos, blockState, NEStorageClusterCalculator::new);
         getMainNode().addService(IAEPowerStorage.class, this);
         this.tier = tier;
     }

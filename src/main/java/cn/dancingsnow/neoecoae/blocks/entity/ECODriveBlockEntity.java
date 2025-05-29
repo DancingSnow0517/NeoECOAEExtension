@@ -5,6 +5,8 @@ import cn.dancingsnow.neoecoae.client.model.data.ECODriveModelData;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.lowdragmc.lowdraglib.syncdata.IEnhancedManaged;
 import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
@@ -17,6 +19,7 @@ import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -100,7 +103,7 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
         BlockPos pos,
         BlockState blockState
     ) {
-        super(type, pos, blockState, null);
+        super(type, pos, blockState, NEStorageClusterCalculator::new);
     }
 
     @Override

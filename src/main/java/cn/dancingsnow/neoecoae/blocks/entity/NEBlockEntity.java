@@ -29,9 +29,9 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     protected C cluster;
     protected final NEClusterCalculator<C> calculator;
 
-    public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator<C> calculator) {
+    public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
         super(type, pos, blockState);
-        this.calculator = calculator;
+        this.calculator = calculator.create(this);
         getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
             .addService(IGridMultiblock.class, this::getMultiblockNodes);
         onGridConnectableSidesChanged();

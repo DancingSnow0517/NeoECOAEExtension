@@ -8,8 +8,8 @@ import java.util.Set;
 @NoArgsConstructor
 public class MultiBlockUtil {
     public static Set<BlockPos> allPossibleController(BlockPos min, BlockPos max) {
-        int xSize = max.getX() - min.getX();
-        int zSize = max.getZ() - min.getZ();
+        int xSize = max.getX() - min.getX() + 1;
+        int zSize = max.getZ() - min.getZ() + 1;
 
         if (xSize > zSize && zSize == 2) {
             return allXPossibleController(min, max);

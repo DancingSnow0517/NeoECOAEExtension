@@ -18,7 +18,7 @@ public class MachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlock
         BlockState blockState,
         NEClusterCalculator.Factory<C> calculator
     ) {
-        super(type, pos, blockState, calculator.create());
+        super(type, pos, blockState, calculator);
         onGridConnectableSidesChanged();
     }
 

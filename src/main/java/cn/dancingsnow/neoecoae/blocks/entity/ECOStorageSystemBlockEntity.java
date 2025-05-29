@@ -2,8 +2,10 @@ package cn.dancingsnow.neoecoae.blocks.entity;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -16,7 +18,7 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         BlockState blockState,
         IECOTier tier
     ) {
-        super(type, pos, blockState, null);
+        super(type, pos, blockState, NEStorageClusterCalculator::new);
         this.tier = tier;
     }
 
@@ -42,5 +44,10 @@ public class ECOStorageSystemBlockEntity extends NEBlockEntity<NEStorageCluster,
         BlockState blockState
     ) {
         return new ECOStorageSystemBlockEntity(type, pos, blockState, ECOTier.L9);
+    }
+
+
+    public void test() {
+        calculator.calculateMultiblock((ServerLevel) level, worldPosition);
     }
 }

@@ -14,6 +14,6 @@ public class MachineCasingBlockEntity<C extends NECluster<C>> extends NEBlockEnt
         BlockState blockState,
         NEClusterCalculator.Factory<C> factory
     ) {
-        super(type, pos, blockState, factory.create());
+        super(type, pos, blockState, factory);
     }
 }

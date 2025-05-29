@@ -5,7 +5,10 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+
+import java.util.function.Predicate;
 
 public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
     public NEClusterCalculator(NEBlockEntity<C, ?> t) {
@@ -39,6 +42,10 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {
-        NEClusterCalculator<C> create();
+        NEClusterCalculator<C> create(NEBlockEntity<C, ?> blockEntity);
+    }
+
+    private <T> boolean validateBlockAt(Level level, BlockPos pos) {
+        return false;
     }
 }
