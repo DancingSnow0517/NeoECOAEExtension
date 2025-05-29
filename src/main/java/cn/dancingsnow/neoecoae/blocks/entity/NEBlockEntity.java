@@ -4,18 +4,22 @@ import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
+import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkedBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
     extends AENetworkedBlockEntity
@@ -44,6 +48,23 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.updateState(false);
         }
+    }
+
+    @Override
+    public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
+        if (!formed) {
+            return EnumSet.noneOf(Direction.class);
+        }
+
+        EnumSet<Direction> directions = EnumSet.noneOf(Direction.class);
+        if (level != null) {
+            for (Direction value : Direction.values()) {
+                if (level.getBlockEntity(this.worldPosition.relative(value)) instanceof NEBlockEntity) {
+                    directions.add(value);
+                }
+            }
+        }
+        return directions;
     }
 
     protected void updateState(boolean updateExposed) {
