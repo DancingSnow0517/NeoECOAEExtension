@@ -1,7 +1,6 @@
-package cn.dancingsnow.neoecoae.data.model;
+package cn.dancingsnow.neoecoae.registration.provider;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.data.NEProviderTypes;
 import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.providers.RegistrateProvider;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -16,11 +15,11 @@ import javax.annotation.ParametersAreNonnullByDefault;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class CellModelProvider extends ModelProvider<BlockModelBuilder> implements RegistrateProvider {
+public class NECellModelProvider extends ModelProvider<BlockModelBuilder> implements RegistrateProvider {
 
     private final AbstractRegistrate<?> parent;
 
-    public CellModelProvider(AbstractRegistrate<?> parent, PackOutput output, ExistingFileHelper existingFileHelper) {
+    public NECellModelProvider(AbstractRegistrate<?> parent, PackOutput output, ExistingFileHelper existingFileHelper) {
         super(output, parent.getModid(), "block/cell", BlockModelBuilder::new, existingFileHelper);
         this.parent = parent;
     }

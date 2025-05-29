@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.data;
 
 import cn.dancingsnow.neoecoae.data.lang.NELangGenerator;
 import cn.dancingsnow.neoecoae.data.model.CellModelGenerator;
+import cn.dancingsnow.neoecoae.registration.provider.NEProviderTypes;
 import com.tterrag.registrate.providers.ProviderType;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
