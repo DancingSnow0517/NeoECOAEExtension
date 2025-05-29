@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOStorageVentBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
@@ -76,21 +78,54 @@ public class NEBlockEntities {
         .register();
 
     public static final NEBlockEntityEntry<ECODriveBlockEntity> ECO_DRIVE = REGISTRATE
-        .blockEntityClusterElement(
+        .blockEntityBlockLinked(
             "eco_drive",
-            () -> null,
             ECODriveBlockEntity::new
         )
         .forBlock(NEBlocks.ECO_DRIVE)
         .validBlock(NEBlocks.ECO_DRIVE)
         .renderer(() -> ECODriveRenderer::new)
-        .registerCapability(event -> {
-            event.registerBlockEntity(
-                Capabilities.ItemHandler.BLOCK,
-                NEBlockEntities.ECO_DRIVE.get(),
-                (be, side) -> be.HANDLER
-            );
-        })
+        .registerCapability(event -> event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.ECO_DRIVE.get(),
+            (be, side) -> be.HANDLER
+        ))
+        .register();
+
+    public static final NEBlockEntityEntry<ECOStorageVentBlockEntity> STORAGE_VENT = REGISTRATE
+        .blockEntityBlockLinked(
+            "storage_vent",
+            ECOStorageVentBlockEntity::new
+        )
+        .forBlock(NEBlocks.STORAGE_VENT)
+        .validBlock(NEBlocks.STORAGE_VENT)
+        .register();
+
+    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L4 = REGISTRATE
+        .blockEntityBlockLinked(
+            "storage_system_l4",
+            ECOStorageSystemBlockEntity::createL4
+        )
+        .forBlock(NEBlocks.STORAGE_SYSTEM_L4)
+        .validBlock(NEBlocks.STORAGE_SYSTEM_L4)
+        .register();
+
+    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L6 = REGISTRATE
+        .blockEntityBlockLinked(
+            "storage_system_l6",
+            ECOStorageSystemBlockEntity::createL6
+        )
+        .forBlock(NEBlocks.STORAGE_SYSTEM_L6)
+        .validBlock(NEBlocks.STORAGE_SYSTEM_L6)
+        .register();
+
+    public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L9 = REGISTRATE
+        .blockEntityBlockLinked(
+            "storage_system_l9",
+            ECOStorageSystemBlockEntity::createL9
+        )
+        .forBlock(NEBlocks.STORAGE_SYSTEM_L9)
+        .validBlock(NEBlocks.STORAGE_SYSTEM_L9)
         .register();
 
     public static void register() {

@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.blocks.ECODriveBlock;
+import cn.dancingsnow.neoecoae.blocks.ECOStorageSystem;
 import cn.dancingsnow.neoecoae.blocks.MachineCasing;
+import cn.dancingsnow.neoecoae.blocks.ECOStorageVent;
 import cn.dancingsnow.neoecoae.blocks.MachineInterface;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -12,6 +14,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
+import org.apache.commons.io.function.Uncheck;
+
+import java.util.Locale;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -107,7 +112,67 @@ public class NEBlocks {
         .lang("ECO - Crystal Oscillator Drive")
         .register();
 
+    public static final BlockEntry<ECOStorageVent> STORAGE_VENT = REGISTRATE
+        .block("storage_vent", ECOStorageVent::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> {
+            ModelFile modelFile = prov.models()
+                .cube(
+                    ctx.getName(),
+                    prov.modLoc("block/storage_casing"),
+                    prov.modLoc("block/storage_casing"),
+                    prov.modLoc("block/storage_vent_front"),
+                    prov.modLoc("block/storage_vent_back"),
+                    prov.modLoc("block/storage_vent_we"),
+                    prov.modLoc("block/storage_vent_we")
+                ).texture("particle", prov.modLoc("block/storage_vent_front"));
+            prov.getVariantBuilder(ctx.get())
+                .forAllStatesExcept(s ->
+                        ConfiguredModel.builder()
+                            .modelFile(modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .build(),
+                    ECOStorageVent.FORMED
+                );
+        })
+        .simpleItem()
+        .lang("Storage System Heat Sink")
+        .register();
 
+    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L4 = createStorageSystem("l4");
+    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L6 = createStorageSystem("l6");
+    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L9 = createStorageSystem("l9");
+
+    private static BlockEntry<ECOStorageSystem> createStorageSystem(String level) {
+        return REGISTRATE
+            .block("storage_system_" + level, ECOStorageSystem::new)
+            .initialProperties(() -> Blocks.IRON_BLOCK)
+            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .blockstate((ctx, prov) -> {
+                ModelFile modelFile = prov.models()
+                    .cube(
+                        ctx.getName(),
+                        prov.modLoc("block/storage_casing"),
+                        prov.modLoc("block/storage_casing"),
+                        prov.modLoc("block/" + ctx.getName()),
+                        prov.modLoc("block/storage_vent_front"),
+                        prov.modLoc("block/storage_system_side"),
+                        prov.modLoc("block/storage_system_side")
+                    ).texture("particle", prov.modLoc("block/" + ctx.getName()));
+                ModelFile formedModel = new ModelFile.UncheckedModelFile(prov.modLoc("block" + ctx.getName() + "_formed"));
+                prov.getVariantBuilder(ctx.get())
+                    .forAllStates(s ->
+                        ConfiguredModel.builder()
+                            .modelFile(s.getValue(ECOStorageSystem.FORMED) ? formedModel : modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .build()
+                    );
+            })
+            .simpleItem()
+            .lang("ECO - %s Extensible Storage Subsystem Controller".formatted(level.toUpperCase(Locale.ROOT)))
+            .register();
+    }
 
     public static void register() {
 

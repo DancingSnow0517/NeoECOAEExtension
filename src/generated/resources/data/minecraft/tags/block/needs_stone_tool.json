@@ -6,6 +6,10 @@
     "neoecoae:computation_interface",
     "neoecoae:crafting_interface",
     "neoecoae:storage_interface",
-    "neoecoae:eco_drive"
+    "neoecoae:eco_drive",
+    "neoecoae:storage_vent",
+    "neoecoae:storage_system_l4",
+    "neoecoae:storage_system_l6",
+    "neoecoae:storage_system_l9"
   ]
 }

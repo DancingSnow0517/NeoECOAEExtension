@@ -30,14 +30,12 @@ public class NECellModelProvider extends ModelProvider<BlockModelBuilder> implem
     }
 
     public void cellModel(String name) {
-        cellModel(name, modLoc("block/cell/" + name), modLoc("block/cell/led/" + name));
+        cellModel(name, modLoc("block/cell/led/" + name));
     }
 
-    public void cellModel(String name, ResourceLocation texture, ResourceLocation led) {
+    public void cellModel(String name, ResourceLocation led) {
         withExistingParent(name, NeoECOAE.id("block/cell/storage_cell"))
-            .texture("1", texture)
-            .texture("2", led)
-            .texture("particle", texture);
+            .texture("2", led);
     }
 
     @Override

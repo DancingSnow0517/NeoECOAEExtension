@@ -98,10 +98,9 @@ public class ECODriveBlockEntity extends NEBlockEntity<NEStorageCluster, ECODriv
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
         BlockPos pos,
-        BlockState blockState,
-        NEClusterCalculator.Factory<ECODriveBlockEntity, NEStorageCluster> factory
+        BlockState blockState
     ) {
-        super(type, pos, blockState, factory.create());
+        super(type, pos, blockState, null);
     }
 
     @Override

@@ -1,6 +1,10 @@
 {
 	"credit": "Made with Blockbench",
 	"render_type": "translucent",
+	"textures": {
+		"1": "neoecoae:block/cell/storage_cell_case",
+		"particle": "neoecoae:block/cell/storage_cell_case"
+	},
 	"elements": [
 		{
 			"from": [10, 0, 6],
