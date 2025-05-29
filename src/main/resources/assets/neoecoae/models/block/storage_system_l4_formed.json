@@ -1,11 +1,12 @@
 {
 	"credit": "Made with Blockbench",
+	"render_type": "cutout",
 	"textures": {
 		"0": "neoecoae:block/storage/l4/storage_arrays_controller_a_east",
 		"1": "neoecoae:block/storage/storage_arrays_controller_south",
 		"2": "neoecoae:block/storage/storage_arrays_controller_up",
-		"3": "neoecoae:block/storage/l4/storage_arrays_controller_a_north",
-		"4": "neoecoae:block/storage/l4/storage_arrays_controller_a_west",
+		"3": "neoecoae:block/storage/storage_arrays_controller_north",
+		"4": "neoecoae:block/storage/storage_arrays_controller_west",
 		"5": "neoecoae:block/storage/storage_arrays_controller_down",
 
 		"6": "neoecoae:block/storage/l4/led/storage_arrays_controller_a_north",

@@ -7,18 +7,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-public abstract class NEClusterCalculator<E extends NEBlockEntity<C, E>, C extends NECluster<C>> extends MBCalculator<E, C> {
-    public NEClusterCalculator(E t) {
+public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
+    public NEClusterCalculator(NEBlockEntity<C, ?> t) {
         super(t);
     }
 
     @Override
     public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
-        return true;
-    }
-
-    @Override
-    public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
         return true;
     }
 
@@ -43,11 +38,7 @@ public abstract class NEClusterCalculator<E extends NEBlockEntity<C, E>, C exten
     }
 
     @FunctionalInterface
-    public interface Factory<E extends NEBlockEntity<C, E>, C extends NECluster<C>> {
-        NEClusterCalculator<E, C> create();
-
-        static <E extends NEBlockEntity<C, E>, C extends NECluster<C>> Factory<E, C> none() {
-            return () -> null;
-        }
+    public interface Factory<C extends NECluster<C>> {
+        NEClusterCalculator<C> create();
     }
 }

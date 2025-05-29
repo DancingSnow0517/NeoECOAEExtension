@@ -53,7 +53,7 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
 
     public <T extends NEBlockEntity<C, T>, C extends NECluster<C>> NEBlockEntityBuilder<T, NERegistrate> blockEntityClusterElement(
         String name,
-        NEClusterCalculator.Factory<T, C> tcFactory,
+        NEClusterCalculator.Factory<C> tcFactory,
         NEBlockEntityBuilder.ClusterBlockEntityFactory<T, C> factory
     ) {
         return blockEntityBlockLinked(

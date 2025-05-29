@@ -27,9 +27,9 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     protected boolean formed = false;
     protected C cluster;
-    protected final NEClusterCalculator<E, C> calculator;
+    protected final NEClusterCalculator<C> calculator;
 
-    public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator<E, C> calculator) {
+    public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator<C> calculator) {
         super(type, pos, blockState);
         this.calculator = calculator;
         getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)

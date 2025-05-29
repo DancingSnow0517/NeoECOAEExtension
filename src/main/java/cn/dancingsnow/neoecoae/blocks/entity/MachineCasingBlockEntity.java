@@ -12,7 +12,7 @@ public class MachineCasingBlockEntity<C extends NECluster<C>> extends NEBlockEnt
         BlockEntityType<?> type,
         BlockPos pos,
         BlockState blockState,
-        NEClusterCalculator.Factory<MachineCasingBlockEntity<C>, C> factory
+        NEClusterCalculator.Factory<C> factory
     ) {
         super(type, pos, blockState, factory.create());
     }

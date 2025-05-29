@@ -27,7 +27,7 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
     private Supplier<NEBlock<T>> blockSupplier;
 
     public interface ClusterBlockEntityFactory<T extends NEBlockEntity<C, T>, C extends NECluster<C>> {
-        T create(BlockEntityType<T> type, BlockPos pos, BlockState state, NEClusterCalculator.Factory<T, C> tcFactory);
+        T create(BlockEntityType<T> type, BlockPos pos, BlockState state, NEClusterCalculator.Factory<C> tcFactory);
     }
 
     public interface TierBlockEntityFactory<T extends NEBlockEntity<C, T>, C extends NECluster<C>> {
