@@ -11,12 +11,15 @@ import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import lombok.Getter;
+import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -28,7 +31,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     extends AENetworkedBlockEntity
     implements IAEMultiBlock<C> {
 
+    @Setter
     protected boolean formed = false;
+
+    @Getter
+    @Nullable
     protected C cluster;
     protected final NEClusterCalculator<C> calculator;
 
@@ -79,8 +86,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         return directions;
     }
 
-    protected void updateState(boolean updateExposed) {
-        boolean formed = this.cluster != null;
+    public void updateState(boolean updateExposed) {
+        if (this.level == null || this.notLoaded() || this.isRemoved()) {
+            return;
+        }
         level.setBlock(
             worldPosition,
             level.getBlockState(worldPosition).setValue(NEBlock.FORMED, formed),
@@ -111,21 +120,17 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         return false;
     }
 
-    public void updateCluster(C cluster) {
+    public void updateCluster(@Nullable C cluster) {
         this.cluster = cluster;
+        formed = cluster != null;
         updateState(true);
-    }
-
-    @Override
-    public C getCluster() {
-        return cluster;
     }
 
     @Override
     public void disconnect(boolean update) {
         if (this.cluster != null) {
             this.cluster.destroy();
-            this.cluster = null;
+            formed = false;
             if (update) {
                 updateState(true);
             }

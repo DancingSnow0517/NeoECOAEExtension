@@ -20,8 +20,11 @@ public class MachineCasingBlockEntity<C extends NECluster<C>> extends NEBlockEnt
     }
 
     @Override
-    protected void updateState(boolean updateExposed) {
+    public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
+        if (this.level == null || this.notLoaded() || this.isRemoved()) {
+            return;
+        }
         if (this.cluster != null) {
             level.setBlock(
                 worldPosition,

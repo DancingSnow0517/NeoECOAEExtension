@@ -35,7 +35,6 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> implements I
 
     @Override
     public void destroy() {
-        super.destroy();
     }
 
     @Override

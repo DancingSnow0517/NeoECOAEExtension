@@ -12,7 +12,7 @@ import java.util.List;
 public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     private final BlockPos boundMin;
     private final BlockPos boundMax;
-    private final List<NEBlockEntity<T, ?>> blockEntities = new ArrayList<>();
+    protected final List<NEBlockEntity<T, ?>> blockEntities = new ArrayList<>();
     private MachineSource machineSource = null;
 
     public NECluster(BlockPos boundMin, BlockPos boundMax) {
@@ -30,11 +30,10 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         return boundMax;
     }
 
-    @Override
-    public void destroy() {
-    }
-
     public void updateFormed(boolean formed) {
+        for (NEBlockEntity<T, ?> be : this.blockEntities) {
+            be.setFormed(formed);
+        }
     }
 
     public boolean shouldCasingHide(NEBlockEntity<T, ?> blockEntity) {

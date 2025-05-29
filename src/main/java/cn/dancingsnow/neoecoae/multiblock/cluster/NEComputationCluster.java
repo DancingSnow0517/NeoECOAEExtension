@@ -55,7 +55,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> implem
 
     @Override
     public void destroy() {
-        super.destroy();
     }
 
     @Override
