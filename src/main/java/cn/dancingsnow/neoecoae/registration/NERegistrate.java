@@ -92,6 +92,16 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
         return this.generic(parent, name, Registries.CREATIVE_MODE_TAB, builder::build);
     }
 
+    public NERegistrate defaultCreativeTab(RegistryEntry<CreativeModeTab, CreativeModeTab> tab) {
+        defaultCreativeTab(tab.getKey());
+        return self();
+    }
+
+    public NERegistrate clearDefaultCreativeTab() {
+        defaultCreativeTab((ResourceKey<CreativeModeTab>) null);
+        return self();
+    }
+
     public void onCommonSetup(FMLCommonSetupEvent event) {
         for (RegistryEntry<BlockEntityType<?>, BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
             //noinspection rawtypes

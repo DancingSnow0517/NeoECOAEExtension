@@ -23,11 +23,10 @@ public class NeoECOAE {
 
     public NeoECOAE(IEventBus modBus, ModContainer modContainer) {
         NECreativeTabs.register();
-        NEItems.register();
         NEBlocks.register();
+        NEItems.register();
         NEBlockEntities.register();
         NEDataGen.configureDataGen();
-        logger.info("Hello World!");
     }
 
     public static ResourceLocation id(String path) {

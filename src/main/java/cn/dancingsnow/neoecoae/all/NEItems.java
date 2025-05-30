@@ -9,6 +9,10 @@ import net.minecraft.world.item.Rarity;
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 public class NEItems {
+    static {
+        REGISTRATE.defaultCreativeTab(NECreativeTabs.STORAGE);
+    }
+
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_16M = REGISTRATE
         .item("eco_item_storage_cell_16m", p -> new ECOStorageCellItem(
             p.stacksTo(1).rarity(Rarity.UNCOMMON),

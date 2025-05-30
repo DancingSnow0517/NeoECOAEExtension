@@ -1,18 +1,18 @@
 {
   "values": [
-    "neoecoae:computation_casing",
-    "neoecoae:crafting_casing",
-    "neoecoae:storage_casing",
-    "neoecoae:computation_interface",
-    "neoecoae:crafting_interface",
+    "neoecoae:storage_system_l4",
+    "neoecoae:storage_system_l6",
+    "neoecoae:storage_system_l9",
     "neoecoae:storage_interface",
-    "neoecoae:eco_drive",
     "neoecoae:energy_cell_l4",
     "neoecoae:energy_cell_l6",
     "neoecoae:energy_cell_l9",
+    "neoecoae:eco_drive",
     "neoecoae:storage_vent",
-    "neoecoae:storage_system_l4",
-    "neoecoae:storage_system_l6",
-    "neoecoae:storage_system_l9"
+    "neoecoae:storage_casing",
+    "neoecoae:computation_interface",
+    "neoecoae:computation_casing",
+    "neoecoae:crafting_interface",
+    "neoecoae:crafting_casing"
   ]
 }

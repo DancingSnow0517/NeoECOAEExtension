@@ -6,15 +6,35 @@ import net.minecraft.world.item.CreativeModeTab;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
+@SuppressWarnings("Convert2MethodRef")
 public class NECreativeTabs {
-    @SuppressWarnings("Convert2MethodRef")
-    public static final RegistryEntry<CreativeModeTab, CreativeModeTab> NEO_ECO_AE = REGISTRATE
+    public static final RegistryEntry<CreativeModeTab, CreativeModeTab> STORAGE = REGISTRATE
         .defaultCreativeTab(
-            "neoecoae",
+            "storage",
             CreativeModeTab.builder()
-                .icon(() -> NEItems.ECO_ITEM_CELL_16M.asStack())
-                .title(REGISTRATE.addLang("itemGroup", NeoECOAE.id("neoecoae"), "Neo ECO AE Extension"))
-            )
+                .icon(() -> NEBlocks.STORAGE_SYSTEM_L9.asStack())
+                .title(REGISTRATE.addLang("itemGroup", NeoECOAE.id("storage"), "ECO Storage System"))
+        )
+        .register();
+
+    public static final RegistryEntry<CreativeModeTab, CreativeModeTab> CRAFTING = REGISTRATE
+        .defaultCreativeTab(
+            "crafting",
+            CreativeModeTab.builder()
+                .icon(() -> NEBlocks.CRAFTING_INTERFACE.asStack())
+                .title(REGISTRATE.addLang("itemGroup", NeoECOAE.id("crafting"), "ECO Crafting System"))
+                .withTabsBefore(STORAGE.getKey())
+        )
+        .register();
+
+    public static final RegistryEntry<CreativeModeTab, CreativeModeTab> COMPUTATION = REGISTRATE
+        .defaultCreativeTab(
+            "computation",
+            CreativeModeTab.builder()
+                .icon(() -> NEBlocks.COMPUTATION_INTERFACE.asStack())
+                .title(REGISTRATE.addLang("itemGroup", NeoECOAE.id("computation"), "ECO Computation System"))
+                .withTabsBefore(STORAGE.getKey(), CRAFTING.getKey())
+        )
         .register();
 
     public static void register() {}
