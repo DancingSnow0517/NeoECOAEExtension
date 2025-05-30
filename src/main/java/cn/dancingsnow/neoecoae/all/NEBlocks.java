@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.blocks.MachineCasing;
 import cn.dancingsnow.neoecoae.blocks.MachineInterface;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystem;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVent;
@@ -11,6 +12,8 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.tterrag.registrate.util.entry.BlockEntry;
+import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.block.Blocks;
@@ -231,7 +234,6 @@ public class NEBlocks {
         .block("crafting_interface", MachineInterface<NECraftingCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .simpleItem()
         .blockstate((ctx, prov) -> {
             prov.simpleBlock(
                 ctx.get(),
@@ -242,6 +244,36 @@ public class NEBlocks {
                 )
             );
         })
+        .simpleItem()
+        .register();
+
+    public static final BlockEntry<ECOFluidInputHatchBlock> INPUT_HATCH = REGISTRATE
+        .block("input_hatch", ECOFluidInputHatchBlock::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> {
+            ResourceLocation casing = prov.modLoc("block/crafting_casing");
+            ResourceLocation hatch = prov.modLoc("block/input_hatch");
+            ResourceLocation model = prov.models().cube(
+                ctx.getName(),
+                casing,
+                casing,
+                hatch,
+                casing,
+                casing,
+                casing
+            ).texture("particle", casing).getLocation();
+            prov.getVariantBuilder(ctx.get()).forAllStatesExcept(state -> {
+                Direction dir = state.getValue(ECOFluidInputHatchBlock.FACING);
+                return ConfiguredModel.builder()
+                    .modelFile(prov.models().getExistingFile(model))
+                    .rotationX(dir == Direction.DOWN ? 90 : dir.getAxis().isHorizontal() ? 0 : -90)
+                    .rotationY(dir.getAxis().isVertical() ? 0 : (((int) dir.toYRot()) + 180) % 360)
+                    .build();
+            }, ECOFluidInputHatchBlock.FORMED);
+        })
+        .simpleItem()
+        .lang("ECO Fluid Input Hatch")
         .register();
 
     public static final BlockEntry<MachineCasing<NECraftingCluster>> CRAFTING_CASING = REGISTRATE
