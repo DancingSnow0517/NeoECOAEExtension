@@ -118,7 +118,7 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setIdlePowerUsage(256 + (1 << (1 + 2 * tier.getTier())));
+        getMainNode().setIdlePowerUsage(0);
     }
 
     @Override
