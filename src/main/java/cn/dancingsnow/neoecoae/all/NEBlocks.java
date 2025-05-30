@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.blocks.MachineCasing;
 import cn.dancingsnow.neoecoae.blocks.MachineInterface;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystem;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVent;
@@ -245,6 +246,10 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
         .register();
+
+    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L4 = createCraftingSystem("l4");
+    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L6 = createCraftingSystem("l6");
+    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L9 = createCraftingSystem("l9");
     //endregion
 
     private static BlockEntry<ECOStorageSystem> createStorageSystem(String level) {
@@ -274,6 +279,31 @@ public class NEBlocks {
             })
             .simpleItem()
             .lang("ECO - %s Extensible Storage Subsystem Controller".formatted(level.toUpperCase(Locale.ROOT)))
+            .register();
+    }
+
+    private static BlockEntry<ECOCraftingSystem> createCraftingSystem(String level) {
+        return REGISTRATE
+            .block("crafting_system_" + level, ECOCraftingSystem::new)
+            .initialProperties(() -> Blocks.IRON_BLOCK)
+            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .blockstate((ctx, prov) -> {
+                ModelFile modelFile = prov.models()
+                    .withExistingParent(ctx.getName(), prov.modLoc("block/crafting_system"))
+                    .texture("1", "block/crafting_system_front_" + level);
+                ModelFile formedModel = new ModelFile.UncheckedModelFile(prov.modLoc("block/" + ctx.getName() + "_formed"));
+                prov.getVariantBuilder(ctx.get())
+                    .forAllStates(s ->
+                        ConfiguredModel.builder()
+                            .modelFile(s.getValue(ECOStorageSystem.FORMED) ? formedModel : modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .build()
+                    );
+            })
+            .simpleItem()
+            .lang("ECO - %s Extensible Crafting Subsystem Controller"
+                .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "F")
+            )
             .register();
     }
 

@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
@@ -16,7 +19,12 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.registration.NEBlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
+import com.tterrag.registrate.util.entry.BlockEntry;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.capabilities.Capabilities;
+
+import java.util.function.Supplier;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -162,6 +170,38 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.ENERGY_CELL_L9)
         .validBlock(NEBlocks.ENERGY_CELL_L9)
         .register();
+
+    public static final NEBlockEntityEntry<ECOCraftingSystemBlockEntity> CRAFTING_SYSTEM_L4 = createCraftingSystem(
+        ECOTier.L4,
+        "l4",
+        NEBlocks.CRAFTING_SYSTEM_L4
+    );
+    public static final NEBlockEntityEntry<ECOCraftingSystemBlockEntity> CRAFTING_SYSTEM_L6 = createCraftingSystem(
+        ECOTier.L6,
+        "l6",
+        NEBlocks.CRAFTING_SYSTEM_L6
+    );
+    public static final NEBlockEntityEntry<ECOCraftingSystemBlockEntity> CRAFTING_SYSTEM_L9 = createCraftingSystem(
+        ECOTier.L9,
+        "l9",
+        NEBlocks.CRAFTING_SYSTEM_L9
+    );
+
+    private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(
+        IECOTier tier,
+        String tierString,
+        BlockEntry<? extends NEBlock<ECOCraftingSystemBlockEntity>> block
+    ) {
+        return REGISTRATE
+            .tierBlockEntityBlockLinked(
+                "crafting_system_" + tierString,
+                tier,
+                ECOCraftingSystemBlockEntity::new
+            )
+            .forBlock(block)
+            .validBlock(block)
+            .register();
+    }
 
     public static void register() {
 

@@ -13,6 +13,9 @@
     "neoecoae:computation_interface",
     "neoecoae:computation_casing",
     "neoecoae:crafting_interface",
-    "neoecoae:crafting_casing"
+    "neoecoae:crafting_casing",
+    "neoecoae:crafting_system_l4",
+    "neoecoae:crafting_system_l6",
+    "neoecoae:crafting_system_l9"
   ]
 }

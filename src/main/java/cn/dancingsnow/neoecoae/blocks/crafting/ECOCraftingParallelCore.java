@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.crafting;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
@@ -11,10 +12,10 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 
-public class ECOCraftingVent extends NEBlock<ECOCraftingVentBlockEntity> {
+public class ECOCraftingParallelCore extends NEBlock<ECOCraftingParallelCoreBlockEntity> {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
-    public ECOCraftingVent(Properties properties) {
+    public ECOCraftingParallelCore(Properties properties) {
         super(properties);
         registerDefaultState(getStateDefinition().any()
             .setValue(FORMED, false)
