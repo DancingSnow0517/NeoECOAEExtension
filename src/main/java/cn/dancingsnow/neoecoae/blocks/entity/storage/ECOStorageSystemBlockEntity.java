@@ -2,11 +2,13 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> {
+    @Getter
     private final IECOTier tier;
 
     public ECOStorageSystemBlockEntity(
@@ -47,9 +49,5 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     public void onReady() {
         super.onReady();
         getMainNode().setIdlePowerUsage(256 + (1 << (1 + 4 * tier.getTier())));
-    }
-
-    public int getTier() {
-        return tier.getTier();
     }
 }

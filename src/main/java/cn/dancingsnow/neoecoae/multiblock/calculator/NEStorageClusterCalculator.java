@@ -4,6 +4,8 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.MachineEnergyCell;
@@ -57,6 +59,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             }
         }
         if (controller == null) return false;
+        IECOTier tier = controller.getTier();
         BlockState controllerState = controller.getBlockState();
         IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
         Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
@@ -99,31 +102,53 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             }
         }
         BlockPos upperEnergyCellStart = controllerPos.relative(back).relative(top).relative(right);
-        if (!validateBlock(level, upperEnergyCellStart, it -> it.getBlock() instanceof MachineEnergyCell)) {
+        if (!validateBlock(
+            level,
+            upperEnergyCellStart,
+            state -> state.getBlock() instanceof MachineEnergyCell cell
+                && cell.getBlockEntity(level, upperEnergyCellStart).getTier() == tier
+        )) {
             return false;
         }
         BlockPos upperEnergyCellEnd = expandTowards(
             level,
             right,
             upperEnergyCellStart,
-            it -> it.getBlock() instanceof MachineEnergyCell
+            (state, pos) -> state.getBlock() instanceof MachineEnergyCell cell
+                && cell.getBlockEntity(level, pos).getTier() == tier
         );
         if (upperEnergyCellEnd.equals(upperEnergyCellStart)) {
-            return validateBlock(level, upperEnergyCellStart, it -> it.getBlock() instanceof MachineEnergyCell);
+            return validateBlock(
+                level,
+                upperEnergyCellStart,
+                state -> state.getBlock() instanceof MachineEnergyCell cell
+                    && cell.getBlockEntity(level, upperEnergyCellEnd).getTier() == tier
+            );
         }
 
         BlockPos lowerEnergyCellStart = controllerPos.relative(back).relative(down).relative(right);
-        if (!validateBlock(level, lowerEnergyCellStart, it -> it.getBlock() instanceof MachineEnergyCell)) {
+        if (!validateBlock(
+            level,
+            lowerEnergyCellStart,
+            state -> state.getBlock() instanceof MachineEnergyCell cell
+                && cell.getBlockEntity(level, lowerEnergyCellStart).getTier() == tier
+        )) {
             return false;
         }
         BlockPos lowerEnergyCellEnd = expandTowards(
             level,
             right,
             lowerEnergyCellStart,
-            it -> it.getBlock() instanceof MachineEnergyCell
+            (state, pos) -> state.getBlock() instanceof MachineEnergyCell cell
+                && cell.getBlockEntity(level, pos).getTier() == tier
         );
         if (lowerEnergyCellEnd.equals(lowerEnergyCellStart)) {
-            return validateBlock(level, lowerEnergyCellEnd, it -> it.getBlock() instanceof MachineEnergyCell);
+            return validateBlock(
+                level,
+                lowerEnergyCellEnd,
+                it -> it.getBlock() instanceof MachineEnergyCell cell
+                    && cell.getBlockEntity(level, lowerEnergyCellEnd).getTier() == tier
+            );
         }
         BlockPos.MutableBlockPos tailCasing = storageBlocksEnd.mutable().move(right).move(top);
         List<BlockPos> tailCasingPoses = List.of(

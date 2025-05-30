@@ -22,6 +22,7 @@ import com.lowdragmc.lowdraglib.syncdata.blockentity.IAsyncAutoSyncBlockEntity;
 import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoPersistBlockEntity;
 import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
+import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
@@ -34,7 +35,8 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
     implements IExternalPowerSink, IGridTickable, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(MachineEnergyCellBlockEntity.class);
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
-
+    @Getter
+    private final IECOTier tier;
     private byte currentDisplayLevel;
 
     @Persisted
@@ -42,6 +44,7 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
 
     @Persisted
     private boolean neighborChangePending = false;
+
 
     public MachineEnergyCellBlockEntity(
         BlockEntityType<?> type,
@@ -54,6 +57,7 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
             .addService(IAEPowerStorage.class, this)
             .addService(IGridTickable.class, this);
         this.energyStored = new StoredEnergyAmount(0, tier.getPowerStorageSize(), this::emitPowerEvent);
+        this.tier = tier;
     }
 
     private void emitPowerEvent(GridPowerStorageStateChanged.PowerEventType type) {
@@ -72,7 +76,7 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
 
     @Override
     public final double extractAEPower(double amt, Actionable mode, PowerMultiplier pm) {
-        double extracted =  pm.divide(this.extractAEPower(pm.multiply(amt), mode));
+        double extracted = pm.divide(this.extractAEPower(pm.multiply(amt), mode));
         if (mode == Actionable.MODULATE && extracted > 0) {
             this.onEnergyChanged();
         }

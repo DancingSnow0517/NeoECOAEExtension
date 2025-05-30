@@ -96,6 +96,30 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return mutable;
     }
 
+    public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, BiPredicate<BlockState, BlockPos> fn) {
+        BlockPos.MutableBlockPos mutable = start.mutable();
+        BlockPos pos = new BlockPos(
+            mutable.getX() + direction.getStepX(),
+            mutable.getY() + direction.getStepY(),
+            mutable.getZ() + direction.getStepZ()
+        );
+        while (
+            fn.test(level.getBlockState(pos), pos)
+        ) {
+            mutable.set(
+                mutable.getX() + direction.getStepX(),
+                mutable.getY() + direction.getStepY(),
+                mutable.getZ() + direction.getStepZ()
+            );
+            pos = new BlockPos(
+                mutable.getX() + direction.getStepX(),
+                mutable.getY() + direction.getStepY(),
+                mutable.getZ() + direction.getStepZ()
+            );
+        }
+        return mutable;
+    }
+
     public static boolean validateBlocks(Level level, BlockPos from, BlockPos to, Predicate<BlockState> fn) {
         for (BlockPos blockPos : BlockPos.betweenClosed(from, to)) {
             if (!fn.test(level.getBlockState(blockPos))) {
