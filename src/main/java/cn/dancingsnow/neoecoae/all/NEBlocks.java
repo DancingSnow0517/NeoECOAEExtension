@@ -2,7 +2,9 @@ package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.blocks.MachineCasing;
 import cn.dancingsnow.neoecoae.blocks.MachineInterface;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingVent;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystem;
@@ -284,6 +286,35 @@ public class NEBlocks {
         .simpleItem()
         .register();
 
+    public static final BlockEntry<ECOCraftingVent> CRAFTING_VENT = REGISTRATE
+        .block("crafting_vent", ECOCraftingVent::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .simpleItem()
+        .blockstate((ctx, prov) -> {
+            ModelFile modelFile = prov.models()
+                .cube(
+                    ctx.getName(),
+                    prov.modLoc("block/crafting_casing"),
+                    prov.modLoc("block/crafting_casing"),
+                    prov.modLoc("block/crafting_vent_front"),
+                    prov.modLoc("block/crafting_vent_back"),
+                    prov.modLoc("block/crafting_casing"),
+                    prov.modLoc("block/crafting_casing")
+                ).texture("particle", prov.modLoc("block/crafting_vent_front"));
+
+            prov.getVariantBuilder(ctx.get())
+                .forAllStatesExcept(
+                    s ->
+                        ConfiguredModel.builder()
+                            .modelFile(modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .build(),
+                    ECOCraftingVent.FORMED
+                );
+        })
+        .register();
+
 
     //endregion
 
@@ -316,6 +347,34 @@ public class NEBlocks {
             .properties(p -> p.rarity(rarity))
             .build()
             .lang("ECO - %s Extensible Storage Subsystem Controller".formatted(level.toUpperCase(Locale.ROOT)))
+            .register();
+    }
+
+    private static BlockEntry<ECOCraftingParallelCore> createParallelCore(String level, Rarity rarity) {
+        return REGISTRATE
+            .block("crafting_parallel_core_" + level, ECOCraftingParallelCore::new)
+            .initialProperties(() -> Blocks.IRON_BLOCK)
+            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .blockstate((ctx, prov) -> {
+                ModelFile modelFile = prov.models()
+                    .withExistingParent(ctx.getName(), prov.modLoc("block/parallel_core"))
+                    .texture("1", "block/parallel_core_" + level);
+                prov.getVariantBuilder(ctx.get())
+                    .forAllStatesExcept(
+                        s ->
+                            ConfiguredModel.builder()
+                                .modelFile(modelFile)
+                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                                .build(),
+                        ECOCraftingParallelCore.FORMED
+                    );
+            })
+            .item()
+            .properties(p -> p.rarity(rarity))
+            .build()
+            .lang("ECO - %s Parallel core"
+                .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "FT")
+            )
             .register();
     }
 

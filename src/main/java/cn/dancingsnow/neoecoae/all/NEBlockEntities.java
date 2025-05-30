@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
@@ -183,6 +184,15 @@ public class NEBlockEntities {
         "l9",
         NEBlocks.CRAFTING_SYSTEM_L9
     );
+
+    public static final NEBlockEntityEntry<ECOCraftingVentBlockEntity> CRAFTING_VENT = REGISTRATE
+        .blockEntityBlockLinked(
+            "crafting_vent",
+            ECOCraftingVentBlockEntity::new
+        )
+        .forBlock(NEBlocks.CRAFTING_VENT)
+        .validBlock(NEBlocks.CRAFTING_VENT)
+        .register();
 
     public static final NEBlockEntityEntry<ECOFluidInputHatchBlockEntity> INPUT_HATCH = REGISTRATE
         .blockEntityBlockLinked("input_hatch", ECOFluidInputHatchBlockEntity::new)
