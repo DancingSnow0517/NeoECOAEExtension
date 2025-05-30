@@ -3,8 +3,8 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
@@ -226,6 +226,21 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.CRAFTING_WORKER)
         .validBlock(NEBlocks.CRAFTING_WORKER)
+        .register();
+
+    public static final NEBlockEntityEntry<ECOCraftingPatternBusBlockEntity> CRAFTING_PATTERN_BUS = REGISTRATE
+        .blockEntityBlockLinked(
+            "crafting_pattern_bus",
+            ECOCraftingPatternBusBlockEntity::new
+        )
+        .forBlock(NEBlocks.CRAFTING_PATTERN_BUS)
+        .validBlock(NEBlocks.CRAFTING_PATTERN_BUS)
+        .registerCapability(e -> e.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
+            (be, side) -> be.getItemHandler()
+            )
+        )
         .register();
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(

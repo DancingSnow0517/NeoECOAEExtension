@@ -4,6 +4,7 @@
   "package": "cn.dancingsnow.neoecoae.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "AppEngInternalInventoryMixin",
     "StoredEnergyAmountMixin"
   ],
   "client": [

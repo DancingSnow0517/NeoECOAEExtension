@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.blocks.MachineCasing;
 import cn.dancingsnow.neoecoae.blocks.MachineInterface;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingPatternBus;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingVent;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
@@ -15,7 +16,6 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.tterrag.registrate.util.entry.BlockEntry;
-import net.minecraft.core.Direction;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
@@ -370,6 +370,36 @@ public class NEBlocks {
                     .end();
             }
         })
+        .register();
+
+    public static final BlockEntry<ECOCraftingPatternBus> CRAFTING_PATTERN_BUS = REGISTRATE
+        .block("crafting_pattern_bus", ECOCraftingPatternBus::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> {
+            ModelFile modelFile = prov.models()
+                .cube(
+                    ctx.getName(),
+                    prov.modLoc("block/crafting_casing"),
+                    prov.modLoc("block/crafting_casing"),
+                    prov.modLoc("block/crafting_pattern_bus_front"),
+                    prov.modLoc("block/crafting_parallel_core_back"),
+                    prov.modLoc("block/crafting_interface_top"),
+                    prov.modLoc("block/crafting_interface_top")
+                ).texture("particle", prov.modLoc("block/crafting_pattern_bus_front"));
+            prov.getVariantBuilder(ctx.get())
+                .forAllStatesExcept(s ->
+                        ConfiguredModel.builder()
+                            .modelFile(modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .build(),
+                    ECOCraftingPatternBus.FORMED
+                );
+        })
+        .item()
+        .properties(p -> p.rarity(Rarity.RARE))
+        .build()
+        .lang("ECO - FD Smart Pattern Bus")
         .register();
 
     public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L4 = createParallelCore(
