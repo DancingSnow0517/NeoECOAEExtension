@@ -96,12 +96,26 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return mutable;
     }
 
-    public static <T> boolean validateBlocks(Level level, BlockPos from, BlockPos to, BiPredicate<BlockState, T> fn, T value) {
+    public static boolean validateBlocks(Level level, BlockPos from, BlockPos to, Predicate<BlockState> fn) {
         for (BlockPos blockPos : BlockPos.betweenClosed(from, to)) {
+            if (!fn.test(level.getBlockState(blockPos))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static <T> boolean validateBlocks(Level level, Iterable<BlockPos> iterable, BiPredicate<BlockState, T> fn, T value) {
+        for (BlockPos blockPos : iterable) {
             if (!fn.test(level.getBlockState(blockPos), value)) {
                 return false;
             }
         }
         return true;
+    }
+
+    public static <T> boolean validateBlocks(Level level, BlockPos from, BlockPos to, BiPredicate<BlockState, T> fn, T value) {
+
+        return validateBlocks(level, BlockPos.betweenClosed(from, to), fn, value);
     }
 }

@@ -15,6 +15,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.List;
+
 public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageCluster> {
     public NEStorageClusterCalculator(NEBlockEntity<NEStorageCluster, ?> t) {
         super(t);
@@ -82,6 +84,9 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             return false;
         }
         BlockPos ventStart = controllerPos.relative(right).relative(back);
+        if (!validateBlock(level, ventStart, BlockState::is, NEBlocks.STORAGE_VENT)) {
+            return false;
+        }
         BlockPos ventEnd = expandTowards(
             level,
             right,
@@ -93,24 +98,70 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 return false;
             }
         }
-        if (!validateEnergyCell(
-            level,
-            right,
-            controllerPos.relative(back).relative(top).relative(right)
-        )) {
+        BlockPos upperEnergyCellStart = controllerPos.relative(back).relative(top).relative(right);
+        if (!validateBlock(level, upperEnergyCellStart, it -> it.getBlock() instanceof MachineEnergyCell)) {
             return false;
         }
-        if (!validateEnergyCell(
+        BlockPos upperEnergyCellEnd = expandTowards(
             level,
             right,
-            controllerPos.relative(back).relative(down).relative(right)
-        )) {
+            upperEnergyCellStart,
+            it -> it.getBlock() instanceof MachineEnergyCell
+        );
+        if (upperEnergyCellEnd.equals(upperEnergyCellStart)) {
+            return validateBlock(level, upperEnergyCellStart, it -> it.getBlock() instanceof MachineEnergyCell);
+        }
+
+        BlockPos lowerEnergyCellStart = controllerPos.relative(back).relative(down).relative(right);
+        if (!validateBlock(level, lowerEnergyCellStart, it -> it.getBlock() instanceof MachineEnergyCell)) {
             return false;
+        }
+        BlockPos lowerEnergyCellEnd = expandTowards(
+            level,
+            right,
+            lowerEnergyCellStart,
+            it -> it.getBlock() instanceof MachineEnergyCell
+        );
+        if (lowerEnergyCellEnd.equals(lowerEnergyCellStart)) {
+            return validateBlock(level, lowerEnergyCellEnd, it -> it.getBlock() instanceof MachineEnergyCell);
         }
         BlockPos.MutableBlockPos tailCasing = storageBlocksEnd.mutable().move(right).move(top);
-        if (validateCasing(level, tailCasing, top, down)) return false;
-        tailCasing.move(back);
-        return !validateCasing(level, tailCasing, top, down);
+        List<BlockPos> tailCasingPoses = List.of(
+            upperEnergyCellEnd.relative(right),
+            lowerEnergyCellEnd.relative(right),
+            ventEnd.relative(right),
+            tailCasing.immutable(),
+            tailCasing.relative(top),
+            tailCasing.relative(down)
+        );
+        if (!ensureSameSurface(tailCasingPoses)) {
+            return false;
+        }
+        return validateBlocks(level, tailCasingPoses, BlockState::is, NEBlocks.STORAGE_CASING);
+    }
+
+    private boolean ensureSameSurface(List<BlockPos> list) {
+        int x = list.getFirst().getX();
+        int y = list.getFirst().getY();
+        int z = list.getFirst().getZ();
+        boolean sameX = true;
+        boolean sameY = true;
+        boolean sameZ = true;
+        for (BlockPos blockPos : list) {
+            if (blockPos.getX() != x) {
+                sameX = false;
+            }
+            if (blockPos.getY() != y) {
+                sameY = false;
+            }
+            if (blockPos.getZ() != z) {
+                sameZ = false;
+            }
+            x = blockPos.getX();
+            y = blockPos.getY();
+            z = blockPos.getZ();
+        }
+        return sameX || sameY || sameZ;
     }
 
     private boolean validateEnergyCell(Level level, Direction direction, BlockPos start) {
