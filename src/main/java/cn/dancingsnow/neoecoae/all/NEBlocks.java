@@ -34,9 +34,9 @@ public class NEBlocks {
     // ************************************ //
 
     //region Storage System
-    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L4 = createStorageSystem("l4");
-    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L6 = createStorageSystem("l6");
-    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L9 = createStorageSystem("l9");
+    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L4 = createStorageSystem("l4", Rarity.UNCOMMON);
+    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L6 = createStorageSystem("l6", Rarity.RARE);
+    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L9 = createStorageSystem("l9", Rarity.EPIC);
 
     public static final BlockEntry<MachineInterface<NEStorageCluster>> STORAGE_INTERFACE = REGISTRATE
         .block("storage_interface", MachineInterface<NEStorageCluster>::new)
@@ -93,7 +93,7 @@ public class NEBlocks {
                 }, MachineEnergyCell.FORMED);
         })
         .item()
-        .properties(p -> p.rarity(Rarity.UNCOMMON))
+        .properties(p -> p.rarity(Rarity.RARE))
         .model((ctx, provider) -> {
             provider.withExistingParent(ctx.getName(), provider.modLoc("block/%s_%d".formatted(ctx.getName(), 4)));
         })
@@ -116,7 +116,7 @@ public class NEBlocks {
                 }, MachineEnergyCell.FORMED);
         })
         .item()
-        .properties(p -> p.rarity(Rarity.UNCOMMON))
+        .properties(p -> p.rarity(Rarity.EPIC))
         .model((ctx, provider) -> {
             provider.withExistingParent(ctx.getName(), provider.modLoc("block/%s_%d".formatted(ctx.getName(), 4)));
         })
@@ -222,6 +222,11 @@ public class NEBlocks {
     // ************************************* //
 
     //region Crafting System
+
+    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L4 = createCraftingSystem("l4", Rarity.UNCOMMON);
+    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L6 = createCraftingSystem("l6", Rarity.RARE);
+    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L9 = createCraftingSystem("l9", Rarity.EPIC);
+
     public static final BlockEntry<MachineInterface<NECraftingCluster>> CRAFTING_INTERFACE = REGISTRATE
         .block("crafting_interface", MachineInterface<NECraftingCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
@@ -247,12 +252,10 @@ public class NEBlocks {
         .simpleItem()
         .register();
 
-    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L4 = createCraftingSystem("l4");
-    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L6 = createCraftingSystem("l6");
-    public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L9 = createCraftingSystem("l9");
+
     //endregion
 
-    private static BlockEntry<ECOStorageSystem> createStorageSystem(String level) {
+    private static BlockEntry<ECOStorageSystem> createStorageSystem(String level, Rarity rarity) {
         return REGISTRATE
             .block("storage_system_" + level, ECOStorageSystem::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
@@ -277,12 +280,14 @@ public class NEBlocks {
                             .build()
                     );
             })
-            .simpleItem()
+            .item()
+            .properties(p -> p.rarity(rarity))
+            .build()
             .lang("ECO - %s Extensible Storage Subsystem Controller".formatted(level.toUpperCase(Locale.ROOT)))
             .register();
     }
 
-    private static BlockEntry<ECOCraftingSystem> createCraftingSystem(String level) {
+    private static BlockEntry<ECOCraftingSystem> createCraftingSystem(String level, Rarity rarity) {
         return REGISTRATE
             .block("crafting_system_" + level, ECOCraftingSystem::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
@@ -300,7 +305,9 @@ public class NEBlocks {
                             .build()
                     );
             })
-            .simpleItem()
+            .item()
+            .properties(p -> p.rarity(rarity))
+            .build()
             .lang("ECO - %s Extensible Crafting Subsystem Controller"
                 .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "F")
             )
