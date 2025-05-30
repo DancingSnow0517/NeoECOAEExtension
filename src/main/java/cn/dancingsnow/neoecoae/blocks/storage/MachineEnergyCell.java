@@ -33,12 +33,6 @@ public class MachineEnergyCell extends NEBlock<MachineEnergyCellBlockEntity> {
     }
 
     @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, MachineEnergyCellBlockEntity be) {
-        int value = (int) Math.floor((be.getAECurrentPower() / be.getAEMaxPower()) * 4);
-        return currentState.setValue(LEVEL, value);
-    }
-
-    @Override
     public IOrientationStrategy getOrientationStrategy() {
         return OrientationStrategies.horizontalFacing();
     }

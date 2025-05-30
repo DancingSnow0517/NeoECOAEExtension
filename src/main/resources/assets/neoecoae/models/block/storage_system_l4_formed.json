@@ -8,12 +8,10 @@
 		"3": "neoecoae:block/storage/storage_arrays_controller_north",
 		"4": "neoecoae:block/storage/storage_arrays_controller_west",
 		"5": "neoecoae:block/storage/storage_arrays_controller_down",
-
 		"6": "neoecoae:block/storage/l4/led/storage_arrays_controller_a_north",
 		"7": "neoecoae:block/storage/l4/led/storage_arrays_controller_a_west",
 		"8": "neoecoae:block/storage/led/storage_arrays_controller_west",
-
-		"particle": "neoecoae:block/storage/l4/storage_arrays_controller_east_a"
+		"particle": "neoecoae:block/storage/l4/led/storage_arrays_controller_a_west"
 	},
 	"elements": [
 		{

@@ -13,7 +13,7 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 
     protected NEBlock(Properties properties) {
-        super(properties);
+        super(properties.lightLevel(state -> state.getValue(FORMED) ? 1 : 0));
         registerDefaultState(getStateDefinition().any().setValue(FORMED, false));
     }
 
