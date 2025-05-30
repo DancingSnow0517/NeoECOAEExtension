@@ -64,6 +64,9 @@ dependencies {
     implementation("org.appliedenergistics:appliedenergistics2:19.2.10")
     implementation("com.lowdragmc.ldlib:ldlib-neoforge-1.21.1:1.0.35.a")
 
+    implementation("maven.modrinth:mekanism:10.7.14.79")
+    implementation("maven.modrinth:applied-mekanistics:1.6.2")
+
     implementation("maven.modrinth:jade:15.10.0+neoforge")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
