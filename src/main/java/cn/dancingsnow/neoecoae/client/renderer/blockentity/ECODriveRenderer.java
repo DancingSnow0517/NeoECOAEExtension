@@ -22,6 +22,9 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
     @Override
     public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
+        if (!blockEntity.isMounted()) {
+            return;
+        }
         ECOStorageCell cellInventory = blockEntity.getCellInventory();
         if (cellInventory != null) {
             int stateColor = FastColor.ARGB32.color(255, cellInventory.getStatus().getStateColor());

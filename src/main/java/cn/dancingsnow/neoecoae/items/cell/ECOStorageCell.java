@@ -12,6 +12,7 @@ import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -36,6 +37,8 @@ public class ECOStorageCell implements StorageCell {
     private long storedItemCount;
     private Object2LongMap<AEKey> storedAmounts;
     private boolean isPersisted = true;
+    @Getter
+    private final IECOTier tier;
 
     public ECOStorageCell(ItemStack cellStack, @Nullable ISaveProvider container) {
         this.container = container;
@@ -49,6 +52,7 @@ public class ECOStorageCell implements StorageCell {
             this.storedItemCount = storedStacks.stream().mapToLong(GenericStack::amount).sum();
             this.storedAmounts = null;
             this.cellType = c;
+            this.tier = c.getTier();
         } else {
             throw new IllegalArgumentException("itemStack must be an ECOStorageCellItem");
         }

@@ -24,7 +24,7 @@ import java.util.Optional;
 public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Getter
-    private final int tier;
+    private final IECOTier tier;
     private final long totalBytes;
     private final int bytesPerType;
     private final int totalTypes;
@@ -32,7 +32,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType) {
         super(properties);
-        this.tier = tier.getTier();
+        this.tier = tier;
         this.totalBytes = tier.getStorageTotalBytes();
         this.bytesPerType = 1 << (12 + tier.getTier());
         this.totalTypes = tier.getStorageTotalTypes(keyType);

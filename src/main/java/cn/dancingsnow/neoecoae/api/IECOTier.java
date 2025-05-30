@@ -62,4 +62,8 @@ public interface IECOTier {
     default int getStorageTotalTypes(AEKeyType keyType) {
         return ECOAETypeCounts.getByType(keyType);
     }
+
+    default int compareTo(IECOTier tier) {
+        return Integer.compare(this.getTier(), tier.getTier());
+    }
 }

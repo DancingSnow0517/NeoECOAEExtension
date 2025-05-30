@@ -2,10 +2,12 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.client.model.data.ECODriveModelData;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.lowdragmc.lowdraglib.syncdata.IEnhancedManaged;
 import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
@@ -95,6 +97,10 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Nullable
     private ItemStack cellStack = null;
 
+    @Getter
+    @DescSynced
+    private boolean mounted = false;
+
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
         BlockPos pos,
@@ -123,9 +129,12 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     private void updateState() {
         double power = 256;
-        ECOStorageCell cellInventory = getCellInventory();
-        if (cellInventory != null) {
-            power += cellInventory.getIdleDrain();
+        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
+            IECOTier mainTier = storageCluster.getController().getTier();
+            ECOStorageCell cellInventory = getCellInventory();
+            if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
+                power += cellInventory.getIdleDrain();
+            }
         }
         getMainNode().setIdlePowerUsage(power);
     }
@@ -174,10 +183,16 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
-        ECOStorageCell cellInventory = getCellInventory();
-        if (cellInventory != null) {
-            storageMounts.mount(cellInventory);
+        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
+            IECOTier mainTier = storageCluster.getController().getTier();
+            ECOStorageCell cellInventory = getCellInventory();
+            if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
+                storageMounts.mount(cellInventory);
+                mounted = true;
+                return;
+            }
         }
+        mounted = false;
     }
 
     @Override
