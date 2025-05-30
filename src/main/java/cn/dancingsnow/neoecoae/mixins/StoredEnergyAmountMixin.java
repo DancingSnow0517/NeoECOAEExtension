@@ -6,12 +6,10 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.DoubleTag;
 import net.neoforged.neoforge.common.util.INBTSerializable;
 import org.jetbrains.annotations.UnknownNullability;
-import org.spongepowered.asm.mixin.Debug;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
-@Debug(export = true)
 @Mixin(value = StoredEnergyAmount.class, remap = false)
 public abstract class StoredEnergyAmountMixin implements IContentChangeAware, INBTSerializable<DoubleTag> {
     @Shadow public abstract void setStored(double amount);

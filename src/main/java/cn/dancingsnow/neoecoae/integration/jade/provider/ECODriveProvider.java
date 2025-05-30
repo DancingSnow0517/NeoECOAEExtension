@@ -4,7 +4,9 @@ import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
+import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
@@ -18,6 +20,15 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     @Override
     public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
         CompoundTag serverData = blockAccessor.getServerData();
+        if (serverData.contains("mounted")) {
+            boolean mounted = serverData.getBoolean("mounted");
+            if (mounted) {
+                iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
+            } else {
+                iTooltip.add(Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
+                return;
+            }
+        }
         if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
             iTooltip.add(Tooltips.bytesUsed(serverData.getLong("usedBytes"),serverData.getLong("totalBytes")));
         }
@@ -29,6 +40,7 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     @Override
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
         if (blockAccessor.getBlockEntity() instanceof ECODriveBlockEntity be) {
+            compoundTag.putBoolean("mounted", be.isMounted());
             ECOStorageCell cellInventory = be.getCellInventory();
             if (cellInventory != null) {
                 compoundTag.putLong("usedBytes", cellInventory.getUsedBytes());
