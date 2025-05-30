@@ -9,13 +9,25 @@ import com.lowdragmc.lowdraglib.gui.widget.TextTextureWidget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.custom.PlayerInventoryWidget;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
 public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidInputHatchBlockEntity>
     implements IUIHolder.Block {
+
+    public FluidTank tank = new FluidTank(16000) {
+        @Override
+        protected void onContentsChanged() {
+            setChanged();
+            markForUpdate();
+        }
+    };
+
     public ECOFluidInputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
     }
@@ -36,6 +48,7 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
         TankWidget tankWidget = new TankWidget();
         tankWidget.setSelfPosition(81, 28);
         tankWidget.initTemplate();
+        tankWidget.setFluidTank(tank);
         root.addWidget(tankWidget);
 
         PlayerInventoryWidget playerInventoryWidget = new PlayerInventoryWidget();
@@ -48,5 +61,17 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
     @Override
     public ModularUI createUI(Player entityPlayer) {
         return new ModularUI(createUI(), this, entityPlayer);
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
+        super.saveAdditional(data, registries);
+        tank.writeToNBT(registries, data);
+    }
+
+    @Override
+    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
+        super.loadTag(data, registries);
+        tank.readFromNBT(registries, data);
     }
 }
