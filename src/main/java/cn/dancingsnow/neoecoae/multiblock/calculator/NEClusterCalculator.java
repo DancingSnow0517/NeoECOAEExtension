@@ -20,11 +20,6 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         super(t);
     }
 
-    @Override
-    public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
-        return true;
-    }
-
     @SuppressWarnings("unchecked")
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {

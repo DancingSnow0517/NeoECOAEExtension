@@ -2,37 +2,42 @@ package cn.dancingsnow.neoecoae.registration;
 
 import appeng.api.AECapabilities;
 import appeng.api.networking.IInWorldGridNodeHost;
+import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
+import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 
-import java.util.function.Supplier;
-
 public class NEBlockEntityEntry<T extends NEBlockEntity<?, T>> extends BlockEntityEntry<T> {
-    private final Supplier<? extends NEBlock<T>> blockSupplier;
+    private final BlockEntry<? extends NEBlock<T>> blockEntry;
 
     public NEBlockEntityEntry(
         AbstractRegistrate<?> owner,
         DeferredHolder<BlockEntityType<?>, BlockEntityType<T>> delegate,
-        Supplier<NEBlock<T>> blockSupplier
+        BlockEntry<? extends NEBlock<T>> blockEntry
     ) {
         super(owner, delegate);
-        this.blockSupplier = blockSupplier;
+        this.blockEntry = blockEntry;
     }
 
     public void onCommonSetup(FMLCommonSetupEvent event) {
         //noinspection unchecked
-        blockSupplier.get().setBlockEntity(
-            (Class<T>) getDelegate().value().create(BlockPos.ZERO, blockSupplier.get().defaultBlockState()).getClass(),
+        blockEntry.get().setBlockEntity(
+            (Class<T>) getDelegate().value().create(BlockPos.ZERO, blockEntry.get().defaultBlockState()).getClass(),
             (BlockEntityType<T>) getDelegate().value(),
             null,
             null
+        );
+
+        AEBaseBlockEntity.registerBlockEntityItem(
+            getDelegate().value(),
+            blockEntry.asItem()
         );
     }
 

@@ -141,7 +141,7 @@ public class ECOStorageCell implements StorageCell {
 
     @Override
     public double getIdleDrain() {
-        return 0;
+        return (double) getTotalBytes() / (1 << 20);
     }
 
     @Override

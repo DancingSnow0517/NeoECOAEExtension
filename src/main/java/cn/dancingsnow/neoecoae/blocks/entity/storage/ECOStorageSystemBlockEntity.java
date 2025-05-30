@@ -42,4 +42,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     ) {
         return new ECOStorageSystemBlockEntity(type, pos, blockState, ECOTier.L9);
     }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        getMainNode().setIdlePowerUsage(256 + (1 << (1 + 4 * tier.getTier())));
+    }
+
+    public int getTier() {
+        return tier.getTier();
+    }
 }

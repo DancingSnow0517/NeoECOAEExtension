@@ -11,6 +11,11 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     }
 
     @Override
+    public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
+        return false;
+    }
+
+    @Override
     public NEComputationCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
         return new NEComputationCluster(min, max);
     }

@@ -12,4 +12,10 @@ public class ECOStorageVentBlockEntity extends AbstractStorageBlockEntity<ECOSto
     ) {
         super(type, pos, blockState);
     }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        getMainNode().setIdlePowerUsage(64);
+    }
 }

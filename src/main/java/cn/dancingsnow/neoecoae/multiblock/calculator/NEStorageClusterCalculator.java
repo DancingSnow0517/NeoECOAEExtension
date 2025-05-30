@@ -4,8 +4,8 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.MachineEnergyCell;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
@@ -23,6 +23,19 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
     @Override
     public NEStorageCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
         return new NEStorageCluster(min, max);
+    }
+
+    @Override
+    public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
+        int sizeX = max.getX() - min.getX() + 1;
+        int sizeY = max.getY() - min.getY() + 1;
+        int sizeZ = max.getZ() - min.getZ() + 1;
+
+        if (sizeX > sizeZ) {
+            return sizeX <= 15 && sizeY == 3 && sizeZ == 2;
+        } else {
+            return sizeZ <= 15 && sizeY == 3 && sizeX == 2;
+        }
     }
 
     @Override

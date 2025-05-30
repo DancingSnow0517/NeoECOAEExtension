@@ -11,6 +11,11 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     }
 
     @Override
+    public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
+        return false;
+    }
+
+    @Override
     public NECraftingCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
         return new NECraftingCluster(min, max);
     }

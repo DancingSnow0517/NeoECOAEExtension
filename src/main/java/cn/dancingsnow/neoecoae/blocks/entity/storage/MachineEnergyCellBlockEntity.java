@@ -3,7 +3,9 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
+import appeng.api.config.PowerUnit;
 import appeng.api.networking.energy.IAEPowerStorage;
+import appeng.blockentity.powersink.IExternalPowerSink;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import com.lowdragmc.lowdraglib.syncdata.IManaged;
 import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
@@ -18,7 +20,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<MachineEnergyCellBlockEntity>
-    implements IAEPowerStorage, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
+    implements IExternalPowerSink, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(MachineEnergyCellBlockEntity.class);
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -84,12 +86,12 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
 
     @Override
     public boolean isAEPublicPowerStorage() {
-        return false;
+        return true;
     }
 
     @Override
     public AccessRestriction getPowerFlow() {
-        return formed ? AccessRestriction.WRITE : AccessRestriction.NO_ACCESS;
+        return formed ? AccessRestriction.READ_WRITE : AccessRestriction.NO_ACCESS;
     }
 
     @Override
@@ -111,5 +113,21 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
     @Override
     public IManagedStorage getRootStorage() {
         return syncStorage;
+    }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        getMainNode().setIdlePowerUsage(256 + (1 << (1 + 2 * tier.getTier())));
+    }
+
+    @Override
+    public double injectExternalPower(PowerUnit externalUnit, double amount, Actionable mode) {
+        return PowerUnit.AE.convertTo(externalUnit, injectAEPower(PowerUnit.AE.convertTo(externalUnit, amount), mode));
+    }
+
+    @Override
+    public double getExternalPowerDemand(PowerUnit externalUnit, double maxPowerRequired) {
+        return PowerUnit.AE.convertTo(externalUnit, Math.max(0.0, getAEMaxPower() - getAECurrentPower()));
     }
 }

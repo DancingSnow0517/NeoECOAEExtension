@@ -8,6 +8,7 @@ import appeng.items.storage.StorageCellTooltipComponent;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.cell.IBasicECOCellItem;
+import lombok.Getter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.Item;
@@ -22,6 +23,8 @@ import java.util.Optional;
 
 public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
+    @Getter
+    private final int tier;
     private final long totalBytes;
     private final int bytesPerType;
     private final int totalTypes;
@@ -29,6 +32,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType) {
         super(properties);
+        this.tier = tier.getTier();
         this.totalBytes = tier.getStorageTotalBytes();
         this.bytesPerType = 1 << (12 + tier.getTier());
         this.totalTypes = tier.getStorageTotalTypes(keyType);

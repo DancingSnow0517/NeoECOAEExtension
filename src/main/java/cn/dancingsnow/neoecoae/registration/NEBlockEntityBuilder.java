@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.builders.BlockEntityBuilder;
 import com.tterrag.registrate.builders.BuilderCallback;
+import com.tterrag.registrate.util.entry.BlockEntry;
 import com.tterrag.registrate.util.entry.RegistryEntry;
 import com.tterrag.registrate.util.nullness.NonNullFunction;
 import com.tterrag.registrate.util.nullness.NonNullSupplier;
@@ -21,10 +22,9 @@ import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends BlockEntityBuilder<T, P> {
-    private Supplier<NEBlock<T>> blockSupplier;
+    private BlockEntry<? extends NEBlock<T>> blockEntry;
 
     public interface ClusterBlockEntityFactory<T extends NEBlockEntity<C, T>, C extends NECluster<C>> {
         T create(BlockEntityType<T> type, BlockPos pos, BlockState state, NEClusterCalculator.Factory<C> tcFactory);
@@ -38,9 +38,8 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
         super(owner, parent, name, callback, factory);
     }
 
-    public NEBlockEntityBuilder<T, P> forBlock(Supplier<? extends NEBlock<T>> blockSupplier) {
-        //noinspection unchecked
-        this.blockSupplier = (Supplier<NEBlock<T>>) blockSupplier;
+    public NEBlockEntityBuilder<T, P> forBlock(BlockEntry<? extends NEBlock<T>> blockSupplier) {
+        this.blockEntry = blockSupplier;
         return this;
     }
 
@@ -76,6 +75,6 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     @Override
     protected RegistryEntry<BlockEntityType<?>, BlockEntityType<T>> createEntryWrapper(DeferredHolder<BlockEntityType<?>, BlockEntityType<T>> delegate) {
-        return new NEBlockEntityEntry<>(getOwner(), delegate, blockSupplier);
+        return new NEBlockEntityEntry<>(getOwner(), delegate, blockEntry);
     }
 }

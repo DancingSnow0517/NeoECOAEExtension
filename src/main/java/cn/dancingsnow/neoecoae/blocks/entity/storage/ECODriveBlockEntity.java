@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import appeng.api.storage.IStorageMounts;
+import appeng.api.storage.IStorageProvider;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.client.model.data.ECODriveModelData;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -26,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
-    implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IEnhancedManaged {
+    implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IEnhancedManaged, IStorageProvider {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECODriveBlockEntity.class);
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -99,6 +101,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         BlockState blockState
     ) {
         super(type, pos, blockState);
+        getMainNode().addService(IStorageProvider.class, this);
     }
 
     @Override
@@ -113,6 +116,18 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         } else {
             getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, false));
         }
+        updateState();
+        IStorageProvider.requestUpdate(getMainNode());
+        this.cellStack = cellStack;
+    }
+
+    private void updateState() {
+        double power = 256;
+        ECOStorageCell cellInventory = getCellInventory();
+        if (cellInventory != null) {
+            power += cellInventory.getIdleDrain();
+        }
+        getMainNode().setIdlePowerUsage(power);
     }
 
     @Override
@@ -155,5 +170,19 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             return ECOStorageCellItem.getCellInventory(cellStack);
         }
         return null;
+    }
+
+    @Override
+    public void mountInventories(IStorageMounts storageMounts) {
+        ECOStorageCell cellInventory = getCellInventory();
+        if (cellInventory != null) {
+            storageMounts.mount(cellInventory);
+        }
+    }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        updateState();
     }
 }
