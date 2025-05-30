@@ -1,0 +1,6 @@
+{
+  "parent": "neoecoae:block/crafting_parallel_core",
+  "textures": {
+    "1": "neoecoae:block/crafting_parallel_core_front_led_l9"
+  }
+}

@@ -3,8 +3,11 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
@@ -185,6 +188,22 @@ public class NEBlockEntities {
         NEBlocks.CRAFTING_SYSTEM_L9
     );
 
+    public static final NEBlockEntityEntry<ECOCraftingParallelCoreBlockEntity> CRAFTING_PARALLEL_CORE_L4 = createCraftingParallelCore(
+        ECOTier.L4,
+        "l4",
+        NEBlocks.CRAFTING_PARALLEL_CORE_L4
+    );
+    public static final NEBlockEntityEntry<ECOCraftingParallelCoreBlockEntity> CRAFTING_PARALLEL_CORE_L6 = createCraftingParallelCore(
+        ECOTier.L6,
+        "l6",
+        NEBlocks.CRAFTING_PARALLEL_CORE_L6
+    );
+    public static final NEBlockEntityEntry<ECOCraftingParallelCoreBlockEntity> CRAFTING_PARALLEL_CORE_L9 = createCraftingParallelCore(
+        ECOTier.L9,
+        "l9",
+        NEBlocks.CRAFTING_PARALLEL_CORE_L9
+    );
+
     public static final NEBlockEntityEntry<ECOCraftingVentBlockEntity> CRAFTING_VENT = REGISTRATE
         .blockEntityBlockLinked(
             "crafting_vent",
@@ -200,6 +219,15 @@ public class NEBlockEntities {
         .validBlock(NEBlocks.INPUT_HATCH)
         .register();
 
+    public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> CRAFTING_WORKER = REGISTRATE
+        .blockEntityBlockLinked(
+            "crafting_worker",
+            ECOCraftingWorkerBlockEntity::new
+        )
+        .forBlock(NEBlocks.CRAFTING_WORKER)
+        .validBlock(NEBlocks.CRAFTING_WORKER)
+        .register();
+
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(
         IECOTier tier,
         String tierString,
@@ -210,6 +238,22 @@ public class NEBlockEntities {
                 "crafting_system_" + tierString,
                 tier,
                 ECOCraftingSystemBlockEntity::new
+            )
+            .forBlock(block)
+            .validBlock(block)
+            .register();
+    }
+
+    private static NEBlockEntityEntry<ECOCraftingParallelCoreBlockEntity> createCraftingParallelCore(
+        IECOTier tier,
+        String tierString,
+        BlockEntry<? extends NEBlock<ECOCraftingParallelCoreBlockEntity>> block
+    ) {
+        return REGISTRATE
+            .tierBlockEntityBlockLinked(
+                "crafting_parallel_core_" + tierString,
+                tier,
+                ECOCraftingParallelCoreBlockEntity::new
             )
             .forBlock(block)
             .validBlock(block)

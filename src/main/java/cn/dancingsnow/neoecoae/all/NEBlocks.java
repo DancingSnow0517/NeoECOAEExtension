@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.blocks.MachineInterface;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingVent;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystem;
@@ -15,14 +16,17 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
+import net.neoforged.neoforge.client.model.generators.MultiPartBlockStateBuilder;
 
 import java.util.Locale;
 
@@ -315,6 +319,72 @@ public class NEBlocks {
         })
         .register();
 
+    public static final BlockEntry<ECOCraftingWorker> CRAFTING_WORKER = REGISTRATE
+        .block("crafting_worker", ECOCraftingWorker::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .item()
+        .properties(p -> p.rarity(Rarity.RARE))
+        .build()
+        .lang("ECO - FX Worker")
+        .blockstate((ctx, prov) -> {
+            ModelFile modelFile = prov.models()
+                .cube(
+                    ctx.getName(),
+                    prov.modLoc("block/crafting_casing"),
+                    prov.modLoc("block/crafting_casing"),
+                    prov.modLoc("block/crafting_worker_front"),
+                    prov.modLoc("block/crafting_vent_front"),
+                    prov.modLoc("block/crafting_interface_top"),
+                    prov.modLoc("block/crafting_interface_top")
+                ).texture("particle", prov.modLoc("block/crafting_worker_front"));
+            ModelFile statusLedOnline = prov.models().getExistingFile(prov.modLoc("block/worker/crafting_worker_led_online"));
+            ModelFile statusLedOffline = prov.models().getExistingFile(prov.modLoc("block/worker/crafting_worker_led_offline"));
+
+            ModelFile statusPanelIdle = prov.models().getExistingFile(prov.modLoc("block/worker/crafting_worker_panel_idle"));
+            ModelFile statusPanelRunning = prov.models().getExistingFile(prov.modLoc("block/worker/crafting_worker_panel_running"));
+            MultiPartBlockStateBuilder builder = prov.getMultipartBuilder(ctx.get());
+            for (BlockState s : ctx.get().getStateDefinition().getPossibleStates()) {
+                boolean working = s.getValue(ECOCraftingWorker.WORKING);
+                boolean formed = s.getValue(ECOCraftingWorker.FORMED);
+                Direction facing = s.getValue(ECOCraftingWorker.FACING);
+                builder.part()
+                    .modelFile(modelFile)
+                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                    .addModel()
+                    .condition(ECOCraftingWorker.FACING, facing)
+                    .end();
+                builder.part()
+                    .modelFile(working ? statusPanelRunning : statusPanelIdle)
+                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                    .addModel()
+                    .condition(ECOCraftingWorker.FACING, facing)
+                    .condition(ECOCraftingWorker.WORKING, working)
+                    .end();
+                builder.part()
+                    .modelFile(formed ? statusLedOnline : statusLedOffline)
+                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                    .addModel()
+                    .condition(ECOCraftingWorker.FACING, facing)
+                    .condition(ECOCraftingWorker.FORMED, formed)
+                    .end();
+            }
+        })
+        .register();
+
+    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L4 = createParallelCore(
+        "l4",
+        Rarity.UNCOMMON
+    );
+    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L6 = createParallelCore(
+        "l6",
+        Rarity.RARE
+    );
+    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L9 = createParallelCore(
+        "l9",
+        Rarity.EPIC
+    );
+
 
     //endregion
 
@@ -357,8 +427,8 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models()
-                    .withExistingParent(ctx.getName(), prov.modLoc("block/parallel_core"))
-                    .texture("1", "block/parallel_core_" + level);
+                    .withExistingParent(ctx.getName(), prov.modLoc("block/crafting_parallel_core"))
+                    .texture("1", "block/crafting_parallel_core_front_led_" + level);
                 prov.getVariantBuilder(ctx.get())
                     .forAllStatesExcept(
                         s ->
@@ -372,7 +442,7 @@ public class NEBlocks {
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
-            .lang("ECO - %s Parallel core"
+            .lang("ECO - %s Parallel Core"
                 .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "FT")
             )
             .register();
