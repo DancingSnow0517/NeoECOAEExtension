@@ -7,23 +7,17 @@ import net.minecraft.core.BlockPos;
 
 import java.util.List;
 
-public class NECraftingCluster extends NECluster<NECraftingCluster> implements ICraftingProvider {
+public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
     }
 
-    @Override
-    public List<IPatternDetails> getAvailablePatterns() {
-        return List.of();
-    }
 
-    @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
         return false;
     }
 
-    @Override
     public boolean isBusy() {
         return false;
     }
