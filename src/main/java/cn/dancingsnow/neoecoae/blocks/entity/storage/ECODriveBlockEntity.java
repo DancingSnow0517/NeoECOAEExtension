@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -100,6 +101,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Getter
     @DescSynced
     private boolean mounted = false;
+    @Getter
+    @DescSynced
+    private boolean online = false;
 
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
@@ -199,5 +203,11 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void onReady() {
         super.onReady();
         updateState();
+    }
+
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
+        online = getMainNode().isOnline();
     }
 }

@@ -218,6 +218,13 @@ public class NEBlockEntities {
         .blockEntityBlockLinked("input_hatch", ECOFluidInputHatchBlockEntity::new)
         .forBlock(NEBlocks.INPUT_HATCH)
         .validBlock(NEBlocks.INPUT_HATCH)
+        .registerCapability(event -> {
+            event.registerBlockEntity(
+                Capabilities.FluidHandler.BLOCK,
+                NEBlockEntities.INPUT_HATCH.get(),
+                (be, side) -> be.getBlockState().getValue(ECOFluidInputHatchBlock.FACING) == side ? be.tank : null
+            );
+        })
         .register();
 
     public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> CRAFTING_WORKER = REGISTRATE
@@ -257,13 +264,6 @@ public class NEBlockEntities {
             )
             .forBlock(block)
             .validBlock(block)
-            .registerCapability(event -> {
-                event.registerBlockEntity(
-                    Capabilities.FluidHandler.BLOCK,
-                    NEBlockEntities.INPUT_HATCH.get(),
-                    (be, side) -> be.getBlockState().getValue(ECOFluidInputHatchBlock.FACING) == side ? be.tank : null
-                );
-            })
             .register();
     }
 

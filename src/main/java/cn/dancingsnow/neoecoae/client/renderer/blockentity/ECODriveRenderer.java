@@ -22,7 +22,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
     @Override
     public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
-        if (!blockEntity.isMounted()) {
+        if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
             return;
         }
         ECOStorageCell cellInventory = blockEntity.getCellInventory();

@@ -16,15 +16,22 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Consumer;
 
 public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends BlockEntityBuilder<T, P> {
     private BlockEntry<? extends NEBlock<T>> blockEntry;
+    @Nullable
+    private BlockEntityTicker<T> clientTicker;
+
+    @Nullable
+    private BlockEntityTicker<T> serverTicker;
 
     public interface ClusterBlockEntityFactory<T extends NEBlockEntity<C, T>, C extends NECluster<C>> {
         T create(BlockEntityType<T> type, BlockPos pos, BlockState state, NEClusterCalculator.Factory<C> tcFactory);
@@ -40,6 +47,16 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     public NEBlockEntityBuilder<T, P> forBlock(BlockEntry<? extends NEBlock<T>> blockSupplier) {
         this.blockEntry = blockSupplier;
+        return this;
+    }
+
+    public NEBlockEntityBuilder<T, P> clientTicker(BlockEntityTicker<T> ticker) {
+        clientTicker = ticker;
+        return this;
+    }
+
+    public NEBlockEntityBuilder<T, P> serverTicker(BlockEntityTicker<T> ticker) {
+        serverTicker = ticker;
         return this;
     }
 
@@ -75,6 +92,6 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     @Override
     protected RegistryEntry<BlockEntityType<?>, BlockEntityType<T>> createEntryWrapper(DeferredHolder<BlockEntityType<?>, BlockEntityType<T>> delegate) {
-        return new NEBlockEntityEntry<>(getOwner(), delegate, blockEntry);
+        return new NEBlockEntityEntry<>(getOwner(), delegate, blockEntry, clientTicker, serverTicker);
     }
 }
