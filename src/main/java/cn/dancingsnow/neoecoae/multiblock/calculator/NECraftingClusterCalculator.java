@@ -110,7 +110,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             level,
             right,
             ventStart,
-            matchingStateFacing(NEBlocks.CRAFTING_VENT, front)
+            matchingStateFacing(NEBlocks.CRAFTING_VENT, back)
         );
         if (ventEndResult.isError()) {
             return false;
@@ -122,7 +122,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             level,
             right,
             upperPatternBusStart,
-            matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, front)
+            matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, back)
         );
         if (upperPatternBusEndResult.isError()) {
             return false;
@@ -134,7 +134,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             level,
             right,
             lowerPatternBusStart,
-            matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, front)
+            matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, back)
         );
         if (lowerPatternBusEndResult.isError()) {
             return false;
@@ -192,7 +192,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         Holder<Block> block,
         Direction facing
     ) {
-        return (s, p) -> s.is(block.value())
+        return (s, p) -> s.is(block)
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 }
