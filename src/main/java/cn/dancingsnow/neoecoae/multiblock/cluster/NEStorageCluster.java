@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
-import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -23,16 +22,8 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
     private MachineInterfaceBlockEntity<NEStorageCluster> theInterface = null;
     private final List<MachineCasingBlockEntity<NEStorageCluster>> casings = new ArrayList<>();
 
-    private boolean isDestroyed = false;
     public NEStorageCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
-    }
-
-    @Override
-    public void updateStatus(boolean updateGrid) {
-        for (NEBlockEntity<NEStorageCluster, ?> be : blockEntities) {
-            be.updateState(updateGrid);
-        }
     }
 
     @Override
@@ -66,29 +57,5 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
             return casingPos.distanceToSqr(controllerPos) <= 3;
         }
         return false;
-    }
-
-    @Override
-    public void destroy() {
-        if (this.isDestroyed) {
-            return;
-        }
-        this.isDestroyed = true;
-        boolean ownsModification = !MBCalculator.isModificationInProgress();
-        if (ownsModification) {
-            MBCalculator.setModificationInProgress(this);
-        }
-        try {
-            for (NEBlockEntity<NEStorageCluster, ?> blockEntity : blockEntities) {
-                blockEntity.updateCluster(null);
-            }
-        } finally {
-            MBCalculator.setModificationInProgress(null);
-        }
-    }
-
-    @Override
-    public boolean isDestroyed() {
-        return isDestroyed;
     }
 }

@@ -1,9 +1,12 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import appeng.me.cluster.IAECluster;
+import appeng.me.cluster.MBCalculator;
 import appeng.me.helpers.MachineSource;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import org.jetbrains.annotations.MustBeInvokedByOverriders;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -14,6 +17,9 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     private final BlockPos boundMax;
     protected final List<NEBlockEntity<T, ?>> blockEntities = new ArrayList<>();
     private MachineSource machineSource = null;
+
+    @Getter
+    private boolean destroyed = false;
 
     public NECluster(BlockPos boundMin, BlockPos boundMax) {
         this.boundMin = boundMin;
@@ -49,7 +55,36 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     }
 
     @Override
+    @MustBeInvokedByOverriders
     public Iterator<? extends NEBlockEntity<T, ?>> getBlockEntities() {
         return blockEntities.listIterator();
+    }
+
+    @Override
+    @MustBeInvokedByOverriders
+    public void updateStatus(boolean updateGrid) {
+        for (NEBlockEntity<T, ?> be : blockEntities) {
+            be.updateState(updateGrid);
+        }
+    }
+
+    @Override
+    @MustBeInvokedByOverriders
+    public void destroy() {
+        if (this.destroyed) {
+            return;
+        }
+        this.destroyed = true;
+        boolean ownsModification = !MBCalculator.isModificationInProgress();
+        if (ownsModification) {
+            MBCalculator.setModificationInProgress(this);
+        }
+        try {
+            for (NEBlockEntity<T, ?> blockEntity : blockEntities) {
+                blockEntity.updateCluster(null);
+            }
+        } finally {
+            MBCalculator.setModificationInProgress(null);
+        }
     }
 }

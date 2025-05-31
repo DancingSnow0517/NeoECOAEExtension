@@ -1,14 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.KeyCounter;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingPatternBus;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidOutputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
@@ -17,6 +10,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
+import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
@@ -30,6 +24,9 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     private ECOCraftingSystemBlockEntity controller = null;
     private ECOFluidInputHatchBlockEntity inputHatch = null;
     private ECOFluidOutputHatchBlockEntity outputHatch = null;
+
+    @Getter
+    private boolean destroyed = false;
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -74,19 +71,5 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         if (blockEntity instanceof ECOFluidOutputHatchBlockEntity outputHatchBlockEntity) {
             this.outputHatch = outputHatchBlockEntity;
         }
-    }
-
-    @Override
-    public void updateStatus(boolean updateGrid) {
-
-    }
-
-    @Override
-    public void destroy() {
-    }
-
-    @Override
-    public boolean isDestroyed() {
-        return false;
     }
 }

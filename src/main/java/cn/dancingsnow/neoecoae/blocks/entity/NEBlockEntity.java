@@ -19,6 +19,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -87,6 +88,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         return directions;
     }
 
+    @MustBeInvokedByOverriders
     public void updateState(boolean updateExposed) {
         if (this.level == null || this.notLoaded() || this.isRemoved()) {
             return;
