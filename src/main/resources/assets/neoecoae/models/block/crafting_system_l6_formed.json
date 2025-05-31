@@ -1,6 +1,7 @@
 {
 	"credit": "Made with WI_8614_ice",
 	"texture_size": [256, 256],
+	"render_type": "cutout",
 	"textures": {
 		"1": "neoecoae:block/crafting_system_formed",
 		"2": "neoecoae:block/crafting_system_formed_led",

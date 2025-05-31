@@ -219,7 +219,7 @@ public class NEBlockEntities {
         .blockEntityBlockLinked("input_hatch", ECOFluidInputHatchBlockEntity::new)
         .forBlock(NEBlocks.INPUT_HATCH)
         .validBlock(NEBlocks.INPUT_HATCH)
-        .serverTicker(((level, pos, state, be) -> be.tick(level, pos, state)))
+        .serverTicker(ECOFluidInputHatchBlockEntity::tick)
         .registerCapability(event -> {
             event.registerBlockEntity(
                 Capabilities.FluidHandler.BLOCK,
@@ -233,7 +233,7 @@ public class NEBlockEntities {
         .blockEntityBlockLinked("output_hatch", ECOFluidOutputHatchBlockEntity::new)
         .forBlock(NEBlocks.OUTPUT_HATCH)
         .validBlock(NEBlocks.OUTPUT_HATCH)
-        .serverTicker(((level, pos, state, be) -> be.tick(level, pos, state)))
+        .serverTicker(ECOFluidOutputHatchBlockEntity::tick)
         .registerCapability(event -> {
             event.registerBlockEntity(
                 Capabilities.FluidHandler.BLOCK,

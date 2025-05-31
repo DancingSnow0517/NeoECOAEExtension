@@ -1,5 +1,6 @@
 {
 	"credit": "Made with WI_8614_ice",
+	"render_type": "cutout",
 	"textures": {
 		"0": "neoecoae:block/worker/light/crafting_worker_led_active",
 		"1": "neoecoae:block/worker/crafting_worker_led_active",

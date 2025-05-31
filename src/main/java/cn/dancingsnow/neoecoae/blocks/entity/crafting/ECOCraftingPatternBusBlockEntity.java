@@ -1,12 +1,20 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.InternalInventory;
+import appeng.api.networking.IGrid;
+import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.crafting.pattern.EncodedPatternItem;
+import appeng.helpers.patternprovider.PatternContainer;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.gui.widget.AEPatternViewSlotWidget;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
@@ -32,12 +40,15 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
-    implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged, InternalInventoryHost, IUIHolder.Block {
+    implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity,
+    IManaged, InternalInventoryHost, IUIHolder.Block, ICraftingProvider, PatternContainer {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECOCraftingPatternBusBlockEntity.class);
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -48,8 +59,48 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Persisted
     @DescSynced
     private final AppEngInternalInventory inventory;
-
+    private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;
+
+    @Override
+    public List<IPatternDetails> getAvailablePatterns() {
+        return patternDetails;
+    }
+
+    @Override
+    public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
+        if (cluster != null) {
+            return this.cluster.pushPattern(patternDetails, inputHolder);
+        }
+        return false;
+    }
+
+    @Override
+    public boolean isBusy() {
+        if (cluster != null) {
+            return cluster.isBusy();
+        }
+        return true;
+    }
+
+    @Override
+    public @Nullable IGrid getGrid() {
+        return getGridNode().getGrid();
+    }
+
+    @Override
+    public InternalInventory getTerminalPatternInventory() {
+        return inventory;
+    }
+
+    @Override
+    public PatternContainerGroup getTerminalGroup() {
+        return new PatternContainerGroup(
+            AEItemKey.of(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
+            NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),
+            List.of()
+        );
+    }
 
     class AEEncodedPatternFilter implements IAEItemFilter {
         @Override
@@ -63,6 +114,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         this.inventory = new AppEngInternalInventory(this, ROW_SIZE * COL_SIZE);
         this.inventory.setFilter(new AEEncodedPatternFilter());
         this.itemHandler = (IItemHandlerModifiable) inventory.toItemHandler();
+        this.getMainNode().addService(ICraftingProvider.class, this);
     }
 
     @Override
@@ -73,6 +125,24 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
         this.saveChanges();
+        updatePatternDetails();
+    }
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        updatePatternDetails();
+    }
+
+    private void updatePatternDetails() {
+        patternDetails.clear();
+        for (ItemStack itemStack : this.inventory) {
+            IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, this.level);
+            if (details != null) {
+                patternDetails.add(details);
+            }
+        }
+        ICraftingProvider.requestUpdate(this.getMainNode());
     }
 
     @Override
@@ -105,16 +175,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             .forEach(drops::add);
     }
 
-    private void onPatternChange(int index) {
-        // TODO: sync
-    }
-
     private WidgetGroup createUI() {
         WidgetGroup root = new WidgetGroup();
         root.setSize(178, 238);
         root.setBackground(ResourceBorderTexture.BORDERED_BACKGROUND);
 
-        TextTextureWidget text = new TextTextureWidget(8, 8, 160,9);
+        TextTextureWidget text = new TextTextureWidget(8, 8, 160, 9);
         text.setText(Component.translatable("block.neoecoae.crafting_pattern_bus"));
         text.textureStyle(t -> t.setType(TextTexture.TextType.LEFT_ROLL));
         root.addWidget(text);
@@ -146,14 +212,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         slot.initTemplate();
         slot.setItemHook(stack -> {
             if (!stack.isEmpty() && stack.getItem() instanceof EncodedPatternItem<?> pattern) {
-                ItemStack out =  pattern.getOutput(stack);
+                ItemStack out = pattern.getOutput(stack);
                 if (!out.isEmpty()) {
                     return out;
                 }
             }
             return stack;
         });
-        slot.setChangeListener(() -> onPatternChange(index));
         return slot;
     }
 

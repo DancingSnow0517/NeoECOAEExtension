@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import cn.dancingsnow.neoecoae.util.NEBlockEntityTicker;
 import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.builders.BlockEntityBuilder;
 import com.tterrag.registrate.builders.BuilderCallback;
@@ -21,6 +22,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
+import org.apache.commons.lang3.function.TriConsumer;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Consumer;
@@ -40,7 +42,7 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
     public interface TierBlockEntityFactory<T extends NEBlockEntity<C, T>, C extends NECluster<C>> {
         T create(BlockEntityType<T> type, BlockPos pos, BlockState state, IECOTier tier);
     }
-    
+
     protected NEBlockEntityBuilder(AbstractRegistrate<?> owner, P parent, String name, BuilderCallback callback, BlockEntityFactory<T> factory) {
         super(owner, parent, name, callback, factory);
     }
@@ -57,6 +59,26 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     public NEBlockEntityBuilder<T, P> serverTicker(BlockEntityTicker<T> ticker) {
         serverTicker = ticker;
+        return this;
+    }
+
+    public NEBlockEntityBuilder<T, P> clientTicker(Consumer<T> ticker) {
+        clientTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
+        return this;
+    }
+
+    public NEBlockEntityBuilder<T, P> serverTicker(Consumer<T> ticker) {
+        serverTicker = (level, blockPos, blockState, t) -> ticker.accept(t);
+        return this;
+    }
+
+    public NEBlockEntityBuilder<T, P> clientTicker(NEBlockEntityTicker<T> ticker) {
+        clientTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
+        return this;
+    }
+
+    public NEBlockEntityBuilder<T, P> serverTicker(NEBlockEntityTicker<T> ticker) {
+        serverTicker = (level, blockPos, blockState, t) -> ticker.tick(t, level, blockPos, blockState);
         return this;
     }
 
@@ -94,4 +116,6 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
     protected RegistryEntry<BlockEntityType<?>, BlockEntityType<T>> createEntryWrapper(DeferredHolder<BlockEntityType<?>, BlockEntityType<T>> delegate) {
         return new NEBlockEntityEntry<>(getOwner(), delegate, blockEntry, clientTicker, serverTicker);
     }
+
+
 }
