@@ -36,6 +36,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
@@ -95,6 +96,16 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public PatternContainerGroup getTerminalGroup() {
+        if (cluster != null && cluster.getController() != null) {
+            var block = cluster.getController().getBlockState().getBlock();
+            if (block != Blocks.AIR) {
+                return new PatternContainerGroup(
+                    AEItemKey.of(block.asItem()),
+                    block.getName(),
+                    List.of()
+                );
+            }
+        }
         return new PatternContainerGroup(
             AEItemKey.of(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
             NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),

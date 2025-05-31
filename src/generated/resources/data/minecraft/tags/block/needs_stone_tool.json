@@ -16,14 +16,14 @@
     "neoecoae:crafting_system_l6",
     "neoecoae:crafting_system_l9",
     "neoecoae:crafting_interface",
-    "neoecoae:input_hatch",
-    "neoecoae:output_hatch",
-    "neoecoae:crafting_casing",
-    "neoecoae:crafting_vent",
-    "neoecoae:crafting_worker",
-    "neoecoae:crafting_pattern_bus",
     "neoecoae:crafting_parallel_core_l4",
     "neoecoae:crafting_parallel_core_l6",
-    "neoecoae:crafting_parallel_core_l9"
+    "neoecoae:crafting_parallel_core_l9",
+    "neoecoae:crafting_worker",
+    "neoecoae:crafting_pattern_bus",
+    "neoecoae:input_hatch",
+    "neoecoae:output_hatch",
+    "neoecoae:crafting_vent",
+    "neoecoae:crafting_casing"
   ]
 }

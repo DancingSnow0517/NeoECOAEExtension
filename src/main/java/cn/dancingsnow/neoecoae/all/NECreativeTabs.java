@@ -21,7 +21,7 @@ public class NECreativeTabs {
         .defaultCreativeTab(
             "crafting",
             CreativeModeTab.builder()
-                .icon(() -> NEBlocks.CRAFTING_INTERFACE.asStack())
+                .icon(() -> NEBlocks.CRAFTING_SYSTEM_L9.asStack())
                 .title(REGISTRATE.addLang("itemGroup", NeoECOAE.id("crafting"), "ECO Crafting System"))
                 .withTabsBefore(STORAGE.getKey())
         )

@@ -21,6 +21,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
     private final List<ECOCraftingWorkerBlockEntity> workers = new ArrayList<>();
     private final List<ECOCraftingPatternBusBlockEntity> patternBuses = new ArrayList<>();
+    @Getter
     private ECOCraftingSystemBlockEntity controller = null;
     private ECOFluidInputHatchBlockEntity inputHatch = null;
     private ECOFluidOutputHatchBlockEntity outputHatch = null;
