@@ -43,7 +43,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     public static final int ROW_SIZE = 9;
-    public static final int COL_SIZE = 6;
+    public static final int COL_SIZE = 7;
 
     @Persisted
     @DescSynced
@@ -111,7 +111,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     private WidgetGroup createUI() {
         WidgetGroup root = new WidgetGroup();
-        root.setSize(178, 220);
+        root.setSize(178, 238);
         root.setBackground(ResourceBorderTexture.BORDERED_BACKGROUND);
 
         TextTextureWidget text = new TextTextureWidget(8, 8, 160,9);
@@ -128,7 +128,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         }
 
         PlayerInventoryWidget playerInventoryWidget = new PlayerInventoryWidget();
-        playerInventoryWidget.setSelfPosition(3, 128);
+        playerInventoryWidget.setSelfPosition(3, 146);
         root.addWidget(playerInventoryWidget);
 
         root.addWidget(items);
