@@ -8,6 +8,8 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVent;
 import cn.dancingsnow.neoecoae.blocks.storage.MachineEnergyCell;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
@@ -16,6 +18,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 import java.util.List;
 
@@ -63,6 +66,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         BlockState controllerState = controller.getBlockState();
         IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
         Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
+        Direction front = back.getOpposite();
         Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
         Direction down = top.getOpposite();
         Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
@@ -81,32 +85,49 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             right,
             controllerPos.relative(right).relative(down),
-            NEBlocks.ECO_DRIVE
+            ((state, pos) -> state.is(NEBlocks.ECO_DRIVE)
+                && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == front
+            )
         );
-        if (!validateBlocks(level, storageBlocksStart, storageBlocksEnd, BlockState::is, NEBlocks.ECO_DRIVE)) {
+        if (!validateBlocks(
+            level,
+            storageBlocksStart,
+            storageBlocksEnd,
+            state -> state.is(NEBlocks.ECO_DRIVE)
+                && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == front
+        )) {
             return false;
         }
         BlockPos ventStart = controllerPos.relative(right).relative(back);
-        if (!validateBlock(level, ventStart, BlockState::is, NEBlocks.STORAGE_VENT)) {
+        if (!validateBlock(
+            level,
+            ventStart,
+            it -> it.is(NEBlocks.STORAGE_VENT)
+                && it.getValue(ECOStorageVent.FACING) == back
+        )) {
             return false;
         }
         BlockPos ventEnd = expandTowards(
             level,
             right,
             ventStart,
-            NEBlocks.STORAGE_VENT
+            it -> it.is(NEBlocks.STORAGE_VENT) &&it.getValue(ECOStorageVent.FACING) == back
         );
         if (ventStart.equals(ventEnd)) {
-            if (!validateBlock(level, ventStart, BlockState::is, NEBlocks.STORAGE_VENT)) {
+            if (!validateBlock(level, ventStart, BlockState::is, NEBlocks.STORAGE_VENT)
+                && level.getBlockState(ventStart).getValue(ECOStorageVent.FACING) == back
+            ) {
                 return false;
             }
         }
+
         BlockPos upperEnergyCellStart = controllerPos.relative(back).relative(top).relative(right);
         if (!validateBlock(
             level,
             upperEnergyCellStart,
             state -> state.getBlock() instanceof MachineEnergyCell cell
                 && cell.getBlockEntity(level, upperEnergyCellStart).getTier() == tier
+                && state.getValue(MachineEnergyCell.FACING) == back
         )) {
             return false;
         }
@@ -116,6 +137,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             upperEnergyCellStart,
             (state, pos) -> state.getBlock() instanceof MachineEnergyCell cell
                 && cell.getBlockEntity(level, pos).getTier() == tier
+                && state.getValue(MachineEnergyCell.FACING) == back
         );
         if (upperEnergyCellEnd.equals(upperEnergyCellStart)) {
             return validateBlock(
@@ -123,6 +145,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 upperEnergyCellStart,
                 state -> state.getBlock() instanceof MachineEnergyCell cell
                     && cell.getBlockEntity(level, upperEnergyCellEnd).getTier() == tier
+                    && state.getValue(MachineEnergyCell.FACING) == back
             );
         }
 
@@ -132,6 +155,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             lowerEnergyCellStart,
             state -> state.getBlock() instanceof MachineEnergyCell cell
                 && cell.getBlockEntity(level, lowerEnergyCellStart).getTier() == tier
+                && state.getValue(MachineEnergyCell.FACING) == back
         )) {
             return false;
         }
@@ -141,6 +165,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             lowerEnergyCellStart,
             (state, pos) -> state.getBlock() instanceof MachineEnergyCell cell
                 && cell.getBlockEntity(level, pos).getTier() == tier
+                && state.getValue(MachineEnergyCell.FACING) == back
         );
         if (lowerEnergyCellEnd.equals(lowerEnergyCellStart)) {
             return validateBlock(
@@ -148,8 +173,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 lowerEnergyCellEnd,
                 it -> it.getBlock() instanceof MachineEnergyCell cell
                     && cell.getBlockEntity(level, lowerEnergyCellEnd).getTier() == tier
+                    && it.getValue(MachineEnergyCell.FACING) == back
             );
         }
+
         BlockPos.MutableBlockPos tailCasing = storageBlocksEnd.mutable().move(right).move(top);
         List<BlockPos> tailCasingPoses = List.of(
             upperEnergyCellEnd.relative(right),
@@ -201,6 +228,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         }
         return true;
     }
+
 
     private boolean validateCasing(ServerLevel level, BlockPos controllerPos, Direction top, Direction down, Direction direction) {
         return validateCasing(level, controllerPos.relative(direction), top, down);
