@@ -1,6 +1,10 @@
 {
   "block.neoecoae.computation_casing": "buısɐƆ uoıʇɐʇndɯoƆ",
   "block.neoecoae.computation_interface": "ǝɔɐɟɹǝʇuI uoıʇɐʇndɯoƆ",
+  "block.neoecoae.computation_parallel_core_l4": "ɹǝןןoɹʇuoƆ ɯǝʇsʎsqnS buıʇɟɐɹƆ ǝןqısuǝʇxƎ ㄣℲ - OƆƎ",
+  "block.neoecoae.computation_parallel_core_l6": "ɹǝןןoɹʇuoƆ ɯǝʇsʎsqnS buıʇɟɐɹƆ ǝןqısuǝʇxƎ 9Ⅎ - OƆƎ",
+  "block.neoecoae.computation_parallel_core_l9": "ɹǝןןoɹʇuoƆ ɯǝʇsʎsqnS buıʇɟɐɹƆ ǝןqısuǝʇxƎ 6Ⅎ - OƆƎ",
+  "block.neoecoae.computation_transmitter": "snᗺ buıʇʇıɯsuɐɹ⟘ ǝʌıʇɔnpuoɔɹǝdnS IƆ - OƆƎ",
   "block.neoecoae.crafting_casing": "buısɐƆ buıʇɟɐɹƆ",
   "block.neoecoae.crafting_interface": "ǝɔɐɟɹǝʇuI buıʇɟɐɹƆ",
   "block.neoecoae.crafting_parallel_core_l4": "ǝɹoƆ ןǝןןɐɹɐԀ ㄣ⟘Ⅎ - OƆƎ",

@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae;
 
 
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
+import cn.dancingsnow.neoecoae.all.NEGridServices;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
@@ -35,6 +36,7 @@ public class NeoECOAE {
         NEItems.register();
         NEBlockEntities.register();
         NEDataGen.configureDataGen();
+        NEGridServices.register();
 
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
         integrationManager.compileContent();

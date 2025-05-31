@@ -15,6 +15,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.gui.widget.AEPatternViewSlotWidget;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
@@ -49,7 +50,7 @@ import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
     implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity,
-    IManaged, InternalInventoryHost, IUIHolder.Block, ICraftingProvider, PatternContainer {
+    IManaged, InternalInventoryHost, IUIHolder.Block, ICraftingProvider, PatternContainer, IECOPatternStorage {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECOCraftingPatternBusBlockEntity.class);
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -111,6 +112,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),
             List.of()
         );
+    }
+
+    @Override
+    public boolean insertPattern(ItemStack itemStack) {
+        ItemStack result = inventory.addItems(itemStack.copy());
+        return result.isEmpty();
     }
 
     class AEEncodedPatternFilter implements IAEItemFilter {

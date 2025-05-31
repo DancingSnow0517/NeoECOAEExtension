@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "neoecoae:computation_parallel_core_l6"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "neoecoae:blocks/computation_parallel_core_l6"
+}

@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.blocks.MachineCasing;
 import cn.dancingsnow.neoecoae.blocks.MachineInterface;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationTransmitter;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingPatternBus;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
@@ -222,6 +224,44 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
         .register();
+
+    public static final BlockEntry<ECOComputationTransmitter> COMPUTATION_TRANSMITTER = REGISTRATE
+        .block("computation_transmitter", ECOComputationTransmitter::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .simpleItem()
+        .blockstate((ctx, prov) -> {
+            prov.getVariantBuilder(ctx.get())
+                .forAllStates(s -> {
+                    ModelFile modelFile;
+                    if (s.getValue(ECOComputationTransmitter.FORMED)) {
+                        modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName() + "_formed"));
+                    } else {
+                        modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
+                    }
+                    return ConfiguredModel.builder()
+                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .modelFile(modelFile)
+                        .build();
+                });
+        })
+        .lang("ECO - CI Superconductive Transmitting Bus")
+        .register();
+
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
+        "l4",
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L6 = createComputationParallelCore(
+        "l6",
+        Rarity.RARE
+    );
+
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L9 = createComputationParallelCore(
+        "l9",
+        Rarity.EPIC
+    );
     //endregion
 
     static {
@@ -529,6 +569,35 @@ public class NEBlocks {
             .lang("ECO - %s Extensible Crafting Controller".formatted(
                 level.toUpperCase(Locale.ROOT)).replace("L", "F"
             ))
+            .register();
+    }
+
+    private static BlockEntry<ECOComputationParallelCore> createComputationParallelCore(String level, Rarity rarity) {
+        return REGISTRATE
+            .block("computation_parallel_core_" + level, ECOComputationParallelCore::new)
+            .initialProperties(() -> Blocks.IRON_BLOCK)
+            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .blockstate((ctx, prov) -> {
+                ModelFile modelFile = prov.models()
+                    .withExistingParent(ctx.getName(), prov.modLoc("block/computation_parallel_core"))
+                    .texture("1", "block/computation_parallel_core_front_" + level);
+                ModelFile modelFileFormed = prov.models()
+                    .withExistingParent(ctx.getName() + "_formed", prov.modLoc("block/computation_parallel_core"))
+                    .texture("1", "block/computation_parallel_core_front_anim_" + level);
+                prov.getVariantBuilder(ctx.get())
+                    .forAllStates(s ->
+                        ConfiguredModel.builder()
+                            .modelFile(s.getValue(ECOStorageSystem.FORMED) ? modelFileFormed : modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .build()
+                    );
+            })
+            .item()
+            .properties(p -> p.rarity(rarity))
+            .build()
+            .lang("ECO - %s Extensible Crafting Subsystem Controller"
+                .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "F")
+            )
             .register();
     }
 
