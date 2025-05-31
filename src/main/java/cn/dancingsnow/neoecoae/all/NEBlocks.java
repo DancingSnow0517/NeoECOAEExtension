@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingVent;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidOutputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystem;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVent;
@@ -280,6 +281,35 @@ public class NEBlocks {
         })
         .simpleItem()
         .lang("ECO Fluid Input Hatch")
+        .register();
+
+    public static final BlockEntry<ECOFluidOutputHatchBlock> OUTPUT_HATCH = REGISTRATE
+        .block("output_hatch", ECOFluidOutputHatchBlock::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> {
+            ResourceLocation casing = prov.modLoc("block/crafting_casing");
+            ResourceLocation hatch = prov.modLoc("block/output_hatch");
+            ResourceLocation model = prov.models().cube(
+                ctx.getName(),
+                casing,
+                casing,
+                hatch,
+                casing,
+                casing,
+                casing
+            ).texture("particle", casing).getLocation();
+            prov.getVariantBuilder(ctx.get()).forAllStatesExcept(state -> {
+                Direction dir = state.getValue(ECOFluidOutputHatchBlock.FACING);
+                return ConfiguredModel.builder()
+                    .modelFile(prov.models().getExistingFile(model))
+                    .rotationX(dir == Direction.DOWN ? 90 : dir.getAxis().isHorizontal() ? 0 : -90)
+                    .rotationY(dir.getAxis().isVertical() ? 0 : (((int) dir.toYRot()) + 180) % 360)
+                    .build();
+            }, ECOFluidOutputHatchBlock.FORMED);
+        })
+        .simpleItem()
+        .lang("ECO Fluid Output Hatch")
         .register();
 
     public static final BlockEntry<MachineCasing<NECraftingCluster>> CRAFTING_CASING = REGISTRATE

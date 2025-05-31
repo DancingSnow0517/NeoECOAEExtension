@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
@@ -218,10 +219,25 @@ public class NEBlockEntities {
         .blockEntityBlockLinked("input_hatch", ECOFluidInputHatchBlockEntity::new)
         .forBlock(NEBlocks.INPUT_HATCH)
         .validBlock(NEBlocks.INPUT_HATCH)
+        .serverTicker(((level, pos, state, be) -> be.tick(level, pos, state)))
         .registerCapability(event -> {
             event.registerBlockEntity(
                 Capabilities.FluidHandler.BLOCK,
                 NEBlockEntities.INPUT_HATCH.get(),
+                (be, side) -> be.getBlockState().getValue(ECOFluidInputHatchBlock.FACING) == side ? be.tank : null
+            );
+        })
+        .register();
+
+    public static final NEBlockEntityEntry<ECOFluidOutputHatchBlockEntity> OUTPUT_HATCH = REGISTRATE
+        .blockEntityBlockLinked("output_hatch", ECOFluidOutputHatchBlockEntity::new)
+        .forBlock(NEBlocks.OUTPUT_HATCH)
+        .validBlock(NEBlocks.OUTPUT_HATCH)
+        .serverTicker(((level, pos, state, be) -> be.tick(level, pos, state)))
+        .registerCapability(event -> {
+            event.registerBlockEntity(
+                Capabilities.FluidHandler.BLOCK,
+                NEBlockEntities.OUTPUT_HATCH.get(),
                 (be, side) -> be.getBlockState().getValue(ECOFluidInputHatchBlock.FACING) == side ? be.tank : null
             );
         })

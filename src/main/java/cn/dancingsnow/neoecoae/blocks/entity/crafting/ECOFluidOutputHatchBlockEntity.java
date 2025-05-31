@@ -21,7 +21,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
-public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidInputHatchBlockEntity>
+public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidOutputHatchBlockEntity>
     implements IUIHolder.Block {
 
     public FluidTank tank = new FluidTank(16000) {
@@ -32,13 +32,25 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
         }
     };
 
-    public ECOFluidInputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
+    public ECOFluidOutputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
+        super.saveAdditional(data, registries);
+        tank.writeToNBT(registries, data);
+    }
+
+    @Override
+    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
+        super.loadTag(data, registries);
+        tank.readFromNBT(registries, data);
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         Direction face = state.getValue(ECOFluidOutputHatchBlock.FACING);
-        FluidTransferHelper.importToTarget(tank, tank.getCapacity(), f -> true, level, pos.relative(face), face.getOpposite());
+        FluidTransferHelper.exportToTarget(tank, tank.getFluidAmount(), f -> true, level, pos.relative(face), face.getOpposite());
     }
 
     private WidgetGroup createUI() {
@@ -48,13 +60,13 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
         root.setBackground(ResourceBorderTexture.BORDERED_BACKGROUND);
 
         TextTextureWidget text = new TextTextureWidget();
-        text.setText(Component.translatable("block.neoecoae.input_hatch"));
+        text.setText(Component.translatable("block.neoecoae.output_hatch"));
         text.setSelfPosition(8, 8);
         text.textureStyle(t -> t.setType(TextTexture.TextType.LEFT_ROLL));
         text.setSize(160, 9);
         root.addWidget(text);
 
-        TankWidget tankWidget = new TankWidget(tank, 0, 81, 28,true, true);
+        TankWidget tankWidget = new TankWidget(tank, 0, 81, 28, true, false);
         tankWidget.initTemplate();
         root.addWidget(tankWidget);
 
@@ -68,17 +80,5 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
     @Override
     public ModularUI createUI(Player entityPlayer) {
         return new ModularUI(createUI(), this, entityPlayer);
-    }
-
-    @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        tank.writeToNBT(registries, data);
-    }
-
-    @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        tank.readFromNBT(registries, data);
     }
 }

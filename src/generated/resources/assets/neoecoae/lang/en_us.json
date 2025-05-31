@@ -17,6 +17,7 @@
   "block.neoecoae.energy_cell_l6": "ECO - LT6 High Density Energy Cell",
   "block.neoecoae.energy_cell_l9": "ECO - LT9 High Density Energy Cell",
   "block.neoecoae.input_hatch": "ECO Fluid Input Hatch",
+  "block.neoecoae.output_hatch": "ECO Fluid Output Hatch",
   "block.neoecoae.storage_casing": "Storage Casing",
   "block.neoecoae.storage_interface": "Storage Interface",
   "block.neoecoae.storage_system_l4": "ECO - L4 Extensible Storage Subsystem Controller",
