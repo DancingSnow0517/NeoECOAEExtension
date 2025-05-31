@@ -262,9 +262,8 @@ public class NEBlockEntities {
         .registerCapability(e -> e.registerBlockEntity(
             Capabilities.ItemHandler.BLOCK,
             NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
-            (be, side) -> be.getItemHandler()
-            )
-        )
+            (be, side) -> be.itemHandler
+        ))
         .register();
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(
