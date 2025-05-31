@@ -18,6 +18,13 @@ public interface IECOTier {
      */
     int getOverclockedCrafterParallel();
 
+    default int getOverclockedCrafterQueueMultiply() {
+        return (int) Math.pow(2, getTier());
+    }
+
+    default int getOverclockedCrafterPowerMultiply() {
+        return 2 * getOverclockedCrafterQueueMultiply();
+    }
     /**
      * 计算系统并行核心并行数量
      *

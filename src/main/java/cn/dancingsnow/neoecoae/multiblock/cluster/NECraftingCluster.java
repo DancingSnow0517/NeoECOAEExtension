@@ -18,8 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
+    @Getter
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
+    @Getter
     private final List<ECOCraftingWorkerBlockEntity> workers = new ArrayList<>();
+    @Getter
     private final List<ECOCraftingPatternBusBlockEntity> patternBuses = new ArrayList<>();
     @Getter
     private ECOCraftingSystemBlockEntity controller = null;
@@ -34,10 +37,16 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     }
 
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
+        if (controller != null) {
+            return controller.pushPattern(patternDetails, inputHolder);
+        }
         return false;
     }
 
     public boolean isBusy() {
+        if (controller != null) {
+            return controller.isBusy();
+        }
         return false;
     }
 
