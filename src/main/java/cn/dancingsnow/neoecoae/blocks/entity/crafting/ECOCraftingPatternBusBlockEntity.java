@@ -133,7 +133,8 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         this.inventory = new AppEngInternalInventory(this, ROW_SIZE * COL_SIZE);
         this.inventory.setFilter(new AEEncodedPatternFilter());
         this.itemHandler = (IItemHandlerModifiable) inventory.toItemHandler();
-        this.getMainNode().addService(ICraftingProvider.class, this);
+        this.getMainNode().addService(ICraftingProvider.class, this)
+            .addService(IECOPatternStorage.class, this);
     }
 
     @Override

@@ -5,10 +5,12 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "AppEngInternalInventoryMixin",
+    "PatternEncodingTermMenuMixin",
     "StoredEnergyAmountMixin"
   ],
   "client": [
-    "ModelBakeryMixin"
+    "ModelBakeryMixin",
+    "PatternEncodingTermScreenMixin"
   ],
   "server": [],
   "injectors": {
