@@ -26,7 +26,7 @@ public class PatternEncodingTermScreenMixin<C extends PatternEncodingTermMenu> e
         int top = (this.height - imageHeight) / 2 + imageHeight;
         addRenderableWidget(new UploadButton(
             left,
-            top - 174,
+            top - 173,
             b -> ((PatternEncodingTermMenuExtension)this.getMenu()).neoecoae$uploadPattern()
         ));
     }

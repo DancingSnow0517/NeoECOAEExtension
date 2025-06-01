@@ -18,8 +18,8 @@ public class UploadButton extends Button {
         super(
             x,
             y,
-            16,
-            16,
+            18,
+            20,
             Component.empty(),
             onPress,
             unused -> Component.empty()
