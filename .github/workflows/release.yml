@@ -1,20 +1,13 @@
-name: CI for Neo ECO AE Extension
-
+name: Release Neo ECO AE Extension
 on:
-  push:
-    paths:
-      - .github/workflows/**
-      - src/**
-      - '*.gradle'
-  pull_request:
-    paths:
-      - .github/workflows/**
-      - src/**
-      - '*.gradle'
+  release:
+    types:
+      - published
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions: write-all
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -52,3 +45,17 @@ jobs:
         with:
           name: "${{ steps.properties.outputs.mod_name }} ${{ steps.var.outputs.version }}"
           path: build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}.jar
+
+      - name: Publish Mod
+        uses: Kir-Antipov/mc-publish@v3.3.0
+        with:
+          name: "${{ steps.properties.outputs.mod_name }} v${{ steps.var.outputs.version }}"
+          version: ${{ steps.var.outputs.version }}
+          version-type: release
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+
+          files: |
+            build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}.jar
+            build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}-sources.jar
