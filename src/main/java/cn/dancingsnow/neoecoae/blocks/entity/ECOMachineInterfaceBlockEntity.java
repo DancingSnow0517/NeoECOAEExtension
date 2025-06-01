@@ -11,19 +11,21 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.EnumSet;
 import java.util.Set;
 
-public class MachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, MachineInterfaceBlockEntity<C>> {
-    public MachineInterfaceBlockEntity(
+public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>> {
+    public ECOMachineInterfaceBlockEntity(
         BlockEntityType<?> type,
         BlockPos pos,
         BlockState blockState,
         NEClusterCalculator.Factory<C> calculator
     ) {
         super(type, pos, blockState, calculator);
-        onGridConnectableSidesChanged();
     }
 
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
+        if (!formed) {
+            return EnumSet.noneOf(Direction.class);
+        }
         return EnumSet.allOf(Direction.class);
     }
 }

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
-import cn.dancingsnow.neoecoae.blocks.MachineCasing;
-import cn.dancingsnow.neoecoae.blocks.MachineInterface;
+import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
+import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationTransmitter;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
@@ -12,9 +12,9 @@ import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidOutputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
-import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystem;
-import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVent;
-import cn.dancingsnow.neoecoae.blocks.storage.MachineEnergyCell;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -46,12 +46,12 @@ public class NEBlocks {
     // ************************************ //
 
     //region Storage System
-    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L4 = createStorageSystem("l4", Rarity.UNCOMMON);
-    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L6 = createStorageSystem("l6", Rarity.RARE);
-    public static final BlockEntry<ECOStorageSystem> STORAGE_SYSTEM_L9 = createStorageSystem("l9", Rarity.EPIC);
+    public static final BlockEntry<ECOStorageSystemBlock> STORAGE_SYSTEM_L4 = createStorageSystem("l4", Rarity.UNCOMMON);
+    public static final BlockEntry<ECOStorageSystemBlock> STORAGE_SYSTEM_L6 = createStorageSystem("l6", Rarity.RARE);
+    public static final BlockEntry<ECOStorageSystemBlock> STORAGE_SYSTEM_L9 = createStorageSystem("l9", Rarity.EPIC);
 
-    public static final BlockEntry<MachineInterface<NEStorageCluster>> STORAGE_INTERFACE = REGISTRATE
-        .block("storage_interface", MachineInterface<NEStorageCluster>::new)
+    public static final BlockEntry<ECOMachineInterface<NEStorageCluster>> STORAGE_INTERFACE = REGISTRATE
+        .block("storage_interface", ECOMachineInterface<NEStorageCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
@@ -67,19 +67,19 @@ public class NEBlocks {
         })
         .register();
 
-    public static final BlockEntry<MachineEnergyCell> ENERGY_CELL_L4 = REGISTRATE
-        .block("energy_cell_l4", MachineEnergyCell::new)
+    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L4 = REGISTRATE
+        .block("energy_cell_l4", ECOEnergyCellBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, provider) -> {
             provider.getVariantBuilder(ctx.get())
                 .forAllStatesExcept(state -> {
-                    int level = state.getValue(MachineEnergyCell.LEVEL);
+                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
                     return ConfiguredModel.builder()
                         .modelFile(provider.models().getExistingFile(provider.modLoc("%s_%d".formatted(ctx.getName(), level))))
                         .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                         .build();
-                }, MachineEnergyCell.FORMED);
+                }, ECOEnergyCellBlock.FORMED);
         })
         .item()
         .properties(p -> p.rarity(Rarity.UNCOMMON))
@@ -90,19 +90,19 @@ public class NEBlocks {
         .lang("ECO - LT4 High Density Energy Cell")
         .register();
 
-    public static final BlockEntry<MachineEnergyCell> ENERGY_CELL_L6 = REGISTRATE
-        .block("energy_cell_l6", MachineEnergyCell::new)
+    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L6 = REGISTRATE
+        .block("energy_cell_l6", ECOEnergyCellBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, provider) -> {
             provider.getVariantBuilder(ctx.get())
                 .forAllStatesExcept(state -> {
-                    int level = state.getValue(MachineEnergyCell.LEVEL);
+                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
                     return ConfiguredModel.builder()
                         .modelFile(provider.models().getExistingFile(provider.modLoc("%s_%d".formatted(ctx.getName(), level))))
                         .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                         .build();
-                }, MachineEnergyCell.FORMED);
+                }, ECOEnergyCellBlock.FORMED);
         })
         .item()
         .properties(p -> p.rarity(Rarity.RARE))
@@ -113,19 +113,19 @@ public class NEBlocks {
         .lang("ECO - LT6 High Density Energy Cell")
         .register();
 
-    public static final BlockEntry<MachineEnergyCell> ENERGY_CELL_L9 = REGISTRATE
-        .block("energy_cell_l9", MachineEnergyCell::new)
+    public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L9 = REGISTRATE
+        .block("energy_cell_l9", ECOEnergyCellBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, provider) -> {
             provider.getVariantBuilder(ctx.get())
                 .forAllStatesExcept(state -> {
-                    int level = state.getValue(MachineEnergyCell.LEVEL);
+                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
                     return ConfiguredModel.builder()
                         .modelFile(provider.models().getExistingFile(provider.modLoc("%s_%d".formatted(ctx.getName(), level))))
                         .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                         .build();
-                }, MachineEnergyCell.FORMED);
+                }, ECOEnergyCellBlock.FORMED);
         })
         .item()
         .properties(p -> p.rarity(Rarity.EPIC))
@@ -155,8 +155,8 @@ public class NEBlocks {
         .lang("ECO - Crystal Oscillator Drive")
         .register();
 
-    public static final BlockEntry<ECOStorageVent> STORAGE_VENT = REGISTRATE
-        .block("storage_vent", ECOStorageVent::new)
+    public static final BlockEntry<ECOStorageVentBlock> STORAGE_VENT = REGISTRATE
+        .block("storage_vent", ECOStorageVentBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> {
@@ -176,15 +176,15 @@ public class NEBlocks {
                             .modelFile(modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build(),
-                    ECOStorageVent.FORMED
+                    ECOStorageVentBlock.FORMED
                 );
         })
         .simpleItem()
         .lang("Storage System Heat Sink")
         .register();
 
-    public static final BlockEntry<MachineCasing<NEStorageCluster>> STORAGE_CASING = REGISTRATE
-        .block("storage_casing", MachineCasing<NEStorageCluster>::new)
+    public static final BlockEntry<ECOMachineCasing<NEStorageCluster>> STORAGE_CASING = REGISTRATE
+        .block("storage_casing", ECOMachineCasing<NEStorageCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
@@ -200,8 +200,8 @@ public class NEBlocks {
     // **************************************** //
 
     //region Computation System
-    public static final BlockEntry<MachineInterface<NEComputationCluster>> COMPUTATION_INTERFACE = REGISTRATE
-        .block("computation_interface", MachineInterface<NEComputationCluster>::new)
+    public static final BlockEntry<ECOMachineInterface<NEComputationCluster>> COMPUTATION_INTERFACE = REGISTRATE
+        .block("computation_interface", ECOMachineInterface<NEComputationCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
@@ -217,8 +217,8 @@ public class NEBlocks {
         })
         .register();
 
-    public static final BlockEntry<MachineCasing<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
-        .block("computation_casing", MachineCasing<NEComputationCluster>::new)
+    public static final BlockEntry<ECOMachineCasing<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
+        .block("computation_casing", ECOMachineCasing<NEComputationCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
@@ -276,8 +276,8 @@ public class NEBlocks {
     public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L6 = createCraftingSystem("l6", Rarity.RARE);
     public static final BlockEntry<ECOCraftingSystem> CRAFTING_SYSTEM_L9 = createCraftingSystem("l9", Rarity.EPIC);
 
-    public static final BlockEntry<MachineInterface<NECraftingCluster>> CRAFTING_INTERFACE = REGISTRATE
-        .block("crafting_interface", MachineInterface<NECraftingCluster>::new)
+    public static final BlockEntry<ECOMachineInterface<NECraftingCluster>> CRAFTING_INTERFACE = REGISTRATE
+        .block("crafting_interface", ECOMachineInterface<NECraftingCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> {
@@ -476,8 +476,8 @@ public class NEBlocks {
         })
         .register();
 
-    public static final BlockEntry<MachineCasing<NECraftingCluster>> CRAFTING_CASING = REGISTRATE
-        .block("crafting_casing", MachineCasing<NECraftingCluster>::new)
+    public static final BlockEntry<ECOMachineCasing<NECraftingCluster>> CRAFTING_CASING = REGISTRATE
+        .block("crafting_casing", ECOMachineCasing<NECraftingCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
@@ -485,9 +485,9 @@ public class NEBlocks {
         .register();
     //endregion
 
-    private static BlockEntry<ECOStorageSystem> createStorageSystem(String level, Rarity rarity) {
+    private static BlockEntry<ECOStorageSystemBlock> createStorageSystem(String level, Rarity rarity) {
         return REGISTRATE
-            .block("storage_system_" + level, ECOStorageSystem::new)
+            .block("storage_system_" + level, ECOStorageSystemBlock::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
@@ -505,7 +505,7 @@ public class NEBlocks {
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
-                            .modelFile(s.getValue(ECOStorageSystem.FORMED) ? formedModel : modelFile)
+                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? formedModel : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()
                     );
@@ -558,7 +558,7 @@ public class NEBlocks {
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
-                            .modelFile(s.getValue(ECOStorageSystem.FORMED) ? formedModel : modelFile)
+                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? formedModel : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()
                     );
@@ -587,7 +587,7 @@ public class NEBlocks {
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
-                            .modelFile(s.getValue(ECOStorageSystem.FORMED) ? modelFileFormed : modelFile)
+                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? modelFileFormed : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()
                     );

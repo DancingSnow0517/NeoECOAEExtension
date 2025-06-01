@@ -4,20 +4,17 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
-import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVent;
-import cn.dancingsnow.neoecoae.blocks.storage.MachineEnergyCell;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
@@ -95,7 +92,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             right,
             ventStart,
             (it, pos) -> it.is(NEBlocks.STORAGE_VENT)
-                && it.getValue(ECOStorageVent.FACING) == back
+                && it.getValue(ECOStorageVentBlock.FACING) == back
         );
         if (ventEndResult.isError()) {
             return false;
@@ -107,9 +104,9 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             right,
             upperEnergyCellStart,
-            (state, pos) -> state.getBlock() instanceof MachineEnergyCell cell
+            (state, pos) -> state.getBlock() instanceof ECOEnergyCellBlock cell
                 && cell.getBlockEntity(level, pos).getTier() == tier
-                && state.getValue(MachineEnergyCell.FACING) == back
+                && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
         if (upperEnergyCellResult.isError()) {
             return false;
@@ -119,9 +116,9 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             return validateBlock(
                 level,
                 upperEnergyCellStart,
-                state -> state.getBlock() instanceof MachineEnergyCell cell
+                state -> state.getBlock() instanceof ECOEnergyCellBlock cell
                     && cell.getBlockEntity(level, upperEnergyCellEnd).getTier() == tier
-                    && state.getValue(MachineEnergyCell.FACING) == back
+                    && state.getValue(ECOEnergyCellBlock.FACING) == back
             );
         }
         BlockPos lowerEnergyCellStart = controllerPos.relative(back).relative(down).relative(right);
@@ -129,9 +126,9 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             right,
             lowerEnergyCellStart,
-            (state, pos) -> state.getBlock() instanceof MachineEnergyCell cell
+            (state, pos) -> state.getBlock() instanceof ECOEnergyCellBlock cell
                 && cell.getBlockEntity(level, pos).getTier() == tier
-                && state.getValue(MachineEnergyCell.FACING) == back
+                && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
         if (lowerEnergyCellResult.isError()) {
             return false;

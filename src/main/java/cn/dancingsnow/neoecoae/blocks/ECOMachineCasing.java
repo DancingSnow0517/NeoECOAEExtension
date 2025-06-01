@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks;
 
-import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -14,11 +14,11 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class MachineCasing<C extends NECluster<C>> extends NEBlock<MachineCasingBlockEntity<C>> {
+public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachineCasingBlockEntity<C>> {
 
     public static final BooleanProperty INVISIBLE = BooleanProperty.create("invisible");
 
-    public MachineCasing(Properties properties) {
+    public ECOMachineCasing(Properties properties) {
         super(properties);
         registerDefaultState(getStateDefinition().any()
             .setValue(FORMED, false)

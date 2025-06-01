@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks;
 
-import cn.dancingsnow.neoecoae.blocks.entity.MachineInterfaceBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -11,8 +11,8 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class MachineInterface<C extends NECluster<C>> extends NEBlock<MachineInterfaceBlockEntity<C>>{
-    public MachineInterface(Properties properties) {
+public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMachineInterfaceBlockEntity<C>>{
+    public ECOMachineInterface(Properties properties) {
         super(properties);
     }
 

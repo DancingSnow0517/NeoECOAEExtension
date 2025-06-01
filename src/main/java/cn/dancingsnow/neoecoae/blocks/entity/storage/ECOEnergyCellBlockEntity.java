@@ -14,7 +14,7 @@ import appeng.blockentity.powersink.IExternalPowerSink;
 import appeng.me.energy.StoredEnergyAmount;
 import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.blocks.storage.MachineEnergyCell;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import com.lowdragmc.lowdraglib.syncdata.IManaged;
 import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
@@ -31,9 +31,9 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
-public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<MachineEnergyCellBlockEntity>
+public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
     implements IExternalPowerSink, IGridTickable, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(MachineEnergyCellBlockEntity.class);
+    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECOEnergyCellBlockEntity.class);
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
     @Getter
     private final IECOTier tier;
@@ -46,7 +46,7 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
     private boolean neighborChangePending = false;
 
 
-    public MachineEnergyCellBlockEntity(
+    public ECOEnergyCellBlockEntity(
         BlockEntityType<?> type,
         BlockPos pos,
         BlockState blockState,
@@ -140,7 +140,7 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
     @Override
     public void onReady() {
         super.onReady();
-        final int value = this.level.getBlockState(this.worldPosition).getValue(MachineEnergyCell.LEVEL);
+        final int value = this.level.getBlockState(this.worldPosition).getValue(ECOEnergyCellBlock.LEVEL);
         this.currentDisplayLevel = (byte) value;
         this.updateStateForPowerLevel();
         getMainNode().setIdlePowerUsage(0);
@@ -207,7 +207,7 @@ public class MachineEnergyCellBlockEntity extends AbstractStorageBlockEntity<Mac
             this.currentDisplayLevel = (byte) storageLevel;
             this.level.setBlockAndUpdate(
                 this.worldPosition,
-                this.level.getBlockState(this.worldPosition).setValue(MachineEnergyCell.LEVEL, storageLevel)
+                this.level.getBlockState(this.worldPosition).setValue(ECOEnergyCellBlock.LEVEL, storageLevel)
             );
         }
     }

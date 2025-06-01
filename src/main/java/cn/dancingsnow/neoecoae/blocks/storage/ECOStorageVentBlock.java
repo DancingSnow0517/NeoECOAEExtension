@@ -11,11 +11,11 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 
-public class ECOStorageVent extends NEBlock<ECOStorageVentBlockEntity> {
+public class ECOStorageVentBlock extends NEBlock<ECOStorageVentBlockEntity> {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
-    public ECOStorageVent(Properties properties) {
+    public ECOStorageVentBlock(Properties properties) {
         super(properties);
         registerDefaultState(getStateDefinition().any()
             .setValue(FORMED, false)
