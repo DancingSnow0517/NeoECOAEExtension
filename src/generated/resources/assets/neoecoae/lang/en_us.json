@@ -1,9 +1,9 @@
 {
   "block.neoecoae.computation_casing": "Computation Casing",
   "block.neoecoae.computation_interface": "Computation Interface",
-  "block.neoecoae.computation_parallel_core_l4": "ECO - F4 Extensible Crafting Subsystem Controller",
-  "block.neoecoae.computation_parallel_core_l6": "ECO - F6 Extensible Crafting Subsystem Controller",
-  "block.neoecoae.computation_parallel_core_l9": "ECO - F9 Extensible Crafting Subsystem Controller",
+  "block.neoecoae.computation_parallel_core_l4": "ECO - CT4 Parallel Core",
+  "block.neoecoae.computation_parallel_core_l6": "ECO - CT6 Parallel Core",
+  "block.neoecoae.computation_parallel_core_l9": "ECO - CT9 Parallel Core",
   "block.neoecoae.computation_transmitter": "ECO - CI Superconductive Transmitting Bus",
   "block.neoecoae.crafting_casing": "Crafting Casing",
   "block.neoecoae.crafting_interface": "Crafting Interface",
