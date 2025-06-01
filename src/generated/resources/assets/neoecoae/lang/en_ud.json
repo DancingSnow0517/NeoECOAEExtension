@@ -1,9 +1,13 @@
 {
   "block.neoecoae.computation_casing": "buısɐƆ uoıʇɐʇndɯoƆ",
+  "block.neoecoae.computation_drive": "ǝʌıɹᗡ uoıʇɐʇndɯoƆ ᗡƆ - OƆƎ",
   "block.neoecoae.computation_interface": "ǝɔɐɟɹǝʇuI uoıʇɐʇndɯoƆ",
   "block.neoecoae.computation_parallel_core_l4": "ǝɹoƆ ןǝןןɐɹɐԀ ㄣ⟘Ɔ - OƆƎ",
   "block.neoecoae.computation_parallel_core_l6": "ǝɹoƆ ןǝןןɐɹɐԀ 9⟘Ɔ - OƆƎ",
   "block.neoecoae.computation_parallel_core_l9": "ǝɹoƆ ןǝןןɐɹɐԀ 6⟘Ɔ - OƆƎ",
+  "block.neoecoae.computation_threading_core_l4": "ǝɹoƆ buıpɐǝɹɥ⟘ ⱯㄣWƆ - OƆƎ",
+  "block.neoecoae.computation_threading_core_l6": "ǝɹoƆ buıpɐǝɹɥ⟘ Ɐ9WƆ - OƆƎ",
+  "block.neoecoae.computation_threading_core_l9": "ǝɹoƆ buıpɐǝɹɥ⟘ Ɐ6WƆ - OƆƎ",
   "block.neoecoae.computation_transmitter": "snᗺ buıʇʇıɯsuɐɹ⟘ ǝʌıʇɔnpuoɔɹǝdnS IƆ - OƆƎ",
   "block.neoecoae.crafting_casing": "buısɐƆ buıʇɟɐɹƆ",
   "block.neoecoae.crafting_interface": "ǝɔɐɟɹǝʇuI buıʇɟɐɹƆ",

@@ -1,0 +1,64 @@
+{
+  "variants": {
+    "facing=east,formed=false,working=false": {
+      "model": "neoecoae:block/computation_threading_core_l9",
+      "y": 90
+    },
+    "facing=east,formed=false,working=true": {
+      "model": "neoecoae:block/computation_threading_core_l9_working",
+      "y": 90
+    },
+    "facing=east,formed=true,working=false": {
+      "model": "neoecoae:block/computation_threading_core_l9_formed",
+      "y": 90
+    },
+    "facing=east,formed=true,working=true": {
+      "model": "neoecoae:block/computation_threading_core_l9_working",
+      "y": 90
+    },
+    "facing=north,formed=false,working=false": {
+      "model": "neoecoae:block/computation_threading_core_l9"
+    },
+    "facing=north,formed=false,working=true": {
+      "model": "neoecoae:block/computation_threading_core_l9_working"
+    },
+    "facing=north,formed=true,working=false": {
+      "model": "neoecoae:block/computation_threading_core_l9_formed"
+    },
+    "facing=north,formed=true,working=true": {
+      "model": "neoecoae:block/computation_threading_core_l9_working"
+    },
+    "facing=south,formed=false,working=false": {
+      "model": "neoecoae:block/computation_threading_core_l9",
+      "y": 180
+    },
+    "facing=south,formed=false,working=true": {
+      "model": "neoecoae:block/computation_threading_core_l9_working",
+      "y": 180
+    },
+    "facing=south,formed=true,working=false": {
+      "model": "neoecoae:block/computation_threading_core_l9_formed",
+      "y": 180
+    },
+    "facing=south,formed=true,working=true": {
+      "model": "neoecoae:block/computation_threading_core_l9_working",
+      "y": 180
+    },
+    "facing=west,formed=false,working=false": {
+      "model": "neoecoae:block/computation_threading_core_l9",
+      "y": 270
+    },
+    "facing=west,formed=false,working=true": {
+      "model": "neoecoae:block/computation_threading_core_l9_working",
+      "y": 270
+    },
+    "facing=west,formed=true,working=false": {
+      "model": "neoecoae:block/computation_threading_core_l9_formed",
+      "y": 270
+    },
+    "facing=west,formed=true,working=true": {
+      "model": "neoecoae:block/computation_threading_core_l9_working",
+      "y": 270
+    }
+  }
+}

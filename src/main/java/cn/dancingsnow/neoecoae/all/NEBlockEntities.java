@@ -4,9 +4,11 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationTransmitterBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
@@ -295,6 +297,33 @@ public class NEBlockEntities {
         NEBlocks.COMPUTATION_PARALLEL_CORE_L9
     );
 
+    public static final NEBlockEntityEntry<ECOComputationThreadingCoreBlockEntity> COMPUTATION_THREADING_CORE_L4 = createComputationThreadingCore(
+        ECOTier.L4,
+        "l4",
+        NEBlocks.COMPUTATION_THREADING_CORE_L4
+    );
+
+    public static final NEBlockEntityEntry<ECOComputationThreadingCoreBlockEntity> COMPUTATION_THREADING_CORE_L6 = createComputationThreadingCore(
+        ECOTier.L6,
+        "l6",
+        NEBlocks.COMPUTATION_THREADING_CORE_L6
+    );
+
+    public static final NEBlockEntityEntry<ECOComputationThreadingCoreBlockEntity> COMPUTATION_THREADING_CORE_L9 = createComputationThreadingCore(
+        ECOTier.L9,
+        "l9",
+        NEBlocks.COMPUTATION_THREADING_CORE_L9
+    );
+
+    public static final NEBlockEntityEntry<ECOComputationDriveBlockEntity> COMPUTATION_DRIVE = REGISTRATE
+        .blockEntityBlockLinked(
+            "computation_drive",
+            ECOComputationDriveBlockEntity::new
+        )
+        .forBlock(NEBlocks.COMPUTATION_DRIVE)
+        .validBlock(NEBlocks.COMPUTATION_DRIVE)
+        .register();
+
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(
         IECOTier tier,
         String tierString,
@@ -337,6 +366,22 @@ public class NEBlockEntities {
                 "computation_parallel_core_" + tierString,
                 tier,
                 ECOComputationParallelCoreBlockEntity::new
+            )
+            .forBlock(block)
+            .validBlock(block)
+            .register();
+    }
+
+    private static NEBlockEntityEntry<ECOComputationThreadingCoreBlockEntity> createComputationThreadingCore(
+        IECOTier tier,
+        String tierString,
+        BlockEntry<? extends NEBlock<ECOComputationThreadingCoreBlockEntity>> block
+    ) {
+        return REGISTRATE
+            .tierBlockEntityBlockLinked(
+                "computation_threading_core_" + tierString,
+                tier,
+                ECOComputationThreadingCoreBlockEntity::new
             )
             .forBlock(block)
             .validBlock(block)
