@@ -1,11 +1,5 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
-import appeng.api.crafting.IPatternDetails;
-import appeng.api.networking.IGridNode;
-import appeng.api.networking.ticking.IGridTickable;
-import appeng.api.networking.ticking.TickRateModulation;
-import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.GuiTextures;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
@@ -31,7 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.List;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements IGridTickable, IUIHolder.Block, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
+    implements IUIHolder.Block, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
 
     public static final int MAX_COOLANT = 100000;
 
@@ -41,20 +35,35 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     @Getter
     private final IECOTier tier;
 
+    @Getter
     @Persisted
     @DescSynced
     private boolean overclocked = false;
 
+    @Getter
     @Persisted
     @DescSynced
-    private boolean cooled = false;
+    private boolean activeCooling = false;
 
+    @Getter
     @Persisted
     @DescSynced
     private int coolant = 0;
 
     @DescSynced
-    private int threadCount, patternBusCount, parallelCount, workerCount = 0;
+    private int patternBusCount, parallelCount, workerCount = 0;
+
+    @Getter
+    @DescSynced
+    private int threadCount = 0;
+
+    @Getter
+    @DescSynced
+    private int threadCountPerWorker = 0;
+
+    @Getter
+    @DescSynced
+    private int overlockTimes = 0;
 
     public ECOCraftingSystemBlockEntity(
         BlockEntityType<?> type,
@@ -104,6 +113,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private void updateInfo() {
         updateThreadCount();
         updateCount();
+        updateOverlockTimes();
     }
 
     private void updateThreadCount() {
@@ -111,6 +121,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             int perCore = tier.getCrafterParallel();
             if (overclocked) {
                 perCore += tier.getOverclockedCrafterParallel();
+                threadCountPerWorker = 32 * getTier().getOverclockedCrafterQueueMultiply();
+            } else {
+                threadCountPerWorker = 32;
             }
             threadCount = cluster.getParallelCores().size() * perCore;
         } else {
@@ -130,22 +143,18 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
-        return false;
+    private void updateOverlockTimes() {
+        int overflow = threadCount - threadCountPerWorker * workerCount;
+        float radio = (float) threadCount / overflow;
+        overlockTimes = Math.min(Math.round(radio / 0.05f), 9);
     }
 
-    public boolean isBusy() {
-        return false;
+    public void consumeCoolant() {
+        consumeCoolant(5);
     }
 
-    @Override
-    public TickingRequest getTickingRequest(IGridNode node) {
-        return null;
-    }
-
-    @Override
-    public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        return null;
+    public void consumeCoolant(int coolant) {
+        this.coolant -= coolant;
     }
 
     private WidgetGroup createUI() {
@@ -163,11 +172,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         overclockSwitch.setPressed(overclocked);
         switchGroup.addWidget(overclockSwitch);
 
-        SwitchWidget cooledSwitch = new SwitchWidget(40, 0, 36, 36, ((d, b) -> cooled = b));
+        SwitchWidget cooledSwitch = new SwitchWidget(40, 0, 36, 36, ((d, b) -> activeCooling = b));
         cooledSwitch.initTemplate();
         cooledSwitch.setBaseTexture(GuiTextures.COOLING_OFF);
         cooledSwitch.setPressedTexture(GuiTextures.COOLING_ON);
-        cooledSwitch.setPressed(cooled);
+        cooledSwitch.setPressed(activeCooling);
         switchGroup.addWidget(cooledSwitch);
 
         root.addWidget(switchGroup);

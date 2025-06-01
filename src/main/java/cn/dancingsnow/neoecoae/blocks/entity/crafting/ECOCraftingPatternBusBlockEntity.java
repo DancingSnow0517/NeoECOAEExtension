@@ -72,8 +72,15 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
+        if (!(patternDetails instanceof IMolecularAssemblerSupportedPattern supportedPattern)) {
+            return false;
+        }
         if (cluster != null) {
-            return this.cluster.pushPattern(patternDetails, inputHolder);
+            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+                if (worker.pushPattern(supportedPattern, inputHolder)) {
+                    return true;
+                }
+            }
         }
         return false;
     }
@@ -81,9 +88,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public boolean isBusy() {
         if (cluster != null) {
-            return cluster.isBusy();
+            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+                if (!worker.isBusy()) {
+                    return true;
+                }
+            }
         }
-        return true;
+        return false;
     }
 
     @Override

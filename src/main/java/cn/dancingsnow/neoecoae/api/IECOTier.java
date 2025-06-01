@@ -19,7 +19,7 @@ public interface IECOTier {
     int getOverclockedCrafterParallel();
 
     default int getOverclockedCrafterQueueMultiply() {
-        return (int) Math.pow(2, getTier());
+        return 1 << getTier();
     }
 
     default int getOverclockedCrafterPowerMultiply() {

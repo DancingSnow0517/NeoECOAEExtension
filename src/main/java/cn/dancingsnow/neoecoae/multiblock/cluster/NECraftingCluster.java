@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
-import appeng.api.crafting.IPatternDetails;
-import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.blocks.entity.MachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
@@ -34,20 +32,6 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
-    }
-
-    public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
-        if (controller != null) {
-            return controller.pushPattern(patternDetails, inputHolder);
-        }
-        return false;
-    }
-
-    public boolean isBusy() {
-        if (controller != null) {
-            return controller.isBusy();
-        }
-        return false;
     }
 
     @Override
