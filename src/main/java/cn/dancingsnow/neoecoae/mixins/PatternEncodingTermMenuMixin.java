@@ -25,9 +25,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class PatternEncodingTermMenuMixin extends MEStorageMenu implements PatternEncodingTermMenuExtension {
     @Shadow
     @Final
-    private ConfigInventory encodedOutputsInv;
-    @Shadow
-    @Final
     private RestrictedInputSlot encodedPatternSlot;
     @Shadow
     private EncodingMode currentMode;

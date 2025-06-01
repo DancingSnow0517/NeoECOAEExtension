@@ -12,5 +12,6 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.crafting.pattern_bus_count", "Pattern Bus Count: %d");
         provider.add("gui.neoecoae.crafting.parallel_core_count", "Parallel Core Count: %d");
         provider.add("gui.neoecoae.crafting.worker_count", "Worker Core Count: %d");
+        provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern into available ECO Crafting System");
     }
 }

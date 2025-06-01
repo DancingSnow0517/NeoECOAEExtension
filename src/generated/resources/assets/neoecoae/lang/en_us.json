@@ -45,5 +45,6 @@
   "itemGroup.neoecoae.crafting": "ECO Crafting System",
   "itemGroup.neoecoae.storage": "ECO Storage System",
   "jade.neoecoae.drive_mounted": "ECO Drive Mounted",
-  "jade.neoecoae.drive_unmounted": "ECO Drive Unmounted"
+  "jade.neoecoae.drive_unmounted": "ECO Drive Unmounted",
+  "neoecoae.tooltip.upload_pattern": "Upload Pattern into available ECO Crafting System"
 }
