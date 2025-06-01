@@ -322,6 +322,11 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.COMPUTATION_DRIVE)
         .validBlock(NEBlocks.COMPUTATION_DRIVE)
+        .registerCapability(e -> e.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.COMPUTATION_DRIVE.get(),
+            (be, unused) -> be.getItemHandler()
+        ))
         .register();
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(

@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.stacks.AEKeyType;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.world.item.Rarity;
@@ -67,6 +69,39 @@ public class NEItems {
         .lang("ECO - LE9 Storage Matrix (Fluid)")
         .register();
 
+    static {
+        REGISTRATE.defaultCreativeTab(NECreativeTabs.COMPUTATION);
+    }
+
+    public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L4 = createComputationCell(
+        "l4",
+        ECOTier.L4
+    );
+
+    public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L6 = createComputationCell(
+        "l6",
+        ECOTier.L6
+    );
+    public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L9 = createComputationCell(
+        "l9",
+        ECOTier.L9
+    );
+
+    private static ItemEntry<ECOComputationCellItem> createComputationCell(
+        String tierString,
+        IECOTier tier
+    ) {
+        return REGISTRATE
+            .item("eco_computation_cell_" + tierString, p -> new ECOComputationCellItem(
+                p.stacksTo(1).rarity(Rarity.EPIC),
+                tier
+            ))
+            .lang("ECO - %s Synthetic Memory Element".formatted(tierString.replace("l", "CE")))
+            .model((ctx, prov) -> {
+                prov.withExistingParent("eco_computation_cell_" + tierString, prov.modLoc("item/computation_cell"));
+            })
+            .register();
+    }
 
     public static void register() {
 

@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-public class AllBuiltinModels {
+public class NEBuiltinModels {
     private static final Map<ResourceLocation, Supplier<UnbakedModel>> registry = new HashMap<>();
 
     public static final ResourceLocation ECO_DRIVE = register(NeoECOAE.id("block/builtin/eco_drive"), ECODriveModel::new);

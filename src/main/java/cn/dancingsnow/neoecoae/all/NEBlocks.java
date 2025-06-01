@@ -283,6 +283,7 @@ public class NEBlocks {
     public static final BlockEntry<ECOComputationDrive> COMPUTATION_DRIVE = REGISTRATE
         .block("computation_drive", ECOComputationDrive::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
         .blockstate((ctx, prov) -> {
