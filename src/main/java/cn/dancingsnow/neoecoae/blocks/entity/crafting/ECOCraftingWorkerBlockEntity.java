@@ -55,6 +55,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     rate = r;
                 }
             }
+            setChanged();
             return rate;
         } else {
             return TickRateModulation.IDLE;
@@ -134,6 +135,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         for (int i = 0; i < threads.size(); i++) {
             CraftingThread thread = new CraftingThread(this);
             thread.deserializeNBT(registries, threads.getCompound(i));
+            craftingThreads.add(thread);
         }
     }
 }

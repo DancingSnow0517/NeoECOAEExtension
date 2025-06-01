@@ -60,6 +60,7 @@ public class CraftingThread implements INBTSerializable<CompoundTag> {
     public TickRateModulation tick(int overlockTimes, int powerMultiply, int ticksSinceLastCall) {
         if (!isBusy) {
             progress = 0;
+            setChanged();
             return TickRateModulation.SLEEP;
         }
         if (this.reboot) {
@@ -74,9 +75,11 @@ public class CraftingThread implements INBTSerializable<CompoundTag> {
             if (ejectOutputs()) {
                 worker.onCrafted();
                 isBusy = false;
+                setChanged();
             }
             return TickRateModulation.IDLE;
         }
+        setChanged();
         return TickRateModulation.URGENT;
     }
 
@@ -106,9 +109,16 @@ public class CraftingThread implements INBTSerializable<CompoundTag> {
         }
         this.outputItem = outputItem;
         remainingItems.clear();
-        remainingItems.addAll(pattern.getRemainingItems(craftingInv.asCraftInput()));
+        List<ItemStack> list = new ArrayList<>();
+        for (ItemStack item : pattern.getRemainingItems(craftingInv.asCraftInput())) {
+            if (!item.isEmpty()) {
+                list.add(item);
+            }
+        }
+        remainingItems.addAll(list);
         isBusy = true;
         reboot = true;
+        setChanged();
         return true;
     }
 
@@ -159,6 +169,10 @@ public class CraftingThread implements INBTSerializable<CompoundTag> {
 
     private void eject(MEStorage storage, ItemStack stack) {
         storage.insert(AEItemKey.of(stack), stack.getCount(), Actionable.MODULATE, actionSource);
+    }
+
+    private void setChanged() {
+        worker.setChanged();
     }
 
     @Override
