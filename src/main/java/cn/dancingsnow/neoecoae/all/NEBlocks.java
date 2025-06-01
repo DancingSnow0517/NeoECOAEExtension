@@ -595,8 +595,8 @@ public class NEBlocks {
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
-            .lang("ECO - %s Extensible Crafting Subsystem Controller"
-                .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "F")
+            .lang("ECO - %s Parallel Core"
+                .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "CT")
             )
             .register();
     }
