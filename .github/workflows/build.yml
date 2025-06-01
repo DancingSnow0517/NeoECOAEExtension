@@ -47,8 +47,12 @@ jobs:
           MESSAGE=$(ls build/libs/* | grep sources.jar -v | grep shadow.jar -v | grep slim.jar -v | awk -F '${{ steps.properties.outputs.mod_id }}-|.jar' '{print $2}')
           echo version=$MESSAGE >> $GITHUB_OUTPUT
 
+      - name: Get Commit Short hash
+        id: hash
+        run: echo "short_hash=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_ENV
+
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4.3.3
         with:
-          name: "${{ steps.properties.outputs.mod_name }} ${{ steps.var.outputs.version }}"
-          path: build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}.jar
+          name: "${{ steps.properties.outputs.mod_name }} v${{ steps.var.outputs.version }}-${{ env.short_hash }}"
+          path: build/libs/*.jar
