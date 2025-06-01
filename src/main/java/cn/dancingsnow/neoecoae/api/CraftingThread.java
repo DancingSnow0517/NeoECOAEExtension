@@ -11,6 +11,7 @@ import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.menu.AutoCraftingMenu;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import lombok.Getter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -32,6 +33,7 @@ public class CraftingThread implements INBTSerializable<CompoundTag> {
     private final ECOCraftingWorkerBlockEntity worker;
     private final IActionSource actionSource;
 
+    @Getter
     private boolean isBusy = false;
 
     private boolean reboot = true;

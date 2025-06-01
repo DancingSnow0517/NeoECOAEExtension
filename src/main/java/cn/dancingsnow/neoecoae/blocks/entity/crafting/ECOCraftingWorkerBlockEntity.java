@@ -118,6 +118,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return false;
     }
 
+    public long getRunningThreads() {
+        return craftingThreads.stream().filter(CraftingThread::isBusy).count();
+    }
+
     @Override
     public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
         super.saveAdditional(data, registries);

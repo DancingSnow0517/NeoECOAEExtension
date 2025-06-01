@@ -87,7 +87,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean isBusy() {
-        if (cluster != null) {
+        if (cluster != null && cluster.getController() != null) {
+            ECOCraftingSystemBlockEntity controller = cluster.getController();
+            if (controller.getThreadCount() > getRunningThread()) {
+                return false;
+            }
             for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
                 if (!worker.isBusy()) {
                     return true;
@@ -95,6 +99,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             }
         }
         return false;
+    }
+
+    private long getRunningThread() {
+        if (cluster != null) {
+            return cluster.getWorkers().stream().mapToLong(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
+        }
+        return 0;
     }
 
     @Override
