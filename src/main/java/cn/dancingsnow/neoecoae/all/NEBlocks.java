@@ -308,12 +308,12 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L6 = createComputationCoolingController(
         "l6",
-        Rarity.UNCOMMON
+        Rarity.RARE
     );
 
     public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L9 = createComputationCoolingController(
         "l9",
-        Rarity.UNCOMMON
+        Rarity.EPIC
     );
 
     public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L4 = createComputationSystem(
@@ -323,12 +323,12 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L6 = createComputationSystem(
         "l6",
-        Rarity.UNCOMMON
+        Rarity.RARE
     );
 
     public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L9 = createComputationSystem(
         "l9",
-        Rarity.UNCOMMON
+        Rarity.EPIC
     );
 
     //endregion
@@ -645,12 +645,13 @@ public class NEBlocks {
         return REGISTRATE
             .block("computation_system_" + level, ECOComputationSystem::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
+            .properties(BlockBehaviour.Properties::noCollission)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(
                     prov.modLoc("block/compute/" + ctx.getName())
                 );
-                ModelFile formedModel = new ModelFile.UncheckedModelFile(prov.modLoc("block/" + ctx.getName() + "_formed"));
+                ModelFile formedModel = new ModelFile.UncheckedModelFile(prov.modLoc("block/compute/" + ctx.getName() + "_formed"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
