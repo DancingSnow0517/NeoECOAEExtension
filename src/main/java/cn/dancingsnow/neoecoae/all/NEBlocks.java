@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationTransmitter;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
@@ -315,6 +316,21 @@ public class NEBlocks {
         Rarity.UNCOMMON
     );
 
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L4 = createComputationSystem(
+        "l4",
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L6 = createComputationSystem(
+        "l6",
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L9 = createComputationSystem(
+        "l9",
+        Rarity.UNCOMMON
+    );
+
     //endregion
 
     static {
@@ -621,6 +637,36 @@ public class NEBlocks {
             .build()
             .lang("ECO - %s Extensible Crafting Controller".formatted(
                 level.toUpperCase(Locale.ROOT)).replace("L", "F"
+            ))
+            .register();
+    }
+
+    private static BlockEntry<ECOComputationSystem> createComputationSystem(String level, Rarity rarity) {
+        return REGISTRATE
+            .block("computation_system_" + level, ECOComputationSystem::new)
+            .initialProperties(() -> Blocks.IRON_BLOCK)
+            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .blockstate((ctx, prov) -> {
+                ModelFile modelFile = prov.models().getExistingFile(
+                    prov.modLoc("block/compute/" + ctx.getName())
+                );
+                ModelFile formedModel = new ModelFile.UncheckedModelFile(prov.modLoc("block/" + ctx.getName() + "_formed"));
+                prov.getVariantBuilder(ctx.get())
+                    .forAllStates(s ->
+                        ConfiguredModel.builder()
+                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? formedModel : modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                            .build()
+                    );
+            })
+            .item()
+            .model((ctx,prov) -> {
+                prov.withExistingParent(ctx.getName(), prov.modLoc("block/compute/" + ctx.getName()));
+            })
+            .properties(p -> p.rarity(rarity))
+            .build()
+            .lang("ECO - %s Extensible Computation Subsystem Controller".formatted(
+                level.toUpperCase(Locale.ROOT)).replace("L", "C"
             ))
             .register();
     }
