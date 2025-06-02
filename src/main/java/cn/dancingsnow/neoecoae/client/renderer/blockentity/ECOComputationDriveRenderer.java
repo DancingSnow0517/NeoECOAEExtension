@@ -52,10 +52,18 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
         poseStack.translate(0.25 * facing.getStepX(), 0, 0.25 * facing.getStepZ());
         poseStack.mulPose(facingRot);
         boolean formed = blockEntity.isFormed();
+        boolean shouldCellWork = false;
+        IECOTier cableTier = blockEntity.getTier();
         if (itemStack != null && !itemStack.isEmpty()) {
-            ResourceLocation cellModel = formed
-                ? ECOComputationModels.getNormalModel(itemStack.getItem())
-                : ECOComputationModels.getFormedModel(itemStack.getItem());
+            ECOComputationCellItem item = (ECOComputationCellItem) itemStack.getItem();
+            IECOTier itemTier = item.getTier();
+            shouldCellWork = itemTier.compareTo(blockEntity.getTier()) <= 0 && formed;
+            ResourceLocation cellModel = shouldCellWork
+                ? ECOComputationModels.getFormedModel(itemStack.getItem())
+                : ECOComputationModels.getNormalModel(itemStack.getItem());
+            if (shouldCellWork) {
+                cableTier = itemTier;
+            }
             tesselateModel(
                 poseStack,
                 bufferSource,
@@ -68,13 +76,9 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
         boolean connected = false;
         if (formed) {
             if (itemStack != null) {
-
-
-                ECOComputationCellItem item = (ECOComputationCellItem) itemStack.getItem();
-                IECOTier itemTier = item.getTier();
-                if (itemTier.compareTo(blockEntity.getTier()) <= 0) {
+                if (shouldCellWork) {
                     poseStack.translate(0, 0, -0.35);
-                    cableModel = ECOComputationModels.getCableConnectedModel(item.getTier());
+                    cableModel = ECOComputationModels.getCableConnectedModel(cableTier);
                     connected = true;
                 } else {
                     if (blockEntity.isLowerDrive()) {
