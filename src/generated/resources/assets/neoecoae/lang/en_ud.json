@@ -32,6 +32,8 @@
   "block.neoecoae.storage_system_l6": "ɹǝןןoɹʇuoƆ ɯǝʇsʎsqnS ǝbɐɹoʇS ǝןqısuǝʇxƎ 9Ꞁ - OƆƎ",
   "block.neoecoae.storage_system_l9": "ɹǝןןoɹʇuoƆ ɯǝʇsʎsqnS ǝbɐɹoʇS ǝןqısuǝʇxƎ 6Ꞁ - OƆƎ",
   "block.neoecoae.storage_vent": "ʞuıS ʇɐǝH ɯǝʇsʎS ǝbɐɹoʇS",
+  "category.neoecoae.cooling": "buıןooƆ",
+  "category.neoecoae.cooling.coolant": "%d :ʇuɐןooƆ",
   "config.jade.plugin_neoecoae.eco_drive": "ǝʌıɹᗡ OƆƎ",
   "gui.neoecoae.crafting.parallel_core_count": "%d :ʇunoƆ ǝɹoƆ ןǝןןɐɹɐԀ",
   "gui.neoecoae.crafting.pattern_bus_count": "%d :ʇunoƆ snᗺ uɹǝʇʇɐԀ",

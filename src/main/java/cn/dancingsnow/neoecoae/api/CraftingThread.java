@@ -75,7 +75,7 @@ public class CraftingThread implements INBTSerializable<CompoundTag> {
 
         if (this.progress >= MAX_PROGRESS) {
             if (ejectOutputs()) {
-                worker.onCrafted();
+                worker.onThreadStop();
                 isBusy = false;
                 setChanged();
             }
@@ -118,6 +118,7 @@ public class CraftingThread implements INBTSerializable<CompoundTag> {
             }
         }
         remainingItems.addAll(list);
+        worker.onThreadWork();
         isBusy = true;
         reboot = true;
         setChanged();

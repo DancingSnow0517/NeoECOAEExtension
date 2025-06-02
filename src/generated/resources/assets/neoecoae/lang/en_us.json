@@ -32,6 +32,8 @@
   "block.neoecoae.storage_system_l6": "ECO - L6 Extensible Storage Subsystem Controller",
   "block.neoecoae.storage_system_l9": "ECO - L9 Extensible Storage Subsystem Controller",
   "block.neoecoae.storage_vent": "Storage System Heat Sink",
+  "category.neoecoae.cooling": "Cooling",
+  "category.neoecoae.cooling.coolant": "Coolant: %d",
   "config.jade.plugin_neoecoae.eco_drive": "ECO Drive",
   "gui.neoecoae.crafting.parallel_core_count": "Parallel Core Count: %d",
   "gui.neoecoae.crafting.pattern_bus_count": "Pattern Bus Count: %d",
