@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
 import appeng.client.gui.Icon;
-import appeng.client.gui.style.Blitter;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;

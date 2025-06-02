@@ -1,11 +1,11 @@
 package cn.dancingsnow.neoecoae;
 
 
+import cn.dancingsnow.neoecoae.all.NEBlockEntities;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEGridServices;
 import cn.dancingsnow.neoecoae.all.NEItems;
-import cn.dancingsnow.neoecoae.all.NEBlockEntities;
-import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.data.NEDataGen;

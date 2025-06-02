@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.blocks.crafting;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingVentBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;

@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
-import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
@@ -20,12 +19,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.neoforged.neoforge.client.model.data.ModelData;
 import org.joml.Quaternionf;
 
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +52,7 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
         if (itemStack != null && !itemStack.isEmpty()) {
             ECOComputationCellItem item = (ECOComputationCellItem) itemStack.getItem();
             IECOTier itemTier = item.getTier();
-            shouldCellWork = itemTier.compareTo(blockEntity.getTier()) <= 0 && formed;
+            shouldCellWork = formed && itemTier.compareTo(blockEntity.getTier()) <= 0;
             ResourceLocation cellModel = shouldCellWork
                 ? ECOComputationModels.getFormedModel(itemStack.getItem())
                 : ECOComputationModels.getNormalModel(itemStack.getItem());
