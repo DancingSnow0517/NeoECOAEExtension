@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
@@ -66,14 +67,32 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
         ResourceLocation cableModel = null;
         if (formed) {
             if (itemStack != null) {
-                poseStack.translate(0, 0, -0.35);
+
+
                 ECOComputationCellItem item = (ECOComputationCellItem) itemStack.getItem();
-                cableModel = ECOComputationModels.getCableConnectedModel(item.getTier());
+                IECOTier itemTier = item.getTier();
+                if (itemTier.compareTo(blockEntity.getTier()) <= 0) {
+                    poseStack.translate(0, 0, -0.35);
+                    cableModel = ECOComputationModels.getCableConnectedModel(item.getTier());
+                } else {
+                    if (blockEntity.isLowerDrive()) {
+                        poseStack.translate(0, 0.655, -0.3);
+                    } else {
+                        poseStack.translate(0, -0.655, -0.3);
+                    }
+                    cableModel = ECOComputationModels.getCableDisconnectedModel(blockEntity.getTier());
+                }
             } else {
-                poseStack.translate(0, -0.655, -0.3);
-                //TODO 用控制器tier
-                cableModel = ECOComputationModels.getCableDisconnectedModel(ECOTier.L4);
+                if (blockEntity.isLowerDrive()) {
+                    poseStack.translate(0, 0.655, -0.3);
+                } else {
+                    poseStack.translate(0, -0.655, -0.3);
+                }
+                cableModel = ECOComputationModels.getCableDisconnectedModel(blockEntity.getTier());
             }
+        }
+        if (blockEntity.isLowerDrive()) {
+            poseStack.mulPose(Axis.ZP.rotationDegrees(180));
         }
         if (cableModel == null) {
             poseStack.popPose();

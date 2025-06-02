@@ -5,6 +5,8 @@ import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.RequireRerender;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
