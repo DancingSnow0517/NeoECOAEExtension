@@ -65,6 +65,7 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
             );
         }
         ResourceLocation cableModel = null;
+        boolean connected = false;
         if (formed) {
             if (itemStack != null) {
 
@@ -74,6 +75,7 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
                 if (itemTier.compareTo(blockEntity.getTier()) <= 0) {
                     poseStack.translate(0, 0, -0.35);
                     cableModel = ECOComputationModels.getCableConnectedModel(item.getTier());
+                    connected = true;
                 } else {
                     if (blockEntity.isLowerDrive()) {
                         poseStack.translate(0, 0.655, -0.3);
@@ -93,6 +95,10 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
         }
         if (blockEntity.isLowerDrive()) {
             poseStack.mulPose(Axis.ZP.rotationDegrees(180));
+            poseStack.scale(-1, -1, 1);
+            if (connected) {
+                poseStack.mulPose(Axis.ZP.rotationDegrees(180));
+            }
         }
         if (cableModel == null) {
             poseStack.popPose();
