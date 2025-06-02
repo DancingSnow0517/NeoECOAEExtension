@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
@@ -315,6 +316,24 @@ public class NEBlockEntities {
         NEBlocks.COMPUTATION_THREADING_CORE_L9
     );
 
+    public static final NEBlockEntityEntry<ECOComputationCoolingControllerBlockEntity> COMPUTATION_COOLING_CONTROLLER_L4 = createComputationCoolingController(
+        ECOTier.L4,
+        "l4",
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4
+    );
+
+    public static final NEBlockEntityEntry<ECOComputationCoolingControllerBlockEntity> COMPUTATION_COOLING_CONTROLLER_L6 = createComputationCoolingController(
+        ECOTier.L6,
+        "l6",
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6
+    );
+
+    public static final NEBlockEntityEntry<ECOComputationCoolingControllerBlockEntity> COMPUTATION_COOLING_CONTROLLER_L9 = createComputationCoolingController(
+        ECOTier.L9,
+        "l9",
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9
+    );
+
     public static final NEBlockEntityEntry<ECOComputationDriveBlockEntity> COMPUTATION_DRIVE = REGISTRATE
         .blockEntityBlockLinked(
             "computation_drive",
@@ -387,6 +406,22 @@ public class NEBlockEntities {
                 "computation_threading_core_" + tierString,
                 tier,
                 ECOComputationThreadingCoreBlockEntity::new
+            )
+            .forBlock(block)
+            .validBlock(block)
+            .register();
+    }
+
+    private static NEBlockEntityEntry<ECOComputationCoolingControllerBlockEntity> createComputationCoolingController(
+        IECOTier tier,
+        String tierString,
+        BlockEntry<? extends NEBlock<ECOComputationCoolingControllerBlockEntity>> block
+    ) {
+        return REGISTRATE
+            .tierBlockEntityBlockLinked(
+                "computation_cooling_controller_" + tierString,
+                tier,
+                ECOComputationCoolingControllerBlockEntity::new
             )
             .forBlock(block)
             .validBlock(block)

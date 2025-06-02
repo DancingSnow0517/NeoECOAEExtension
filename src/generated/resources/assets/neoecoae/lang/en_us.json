@@ -1,5 +1,8 @@
 {
   "block.neoecoae.computation_casing": "Computation Casing",
+  "block.neoecoae.computation_cooling_controller_l4": "Cooling System Controller - C4",
+  "block.neoecoae.computation_cooling_controller_l6": "Cooling System Controller - C6",
+  "block.neoecoae.computation_cooling_controller_l9": "Cooling System Controller - C9",
   "block.neoecoae.computation_drive": "ECO - CD Computation Drive",
   "block.neoecoae.computation_interface": "Computation Interface",
   "block.neoecoae.computation_parallel_core_l4": "ECO - CT4 Parallel Core",

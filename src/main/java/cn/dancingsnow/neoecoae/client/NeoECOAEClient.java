@@ -21,6 +21,7 @@ public class NeoECOAEClient {
     public NeoECOAEClient(IEventBus modBus, ModContainer container) {
         modBus.addListener(NeoECOAEClient::onClientSetup);
         NeoForge.EVENT_BUS.addListener(NeoECOAEClient::onAddChunkGeometry);
+        NEExtraModels.register();
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {

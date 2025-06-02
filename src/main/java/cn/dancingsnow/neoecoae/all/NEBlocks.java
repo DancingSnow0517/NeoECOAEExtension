@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
@@ -250,6 +251,25 @@ public class NEBlocks {
         .lang("ECO - CI Superconductive Transmitting Bus")
         .register();
 
+    public static final BlockEntry<ECOComputationDrive> COMPUTATION_DRIVE = REGISTRATE
+        .block("computation_drive", ECOComputationDrive::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(BlockBehaviour.Properties::noOcclusion)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .simpleItem()
+        .blockstate((ctx, prov) -> {
+            prov.getVariantBuilder(ctx.get())
+                .forAllStates(s -> {
+                    ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
+                    return ConfiguredModel.builder()
+                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
+                        .modelFile(modelFile)
+                        .build();
+                });
+        })
+        .lang("ECO - CD Computation Drive")
+        .register();
+
     public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
         "l4",
         Rarity.UNCOMMON
@@ -280,24 +300,20 @@ public class NEBlocks {
         Rarity.EPIC
     );
 
-    public static final BlockEntry<ECOComputationDrive> COMPUTATION_DRIVE = REGISTRATE
-        .block("computation_drive", ECOComputationDrive::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .properties(BlockBehaviour.Properties::noOcclusion)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .simpleItem()
-        .blockstate((ctx, prov) -> {
-            prov.getVariantBuilder(ctx.get())
-                .forAllStates(s -> {
-                    ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
-                    return ConfiguredModel.builder()
-                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
-                        .modelFile(modelFile)
-                        .build();
-                });
-        })
-        .lang("ECO - CD Computation Drive")
-        .register();
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L4 = createComputationCoolingController(
+        "l4",
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L6 = createComputationCoolingController(
+        "l6",
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L9 = createComputationCoolingController(
+        "l9",
+        Rarity.UNCOMMON
+    );
 
     //endregion
 
@@ -659,9 +675,9 @@ public class NEBlocks {
                         boolean working = s.getValue(ECOComputationThreadingCore.WORKING);
                         ConfiguredModel.Builder<?> builder = ConfiguredModel.builder()
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360);
-                        if (working){
+                        if (working) {
                             builder.modelFile(modelFileWorking);
-                        }else {
+                        } else {
                             if (formed) {
                                 builder.modelFile(modelFileFormed);
                             } else {
@@ -676,6 +692,49 @@ public class NEBlocks {
             .build()
             .lang("ECO - %sA Threading Core"
                 .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "CM")
+            )
+            .register();
+    }
+
+    private static BlockEntry<ECOComputationCoolingController> createComputationCoolingController(String level, Rarity rarity) {
+        return REGISTRATE
+            .block("computation_cooling_controller_" + level, ECOComputationCoolingController::new)
+            .initialProperties(() -> Blocks.IRON_BLOCK)
+            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .blockstate((ctx, prov) -> {
+                ModelFile modelFile = prov.models()
+                    .cube(
+                        ctx.getName(),
+                        prov.modLoc("block/computation_casing"),
+                        prov.modLoc("block/computation_casing"),
+                        prov.modLoc("block/" + ctx.getName() + "_front"),
+                        prov.modLoc("block/computation_threading_core_back"),
+                        prov.modLoc("block/computation_casing"),
+                        prov.modLoc("block/computation_casing")
+                    ).texture("particle", prov.modLoc("block/computation_casing"));
+                ModelFile modelFileFormed = prov.models()
+                    .getExistingFile(
+                        prov.modLoc("block/compute/computation_cooling_controller_" + level + "_formed")
+                    );
+                prov.getVariantBuilder(ctx.get())
+                    .forAllStates(s -> {
+                        boolean formed = s.getValue(ECOComputationThreadingCore.FORMED);
+                        ConfiguredModel.Builder<?> builder = ConfiguredModel.builder();
+                        if (formed) {
+                            builder.modelFile(modelFileFormed)
+                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 270) % 360);
+                        } else {
+                            builder.modelFile(modelFile)
+                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360);
+                        }
+                        return builder.build();
+                    });
+            })
+            .item()
+            .properties(p -> p.rarity(rarity))
+            .build()
+            .lang("Cooling System Controller - %s"
+                .formatted(level.toUpperCase(Locale.ROOT).replace("L", "C"))
             )
             .register();
     }
