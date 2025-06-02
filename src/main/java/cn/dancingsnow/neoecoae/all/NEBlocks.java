@@ -645,7 +645,7 @@ public class NEBlocks {
         return REGISTRATE
             .block("computation_system_" + level, ECOComputationSystem::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
-            .properties(BlockBehaviour.Properties::noCollission)
+            .properties(BlockBehaviour.Properties::noOcclusion)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(
