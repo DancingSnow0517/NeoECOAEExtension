@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBloc
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationTransmitterBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
@@ -334,6 +335,24 @@ public class NEBlockEntities {
         NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9
     );
 
+    public static final NEBlockEntityEntry<ECOComputationSystemBlockEntity> COMPUTATION_SYSTEM_L4 = createComputationSystem(
+        ECOTier.L4,
+        "l4",
+        NEBlocks.COMPUTATION_SYSTEM_L4
+    );
+
+    public static final NEBlockEntityEntry<ECOComputationSystemBlockEntity> COMPUTATION_SYSTEM_L6 = createComputationSystem(
+        ECOTier.L6,
+        "l6",
+        NEBlocks.COMPUTATION_SYSTEM_L6
+    );
+
+    public static final NEBlockEntityEntry<ECOComputationSystemBlockEntity> COMPUTATION_SYSTEM_L9 = createComputationSystem(
+        ECOTier.L9,
+        "l9",
+        NEBlocks.COMPUTATION_SYSTEM_L9
+    );
+
     public static final NEBlockEntityEntry<ECOComputationDriveBlockEntity> COMPUTATION_DRIVE = REGISTRATE
         .blockEntityBlockLinked(
             "computation_drive",
@@ -422,6 +441,22 @@ public class NEBlockEntities {
                 "computation_cooling_controller_" + tierString,
                 tier,
                 ECOComputationCoolingControllerBlockEntity::new
+            )
+            .forBlock(block)
+            .validBlock(block)
+            .register();
+    }
+
+    private static NEBlockEntityEntry<ECOComputationSystemBlockEntity> createComputationSystem(
+        IECOTier tier,
+        String tierString,
+        BlockEntry<? extends NEBlock<ECOComputationSystemBlockEntity>> block
+    ) {
+        return REGISTRATE
+            .tierBlockEntityBlockLinked(
+                "computation_system_" + tierString,
+                tier,
+                ECOComputationSystemBlockEntity::new
             )
             .forBlock(block)
             .validBlock(block)
