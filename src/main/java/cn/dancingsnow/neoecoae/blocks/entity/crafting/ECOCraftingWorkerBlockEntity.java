@@ -102,20 +102,23 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean isBusy() {
-        if (craftingThreads.stream().anyMatch(CraftingThread::isFree)) {
-            return true;
-        }
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
+            if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
+                return true;
+            }
+            if (craftingThreads.stream().anyMatch(CraftingThread::isFree)) {
+                return false;
+            }
             if (craftingThreads.size() < controller.getThreadCountPerWorker()) {
                 CraftingThread thread = new CraftingThread(this);
                 craftingThreads.add(thread);
                 setChanged();
                 markForUpdate();
-                return true;
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
     public long getRunningThreads() {
