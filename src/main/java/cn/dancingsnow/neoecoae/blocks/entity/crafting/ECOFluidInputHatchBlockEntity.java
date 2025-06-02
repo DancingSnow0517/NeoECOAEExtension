@@ -1,14 +1,15 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidOutputHatchBlock;
+import cn.dancingsnow.neoecoae.gui.GuiTextures;
+import cn.dancingsnow.neoecoae.gui.widget.AEStylePlayerInventoryWidget;
+import cn.dancingsnow.neoecoae.gui.widget.AEStyleTankWidget;
+import cn.dancingsnow.neoecoae.gui.widget.AEStyleWidgetGroup;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
-import com.lowdragmc.lowdraglib.gui.texture.ResourceBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
-import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TextTextureWidget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import com.lowdragmc.lowdraglib.gui.widget.custom.PlayerInventoryWidget;
 import com.lowdragmc.lowdraglib.side.fluid.FluidTransferHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -43,22 +44,28 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
 
     private WidgetGroup createUI() {
         WidgetGroup root = new WidgetGroup();
-
         root.setSize(180, 145);
-        root.setBackground(ResourceBorderTexture.BORDERED_BACKGROUND);
+        root.setBackground(GuiTextures.BACKGROUND);
 
         TextTextureWidget text = new TextTextureWidget();
         text.setText(Component.translatable("block.neoecoae.input_hatch"));
         text.setSelfPosition(8, 8);
-        text.textureStyle(t -> t.setType(TextTexture.TextType.LEFT_ROLL));
+        text.textureStyle(t -> t.setType(TextTexture.TextType.LEFT_ROLL).setColor(0x403E53).setDropShadow(false));
         text.setSize(160, 9);
         root.addWidget(text);
 
-        TankWidget tankWidget = new TankWidget(tank, 0, 81, 28,true, true);
-        tankWidget.initTemplate();
-        root.addWidget(tankWidget);
+        AEStyleWidgetGroup tankGroup = new AEStyleWidgetGroup();
+        tankGroup.initTemplate();
 
-        PlayerInventoryWidget playerInventoryWidget = new PlayerInventoryWidget();
+        tankGroup.setSize(18, 18);
+        tankGroup.setSelfPosition(81, 28);
+        AEStyleTankWidget tankWidget = new AEStyleTankWidget(tank, 0, 0, 0,true, true);
+        tankWidget.initTemplate();
+        tankGroup.addWidget(tankWidget);
+
+        root.addWidget(tankGroup);
+
+        AEStylePlayerInventoryWidget playerInventoryWidget = new AEStylePlayerInventoryWidget();
         playerInventoryWidget.setSelfPosition(4, 52);
         root.addWidget(playerInventoryWidget);
 
