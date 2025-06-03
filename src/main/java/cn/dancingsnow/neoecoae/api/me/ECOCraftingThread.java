@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.api;
+package cn.dancingsnow.neoecoae.api.me;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
@@ -10,6 +10,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.menu.AutoCraftingMenu;
+import cn.dancingsnow.neoecoae.api.NEFakePlayer;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import lombok.Getter;
 import net.minecraft.core.HolderLookup;
@@ -27,7 +28,7 @@ import org.jetbrains.annotations.UnknownNullability;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CraftingThread implements INBTSerializable<CompoundTag> {
+public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     public static final int MAX_PROGRESS = 100;
 
     private final ECOCraftingWorkerBlockEntity worker;
@@ -46,7 +47,7 @@ public class CraftingThread implements INBTSerializable<CompoundTag> {
 
     private final TransientCraftingContainer craftingInv;
 
-    public CraftingThread(ECOCraftingWorkerBlockEntity worker) {
+    public ECOCraftingThread(ECOCraftingWorkerBlockEntity worker) {
         this.worker = worker;
         this.actionSource = IActionSource.ofMachine(worker);
         this.craftingInv = new TransientCraftingContainer(new AutoCraftingMenu(), 3, 3);

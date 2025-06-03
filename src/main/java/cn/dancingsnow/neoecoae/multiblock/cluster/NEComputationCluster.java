@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
+import appeng.api.networking.security.IActionSource;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
@@ -10,17 +11,25 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
+    @Getter
     private List<ECOComputationDriveBlockEntity> upperDrives = new ArrayList<>();
+    @Getter
     private List<ECOComputationDriveBlockEntity> lowerDrives = new ArrayList<>();
+    @Getter
     private List<ECOComputationThreadingCoreBlockEntity> threadingCores = new ArrayList<>();
     @Getter
+    @Nullable
     private ECOComputationSystemBlockEntity controller;
+    @Getter
+    @Nullable
+    private IActionSource actionSource;
 
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -44,6 +53,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
         if (blockEntity instanceof ECOComputationSystemBlockEntity system) {
             controller = system;
+            actionSource = IActionSource.ofMachine(system);
         }
     }
 }

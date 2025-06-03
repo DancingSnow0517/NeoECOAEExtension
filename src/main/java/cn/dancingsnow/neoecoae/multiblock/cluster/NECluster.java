@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.MBCalculator;
-import appeng.me.helpers.MachineSource;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -16,7 +15,6 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     private final BlockPos boundMin;
     private final BlockPos boundMax;
     protected final List<NEBlockEntity<T, ?>> blockEntities = new ArrayList<>();
-    private MachineSource machineSource = null;
 
     @Getter
     private boolean destroyed = false;
@@ -47,9 +45,6 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     }
 
     public void addBlockEntity(NEBlockEntity<T, ?> blockEntity) {
-        if (blockEntity.isCoreBlock()) {
-            this.machineSource = new MachineSource(blockEntity);
-        }
         blockEntity.saveChanges();
         this.blockEntities.add(blockEntity);
     }

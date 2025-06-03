@@ -120,10 +120,6 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     }
 
-    public boolean isCoreBlock() {
-        return false;
-    }
-
     public void updateCluster(@Nullable C cluster) {
         this.cluster = cluster;
         formed = cluster != null;

@@ -6,7 +6,7 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import cn.dancingsnow.neoecoae.api.CraftingThread;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingWorkerBlockEntity>
     implements IGridTickable {
 
-    private final List<CraftingThread> craftingThreads = new ArrayList<>();
+    private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
 
     @Getter
     private int runningThreads = 0;
@@ -59,7 +59,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             }
             int overlockTimes = controller.getOverlockTimes();
             TickRateModulation rate = TickRateModulation.IDLE;
-            for (CraftingThread thread : craftingThreads) {
+            for (ECOCraftingThread thread : craftingThreads) {
                 TickRateModulation r = thread.tick(overlockTimes, powerMultiply, ticksSinceLastCall);
                 if (r.ordinal() > rate.ordinal()) {
                     rate = r;
@@ -76,7 +76,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
             AtomicBoolean pushed = new AtomicBoolean(false);
-            craftingThreads.stream().filter(CraftingThread::isFree).forEach(t -> {
+            craftingThreads.stream().filter(ECOCraftingThread::isFree).forEach(t -> {
                 if (pushed.get()) {
                     return;
                 }
@@ -86,7 +86,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             });
             if (!pushed.get()) {
                 if (craftingThreads.size() < controller.getThreadCountPerWorker()) {
-                    CraftingThread thread = new CraftingThread(this);
+                    ECOCraftingThread thread = new ECOCraftingThread(this);
                     craftingThreads.add(thread);
                     setChanged();
                     markForUpdate();
@@ -108,11 +108,11 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
                 return true;
             }
-            if (craftingThreads.stream().anyMatch(CraftingThread::isFree)) {
+            if (craftingThreads.stream().anyMatch(ECOCraftingThread::isFree)) {
                 return false;
             }
             if (craftingThreads.size() < controller.getThreadCountPerWorker()) {
-                CraftingThread thread = new CraftingThread(this);
+                ECOCraftingThread thread = new ECOCraftingThread(this);
                 craftingThreads.add(thread);
                 setChanged();
                 markForUpdate();
@@ -136,7 +136,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
         super.saveAdditional(data, registries);
         ListTag threads = new ListTag();
-        for (CraftingThread thread : craftingThreads) {
+        for (ECOCraftingThread thread : craftingThreads) {
             threads.add(thread.serializeNBT(registries));
         }
         data.put("craftingThreads", threads);
@@ -148,7 +148,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         super.loadTag(data, registries);
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         for (int i = 0; i < threads.size(); i++) {
-            CraftingThread thread = new CraftingThread(this);
+            ECOCraftingThread thread = new ECOCraftingThread(this);
             thread.deserializeNBT(registries, threads.getCompound(i));
             craftingThreads.add(thread);
         }
