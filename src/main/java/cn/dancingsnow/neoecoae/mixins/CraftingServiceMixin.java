@@ -4,16 +4,20 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.crafting.UnsuitableCpus;
+import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
-import appeng.crafting.execution.CraftingSubmitResult;
-import appeng.me.cluster.implementations.CraftingCPUCluster;
+import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.AbstractComputationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -38,7 +42,7 @@ import java.util.Set;
 
 @Debug(export = true)
 @Mixin(CraftingService.class)
-public class CraftingServiceMixin {
+public abstract class CraftingServiceMixin {
     @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
             NEComputationCluster::getCPUAccelerators)
@@ -53,6 +57,16 @@ public class CraftingServiceMixin {
     private IGrid grid;
     @Shadow
     private long lastProcessedCraftingLogicChangeTick;
+    @Shadow
+    @Final
+    private IEnergyService energyGrid;
+    @Shadow
+    @Final
+    private Set<AEKey> currentlyCrafting;
+
+    @Shadow
+    public abstract void addLink(CraftingLink link);
+
     @Unique
     private final Set<NEComputationCluster> computationClusters = new HashSet<>();
 
@@ -70,10 +84,10 @@ public class CraftingServiceMixin {
 
         for (NEComputationCluster cluster : this.computationClusters) {
             if (cluster != null) {
-//                for(AdvCraftingCPU cpu : cluster.getActiveCPUs()) {
-//                    cpu.craftingLogic.tickCraftingLogic(this.energyGrid, (CraftingService)this);
-//                    latestChangeLocal = Math.max(latestChangeLocal, cpu.craftingLogic.getLastModifiedOnTick());
-//                }
+                for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+                    cpu.getLogic().tickCraftingLogic(this.energyGrid, (CraftingService) (Object) this);
+                    latestChangeLocal = Math.max(latestChangeLocal, cpu.getLogic().getLastModifiedOnTick());
+                }
             }
         }
 
@@ -95,9 +109,9 @@ public class CraftingServiceMixin {
     private void tickClusters2(CallbackInfo ci) {
         for (NEComputationCluster cluster : this.computationClusters) {
             if (cluster != null) {
-//                for(AdvCraftingCPU cpu : cluster.getActiveCPUs()) {
-//                    cpu.craftingLogic.getAllWaitingFor(this.currentlyCrafting);
-//                }
+                for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+                    cpu.getLogic().getAllWaitingFor(this.currentlyCrafting);
+                }
             }
         }
 
@@ -108,7 +122,9 @@ public class CraftingServiceMixin {
         at = {@At("TAIL")}
     )
     private void onRemoveNode(IGridNode gridNode, CallbackInfo ci) {
-        if (gridNode.getOwner() instanceof AbstractComputationBlockEntity<?>) {
+        if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
+            && blockEntity.getCluster() instanceof NEComputationCluster
+        ) {
             this.updateList = true;
         }
     }
@@ -118,7 +134,9 @@ public class CraftingServiceMixin {
         at = {@At("TAIL")}
     )
     private void onAddNode(IGridNode gridNode, CompoundTag savedData, CallbackInfo ci) {
-        if (gridNode.getOwner() instanceof AbstractComputationBlockEntity<?>) {
+        if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
+                && blockEntity.getCluster() instanceof NEComputationCluster
+        ) {
             this.updateList = true;
         }
     }
@@ -130,17 +148,16 @@ public class CraftingServiceMixin {
     private void onUpdateCPUClusters(CallbackInfo ci) {
         this.computationClusters.clear();
 
-        for (AbstractComputationBlockEntity<?> blockEntity : this.grid.getMachines(AbstractComputationBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity blockEntity : this.grid.getMachines(ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null) {
                 this.computationClusters.add(cluster);
-
-//                for(AdvCraftingCPU cpu : cluster.getActiveCPUs()) {
-//                    ICraftingLink maybeLink = cpu.craftingLogic.getLastLink();
-//                    if (maybeLink != null) {
-//                        this.addLink((CraftingLink)maybeLink);
-//                    }
-//                }
+                for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+                    ICraftingLink maybeLink = cpu.getLogic().getLastLink();
+                    if (maybeLink != null) {
+                        this.addLink((CraftingLink) maybeLink);
+                    }
+                }
             }
         }
 
@@ -160,12 +177,11 @@ public class CraftingServiceMixin {
     ) {
         for (NEComputationCluster cluster : this.computationClusters) {
             if (cluster != null) {
-//                for (var cpu : cluster.getActiveCPUs()) {
-//                    inserted.set(inserted.get() + cpu.craftingLogic.insert(what, amount - inserted.get(), type));
-//                }
+                for (var cpu : cluster.getActiveCPUs()) {
+                    inserted.set(inserted.get() + cpu.getLogic().insert(what, amount - inserted.get(), type));
+                }
             }
         }
-        cir.setReturnValue(inserted.get());
     }
 
     @Inject(
@@ -250,40 +266,49 @@ public class CraftingServiceMixin {
         return validCpusClusters.getFirst();
     }
 
-    @Inject(method = "getCpus", at = @At("RETURN"), cancellable = true)
+    @Inject(
+        method = "getCpus",
+        at = @At("RETURN"),
+        order = 500
+    )
     private void onGetCpus(
         CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir,
         @Local ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
         for (var cluster : this.computationClusters) {
-//            for (var cpu : cluster.getActiveCPUs()) {
-//                cpus.add(cpu);
-//            }
-//            cpus.add(cluster.getFakeCPU());
+            for (var cpu : cluster.getActiveCPUs()) {
+                cpus.add(cpu);
+            }
+            cpus.add(cluster.getFakeCPU());
         }
-        cir.setReturnValue(cpus.build());
     }
 
-    @Inject(method = "getRequestedAmount", at = @At("RETURN"), cancellable = true)
-    private void onGetRequestedAmount(AEKey what, CallbackInfoReturnable<Long> cir, @Local long requested) {
+    @Inject(
+        method = "getRequestedAmount",
+        at = @At("RETURN"),
+        order = 500
+    )
+    private void onGetRequestedAmount(
+        AEKey what,
+        CallbackInfoReturnable<Long> cir,
+        @Local LocalLongRef requested
+    ) {
         for (var cluster : this.computationClusters) {
-//            for (var cpu : cluster.getActiveCPUs()) {
-//                requested += cpu.craftingLogic.getWaitingFor(what);
-//            }
+            for (var cpu : cluster.getActiveCPUs()) {
+                requested.set(requested.get() + cpu.getLogic().getWaitingFor(what));
+            }
         }
-
-        cir.setReturnValue(requested);
     }
 
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void onHasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
         for (var cluster : this.computationClusters) {
-//            for (var activeCpu : cluster.getActiveCPUs()) {
-//                if (activeCpu == cpu) {
-//                    cir.setReturnValue(true);
-//                    return;
-//                }
-//            }
+            for (var activeCpu : cluster.getActiveCPUs()) {
+                if (activeCpu == cpu) {
+                    cir.setReturnValue(true);
+                    return;
+                }
+            }
         }
     }
 }

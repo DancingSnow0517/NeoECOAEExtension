@@ -9,6 +9,7 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import lombok.Getter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -19,13 +20,26 @@ public class ECOCraftingCPU implements ICraftingCPU {
 
     private long fakeStorage = 0;
     private final NEComputationCluster cluster;
+    @Getter
     private final ICraftingPlan plan;
+    @Getter
     private final ECOCraftingCPULogic logic = new ECOCraftingCPULogic(this);
+    @Getter
+    private final ECOComputationThreadingCoreBlockEntity owner;
 
-    public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan) {
+    public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan, ECOComputationThreadingCoreBlockEntity owner) {
         this.cluster = cluster;
         this.plan = plan;
+        this.owner = owner;
     }
+
+    public ECOCraftingCPU(NEComputationCluster cluster, long fakeStorage) {
+        this.cluster = cluster;
+        this.plan = null;
+        this.fakeStorage = fakeStorage;
+        this.owner = null;
+    }
+
     @Override
     public boolean isBusy() {
         return logic.hasJob();
@@ -45,6 +59,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
         }
     }
 
+
     @Override
     public void cancelJob() {
         if (this.plan == null) {
@@ -62,12 +77,12 @@ public class ECOCraftingCPU implements ICraftingCPU {
 
     @Override
     public int getCoProcessors() {
-        return cluster.getCoProcessors();
+        return cluster.getCPUAccelerators();
     }
 
     @Override
     public @Nullable Component getName() {
-        return cluster.getName();
+        return Component.literal("123456");
     }
 
     @Override
@@ -76,18 +91,17 @@ public class ECOCraftingCPU implements ICraftingCPU {
     }
 
     public void markDirty() {
-        for (ECOComputationThreadingCoreBlockEntity threadingCore : cluster.getThreadingCores()) {
-            threadingCore.saveChanges();
+        if (this.owner != null){
+            this.owner.saveChanges();
         }
     }
 
     public boolean isActive() {
-        // TODO: invoke cluster isActive
-        return false;
+        return cluster.isActive();
     }
 
     public void deactivate() {
-        // TODO: invoke cluster isActive
+        this.cluster.deactivate(this.plan);
     }
 
     public Level getLevel() {

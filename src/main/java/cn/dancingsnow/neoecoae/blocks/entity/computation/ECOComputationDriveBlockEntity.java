@@ -36,7 +36,6 @@ public class ECOComputationDriveBlockEntity
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     @Getter
-    @Setter
     @DescSynced
     @Persisted
     @RequireRerender
@@ -89,6 +88,13 @@ public class ECOComputationDriveBlockEntity
     @Override
     public IManagedStorage getSyncStorage() {
         return syncStorage;
+    }
+
+    public void setCellStack(@Nullable ItemStack cellStack) {
+        this.cellStack = cellStack;
+        if (this.cluster != null) {
+            this.cluster.recalculateRemainingStorage();
+        }
     }
 
     @Override
