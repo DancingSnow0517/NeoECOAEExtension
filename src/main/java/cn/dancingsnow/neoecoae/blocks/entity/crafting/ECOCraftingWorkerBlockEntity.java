@@ -7,6 +7,7 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.CraftingThread;
+import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -14,6 +15,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -22,6 +24,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     implements IGridTickable {
 
     private final List<CraftingThread> craftingThreads = new ArrayList<>();
+
+    @Getter
+    private int runningThreads = 0;
 
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -47,6 +52,11 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             if (controller.isOverclocked() && !controller.isActiveCooling()) {
                 powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
             }
+            if (controller.isActiveCooling() && controller.canConsumeCoolant(5)) {
+                controller.consumeCoolant(5);
+            } else {
+                return TickRateModulation.IDLE;
+            }
             int overlockTimes = controller.getOverlockTimes();
             TickRateModulation rate = TickRateModulation.IDLE;
             for (CraftingThread thread : craftingThreads) {
@@ -59,15 +69,6 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return rate;
         } else {
             return TickRateModulation.IDLE;
-        }
-    }
-
-    public void onCrafted() {
-        if (cluster != null && cluster.getController() != null) {
-            ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (controller.isOverclocked() && controller.isActiveCooling()) {
-                controller.consumeCoolant();
-            }
         }
     }
 
@@ -121,8 +122,14 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return true;
     }
 
-    public long getRunningThreads() {
-        return craftingThreads.stream().filter(CraftingThread::isBusy).count();
+    public void onThreadWork() {
+        runningThreads++;
+        setChanged();
+    }
+
+    public void onThreadStop() {
+        runningThreads--;
+        setChanged();
     }
 
     @Override
@@ -133,6 +140,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             threads.add(thread.serializeNBT(registries));
         }
         data.put("craftingThreads", threads);
+        data.putInt("runningThreads", runningThreads);
     }
 
     @Override
@@ -144,5 +152,6 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             thread.deserializeNBT(registries, threads.getCompound(i));
             craftingThreads.add(thread);
         }
+        runningThreads = data.getInt("runningThreads");
     }
 }

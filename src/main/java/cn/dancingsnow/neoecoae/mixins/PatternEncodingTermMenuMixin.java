@@ -7,7 +7,6 @@ import appeng.menu.me.common.MEStorageMenu;
 import appeng.menu.me.items.PatternEncodingTermMenu;
 import appeng.menu.slot.RestrictedInputSlot;
 import appeng.parts.encoding.EncodingMode;
-import appeng.util.ConfigInventory;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension;
 import net.minecraft.world.entity.player.Inventory;

@@ -1,6 +1,6 @@
 {
 	"credit": "Made with WI_8614_ice",
-	"texture_size": [64, 64],
+	"texture_size": [32, 32],
 	"textures": {
 		"3": "neoecoae:block/compute/cable_on",
 		"4": "neoecoae:block/compute/led/cable_l4",

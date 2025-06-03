@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=east,formed=false": {
+      "model": "neoecoae:block/compute/computation_system_l9",
+      "y": 90
+    },
+    "facing=east,formed=true": {
+      "model": "neoecoae:block/compute/computation_system_l9_formed",
+      "y": 90
+    },
+    "facing=north,formed=false": {
+      "model": "neoecoae:block/compute/computation_system_l9"
+    },
+    "facing=north,formed=true": {
+      "model": "neoecoae:block/compute/computation_system_l9_formed"
+    },
+    "facing=south,formed=false": {
+      "model": "neoecoae:block/compute/computation_system_l9",
+      "y": 180
+    },
+    "facing=south,formed=true": {
+      "model": "neoecoae:block/compute/computation_system_l9_formed",
+      "y": 180
+    },
+    "facing=west,formed=false": {
+      "model": "neoecoae:block/compute/computation_system_l9",
+      "y": 270
+    },
+    "facing=west,formed=true": {
+      "model": "neoecoae:block/compute/computation_system_l9_formed",
+      "y": 270
+    }
+  }
+}

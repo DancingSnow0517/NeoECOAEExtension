@@ -75,25 +75,29 @@ public class NEItems {
 
     public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L4 = createComputationCell(
         "l4",
-        ECOTier.L4
+        ECOTier.L4,
+        Rarity.UNCOMMON
     );
 
     public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L6 = createComputationCell(
         "l6",
-        ECOTier.L6
+        ECOTier.L6,
+        Rarity.RARE
     );
     public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L9 = createComputationCell(
         "l9",
-        ECOTier.L9
+        ECOTier.L9,
+        Rarity.EPIC
     );
 
     private static ItemEntry<ECOComputationCellItem> createComputationCell(
         String tierString,
-        IECOTier tier
+        IECOTier tier,
+        Rarity rarity
     ) {
         return REGISTRATE
             .item("eco_computation_cell_" + tierString, p -> new ECOComputationCellItem(
-                p.stacksTo(1).rarity(Rarity.EPIC),
+                p.stacksTo(1).rarity(rarity),
                 tier
             ))
             .lang("ECO - %s Flash Crystal Matrix".formatted(tierString.replace("l", "CE")))

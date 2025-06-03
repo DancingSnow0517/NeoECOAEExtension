@@ -24,11 +24,10 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     private final List<ECOCraftingPatternBusBlockEntity> patternBuses = new ArrayList<>();
     @Getter
     private ECOCraftingSystemBlockEntity controller = null;
-    private ECOFluidInputHatchBlockEntity inputHatch = null;
-    private ECOFluidOutputHatchBlockEntity outputHatch = null;
-
     @Getter
-    private boolean destroyed = false;
+    private ECOFluidInputHatchBlockEntity inputHatch = null;
+    @Getter
+    private ECOFluidOutputHatchBlockEntity outputHatch = null;
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);

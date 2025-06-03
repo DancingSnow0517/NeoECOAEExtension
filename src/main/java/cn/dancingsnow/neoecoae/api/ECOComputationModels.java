@@ -25,7 +25,7 @@ public class ECOComputationModels {
     }
 
     public static ResourceLocation getFormedModel(Item item) {
-        return map.get(item).normalModel;
+        return map.get(item).formedModel;
     }
 
     public static ResourceLocation getCableDisconnectedModel(IECOTier tier) {

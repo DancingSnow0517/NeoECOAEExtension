@@ -3,13 +3,11 @@ package cn.dancingsnow.neoecoae.client;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
-import cn.dancingsnow.neoecoae.api.rendering.DelegatedBufferSource;
 import cn.dancingsnow.neoecoae.api.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
@@ -21,6 +19,7 @@ public class NeoECOAEClient {
     public NeoECOAEClient(IEventBus modBus, ModContainer container) {
         modBus.addListener(NeoECOAEClient::onClientSetup);
         NeoForge.EVENT_BUS.addListener(NeoECOAEClient::onAddChunkGeometry);
+        NEExtraModels.register();
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {

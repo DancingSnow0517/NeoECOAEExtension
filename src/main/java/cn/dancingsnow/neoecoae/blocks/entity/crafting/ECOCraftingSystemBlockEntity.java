@@ -1,7 +1,13 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.ticking.IGridTickable;
+import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.networking.ticking.TickingRequest;
+import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.GuiTextures;
+import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.widget.SwitchWidget;
@@ -21,11 +27,14 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
 import java.util.List;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements IUIHolder.Block, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
+    implements IUIHolder.Block, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged, IGridTickable {
 
     public static final int MAX_COOLANT = 100000;
 
@@ -73,6 +82,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     ) {
         super(type, pos, blockState);
         this.tier = tier;
+        getMainNode().addService(IGridTickable.class, this);
     }
 
     @Override
@@ -108,6 +118,46 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (updateExposed) {
             updateInfo();
         }
+    }
+
+    @Override
+    public TickingRequest getTickingRequest(IGridNode node) {
+        return new TickingRequest(5, 10, false);
+    }
+
+    @Override
+    public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        if (coolant >= MAX_COOLANT) {
+            return TickRateModulation.IDLE;
+        }
+        if (cluster != null && cluster.getInputHatch() != null && cluster.getOutputHatch() != null && getLevel() != null) {
+            FluidTank inputHatch = cluster.getInputHatch().tank;
+            FluidTank outputHatch = cluster.getOutputHatch().tank;
+            var r = getLevel().getRecipeManager().getRecipeFor(
+                NERecipeTypes.COOLING.get(),
+                new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid()),
+                getLevel()
+            );
+            if (r.isPresent()) {
+                CoolingRecipe recipe = r.get().value();
+                FluidStack input = null;
+                FluidStack output = recipe.output();
+                boolean canConsume = false;
+                for (FluidStack fluid : recipe.input().getFluids()) {
+                    if (FluidStack.matches(fluid, inputHatch.drain(fluid, IFluidHandler.FluidAction.SIMULATE))) {
+                        canConsume = true;
+                        input = fluid;
+                    }
+                }
+                if (canConsume && outputHatch.fill(output, IFluidHandler.FluidAction.SIMULATE) == output.getAmount()) {
+                    inputHatch.drain(input, IFluidHandler.FluidAction.EXECUTE);
+                    outputHatch.fill(output, IFluidHandler.FluidAction.EXECUTE);
+                    coolant += recipe.coolant();
+                    return TickRateModulation.FASTER;
+                }
+            }
+        }
+        return TickRateModulation.IDLE;
     }
 
     private void updateInfo() {
@@ -149,8 +199,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         overlockTimes = Math.min(Math.round(radio / 0.05f), 9);
     }
 
-    public void consumeCoolant() {
-        consumeCoolant(5);
+    public boolean canConsumeCoolant(int coolant) {
+        return this.coolant >= coolant;
     }
 
     public void consumeCoolant(int coolant) {

@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
 import com.lowdragmc.lowdraglib.syncdata.IEnhancedManaged;
@@ -41,6 +43,24 @@ public class ECOComputationDriveBlockEntity
     @Nullable
     private ItemStack cellStack = null;
 
+    @DescSynced
+    @RequireRerender
+    private boolean formedState;
+
+    @Getter
+    @Setter
+    @DescSynced
+    @RequireRerender
+    private boolean isLowerDrive = false;
+
+    @Getter
+    @DescSynced
+    @RequireRerender
+    private BlockPos ownerBlockPos;
+
+    @Getter
+    private IECOTier tier;
+
     @Getter
     private final IItemHandler itemHandler = new CellHostItemHandler(this);
 
@@ -50,6 +70,12 @@ public class ECOComputationDriveBlockEntity
 
     @Override
     public void scheduleRenderUpdate() {
+        Level level = Minecraft.getInstance().level;
+        if (ownerBlockPos != null) {
+            if (level.getBlockEntity(ownerBlockPos) instanceof ECOComputationSystemBlockEntity systemBlockEntity) {
+                this.tier = systemBlockEntity.getTier();
+            }
+        }
         SectionPos sectionPos = SectionPos.of(worldPosition);
         Minecraft.getInstance().levelRenderer
             .setSectionDirty(sectionPos.x(), sectionPos.y(), sectionPos.z());
@@ -80,8 +106,35 @@ public class ECOComputationDriveBlockEntity
     }
 
     @Override
+    public boolean isFormed() {
+        return formedState;
+    }
+
+    @Override
+    public void setFormed(boolean formed) {
+        this.formedState = formed;
+    }
+
+    @Override
     public IManagedStorage getRootStorage() {
         return syncStorage;
+    }
+
+    @Override
+    public void updateCluster(@Nullable NEComputationCluster cluster) {
+        super.updateCluster(cluster);
+        this.formedState = cluster != null;
+        if (cluster != null) {
+            ownerBlockPos = cluster.getController().getBlockPos();
+        } else {
+            ownerBlockPos = null;
+        }
+    }
+
+    @Override
+    public void disconnect(boolean update) {
+        super.disconnect(update);
+        isLowerDrive = false;
     }
 
     @Override

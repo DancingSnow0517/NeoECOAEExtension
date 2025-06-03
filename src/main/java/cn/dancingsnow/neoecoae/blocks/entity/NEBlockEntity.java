@@ -33,6 +33,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     implements IAEMultiBlock<C> {
 
     @Setter
+    @Getter
     protected boolean formed = false;
 
     @Getter
