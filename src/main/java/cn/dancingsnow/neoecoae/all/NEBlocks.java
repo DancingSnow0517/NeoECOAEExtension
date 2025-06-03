@@ -156,7 +156,7 @@ public class NEBlocks {
             provider.withExistingParent(ctx.getName(), provider.modLoc("block/eco_drive_empty"));
         })
         .build()
-        .lang("ECO - Crystal Oscillator Drive")
+        .lang("ECO - LD Storage Matrix Drive")
         .register();
 
     public static final BlockEntry<ECOStorageVentBlock> STORAGE_VENT = REGISTRATE
@@ -268,7 +268,7 @@ public class NEBlocks {
                         .build();
                 });
         })
-        .lang("ECO - CD Computation Drive")
+        .lang("ECO - CD Crystal Matrix Drive")
         .register();
 
     public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
