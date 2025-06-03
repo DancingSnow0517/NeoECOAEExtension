@@ -100,7 +100,7 @@ public class NEItems {
                 p.stacksTo(1).rarity(rarity),
                 tier
             ))
-            .lang("ECO - %s Synthetic Memory Element".formatted(tierString.replace("l", "CE")))
+            .lang("ECO - %s Flash Crystal Matrix".formatted(tierString.replace("l", "CE")))
             .model((ctx, prov) -> {
                 prov.withExistingParent("eco_computation_cell_" + tierString, prov.modLoc("item/computation_cell"));
             })
