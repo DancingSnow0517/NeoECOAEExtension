@@ -94,9 +94,13 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (this.level == null || this.notLoaded() || this.isRemoved()) {
             return;
         }
+        BlockState newState = level.getBlockState(worldPosition);
+        if (newState.hasProperty(NEBlock.FORMED)){
+            newState = newState.setValue(NEBlock.FORMED, formed);
+        }
         level.setBlock(
             worldPosition,
-            level.getBlockState(worldPosition).setValue(NEBlock.FORMED, formed),
+            newState,
             Block.UPDATE_CLIENTS
         );
         if (updateExposed) {
@@ -140,5 +144,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     @Override
     public boolean isValid() {
         return !this.isRemoved();
+    }
+
+    public void breakCluster() {
+        if (this.cluster != null){
+            cluster.destroy();
+        }
     }
 }

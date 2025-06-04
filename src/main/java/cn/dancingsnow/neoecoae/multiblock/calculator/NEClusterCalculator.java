@@ -30,7 +30,8 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
             NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) level.getBlockEntity(blockPos);
             if (blockEntity == null) {
-                throw new IllegalStateException("Expected NEBlockEntity at %s, but got null.".formatted(blockPos));
+                this.disconnect();
+                return;
             }
             c.addBlockEntity(blockEntity);
         }
@@ -249,7 +250,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return DataResult.success(end);
     }
 
-    private static String fail(){
+    private static String fail() {
         return "";
     }
 }

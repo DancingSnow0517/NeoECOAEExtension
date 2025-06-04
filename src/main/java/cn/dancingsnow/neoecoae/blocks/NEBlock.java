@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks;
 
 import appeng.block.AEBaseEntityBlock;
+import appeng.blockentity.crafting.CraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -21,6 +22,20 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(FORMED);
+    }
+
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (newState.getBlock() == state.getBlock()) {
+            return; // Just a block state change
+        }
+
+        final T cp = this.getBlockEntity(level, pos);
+        if (cp != null) {
+            cp.breakCluster();
+        }
+
+        super.onRemove(state, level, pos, newState, isMoving);
     }
 
     @Override
