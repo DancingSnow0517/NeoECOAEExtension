@@ -16,16 +16,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class CraftingCpuListEntryMixin implements IOverlayTextureHolder {
 
     @Unique
-    private ResourceLocation neoecoae$getOverlay = null;
+    private ResourceLocation neoecoae$overlayTexture = null;
 
     @Override
     public @Nullable ResourceLocation neoecoae$getOverlay() {
-        return neoecoae$getOverlay;
+        return neoecoae$overlayTexture;
     }
 
     @Override
     public void neoecoae$setOverlay(@Nullable ResourceLocation overlay) {
-        neoecoae$getOverlay = overlay;
+        neoecoae$overlayTexture = overlay;
     }
 
     @Inject(
@@ -47,8 +47,8 @@ public class CraftingCpuListEntryMixin implements IOverlayTextureHolder {
         at = @At("RETURN")
     )
     private void onWriteToPacket(RegistryFriendlyByteBuf buf, CallbackInfo ci) {
-        if (neoecoae$getOverlay != null) {
-            buf.writeUtf(neoecoae$getOverlay.toString());
+        if (neoecoae$overlayTexture != null) {
+            buf.writeUtf(neoecoae$overlayTexture.toString());
         } else {
             buf.writeUtf("");
         }
