@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
@@ -363,14 +365,17 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L4 = createParallelCore(
         "l4",
+        ECOTier.L4,
         Rarity.UNCOMMON
     );
     public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L6 = createParallelCore(
         "l6",
+        ECOTier.L6,
         Rarity.RARE
     );
     public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L9 = createParallelCore(
         "l9",
+        ECOTier.L9,
         Rarity.EPIC
     );
 
@@ -585,9 +590,9 @@ public class NEBlocks {
             .register();
     }
 
-    private static BlockEntry<ECOCraftingParallelCore> createParallelCore(String level, Rarity rarity) {
+    private static BlockEntry<ECOCraftingParallelCore> createParallelCore(String level, IECOTier tier, Rarity rarity) {
         return REGISTRATE
-            .block("crafting_parallel_core_" + level, ECOCraftingParallelCore::new)
+            .block("crafting_parallel_core_" + level, p -> new ECOCraftingParallelCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
