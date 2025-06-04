@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import mekanism.common.registries.MekanismFluids;
+import mekanism.common.tags.MekanismTags;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.tags.FluidTags;
 import net.neoforged.neoforge.common.conditions.ICondition;
@@ -27,5 +28,11 @@ public class NERecipeGenerator {
             .output(new FluidStack(MekanismFluids.STEAM, 100))
             .coolant(500)
             .save(hasMekanism, NeoECOAE.id("cooling/water_with_steam"));
+
+        CoolingRecipe.builder()
+            .input(MekanismTags.Fluids.SODIUM, 100)
+            .output(new FluidStack(MekanismFluids.SUPERHEATED_SODIUM, 100))
+            .coolant(1500)
+            .save(hasMekanism, NeoECOAE.id("cooling/sodium"));
     }
 }

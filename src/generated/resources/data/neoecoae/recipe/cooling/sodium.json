@@ -1,0 +1,20 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "type": "neoecoae:cooling",
+  "coolant": 1500,
+  "input": {
+    "amount": 100,
+    "ingredient": {
+      "tag": "c:sodium"
+    }
+  },
+  "output": {
+    "amount": 100,
+    "id": "mekanism:superheated_sodium"
+  }
+}
