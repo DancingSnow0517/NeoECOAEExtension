@@ -7,6 +7,7 @@ import appeng.api.networking.crafting.CraftingJobStatus;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import lombok.Getter;
@@ -26,18 +27,22 @@ public class ECOCraftingCPU implements ICraftingCPU {
     private final ECOCraftingCPULogic logic = new ECOCraftingCPULogic(this);
     @Getter
     private final ECOComputationThreadingCoreBlockEntity owner;
+    @Getter
+    private final IECOTier tier;
 
     public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan, ECOComputationThreadingCoreBlockEntity owner) {
         this.cluster = cluster;
         this.plan = plan;
         this.owner = owner;
+        this.tier = owner.getTier();
     }
 
-    public ECOCraftingCPU(NEComputationCluster cluster, long fakeStorage) {
+    public ECOCraftingCPU(NEComputationCluster cluster, long fakeStorage, IECOTier tier) {
         this.cluster = cluster;
         this.plan = null;
         this.fakeStorage = fakeStorage;
         this.owner = null;
+        this.tier = tier;
     }
 
     @Override
@@ -45,6 +50,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return logic.hasJob();
     }
 
+    @SuppressWarnings("removal")
     @Override
     public @Nullable CraftingJobStatus getJobStatus() {
         var finalOutput = logic.getFinalJobOutput();
@@ -82,7 +88,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
 
     @Override
     public @Nullable Component getName() {
-        return Component.literal("123456");
+        return null;
     }
 
     @Override

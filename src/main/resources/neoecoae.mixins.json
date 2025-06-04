@@ -5,8 +5,11 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "AppEngInternalInventoryMixin",
-    "CraftingMenuMixin",
+    "CPUSelectionListMixin",
+    "CraftingCpuListEntryMixin",
+    "CraftingCPUMenuMixin",
     "CraftingServiceMixin",
+    "CraftingStatusMenuMixin",
     "PatternEncodingTermMenuMixin",
     "StoredEnergyAmountMixin"
   ],

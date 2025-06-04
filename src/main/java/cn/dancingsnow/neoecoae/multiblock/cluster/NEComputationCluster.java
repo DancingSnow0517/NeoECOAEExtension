@@ -10,6 +10,7 @@ import appeng.api.networking.events.GridCraftingCpuChange;
 import appeng.api.networking.security.IActionSource;
 import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
@@ -88,7 +89,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 .mapToInt(it -> ((ECOComputationParallelCoreBlockEntity) it).getTier().getCPUAccelerators())
                 .sum();
             recalculateRemainingStorage();
-            this.fakeCpu = new ECOCraftingCPU(this, availableStorage);
+            this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
 
             for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
                 for (ECOCraftingCPU cpu : threadingCore.getCpus()) {
@@ -201,7 +202,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public ECOCraftingCPU getFakeCPU() {
         if (this.fakeCpu == null || this.fakeCpu.getAvailableStorage() != this.availableStorage) {
-            this.fakeCpu = new ECOCraftingCPU(this, this.availableStorage);
+            this.fakeCpu = new ECOCraftingCPU(this, this.availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
         }
         return fakeCpu;
     }

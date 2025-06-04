@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api;
 
 import appeng.api.stacks.AEKeyType;
+import net.minecraft.resources.ResourceLocation;
 
 public interface IECOTier {
     int getTier();
@@ -59,6 +60,8 @@ public interface IECOTier {
      * @return 储电量
      */
     long getPowerStorageSize();
+
+    ResourceLocation getCPUOverlayTexture();
 
     /**
      * 存储系统存储矩阵类型数量

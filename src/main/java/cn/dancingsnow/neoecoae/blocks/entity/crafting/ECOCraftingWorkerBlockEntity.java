@@ -52,10 +52,12 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             if (controller.isOverclocked() && !controller.isActiveCooling()) {
                 powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
             }
-            if (controller.isActiveCooling() && controller.canConsumeCoolant(5)) {
-                controller.consumeCoolant(5);
-            } else {
-                return TickRateModulation.IDLE;
+            if (controller.isActiveCooling()) {
+                if (controller.canConsumeCoolant(5)) {
+                    controller.consumeCoolant(5);
+                } else {
+                    return TickRateModulation.IDLE;
+                }
             }
             int overlockTimes = controller.getOverlockTimes();
             TickRateModulation rate = TickRateModulation.IDLE;
