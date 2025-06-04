@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidOutputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
@@ -32,7 +33,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
 
     @Override
     protected int maxLength() {
-        return 16;
+        return NEConfig.craftingSystemMaxLength;
     }
 
     @Override

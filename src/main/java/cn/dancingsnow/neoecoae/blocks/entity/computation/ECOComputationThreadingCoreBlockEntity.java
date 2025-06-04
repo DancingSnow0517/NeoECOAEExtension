@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -114,6 +115,15 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
             if (cpu == null) continue;
             ListCraftingInventory inventory = cpu.getLogic().getInventory();
             for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
+                if (entry.getKey() instanceof AEItemKey itemKey) {
+                    long amount = entry.getLongValue();
+                    while (amount > 0) {
+                        long taken = Math.min(amount, itemKey.getMaxStackSize());
+                        amount -= taken;
+                        drops.add(itemKey.toStack((int) taken));
+                    }
+                    continue;
+                }
                 entry.getKey().addDrops(entry.getLongValue(), drops, level, worldPosition);
             }
         }

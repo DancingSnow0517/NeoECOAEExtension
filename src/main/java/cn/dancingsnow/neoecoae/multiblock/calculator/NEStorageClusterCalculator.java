@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
@@ -33,7 +34,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
 
     @Override
     protected int maxLength() {
-        return 15;
+        return NEConfig.storageSystemMaxLength;
     }
 
     @Override

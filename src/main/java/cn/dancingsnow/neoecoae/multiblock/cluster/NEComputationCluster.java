@@ -181,6 +181,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
 
         this.availableStorage = totalStorage - usedStorage;
+        if (this.availableStorage < 0) {
+            for (ICraftingPlan plan : this.activeCpus.keySet()) {
+                this.killCpu(plan, false, false);
+            }
+            recalculateRemainingStorage();
+        }
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {
@@ -216,13 +222,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
-    public void cancelJobs() {
-        for (ICraftingPlan plan : this.activeCpus.keySet()) {
-            this.killCpu(plan, false);
-        }
-
-    }
-
     public void cancelJob(ICraftingPlan plan) {
         if (this.activeCpus.get(plan) != null) {
             this.killCpu(plan, true);
@@ -230,11 +229,18 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     private void killCpu(ICraftingPlan plan, boolean update) {
+        killCpu(plan, update, true);
+    }
+
+    private void killCpu(ICraftingPlan plan, boolean update, boolean recalculate) {
         ECOCraftingCPU cpu = activeCpus.get(plan);
         cpu.getLogic().cancel();
         cpu.getLogic().markForDeletion();
         cpu.getOwner().deactivate(cpu);
-        this.recalculateRemainingStorage();
+        if (recalculate) {
+            this.recalculateRemainingStorage();
+        }
+        this.activeCpus.remove(plan);
         if (update) {
             updateGridForChangedCpu(this);
         }

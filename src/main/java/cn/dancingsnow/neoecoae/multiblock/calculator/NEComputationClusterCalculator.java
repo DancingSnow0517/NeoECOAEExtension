@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
@@ -32,7 +33,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
 
     @Override
     protected int maxLength() {
-        return 16;
+        return NEConfig.computationSystemMaxLength;
     }
 
     @Override
