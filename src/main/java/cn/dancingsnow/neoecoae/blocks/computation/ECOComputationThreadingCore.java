@@ -26,6 +26,11 @@ public class ECOComputationThreadingCore extends NEBlock<ECOComputationThreading
     }
 
     @Override
+    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, ECOComputationThreadingCoreBlockEntity be) {
+        return super.updateBlockStateFromBlockEntity(currentState, be).setValue(WORKING, be.isWorking());
+    }
+
+    @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(WORKING);

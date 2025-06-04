@@ -44,6 +44,7 @@ public class ECOCraftingCPULogic {
     /**
      * Current job.
      */
+    @Getter
     private ExecutingCraftingJob job = null;
     /**
      * Inventory.

@@ -16,7 +16,6 @@ import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.computation.AbstractComputationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
