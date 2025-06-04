@@ -28,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,11 +48,13 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private IActionSource actionSource;
     private int accelerators = 0;
     @Getter
+    private int maxThreads = 0;
+    @Getter
     private long availableStorage = 0;
     @Getter
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
 
-    private final HashMap<ICraftingPlan, ECOCraftingCPU> activeCpus = new HashMap();
+    private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
 
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
@@ -80,6 +83,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
+    public void pickup(ICraftingPlan plan, ECOCraftingCPU cpu) {
+        this.activeCpus.put(plan, cpu);
+    }
+
     @Override
     public void updateFormed(boolean formed) {
         super.updateFormed(formed);
@@ -90,14 +97,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 .sum();
             recalculateRemainingStorage();
             this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
-
-            for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
-                for (ECOCraftingCPU cpu : threadingCore.getCpus()) {
-                    if (cpu != null) {
-                        activeCpus.put(cpu.getPlan(), cpu);
-                    }
-                }
-            }
+            this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
         } else {
             accelerators = 0;
             availableStorage = 0;
@@ -155,6 +155,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         boolean submitted = false;
         for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
             cpu = threadingCore.spawn(job);
+            if (cpu == null) continue;
             result = cpu.getLogic().trySubmitJob(grid, job, src, requestingMachine);
             if (result.successful()) {
                 submitted = true;

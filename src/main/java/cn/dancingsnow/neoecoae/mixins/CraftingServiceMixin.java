@@ -37,6 +37,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Debug(export = true)
@@ -134,7 +135,7 @@ public abstract class CraftingServiceMixin {
     )
     private void onAddNode(IGridNode gridNode, CompoundTag savedData, CallbackInfo ci) {
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
-                && blockEntity.getCluster() instanceof NEComputationCluster
+            && blockEntity.getCluster() instanceof NEComputationCluster
         ) {
             this.updateList = true;
         }
@@ -211,7 +212,10 @@ public abstract class CraftingServiceMixin {
             var cluster = neoecoae$findSuitableAdvCraftingCPU(job, src, unsuitableCpusResult);
             if (cluster != null) {
                 updateList = true;
-                cir.setReturnValue(cluster.submitJob(this.grid, job, src, requestingMachine));
+                ICraftingSubmitResult result = cluster.submitJob(this.grid, job, src, requestingMachine);
+                if (result.successful()) {
+                    cir.setReturnValue(result);
+                }
             }
         }
     }
@@ -275,10 +279,13 @@ public abstract class CraftingServiceMixin {
         @Local ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
         for (var cluster : this.computationClusters) {
-            for (var cpu : cluster.getActiveCPUs()) {
+            List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
+            for (var cpu : ecoCpus) {
                 cpus.add(cpu);
             }
-            cpus.add(cluster.getFakeCPU());
+            if (ecoCpus.size() < cluster.getMaxThreads()) {
+                cpus.add(cluster.getFakeCPU());
+            }
         }
     }
 

@@ -91,7 +91,11 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                         .get();
                     deferredInit[i] = null;
                     cpu.readFromNBT(tag, registries);
-                    cpus[i] = cpu;
+                    if (cpu.getPlan() != null) {
+                        System.out.println("pickup cpu" + cpu + " " + cpu.getPlan());
+                        cpus[i] = cpu;
+                        cluster.pickup(cpu.getPlan(), cpu);
+                    }
                 }
             }
         }
