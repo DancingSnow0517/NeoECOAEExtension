@@ -7,6 +7,7 @@ import appeng.client.gui.widgets.InfoBar;
 import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.util.NumberFormatter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -78,7 +79,7 @@ public class CPUSelectionListMixin {
         @Local CraftingStatusMenu.CraftingCpuListEntry cpu
     ) {
         if (cpu.coProcessors() >= 1000) {
-            Tooltips.Amount amount = Tooltips.getAmount(cpu.coProcessors());
+            Tooltips.Amount amount = NumberFormatter.getAmount(cpu.coProcessors());
             int index = amount.digit().indexOf('.');
             String digit = index > 0 ? amount.digit().substring(0, index) : amount.digit();
             original.call(
