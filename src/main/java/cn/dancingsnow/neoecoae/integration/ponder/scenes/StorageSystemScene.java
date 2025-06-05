@@ -92,15 +92,6 @@ public class StorageSystemScene {
             .pointAt(util.vector().topOf(controllerPos.above()));
         builder.idle(45);
 
-//        builder.overlay().showOutlineWithText(util.select().position(interfacePos), 40)
-//            .text("The Storage Interface enables ECO Storage System to communicate with ME Network")
-//            .attachKeyFrame()
-//            .placeNearTarget()
-//            .pointAt(util.vector().topOf(interfacePos));
-//        builder.idle(45);
-//
-
-
         builder.rotateCameraY(360 - 60 - 45);
         builder.idle(15);
 
@@ -194,11 +185,71 @@ public class StorageSystemScene {
     }
 
     public static void interface_(SceneBuilder builder, SceneBuildingUtil util) {
-        builder.title("storage_system_interface", "Store");
+        builder.title("storage_system_interface", "Use storage interface to connect ME Network and ECO Storage System");
         builder.configureBasePlate(0, 0, 7);
-        //builder.rotateCameraY(-90);
+        builder.rotateCameraY(90);
         builder.showBasePlate();
         builder.idle(20);
+        Selection structureSelection = util.select().fromTo(2, 1, 2, 3, 3, 5);
+        Selection cableSelection1 = util.select().position(4, 1, 2);
+        Selection cableSelection2 = util.select().position(4, 2, 2);
+        Selection monitorSelection = util.select().position(5, 2, 3);
+        Selection networkSelection = util.select().fromTo(5, 1, 2, 5, 1, 3)
+            .add(cableSelection1)
+            .add(cableSelection2)
+            .add(monitorSelection);
+        Selection interfaceSelection = util.select().position(3, 2, 2);
+        builder.world().showSection(structureSelection, Direction.DOWN);
+        builder.overlay().showOutlineWithText(interfaceSelection, 45)
+            .text("Storage Interface enables the ECO Storage System to connect to a ME Network")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(3, 2, 2));
+        builder.idle(50);
+
+        builder.world().showSection(networkSelection, Direction.WEST);
+        builder.addInstruction(PlaceCableBusInstruction.builder(cableSelection1)
+            .cable(AEParts.SMART_CABLE.item(AEColor.TRANSPARENT))
+            .cableChannels(1)
+            .cableConnect(Direction.EAST, Direction.UP)
+            .powered(true)
+            .applyCableState()
+            .build()
+        );
+        builder.addInstruction(PlaceCableBusInstruction.builder(cableSelection2)
+            .cable(AEParts.SMART_CABLE.item(AEColor.TRANSPARENT))
+            .cableChannels(1)
+            .cableConnect(Direction.WEST, Direction.DOWN)
+            .powered(true)
+            .applyCableState()
+            .build()
+        );
+        builder.addInstruction(PlaceCableBusInstruction.builder(monitorSelection)
+            .cable(AEParts.SMART_CABLE.item(AEColor.TRANSPARENT))
+            .part(AEParts.CRAFTING_TERMINAL.asItem(), Direction.EAST)
+            .cableChannels(1)
+            .cableConnect(Direction.DOWN)
+            .powered(true)
+            .applyCableState()
+            .build()
+        );
+
+        builder.idle(5);
+        builder.overlay().showOutlineWithText(networkSelection, 40)
+            .text("Connect the Storage System to a ME Network")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(5, 1, 1));
+
+        builder.idle(45);
+
+        builder.overlay().showOutlineWithText(monitorSelection, 45)
+            .text("All storages are accessible from ME Terminals")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(5, 2, 3));
+
+        builder.idle(45);
 
         builder.markAsFinished();
     }
