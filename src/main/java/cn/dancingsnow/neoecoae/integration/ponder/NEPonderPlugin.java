@@ -30,6 +30,8 @@ public class NEPonderPlugin implements PonderPlugin {
         helper.forComponents(NEBlocks.STORAGE_INTERFACE)
             .addStoryBoard("storage_system/interface", StorageSystemScene::interface_, NEPonderTags.STORAGE_SYSTEM_COMPONENTS);
 
+        helper.forComponents(NEBlocks.ECO_DRIVE)
+            .addStoryBoard("storage_system/eco_drive", StorageSystemScene::drive, NEPonderTags.STORAGE_SYSTEM_COMPONENTS);
     }
 
     @Override

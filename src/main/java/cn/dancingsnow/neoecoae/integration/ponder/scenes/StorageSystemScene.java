@@ -3,14 +3,19 @@ package cn.dancingsnow.neoecoae.integration.ponder.scenes;
 import appeng.api.util.AEColor;
 import appeng.core.definitions.AEParts;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.integration.ponder.instructions.PlaceCableBusInstruction;
+import net.createmod.catnip.math.Pointing;
+import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class StorageSystemScene {
@@ -194,6 +199,48 @@ public class StorageSystemScene {
         //builder.rotateCameraY(-90);
         builder.showBasePlate();
         builder.idle(20);
+
+        builder.markAsFinished();
+    }
+
+    public static void drive(SceneBuilder builder, SceneBuildingUtil util) {
+        builder.title("storage_system_drive", "ECO Drive");
+        builder.configureBasePlate(0, 0, 3);
+        builder.showBasePlate();
+
+        builder.idleSeconds(1);
+        Selection position = util.select().position(1, 1, 1);
+        builder.world().showSection(position, Direction.DOWN);
+
+        builder.idleSeconds(1);
+        ItemStack cellStack = NEItems.ECO_ITEM_CELL_16M.asStack();
+        builder.overlay().showOutlineWithText(position, 60)
+            .text("Right click with ECO cell item to put it on drives")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .colored(PonderPalette.WHITE);
+        builder.overlay().showControls(util.vector().topOf(1, 1, 1), Pointing.DOWN, 60)
+            .rightClick()
+            .withItem(cellStack);
+        builder.world().modifyBlockEntityNBT(position, ECODriveBlockEntity.class, tag -> {
+            CompoundTag stackTag = new CompoundTag();
+            stackTag.putInt("count", 1);
+            stackTag.putString("id", "neoecoae:eco_item_storage_cell_16m");
+            tag.put("cellStack", stackTag);
+        }, true);
+        builder.idleSeconds(4);
+
+        builder.overlay().showOutlineWithText(position, 60)
+            .text("Snaking Right click with empty hand to tack ECO Cell Item from drives")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .colored(PonderPalette.WHITE);
+        builder.overlay().showControls(util.vector().topOf(1, 1, 1), Pointing.DOWN, 60)
+            .rightClick()
+            .whileSneaking();
+        builder.world().setBlock(new BlockPos(1, 1, 1), NEBlocks.ENERGY_CELL_L4.getDefaultState(), false);
+        builder.world().setBlock(new BlockPos(1, 1, 1), NEBlocks.ECO_DRIVE.getDefaultState(), false);
+        builder.idleSeconds(4);
 
         builder.markAsFinished();
     }
