@@ -68,7 +68,7 @@ public abstract class CraftingServiceMixin {
     public abstract void addLink(CraftingLink link);
 
     @Unique
-    private final Set<NEComputationCluster> computationClusters = new HashSet<>();
+    private final Set<NEComputationCluster> neoecoae$computationClusters = new HashSet<>();
 
     @Inject(
         method = "onServerEndTick",
@@ -82,7 +82,7 @@ public abstract class CraftingServiceMixin {
     private void tickClusters1(CallbackInfo ci, @Local long latestChange) {
         long latestChangeLocal = 0L;
 
-        for (NEComputationCluster cluster : this.computationClusters) {
+        for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
                 for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
                     cpu.getLogic().tickCraftingLogic(this.energyGrid, (CraftingService) (Object) this);
@@ -107,7 +107,7 @@ public abstract class CraftingServiceMixin {
         )
     )
     private void tickClusters2(CallbackInfo ci) {
-        for (NEComputationCluster cluster : this.computationClusters) {
+        for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
                 for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
                     cpu.getLogic().getAllWaitingFor(this.currentlyCrafting);
@@ -146,12 +146,12 @@ public abstract class CraftingServiceMixin {
         at = {@At("TAIL")}
     )
     private void onUpdateCPUClusters(CallbackInfo ci) {
-        this.computationClusters.clear();
+        this.neoecoae$computationClusters.clear();
 
         for (ECOComputationSystemBlockEntity blockEntity : this.grid.getMachines(ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null) {
-                this.computationClusters.add(cluster);
+                this.neoecoae$computationClusters.add(cluster);
                 for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
                     ICraftingLink maybeLink = cpu.getLogic().getLastLink();
                     if (maybeLink != null) {
@@ -175,7 +175,7 @@ public abstract class CraftingServiceMixin {
         CallbackInfoReturnable<Long> cir,
         @Local(ordinal = 1) LocalLongRef inserted
     ) {
-        for (NEComputationCluster cluster : this.computationClusters) {
+        for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
                 for (var cpu : cluster.getActiveCPUs()) {
                     inserted.set(inserted.get() + cpu.getLogic().insert(what, amount - inserted.get(), type));
@@ -226,12 +226,12 @@ public abstract class CraftingServiceMixin {
         IActionSource src,
         MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
-        var validCpusClusters = new ArrayList<NEComputationCluster>(this.computationClusters.size());
+        var validCpusClusters = new ArrayList<NEComputationCluster>(this.neoecoae$computationClusters.size());
         int offline = 0;
         int tooSmall = 0;
         int excluded = 0;
 
-        for (var cluster : this.computationClusters) {
+        for (var cluster : this.neoecoae$computationClusters) {
             if (!cluster.isActive()) {
                 offline++;
                 continue;
@@ -271,14 +271,14 @@ public abstract class CraftingServiceMixin {
 
     @Inject(
         method = "getCpus",
-        at = @At("RETURN"),
+        at = @At(value = "INVOKE", target = "Lcom/google/common/collect/ImmutableSet$Builder;build()Lcom/google/common/collect/ImmutableSet;"),
         order = 500
     )
     private void onGetCpus(
         CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir,
         @Local ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
-        for (var cluster : this.computationClusters) {
+        for (var cluster : this.neoecoae$computationClusters) {
             List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
             for (var cpu : ecoCpus) {
                 cpus.add(cpu);
@@ -299,7 +299,7 @@ public abstract class CraftingServiceMixin {
         CallbackInfoReturnable<Long> cir,
         @Local LocalLongRef requested
     ) {
-        for (var cluster : this.computationClusters) {
+        for (var cluster : this.neoecoae$computationClusters) {
             for (var cpu : cluster.getActiveCPUs()) {
                 requested.set(requested.get() + cpu.getLogic().getWaitingFor(what));
             }
@@ -308,7 +308,7 @@ public abstract class CraftingServiceMixin {
 
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void onHasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
-        for (var cluster : this.computationClusters) {
+        for (var cluster : this.neoecoae$computationClusters) {
             for (var activeCpu : cluster.getActiveCPUs()) {
                 if (activeCpu == cpu) {
                     cir.setReturnValue(true);
