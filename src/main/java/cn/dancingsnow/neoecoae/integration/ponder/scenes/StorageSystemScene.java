@@ -130,16 +130,18 @@ public class StorageSystemScene {
         builder.world().showSection(networkSelection, Direction.NORTH);
 
         builder.addInstruction(PlaceCableBusInstruction.builder(cableSelection1)
-            .cable(AEParts.SMART_CABLE.item(AEColor.LIME))
+            .cable(AEParts.SMART_CABLE.item(AEColor.TRANSPARENT))
             .cableChannels(1)
-            .cableConnect(Direction.WEST, Direction.DOWN)
+            .cableConnect(Direction.EAST, Direction.UP)
+            .powered(true)
             .applyCableState()
             .build()
         );
         builder.addInstruction(PlaceCableBusInstruction.builder(cableSelection2)
-            .cable(AEParts.SMART_CABLE.item(AEColor.LIME))
+            .cable(AEParts.SMART_CABLE.item(AEColor.TRANSPARENT))
             .cableChannels(1)
-            .cableConnect(Direction.EAST, Direction.UP)
+            .cableConnect(Direction.WEST, Direction.DOWN)
+            .powered(true)
             .applyCableState()
             .build()
         );
@@ -180,7 +182,7 @@ public class StorageSystemScene {
         builder.markAsFinished();
     }
 
-    private static BlockState getEnergyCell(int level){
+    private static BlockState getEnergyCell(int level) {
         return NEBlocks.ENERGY_CELL_L4.getDefaultState()
             .setValue(ECOEnergyCellBlock.LEVEL, level)
             .setValue(ECOEnergyCellBlock.FACING, Direction.EAST);

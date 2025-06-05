@@ -15,6 +15,7 @@
   ],
   "client": [
     "ModelBakeryMixin",
+    "PonderLevelMixin",
     "PatternEncodingTermScreenMixin"
   ],
   "server": [],

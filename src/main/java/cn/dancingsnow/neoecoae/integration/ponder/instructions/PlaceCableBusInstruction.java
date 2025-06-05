@@ -82,6 +82,11 @@ public class PlaceCableBusInstruction extends WorldModifyInstruction {
             return this;
         }
 
+        public Builder powered(boolean powered) {
+            cableState.putBoolean("powered", powered);
+            return this;
+        }
+
         public Builder applyCableState() {
             consumers.add(it -> {
                 IPart part = it.getPart(null);
