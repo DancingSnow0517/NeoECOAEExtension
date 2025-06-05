@@ -82,6 +82,6 @@
   "tooltip.neoecoae.power_multiply_l6": "Power Multiply: x%d [L6]",
   "tooltip.neoecoae.power_multiply_l9": "Power Multiply: x%d [L9]",
   "tooltip.neoecoae.storage_dirve.0": "Can drive storage matrix",
-  "tooltip.neoecoae.storage_dirve.1": "The storage matrix that can be driven is determined by the Storage System",
+  "tooltip.neoecoae.storage_dirve.1": "The drivable storage matrix tier depends on the storage system host controller",
   "tooltip.neoecoae.storage_system": "The core of the storage system"
 }

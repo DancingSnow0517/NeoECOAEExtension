@@ -23,7 +23,7 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.storage_system", "The core of the storage system");
         addLangs(provider, "tooltip.neoecoae.storage_dirve",
             "Can drive storage matrix",
-            "The storage matrix that can be driven is determined by the Storage System"
+            "The drivable storage matrix tier depends on the storage system host controller"
         );
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting system");
