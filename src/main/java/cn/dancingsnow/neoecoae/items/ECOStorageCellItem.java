@@ -14,6 +14,7 @@ import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,6 +63,9 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
         var handler = getCellInventory(stack);
+        if (handler == null) {
+            return;
+        }
         lines.add(Tooltips.bytesUsed(handler.getUsedBytes(), handler.getTotalBytes()));
         lines.add(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
     }
@@ -69,6 +73,9 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
         var handler = getCellInventory(stack);
+        if (handler == null) {
+            return Optional.empty();
+        }
 
         // Find items with the highest stored amount
         boolean hasMoreContent;
@@ -103,7 +110,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         );
     }
 
+    @Nullable
     public static ECOStorageCell getCellInventory(ItemStack stack) {
-        return new ECOStorageCell(stack, null);
+        if (stack.getItem() instanceof ECOStorageCellItem) {
+            return new ECOStorageCell(stack, null);
+        }
+        return null;
     }
 }

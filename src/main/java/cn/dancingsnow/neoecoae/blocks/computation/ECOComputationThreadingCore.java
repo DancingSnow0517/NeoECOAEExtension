@@ -2,8 +2,10 @@ package cn.dancingsnow.neoecoae.blocks.computation;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
+import lombok.Getter;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -16,13 +18,17 @@ public class ECOComputationThreadingCore extends NEBlock<ECOComputationThreading
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty WORKING = BooleanProperty.create("working");
 
-    public ECOComputationThreadingCore(Properties properties) {
+    @Getter
+    private final IECOTier tier;
+
+    public ECOComputationThreadingCore(Properties properties, IECOTier tier) {
         super(properties);
         registerDefaultState(getStateDefinition().any()
             .setValue(FORMED, false)
             .setValue(FACING, Direction.NORTH)
             .setValue(WORKING, false)
         );
+        this.tier = tier;
     }
 
     @Override

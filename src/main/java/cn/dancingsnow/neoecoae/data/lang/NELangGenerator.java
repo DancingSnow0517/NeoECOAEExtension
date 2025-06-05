@@ -55,7 +55,6 @@ public class NELangGenerator {
             "The computation subsystem introduces virtual Crafting Processors (vCPUs):",
             "The host provides only one vCPU to the ME network at a time, with capacity equal to all currently available bytes in the subsystem",
             "When a user assigns a crafting task to a vCPU, the host automatically adjusts the vCPU's byte allocation to the task's requirements before assigning it to a Threading Core",
-            "After allocation, if available bytes exceed 10% of total capacity, a new vCPU is automatically allocated. Otherwise allocation pauses until availability >10%",
             "New vCPUs can be allocated continuously until the total allocated vCPUs reach the max thread count",
             "vCPUs are immediately destroyed when the crafting task completes and all items are returned"
         );
@@ -74,7 +73,7 @@ public class NELangGenerator {
             "Parallel Core provides parallel count to the computation subsystem",
             "Parallel count increases the processing numbers per crafting task for all threading cores"
         );
-        provider.add("tooltip.neoecoae.computation_cell", "Provides %d bytes to the computation subsystem");
+        provider.add("tooltip.neoecoae.computation_cell", "Provides %s bytes to the computation subsystem");
     }
 
     private static void addLangs(RegistrateLangProvider provider, String key, String... langs) {
