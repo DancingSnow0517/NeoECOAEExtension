@@ -30,6 +30,30 @@ public class NETooltips {
         NEBlocks.CRAFTING_SYSTEM_L9.asItem()
     );
 
+    private static final Set<Item> COMPUTATION_SYSTEMS = Set.of(
+        NEBlocks.COMPUTATION_SYSTEM_L4.asItem(),
+        NEBlocks.COMPUTATION_SYSTEM_L6.asItem(),
+        NEBlocks.COMPUTATION_SYSTEM_L9.asItem()
+    );
+
+    private static final Set<Item> COMPUTATION_THREADING_CORE = Set.of(
+        NEBlocks.COMPUTATION_THREADING_CORE_L4.asItem(),
+        NEBlocks.COMPUTATION_THREADING_CORE_L6.asItem(),
+        NEBlocks.COMPUTATION_THREADING_CORE_L9.asItem()
+    );
+
+    private static final Set<Item> COMPUTATION_PARALLEL_CORE = Set.of(
+        NEBlocks.COMPUTATION_PARALLEL_CORE_L4.asItem(),
+        NEBlocks.COMPUTATION_PARALLEL_CORE_L6.asItem(),
+        NEBlocks.COMPUTATION_PARALLEL_CORE_L9.asItem()
+    );
+
+    private static final Set<Item> COMPUTATION_CELL = Set.of(
+        NEItems.ECO_COMPUTATION_CELL_L4.asItem(),
+        NEItems.ECO_COMPUTATION_CELL_L6.asItem(),
+        NEItems.ECO_COMPUTATION_CELL_L9.asItem()
+    );
+
     private static List<Component> tooltip;
     private static TooltipFlag flags;
 
@@ -105,6 +129,54 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.crafting_pattern_bus.0"),
                 Component.translatable("tooltip.neoecoae.crafting_pattern_bus.1"),
                 Component.translatable("tooltip.neoecoae.crafting_pattern_bus.2")
+            );
+        }
+
+        if (COMPUTATION_SYSTEMS.contains(stack.getItem())) {
+            addTooltips(
+                Component.translatable("tooltip.neoecoae.computation_system"),
+                Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.computationSystemMaxLength),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.0"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.1"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.2"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.3"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.4"),
+                Component.translatable("tooltip.neoecoae.computation_system_desc.5")
+            );
+        }
+        if (stack.is(NEBlocks.COMPUTATION_DRIVE.asItem())) {
+            addTooltips(
+                Component.translatable("tooltip.neoecoae.computation_drive.0"),
+                Component.translatable("tooltip.neoecoae.computation_drive.1")
+            );
+        }
+        if (COMPUTATION_THREADING_CORE.contains(stack.getItem())) {
+            int cpuThreads = stack.is(NEBlocks.COMPUTATION_THREADING_CORE_L4.asItem()) ? ECOTier.L4.getCPUThreads() : (
+                    stack.is(NEBlocks.COMPUTATION_THREADING_CORE_L6.asItem()) ? ECOTier.L6.getCPUThreads() :
+                            ECOTier.L9.getCPUThreads());
+            addTooltips(
+                Component.translatable("tooltip.neoecoae.computation_threading_core.0"),
+                Component.translatable("tooltip.neoecoae.computation_threading_core.1"),
+                Component.translatable("tooltip.neoecoae.computation_threading_core.2"),
+                Component.translatable("tooltip.neoecoae.max_thread_count", cpuThreads)
+            );
+        }
+        if (COMPUTATION_PARALLEL_CORE.contains(stack.getItem())) {
+            int cpuAccelerators = stack.is(NEBlocks.COMPUTATION_PARALLEL_CORE_L4.asItem()) ? ECOTier.L4.getCPUAccelerators() : (
+                    stack.is(NEBlocks.COMPUTATION_PARALLEL_CORE_L6.asItem()) ? ECOTier.L6.getCPUAccelerators() :
+                            ECOTier.L9.getCPUAccelerators());
+            addTooltips(
+                Component.translatable("tooltip.neoecoae.computation_parallel_core.0"),
+                Component.translatable("tooltip.neoecoae.computation_parallel_core.1"),
+                Component.translatable("tooltip.neoecoae.max_parallel_count", cpuAccelerators)
+            );
+        }
+        if (COMPUTATION_CELL.contains(stack.getItem())) {
+            long bytes = stack.is(NEItems.ECO_COMPUTATION_CELL_L4.asItem()) ? ECOTier.L4.getCPUTotalBytes() : (
+                    stack.is(NEItems.ECO_COMPUTATION_CELL_L6.asItem()) ? ECOTier.L6.getCPUTotalBytes() :
+                            ECOTier.L9.getCPUTotalBytes());
+            addTooltips(
+                Component.translatable("tooltip.neoecoae.computation_cell", bytes)
             );
         }
     }
