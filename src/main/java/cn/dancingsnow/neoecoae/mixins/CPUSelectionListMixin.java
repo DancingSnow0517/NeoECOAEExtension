@@ -79,9 +79,11 @@ public class CPUSelectionListMixin {
     ) {
         if (cpu.coProcessors() >= 1000) {
             Tooltips.Amount amount = Tooltips.getAmount(cpu.coProcessors());
+            int index = amount.digit().indexOf('.');
+            String digit = index > 0 ? amount.digit().substring(0, index) : amount.digit();
             original.call(
                 instance,
-                amount.digit().substring(0, amount.digit().indexOf('.')) + amount.unit(),
+                digit + amount.unit(),
                 color,
                 scale,
                 xPos,
