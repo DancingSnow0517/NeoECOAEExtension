@@ -5,6 +5,7 @@ import appeng.core.definitions.AEParts;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.integration.ponder.instructions.PlaceCableBusInstruction;
 import net.createmod.catnip.math.Pointing;
@@ -17,6 +18,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 public class StorageSystemScene {
 
@@ -33,6 +35,13 @@ public class StorageSystemScene {
         BlockPos cellPos = util.grid().at(5, 3, 3);
         BlockPos ventPos = util.grid().at(5, 2, 3);
         Selection driveSelection = util.select().fromTo(4, 1, 3, 4, 3, 3);
+        Selection endCasings = util.select().fromTo(4, 1, 4, 5, 3, 4);
+
+        Selection endReplacedDrives = util.select().fromTo(4, 1, 4, 4, 3, 4);
+        Selection endReplacedCells = util.select().position(5, 1, 4).add(util.select().position(5, 3, 4));
+        Selection endReplacedVents = util.select().position(5, 2, 4);
+        Selection endReplacedCasings = util.select().fromTo(4, 1, 5, 5, 3, 5);
+        Selection expand = endReplacedCasings.add(endCasings);
 
         Selection energyCellSelection = util.select().position(5, 1, 3).add(util.select().position(5, 3, 3));
         builder.world().showSection(
@@ -93,8 +102,47 @@ public class StorageSystemScene {
         builder.idle(45);
 
         builder.rotateCameraY(360 - 60 - 45);
+        builder.idle(20);
+        builder.addKeyframe();
+        builder.world().hideSection(endCasings, Direction.SOUTH);
         builder.idle(15);
+        builder.world().setBlocks(
+            endReplacedDrives,
+            NEBlocks.ECO_DRIVE.getDefaultState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST),
+            false
+        );
+        builder.world().setBlocks(
+            endReplacedCells,
+            NEBlocks.ENERGY_CELL_L4.getDefaultState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST),
+            false
+        );
+        builder.world().setBlocks(
+            endReplacedVents,
+            NEBlocks.STORAGE_VENT.getDefaultState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST),
+            false
+        );
+        builder.world().setBlocks(
+            endReplacedCasings,
+            NEBlocks.STORAGE_CASING.getDefaultState(),
+            false
+        );
+        builder.idle(15);
+        builder.world().showSection(endCasings, Direction.NORTH);
+        builder.world().showSection(endReplacedCasings, Direction.NORTH);
+        builder.overlay().showOutlineWithText(expand, 40)
+            .text("Structure can be expanded")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(4, 2, 5));
 
+        builder.idle(45);
+        builder.rotateCameraY(90 + 45);
+        builder.overlay().showOutlineWithText(expand, 40)
+            .text("With more energy cells, drives, vents and casings")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(5, 2, 4));
+        builder.idle(45);
 
         builder.markAsFinished();
     }
