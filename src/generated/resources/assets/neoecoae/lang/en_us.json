@@ -79,7 +79,7 @@
   "neoecoae.ponder.storage_system_energy.text_4": "The cells would charge up",
   "neoecoae.ponder.storage_system_interface.header": "Use storage interface to connect ME Network and ECO Storage System",
   "neoecoae.ponder.storage_system_interface.text_1": "Storage Interface enables the ECO Storage System to connect to a ME Network",
-  "neoecoae.ponder.storage_system_interface.text_2": "If you connect the Storage System to a ME Network...",
+  "neoecoae.ponder.storage_system_interface.text_2": "Connect the Storage System to a ME Network",
   "neoecoae.ponder.storage_system_interface.text_3": "All storages are accessible from ME Terminals",
   "neoecoae.ponder.tag.storage_system_components": "ECO Storage System",
   "neoecoae.ponder.tag.storage_system_components.description": "",
