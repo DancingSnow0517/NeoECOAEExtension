@@ -26,6 +26,10 @@ public class NEPonderPlugin implements PonderPlugin {
 
         helper.forComponents(NEBlocks.ENERGY_CELL_L4, NEBlocks.ENERGY_CELL_L6, NEBlocks.ENERGY_CELL_L9)
             .addStoryBoard("storage_system/energy", StorageSystemScene::energy, NEPonderTags.STORAGE_SYSTEM_COMPONENTS);
+
+        helper.forComponents(NEBlocks.STORAGE_INTERFACE)
+            .addStoryBoard("storage_system/interface", StorageSystemScene::interface_, NEPonderTags.STORAGE_SYSTEM_COMPONENTS);
+
     }
 
     @Override
