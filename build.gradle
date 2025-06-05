@@ -89,6 +89,14 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+        guild {
+            client()
+
+            systemProperty 'guideme.ae2.guide.sources', file('guidebook').absolutePath
+            systemProperty 'guideme.ae2.guide.sourcesNamespace', 'neoecoae'
+            systemProperty 'guideme.showOnStartup', 'neoecoae:guide'
+        }
+
         server {
             server()
             programArgument '--nogui'
@@ -120,7 +128,9 @@ neoForge {
     }
 }
 
-sourceSets.main.resources { srcDir 'src/generated/resources' }
+sourceSets.main.resources {
+    srcDirs 'src/generated/resources', 'src/guidebook/resources'
+}
 
 configurations {
     runtimeClasspath.extendsFrom localRuntime
@@ -165,6 +175,13 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+tasks.register('copyGuidebook', Copy) {
+    group = 'build'
+
+    from 'guidebook/'
+    into 'src/guidebook/resources/assets/neoecoae/ae2guide'
 }
 
 idea {
