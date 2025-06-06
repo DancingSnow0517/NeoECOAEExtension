@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
+import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
@@ -365,6 +366,7 @@ public class NEBlockEntities {
             NEBlockEntities.COMPUTATION_DRIVE.get(),
             (be, unused) -> be.getItemHandler()
         ))
+        .renderer(() -> ECOComputationDriveRenderer::new)
         .register();
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(

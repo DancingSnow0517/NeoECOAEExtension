@@ -5,5 +5,5 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
-    void render(T blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay);
+    void renderFixed(T blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay);
 }

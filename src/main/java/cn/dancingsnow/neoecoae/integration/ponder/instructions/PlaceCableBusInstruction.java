@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.integration.ponder.instructions;
 
-import appeng.api.implementations.parts.ICablePart;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartItem;
 import appeng.blockentity.networking.CableBusBlockEntity;

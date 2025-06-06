@@ -73,7 +73,7 @@ public class FixedBlockEntityRenderers {
                 j = emission;
             }
             //noinspection unchecked
-            renderer.render(
+            renderer.renderFixed(
                 blockEntity,
                 partialTick,
                 poseStack,

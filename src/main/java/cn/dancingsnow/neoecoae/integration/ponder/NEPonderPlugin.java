@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.ponder;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.integration.ponder.scenes.ComputationSystemScene;
 import cn.dancingsnow.neoecoae.integration.ponder.scenes.StorageSystemScene;
 import com.tterrag.registrate.util.entry.ItemProviderEntry;
 import com.tterrag.registrate.util.entry.RegistryEntry;
@@ -32,6 +33,9 @@ public class NEPonderPlugin implements PonderPlugin {
 
         helper.forComponents(NEBlocks.ECO_DRIVE)
             .addStoryBoard("storage_system/eco_drive", StorageSystemScene::drive, NEPonderTags.STORAGE_SYSTEM_COMPONENTS);
+
+        helper.forComponents(NEBlocks.COMPUTATION_SYSTEM_L4)
+            .addStoryBoard("computation_system/creating", ComputationSystemScene::creating);
     }
 
     @Override
