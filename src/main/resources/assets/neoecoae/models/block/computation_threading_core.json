@@ -1,5 +1,6 @@
 {
 	"credit": "Made with WI_8614_ice",
+	"render_type": "cutout",
 	"textures": {
 		"5": "neoecoae:block/computation_threading_core_back",
 		"6": "neoecoae:block/computation_casing",

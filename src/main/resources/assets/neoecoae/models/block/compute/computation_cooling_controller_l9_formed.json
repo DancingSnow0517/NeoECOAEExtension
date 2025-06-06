@@ -1,5 +1,6 @@
 {
 	"credit": "Made with WI_8614_ice",
+	"render_type": "cutout",
 	"texture_size": [64, 64],
 	"textures": {
 		"4": "neoecoae:block/compute/ec_synthetic_storage_control_host_off",
