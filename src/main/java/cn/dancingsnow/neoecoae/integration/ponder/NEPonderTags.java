@@ -11,6 +11,8 @@ import net.minecraft.world.level.ItemLike;
 
 public class NEPonderTags {
     public static final ResourceLocation STORAGE_SYSTEM_COMPONENTS = id("storage_system_components");
+    public static final ResourceLocation COMPUTATION_SYSTEM_COMPONENTS = id("computation_system_compoents");
+    public static final ResourceLocation CRAFTING_SYSTEM_COMPONENTS = id("crafting_system_components");
 
     private static ResourceLocation id(String path) {
         return NeoECOAE.id(path);
@@ -45,5 +47,6 @@ public class NEPonderTags {
             .add(NEItems.ECO_FLUID_CELL_16M)
             .add(NEItems.ECO_FLUID_CELL_64M)
             .add(NEItems.ECO_FLUID_CELL_256M);
+
     }
 }
