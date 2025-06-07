@@ -108,7 +108,8 @@ neoForge {
 
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'
-
+            jvmArgument '-XX:+IgnoreUnrecognizedVMOptions'
+            jvmArgument '-XX:+AllowEnhancedClassRedefinition'
             logLevel = org.slf4j.event.Level.DEBUG
         }
     }
