@@ -10,6 +10,7 @@ import appeng.api.networking.events.GridCraftingCpuChange;
 import appeng.api.networking.security.IActionSource;
 import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
@@ -27,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,11 +48,13 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private IActionSource actionSource;
     private int accelerators = 0;
     @Getter
+    private int maxThreads = 0;
+    @Getter
     private long availableStorage = 0;
     @Getter
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
 
-    private final HashMap<ICraftingPlan, ECOCraftingCPU> activeCpus = new HashMap();
+    private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
 
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
@@ -79,6 +83,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
+    public void pickup(ICraftingPlan plan, ECOCraftingCPU cpu) {
+        this.activeCpus.put(plan, cpu);
+    }
+
     @Override
     public void updateFormed(boolean formed) {
         super.updateFormed(formed);
@@ -88,15 +96,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 .mapToInt(it -> ((ECOComputationParallelCoreBlockEntity) it).getTier().getCPUAccelerators())
                 .sum();
             recalculateRemainingStorage();
-            this.fakeCpu = new ECOCraftingCPU(this, availableStorage);
-
-            for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
-                for (ECOCraftingCPU cpu : threadingCore.getCpus()) {
-                    if (cpu != null) {
-                        activeCpus.put(cpu.getPlan(), cpu);
-                    }
-                }
-            }
+            this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
+            this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
         } else {
             accelerators = 0;
             availableStorage = 0;
@@ -154,6 +155,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         boolean submitted = false;
         for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
             cpu = threadingCore.spawn(job);
+            if (cpu == null) continue;
             result = cpu.getLogic().trySubmitJob(grid, job, src, requestingMachine);
             if (result.successful()) {
                 submitted = true;
@@ -180,6 +182,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
 
         this.availableStorage = totalStorage - usedStorage;
+        if (this.availableStorage < 0) {
+            for (ICraftingPlan plan : this.activeCpus.keySet()) {
+                this.killCpu(plan, false, false);
+            }
+            recalculateRemainingStorage();
+        }
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {
@@ -201,7 +209,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public ECOCraftingCPU getFakeCPU() {
         if (this.fakeCpu == null || this.fakeCpu.getAvailableStorage() != this.availableStorage) {
-            this.fakeCpu = new ECOCraftingCPU(this, this.availableStorage);
+            this.fakeCpu = new ECOCraftingCPU(this, this.availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
         }
         return fakeCpu;
     }
@@ -215,13 +223,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
-    public void cancelJobs() {
-        for (ICraftingPlan plan : this.activeCpus.keySet()) {
-            this.killCpu(plan, false);
-        }
-
-    }
-
     public void cancelJob(ICraftingPlan plan) {
         if (this.activeCpus.get(plan) != null) {
             this.killCpu(plan, true);
@@ -229,11 +230,18 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     private void killCpu(ICraftingPlan plan, boolean update) {
+        killCpu(plan, update, true);
+    }
+
+    private void killCpu(ICraftingPlan plan, boolean update, boolean recalculate) {
         ECOCraftingCPU cpu = activeCpus.get(plan);
         cpu.getLogic().cancel();
         cpu.getLogic().markForDeletion();
         cpu.getOwner().deactivate(cpu);
-        this.recalculateRemainingStorage();
+        if (recalculate) {
+            this.recalculateRemainingStorage();
+        }
+        this.activeCpus.remove(plan);
         if (update) {
             updateGridForChangedCpu(this);
         }

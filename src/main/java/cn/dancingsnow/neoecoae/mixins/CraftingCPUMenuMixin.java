@@ -30,8 +30,8 @@ import java.util.function.Consumer;
 
 @SuppressWarnings("removal")
 @Mixin(CraftingCPUMenu.class)
-public class CraftingMenuMixin extends AEBaseMenu {
-    public CraftingMenuMixin(MenuType<?> menuType, int id, Inventory playerInventory, Object host) {
+public class CraftingCPUMenuMixin extends AEBaseMenu {
+    public CraftingCPUMenuMixin(MenuType<?> menuType, int id, Inventory playerInventory, Object host) {
         super(menuType, id, playerInventory, host);
     }
 
@@ -67,13 +67,13 @@ public class CraftingMenuMixin extends AEBaseMenu {
             this.neoecoae$cpu.getLogic().removeListener(this.cpuChangeListener);
         }
 
-        if (c instanceof ECOCraftingCPU advCPU) {
+        if (c instanceof ECOCraftingCPU ecoCPU) {
             if (this.cpu != null) {
                 this.cpu.craftingLogic.removeListener(this.cpuChangeListener);
             }
 
             this.incrementalUpdateHelper.reset();
-            this.neoecoae$cpu = advCPU;
+            this.neoecoae$cpu = ecoCPU;
             KeyCounter allItems = new KeyCounter();
             this.neoecoae$cpu.getLogic().getAllItems(allItems);
 

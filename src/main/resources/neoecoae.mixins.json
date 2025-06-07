@@ -5,13 +5,17 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "AppEngInternalInventoryMixin",
-    "CraftingMenuMixin",
+    "CPUSelectionListMixin",
+    "CraftingCpuListEntryMixin",
+    "CraftingCPUMenuMixin",
     "CraftingServiceMixin",
+    "CraftingStatusMenuMixin",
     "PatternEncodingTermMenuMixin",
     "StoredEnergyAmountMixin"
   ],
   "client": [
     "ModelBakeryMixin",
+    "PonderLevelMixin",
     "PatternEncodingTermScreenMixin"
   ],
   "server": [],

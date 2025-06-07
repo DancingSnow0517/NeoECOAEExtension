@@ -52,11 +52,13 @@ public class ECOComputationDriveBlockEntity
     @RequireRerender
     private boolean isLowerDrive = false;
 
+    @Setter
     @Getter
     @DescSynced
     @RequireRerender
     private BlockPos ownerBlockPos;
 
+    @Setter
     @Getter
     private IECOTier tier;
 

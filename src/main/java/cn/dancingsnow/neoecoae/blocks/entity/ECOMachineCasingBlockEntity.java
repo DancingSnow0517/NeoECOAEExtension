@@ -25,18 +25,20 @@ public class ECOMachineCasingBlockEntity<C extends NECluster<C>> extends NEBlock
         if (this.level == null || this.notLoaded() || this.isRemoved()) {
             return;
         }
+        BlockState newState = level.getBlockState(worldPosition);
         if (this.cluster != null) {
-            level.setBlock(
-                worldPosition,
-                level.getBlockState(worldPosition).setValue(ECOMachineCasing.INVISIBLE, this.cluster.shouldCasingHide(this)),
-                Block.UPDATE_CLIENTS
-            );
+            if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                newState = newState.setValue(ECOMachineCasing.INVISIBLE, this.cluster.shouldCasingHide(this));
+            }
         } else {
-            level.setBlock(
-                worldPosition,
-                level.getBlockState(worldPosition).setValue(ECOMachineCasing.INVISIBLE, false),
-                Block.UPDATE_CLIENTS
-            );
+            if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                newState = newState.setValue(ECOMachineCasing.INVISIBLE, false);
+            }
         }
+        level.setBlock(
+            worldPosition,
+            newState,
+            Block.UPDATE_CLIENTS
+        );
     }
 }

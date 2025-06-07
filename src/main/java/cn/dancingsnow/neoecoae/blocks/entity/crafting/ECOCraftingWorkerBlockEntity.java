@@ -52,11 +52,6 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             if (controller.isOverclocked() && !controller.isActiveCooling()) {
                 powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
             }
-            if (controller.isActiveCooling() && controller.canConsumeCoolant(5)) {
-                controller.consumeCoolant(5);
-            } else {
-                return TickRateModulation.IDLE;
-            }
             int overlockTimes = controller.getOverlockTimes();
             TickRateModulation rate = TickRateModulation.IDLE;
             for (ECOCraftingThread thread : craftingThreads) {
@@ -80,7 +75,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (pushed.get()) {
                     return;
                 }
-                if (t.pushPattern(pattern, table)) {
+                if (t.pushPattern(pattern, table, controller)) {
                     pushed.set(true);
                 }
             });
@@ -90,7 +85,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     craftingThreads.add(thread);
                     setChanged();
                     markForUpdate();
-                    return thread.pushPattern(pattern, table);
+                    return thread.pushPattern(pattern, table, controller);
                 } else {
                     return false;
                 }
@@ -125,11 +120,13 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public void onThreadWork() {
         runningThreads++;
         setChanged();
+        markForUpdate();
     }
 
     public void onThreadStop() {
         runningThreads--;
         setChanged();
+        markForUpdate();
     }
 
     @Override
@@ -153,5 +150,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             craftingThreads.add(thread);
         }
         runningThreads = data.getInt("runningThreads");
+    }
+
+    public boolean isWorking() {
+        return runningThreads > 0;
     }
 }

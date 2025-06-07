@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
@@ -204,6 +206,72 @@ public class NEBlocks {
     // **************************************** //
 
     //region Computation System
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L4 = createComputationSystem(
+        "l4",
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L6 = createComputationSystem(
+        "l6",
+        Rarity.RARE
+    );
+
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L9 = createComputationSystem(
+        "l9",
+        Rarity.EPIC
+    );
+
+    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L4 = createComputationThreadingCore(
+        "l4",
+        ECOTier.L4,
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L6 = createComputationThreadingCore(
+        "l6",
+        ECOTier.L6,
+        Rarity.RARE
+    );
+
+    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L9 = createComputationThreadingCore(
+        "l9",
+        ECOTier.L9,
+        Rarity.EPIC
+    );
+
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
+        "l4",
+        ECOTier.L4,
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L6 = createComputationParallelCore(
+        "l6",
+        ECOTier.L6,
+        Rarity.RARE
+    );
+
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L9 = createComputationParallelCore(
+        "l9",
+        ECOTier.L9,
+        Rarity.EPIC
+    );
+
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L4 = createComputationCoolingController(
+        "l4",
+        Rarity.UNCOMMON
+    );
+
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L6 = createComputationCoolingController(
+        "l6",
+        Rarity.RARE
+    );
+
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L9 = createComputationCoolingController(
+        "l9",
+        Rarity.EPIC
+    );
+
     public static final BlockEntry<ECOMachineInterface<NEComputationCluster>> COMPUTATION_INTERFACE = REGISTRATE
         .block("computation_interface", ECOMachineInterface<NEComputationCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
@@ -219,14 +287,6 @@ public class NEBlocks {
                 )
             );
         })
-        .register();
-
-    public static final BlockEntry<ECOMachineCasing<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
-        .block("computation_casing", ECOMachineCasing<NEComputationCluster>::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .properties(BlockBehaviour.Properties::noOcclusion)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .simpleItem()
         .register();
 
     public static final BlockEntry<ECOComputationTransmitter> COMPUTATION_TRANSMITTER = REGISTRATE
@@ -271,66 +331,13 @@ public class NEBlocks {
         .lang("ECO - CD Crystal Matrix Drive")
         .register();
 
-    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
-        "l4",
-        Rarity.UNCOMMON
-    );
-
-    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L6 = createComputationParallelCore(
-        "l6",
-        Rarity.RARE
-    );
-
-    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L9 = createComputationParallelCore(
-        "l9",
-        Rarity.EPIC
-    );
-
-    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L4 = createComputationThreadingCore(
-        "l4",
-        Rarity.UNCOMMON
-    );
-
-    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L6 = createComputationThreadingCore(
-        "l6",
-        Rarity.RARE
-    );
-
-    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L9 = createComputationThreadingCore(
-        "l9",
-        Rarity.EPIC
-    );
-
-    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L4 = createComputationCoolingController(
-        "l4",
-        Rarity.UNCOMMON
-    );
-
-    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L6 = createComputationCoolingController(
-        "l6",
-        Rarity.RARE
-    );
-
-    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L9 = createComputationCoolingController(
-        "l9",
-        Rarity.EPIC
-    );
-
-    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L4 = createComputationSystem(
-        "l4",
-        Rarity.UNCOMMON
-    );
-
-    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L6 = createComputationSystem(
-        "l6",
-        Rarity.RARE
-    );
-
-    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L9 = createComputationSystem(
-        "l9",
-        Rarity.EPIC
-    );
-
+    public static final BlockEntry<ECOMachineCasing<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
+        .block("computation_casing", ECOMachineCasing<NEComputationCluster>::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(BlockBehaviour.Properties::noOcclusion)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .simpleItem()
+        .register();
     //endregion
 
     static {
@@ -364,14 +371,17 @@ public class NEBlocks {
 
     public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L4 = createParallelCore(
         "l4",
+        ECOTier.L4,
         Rarity.UNCOMMON
     );
     public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L6 = createParallelCore(
         "l6",
+        ECOTier.L6,
         Rarity.RARE
     );
     public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L9 = createParallelCore(
         "l9",
+        ECOTier.L9,
         Rarity.EPIC
     );
 
@@ -586,9 +596,9 @@ public class NEBlocks {
             .register();
     }
 
-    private static BlockEntry<ECOCraftingParallelCore> createParallelCore(String level, Rarity rarity) {
+    private static BlockEntry<ECOCraftingParallelCore> createParallelCore(String level, IECOTier tier, Rarity rarity) {
         return REGISTRATE
-            .block("crafting_parallel_core_" + level, ECOCraftingParallelCore::new)
+            .block("crafting_parallel_core_" + level, p -> new ECOCraftingParallelCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
@@ -672,9 +682,9 @@ public class NEBlocks {
             .register();
     }
 
-    private static BlockEntry<ECOComputationParallelCore> createComputationParallelCore(String level, Rarity rarity) {
+    private static BlockEntry<ECOComputationParallelCore> createComputationParallelCore(String level, IECOTier tier, Rarity rarity) {
         return REGISTRATE
-            .block("computation_parallel_core_" + level, ECOComputationParallelCore::new)
+            .block("computation_parallel_core_" + level, p -> new ECOComputationParallelCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
@@ -701,9 +711,9 @@ public class NEBlocks {
             .register();
     }
 
-    private static BlockEntry<ECOComputationThreadingCore> createComputationThreadingCore(String level, Rarity rarity) {
+    private static BlockEntry<ECOComputationThreadingCore> createComputationThreadingCore(String level,IECOTier tier, Rarity rarity) {
         return REGISTRATE
-            .block("computation_threading_core_" + level, ECOComputationThreadingCore::new)
+            .block("computation_threading_core_" + level, p -> new ECOComputationThreadingCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {

@@ -31,7 +31,7 @@ public class NECreativeTabs {
         .defaultCreativeTab(
             "computation",
             CreativeModeTab.builder()
-                .icon(() -> NEBlocks.COMPUTATION_INTERFACE.asStack())
+                .icon(() -> NEBlocks.COMPUTATION_SYSTEM_L9.asStack())
                 .title(REGISTRATE.addLang("itemGroup", NeoECOAE.id("computation"), "ECO Computation System"))
                 .withTabsBefore(STORAGE.getKey(), CRAFTING.getKey())
         )

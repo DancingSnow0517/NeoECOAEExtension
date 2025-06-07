@@ -35,4 +35,9 @@ public class ECOCraftingWorker extends NEBlock<ECOCraftingWorkerBlockEntity> {
     public IOrientationStrategy getOrientationStrategy() {
         return OrientationStrategies.horizontalFacing();
     }
+
+    @Override
+    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, ECOCraftingWorkerBlockEntity be) {
+        return currentState.setValue(WORKING, be.isWorking());
+    }
 }

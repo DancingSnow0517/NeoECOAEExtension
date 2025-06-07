@@ -5,14 +5,19 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
+import cn.dancingsnow.neoecoae.integration.ponder.PonderPlatformUtils;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import net.createmod.ponder.api.level.PonderLevel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Direction;
@@ -25,11 +30,21 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity> {
+public class ECOComputationDriveRenderer
+    implements IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity>, BlockEntityRenderer<ECOComputationDriveBlockEntity> {
+
     private final Map<Thread, RandomSource> randomSourceMap = new IdentityHashMap<>();
 
+    public ECOComputationDriveRenderer() {
+
+    }
+
+    public ECOComputationDriveRenderer(BlockEntityRendererProvider.Context context) {
+
+    }
+
     @Override
-    public void render(
+    public void renderFixed(
         ECOComputationDriveBlockEntity blockEntity,
         float partialTick,
         PoseStack poseStack,
@@ -178,6 +193,13 @@ public class ECOComputationDriveRenderer implements IFixedBlockEntityRenderer<EC
                 packedLight,
                 packedOverlay
             );
+        }
+    }
+
+    @Override
+    public void render(ECOComputationDriveBlockEntity driveBlockEntity, float v, PoseStack poseStack, MultiBufferSource multiBufferSource, int i, int i1) {
+        if (PonderPlatformUtils.isPonderLevel(driveBlockEntity.getLevel())) {
+            renderFixed(driveBlockEntity, v, poseStack, multiBufferSource, i, i1);
         }
     }
 }

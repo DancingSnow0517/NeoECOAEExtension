@@ -11,6 +11,7 @@ import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.menu.AutoCraftingMenu;
 import cn.dancingsnow.neoecoae.api.NEFakePlayer;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import lombok.Getter;
 import net.minecraft.core.HolderLookup;
@@ -93,17 +94,26 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     /**
      * 提交样板
      *
-     * @param pattern 要提交的样板
+     * @param pattern    要提交的样板
+     * @param controller
      * @return 是否成功
      */
-    public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table) {
+    public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, ECOCraftingSystemBlockEntity controller) {
         if (isBusy) {
             return false;
         }
-        return calcPattern(pattern, table);
+
+        return calcPattern(pattern, table, controller);
     }
 
-    private boolean calcPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table) {
+    private boolean calcPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, ECOCraftingSystemBlockEntity controller) {
+        if (controller.isActiveCooling()) {
+            if (controller.canConsumeCoolant(5)) {
+                controller.consumeCoolant(5);
+            } else {
+                return false;
+            }
+        }
         craftingInv.clearContent();
         pattern.fillCraftingGrid(table, craftingInv::setItem);
         ItemStack outputItem = pattern.assemble(craftingInv.asCraftInput(), worker.getLevel());
