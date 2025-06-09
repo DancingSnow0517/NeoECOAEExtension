@@ -70,6 +70,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table) {
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
+            if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
+                return false;
+            }
             AtomicBoolean pushed = new AtomicBoolean(false);
             craftingThreads.stream().filter(ECOCraftingThread::isFree).forEach(t -> {
                 if (pushed.get()) {
