@@ -10,12 +10,10 @@ import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import net.createmod.ponder.api.level.PonderLevel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.resources.model.BakedModel;
@@ -64,8 +62,7 @@ public class ECOComputationDriveRenderer
         boolean formed = blockEntity.isFormed();
         boolean shouldCellWork = false;
         IECOTier cableTier = blockEntity.getTier();
-        if (itemStack != null && !itemStack.isEmpty()) {
-            ECOComputationCellItem item = (ECOComputationCellItem) itemStack.getItem();
+        if (itemStack != null && !itemStack.isEmpty() && itemStack.getItem() instanceof ECOComputationCellItem item) {
             IECOTier itemTier = item.getTier();
             shouldCellWork = formed && itemTier.compareTo(blockEntity.getTier()) <= 0;
             ResourceLocation cellModel = shouldCellWork

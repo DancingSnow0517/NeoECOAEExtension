@@ -6,7 +6,7 @@
     }
   ],
   "type": "neoecoae:cooling",
-  "coolant": 1500,
+  "coolant": 5000,
   "input": {
     "amount": 100,
     "ingredient": {

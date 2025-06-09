@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.api;
 
 import appeng.api.stacks.AEKeyType;
+import cn.dancingsnow.neoecoae.gui.GuiTextures;
+import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import net.minecraft.resources.ResourceLocation;
 
 public interface IECOTier {
@@ -20,11 +22,11 @@ public interface IECOTier {
     int getOverclockedCrafterParallel();
 
     default int getOverclockedCrafterQueueMultiply() {
-        return 1 << getTier();
+        return 2 << getTier();
     }
 
     default int getOverclockedCrafterPowerMultiply() {
-        return 2 * getOverclockedCrafterQueueMultiply();
+        return getOverclockedCrafterQueueMultiply();
     }
     /**
      * 计算系统并行核心并行数量
@@ -62,6 +64,10 @@ public interface IECOTier {
     long getPowerStorageSize();
 
     ResourceLocation getCPUOverlayTexture();
+
+    default IGuiTexture getCraftingOverlayTexture() {
+        return GuiTextures.Crafting.F0;
+    }
 
     /**
      * 存储系统存储矩阵类型数量
