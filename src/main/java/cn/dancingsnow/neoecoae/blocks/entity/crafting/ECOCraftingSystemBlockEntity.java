@@ -4,6 +4,7 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.GuiTextures;
@@ -115,6 +116,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public void onChanged() {
         setChanged();
         markForUpdate();
+        updateInfo();
     }
 
     @Override
@@ -127,7 +129,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(5, 10, false);
+        return new TickingRequest(1, 10, false);
     }
 
     @Override
@@ -215,11 +217,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private WidgetGroup createUI() {
         var inventory = new PlayerInventoryWidget();
         inventory.setSlotBackground(GuiTextures.Crafting.SLOT);
-        inventory.setSelfPosition(2, 113);
+        inventory.setSelfPosition(2, 51);
 
-        WidgetGroup root = new TranslucentBackgroundWidgetGroup(0, 0, 243, 202)
-                .addWidget(new StatusPanelWidget(7, 15))
-                .addWidget(new WidgetGroup(7, 77, 228, 36) // controlPanel
+        WidgetGroup root = new TranslucentBackgroundWidgetGroup(0, 0, 243, 140)
+                .addWidget(new WidgetGroup(7, 15, 228, 36) // controlPanel
                         .addWidget(new ExtendedSwitchWidget(
                                 0, 0, 36, 36,
                                 (data, isPressed) -> this.overclocked = isPressed)
@@ -257,7 +258,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                                 .setSupplier(() -> this.activeCooling))
                         .addWidget(new WidgetGroup(80, 0, 148, 36)
                                 .addWidget(new WidgetGroup(2, 2, 40, 32)
-                                        .addWidget(new ImageWidget(2, 2, 10, 9, () -> GuiTextures.Crafting.F0))
+                                        .addWidget(new ImageWidget(2, 2, 10, 9, tier::getCraftingOverlayTexture))
                                         .addWidget(new ScalableTextBoxWidget(2, 14, 36, 18)
                                                 .setTextSupplier(() -> List.of(
                                                         Component.translatable("gui.neoecoae.crafting.pattern_bus_count", patternBusCount),
@@ -269,7 +270,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                                 .addWidget(new WidgetGroup(43, 2, 51, 32)
                                         .addWidget(new ScalableTextBoxWidget(2, 2, 36, 28)
                                                 .setTextSupplier(() -> List.of(
-                                                        Component.translatable("gui.neoecoae.crafting.crafting_progress", (int) getRunningThreadsPercentage()),
+                                                        Component.translatable("gui.neoecoae.crafting.crafting_progress", (int) (getRunningThreadsPercentage() * 100)),
                                                         Component.translatable("gui.neoecoae.crafting.crafting_progress.1", getRunningThreads(), getAvailableThreads())
                                                 ))
                                                 .setShadow(true))
@@ -282,7 +283,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                                                 .setTextSupplier(() -> List.of(
                                                         Component.translatable("gui.neoecoae.crafting.total_parallelism", threadCount),
                                                         Component.translatable("gui.neoecoae.crafting.total_parallelism.limit", getAvailableThreads()),
-                                                        Component.translatable("gui.neoecoae.crafting.total_parallelism.overflow", getOverflowThreads(), (int) getOverflowThreadsPercentage())
+                                                        Component.translatable("gui.neoecoae.crafting.total_parallelism.overflow", getOverflowThreads(), (int) (getOverflowThreadsPercentage() * 100))
                                                 ))
                                                 .setShadow(true))
                                         .addWidget(new ProgressWidget(this::getOverflowThreadsPercentage, 40, 2, 9, 28)
@@ -290,10 +291,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                                                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP))
                                         .setBackground(GuiTextures.Crafting.PANEL))
                                 .setBackground(new GuiTextureGroup(GuiTextures.Crafting.PANEL_BACKGROUND, GuiTextures.Crafting.PANEL_BORDER))))
-                .addWidget(new WidgetGroup(173, 117, 62, 77) // heatStatisticPanel
+                .addWidget(new WidgetGroup(173, 55, 62, 77) // heatStatisticPanel
                         .addWidget(new WidgetGroup(3, 3, 56, 9)
                                 .addWidget(new ScalableTextBoxWidget(1, 1, 54, 7)
-                                        .setTextSupplier(() -> List.of(Component.translatable("gui.neoecoae.crafting.max_energy_usage", 0)))
+                                        .setTextSupplier(() -> List.of(Component.translatable("gui.neoecoae.crafting.max_energy_usage", getFormatedMaxEnergyUsage())))
                                         .setCenter(true)
                                         .setShadow(true)
                                         .appendHoverTooltips(Component.translatable("gui.neoecoae.crafting.max_energy_usage.tip")))
@@ -365,6 +366,18 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return cluster.getWorkers().stream().mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
         }
         return 0;
+    }
+
+    private long getMaxEnergyUsage() {
+        if (overclocked && !activeCooling) {
+            return getAvailableThreads() * tier.getOverclockedCrafterPowerMultiply() * 100L;
+        }
+        return getAvailableThreads() * 100L;
+    }
+
+    private String getFormatedMaxEnergyUsage() {
+        Tooltips.Amount amount = Tooltips.getAmount(getMaxEnergyUsage());
+        return amount.digit() + amount.unit();
     }
 
     @Override

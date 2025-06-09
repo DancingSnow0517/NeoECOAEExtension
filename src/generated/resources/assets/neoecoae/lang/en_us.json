@@ -86,6 +86,7 @@
   "itemGroup.neoecoae.storage": "ECO Storage System",
   "jade.neoecoae.drive_mounted": "ECO Drive Mounted",
   "jade.neoecoae.drive_unmounted": "ECO Drive Unmounted",
+  "neoecoae.ponder.computation_system_build.header": "ECO Computation System",
   "neoecoae.ponder.storage_system_build.header": "ECO Storage System",
   "neoecoae.ponder.storage_system_build.text_1": "The ECO Storage System consists of the following parts.",
   "neoecoae.ponder.storage_system_build.text_2": "the controller",
