@@ -11,9 +11,15 @@ public class NELangGenerator {
         PonderIndex.getLangAccess().provideLang(NeoECOAE.MOD_ID, provider::add);
 
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
+        provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
+        provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
 
         provider.add("jade.neoecoae.drive_mounted", "ECO Drive Mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO Drive Unmounted");
+        provider.add("jade.neoecoae.worker_threads", "Threads: %d/%d");
+        provider.add("jade.neoecoae.overclocked", "Overclock Enabled");
+        provider.add("jade.neoecoae.activeCooling", "Active Cooling Enabled");
+        provider.add("jade.neoecoae.coolant", "Coolant: %d");
 
         provider.add("gui.neoecoae.crafting.pattern_bus_count", "Pattern Buses: %d");
         provider.add("gui.neoecoae.crafting.parallel_core_count", "Parallel Cores: %d");
