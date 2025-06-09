@@ -1,0 +1,92 @@
+package cn.dancingsnow.neoecoae.multiblock.definition;
+
+import appeng.util.inv.AppEngInternalInventory;
+import com.lowdragmc.lowdraglib.utils.BlockInfo;
+import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
+import lombok.Getter;
+import lombok.Setter;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
+
+public abstract class MultiBlockContext {
+    @Getter
+    protected int repeats;
+
+    public abstract void setBlock(BlockPos pos, BlockState blockState);
+
+    public abstract void setBlockEntity(BlockPos pos, Supplier<BlockEntity> sup);
+
+    public abstract Level getLevel();
+
+    public static MultiBlockContext.DummyDelegated dummyDelegated(int repeats, TrackedDummyWorld world) {
+        return new DummyDelegated(repeats, world);
+    }
+
+    public static class DummyDelegated extends MultiBlockContext {
+        private final TrackedDummyWorld dummyWorld;
+        private final List<ItemStack> itemStacks = new ArrayList<>(16);
+        @Getter
+        private final List<BlockPos> posList = new ArrayList<>();
+        @Getter
+        private int yMax = 0;
+
+        public DummyDelegated(int repeats, TrackedDummyWorld dummyWorld) {
+            this.dummyWorld = dummyWorld;
+            this.repeats = repeats;
+        }
+
+        @Override
+        public void setBlock(BlockPos pos, BlockState blockState) {
+            ItemStack item = blockState.getBlock().asItem().getDefaultInstance();
+            addRequiredItem(item);
+            if (pos.getY() < 0) return;
+            posList.add(pos);
+            yMax = Math.max(pos.getY(), yMax);
+            dummyWorld.addBlock(pos, new BlockInfo(blockState));
+        }
+
+        @Override
+        public void setBlockEntity(BlockPos pos, Supplier<BlockEntity> sup) {
+            BlockEntity be = sup.get();
+            be.setLevel(dummyWorld);
+            dummyWorld.addFreshBlockEntities(List.of(be));
+        }
+
+        public void addRequiredItem(ItemStack itemStack) {
+            if (itemStack.isEmpty()) return;
+            boolean added = false;
+            for (ItemStack stack : itemStacks) {
+                if (ItemStack.isSameItemSameComponents(itemStack, stack)) {
+                    if (stack.getCount() + itemStack.getCount() > stack.getMaxStackSize()) {
+                        itemStack.setCount(stack.getCount() + itemStack.getCount() - stack.getMaxStackSize());
+                        stack.setCount(stack.getMaxStackSize());
+                    } else {
+                        stack.setCount(stack.getCount() + itemStack.getCount());
+                    }
+                    added = true;
+                    break;
+                }
+            }
+            if (!added) {
+                itemStacks.add(itemStack);
+            }
+        }
+
+        @Override
+        public Level getLevel() {
+            return dummyWorld;
+        }
+
+        public List<ItemStack> getRequiredItems() {
+            return itemStacks;
+        }
+    }
+}

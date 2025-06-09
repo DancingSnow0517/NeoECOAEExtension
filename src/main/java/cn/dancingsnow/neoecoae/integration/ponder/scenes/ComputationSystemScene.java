@@ -28,7 +28,6 @@ public class ComputationSystemScene {
             }
         ));
 
-
         builder.addInstruction(ModifyBlockEntityInstruction.<ECOComputationDriveBlockEntity>of(
             lowerDrive,
             t -> {

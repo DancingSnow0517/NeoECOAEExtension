@@ -1,7 +1,9 @@
-package cn.dancingsnow.neoecoae.integration.jei;
+package cn.dancingsnow.neoecoae.integration.jei.categories;
 
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
+import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.mojang.blaze3d.vertex.PoseStack;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;

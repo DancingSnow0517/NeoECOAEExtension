@@ -48,5 +48,28 @@ public class NEPonderTags {
             .add(NEItems.ECO_FLUID_CELL_64M)
             .add(NEItems.ECO_FLUID_CELL_256M);
 
+        helper.registerTag(COMPUTATION_SYSTEM_COMPONENTS)
+            .addToIndex()
+            .item(NEBlocks.COMPUTATION_SYSTEM_L4, true, false)
+            .title("ECO Computation System")
+            .description("")
+            .register();
+
+        helperEntry.addToTag(COMPUTATION_SYSTEM_COMPONENTS)
+            .add(NEBlocks.COMPUTATION_SYSTEM_L4)
+            .add(NEBlocks.COMPUTATION_SYSTEM_L6)
+            .add(NEBlocks.COMPUTATION_SYSTEM_L9)
+            .add(NEBlocks.COMPUTATION_THREADING_CORE_L4)
+            .add(NEBlocks.COMPUTATION_THREADING_CORE_L6)
+            .add(NEBlocks.COMPUTATION_THREADING_CORE_L9)
+            .add(NEBlocks.COMPUTATION_PARALLEL_CORE_L4)
+            .add(NEBlocks.COMPUTATION_PARALLEL_CORE_L6)
+            .add(NEBlocks.COMPUTATION_PARALLEL_CORE_L9)
+            .add(NEBlocks.COMPUTATION_DRIVE)
+            .add(NEBlocks.COMPUTATION_TRANSMITTER)
+            .add(NEBlocks.COMPUTATION_INTERFACE)
+            .add(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4)
+            .add(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6)
+            .add(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9);
     }
 }
