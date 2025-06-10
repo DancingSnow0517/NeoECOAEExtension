@@ -1,5 +1,6 @@
 {
 	"credit": "Made with WI_8614_ice",
+	"render_type": "cutout",
 	"textures": {
 		"5": "neoecoae:block/compute/led/l6_controller",
 		"6": "neoecoae:block/computation_casing",

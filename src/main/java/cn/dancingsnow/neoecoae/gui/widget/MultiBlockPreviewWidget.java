@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.widget;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import com.lowdragmc.lowdraglib.client.scene.ISceneBlockRenderHook;
 import com.lowdragmc.lowdraglib.gui.editor.ColorPattern;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
@@ -17,6 +18,7 @@ import com.lowdragmc.lowdraglib.utils.BlockPosFace;
 import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
@@ -29,7 +31,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MultiBlockPreviewWidget extends WidgetGroup {
+public class MultiBlockPreviewWidget extends WidgetGroup implements ISceneBlockRenderHook {
     private static TrackedDummyWorld world;
     private final MultiBlockDefinition def;
     private final SceneWidget sceneWidget;
@@ -152,7 +154,7 @@ public class MultiBlockPreviewWidget extends WidgetGroup {
         this.layerMax = context.getYMax();
         layer = Math.clamp(layer, -1, layerMax);
         if (layer == -1) {
-            sceneWidget.setRenderedCore(context.getPosList());
+            sceneWidget.setRenderedCore(context.getPosList(), this);
         } else {
             List<BlockPos> rendered = new ArrayList<>();
             for (BlockPos pos : context.getPosList()) {
@@ -173,4 +175,8 @@ public class MultiBlockPreviewWidget extends WidgetGroup {
         sceneWidget.needCompileCache();
     }
 
+    @Override
+    public void apply(boolean isTESR, RenderType layer) {
+
+    }
 }

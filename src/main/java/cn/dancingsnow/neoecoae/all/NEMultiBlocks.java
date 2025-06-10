@@ -3,7 +3,12 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -66,4 +71,25 @@ public class NEMultiBlocks {
             .expandMax(NEConfig.storageSystemMaxLength - 3)
             .create();
     }
+
+    public static final MultiBlockDefinition COMPUTATION_SYSTEM_L4 = createComputationSystem(
+        NEBlocks.COMPUTATION_SYSTEM_L4,
+        NEBlocks.COMPUTATION_THREADING_CORE_L4,
+        NEBlocks.COMPUTATION_PARALLEL_CORE_L4,
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4
+    );
+
+    private static MultiBlockDefinition createComputationSystem(
+        BlockEntry<ECOComputationSystem> main,
+        BlockEntry<ECOComputationThreadingCore> threadingCore,
+        BlockEntry<ECOComputationParallelCore> parallelCore,
+        BlockEntry<ECOComputationCoolingController> cooler
+    ) {
+        BlockState casing = NEBlocks.COMPUTATION_CASING.getDefaultState();
+        return MultiBlockDefinition.builder(main)
+            .setBlock(pos(0,0,0), casing)
+            .setBlock(pos(1,1,1), main.getDefaultState())
+            .create(DEFINITIONS::add);
+    }
+
 }
