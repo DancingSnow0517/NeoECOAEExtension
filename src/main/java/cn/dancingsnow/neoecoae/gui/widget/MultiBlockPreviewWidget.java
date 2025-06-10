@@ -32,12 +32,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MultiBlockPreviewWidget extends WidgetGroup implements ISceneBlockRenderHook {
-    private static TrackedDummyWorld world;
+    private final TrackedDummyWorld world;
     private final MultiBlockDefinition def;
     private final SceneWidget sceneWidget;
     private final DraggableScrollableWidgetGroup scrollableWidgetGroup;
-    private IItemHandlerModifiable itemHandler;
-    private IItemHandlerModifiable selectedItemHandler = new ItemStackHandler(1);
+    private final IItemHandlerModifiable selectedItemHandler = new ItemStackHandler(1);
     private int expand;
     private int layer = -1;
     private int layerMax = 0;
@@ -45,9 +44,7 @@ public class MultiBlockPreviewWidget extends WidgetGroup implements ISceneBlockR
     public MultiBlockPreviewWidget(MultiBlockDefinition def) {
         this.def = def;
         expand = def.getExpandMin();
-        if (world == null) {
-            world = new TrackedDummyWorld();
-        }
+        world = new TrackedDummyWorld();
         setSize(160, 160);
         setClientSideWidget();
         addWidget(
@@ -165,7 +162,7 @@ public class MultiBlockPreviewWidget extends WidgetGroup implements ISceneBlockR
             sceneWidget.setRenderedCore(rendered);
         }
         scrollableWidgetGroup.clearAllWidgets();
-        itemHandler = new ItemStackHandler(NonNullList.copyOf(context.getRequiredItems()));
+        IItemHandlerModifiable itemHandler = new ItemStackHandler(NonNullList.copyOf(context.getRequiredItems()));
         for (int i = 0; i < itemHandler.getSlots(); i++) {
             SlotWidget widget = new SlotWidget(itemHandler, i, 4 + i * 18, 0, false, false)
                 .setBackgroundTexture(ColorPattern.T_GRAY.rectTexture())
