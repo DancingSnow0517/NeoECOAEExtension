@@ -79,6 +79,20 @@ public class NEMultiBlocks {
         NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4
     );
 
+    public static final MultiBlockDefinition COMPUTATION_SYSTEM_L6 = createComputationSystem(
+        NEBlocks.COMPUTATION_SYSTEM_L6,
+        NEBlocks.COMPUTATION_THREADING_CORE_L6,
+        NEBlocks.COMPUTATION_PARALLEL_CORE_L6,
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6
+    );
+
+    public static final MultiBlockDefinition COMPUTATION_SYSTEM_L9 = createComputationSystem(
+        NEBlocks.COMPUTATION_SYSTEM_L9,
+        NEBlocks.COMPUTATION_THREADING_CORE_L9,
+        NEBlocks.COMPUTATION_PARALLEL_CORE_L9,
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9
+    );
+
     private static MultiBlockDefinition createComputationSystem(
         BlockEntry<ECOComputationSystem> main,
         BlockEntry<ECOComputationThreadingCore> threadingCore,
@@ -87,8 +101,38 @@ public class NEMultiBlocks {
     ) {
         BlockState casing = NEBlocks.COMPUTATION_CASING.getDefaultState();
         return MultiBlockDefinition.builder(main)
-            .setBlock(pos(0,0,0), casing)
-            .setBlock(pos(1,1,1), main.getDefaultState())
+            .setBlock(pos(1, 1, 0), main.getDefaultState())
+            .setBlock(pos(1, 0, 0), casing)
+            .setBlock(pos(2, 0, 0), casing)
+            .setBlock(pos(2, 1, 0), casing)
+            .setBlock(pos(1, 2, 0), casing)
+            .setBlock(pos(2, 2, 0), casing)
+            .setBlock(pos(1, 0, 1), casing)
+            .setBlock(pos(2, 0, 1), casing)
+            .setBlock(pos(2, 1, 1), NEBlocks.COMPUTATION_INTERFACE.getDefaultState())
+            .setBlock(pos(1, 1, 1), casing)
+            .setBlock(pos(1, 2, 1), casing)
+            .setBlock(pos(2, 2, 1), casing)
+            .setBlock(pos(0, 0, 0),  casing)
+            .setBlock(pos(0, 1, 0),  casing)
+            .setBlock(pos(0, 2, 0),  casing)
+            .setBlock(pos(0, 0, 1),  casing)
+            .setBlock(pos(0, 1, 1),  casing)
+            .setBlock(pos(0, 2, 1),  casing)
+            .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.COMPUTATION_TRANSMITTER.getDefaultState())
+            .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
+            .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
+            .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, threadingCore.getDefaultState().setValue(ECOComputationThreadingCore.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
+            .setBlockWithRepeatShifted(pos(-1, 1, 0), Direction.WEST, 0, cooler.getDefaultState().setValue(ECOComputationCoolingController.FACING, Direction.WEST))
+            .setBlockWithRepeatShifted(pos(-1, 2, 0), Direction.WEST, 0, casing)
+            .setBlockWithRepeatShifted(pos(-1, 0, 0), Direction.WEST, 0, casing)
+            .setBlockWithRepeatShifted(pos(-1, 0, 1), Direction.WEST, 0, casing)
+            .setBlockWithRepeatShifted(pos(-1, 1, 1), Direction.WEST, 0, casing)
+            .setBlockWithRepeatShifted(pos(-1, 2, 1), Direction.WEST, 0, casing)
+            .expandMin(1)
+            .expandMax(NEConfig.computationSystemMaxLength - 4)
             .create(DEFINITIONS::add);
     }
 
