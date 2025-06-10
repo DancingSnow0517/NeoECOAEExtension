@@ -74,7 +74,18 @@ dependencies {
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
 
-    implementation("net.createmod.ponder:Ponder-NeoForge-${minecraft_version}:${ponder_version}")
+    jarJar(implementation("net.createmod.ponder:Ponder-NeoForge-${minecraft_version}:${ponder_version}")) {
+        version {
+            strictly "[1.0,2.0)"
+            prefer ponder_version
+        }
+    }
+    jarJar("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}") {
+        version {
+            strictly "[1.0,2.0)"
+            prefer flywheel_version
+        }
+    }
 }
 
 neoForge {
