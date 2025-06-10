@@ -59,8 +59,7 @@ public class NELangGenerator {
 
         provider.add("category.neoecoae.cooling", "Cooling");
         provider.add("category.neoecoae.cooling.coolant", "Coolant: %d");
-
-        provider.add("category.neoecoae.multiblock", "Multiblock Info");
+        provider.add("category.neoecoae.multiblock", "ECO Multiblock Info");
 
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] to show more info");
         provider.add("tooltip.neoecoae.max_lenth", "Maximum length of structure: %d");
