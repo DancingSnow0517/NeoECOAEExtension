@@ -40,6 +40,7 @@ public class MultiBlockPreviewWidget extends WidgetGroup implements ISceneBlockR
     private int expand;
     private int layer = -1;
     private int layerMax = 0;
+    private boolean formed = false;
 
     public MultiBlockPreviewWidget(MultiBlockDefinition def) {
         this.def = def;
@@ -102,9 +103,23 @@ public class MultiBlockPreviewWidget extends WidgetGroup implements ISceneBlockR
                 c -> nextLayer()
             )
         );
+        addWidget(
+            new ButtonWidget(138, 70, 18, 18,
+                new GuiTextureGroup(
+                    ColorPattern.T_GRAY.rectTexture(),
+                    new TextTexture("").setSupplier(() -> "F: " + formed)
+                ),
+                c -> cycleFormed()
+            )
+        );
 
         addWidget(scrollableWidgetGroup);
 
+        createScene();
+    }
+
+    private void cycleFormed() {
+        formed = !formed;
         createScene();
     }
 
@@ -147,14 +162,15 @@ public class MultiBlockPreviewWidget extends WidgetGroup implements ISceneBlockR
     public void createScene() {
         world.clear();
         MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(expand, world);
+        context.setFormed(formed);
         def.createLevel(context);
         this.layerMax = context.getYMax();
         layer = Math.clamp(layer, -1, layerMax);
         if (layer == -1) {
-            sceneWidget.setRenderedCore(context.getPosList(), this);
+            sceneWidget.setRenderedCore(context.allBlocks(), this);
         } else {
             List<BlockPos> rendered = new ArrayList<>();
-            for (BlockPos pos : context.getPosList()) {
+            for (BlockPos pos : context.allBlocks()) {
                 if (pos.getY() == layer) {
                     rendered.add(pos);
                 }

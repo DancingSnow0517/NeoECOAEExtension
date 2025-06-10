@@ -26,6 +26,10 @@ public abstract class MultiBlockContext {
 
     public abstract Level getLevel();
 
+    public abstract List<BlockPos> allBlocks();
+
+    public abstract boolean isFormed();
+
     public static MultiBlockContext.DummyDelegated dummyDelegated(int repeats, TrackedDummyWorld world) {
         return new DummyDelegated(repeats, world);
     }
@@ -33,10 +37,12 @@ public abstract class MultiBlockContext {
     public static class DummyDelegated extends MultiBlockContext {
         private final TrackedDummyWorld dummyWorld;
         private final List<ItemStack> itemStacks = new ArrayList<>(16);
-        @Getter
         private final List<BlockPos> posList = new ArrayList<>();
         @Getter
         private int yMax = 0;
+        @Setter
+        @Getter
+        private boolean formed = false;
 
         public DummyDelegated(int repeats, TrackedDummyWorld dummyWorld) {
             this.dummyWorld = dummyWorld;
@@ -78,6 +84,11 @@ public abstract class MultiBlockContext {
             if (!added) {
                 itemStacks.add(itemStack);
             }
+        }
+
+        @Override
+        public List<BlockPos> allBlocks() {
+            return posList;
         }
 
         @Override

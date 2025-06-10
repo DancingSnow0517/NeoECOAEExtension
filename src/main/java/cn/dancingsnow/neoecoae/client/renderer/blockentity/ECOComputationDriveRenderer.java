@@ -31,7 +31,6 @@ import java.util.Map;
 public class ECOComputationDriveRenderer
     implements IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity>, BlockEntityRenderer<ECOComputationDriveBlockEntity> {
 
-    private final Map<Thread, RandomSource> randomSourceMap = new IdentityHashMap<>();
 
     public ECOComputationDriveRenderer() {
 
@@ -123,74 +122,6 @@ public class ECOComputationDriveRenderer
             packedOverlay
         );
         poseStack.popPose();
-    }
-
-    private RandomSource getRandom() {
-        synchronized (randomSourceMap) {
-            Thread thread = Thread.currentThread();
-            if (randomSourceMap.containsKey(thread)) {
-                return randomSourceMap.get(thread);
-            }
-            RandomSource randomSource = RandomSource.create();
-            randomSourceMap.put(thread, randomSource);
-            return randomSource;
-        }
-    }
-
-    private void tesselateModel(
-        PoseStack poseStack,
-        MultiBufferSource bufferSource,
-        ResourceLocation model,
-        int packedLight,
-        int packedOverlay
-    ) {
-        Minecraft mc = Minecraft.getInstance();
-        BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
-        for (Direction value : Direction.values()) {
-            List<BakedQuad> quads = bakedModel.getQuads(
-                null,
-                value,
-                getRandom()
-            );
-            renderQuadsWithoutAO(
-                poseStack,
-                bufferSource.getBuffer(RenderType.cutout()),
-                quads,
-                packedLight,
-                packedOverlay
-            );
-        }
-        List<BakedQuad> quads = bakedModel.getQuads(
-            null,
-            null,
-            getRandom()
-        );
-        renderQuadsWithoutAO(
-            poseStack,
-            bufferSource.getBuffer(RenderType.cutout()),
-            quads,
-            packedLight,
-            packedOverlay
-        );
-    }
-
-    private void renderQuadsWithoutAO(
-        PoseStack poseStack,
-        VertexConsumer buffer,
-        List<BakedQuad> quads,
-        int packedLight,
-        int packedOverlay
-    ) {
-        for (BakedQuad quad : quads) {
-            buffer.putBulkData(
-                poseStack.last(),
-                quad,
-                1, 1, 1, 1,
-                packedLight,
-                packedOverlay
-            );
-        }
     }
 
     @Override

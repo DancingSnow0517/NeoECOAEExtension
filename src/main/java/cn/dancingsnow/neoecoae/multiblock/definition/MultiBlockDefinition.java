@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -26,13 +27,23 @@ public class MultiBlockDefinition {
     private final int expandMin;
     @Getter
     private final int expandMax;
+    @Getter
+    private final BiConsumer<BlockPos, Level> onFormed;
 
-    public MultiBlockDefinition(List<BlockInstruction> builderActions, Holder<Block> owner, Component name, int expandMin, int expandMax) {
+    public MultiBlockDefinition(
+        List<BlockInstruction> builderActions,
+        Holder<Block> owner,
+        Component name,
+        int expandMin,
+        int expandMax,
+        BiConsumer<BlockPos, Level> onFormed
+    ) {
         this.builderActions = builderActions;
         this.owner = owner;
         this.name = name;
         this.expandMin = expandMin;
         this.expandMax = expandMax;
+        this.onFormed = onFormed;
     }
 
     public static Builder builder(Holder<Block> owner) {
@@ -43,6 +54,11 @@ public class MultiBlockDefinition {
         for (BlockInstruction builderAction : builderActions) {
             builderAction.accept(context);
         }
+        if (context.isFormed()) {
+            for (BlockPos pos : context.allBlocks()) {
+                onFormed.accept(pos, context.getLevel());
+            }
+        }
         return context.getLevel();
     }
 
@@ -51,6 +67,7 @@ public class MultiBlockDefinition {
         private final Holder<Block> owner;
         private Component name;
         private int expandMin = 1;
+        private BiConsumer<BlockPos, Level> onFormed = (a,b) -> {};
         private int expandMax = 16;
 
         public Builder(Holder<Block> owner) {
@@ -134,14 +151,19 @@ public class MultiBlockDefinition {
             return this;
         }
 
+        public Builder onFormed(BiConsumer<BlockPos, Level> levelBiConsumer) {
+            this.onFormed = levelBiConsumer;
+            return this;
+        }
+
         public MultiBlockDefinition create() {
-            MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax);
+            MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax, onFormed);
             NEMultiBlocks.DEFINITIONS.add(def);
             return def;
         }
 
         public MultiBlockDefinition create(Consumer<MultiBlockDefinition> onBuild) {
-            MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax);
+            MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax, onFormed);
             onBuild.accept(def);
             return def;
         }

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
+import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -14,6 +16,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,6 +72,18 @@ public class NEMultiBlocks {
             .setBlockWithRepeatShifted(pos(0, 2, 1), Direction.WEST, 0, NEBlocks.STORAGE_CASING.getDefaultState())
             .expandMin(1)
             .expandMax(NEConfig.storageSystemMaxLength - 3)
+            .onFormed((pos, level) -> {
+                BlockState state = level.getBlockState(pos);
+                if (state.hasProperty(NEBlock.FORMED)) {
+                    state = state.setValue(NEBlock.FORMED, true);
+                }
+                if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                    Vec3 myPos = pos.getCenter();
+                    Vec3 controllerPos = new Vec3(1, 1, 0);
+                    state = state.setValue(ECOMachineCasing.INVISIBLE, myPos.distanceToSqr(controllerPos) <= 3);
+                }
+                level.setBlockAndUpdate(pos, state);
+            })
             .create();
     }
 
@@ -113,12 +128,12 @@ public class NEMultiBlocks {
             .setBlock(pos(1, 1, 1), casing)
             .setBlock(pos(1, 2, 1), casing)
             .setBlock(pos(2, 2, 1), casing)
-            .setBlock(pos(0, 0, 0),  casing)
-            .setBlock(pos(0, 1, 0),  casing)
-            .setBlock(pos(0, 2, 0),  casing)
-            .setBlock(pos(0, 0, 1),  casing)
-            .setBlock(pos(0, 1, 1),  casing)
-            .setBlock(pos(0, 2, 1),  casing)
+            .setBlock(pos(0, 0, 0), casing)
+            .setBlock(pos(0, 1, 0), casing)
+            .setBlock(pos(0, 2, 0), casing)
+            .setBlock(pos(0, 0, 1), casing)
+            .setBlock(pos(0, 1, 1), casing)
+            .setBlock(pos(0, 2, 1), casing)
             .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.COMPUTATION_TRANSMITTER.getDefaultState())
             .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
             .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
@@ -133,6 +148,16 @@ public class NEMultiBlocks {
             .setBlockWithRepeatShifted(pos(-1, 2, 1), Direction.WEST, 0, casing)
             .expandMin(1)
             .expandMax(NEConfig.computationSystemMaxLength - 4)
+            .onFormed((pos, level) -> {
+                BlockState state = level.getBlockState(pos);
+                if (state.hasProperty(NEBlock.FORMED)) {
+                    state = state.setValue(NEBlock.FORMED, true);
+                }
+                if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                    state = state.setValue(ECOMachineCasing.INVISIBLE, true);
+                }
+                level.setBlockAndUpdate(pos, state);
+            })
             .create(DEFINITIONS::add);
     }
 

@@ -35,6 +35,8 @@ public class NEExtraModels {
     public static final ResourceLocation COMPUTATION_CELL_L6_FORMED = id("block/compute/cell_l6_formed");
     public static final ResourceLocation COMPUTATION_CELL_L9_FORMED = id("block/compute/cell_l9_formed");
 
+    public static final ResourceLocation COMPUTATION_COOLING_CONTROLLER_GLASS = id("block/compute/computation_cooling_controller_glass");
+
     private static ResourceLocation id(String path) {
         ResourceLocation id = NeoECOAE.id(path);
         MODELS.add(id);
