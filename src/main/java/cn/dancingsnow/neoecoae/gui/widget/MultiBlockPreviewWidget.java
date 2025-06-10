@@ -69,7 +69,7 @@ public class MultiBlockPreviewWidget extends WidgetGroup {
         addWidget(
             new SlotWidget(selectedItemHandler, 0, 3, 14, false, false)
                 .setBackgroundTexture(ColorPattern.T_GRAY.rectTexture())
-                .setIngredientIO(IngredientIO.INPUT)
+                .setIngredientIO(IngredientIO.RENDER_ONLY)
         );
 
         if (RenderSystem.isOnRenderThread()) {
@@ -165,7 +165,7 @@ public class MultiBlockPreviewWidget extends WidgetGroup {
         scrollableWidgetGroup.clearAllWidgets();
         itemHandler = new ItemStackHandler(NonNullList.copyOf(context.getRequiredItems()));
         for (int i = 0; i < itemHandler.getSlots(); i++) {
-            SlotWidget widget = new SlotWidget(itemHandler, i, 4 + i * 16, 0, false, false)
+            SlotWidget widget = new SlotWidget(itemHandler, i, 4 + i * 18, 0, false, false)
                 .setBackgroundTexture(ColorPattern.T_GRAY.rectTexture())
                 .setIngredientIO(IngredientIO.INPUT);
             scrollableWidgetGroup.addWidget(widget);

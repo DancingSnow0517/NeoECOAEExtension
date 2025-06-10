@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
+import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import com.google.common.collect.ImmutableList;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -131,6 +132,12 @@ public class MultiBlockDefinition {
         public Builder name(Component component) {
             this.name = component;
             return this;
+        }
+
+        public MultiBlockDefinition create() {
+            MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax);
+            NEMultiBlocks.DEFINITIONS.add(def);
+            return def;
         }
 
         public MultiBlockDefinition create(Consumer<MultiBlockDefinition> onBuild) {
