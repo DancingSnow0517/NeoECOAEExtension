@@ -26,6 +26,26 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         ResourceLocation model,
         int packedLight,
         int packedOverlay
+    ){
+        tesselateModel(
+            poseStack,
+            bufferSource,
+            model,
+            packedLight,
+            packedOverlay,
+            RenderType.cutout()
+        );
+    }
+
+
+
+    default void tesselateModel(
+        PoseStack poseStack,
+        MultiBufferSource bufferSource,
+        ResourceLocation model,
+        int packedLight,
+        int packedOverlay,
+        RenderType renderType
     ) {
         Minecraft mc = Minecraft.getInstance();
         BakedModel bakedModel = mc.getModelManager()
@@ -38,7 +58,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
             );
             renderQuadsWithoutAO(
                 poseStack,
-                bufferSource.getBuffer(RenderType.cutout()),
+                bufferSource.getBuffer(renderType),
                 quads,
                 packedLight,
                 packedOverlay
@@ -51,7 +71,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         );
         renderQuadsWithoutAO(
             poseStack,
-            bufferSource.getBuffer(RenderType.cutout()),
+            bufferSource.getBuffer(renderType),
             quads,
             packedLight,
             packedOverlay

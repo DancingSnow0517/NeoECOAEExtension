@@ -757,6 +757,7 @@ public class NEBlocks {
         return REGISTRATE
             .block("computation_cooling_controller_" + level, ECOComputationCoolingController::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
+            .properties(BlockBehaviour.Properties::noOcclusion)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models()

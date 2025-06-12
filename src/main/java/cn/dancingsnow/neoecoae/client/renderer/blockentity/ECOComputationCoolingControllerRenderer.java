@@ -7,6 +7,8 @@ import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
@@ -22,16 +24,29 @@ public class ECOComputationCoolingControllerRenderer implements IFixedBlockEntit
     ) {
         BlockState blockState = blockEntity.getBlockState();
         if (!blockState.getValue(NEBlock.FORMED)) return;
-        int rotation = (int) ((blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360);
+        Direction facing = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING);
+        int rotation = (int) ((facing.toYRot() + 180) % 360);
         poseStack.pushPose();
+        translate(poseStack, facing);
         poseStack.mulPose(Axis.YP.rotationDegrees(rotation));
         tesselateModel(
             poseStack,
             bufferSource,
             NEExtraModels.COMPUTATION_COOLING_CONTROLLER_GLASS,
             packedLight,
-            packedOverlay
+            packedOverlay,
+            RenderType.translucent()
         );
         poseStack.popPose();
+    }
+
+    public void translate(PoseStack poseStack, Direction facing) {
+        poseStack.translate(0, 0.315, 0);
+        switch (facing) {
+            case SOUTH -> poseStack.translate(1, 0, 0.453125);
+            case WEST -> poseStack.translate(0.453125, 0, 1);
+            case EAST -> poseStack.translate(0.546875, 0, 0);
+            default -> poseStack.translate(0, 0, 0.546875);
+        }
     }
 }
