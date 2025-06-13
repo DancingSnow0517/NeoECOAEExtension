@@ -2,8 +2,10 @@ package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -17,6 +19,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
@@ -159,7 +162,19 @@ public class NEMultiBlocks {
             .setBlock(pos(0, 2, 1), casing)
             .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.COMPUTATION_TRANSMITTER.getDefaultState())
             .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
+            .setBlockEntityRepeatable(pos(-1, 2, 0), Direction.WEST, (pos,state) -> {
+                ECOComputationDriveBlockEntity be = NEBlockEntities.COMPUTATION_DRIVE.create(pos, state);
+                be.setLowerDrive(false);
+                be.setTier(threadingCore.get().getTier());
+                return be;
+            })
             .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, NEBlocks.COMPUTATION_DRIVE.getDefaultState())
+            .setBlockEntityRepeatable(pos(-1, 0, 0), Direction.WEST, (pos,state) -> {
+                ECOComputationDriveBlockEntity be = NEBlockEntities.COMPUTATION_DRIVE.create(pos, state);
+                be.setLowerDrive(true);
+                be.setTier(threadingCore.get().getTier());
+                return be;
+            })
             .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
             .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, threadingCore.getDefaultState().setValue(ECOComputationThreadingCore.FACING, Direction.SOUTH))
             .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, parallelCore.getDefaultState().setValue(ECOComputationParallelCore.FACING, Direction.SOUTH))
@@ -179,7 +194,9 @@ public class NEMultiBlocks {
                 if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
                     state = state.setValue(ECOMachineCasing.INVISIBLE, true);
                 }
+                BlockEntity be = level.getBlockEntity(pos);
                 level.setBlockAndUpdate(pos, state);
+                if (be != null)level.setBlockEntity(be);
             })
             .create(DEFINITIONS::add);
     }

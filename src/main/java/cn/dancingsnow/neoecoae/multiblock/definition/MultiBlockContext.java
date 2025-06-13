@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
 import appeng.util.inv.AppEngInternalInventory;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import com.lowdragmc.lowdraglib.utils.BlockInfo;
 import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import lombok.Getter;
@@ -14,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 public abstract class MultiBlockContext {
@@ -22,7 +24,7 @@ public abstract class MultiBlockContext {
 
     public abstract void setBlock(BlockPos pos, BlockState blockState);
 
-    public abstract void setBlockEntity(BlockPos pos, Supplier<BlockEntity> sup);
+    public abstract void setBlockEntity(BlockPos pos, BiFunction<BlockPos, BlockState, BlockEntity> sup);
 
     public abstract Level getLevel();
 
@@ -60,10 +62,13 @@ public abstract class MultiBlockContext {
         }
 
         @Override
-        public void setBlockEntity(BlockPos pos, Supplier<BlockEntity> sup) {
-            BlockEntity be = sup.get();
+        public void setBlockEntity(BlockPos pos, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
+            BlockEntity be = sup.apply(pos, getLevel().getBlockState(pos));
+            if (be instanceof NEBlockEntity<?,?>){
+                ((NEBlockEntity<?, ?>) be).setFormed(formed);
+            }
             be.setLevel(dummyWorld);
-            dummyWorld.addFreshBlockEntities(List.of(be));
+            dummyWorld.setBlockEntity(be);
         }
 
         public void addRequiredItem(ItemStack itemStack) {

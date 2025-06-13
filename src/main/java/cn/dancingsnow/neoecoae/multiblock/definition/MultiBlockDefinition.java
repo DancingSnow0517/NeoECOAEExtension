@@ -14,7 +14,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class MultiBlockDefinition {
@@ -67,7 +69,8 @@ public class MultiBlockDefinition {
         private final Holder<Block> owner;
         private Component name;
         private int expandMin = 1;
-        private BiConsumer<BlockPos, Level> onFormed = (a,b) -> {};
+        private BiConsumer<BlockPos, Level> onFormed = (a, b) -> {
+        };
         private int expandMax = 16;
 
         public Builder(Holder<Block> owner) {
@@ -95,7 +98,7 @@ public class MultiBlockDefinition {
             return this;
         }
 
-        public Builder setBlockEntityRepeatable(BlockPos origin, Direction expandDirection, Supplier<BlockEntity> sup) {
+        public Builder setBlockEntityRepeatable(BlockPos origin, Direction expandDirection, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
             builder.add(context -> {
                 BlockPos.MutableBlockPos mutable = origin.mutable();
                 for (int i = 0; i < context.getRepeats(); i++) {
@@ -104,7 +107,7 @@ public class MultiBlockDefinition {
                         origin.getY() + expandDirection.getStepY() * i,
                         origin.getZ() + expandDirection.getStepZ() * i
                     );
-                    context.setBlockEntity(mutable, sup);
+                    context.setBlockEntity(mutable.immutable(), sup);
                 }
             });
             return this;
@@ -123,7 +126,7 @@ public class MultiBlockDefinition {
             return this;
         }
 
-        public Builder setBlockEntityWithRepeatShifted(BlockPos origin, Direction expandDirection, int shift, Supplier<BlockEntity> sup) {
+        public Builder setBlockEntityWithRepeatShifted(BlockPos origin, Direction expandDirection, int shift, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
             builder.add(context -> {
                 int i = context.getRepeats() + shift;
                 BlockPos pos = new BlockPos(

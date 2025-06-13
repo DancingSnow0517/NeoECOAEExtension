@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
 import cn.dancingsnow.neoecoae.integration.ponder.PonderPlatformUtils;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import com.lowdragmc.lowdraglib.utils.DummyWorld;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -126,7 +127,7 @@ public class ECOComputationDriveRenderer
 
     @Override
     public void render(ECOComputationDriveBlockEntity driveBlockEntity, float v, PoseStack poseStack, MultiBufferSource multiBufferSource, int i, int i1) {
-        if (PonderPlatformUtils.isPonderLevel(driveBlockEntity.getLevel())) {
+        if (PonderPlatformUtils.isPonderLevel(driveBlockEntity.getLevel()) || driveBlockEntity.getLevel() instanceof DummyWorld) {
             renderFixed(driveBlockEntity, v, poseStack, multiBufferSource, i, i1);
         }
     }
