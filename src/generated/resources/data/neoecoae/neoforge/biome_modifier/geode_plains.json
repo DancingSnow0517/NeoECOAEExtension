@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "minecraft:plains",
+  "features": "neoecoae:geode",
+  "step": "local_modifications"
+}
