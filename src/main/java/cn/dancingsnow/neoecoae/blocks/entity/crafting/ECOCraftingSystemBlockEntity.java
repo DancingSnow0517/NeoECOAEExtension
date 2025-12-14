@@ -203,7 +203,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private void updateOverlockTimes() {
         int overflow = threadCount - threadCountPerWorker * workerCount;
         float radio = (float) threadCount / overflow;
-        overlockTimes = Math.min(Math.round(radio / 0.05f), 9);
+        if(overflow>0) {
+            overlockTimes = Math.min(Math.round(radio / 0.05f), 9);
+        }
+        else {
+            overlockTimes = 0;
+        }
     }
 
     public boolean canConsumeCoolant(int coolant) {
@@ -350,11 +355,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private double getOverflowThreadsPercentage() {
         double totalThread = threadCount;
-        return totalThread > 0 ? getOverflowThreads() / totalThread : 0.0;
+        return totalThread > 0 && getOverflowThreads() > 0 ? getOverflowThreads() / totalThread : 0.0;
     }
 
     private int getOverflowThreads() {
-        return threadCount - getAvailableThreads();
+         return threadCount - getAvailableThreads();
     }
 
     private int getAvailableThreads() {
