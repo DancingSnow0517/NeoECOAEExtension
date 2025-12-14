@@ -355,11 +355,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private double getOverflowThreadsPercentage() {
         double totalThread = threadCount;
-        return totalThread > 0 && getOverflowThreads() > 0 ? getOverflowThreads() / totalThread : 0.0;
+        return getOverflowThreads() > 0 ? getOverflowThreads() / totalThread : 0.0;
     }
 
     private int getOverflowThreads() {
-         return threadCount - getAvailableThreads();
+         return Math.max(threadCount - getAvailableThreads(), 0);
     }
 
     private int getAvailableThreads() {
