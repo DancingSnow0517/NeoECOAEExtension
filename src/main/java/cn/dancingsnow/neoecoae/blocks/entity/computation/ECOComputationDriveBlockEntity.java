@@ -5,20 +5,18 @@ import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
-import com.lowdragmc.lowdraglib.syncdata.IEnhancedManaged;
-import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
-import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.annotation.RequireRerender;
-import com.lowdragmc.lowdraglib.syncdata.blockentity.IAsyncAutoSyncBlockEntity;
-import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoPersistBlockEntity;
-import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
+
+import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
+import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
+import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -29,10 +27,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class ECOComputationDriveBlockEntity
-    extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity>
-    implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IEnhancedManaged, ICellHost {
+    extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity> implements ISyncPersistRPCBlockEntity, ICellHost {
 
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECOComputationDriveBlockEntity.class);
+    @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     @Getter
@@ -78,18 +75,7 @@ public class ECOComputationDriveBlockEntity
             }
         }
         SectionPos sectionPos = SectionPos.of(worldPosition);
-        Minecraft.getInstance().levelRenderer
-            .setSectionDirty(sectionPos.x(), sectionPos.y(), sectionPos.z());
-    }
-
-    @Override
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
-
-    @Override
-    public IManagedStorage getSyncStorage() {
-        return syncStorage;
+        Minecraft.getInstance().levelRenderer.setSectionDirty(sectionPos.x(), sectionPos.y(), sectionPos.z());
     }
 
     public void setCellStack(@Nullable ItemStack cellStack) {
@@ -100,9 +86,13 @@ public class ECOComputationDriveBlockEntity
     }
 
     @Override
-    public void onChanged() {
-        setChanged();
-        markForUpdate();
+    public void notifyPersistence() {
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.getServer().executeIfPossible(() -> {
+                setChanged();
+                markForUpdate();
+            });
+        }
     }
 
     @Override
@@ -121,11 +111,6 @@ public class ECOComputationDriveBlockEntity
     @Override
     public void setFormed(boolean formed) {
         this.formedState = formed;
-    }
-
-    @Override
-    public IManagedStorage getRootStorage() {
-        return syncStorage;
     }
 
     @Override

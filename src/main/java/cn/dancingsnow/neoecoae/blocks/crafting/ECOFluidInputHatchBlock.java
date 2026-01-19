@@ -4,7 +4,8 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
-import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
+import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,7 +23,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEntity> {
+public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEntity> implements BlockUIMenuType.BlockUI{
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
 
     public ECOFluidInputHatchBlock(Properties properties) {
@@ -32,12 +33,8 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (player instanceof ServerPlayer serverPlayer) {
-            ECOFluidInputHatchBlockEntity be = getBlockEntity(level, pos);
-            if (be != null) {
-                BlockEntityUIFactory.INSTANCE.openUI(be, serverPlayer);
-                return InteractionResult.sidedSuccess(level.isClientSide());
-            }
-            return InteractionResult.PASS;
+            BlockUIMenuType.openUI(serverPlayer, pos);
+            return InteractionResult.CONSUME;
         }
         return InteractionResult.SUCCESS;
     }
@@ -78,5 +75,13 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
     @Override
     protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
         return state.getValue(FORMED);
+    }
+
+    @Override
+    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        if (holder.player.level().getBlockEntity(holder.pos)instanceof ECOFluidInputHatchBlockEntity be) {
+            return be.createUI(holder);
+        }
+        return null;
     }
 }

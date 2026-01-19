@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.api;
 
 import appeng.api.stacks.AEKeyType;
-import cn.dancingsnow.neoecoae.gui.GuiTextures;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.gui.NETextures;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import net.minecraft.resources.ResourceLocation;
 
 public interface IECOTier {
@@ -66,7 +66,7 @@ public interface IECOTier {
     ResourceLocation getCPUOverlayTexture();
 
     default IGuiTexture getCraftingOverlayTexture() {
-        return GuiTextures.Crafting.F0;
+        return NETextures.Crafting.F0;
     }
 
     /**

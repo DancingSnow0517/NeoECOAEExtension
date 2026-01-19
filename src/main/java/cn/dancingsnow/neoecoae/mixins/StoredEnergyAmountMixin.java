@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.mixins;
 
 import appeng.me.energy.StoredEnergyAmount;
-import com.lowdragmc.lowdraglib.syncdata.IContentChangeAware;
+import com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.DoubleTag;
 import net.neoforged.neoforge.common.util.INBTSerializable;

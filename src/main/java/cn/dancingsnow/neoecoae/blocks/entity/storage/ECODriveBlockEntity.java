@@ -9,17 +9,14 @@ import cn.dancingsnow.neoecoae.client.model.data.ECODriveModelData;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
-import com.lowdragmc.lowdraglib.syncdata.IEnhancedManaged;
-import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
-import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.annotation.RequireRerender;
-import com.lowdragmc.lowdraglib.syncdata.blockentity.IAsyncAutoSyncBlockEntity;
-import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoPersistBlockEntity;
-import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
+import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
+import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -31,9 +28,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
-    implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IEnhancedManaged, IStorageProvider {
+    implements ISyncPersistRPCBlockEntity, IStorageProvider {
 
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECODriveBlockEntity.class);
+    @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     public final IItemHandler HANDLER = new IItemHandler() {
@@ -144,29 +141,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     @Override
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
-
-    @Override
-    public IManagedStorage getSyncStorage() {
-        return syncStorage;
-    }
-
-    @Override
-    public void onChanged() {
-        setChanged();
-        markForUpdate();
-    }
-
-    @Override
     public void scheduleRenderUpdate() {
         markForClientUpdate();
-    }
-
-    @Override
-    public IManagedStorage getRootStorage() {
-        return getSyncStorage();
     }
 
     @Override
@@ -209,5 +185,15 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
         online = getMainNode().isOnline();
+    }
+
+    @Override
+    public void notifyPersistence() {
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.getServer().executeIfPossible(() -> {
+                setChanged();
+                markForUpdate();
+            });
+        }
     }
 }

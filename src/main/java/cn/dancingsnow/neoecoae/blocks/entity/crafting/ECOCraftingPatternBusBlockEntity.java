@@ -9,40 +9,42 @@ import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import appeng.crafting.pattern.EncodedPatternItem;
 import appeng.helpers.patternprovider.PatternContainer;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
-import cn.dancingsnow.neoecoae.gui.GuiTextures;
-import cn.dancingsnow.neoecoae.gui.widget.AEPatternViewSlotWidget;
-import cn.dancingsnow.neoecoae.gui.widget.AEStylePlayerInventoryWidget;
-import cn.dancingsnow.neoecoae.gui.widget.AEStyleWidgetGroup;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
-import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
-import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
-import com.lowdragmc.lowdraglib.gui.widget.TextTextureWidget;
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import com.lowdragmc.lowdraglib.syncdata.IManaged;
-import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
-import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.blockentity.IAsyncAutoSyncBlockEntity;
-import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoPersistBlockEntity;
-import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
+import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
+import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
+import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
-import org.jetbrains.annotations.NotNull;
+import org.appliedenergistics.yoga.YogaEdge;
+import org.appliedenergistics.yoga.YogaFlexDirection;
+import org.appliedenergistics.yoga.YogaGutter;
+import org.appliedenergistics.yoga.YogaJustify;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -50,10 +52,9 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
-    implements IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity,
-    IManaged, InternalInventoryHost, IUIHolder.Block, ICraftingProvider, PatternContainer, IECOPatternStorage {
+    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
 
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECOCraftingPatternBusBlockEntity.class);
+    @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     public static final int ROW_SIZE = 9;
@@ -188,24 +189,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     @Override
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
-
-    @Override
-    public IManagedStorage getSyncStorage() {
-        return syncStorage;
-    }
-
-    @Override
-    public void onChanged() {
-        setChanged();
-        markForUpdate();
-    }
-
-    @Override
-    public IManagedStorage getRootStorage() {
-        return syncStorage;
+    public void notifyPersistence() {
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.getServer().executeIfPossible(() -> {
+                setChanged();
+                markForUpdate();
+            });
+        }
     }
 
     @Override
@@ -217,58 +207,32 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             .forEach(drops::add);
     }
 
-    private WidgetGroup createUI() {
-        WidgetGroup root = new WidgetGroup();
-        root.setSize(178, 238);
-        root.setBackground(GuiTextures.BACKGROUND);
+    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        UIElement root = new UIElement().layout(layout -> layout
+            .setPadding(YogaEdge.ALL, 4)
+            .setGap(YogaGutter.ALL, 2)
+            .setJustifyContent(YogaJustify.CENTER)
+        ).addClass("panel_bg");
 
-        TextTextureWidget text = new TextTextureWidget(8, 6, 160, 9);
-        text.setText(Component.translatable("block.neoecoae.crafting_pattern_bus"));
-        text.textureStyle(t -> t.setType(TextTexture.TextType.LEFT_ROLL).setColor(0x403E53).setDropShadow(false));
-        root.addWidget(text);
+        root.addChild(new TextElement()
+            .setText(Component.translatable("block.neoecoae.crafting_pattern_bus"))
+            .textStyle(textStyle -> textStyle
+                .textWrap(TextWrap.HOVER_ROLL)
+                .adaptiveHeight(true)));
 
-        AEStyleWidgetGroup items = new AEStyleWidgetGroup();
-        items.initTemplate();
-        items.setSize(18 * ROW_SIZE, 18 * COL_SIZE);
-        items.setSelfPosition(8, 20);
-        for (int x = 0; x < COL_SIZE; x++) {
-            for (int y = 0; y < ROW_SIZE; y++) {
-                AEPatternViewSlotWidget slot = aePatternViewSlotWidget(x, y);
-                items.addWidget(slot);
+        UIElement patternInv = new UIElement().addClass("panel_border");
+        for (int row = 0; row < COL_SIZE; row++) {
+            UIElement rowInv = new UIElement().layout(layout -> layout.setFlexDirection(YogaFlexDirection.ROW));
+            for (int col = 0; col < ROW_SIZE; col++) {
+                int slotIndex = row * ROW_SIZE + col;
+                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(itemHandler, slotIndex))
+                    .slotStyle(slotStyle -> slotStyle.slotOverlay(NETextures.PATTERN_OVERLAY));
+                rowInv.addChild(slot);
             }
+            patternInv.addChild(rowInv);
         }
-
-        AEStylePlayerInventoryWidget playerInventoryWidget = new AEStylePlayerInventoryWidget();
-        playerInventoryWidget.setSelfPosition(3, 146);
-        root.addWidget(playerInventoryWidget);
-
-        root.addWidget(items);
-        return root;
-    }
-
-    private @NotNull AEPatternViewSlotWidget aePatternViewSlotWidget(int x, int y) {
-        int index = ROW_SIZE * x + y;
-        AEPatternViewSlotWidget slot = new AEPatternViewSlotWidget(
-            itemHandler,
-            index,
-            y * 18,
-            x * 18
-        );
-        slot.initTemplate();
-        slot.setItemHook(stack -> {
-            if (!stack.isEmpty() && stack.getItem() instanceof EncodedPatternItem<?> pattern) {
-                ItemStack out = pattern.getOutput(stack);
-                if (!out.isEmpty()) {
-                    return out;
-                }
-            }
-            return stack;
-        });
-        return slot;
-    }
-
-    @Override
-    public ModularUI createUI(Player entityPlayer) {
-        return new ModularUI(createUI(), this, entityPlayer);
+        root.addChild(patternInv);
+        root.addChild(new InventorySlots().layout(layout -> layout.setMargin(YogaEdge.TOP, 5)));
+        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 }

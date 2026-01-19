@@ -1,13 +1,11 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
-import appeng.util.inv.AppEngInternalInventory;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import com.lowdragmc.lowdraglib.utils.BlockInfo;
-import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
+import com.lowdragmc.lowdraglib2.utils.data.BlockInfo;
+import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -16,7 +14,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
 
 public abstract class MultiBlockContext {
     @Getter

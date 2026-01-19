@@ -1,0 +1,37 @@
+// panel
+.panel_bg {
+  background: built-in(ui-eco:BACKGROUND);
+  padding-all: 5;
+  gap-all: 4;
+}
+
+.panel_border, .__inventory_main__, .__inventory_hotbar__ {
+  background: built-in(ui-eco:INVENTORY_BORDER);
+}
+
+// button
+button:host {
+  base-background: built-in(ui-eco:BUTTON);
+  hover-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
+  pressed-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
+  padding-all: 3;
+  height: 16;
+}
+
+button.__disabled__ .__button_text__ {
+  text-color: #666;
+  text-shadow: false;
+}
+
+// slot
+item-slot {
+  background: built-in(ui-eco:ITEM_SLOT);
+}
+
+pattern-item-slot {
+  background: built-in(ui-eco:ITEM_SLOT);
+}
+
+fluid-slot {
+  background: built-in(ui-eco:ITEM_SLOT);
+}

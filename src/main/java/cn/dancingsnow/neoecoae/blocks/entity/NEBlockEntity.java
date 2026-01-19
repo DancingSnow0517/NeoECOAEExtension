@@ -29,8 +29,7 @@ import java.util.List;
 import java.util.Set;
 
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
-    extends AENetworkedBlockEntity
-    implements IAEMultiBlock<C> {
+    extends AENetworkedBlockEntity implements IAEMultiBlock<C> {
 
     @Setter
     @Getter

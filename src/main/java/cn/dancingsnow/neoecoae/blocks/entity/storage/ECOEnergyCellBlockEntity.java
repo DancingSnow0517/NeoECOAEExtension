@@ -15,13 +15,10 @@ import appeng.me.energy.StoredEnergyAmount;
 import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
-import com.lowdragmc.lowdraglib.syncdata.IManaged;
-import com.lowdragmc.lowdraglib.syncdata.IManagedStorage;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.blockentity.IAsyncAutoSyncBlockEntity;
-import com.lowdragmc.lowdraglib.syncdata.blockentity.IAutoPersistBlockEntity;
-import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
+import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
+import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.lowdragmc.lowdraglib2.syncdata.storage.IManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -32,9 +29,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
-    implements IExternalPowerSink, IGridTickable, IAsyncAutoSyncBlockEntity, IAutoPersistBlockEntity, IManaged {
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(ECOEnergyCellBlockEntity.class);
+    implements IExternalPowerSink, IGridTickable, ISyncPersistRPCBlockEntity {
+    @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
+
     @Getter
     private final IECOTier tier;
     private byte currentDisplayLevel;
@@ -108,19 +106,13 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     @Override
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
-
-    @Override
-    public IManagedStorage getSyncStorage() {
-        return syncStorage;
-    }
-
-    @Override
-    public void onChanged() {
-        setChanged();
-        markForUpdate();
+    public void notifyPersistence() {
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.getServer().executeIfPossible(() -> {
+                setChanged();
+                markForUpdate();
+            });
+        }
     }
 
     private void onEnergyChanged() {

@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.integration.jei.categories.multiblock;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
-import com.lowdragmc.lowdraglib.jei.ModularUIRecipeCategory;
+import com.lowdragmc.lowdraglib2.integration.xei.jei.ModularUIRecipeCategory;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.helpers.IGuiHelper;
@@ -25,6 +25,7 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
     private final IDrawable icon;
 
     public MultiBlockInfoCategory(IJeiHelpers helpers) {
+        super(MultiBlockInfoWrapper::createModularUI);
         IGuiHelper guiHelper = helpers.getGuiHelper();
         this.icon = guiHelper.createDrawableItemStack(NEBlocks.COMPUTATION_SYSTEM_L4.asStack());
     }
@@ -33,7 +34,7 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
     public void setRecipe(IRecipeLayoutBuilder builder, MultiBlockInfoWrapper recipe, IFocusGroup focuses) {
         super.setRecipe(builder, recipe, focuses);
         builder.addInvisibleIngredients(RecipeIngredientRole.OUTPUT)
-            .addItemLike(recipe.getDef().getOwner().value());
+            .addItemLike(recipe.getDefinition().getOwner().value());
     }
 
     @Override
@@ -48,12 +49,12 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
 
     @Override
     public int getWidth() {
-        return 160;
+        return 170;
     }
 
     @Override
     public int getHeight() {
-        return 160;
+        return 200;
     }
 
     @Override

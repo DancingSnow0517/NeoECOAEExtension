@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.data;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.data.lang.NELangGenerator;
 import cn.dancingsnow.neoecoae.data.model.CellModelGenerator;
 import cn.dancingsnow.neoecoae.data.provider.NERegistryProvider;
@@ -17,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEDataGen {
     public static void configureDataGen() {
         REGISTRATE.addDataGenerator(NEProviderTypes.CELL_MODEL, CellModelGenerator::accept);
