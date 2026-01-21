@@ -31,6 +31,7 @@ public class ECODriveBakedModel extends DelegateBakedModel {
     private final BakedModel defaultModel;
     private final BakedModel driveFullBase;
     private final RenderContext.QuadTransform transform;
+    private final Transformation modelTransform;
 
     static {
         FACING_TRANSFORM[Direction.NORTH.ordinal()] = quad -> {
@@ -89,6 +90,7 @@ public class ECODriveBakedModel extends DelegateBakedModel {
         this.defaultModel = defaultModel;
         this.driveFullBase = driveFullBase;
         this.transform = createTransform(modelTransform);
+        this.modelTransform = modelTransform;
     }
 
     @Override
@@ -121,7 +123,17 @@ public class ECODriveBakedModel extends DelegateBakedModel {
                 quadView.fromVanilla(quad, side);
                 transform.transform(quadView);
                 FACING_TRANSFORM[state.getValue(BlockStateProperties.HORIZONTAL_FACING).ordinal()].transform(quadView);
-                quads.add(quadView.toBlockBakedQuad());
+
+                Vector3f normal = new Vector3f(quad.direction.getNormal().getX(), quad.direction.getNormal().getY(), quad.direction.getNormal().getZ());
+                modelTransform.transformNormal(normal);
+                for (int i = 0; i < 4; i++) {
+                    quadView.normal(i, normal);
+                }
+                Direction transformedDirection = Direction.getNearest(normal.x, normal.y, normal.z);
+
+                BakedQuad blockBakedQuad = quadView.toBlockBakedQuad();
+                blockBakedQuad.direction = transformedDirection;
+                quads.add(blockBakedQuad);
             }
         }
         return quads;

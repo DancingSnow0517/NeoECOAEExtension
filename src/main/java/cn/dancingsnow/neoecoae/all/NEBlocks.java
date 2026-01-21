@@ -145,6 +145,7 @@ public class NEBlocks {
     public static final BlockEntry<ECODriveBlock> ECO_DRIVE = REGISTRATE
         .block("eco_drive", ECODriveBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
+        .properties(p -> p.noOcclusion())
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, provider) -> {
             provider.getVariantBuilder(ctx.get())
