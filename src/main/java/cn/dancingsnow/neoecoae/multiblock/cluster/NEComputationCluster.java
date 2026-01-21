@@ -195,7 +195,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         List<ICraftingPlan> killList = new ArrayList<>();
         for (Map.Entry<ICraftingPlan, ECOCraftingCPU> entry : activeCpus.entrySet()) {
             ECOCraftingCPU cpu = entry.getValue();
-            if (cpu.getLogic().hasJob() || cpu.getLogic().isMarkedForDeletion()) {
+            if (cpu.getLogic().hasJob() || cpu.getLogic().isMarkedForDeletion() || cpu.hasRemainingItems()) {
                 cpus.add(cpu);
             } else {
                 killList.add(entry.getKey());

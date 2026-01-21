@@ -158,4 +158,8 @@ public class ECOCraftingCPU implements ICraftingCPU {
             this.plan = readCraftingPlanFromNBT(tag, registries);
         }
     }
+
+    public boolean hasRemainingItems() {
+        return !logic.getInventory().list.isEmpty();
+    }
 }

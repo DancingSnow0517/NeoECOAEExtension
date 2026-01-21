@@ -159,14 +159,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 }
             }
             eject(storage, outputItem);
+            for (ItemStack item : remainingItems) {
+                eject(storage, item);
+            }
             NeoForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
                 NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()),
                 outputItem,
                 craftingInv
             ));
-            for (ItemStack item : remainingItems) {
-                eject(storage, item);
-            }
             outputItem = ItemStack.EMPTY;
             remainingItems.clear();
             return true;

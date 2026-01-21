@@ -74,7 +74,7 @@ public class ECOCraftingCPULogic {
     }
 
     public ICraftingSubmitResult trySubmitJob(
-            IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
+        IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
         // Already have a job.
         if (this.job != null) return CraftingSubmitResult.CPU_BUSY;
         // Check that the node is active.
@@ -90,8 +90,8 @@ public class ECOCraftingCPULogic {
 
         // Set CPU link and job.
         var playerId = src.player()
-                .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
-                .orElse(null);
+            .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
+            .orElse(null);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
@@ -165,7 +165,7 @@ public class ECOCraftingCPULogic {
      * @return How many patterns were successfully pushed.
      */
     public int executeCrafting(
-            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         var job = this.job;
         if (job == null) return 0;
 
@@ -186,7 +186,7 @@ public class ECOCraftingCPULogic {
             // Contains the inputs for the pattern.
             @Nullable
             var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                    details, inventory, level, expectedOutputs, expectedContainerItems);
+                details, inventory, level, expectedOutputs, expectedContainerItems);
 
             // Try to push to each provider.
             for (var provider : craftingService.getProviders(details)) {
@@ -196,7 +196,7 @@ public class ECOCraftingCPULogic {
                 var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
 
                 if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                        < patternPower - 0.01) break;
+                    < patternPower - 0.01) break;
 
                 if (provider.pushPattern(details, craftingContainer)) {
                     energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
@@ -204,16 +204,16 @@ public class ECOCraftingCPULogic {
 
                     for (var expectedOutput : expectedOutputs) {
                         job.waitingFor.insert(
-                                expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
+                            expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
                     }
                     for (var expectedContainerItem : expectedContainerItems) {
                         job.waitingFor.insert(
-                                expectedContainerItem.getKey(),
-                                expectedContainerItem.getLongValue(),
-                                Actionable.MODULATE);
+                            expectedContainerItem.getKey(),
+                            expectedContainerItem.getLongValue(),
+                            Actionable.MODULATE);
                         job.timeTracker.addMaxItems(
-                                expectedContainerItem.getLongValue(),
-                                expectedContainerItem.getKey().getType());
+                            expectedContainerItem.getLongValue(),
+                            expectedContainerItem.getKey().getType());
                     }
 
                     cpu.markDirty();
@@ -232,7 +232,7 @@ public class ECOCraftingCPULogic {
                     expectedOutputs.reset();
                     expectedContainerItems.reset();
                     craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                            details, inventory, level, expectedOutputs, expectedContainerItems);
+                        details, inventory, level, expectedOutputs, expectedContainerItems);
                 }
             }
 
@@ -329,7 +329,7 @@ public class ECOCraftingCPULogic {
         }
 
         notifyJobOwner(
-                job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
+            job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
 
         // Finish job.
         this.job = null;
@@ -494,7 +494,7 @@ public class ECOCraftingCPULogic {
         if (connectedPlayer != null) {
             var jobId = job.link.getCraftingID();
             ClientboundPacket message = new CraftingJobStatusPacket(
-                    jobId, job.finalOutput.what(), job.finalOutput.amount(), job.remainingAmount, status);
+                jobId, job.finalOutput.what(), job.finalOutput.amount(), job.remainingAmount, status);
             connectedPlayer.connection.send(message);
         }
     }
