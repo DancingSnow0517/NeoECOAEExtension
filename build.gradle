@@ -97,7 +97,7 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
-        guild {
+        aeGuide {
             client()
 
             systemProperty 'guideme.ae2.guide.sources', file('guidebook').absolutePath
