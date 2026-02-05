@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
@@ -231,7 +230,7 @@ public class NEBlockEntities {
             event.registerBlockEntity(
                 Capabilities.FluidHandler.BLOCK,
                 NEBlockEntities.INPUT_HATCH.get(),
-                (be, side) -> be.getBlockState().getValue(ECOFluidInputHatchBlock.FACING) == side ? be.tank : null
+                (be, side) -> be.tank
             );
         })
         .register();
@@ -245,7 +244,7 @@ public class NEBlockEntities {
             event.registerBlockEntity(
                 Capabilities.FluidHandler.BLOCK,
                 NEBlockEntities.OUTPUT_HATCH.get(),
-                (be, side) -> be.getBlockState().getValue(ECOFluidInputHatchBlock.FACING) == side ? be.tank : null
+                (be, side) -> be.tank
             );
         })
         .register();

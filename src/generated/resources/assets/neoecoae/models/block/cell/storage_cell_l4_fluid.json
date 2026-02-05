@@ -1,6 +1,0 @@
-{
-  "parent": "neoecoae:block/cell/storage_cell",
-  "textures": {
-    "2": "neoecoae:block/cell/led/storage_cell_l4_fluid"
-  }
-}

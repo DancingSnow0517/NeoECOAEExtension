@@ -4,8 +4,6 @@ import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.api.ECOAETypeCounts;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.registration.provider.NECellModelProvider;
-import cn.dancingsnow.neoecoae.registration.provider.NEProviderTypes;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import me.ramidzkh.mekae2.ae2.MekanismKeyType;
 import net.minecraft.world.item.Rarity;
@@ -13,7 +11,7 @@ import net.minecraft.world.item.Rarity;
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 public class NEAppMekItems {
     static {
-        REGISTRATE.defaultCreativeTab(NECreativeTabs.STORAGE);
+        REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
 
     public static final ItemEntry<ECOStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE
@@ -44,13 +42,6 @@ public class NEAppMekItems {
         .register();
 
     public static void register() {
-        REGISTRATE.addDataGenerator(NEProviderTypes.CELL_MODEL, NEAppMekItems::genCellModel);
         ECOAETypeCounts.register(MekanismKeyType.TYPE, 25);
-    }
-
-    private static void genCellModel(NECellModelProvider provider) {
-        provider.cellModel("storage_cell_l4_chemical");
-        provider.cellModel("storage_cell_l6_chemical");
-        provider.cellModel("storage_cell_l9_chemical");
     }
 }

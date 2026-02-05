@@ -1,0 +1,6 @@
+{
+    "parent": "block/cube_all",
+    "textures": {
+        "all": "neoecoae:block/crafting/hatch_input"
+    }
+}

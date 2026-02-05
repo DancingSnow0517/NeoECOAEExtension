@@ -1,7 +1,0 @@
-{
-  "parent": "minecraft:block/cube_column",
-  "textures": {
-    "end": "neoecoae:block/computation_interface_top",
-    "side": "neoecoae:block/computation_interface"
-  }
-}

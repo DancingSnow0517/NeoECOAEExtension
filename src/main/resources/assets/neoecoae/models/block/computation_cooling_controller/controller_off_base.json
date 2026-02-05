@@ -1,0 +1,26 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"parent": "block/block",
+	"textures": {
+		"north": "neoecoae:block/compute/cooling_controller/controller_north",
+		"west": "neoecoae:block/compute/casing_back",
+		"top": "neoecoae:block/compute/casing",
+		"back": "neoecoae:block/compute/transmitter/transmitter_side_east",
+		"particle": "neoecoae:block/compute/casing"
+	},
+	"elements": [
+		{
+			"from": [0, 0, 0],
+			"to": [16, 16, 16],
+			"faces": {
+				"north": {"uv": [0, 0, 16, 16], "texture": "#north"},
+				"east": {"uv": [0, 0, 16, 16], "texture": "#east"},
+				"south": {"uv": [16, 0, 0, 16], "texture": "#back"},
+				"west": {"uv": [0, 0, 16, 16], "texture": "#west"},
+				"up": {"uv": [0, 0, 16, 16], "texture": "#top"},
+				"down": {"uv": [0, 0, 16, 16], "texture": "#top"}
+			}
+		}
+	]
+}

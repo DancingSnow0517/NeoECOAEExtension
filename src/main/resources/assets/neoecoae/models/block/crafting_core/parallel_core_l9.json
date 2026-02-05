@@ -1,0 +1,8 @@
+{
+    "parent": "neoecoae:block/crafting_core/parallel_core_base",
+    "textures": {
+        "side": "neoecoae:block/crafting/core/core_side_c",
+        "light": "neoecoae:block/crafting/core/parallel_core_light_c",
+        "particle": "neoecoae:block/crafting/core/core_side_c"
+    }
+}

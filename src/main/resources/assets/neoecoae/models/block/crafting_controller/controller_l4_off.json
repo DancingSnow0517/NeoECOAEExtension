@@ -1,0 +1,8 @@
+{
+    "parent": "neoecoae:block/crafting_controller/controller_off_base",
+    "textures": {
+        "side": "neoecoae:block/crafting/controller/controller_side_a",
+		"north": "neoecoae:block/crafting/controller/controller_north_a",
+        "particle": "neoecoae:block/crafting/controller/controller_side_a"
+    }
+}

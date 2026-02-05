@@ -78,17 +78,17 @@ public class ECOComputationDriveRenderer
                     connected = true;
                 } else {
                     if (blockEntity.isLowerDrive()) {
-                        poseStack.translate(0, 0.655, -0.3);
+                        poseStack.translate(0, 0.688, -0.3);
                     } else {
-                        poseStack.translate(0, -0.655, -0.3);
+                        poseStack.translate(0, -0.688, -0.3);
                     }
                     cableModel = ECOComputationModels.getCableDisconnectedModel(blockEntity.getTier());
                 }
             } else {
                 if (blockEntity.isLowerDrive()) {
-                    poseStack.translate(0, 0.655, -0.3);
+                    poseStack.translate(0, 0.688, -0.3);
                 } else {
-                    poseStack.translate(0, -0.655, -0.3);
+                    poseStack.translate(0, -0.688, -0.3);
                 }
                 cableModel = ECOComputationModels.getCableDisconnectedModel(blockEntity.getTier());
             }

@@ -6,8 +6,6 @@ import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidOutputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -25,6 +23,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.stream.Stream;
 
 public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingCluster> {
     public NECraftingClusterCalculator(NEBlockEntity<NECraftingCluster, ?> t) {
@@ -142,14 +141,14 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         }
         BlockPos lowerPatternBusEnd = lowerPatternBusEndResult.getOrThrow();
 
-        List<BlockPos> endCasing = List.of(
+        List<BlockPos> endCasing = Stream.of(
             workerEnd,
             upperParallelCoreEnd,
             lowerParallelCoreEnd,
             upperPatternBusEnd,
             lowerPatternBusEnd,
             ventEnd
-        ).stream().map(it -> it.relative(right)).toList();
+        ).map(it -> it.relative(right)).toList();
 
         if (!ensureSameSurface(endCasing)) {
             return false;
@@ -162,13 +161,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         if (!validateBlock(level, interfacePos, BlockState::is, NEBlocks.CRAFTING_INTERFACE)) {
             return false;
         }
-        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, NEBlocks.INPUT_HATCH)
-            || level.getBlockState(interfacePos.relative(top)).getValue(ECOFluidInputHatchBlock.FACING) != left
-        ) {
+        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, NEBlocks.INPUT_HATCH)) {
             return false;
         }
-        return validateBlock(level, interfacePos.relative(down), BlockState::is, NEBlocks.OUTPUT_HATCH) &&
-            level.getBlockState(interfacePos.relative(top)).getValue(ECOFluidOutputHatchBlock.FACING) == left;
+        return validateBlock(level, interfacePos.relative(down), BlockState::is, NEBlocks.OUTPUT_HATCH);
     }
 
     private boolean validateCasing(ServerLevel level, BlockPos controllerPos, Direction top, Direction down, Direction direction) {

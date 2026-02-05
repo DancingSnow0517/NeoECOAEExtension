@@ -1,0 +1,20 @@
+{
+	"format_version": "1.9.0",
+	"parent": "block/block",
+	"textures": {
+		"block": "neoecoae:block/storage/casing",
+		"particle": "neoecoae:block/storage/casing"
+	},
+	"elements": [{
+		"from": [0, 0, 0],
+		"to": [16, 16, 16],
+		"faces": {
+			"north": {"uv": [0, 0, 16, 16], "texture": "#block", "cullface": "north"},
+			"east": {"uv": [0, 0, 16, 16], "texture": "#block", "cullface": "east"},
+			"south": {"uv": [0, 0, 16, 16], "texture": "#block", "cullface": "south"},
+			"west": {"uv": [0, 0, 16, 16], "texture": "#block", "cullface": "west"},
+			"up": {"uv": [0, 0, 16, 16], "texture": "#block", "cullface": "up"},
+			"down": {"uv": [0, 0, 16, 16], "texture": "#block", "cullface": "down"}
+		}
+	}]
+}

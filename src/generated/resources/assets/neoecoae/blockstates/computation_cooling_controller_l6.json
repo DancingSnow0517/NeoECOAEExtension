@@ -1,34 +1,34 @@
 {
   "variants": {
     "facing=east,formed=false": {
-      "model": "neoecoae:block/computation_cooling_controller_l6",
+      "model": "neoecoae:block/computation_cooling_controller/controller_l6_off",
       "y": 90
     },
     "facing=east,formed=true": {
-      "model": "neoecoae:block/compute/computation_cooling_controller_l6_formed",
+      "model": "neoecoae:block/computation_cooling_controller/controller_l6_formed",
       "y": 180
     },
     "facing=north,formed=false": {
-      "model": "neoecoae:block/computation_cooling_controller_l6"
+      "model": "neoecoae:block/computation_cooling_controller/controller_l6_off"
     },
     "facing=north,formed=true": {
-      "model": "neoecoae:block/compute/computation_cooling_controller_l6_formed",
+      "model": "neoecoae:block/computation_cooling_controller/controller_l6_formed",
       "y": 90
     },
     "facing=south,formed=false": {
-      "model": "neoecoae:block/computation_cooling_controller_l6",
+      "model": "neoecoae:block/computation_cooling_controller/controller_l6_off",
       "y": 180
     },
     "facing=south,formed=true": {
-      "model": "neoecoae:block/compute/computation_cooling_controller_l6_formed",
+      "model": "neoecoae:block/computation_cooling_controller/controller_l6_formed",
       "y": 270
     },
     "facing=west,formed=false": {
-      "model": "neoecoae:block/computation_cooling_controller_l6",
+      "model": "neoecoae:block/computation_cooling_controller/controller_l6_off",
       "y": 270
     },
     "facing=west,formed=true": {
-      "model": "neoecoae:block/compute/computation_cooling_controller_l6_formed"
+      "model": "neoecoae:block/computation_cooling_controller/controller_l6_formed"
     }
   }
 }

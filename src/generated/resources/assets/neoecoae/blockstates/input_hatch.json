@@ -1,27 +1,7 @@
 {
   "variants": {
-    "facing=down": {
-      "model": "neoecoae:block/input_hatch",
-      "x": 90
-    },
-    "facing=east": {
-      "model": "neoecoae:block/input_hatch",
-      "y": 90
-    },
-    "facing=north": {
+    "": {
       "model": "neoecoae:block/input_hatch"
-    },
-    "facing=south": {
-      "model": "neoecoae:block/input_hatch",
-      "y": 180
-    },
-    "facing=up": {
-      "model": "neoecoae:block/input_hatch",
-      "x": -90
-    },
-    "facing=west": {
-      "model": "neoecoae:block/input_hatch",
-      "y": 270
     }
   }
 }

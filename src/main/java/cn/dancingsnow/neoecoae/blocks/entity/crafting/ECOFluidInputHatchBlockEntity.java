@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
-import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidOutputHatchBlock;
-
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -46,11 +44,13 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        Direction face = state.getValue(ECOFluidOutputHatchBlock.FACING);
-
-        IFluidHandler sourceHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
-        if (sourceHandler != null) {
-            FluidUtil.tryFluidTransfer(tank, sourceHandler, tank.getCapacity(), true);
+        for (Direction face : Direction.values()) {
+            IFluidHandler sourceHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
+            if (sourceHandler != null) {
+                if (!FluidUtil.tryFluidTransfer(tank, sourceHandler, tank.getCapacity(), true).isEmpty()) {
+                    return;
+                }
+            }
         }
     }
 

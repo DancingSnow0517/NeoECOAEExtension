@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.stacks.AEKeyType;
+import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
@@ -12,8 +13,12 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 public class NEItems {
     static {
-        REGISTRATE.defaultCreativeTab(NECreativeTabs.STORAGE);
+        REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
+
+    public static final ItemEntry<MaterialItem> ECO_CELL_HOUSING = REGISTRATE
+        .item("eco_cell_housing", MaterialItem::new)
+        .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_16M = REGISTRATE
         .item("eco_item_storage_cell_16m", p -> new ECOStorageCellItem(
@@ -69,10 +74,6 @@ public class NEItems {
         .lang("ECO - LE9 Storage Matrix (Fluid)")
         .register();
 
-    static {
-        REGISTRATE.defaultCreativeTab(NECreativeTabs.COMPUTATION);
-    }
-
     public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L4 = createComputationCell(
         "l4",
         ECOTier.L4,
@@ -101,9 +102,7 @@ public class NEItems {
                 tier
             ))
             .lang("ECO - %s Flash Crystal Matrix".formatted(tierString.replace("l", "CE")))
-            .model((ctx, prov) -> {
-                prov.withExistingParent("eco_computation_cell_" + tierString, prov.modLoc("item/computation_cell"));
-            })
+            .model((ctx, prov) -> {})
             .register();
     }
 

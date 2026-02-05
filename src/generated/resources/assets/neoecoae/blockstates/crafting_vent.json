@@ -1,18 +1,33 @@
 {
   "variants": {
-    "facing=east": {
+    "facing=east,formed=false": {
       "model": "neoecoae:block/crafting_vent",
       "y": 90
     },
-    "facing=north": {
+    "facing=east,formed=true": {
+      "model": "neoecoae:block/crafting_vent_formed",
+      "y": 90
+    },
+    "facing=north,formed=false": {
       "model": "neoecoae:block/crafting_vent"
     },
-    "facing=south": {
+    "facing=north,formed=true": {
+      "model": "neoecoae:block/crafting_vent_formed"
+    },
+    "facing=south,formed=false": {
       "model": "neoecoae:block/crafting_vent",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,formed=true": {
+      "model": "neoecoae:block/crafting_vent_formed",
+      "y": 180
+    },
+    "facing=west,formed=false": {
       "model": "neoecoae:block/crafting_vent",
+      "y": 270
+    },
+    "facing=west,formed=true": {
+      "model": "neoecoae:block/crafting_vent_formed",
       "y": 270
     }
   }

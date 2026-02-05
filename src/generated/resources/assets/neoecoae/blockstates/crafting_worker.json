@@ -1,456 +1,64 @@
 {
-  "multipart": [
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker"
-      },
-      "when": {
-        "facing": "north"
-      }
+  "variants": {
+    "facing=east,formed=false,working=false": {
+      "model": "neoecoae:block/crafting_worker",
+      "y": 90
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_running"
-      },
-      "when": {
-        "facing": "north",
-        "working": "true"
-      }
+    "facing=east,formed=false,working=true": {
+      "model": "neoecoae:block/crafting_worker_working",
+      "y": 90
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_online"
-      },
-      "when": {
-        "facing": "north",
-        "formed": "true"
-      }
+    "facing=east,formed=true,working=false": {
+      "model": "neoecoae:block/crafting_worker_formed",
+      "y": 90
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker"
-      },
-      "when": {
-        "facing": "north"
-      }
+    "facing=east,formed=true,working=true": {
+      "model": "neoecoae:block/crafting_worker_working",
+      "y": 90
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_idle"
-      },
-      "when": {
-        "facing": "north",
-        "working": "false"
-      }
+    "facing=north,formed=false,working=false": {
+      "model": "neoecoae:block/crafting_worker"
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_online"
-      },
-      "when": {
-        "facing": "north",
-        "formed": "true"
-      }
+    "facing=north,formed=false,working=true": {
+      "model": "neoecoae:block/crafting_worker_working"
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker"
-      },
-      "when": {
-        "facing": "north"
-      }
+    "facing=north,formed=true,working=false": {
+      "model": "neoecoae:block/crafting_worker_formed"
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_running"
-      },
-      "when": {
-        "facing": "north",
-        "working": "true"
-      }
+    "facing=north,formed=true,working=true": {
+      "model": "neoecoae:block/crafting_worker_working"
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_offline"
-      },
-      "when": {
-        "facing": "north",
-        "formed": "false"
-      }
+    "facing=south,formed=false,working=false": {
+      "model": "neoecoae:block/crafting_worker",
+      "y": 180
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker"
-      },
-      "when": {
-        "facing": "north"
-      }
+    "facing=south,formed=false,working=true": {
+      "model": "neoecoae:block/crafting_worker_working",
+      "y": 180
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_idle"
-      },
-      "when": {
-        "facing": "north",
-        "working": "false"
-      }
+    "facing=south,formed=true,working=false": {
+      "model": "neoecoae:block/crafting_worker_formed",
+      "y": 180
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_offline"
-      },
-      "when": {
-        "facing": "north",
-        "formed": "false"
-      }
+    "facing=south,formed=true,working=true": {
+      "model": "neoecoae:block/crafting_worker_working",
+      "y": 180
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 180
-      },
-      "when": {
-        "facing": "south"
-      }
+    "facing=west,formed=false,working=false": {
+      "model": "neoecoae:block/crafting_worker",
+      "y": 270
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_running",
-        "y": 180
-      },
-      "when": {
-        "facing": "south",
-        "working": "true"
-      }
+    "facing=west,formed=false,working=true": {
+      "model": "neoecoae:block/crafting_worker_working",
+      "y": 270
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_online",
-        "y": 180
-      },
-      "when": {
-        "facing": "south",
-        "formed": "true"
-      }
+    "facing=west,formed=true,working=false": {
+      "model": "neoecoae:block/crafting_worker_formed",
+      "y": 270
     },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 180
-      },
-      "when": {
-        "facing": "south"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_idle",
-        "y": 180
-      },
-      "when": {
-        "facing": "south",
-        "working": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_online",
-        "y": 180
-      },
-      "when": {
-        "facing": "south",
-        "formed": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 180
-      },
-      "when": {
-        "facing": "south"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_running",
-        "y": 180
-      },
-      "when": {
-        "facing": "south",
-        "working": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_offline",
-        "y": 180
-      },
-      "when": {
-        "facing": "south",
-        "formed": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 180
-      },
-      "when": {
-        "facing": "south"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_idle",
-        "y": 180
-      },
-      "when": {
-        "facing": "south",
-        "working": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_offline",
-        "y": 180
-      },
-      "when": {
-        "facing": "south",
-        "formed": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 270
-      },
-      "when": {
-        "facing": "west"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_running",
-        "y": 270
-      },
-      "when": {
-        "facing": "west",
-        "working": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_online",
-        "y": 270
-      },
-      "when": {
-        "facing": "west",
-        "formed": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 270
-      },
-      "when": {
-        "facing": "west"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_idle",
-        "y": 270
-      },
-      "when": {
-        "facing": "west",
-        "working": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_online",
-        "y": 270
-      },
-      "when": {
-        "facing": "west",
-        "formed": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 270
-      },
-      "when": {
-        "facing": "west"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_running",
-        "y": 270
-      },
-      "when": {
-        "facing": "west",
-        "working": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_offline",
-        "y": 270
-      },
-      "when": {
-        "facing": "west",
-        "formed": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 270
-      },
-      "when": {
-        "facing": "west"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_idle",
-        "y": 270
-      },
-      "when": {
-        "facing": "west",
-        "working": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_offline",
-        "y": 270
-      },
-      "when": {
-        "facing": "west",
-        "formed": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 90
-      },
-      "when": {
-        "facing": "east"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_running",
-        "y": 90
-      },
-      "when": {
-        "facing": "east",
-        "working": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_online",
-        "y": 90
-      },
-      "when": {
-        "facing": "east",
-        "formed": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 90
-      },
-      "when": {
-        "facing": "east"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_idle",
-        "y": 90
-      },
-      "when": {
-        "facing": "east",
-        "working": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_online",
-        "y": 90
-      },
-      "when": {
-        "facing": "east",
-        "formed": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 90
-      },
-      "when": {
-        "facing": "east"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_running",
-        "y": 90
-      },
-      "when": {
-        "facing": "east",
-        "working": "true"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_offline",
-        "y": 90
-      },
-      "when": {
-        "facing": "east",
-        "formed": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/crafting_worker",
-        "y": 90
-      },
-      "when": {
-        "facing": "east"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_panel_idle",
-        "y": 90
-      },
-      "when": {
-        "facing": "east",
-        "working": "false"
-      }
-    },
-    {
-      "apply": {
-        "model": "neoecoae:block/worker/crafting_worker_led_offline",
-        "y": 90
-      },
-      "when": {
-        "facing": "east",
-        "formed": "false"
-      }
+    "facing=west,formed=true,working=true": {
+      "model": "neoecoae:block/crafting_worker_working",
+      "y": 270
     }
-  ]
+  }
 }
