@@ -16,7 +16,6 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.EmptyFluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.NotNull;
@@ -31,6 +30,11 @@ public record IntegratedWorkingStationRecipe(
     FluidStack fluidOutput,
     int energy
 ) implements Recipe<IntegratedWorkingStationRecipe.Input> {
+
+    public static IntegratedWorkingStationRecipeBuilder builder() {
+        return new IntegratedWorkingStationRecipeBuilder();
+    }
+
     @Override
     public boolean matches(Input recipeInput, Level level) {
         // Match item inputs with quantities: simulate consuming from provided stacks so the same slot isn't reused
@@ -49,7 +53,7 @@ public record IntegratedWorkingStationRecipe(
             for (int i = 0; i < provided.size() && needed > 0; i++) {
                 var s = provided.get(i);
                 if (s == null || s.isEmpty() || remaining[i] <= 0) continue;
-                if (req.test(s)) {
+                if (req.ingredient().test(s)) {
                     int take = Math.min(remaining[i], needed);
                     remaining[i] -= take;
                     needed -= take;
@@ -61,7 +65,7 @@ public record IntegratedWorkingStationRecipe(
 
         FluidStack providedFluid = recipeInput.fluid();
 
-        if (inputFluid.ingredient() instanceof EmptyFluidIngredient) return true;
+        if (inputFluid.ingredient().isEmpty()) return true;
         if (providedFluid == null || providedFluid.isEmpty()) return false;
         if (!inputFluid.test(providedFluid)) return false;
         return providedFluid.getAmount() >= inputFluid.amount();

@@ -15,7 +15,6 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.orientation.RelativeSide;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
@@ -94,7 +93,6 @@ import org.appliedenergistics.yoga.YogaPositionType;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -172,10 +170,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Getter
     @DescSynced
     private boolean working = false;
-    @Getter
+
     @Setter
+    @Getter
     @DescSynced
     private int processingTime = 0;
+
     private boolean dirty = false;
 
     private @Nullable IntegratedWorkingStationRecipe cachedTask = null;
@@ -676,7 +676,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             layout.setJustifyContent(YogaJustify.CENTER);
         }).addChildren(
             new ProgressBar()
-                .bindDataSource(SupplierDataSource.of(() -> (float) processingTime / MAX_PROCESSING_STEPS))
+                .bindDataSource(SupplierDataSource.of(() -> (float) processingTime))
+                .setMaxValue(MAX_PROCESSING_STEPS)
                 .progressBarStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
                 .label(label -> label.setText(""))
                 .layout(layout -> layout.setHeight(18).setWidth(6))

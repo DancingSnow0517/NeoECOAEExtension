@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.data.recipe;
 
+import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import mekanism.common.registries.MekanismFluids;
 import mekanism.common.tags.MekanismTags;
@@ -34,5 +36,10 @@ public class NERecipeGenerator {
             .output(new FluidStack(MekanismFluids.SUPERHEATED_SODIUM, 100))
             .coolant(5000)
             .save(hasMekanism, NeoECOAE.id("cooling/sodium"));
+
+        IntegratedWorkingStationRecipe.builder()
+            .require(AEItems.ITEM_CELL_1K, 4)
+            .itemOutput(AEItems.ITEM_CELL_4K.stack())
+            .save(provider);
     }
 }

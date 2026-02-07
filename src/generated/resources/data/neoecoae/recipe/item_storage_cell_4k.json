@@ -1,0 +1,14 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 1000,
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "ae2:item_storage_cell_1k"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "ae2:item_storage_cell_4k"
+  }
+}
