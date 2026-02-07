@@ -39,6 +39,8 @@
     "neoecoae:output_hatch",
     "neoecoae:crafting_vent",
     "neoecoae:crafting_casing",
-    "neoecoae:integrated_working_station"
+    "neoecoae:integrated_working_station",
+    "neoecoae:aluminum_ore",
+    "neoecoae:tungsten_ore"
   ]
 }

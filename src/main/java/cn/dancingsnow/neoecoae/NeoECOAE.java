@@ -40,8 +40,8 @@ public class NeoECOAE {
         MOD_BUS = modBus;
         
         NECreativeTabs.register();
-        NEBlocks.register();
         NEItems.register();
+        NEBlocks.register();
         NEBlockEntities.register();
         NEDataGen.configureDataGen();
         NEGridServices.register();

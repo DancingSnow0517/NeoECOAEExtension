@@ -30,6 +30,7 @@ import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -486,6 +487,26 @@ public class NEBlocks {
         })
         .build()
         .lang("ECO - Integrated Working Station")
+        .register();
+
+    public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
+        .block("aluminum_ore", Block::new)
+        .initialProperties(() -> Blocks.IRON_ORE)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ORE_ALUMINUM)
+        .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_ALUMINUM_ORE.get())))
+        .item()
+        .tag(NETags.Items.ORE_ALUMINUM)
+        .build()
+        .register();
+
+    public static final BlockEntry<Block> TUNGSTEN_ORE = REGISTRATE
+        .block("tungsten_ore", Block::new)
+        .initialProperties(() -> Blocks.IRON_ORE)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ORE_TUNGSTEN)
+        .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_TUNGSTEN_ORE.get())))
+        .item()
+        .tag(NETags.Items.ORE_TUNGSTEN)
+        .build()
         .register();
 
     private static BlockEntry<ECOStorageSystemBlock> createStorageSystem(String level, Rarity rarity) {

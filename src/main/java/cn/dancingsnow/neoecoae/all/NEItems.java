@@ -6,7 +6,9 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.world.item.Rarity;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
@@ -15,6 +17,44 @@ public class NEItems {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
+
+    public static final ItemEntry<MaterialItem> RAW_ALUMINUM_ORE = REGISTRATE
+        .item("raw_aluminum_ore", MaterialItem::new)
+        .tag(NETags.Items.RAW_ALUMINUM)
+        .register();
+
+    public static final ItemEntry<MaterialItem> ALUMINUM_INGOT = REGISTRATE
+        .item("aluminum_ingot", MaterialItem::new)
+        .tag(NETags.Items.INGOT_ALUMINUM)
+        .recipe((ctx, prov) -> {
+            prov.smelting(DataIngredient.tag(NETags.Items.ORE_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
+            prov.smelting(DataIngredient.tag(NETags.Items.RAW_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
+            prov.smelting(DataIngredient.tag(NETags.Items.DUST_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
+            prov.blasting(DataIngredient.tag(NETags.Items.ORE_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
+            prov.blasting(DataIngredient.tag(NETags.Items.RAW_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
+            prov.blasting(DataIngredient.tag(NETags.Items.DUST_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> ALUMINUM_DUST = REGISTRATE
+        .item("aluminum_dust", MaterialItem::new)
+        .tag(NETags.Items.DUST_ALUMINUM)
+        .register();
+
+    public static final ItemEntry<MaterialItem> RAW_TUNGSTEN_ORE = REGISTRATE
+        .item("raw_tungsten_ore", MaterialItem::new)
+        .tag(NETags.Items.RAW_TUNGSTEN)
+        .register();
+
+    public static final ItemEntry<MaterialItem> TUNGSTEN_INGOT = REGISTRATE
+        .item("tungsten_ingot", MaterialItem::new)
+        .tag(NETags.Items.INGOT_TUNGSTEN)
+        .register();
+
+    public static final ItemEntry<MaterialItem> TUNGSTEN_DUST = REGISTRATE
+        .item("tungsten_dust", MaterialItem::new)
+        .tag(NETags.Items.DUST_TUNGSTEN)
+        .register();
 
     public static final ItemEntry<MaterialItem> ECO_CELL_HOUSING = REGISTRATE
         .item("eco_cell_housing", MaterialItem::new)
@@ -102,7 +142,8 @@ public class NEItems {
                 tier
             ))
             .lang("ECO - %s Flash Crystal Matrix".formatted(tierString.replace("l", "CE")))
-            .model((ctx, prov) -> {})
+            .model((ctx, prov) -> {
+            })
             .register();
     }
 
