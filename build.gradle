@@ -63,6 +63,9 @@ dependencies {
     api("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
     jarJar("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
 
+    compileOnly("org.appliedenergistics:guideme:21.1.1:api")
+    runtimeOnly("org.appliedenergistics:guideme:21.1.1")
+
     implementation("org.appliedenergistics:appliedenergistics2:19.2.17")
 
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }

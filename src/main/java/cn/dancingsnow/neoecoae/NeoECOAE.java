@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae;
 
 
+import appeng.api.upgrades.Upgrades;
+import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
@@ -18,6 +20,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
@@ -50,10 +53,17 @@ public class NeoECOAE {
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
         modContainer.registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
 
+        modBus.addListener(NeoECOAE::initUpgrades);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
     }
 
     public static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+    }
+
+    private static void initUpgrades(FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> {
+            Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
+        });
     }
 }

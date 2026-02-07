@@ -1,8 +1,11 @@
 package cn.dancingsnow.neoecoae.all;
 
+import appeng.api.AECapabilities;
+import appeng.blockentity.AEBaseInvBlockEntity;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
@@ -37,6 +40,7 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
+@SuppressWarnings("unused")
 public class NEBlockEntities {
 
     public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
@@ -366,6 +370,41 @@ public class NEBlockEntities {
             (be, unused) -> be.getItemHandler()
         ))
         .renderer(() -> ECOComputationDriveRenderer::new)
+        .register();
+
+    public static final BlockEntityEntry<ECOIntegratedWorkingStationBlockEntity> INTEGRATED_WORKING_STATION_BLOCK = REGISTRATE
+        .blockEntity("integrated_working_station", ECOIntegratedWorkingStationBlockEntity::new)
+        .validBlock(NEBlocks.INTEGRATED_WORKING_STATION)
+        .registerCapability(e -> {
+            e.registerBlockEntity(
+                AECapabilities.IN_WORLD_GRID_NODE_HOST,
+                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+                (be, unused) -> be
+            );
+            e.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+                AEBaseInvBlockEntity::getExposedItemHandler
+            );
+            e.registerBlockEntity(
+                Capabilities.FluidHandler.BLOCK,
+                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+                (be, side) -> be.getFluidCombined()
+            );
+            e.registerBlockEntity(
+                Capabilities.EnergyStorage.BLOCK,
+                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+                ECOIntegratedWorkingStationBlockEntity::getEnergyStorage
+            );
+        })
+        .onRegister(type -> {
+            NEBlocks.INTEGRATED_WORKING_STATION.get().setBlockEntity(
+                ECOIntegratedWorkingStationBlockEntity.class,
+                type,
+                null,
+                null
+            );
+        })
         .register();
 
     private static NEBlockEntityEntry<ECOCraftingSystemBlockEntity> createCraftingSystem(

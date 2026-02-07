@@ -38,6 +38,7 @@
     "neoecoae:input_hatch",
     "neoecoae:output_hatch",
     "neoecoae:crafting_vent",
-    "neoecoae:crafting_casing"
+    "neoecoae:crafting_casing",
+    "neoecoae:integrated_working_station"
   ]
 }

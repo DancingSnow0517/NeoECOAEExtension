@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
@@ -461,6 +462,31 @@ public class NEBlocks {
         .simpleItem()
         .register();
     //endregion
+
+    public static final BlockEntry<ECOIntegratedWorkingStation> INTEGRATED_WORKING_STATION = REGISTRATE
+        .block("integrated_working_station", ECOIntegratedWorkingStation::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> {
+            ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
+            ModelFile modelFileWorking = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station_on"));
+            prov.getVariantBuilder(ctx.get())
+                .forAllStates(s -> {
+                    boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
+                    return ConfiguredModel.builder()
+                        .modelFile(working ? modelFileWorking : modelFile)
+                        .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING).toYRot() + 180) % 360)
+                        .build();
+                });
+        })
+        .item()
+        .properties(p -> p.rarity(Rarity.RARE))
+        .model((ctx, prov) -> {
+            prov.withExistingParent(ctx.getName(), prov.modLoc("block/integrated_working_station"));
+        })
+        .build()
+        .lang("ECO - Integrated Working Station")
+        .register();
 
     private static BlockEntry<ECOStorageSystemBlock> createStorageSystem(String level, Rarity rarity) {
         return REGISTRATE

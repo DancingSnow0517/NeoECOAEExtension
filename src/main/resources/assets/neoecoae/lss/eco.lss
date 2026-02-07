@@ -23,15 +23,34 @@ button.__disabled__ .__button_text__ {
   text-shadow: false;
 }
 
+// toggle
+.__toggle_button__ {
+  base-background: built-in(ui-eco:BUTTON);
+  hover-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
+  pressed-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
+}
+
 // slot
 item-slot {
   background: built-in(ui-eco:ITEM_SLOT);
+  hover-overlay: #A0daffff
 }
 
 pattern-item-slot {
   background: built-in(ui-eco:ITEM_SLOT);
+  hover-overlay: #A0daffff
 }
 
 fluid-slot {
   background: built-in(ui-eco:ITEM_SLOT);
+  hover-overlay: #A0daffff
+}
+
+// progress bar
+.__progress-bar_bar-container__ {
+  background: built-in(ui-eco:BAR_CONTAINER);
+}
+
+.__progress-bar_bar__ {
+  background: built-in(ui-eco:BAR);
 }

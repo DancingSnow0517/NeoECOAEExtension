@@ -13,6 +13,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
 
+@SuppressWarnings("unused")
 public class NETextures {
     public static final IGuiTexture BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/background.png"))
         .setSpriteSize(Size.of(16, 16))
@@ -36,6 +37,11 @@ public class NETextures {
         .setSpriteSize(Size.of(18, 18))
         .setBorder(1, 2, 1, 1);
 
+    public static final IGuiTexture BAR_CONTAINER = SpriteTexture.of(NeoECOAE.id("textures/gui/bar_container.png"))
+        .setSpriteSize(Size.of(6, 18));
+
+    public static final IGuiTexture BAR = SpriteTexture.of(NeoECOAE.id("textures/gui/bar.png"))
+        .setSpriteSize(Size.of(6, 18));
 
     public static final IGuiTexture PATTERN_OVERLAY = widgetTexture("pattern_overlay.png");
 
