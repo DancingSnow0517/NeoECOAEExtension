@@ -678,7 +678,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             new ProgressBar()
                 .bindDataSource(SupplierDataSource.of(() -> (float) processingTime))
                 .setMaxValue(MAX_PROCESSING_STEPS)
-                .progressBarStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
+                .progressBarStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP).interpolate(false))
+                .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
                 .label(label -> label.setText(""))
                 .layout(layout -> layout.setHeight(18).setWidth(6))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {

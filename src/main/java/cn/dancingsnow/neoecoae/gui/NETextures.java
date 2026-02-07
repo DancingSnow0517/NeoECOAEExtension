@@ -41,7 +41,7 @@ public class NETextures {
         .setSpriteSize(Size.of(6, 18));
 
     public static final IGuiTexture BAR = SpriteTexture.of(NeoECOAE.id("textures/gui/bar.png"))
-        .setSpriteSize(Size.of(6, 18));
+        .setSpriteSize(Size.of(4, 16));
 
     public static final IGuiTexture PATTERN_OVERLAY = widgetTexture("pattern_overlay.png");
 
