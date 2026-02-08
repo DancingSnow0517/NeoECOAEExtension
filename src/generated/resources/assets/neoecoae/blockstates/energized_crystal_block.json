@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "neoecoae:block/energized_crystal_block"
+    }
+  }
+}

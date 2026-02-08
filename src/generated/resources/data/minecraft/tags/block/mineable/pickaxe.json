@@ -7,6 +7,16 @@
     "neoecoae:raw_tungsten_block",
     "neoecoae:tungsten_block",
     "neoecoae:aluminum_alloy_block",
+    "neoecoae:energized_crystal_block",
+    "neoecoae:flawless_budding_energized_crystal",
+    "neoecoae:flawed_budding_energized_crystal",
+    "neoecoae:chipped_budding_energized_crystal",
+    "neoecoae:damaged_budding_energized_crystal",
+    "neoecoae:small_energized_crystal_bud",
+    "neoecoae:medium_energized_crystal_bud",
+    "neoecoae:large_energized_crystal_bud",
+    "neoecoae:energized_crystal_cluster",
+    "neoecoae:integrated_working_station",
     "neoecoae:storage_system_l4",
     "neoecoae:storage_system_l6",
     "neoecoae:storage_system_l9",
@@ -45,7 +55,6 @@
     "neoecoae:input_hatch",
     "neoecoae:output_hatch",
     "neoecoae:crafting_vent",
-    "neoecoae:crafting_casing",
-    "neoecoae:integrated_working_station"
+    "neoecoae:crafting_casing"
   ]
 }

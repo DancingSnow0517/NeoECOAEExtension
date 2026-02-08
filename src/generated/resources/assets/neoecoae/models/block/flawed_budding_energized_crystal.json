@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "neoecoae:block/flawed_budding_energized_crystal"
+  }
+}

@@ -32,6 +32,13 @@ public class NETags {
         public static final TagKey<Item> ALUMINUM_ALLOY_INGOT = common("ingots/aluminum_alloy");
         public static final TagKey<Item> ALUMINUM_ALLOY_DUST = common("dusts/aluminum_alloy");
 
+        public static final TagKey<Item> ENERGIZED_CRYSTAL = common("gems/energized_crystal");
+        public static final TagKey<Item> ENERGIZED_CRYSTAL_DUST = common("dusts/energized_crystal");
+
+        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL = common("gems/energized_fluix_crystal");
+        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_DUST = common("dusts/energized_fluix_crystal");
+        public static final TagKey<Item> ENERGIZED_CRYSTAL_BLOCK = common("storage_blocks/energized_crystal");
+
         private static TagKey<Item> mod(String path) {
             return ItemTags.create(NeoECOAE.id(path));
         }
@@ -51,6 +58,9 @@ public class NETags {
         public static final TagKey<Block> TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/tungsten");
 
         public static final TagKey<Block> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
+
+        public static final TagKey<Block> ENERGIZED_CRYSTAL_BLOCK = common("storage_blocks/energized_crystal");
+        public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common("storage_blocks/energized_fluix_crystal");
 
         private static TagKey<Block> mod(String path) {
             return BlockTags.create(NeoECOAE.id(path));

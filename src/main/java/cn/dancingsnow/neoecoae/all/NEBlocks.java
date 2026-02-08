@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.all;
 
+import appeng.decorative.solid.CertusQuartzClusterBlock;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.blocks.BuddingEnergizedCrystalBlock;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
@@ -26,19 +28,24 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.BlockStateUtil;
+import cn.dancingsnow.neoecoae.util.LootTableUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.Direction;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.neoforged.neoforge.client.model.generators.BlockModelBuilder;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
+import net.neoforged.neoforge.common.Tags;
 
 import java.util.Locale;
 
@@ -62,7 +69,7 @@ public class NEBlocks {
 
     public static final BlockEntry<Block> RAW_ALUMINUM_BLOCK = REGISTRATE
         .block("raw_aluminum_block", Block::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
@@ -108,7 +115,7 @@ public class NEBlocks {
 
     public static final BlockEntry<Block> RAW_TUNGSTEN_BLOCK = REGISTRATE
         .block("raw_tungsten_block", Block::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
@@ -160,6 +167,163 @@ public class NEBlocks {
         .build()
         .register();
 
+    public static final BlockEntry<Block> ENERGIZED_CRYSTAL_BLOCK = REGISTRATE
+        .block("energized_crystal_block", Block::new)
+        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL,NETags.Blocks.ENERGIZED_CRYSTAL_BLOCK)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("AA")
+                .pattern("AA")
+                .define('A', NETags.Items.ENERGIZED_CRYSTAL)
+                .unlockedBy("has_energized_crystal", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL))
+                .save(prov);
+        })
+        .item()
+        .tag(NETags.Items.ENERGIZED_CRYSTAL_BLOCK)
+        .build()
+        .register();
+
+    public static final BlockEntry<BuddingEnergizedCrystalBlock> FLAWLESS_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
+        .block("flawless_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
+        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
+        .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
+        .loot((prov, block) -> {
+            prov.add(block, prov.createSingleItemTable(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL));
+        })
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .item()
+        .tag(Tags.Items.BUDDING_BLOCKS)
+        .build()
+        .register();
+
+    public static final BlockEntry<BuddingEnergizedCrystalBlock> FLAWED_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
+        .block("flawed_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
+        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
+        .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
+        .loot((prov, block) -> {
+            prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL));
+        })
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .item()
+        .tag(Tags.Items.BUDDING_BLOCKS)
+        .build()
+        .register();
+
+    public static final BlockEntry<BuddingEnergizedCrystalBlock> CHIPPED_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
+        .block("chipped_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
+        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
+        .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
+        .loot((prov, block) -> {
+            prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL));
+        })
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .item()
+        .tag(Tags.Items.BUDDING_BLOCKS)
+        .build()
+        .register();
+
+    public static final BlockEntry<BuddingEnergizedCrystalBlock> DAMAGED_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
+        .block("damaged_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
+        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
+        .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
+        .loot((prov, block) -> {
+            prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.ENERGIZED_CRYSTAL_BLOCK));
+        })
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .item()
+        .tag(Tags.Items.BUDDING_BLOCKS)
+        .build()
+        .register();
+
+    public static final BlockEntry<CertusQuartzClusterBlock> SMALL_ENERGIZED_CRYSTAL_BUD = REGISTRATE
+        .block("small_energized_crystal_bud", p -> new CertusQuartzClusterBlock(3, 4, p))
+        .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
+        .properties(p -> p.sound(SoundType.SMALL_AMETHYST_BUD).lightLevel(s -> 1))
+        .blockstate((ctx, prov) -> {
+            BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName())).renderType("cutout");
+            prov.directionalBlock(ctx.get(), model);
+        })
+        .loot(LootTableUtil::energizedBud)
+        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .item()
+        .tag(Tags.Items.CLUSTERS)
+        .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
+        .build()
+        .register();
+
+    public static final BlockEntry<CertusQuartzClusterBlock> MEDIUM_ENERGIZED_CRYSTAL_BUD = REGISTRATE
+        .block("medium_energized_crystal_bud", p -> new CertusQuartzClusterBlock(4, 3, p))
+        .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
+        .properties(p -> p.sound(SoundType.MEDIUM_AMETHYST_BUD).lightLevel(s -> 2))
+        .blockstate((ctx, prov) -> {
+            BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName())).renderType("cutout");
+            prov.directionalBlock(ctx.get(), model);
+        })
+        .loot(LootTableUtil::energizedBud)
+        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .item()
+        .tag(Tags.Items.CLUSTERS)
+        .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
+        .build()
+        .register();
+
+    public static final BlockEntry<CertusQuartzClusterBlock> LARGE_ENERGIZED_CRYSTAL_BUD = REGISTRATE
+        .block("large_energized_crystal_bud", p -> new CertusQuartzClusterBlock(5, 3, p))
+        .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
+        .properties(p -> p.sound(SoundType.LARGE_AMETHYST_BUD).lightLevel(s -> 3))
+        .blockstate((ctx, prov) -> {
+            BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName())).renderType("cutout");
+            prov.directionalBlock(ctx.get(), model);
+        })
+        .loot(LootTableUtil::energizedBud)
+        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .item()
+        .tag(Tags.Items.CLUSTERS)
+        .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
+        .build()
+        .register();
+
+    public static final BlockEntry<CertusQuartzClusterBlock> ENERGIZED_CRYSTAL_CLUSTER = REGISTRATE
+        .block("energized_crystal_cluster", p -> new CertusQuartzClusterBlock(7, 3, p))
+        .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
+        .properties(p -> p.sound(SoundType.AMETHYST_CLUSTER).lightLevel(s -> 4))
+        .blockstate((ctx, prov) -> {
+            BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName())).renderType("cutout");
+            prov.directionalBlock(ctx.get(), model);
+        })
+        .loot(LootTableUtil::energizedCluster)
+        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .item()
+        .tag(Tags.Items.CLUSTERS)
+        .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
+        .build()
+        .register();
+
+    public static final BlockEntry<ECOIntegratedWorkingStation> INTEGRATED_WORKING_STATION = REGISTRATE
+        .block("integrated_working_station", ECOIntegratedWorkingStation::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> {
+            ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
+            ModelFile modelFileWorking = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station_on"));
+            prov.getVariantBuilder(ctx.get())
+                .forAllStates(s -> {
+                    boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
+                    return ConfiguredModel.builder()
+                        .modelFile(working ? modelFileWorking : modelFile)
+                        .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING).toYRot() + 180) % 360)
+                        .build();
+                });
+        })
+        .item()
+        .properties(p -> p.rarity(Rarity.RARE))
+        .model((ctx, prov) -> {
+            prov.withExistingParent(ctx.getName(), prov.modLoc("block/integrated_working_station"));
+        })
+        .build()
+        .lang("ECO - Integrated Working Station")
+        .register();
 
     // ************************************ //
     // ********** Storage System ********** //
@@ -576,31 +740,6 @@ public class NEBlocks {
         .simpleItem()
         .register();
     //endregion
-
-    public static final BlockEntry<ECOIntegratedWorkingStation> INTEGRATED_WORKING_STATION = REGISTRATE
-        .block("integrated_working_station", ECOIntegratedWorkingStation::new)
-        .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate((ctx, prov) -> {
-            ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
-            ModelFile modelFileWorking = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station_on"));
-            prov.getVariantBuilder(ctx.get())
-                .forAllStates(s -> {
-                    boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
-                    return ConfiguredModel.builder()
-                        .modelFile(working ? modelFileWorking : modelFile)
-                        .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING).toYRot() + 180) % 360)
-                        .build();
-                });
-        })
-        .item()
-        .properties(p -> p.rarity(Rarity.RARE))
-        .model((ctx, prov) -> {
-            prov.withExistingParent(ctx.getName(), prov.modLoc("block/integrated_working_station"));
-        })
-        .build()
-        .lang("ECO - Integrated Working Station")
-        .register();
 
     private static BlockEntry<ECOStorageSystemBlock> createStorageSystem(String level, Rarity rarity) {
         return REGISTRATE

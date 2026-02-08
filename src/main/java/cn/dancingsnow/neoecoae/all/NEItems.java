@@ -132,6 +132,40 @@ public class NEItems {
         .tag(NETags.Items.ALUMINUM_ALLOY_DUST)
         .register();
 
+    public static final ItemEntry<MaterialItem> ENERGIZED_CRYSTAL = REGISTRATE
+        .item("energized_crystal", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 4)
+                .requires(NETags.Items.ENERGIZED_CRYSTAL_BLOCK)
+                .unlockedBy("has_energized_crystal_block", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL_BLOCK))
+                .save(prov);
+        })
+        .tag(NETags.Items.ENERGIZED_CRYSTAL)
+        .register();
+
+    public static final ItemEntry<MaterialItem> ENERGIZED_CRYSTAL_DUST = REGISTRATE
+        .item("energized_crystal_dust", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            InscriberRecipeBuilder.inscribe(NETags.Items.ENERGIZED_CRYSTAL, ctx.get(), 1)
+                .save(prov, NeoECOAE.id("inscriber/energized_crystal_dust"));
+        })
+        .tag(NETags.Items.ENERGIZED_CRYSTAL_DUST)
+        .register();
+
+    public static final ItemEntry<MaterialItem> ENERGIZED_FLUIX_CRYSTAL = REGISTRATE
+        .item("energized_fluix_crystal", MaterialItem::new)
+        .tag(NETags.Items.ENERGIZED_FLUIX_CRYSTAL)
+        .register();
+
+    public static final ItemEntry<MaterialItem> ENERGIZED_FLUIX_CRYSTAL_DUST = REGISTRATE
+        .item("energized_fluix_crystal_dust", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            InscriberRecipeBuilder.inscribe(NETags.Items.ENERGIZED_FLUIX_CRYSTAL, ctx.get(), 1)
+                .save(prov, NeoECOAE.id("inscriber/energized_fluix_crystal_dust"));
+        })
+        .tag(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST)
+        .register();
+
     public static final ItemEntry<MaterialItem> ECO_CELL_HOUSING = REGISTRATE
         .item("eco_cell_housing", MaterialItem::new)
         .register();
