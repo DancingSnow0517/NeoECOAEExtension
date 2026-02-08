@@ -1,5 +1,12 @@
 {
   "values": [
+    "neoecoae:aluminum_ore",
+    "neoecoae:raw_aluminum_block",
+    "neoecoae:aluminum_block",
+    "neoecoae:tungsten_ore",
+    "neoecoae:raw_tungsten_block",
+    "neoecoae:tungsten_block",
+    "neoecoae:aluminum_alloy_block",
     "neoecoae:storage_system_l4",
     "neoecoae:storage_system_l6",
     "neoecoae:storage_system_l9",
@@ -39,8 +46,6 @@
     "neoecoae:output_hatch",
     "neoecoae:crafting_vent",
     "neoecoae:crafting_casing",
-    "neoecoae:integrated_working_station",
-    "neoecoae:aluminum_ore",
-    "neoecoae:tungsten_ore"
+    "neoecoae:integrated_working_station"
   ]
 }

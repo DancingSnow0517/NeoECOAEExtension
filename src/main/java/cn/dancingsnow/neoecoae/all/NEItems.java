@@ -1,14 +1,19 @@
 package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.stacks.AEKeyType;
+import appeng.datagen.providers.tags.ConventionTags;
 import appeng.items.materials.MaterialItem;
+import appeng.recipes.handlers.InscriberRecipeBuilder;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.data.recipes.ShapelessRecipeBuilder;
 import net.minecraft.world.item.Rarity;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
@@ -20,40 +25,111 @@ public class NEItems {
 
     public static final ItemEntry<MaterialItem> RAW_ALUMINUM_ORE = REGISTRATE
         .item("raw_aluminum_ore", MaterialItem::new)
-        .tag(NETags.Items.RAW_ALUMINUM)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
+                .requires(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK)
+                .unlockedBy("has_raw_aluminum_block", RegistrateRecipeProvider.has(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK))
+                .save(prov);
+        })
+        .tag(NETags.Items.ALUMINUM_RAW)
         .register();
 
     public static final ItemEntry<MaterialItem> ALUMINUM_INGOT = REGISTRATE
         .item("aluminum_ingot", MaterialItem::new)
-        .tag(NETags.Items.INGOT_ALUMINUM)
+        .tag(NETags.Items.ALUMINUM_INGOT)
         .recipe((ctx, prov) -> {
-            prov.smelting(DataIngredient.tag(NETags.Items.ORE_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
-            prov.smelting(DataIngredient.tag(NETags.Items.RAW_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
-            prov.smelting(DataIngredient.tag(NETags.Items.DUST_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
-            prov.blasting(DataIngredient.tag(NETags.Items.ORE_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
-            prov.blasting(DataIngredient.tag(NETags.Items.RAW_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
-            prov.blasting(DataIngredient.tag(NETags.Items.DUST_ALUMINUM), RecipeCategory.MISC, ctx, 0.8f);
+            prov.smelting(DataIngredient.tag(NETags.Items.ALUMINUM_ORE), RecipeCategory.MISC, ctx, 0.8f);
+            prov.smelting(DataIngredient.tag(NETags.Items.ALUMINUM_RAW), RecipeCategory.MISC, ctx, 0.8f);
+            prov.smelting(DataIngredient.tag(NETags.Items.ALUMINUM_DUST), RecipeCategory.MISC, ctx, 0.8f);
+            prov.blasting(DataIngredient.tag(NETags.Items.ALUMINUM_ORE), RecipeCategory.MISC, ctx, 0.8f);
+            prov.blasting(DataIngredient.tag(NETags.Items.ALUMINUM_RAW), RecipeCategory.MISC, ctx, 0.8f);
+            prov.blasting(DataIngredient.tag(NETags.Items.ALUMINUM_DUST), RecipeCategory.MISC, ctx, 0.8f);
+
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
+                .requires(NETags.Items.ALUMINUM_STORAGE_BLOCK)
+                .unlockedBy("has_aluminum_block", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_STORAGE_BLOCK))
+                .save(prov);
         })
         .register();
 
     public static final ItemEntry<MaterialItem> ALUMINUM_DUST = REGISTRATE
         .item("aluminum_dust", MaterialItem::new)
-        .tag(NETags.Items.DUST_ALUMINUM)
+        .tag(NETags.Items.ALUMINUM_DUST)
+        .recipe((ctx, prov) -> {
+            InscriberRecipeBuilder.inscribe(NETags.Items.ALUMINUM_INGOT, ctx.get(), 1)
+                .save(prov, NeoECOAE.id("inscriber/aluminum_dust"));
+        })
         .register();
 
     public static final ItemEntry<MaterialItem> RAW_TUNGSTEN_ORE = REGISTRATE
         .item("raw_tungsten_ore", MaterialItem::new)
-        .tag(NETags.Items.RAW_TUNGSTEN)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
+                .requires(NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK)
+                .unlockedBy("has_raw_tungsten_block", RegistrateRecipeProvider.has(NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK))
+                .save(prov);
+        })
+        .tag(NETags.Items.TUNGSTEN_RAW)
         .register();
 
     public static final ItemEntry<MaterialItem> TUNGSTEN_INGOT = REGISTRATE
         .item("tungsten_ingot", MaterialItem::new)
-        .tag(NETags.Items.INGOT_TUNGSTEN)
+        .recipe((ctx, prov) -> {
+            prov.smelting(DataIngredient.tag(NETags.Items.TUNGSTEN_ORE), RecipeCategory.MISC, ctx, 1.0f);
+            prov.smelting(DataIngredient.tag(NETags.Items.TUNGSTEN_RAW), RecipeCategory.MISC, ctx, 1.0f);
+            prov.smelting(DataIngredient.tag(NETags.Items.TUNGSTEN_DUST), RecipeCategory.MISC, ctx, 1.0f);
+            prov.blasting(DataIngredient.tag(NETags.Items.TUNGSTEN_ORE), RecipeCategory.MISC, ctx, 1.0f);
+            prov.blasting(DataIngredient.tag(NETags.Items.TUNGSTEN_RAW), RecipeCategory.MISC, ctx, 1.0f);
+            prov.blasting(DataIngredient.tag(NETags.Items.TUNGSTEN_DUST), RecipeCategory.MISC, ctx, 1.0f);
+
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
+                .requires(NETags.Items.TUNGSTEN_STORAGE_BLOCK)
+                .unlockedBy("has_tungsten_block", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_STORAGE_BLOCK))
+                .save(prov);
+        })
+        .tag(NETags.Items.TUNGSTEN_INGOT)
         .register();
 
     public static final ItemEntry<MaterialItem> TUNGSTEN_DUST = REGISTRATE
         .item("tungsten_dust", MaterialItem::new)
-        .tag(NETags.Items.DUST_TUNGSTEN)
+        .tag(NETags.Items.TUNGSTEN_DUST)
+        .recipe((ctx, prov) -> {
+            InscriberRecipeBuilder.inscribe(NETags.Items.TUNGSTEN_INGOT, ctx.get(), 1)
+                .save(prov, NeoECOAE.id("inscriber/tungsten_dust"));
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> ALUMINUM_ALLOY_INGOT = REGISTRATE
+        .item("aluminum_alloy_ingot", MaterialItem::new)
+        .tag(NETags.Items.ALUMINUM_ALLOY_INGOT)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
+                .requires(NETags.Items.ALUMINUM_ALLOY_STORAGE_BLOCK)
+                .unlockedBy("has_aluminum_alloy_block", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_STORAGE_BLOCK))
+                .save(prov);
+
+            prov.smelting(DataIngredient.tag(NETags.Items.ALUMINUM_ALLOY_DUST), RecipeCategory.MISC, ctx, 1.0f);
+            prov.blasting(DataIngredient.tag(NETags.Items.ALUMINUM_ALLOY_DUST), RecipeCategory.MISC, ctx, 1.0f);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> ALUMINUM_ALLOY_DUST = REGISTRATE
+        .item("aluminum_alloy_dust", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NETags.Items.IRON_DUST)
+                .requires(NETags.Items.ALUMINUM_DUST)
+                .requires(ConventionTags.CERTUS_QUARTZ_DUST)
+                .requires(ConventionTags.CERTUS_QUARTZ_DUST)
+                .unlockedBy("has_iron_dust", RegistrateRecipeProvider.has(NETags.Items.IRON_DUST))
+                .unlockedBy("has_aluminum_dust", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_DUST))
+                .unlockedBy("has_certus_quartz_dust", RegistrateRecipeProvider.has(ConventionTags.CERTUS_QUARTZ_DUST))
+                .save(prov);
+
+            InscriberRecipeBuilder.inscribe(NETags.Items.ALUMINUM_ALLOY_INGOT, ctx.get(), 1)
+                .save(prov, NeoECOAE.id("inscriber/aluminum_alloy_dust"));
+        })
+        .tag(NETags.Items.ALUMINUM_ALLOY_DUST)
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_CELL_HOUSING = REGISTRATE

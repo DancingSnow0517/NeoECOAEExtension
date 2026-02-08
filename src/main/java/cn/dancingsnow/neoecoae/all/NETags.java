@@ -12,15 +12,25 @@ import net.minecraft.world.level.material.Fluid;
 
 public class NETags {
     public static final class Items {
-        public static final TagKey<Item> ORE_ALUMINUM = common("ores/aluminum");
-        public static final TagKey<Item> RAW_ALUMINUM = common("raw_materials/aluminum");
-        public static final TagKey<Item> INGOT_ALUMINUM = common("ingots/aluminum");
-        public static final TagKey<Item> DUST_ALUMINUM = common("dusts/aluminum");
+        public static final TagKey<Item> IRON_DUST = common("dusts/iron");
 
-        public static final TagKey<Item> ORE_TUNGSTEN = common("ores/tungsten");
-        public static final TagKey<Item> RAW_TUNGSTEN = common("raw_materials/tungsten");
-        public static final TagKey<Item> INGOT_TUNGSTEN = common("ingots/tungsten");
-        public static final TagKey<Item> DUST_TUNGSTEN = common("dusts/tungsten");
+        public static final TagKey<Item> ALUMINUM_ORE = common("ores/aluminum");
+        public static final TagKey<Item> RAW_ALUMINUM_STORAGE_BLOCK = common("storage_blocks/raw_aluminum");
+        public static final TagKey<Item> ALUMINUM_STORAGE_BLOCK = common("storage_blocks/aluminum");
+        public static final TagKey<Item> ALUMINUM_RAW = common("raw_materials/aluminum");
+        public static final TagKey<Item> ALUMINUM_INGOT = common("ingots/aluminum");
+        public static final TagKey<Item> ALUMINUM_DUST = common("dusts/aluminum");
+
+        public static final TagKey<Item> TUNGSTEN_ORE = common("ores/tungsten");
+        public static final TagKey<Item> RAW_TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/raw_tungsten");
+        public static final TagKey<Item> TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/tungsten");
+        public static final TagKey<Item> TUNGSTEN_RAW = common("raw_materials/tungsten");
+        public static final TagKey<Item> TUNGSTEN_INGOT = common("ingots/tungsten");
+        public static final TagKey<Item> TUNGSTEN_DUST = common("dusts/tungsten");
+
+        public static final TagKey<Item> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
+        public static final TagKey<Item> ALUMINUM_ALLOY_INGOT = common("ingots/aluminum_alloy");
+        public static final TagKey<Item> ALUMINUM_ALLOY_DUST = common("dusts/aluminum_alloy");
 
         private static TagKey<Item> mod(String path) {
             return ItemTags.create(NeoECOAE.id(path));
@@ -32,9 +42,15 @@ public class NETags {
     }
 
     public static final class Blocks {
-        public static final TagKey<Block> ORE_ALUMINUM = common("ores/aluminum");
+        public static final TagKey<Block> ALUMINUM_ORE = common("ores/aluminum");
+        public static final TagKey<Block> RAW_ALUMINUM_STORAGE_BLOCK = common("storage_blocks/raw_aluminum");
+        public static final TagKey<Block> ALUMINUM_STORAGE_BLOCK = common("storage_blocks/aluminum");
 
-        public static final TagKey<Block> ORE_TUNGSTEN = common("ores/tungsten");
+        public static final TagKey<Block> TUNGSTEN_ORE = common("ores/tungsten");
+        public static final TagKey<Block> RAW_TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/raw_tungsten");
+        public static final TagKey<Block> TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/tungsten");
+
+        public static final TagKey<Block> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
 
         private static TagKey<Block> mod(String path) {
             return BlockTags.create(NeoECOAE.id(path));

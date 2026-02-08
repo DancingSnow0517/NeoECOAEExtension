@@ -26,8 +26,11 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.BlockStateUtil;
+import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.Direction;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.block.Block;
@@ -46,6 +49,116 @@ public class NEBlocks {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
+
+    public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
+        .block("aluminum_ore", Block::new)
+        .initialProperties(() -> Blocks.IRON_ORE)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ORE)
+        .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_ALUMINUM_ORE.get())))
+        .item()
+        .tag(NETags.Items.ALUMINUM_ORE)
+        .build()
+        .register();
+
+    public static final BlockEntry<Block> RAW_ALUMINUM_BLOCK = REGISTRATE
+        .block("raw_aluminum_block", Block::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("AAA")
+                .pattern("AAA")
+                .pattern("AAA")
+                .define('A', NETags.Items.ALUMINUM_RAW)
+                .unlockedBy("has_raw_aluminum_ore", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_RAW))
+                .save(prov);
+        })
+        .item()
+        .tag(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK)
+        .build()
+        .register();
+
+    public static final BlockEntry<Block> ALUMINUM_BLOCK = REGISTRATE
+        .block("aluminum_block", Block::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_STORAGE_BLOCK)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("AAA")
+                .pattern("AAA")
+                .pattern("AAA")
+                .define('A', NETags.Items.ALUMINUM_INGOT)
+                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .save(prov);
+        })
+        .item()
+        .tag(NETags.Items.ALUMINUM_STORAGE_BLOCK)
+        .build()
+        .register();
+
+    public static final BlockEntry<Block> TUNGSTEN_ORE = REGISTRATE
+        .block("tungsten_ore", Block::new)
+        .initialProperties(() -> Blocks.IRON_ORE)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.TUNGSTEN_ORE)
+        .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_TUNGSTEN_ORE.get())))
+        .item()
+        .tag(NETags.Items.TUNGSTEN_ORE)
+        .build()
+        .register();
+
+    public static final BlockEntry<Block> RAW_TUNGSTEN_BLOCK = REGISTRATE
+        .block("raw_tungsten_block", Block::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("AAA")
+                .pattern("AAA")
+                .pattern("AAA")
+                .define('A', NETags.Items.TUNGSTEN_RAW)
+                .unlockedBy("has_raw_tungsten_ore", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_RAW))
+                .save(prov);
+        })
+        .item()
+        .tag(NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK)
+        .build()
+        .register();
+
+    public static final BlockEntry<Block> TUNGSTEN_BLOCK = REGISTRATE
+        .block("tungsten_block", Block::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.TUNGSTEN_STORAGE_BLOCK)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("AAA")
+                .pattern("AAA")
+                .pattern("AAA")
+                .define('A', NETags.Items.TUNGSTEN_INGOT)
+                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
+                .save(prov);
+        })
+        .item()
+        .tag(NETags.Items.TUNGSTEN_STORAGE_BLOCK)
+        .build()
+        .register();
+
+    public static final BlockEntry<Block> ALUMINUM_ALLOY_BLOCK = REGISTRATE
+        .block("aluminum_alloy_block", Block::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ALLOY_STORAGE_BLOCK)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("AAA")
+                .pattern("AAA")
+                .pattern("AAA")
+                .define('A', NETags.Items.ALUMINUM_ALLOY_INGOT)
+                .unlockedBy("has_aluminum_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .save(prov);
+        })
+        .item()
+        .tag(NETags.Items.ALUMINUM_ALLOY_STORAGE_BLOCK)
+        .build()
+        .register();
 
 
     // ************************************ //
@@ -487,26 +600,6 @@ public class NEBlocks {
         })
         .build()
         .lang("ECO - Integrated Working Station")
-        .register();
-
-    public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
-        .block("aluminum_ore", Block::new)
-        .initialProperties(() -> Blocks.IRON_ORE)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ORE_ALUMINUM)
-        .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_ALUMINUM_ORE.get())))
-        .item()
-        .tag(NETags.Items.ORE_ALUMINUM)
-        .build()
-        .register();
-
-    public static final BlockEntry<Block> TUNGSTEN_ORE = REGISTRATE
-        .block("tungsten_ore", Block::new)
-        .initialProperties(() -> Blocks.IRON_ORE)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ORE_TUNGSTEN)
-        .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_TUNGSTEN_ORE.get())))
-        .item()
-        .tag(NETags.Items.ORE_TUNGSTEN)
-        .build()
         .register();
 
     private static BlockEntry<ECOStorageSystemBlock> createStorageSystem(String level, Rarity rarity) {

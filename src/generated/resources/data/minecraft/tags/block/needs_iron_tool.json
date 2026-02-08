@@ -1,6 +1,11 @@
 {
   "values": [
     "neoecoae:aluminum_ore",
-    "neoecoae:tungsten_ore"
+    "neoecoae:raw_aluminum_block",
+    "neoecoae:aluminum_block",
+    "neoecoae:tungsten_ore",
+    "neoecoae:raw_tungsten_block",
+    "neoecoae:tungsten_block",
+    "neoecoae:aluminum_alloy_block"
   ]
 }
