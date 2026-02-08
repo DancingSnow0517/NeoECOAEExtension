@@ -11,7 +11,7 @@ import net.minecraft.world.level.ItemLike;
 
 public class NEPonderTags {
     public static final ResourceLocation STORAGE_SYSTEM_COMPONENTS = id("storage_system_components");
-    public static final ResourceLocation COMPUTATION_SYSTEM_COMPONENTS = id("computation_system_compoents");
+    public static final ResourceLocation COMPUTATION_SYSTEM_COMPONENTS = id("computation_system_components");
     public static final ResourceLocation CRAFTING_SYSTEM_COMPONENTS = id("crafting_system_components");
 
     private static ResourceLocation id(String path) {
