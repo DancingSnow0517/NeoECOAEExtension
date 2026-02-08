@@ -21,12 +21,15 @@ import appeng.api.storage.MEStorage;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.UpgradeInventories;
+import appeng.api.upgrades.Upgrades;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.blockentity.grid.AENetworkedPoweredBlockEntity;
 import appeng.client.gui.Icon;
 import appeng.core.definitions.AEItems;
+import appeng.core.localization.ButtonToolTips;
+import appeng.core.localization.GuiText;
 import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
 import appeng.util.inv.AppEngInternalInventory;
@@ -65,6 +68,7 @@ import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBloc
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import lombok.Setter;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -740,7 +744,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // add four upgrade slots vertically
         for (int i = 0; i < 4; i++) {
             upgradesPanel.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) this.upgrades.toItemHandler(), i))
-                .slotStyle(style -> style.slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE))));
+                .slotStyle(style -> style.slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE)))
+                .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                    List<Component> tooltips = new ArrayList<>();
+                    tooltips.add(GuiText.CompatibleUpgrades.text());
+                    tooltips.addAll(Upgrades.getTooltipLinesForMachine(NEBlocks.INTEGRATED_WORKING_STATION));
+                    event.hoverTooltips = new HoverTooltips(tooltips, null, null, null);
+                }));
         }
 
         root.addChild(upgradesPanel);
@@ -756,7 +766,16 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         settingsPanel.addChild(new Button()
             .noText()
             .addPostIcon(AETextures.icon(Icon.HELP))
-            .setOnServerClick(e -> {})
+            .setOnServerClick(e -> {
+            })
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                event.hoverTooltips = new HoverTooltips(
+                    List.of(ButtonToolTips.OpenGuide.text().withColor(-1), ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)),
+                    null,
+                    null,
+                    null
+                );
+            })
             .layout(style -> style.setHeight(20).setWidth(18)));
 
         settingsPanel.addChild(new Toggle()
@@ -767,6 +786,17 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
             }).layout(layout -> layout.setHeight(20).setWidth(18)))
             .bindDataSource(SupplierDataSource.of(() -> shouldAutoExport))
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                event.hoverTooltips = new HoverTooltips(
+                    List.of(
+                        ButtonToolTips.AutoExport.text().withColor(-1),
+                        (shouldAutoExport ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
+                    ),
+                    null,
+                    null,
+                    null
+                );
+            })
             .layout(layout -> layout.setWidth(18).setHeight(22).paddingAll(0)));
 
         root.addChild(settingsPanel);
