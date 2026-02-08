@@ -124,7 +124,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, false));
         }
         updateState();
-        IStorageProvider.requestUpdate(getMainNode());
         this.cellStack = cellStack;
     }
 
@@ -138,6 +137,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             }
         }
         getMainNode().setIdlePowerUsage(power);
+        IStorageProvider.requestUpdate(getMainNode());
     }
 
     @Override
