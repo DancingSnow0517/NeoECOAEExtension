@@ -18,6 +18,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
@@ -155,6 +156,11 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         }
 
         return validateBlocks(level, endCasing, BlockState::is, NEBlocks.CRAFTING_CASING);
+    }
+
+    @Override
+    public boolean isValidBlockEntity(BlockEntity te) {
+        return (te instanceof NEBlockEntity<?,?> neBlockEntity && neBlockEntity.getCalculator() instanceof NECraftingClusterCalculator);
     }
 
     private static boolean validateHatchAndInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down, Direction left) {

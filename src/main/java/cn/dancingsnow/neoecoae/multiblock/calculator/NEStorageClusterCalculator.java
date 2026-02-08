@@ -16,6 +16,7 @@ import com.mojang.serialization.DataResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
@@ -149,6 +150,11 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             return false;
         }
         return validateBlocks(level, tailCasingPoses, BlockState::is, NEBlocks.STORAGE_CASING);
+    }
+
+    @Override
+    public boolean isValidBlockEntity(BlockEntity te) {
+        return (te instanceof NEBlockEntity<?,?> neBlockEntity && neBlockEntity.getCalculator() instanceof NEStorageClusterCalculator);
     }
 
     private boolean validateCasing(ServerLevel level, BlockPos controllerPos, Direction top, Direction down, Direction direction) {

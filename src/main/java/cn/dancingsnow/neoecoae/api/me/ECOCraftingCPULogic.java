@@ -140,6 +140,11 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        // Don't schedule more work while suspended
+        if (job.suspended) {
+            return;
+        }
+
         var remainingOperations = cpu.getCoProcessors() + 1 - (this.usedOps[0] + this.usedOps[1] + this.usedOps[2]);
         final var started = remainingOperations;
 
@@ -478,6 +483,16 @@ public class ECOCraftingCPULogic {
                     out.add(output.what(), output.amount() * t.getValue().value);
                 }
             }
+        }
+    }
+
+    public boolean isJobSuspended() {
+        return job != null && job.suspended;
+    }
+
+    public void setJobSuspended(boolean suspended) {
+        if (job != null && job.suspended != suspended) {
+            job.suspended = suspended;
         }
     }
 

@@ -43,7 +43,7 @@ public class CPUSelectionListMixin {
         Rect2i bounds,
         Point mouse,
         CallbackInfo ci,
-        @Local CraftingStatusMenu.CraftingCpuListEntry cpu
+        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
     ) {
         ResourceLocation texture = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
         if (texture != null) {
@@ -76,7 +76,7 @@ public class CPUSelectionListMixin {
         int xPos,
         int yPos,
         Operation<Void> original,
-        @Local CraftingStatusMenu.CraftingCpuListEntry cpu
+        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
     ) {
         if (cpu.coProcessors() >= 1000) {
             Tooltips.Amount amount = NumberFormatter.getAmount(cpu.coProcessors());

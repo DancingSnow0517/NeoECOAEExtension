@@ -20,6 +20,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
@@ -180,6 +181,11 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         }
 
         return validateBlocks(level, tailCasings, BlockState::is, NEBlocks.COMPUTATION_CASING);
+    }
+
+    @Override
+    public boolean isValidBlockEntity(BlockEntity te) {
+        return (te instanceof NEBlockEntity<?,?> neBlockEntity && neBlockEntity.getCalculator() instanceof NEComputationClusterCalculator);
     }
 
     private boolean validateCasing(ServerLevel level, BlockPos controllerPos, Direction top, Direction down, Direction direction) {

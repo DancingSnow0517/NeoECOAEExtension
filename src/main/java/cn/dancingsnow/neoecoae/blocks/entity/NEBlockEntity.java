@@ -38,6 +38,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     @Getter
     @Nullable
     protected C cluster;
+    @Getter
     protected final NEClusterCalculator<C> calculator;
 
     public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {

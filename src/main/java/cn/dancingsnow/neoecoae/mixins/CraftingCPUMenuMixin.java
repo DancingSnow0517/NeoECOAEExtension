@@ -128,6 +128,16 @@ public class CraftingCPUMenuMixin extends AEBaseMenu {
 
     }
 
+    @Inject(
+        method = "toggleScheduling",
+        at = @At("TAIL")
+    )
+    private void onToggleScheduling(CallbackInfo ci) {
+        if (!isClientSide() && this.neoecoae$cpu != null) {
+            ECOCraftingCPULogic logic = neoecoae$cpu.getLogic();
+            logic.setJobSuspended(!logic.isJobSuspended());
+        }
+    }
     @Unique
     private static CraftingStatus neoecoae$create(IncrementalUpdateHelper changes, ECOCraftingCPULogic logic) {
         boolean full = changes.isFullUpdate();
@@ -152,7 +162,8 @@ public class CraftingCPUMenuMixin extends AEBaseMenu {
         long elapsedTime = logic.getElapsedTimeTracker().getElapsedTime();
         long remainingItems = logic.getElapsedTimeTracker().getRemainingItemCount();
         long startItems = logic.getElapsedTimeTracker().getStartItemCount();
-        return new CraftingStatus(full, elapsedTime, remainingItems, startItems, newEntries.build());
+        boolean suspended = logic.isJobSuspended();
+        return new CraftingStatus(full, elapsedTime, remainingItems, startItems, newEntries.build(), suspended);
     }
 
     @Shadow

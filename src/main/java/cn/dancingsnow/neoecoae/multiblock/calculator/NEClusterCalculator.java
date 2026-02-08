@@ -10,7 +10,6 @@ import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
@@ -53,11 +52,6 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     protected abstract int maxLength();
-
-    @Override
-    public boolean isValidBlockEntity(BlockEntity te) {
-        return te instanceof NEBlockEntity<?, ?>;
-    }
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {
