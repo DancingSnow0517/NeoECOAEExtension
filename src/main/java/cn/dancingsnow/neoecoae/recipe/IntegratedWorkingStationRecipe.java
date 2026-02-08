@@ -155,5 +155,15 @@ public record IntegratedWorkingStationRecipe(
         public int size() {
             return inputs.size();
         }
+
+        @Override
+        public boolean isEmpty() {
+            for (ItemStack input : inputs) {
+                if (!input.isEmpty()) {
+                    return false;
+                }
+            }
+            return fluid == null || fluid.isEmpty();
+        }
     }
 }

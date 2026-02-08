@@ -9,6 +9,8 @@ import mekanism.common.registries.MekanismFluids;
 import mekanism.common.tags.MekanismTags;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.conditions.ICondition;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
 import net.neoforged.neoforge.common.conditions.NotCondition;
@@ -41,5 +43,9 @@ public class NERecipeGenerator {
             .require(AEItems.ITEM_CELL_1K, 4)
             .itemOutput(AEItems.ITEM_CELL_4K.stack())
             .save(provider);
+        IntegratedWorkingStationRecipe.builder()
+            .requireFluid(Tags.Fluids.WATER, 1000)
+            .fluidOutput(new FluidStack(Fluids.LAVA, 1000))
+            .save(provider, NeoECOAE.id("integrated_working_station/test"));
     }
 }

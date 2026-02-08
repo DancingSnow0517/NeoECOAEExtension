@@ -122,8 +122,22 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     private final FilteredInternalInventory outputExposed = new FilteredInternalInventory(this.outputInv, AEItemFilters.EXTRACT_ONLY);
     private final InternalInventory invExposed = new CombinedInternalInventory(this.inputExposed, this.outputExposed);
 
-    private final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY);
-    private final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY);
+    private final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
+        @Override
+        protected void onContentsChanged() {
+            markForUpdate();
+            setChanged();
+            onChangeTank();
+        }
+    };
+    private final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
+        @Override
+        protected void onContentsChanged() {
+            markForUpdate();
+            setChanged();
+            onChangeTank();
+        }
+    };
 
     @DescSynced
     boolean shouldAutoExport;
@@ -302,6 +316,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
     }
 
+    @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
         onChangeInventory();
     }
@@ -678,7 +693,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             new ProgressBar()
                 .bindDataSource(SupplierDataSource.of(() -> (float) processingTime))
                 .setMaxValue(MAX_PROCESSING_STEPS)
-                .progressBarStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP).interpolate(false))
+                .progressBarStyle(style -> style.fillDirection(FillDirection.UP_TO_DOWN).interpolate(false))
                 .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
                 .label(label -> label.setText(""))
                 .layout(layout -> layout.setHeight(18).setWidth(6))
@@ -705,8 +720,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         outputFluid.addChild(new FluidSlot()
             .bind(outputTank, 0)
             .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
-            .setAllowClickFilled(false)
-            .setAllowClickDrained(true)
+            .setAllowClickFilled(true)
+            .setAllowClickDrained(false)
             .layout(LayoutStyle::setHeightMaxContent));
         inputArea.addChild(outputFluid);
 
