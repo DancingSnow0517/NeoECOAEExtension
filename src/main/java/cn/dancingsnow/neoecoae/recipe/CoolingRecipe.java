@@ -57,7 +57,7 @@ public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int c
 
     public static class Serializer implements RecipeSerializer<CoolingRecipe> {
         private static final MapCodec<CoolingRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
-            SizedFluidIngredient.NESTED_CODEC.fieldOf("input").forGetter(CoolingRecipe::input),
+            SizedFluidIngredient.FLAT_CODEC.fieldOf("input").forGetter(CoolingRecipe::input),
             FluidStack.OPTIONAL_CODEC.fieldOf("output").forGetter(CoolingRecipe::output),
             Codec.INT.fieldOf("coolant").forGetter(CoolingRecipe::coolant)
         ).apply(ins, CoolingRecipe::new));

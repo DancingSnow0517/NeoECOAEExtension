@@ -67,7 +67,7 @@ public class NETags {
         public static final TagKey<Block> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
         public static final TagKey<Block> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK = common("storage_blocks/black_tungsten_alloy");
 
-        public static final TagKey<Block> ENERGIZED_CRYSTAL_BLOCK = common("storage_blocks/energized_crystal");
+        public static final TagKey<Block> ENERGIZED_CRYSTAL_STORAGE_BLOCK = common("storage_blocks/energized_crystal");
         public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common("storage_blocks/energized_fluix_crystal");
 
         private static TagKey<Block> mod(String path) {

@@ -1,0 +1,11 @@
+{
+  "values": [
+    "neoecoae:raw_aluminum_block",
+    "neoecoae:aluminum_block",
+    "neoecoae:raw_tungsten_block",
+    "neoecoae:tungsten_block",
+    "neoecoae:aluminum_alloy_block",
+    "neoecoae:black_tungsten_alloy_block",
+    "neoecoae:energized_crystal_block"
+  ]
+}

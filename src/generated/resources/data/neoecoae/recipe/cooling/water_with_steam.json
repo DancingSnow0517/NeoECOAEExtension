@@ -9,9 +9,7 @@
   "coolant": 1500,
   "input": {
     "amount": 100,
-    "ingredient": {
-      "tag": "minecraft:water"
-    }
+    "tag": "minecraft:water"
   },
   "output": {
     "amount": 100,

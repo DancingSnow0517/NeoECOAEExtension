@@ -9,9 +9,7 @@
   "coolant": 5000,
   "input": {
     "amount": 100,
-    "ingredient": {
-      "tag": "c:sodium"
-    }
+    "tag": "c:sodium"
   },
   "output": {
     "amount": 100,

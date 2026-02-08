@@ -62,17 +62,17 @@ public class NEBlocks {
     public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
         .block("aluminum_ore", Block::new)
         .initialProperties(() -> Blocks.IRON_ORE)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ORE)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ORE, Tags.Blocks.ORES)
         .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_ALUMINUM_ORE.get())))
         .item()
-        .tag(NETags.Items.ALUMINUM_ORE)
+        .tag(NETags.Items.ALUMINUM_ORE, Tags.Items.ORES)
         .build()
         .register();
 
     public static final BlockEntry<Block> RAW_ALUMINUM_BLOCK = REGISTRATE
         .block("raw_aluminum_block", Block::new)
         .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("AAA")
@@ -83,14 +83,14 @@ public class NEBlocks {
                 .save(prov);
         })
         .item()
-        .tag(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK)
+        .tag(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
         .build()
         .register();
 
     public static final BlockEntry<Block> ALUMINUM_BLOCK = REGISTRATE
         .block("aluminum_block", Block::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_STORAGE_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("AAA")
@@ -101,24 +101,24 @@ public class NEBlocks {
                 .save(prov);
         })
         .item()
-        .tag(NETags.Items.ALUMINUM_STORAGE_BLOCK)
+        .tag(NETags.Items.ALUMINUM_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
         .build()
         .register();
 
     public static final BlockEntry<Block> TUNGSTEN_ORE = REGISTRATE
         .block("tungsten_ore", Block::new)
         .initialProperties(() -> Blocks.IRON_ORE)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.TUNGSTEN_ORE)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.TUNGSTEN_ORE, Tags.Blocks.ORES)
         .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_TUNGSTEN_ORE.get())))
         .item()
-        .tag(NETags.Items.TUNGSTEN_ORE)
+        .tag(NETags.Items.TUNGSTEN_ORE, Tags.Items.ORES)
         .build()
         .register();
 
     public static final BlockEntry<Block> RAW_TUNGSTEN_BLOCK = REGISTRATE
         .block("raw_tungsten_block", Block::new)
         .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("AAA")
@@ -129,14 +129,14 @@ public class NEBlocks {
                 .save(prov);
         })
         .item()
-        .tag(NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK)
+        .tag(NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
         .build()
         .register();
 
     public static final BlockEntry<Block> TUNGSTEN_BLOCK = REGISTRATE
         .block("tungsten_block", Block::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.TUNGSTEN_STORAGE_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.TUNGSTEN_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("AAA")
@@ -147,14 +147,14 @@ public class NEBlocks {
                 .save(prov);
         })
         .item()
-        .tag(NETags.Items.TUNGSTEN_STORAGE_BLOCK)
+        .tag(NETags.Items.TUNGSTEN_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
         .build()
         .register();
 
     public static final BlockEntry<Block> ALUMINUM_ALLOY_BLOCK = REGISTRATE
         .block("aluminum_alloy_block", Block::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ALLOY_STORAGE_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ALLOY_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("AAA")
@@ -165,7 +165,7 @@ public class NEBlocks {
                 .save(prov);
         })
         .item()
-        .tag(NETags.Items.ALUMINUM_ALLOY_STORAGE_BLOCK)
+        .tag(NETags.Items.ALUMINUM_ALLOY_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
         .build()
         .register();
 
@@ -198,7 +198,7 @@ public class NEBlocks {
     public static final BlockEntry<Block> BLACK_TUNGSTEN_ALLOY_BLOCK = REGISTRATE
         .block("black_tungsten_alloy_block", Block::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("AAA")
@@ -209,7 +209,7 @@ public class NEBlocks {
                 .save(prov);
         })
         .item()
-        .tag(NETags.Items.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK)
+        .tag(NETags.Items.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK, Tags.Items.STORAGE_BLOCKS)
         .build()
         .register();
 
@@ -242,7 +242,7 @@ public class NEBlocks {
     public static final BlockEntry<Block> ENERGIZED_CRYSTAL_BLOCK = REGISTRATE
         .block("energized_crystal_block", Block::new)
         .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL,NETags.Blocks.ENERGIZED_CRYSTAL_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.ENERGIZED_CRYSTAL_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
                 .pattern("AA")
@@ -252,7 +252,7 @@ public class NEBlocks {
                 .save(prov);
         })
         .item()
-        .tag(NETags.Items.ENERGIZED_CRYSTAL_BLOCK)
+        .tag(NETags.Items.ENERGIZED_CRYSTAL_BLOCK, Tags.Items.STORAGE_BLOCKS)
         .build()
         .register();
 
