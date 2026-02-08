@@ -1,0 +1,6 @@
+{
+  "parent": "neoecoae:block/crafting_system",
+  "textures": {
+    "1": "neoecoae:block/crafting_system_front_l4"
+  }
+}

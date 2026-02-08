@@ -1,0 +1,94 @@
+{
+	"credit": "Made with WI_8614_ice",
+	"texture_size": [64, 64],
+	"textures": {
+		"7": "neoecoae:block/compute/cable_l9",
+		"particle": "neoecoae:block/compute/led/cable_l9"
+	},
+	"elements": [
+		{
+			"name": "c",
+			"from": [-2, -2, -4.5],
+			"to": [2, 2, -0.5],
+			"rotation": {"angle": 0, "axis": "y", "origin": [-1, -1, -6.25]},
+			"faces": {
+				"north": {"uv": [10, 11, 5, 16], "rotation": 270, "texture": "#7"},
+				"east": {"uv": [10, 12, 14, 16], "texture": "#7"},
+				"south": {"uv": [14, 4, 10, 0], "rotation": 90, "texture": "#7"},
+				"west": {"uv": [10, 4, 14, 8], "rotation": 180, "texture": "#7"},
+				"up": {"uv": [6, 3, 2, 7], "rotation": 90, "texture": "#7"},
+				"down": {"uv": [2, 3, 6, 7], "rotation": 90, "texture": "#7"}
+			}
+		},
+		{
+			"name": "b",
+			"from": [-1.5, -1.5, -0.5],
+			"to": [1.5, 1.5, 0],
+			"rotation": {"angle": 0, "axis": "y", "origin": [-1, -1, -1.75]},
+			"faces": {
+				"north": {"uv": [13.5, 8.5, 10.5, 11.5], "rotation": 270, "texture": "#7"},
+				"east": {"uv": [10.5, 8.5, 11, 11.5], "texture": "#7"},
+				"south": {"uv": [13.5, 11.5, 10.5, 8.5], "rotation": 90, "texture": "#7"},
+				"west": {"uv": [13, 8.5, 13.5, 11.5], "rotation": 180, "texture": "#7"},
+				"up": {"uv": [10.5, 8.5, 11, 11.5], "rotation": 90, "texture": "#7"},
+				"down": {"uv": [13, 8.5, 13.5, 11.5], "rotation": 90, "texture": "#7"}
+			}
+		},
+		{
+			"name": "b",
+			"from": [-1.5, -1.5, -5],
+			"to": [1.5, 1.5, -4.5],
+			"rotation": {"angle": 0, "axis": "y", "origin": [-1, -1, -6.75]},
+			"faces": {
+				"north": {"uv": [9, 12, 6, 15], "rotation": 270, "texture": "#7"},
+				"east": {"uv": [10.5, 8.5, 11, 11.5], "texture": "#7"},
+				"south": {"uv": [13.5, 11.5, 10.5, 8.5], "rotation": 90, "texture": "#7"},
+				"west": {"uv": [13, 8.5, 13.5, 11.5], "rotation": 180, "texture": "#7"},
+				"up": {"uv": [10.5, 8.5, 11, 11.5], "rotation": 90, "texture": "#7"},
+				"down": {"uv": [13, 8.5, 13.5, 11.5], "rotation": 90, "texture": "#7"}
+			}
+		}
+	],
+	"groups": [
+		{
+			"name": "synthetic_storage_drives",
+			"origin": [8, 8, 8],
+			"color": 0,
+			"children": [
+				{
+					"name": "l9_synthetic_storage_matrix_p0",
+					"origin": [1.5, 0.5, 1.5],
+					"color": 0,
+					"children": []
+				}
+			]
+		},
+		{
+			"name": "link",
+			"origin": [8, 8, 8],
+			"color": 0,
+			"children": [
+				{
+					"name": "l9_data_io",
+					"origin": [8, 8, 8],
+					"color": 0,
+					"children": [
+						{
+							"name": "l9_data_io_up_on",
+							"origin": [8, 8, 8],
+							"color": 0,
+							"children": [
+								{
+									"name": "c",
+									"origin": [23, 7, -3.75],
+									"color": 0,
+									"children": [0, 1, 2]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}

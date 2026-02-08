@@ -120,6 +120,8 @@ public class NELangGenerator {
             "Parallel count increases the processing numbers per crafting task for all threading cores"
         );
         provider.add("tooltip.neoecoae.computation_cell", "Provides %s bytes to the computation subsystem");
+
+        provider.add("neoecoae.classic_pack", "Neo ECO AE Extension Classic Textures");
     }
 
     private static void addLangs(RegistrateLangProvider provider, String key, String... langs) {

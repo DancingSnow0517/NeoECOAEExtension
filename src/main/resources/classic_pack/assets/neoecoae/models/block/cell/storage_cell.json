@@ -1,0 +1,32 @@
+{
+	"credit": "Made with Blockbench",
+	"render_type": "translucent",
+	"textures": {
+		"1": "neoecoae:block/cell/storage_cell_case",
+		"particle": "neoecoae:block/cell/storage_cell_case"
+	},
+	"elements": [
+		{
+			"from": [10, 0, 6],
+			"to": [16, 12, 16],
+			"rotation": {"angle": 0, "axis": "y", "origin": [13, 6, 11.25]},
+			"faces": {
+				"north": {"uv": [8, 2, 14, 14], "texture": "#1"},
+				"east": {"uv": [8, 2, 9, 14], "texture": "#1"},
+				"south": {"uv": [8, 2, 14, 14], "texture": "#1"},
+				"west": {"uv": [13, 2, 14, 14], "texture": "#1"},
+				"up": {"uv": [14, 2, 8, 3], "texture": "#1"},
+				"down": {"uv": [14, 13, 8, 14], "texture": "#1"}
+			}
+		},
+		{
+			"from": [10, 0, 6],
+			"to": [16, 12, 16],
+			"rotation": {"angle": 0, "axis": "y", "origin": [13, 6, 11.25]},
+			"faces": {
+				"south": {"uv": [8, 2, 14, 14], "texture": "#2"}
+			}
+		}
+	],
+	"display": {}
+}

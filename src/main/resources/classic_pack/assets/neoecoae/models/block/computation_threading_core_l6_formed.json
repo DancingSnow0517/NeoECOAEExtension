@@ -1,0 +1,6 @@
+{
+  "parent": "neoecoae:block/computation_threading_core",
+  "textures": {
+    "1": "neoecoae:block/computation_threading_core_front_led_on_l6"
+  }
+}

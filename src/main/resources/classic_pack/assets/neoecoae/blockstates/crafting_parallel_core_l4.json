@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "neoecoae:block/crafting_parallel_core_l4",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "neoecoae:block/crafting_parallel_core_l4"
+    },
+    "facing=south": {
+      "model": "neoecoae:block/crafting_parallel_core_l4",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "neoecoae:block/crafting_parallel_core_l4",
+      "y": 270
+    }
+  }
+}

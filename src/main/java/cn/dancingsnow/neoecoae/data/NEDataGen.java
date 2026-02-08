@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.data.lang.NELangGenerator;
 import cn.dancingsnow.neoecoae.data.provider.NERegistryProvider;
 import cn.dancingsnow.neoecoae.data.recipe.NERecipeGenerator;
+import cn.dancingsnow.neoecoae.data.tag.NETagGenerator;
 import com.tterrag.registrate.providers.ProviderType;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.DataGenerator;
@@ -22,6 +23,7 @@ public class NEDataGen {
         // REGISTRATE.addDataGenerator(NEProviderTypes.CELL_MODEL, CellModelGenerator::accept);
         REGISTRATE.addDataGenerator(ProviderType.LANG, NELangGenerator::accept);
         REGISTRATE.addDataGenerator(ProviderType.RECIPE, NERecipeGenerator::accept);
+        REGISTRATE.addDataGenerator(ProviderType.ITEM_TAGS, NETagGenerator::itemTag);
     }
 
     @SubscribeEvent

@@ -15,7 +15,11 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import lombok.Getter;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.repository.PackSource;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -23,6 +27,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.AddPackFindersEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +59,7 @@ public class NeoECOAE {
         modContainer.registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
 
         modBus.addListener(NeoECOAE::initUpgrades);
+        modBus.addListener(NeoECOAE::addClassicPack);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
     }
 
@@ -65,5 +71,16 @@ public class NeoECOAE {
         event.enqueueWork(() -> {
             Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
         });
+    }
+
+    private static void addClassicPack(AddPackFindersEvent event) {
+        event.addPackFinders(
+            NeoECOAE.id("classic_pack"),
+            PackType.CLIENT_RESOURCES,
+            Component.translatable("neoecoae.classic_pack"),
+            PackSource.BUILT_IN,
+            false,
+            Pack.Position.TOP
+        );
     }
 }

@@ -130,6 +130,7 @@
   "jade.neoecoae.drive_unmounted": "ECO Drive Unmounted",
   "jade.neoecoae.overclocked": "Overclock Enabled",
   "jade.neoecoae.worker_threads": "Threads: %d/%d",
+  "neoecoae.classic_pack": "Neo ECO AE Extension Classic Textures",
   "neoecoae.ponder.computation_system_build.header": "ECO Computation System",
   "neoecoae.ponder.storage_system_build.header": "ECO Storage System",
   "neoecoae.ponder.storage_system_build.text_1": "The ECO Storage System consists of the following parts.",

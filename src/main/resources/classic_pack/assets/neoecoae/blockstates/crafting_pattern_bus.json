@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "neoecoae:block/crafting_pattern_bus",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "neoecoae:block/crafting_pattern_bus"
+    },
+    "facing=south": {
+      "model": "neoecoae:block/crafting_pattern_bus",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "neoecoae:block/crafting_pattern_bus",
+      "y": 270
+    }
+  }
+}
