@@ -1,7 +1,0 @@
-{
-    "parent": "neoecoae:block/casing_base",
-    "textures": {
-		"base": "neoecoae:block/aluminum_alloy_casing",
-		"particle": "neoecoae:block/aluminum_alloy_casing"
-	}
-}

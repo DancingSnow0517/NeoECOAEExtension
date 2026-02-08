@@ -1,0 +1,54 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_aluminum_dust": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:dusts/aluminum_alloy"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_certus_quartz_dust": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:dusts/certus_quartz"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:black_tungsten_alloy_dust"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    },
+    "has_tungsten_dust": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:dusts/tungsten"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_aluminum_dust",
+      "has_tungsten_dust",
+      "has_certus_quartz_dust"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:black_tungsten_alloy_dust"
+    ]
+  }
+}

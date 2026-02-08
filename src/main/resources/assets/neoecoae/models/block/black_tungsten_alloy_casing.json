@@ -1,7 +1,0 @@
-{
-    "parent": "neoecoae:block/casing_base",
-    "textures": {
-		"base": "neoecoae:block/black_tungsten_alloy_casing",
-		"particle": "neoecoae:block/black_tungsten_alloy_casing"
-	}
-}

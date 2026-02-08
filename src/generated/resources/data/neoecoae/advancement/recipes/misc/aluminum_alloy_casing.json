@@ -1,0 +1,54 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_aluminum_alloy_ingot": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:ingots/aluminum_alloy"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_crystal_ingot": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:crystal_ingot"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_quartz_vibrant_glass": {
+      "conditions": {
+        "items": [
+          {
+            "items": "ae2:quartz_vibrant_glass"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:aluminum_alloy_casing"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_aluminum_alloy_ingot",
+      "has_quartz_vibrant_glass",
+      "has_crystal_ingot"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:aluminum_alloy_casing"
+    ]
+  }
+}

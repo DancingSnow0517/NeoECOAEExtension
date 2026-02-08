@@ -1,9 +1,11 @@
 package cn.dancingsnow.neoecoae.all;
 
+import appeng.core.definitions.AEBlocks;
 import appeng.decorative.solid.CertusQuartzClusterBlock;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.BuddingEnergizedCrystalBlock;
+import cn.dancingsnow.neoecoae.blocks.CasingBlock;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
@@ -165,6 +167,76 @@ public class NEBlocks {
         .item()
         .tag(NETags.Items.ALUMINUM_ALLOY_STORAGE_BLOCK)
         .build()
+        .register();
+
+    public static final BlockEntry<CasingBlock> ALUMINUM_ALLOY_CASING = REGISTRATE
+        .block("aluminum_alloy_casing", CasingBlock::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL)
+        .blockstate((ctx, prov) -> {
+            BlockModelBuilder model = prov.models().withExistingParent(ctx.getName(), prov.modLoc("block/casing_base"))
+                .texture("base", prov.modLoc("block/" + ctx.getName()))
+                .texture("particle", prov.modLoc("block/" + ctx.getName()));
+            prov.simpleBlock(ctx.get(), model);
+        })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("ABA")
+                .pattern("BCB")
+                .pattern("ABA")
+                .define('A', NETags.Items.ALUMINUM_ALLOY_INGOT)
+                .define('B', AEBlocks.QUARTZ_VIBRANT_GLASS)
+                .define('C', NEItems.CRYSTAL_INGOT)
+                .unlockedBy("has_aluminum_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .unlockedBy("has_quartz_vibrant_glass", RegistrateRecipeProvider.has(AEBlocks.QUARTZ_VIBRANT_GLASS))
+                .unlockedBy("has_crystal_ingot", RegistrateRecipeProvider.has(NEItems.CRYSTAL_INGOT))
+                .save(prov);
+        })
+        .simpleItem()
+        .register();
+
+    public static final BlockEntry<Block> BLACK_TUNGSTEN_ALLOY_BLOCK = REGISTRATE
+        .block("black_tungsten_alloy_block", Block::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("AAA")
+                .pattern("AAA")
+                .pattern("AAA")
+                .define('A', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
+                .unlockedBy("has_black_tungsten_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
+                .save(prov);
+        })
+        .item()
+        .tag(NETags.Items.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK)
+        .build()
+        .register();
+
+    public static final BlockEntry<CasingBlock> BLACK_TUNGSTEN_ALLOY_CASING = REGISTRATE
+        .block("black_tungsten_alloy_casing", CasingBlock::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL)
+        .blockstate((ctx, prov) -> {
+            BlockModelBuilder model = prov.models().withExistingParent(ctx.getName(), prov.modLoc("block/casing_base"))
+                .texture("base", prov.modLoc("block/" + ctx.getName()))
+                .texture("particle", prov.modLoc("block/" + ctx.getName()));
+            prov.simpleBlock(ctx.get(), model);
+        })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("ABA")
+                .pattern("BCB")
+                .pattern("ABA")
+                .define('A', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
+                .define('B', AEBlocks.QUARTZ_VIBRANT_GLASS)
+                .define('C', NEItems.CRYSTAL_INGOT)
+                .unlockedBy("has_black_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
+                .unlockedBy("has_quartz_vibrant_glass", RegistrateRecipeProvider.has(AEBlocks.QUARTZ_VIBRANT_GLASS))
+                .unlockedBy("has_crystal_ingot", RegistrateRecipeProvider.has(NEItems.CRYSTAL_INGOT))
+                .save(prov);
+        })
+        .simpleItem()
         .register();
 
     public static final BlockEntry<Block> ENERGIZED_CRYSTAL_BLOCK = REGISTRATE

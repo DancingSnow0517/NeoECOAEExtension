@@ -6,6 +6,9 @@
     "neoecoae:tungsten_ore",
     "neoecoae:raw_tungsten_block",
     "neoecoae:tungsten_block",
-    "neoecoae:aluminum_alloy_block"
+    "neoecoae:aluminum_alloy_block",
+    "neoecoae:aluminum_alloy_casing",
+    "neoecoae:black_tungsten_alloy_block",
+    "neoecoae:black_tungsten_alloy_casing"
   ]
 }

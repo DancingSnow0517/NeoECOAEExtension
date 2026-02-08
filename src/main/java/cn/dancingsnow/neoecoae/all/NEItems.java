@@ -4,6 +4,8 @@ import appeng.api.stacks.AEKeyType;
 import appeng.datagen.providers.tags.ConventionTags;
 import appeng.items.materials.MaterialItem;
 import appeng.recipes.handlers.InscriberRecipeBuilder;
+import appeng.recipes.transform.TransformCircumstance;
+import appeng.recipes.transform.TransformRecipeBuilder;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -13,8 +15,10 @@ import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.crafting.Ingredient;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -132,6 +136,39 @@ public class NEItems {
         .tag(NETags.Items.ALUMINUM_ALLOY_DUST)
         .register();
 
+    public static final ItemEntry<MaterialItem> BLACK_TUNGSTEN_ALLOY_INGOT = REGISTRATE
+        .item("black_tungsten_alloy_ingot", MaterialItem::new)
+        .tag(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
+                .requires(NETags.Items.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK)
+                .unlockedBy("has_black_tungsten_alloy_block", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK))
+                .save(prov);
+
+            prov.smelting(DataIngredient.tag(NETags.Items.BLACK_TUNGSTEN_ALLOY_DUST), RecipeCategory.MISC, ctx, 1.0f);
+            prov.blasting(DataIngredient.tag(NETags.Items.BLACK_TUNGSTEN_ALLOY_DUST), RecipeCategory.MISC, ctx, 1.0f);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> BLACK_TUNGSTEN_ALLOY_DUST = REGISTRATE
+        .item("black_tungsten_alloy_dust", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NETags.Items.TUNGSTEN_DUST)
+                .requires(NETags.Items.ALUMINUM_ALLOY_DUST)
+                .requires(ConventionTags.FLUIX_DUST)
+                .requires(ConventionTags.FLUIX_DUST)
+                .unlockedBy("has_aluminum_dust", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_DUST))
+                .unlockedBy("has_tungsten_dust", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_DUST))
+                .unlockedBy("has_certus_quartz_dust", RegistrateRecipeProvider.has(ConventionTags.CERTUS_QUARTZ_DUST))
+                .save(prov);
+
+            InscriberRecipeBuilder.inscribe(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT, ctx.get(), 1)
+                .save(prov, NeoECOAE.id("inscriber/black_tungsten_alloy_dust"));
+        })
+        .tag(NETags.Items.BLACK_TUNGSTEN_ALLOY_DUST)
+        .register();
+
     public static final ItemEntry<MaterialItem> ENERGIZED_CRYSTAL = REGISTRATE
         .item("energized_crystal", MaterialItem::new)
         .recipe((ctx, prov) -> {
@@ -164,6 +201,37 @@ public class NEItems {
                 .save(prov, NeoECOAE.id("inscriber/energized_fluix_crystal_dust"));
         })
         .tag(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST)
+        .register();
+
+    public static final ItemEntry<MaterialItem> CRYSTAL_INGOT = REGISTRATE
+        .item("crystal_ingot", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            TransformRecipeBuilder.transform(
+                prov,
+                NeoECOAE.id("transform/crystal_ingot"),
+                ctx.get(),
+                1,
+                TransformCircumstance.EXPLOSION,
+                Ingredient.of(ConventionTags.CERTUS_QUARTZ_DUST),
+                Ingredient.of(ConventionTags.FLUIX_DUST),
+                Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_DUST),
+                Ingredient.of(NETags.Items.CRYSTAL_INGOT_BASE)
+            );
+        })
+        .register();
+
+
+    public static final ItemEntry<MaterialItem> CRYSTAL_MATRIX = REGISTRATE
+        .item("crystal_matrix", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
+                .pattern("A A")
+                .pattern(" A ")
+                .pattern("A A")
+                .define('A', NEItems.CRYSTAL_INGOT)
+                .unlockedBy("has_crystal_ingot", RegistrateRecipeProvider.has(NEItems.CRYSTAL_INGOT))
+                .save(prov);
+        })
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_CELL_HOUSING = REGISTRATE

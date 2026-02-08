@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "neoecoae:block/black_tungsten_alloy_block"
+  }
+}
