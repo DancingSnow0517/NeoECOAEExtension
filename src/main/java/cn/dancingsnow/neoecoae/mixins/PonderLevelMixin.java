@@ -8,9 +8,11 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import net.neoforged.neoforge.common.extensions.IBlockGetterExtension;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 
 @Mixin(PonderLevel.class)
-public class PonderLevelMixin extends SchematicLevel implements IBlockGetterExtension {
+@Pseudo
+public abstract class PonderLevelMixin extends SchematicLevel implements IBlockGetterExtension {
     public PonderLevelMixin(Level original) {
         super(original);
     }

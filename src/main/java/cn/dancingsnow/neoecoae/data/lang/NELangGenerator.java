@@ -1,15 +1,9 @@
 package cn.dancingsnow.neoecoae.data.lang;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.integration.ponder.NEPonderPlugin;
 import com.tterrag.registrate.providers.RegistrateLangProvider;
-import net.createmod.ponder.foundation.PonderIndex;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
-        PonderIndex.addPlugin(new NEPonderPlugin());
-        PonderIndex.getLangAccess().provideLang(NeoECOAE.MOD_ID, provider::add);
-
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
