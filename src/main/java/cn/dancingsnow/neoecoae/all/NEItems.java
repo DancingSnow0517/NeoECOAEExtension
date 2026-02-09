@@ -18,6 +18,8 @@ import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.neoforged.neoforge.common.Tags;
@@ -193,6 +195,22 @@ public class NEItems {
 
     public static final ItemEntry<MaterialItem> ENERGIZED_FLUIX_CRYSTAL = REGISTRATE
         .item("energized_fluix_crystal", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 4)
+                .requires(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
+                .unlockedBy("has_energized_fluix_crytal_block", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK))
+                .save(prov, NeoECOAE.id("energized_fluix_crystal_from_block"));
+
+            TransformRecipeBuilder.transform(
+                prov,
+                NeoECOAE.id("transform/energized_fluix_crystal"),
+                ctx.get(),
+                1,
+                TransformCircumstance.fluid(FluidTags.WATER),
+                Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_DUST),
+                Ingredient.of(ConventionTags.FLUIX_CRYSTAL)
+            );
+        })
         .tag(NETags.Items.ENERGIZED_FLUIX_CRYSTAL, Tags.Items.GEMS)
         .register();
 
@@ -232,6 +250,51 @@ public class NEItems {
                 .pattern("A A")
                 .define('A', NEItems.CRYSTAL_INGOT)
                 .unlockedBy("has_crystal_ingot", RegistrateRecipeProvider.has(NEItems.CRYSTAL_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> ENERGIZED_SUPERCONDUCTIVE_INGOT = REGISTRATE
+        .item("energized_superconductive_ingot", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            TransformRecipeBuilder.transform(
+                prov,
+                NeoECOAE.id("transform/energized_superconductive_ingot"),
+                ctx.get(),
+                1,
+                TransformCircumstance.EXPLOSION,
+                Ingredient.of(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST),
+                Ingredient.of(NETags.Items.ALUMINUM_DUST),
+                Ingredient.of(ConventionTags.SILICON),
+                Ingredient.of(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE)
+            );
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> CRYOTHEUM = REGISTRATE
+        .item("cryotheum", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(Items.ICE)
+                .requires(ConventionTags.CERTUS_QUARTZ_DUST)
+                .requires(ConventionTags.SKY_STONE_DUST)
+                .requires(Items.SNOWBALL)
+                .requires(Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_DUST), 4)
+                .unlockedBy("has_energized_cryztal_dust", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL_DUST))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> CRYOTHEUM_CRYSTAL = REGISTRATE
+        .item("cryotheum_crystal", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("AAA")
+                .pattern("ABA")
+                .pattern("AAA")
+                .define('A', ConventionTags.SKY_STONE_DUST)
+                .define('B', NEItems.CRYOTHEUM)
+                .unlockedBy("has_cryotheum", RegistrateRecipeProvider.has(NEItems.CRYOTHEUM))
                 .save(prov);
         })
         .register();

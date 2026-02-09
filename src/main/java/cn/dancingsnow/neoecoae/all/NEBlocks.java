@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
 import appeng.core.definitions.AEBlocks;
+import appeng.core.definitions.AEItems;
 import appeng.decorative.solid.CertusQuartzClusterBlock;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -372,6 +373,23 @@ public class NEBlocks {
         .build()
         .register();
 
+    public static final BlockEntry<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = REGISTRATE
+        .block("energized_fluix_crystal_block", Block::new)
+        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.ENERGIZED_FLUIX_CRYSTAL_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("AA")
+                .pattern("AA")
+                .define('A', NETags.Items.ENERGIZED_FLUIX_CRYSTAL)
+                .unlockedBy("has_energized_fluix_crystal", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_FLUIX_CRYSTAL))
+                .save(prov);
+        })
+        .item()
+        .tag(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
+        .build()
+        .register();
+
     public static final BlockEntry<ECOIntegratedWorkingStation> INTEGRATED_WORKING_STATION = REGISTRATE
         .block("integrated_working_station", ECOIntegratedWorkingStation::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
@@ -529,6 +547,18 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("ABA")
+                .define('A', NEBlocks.ALUMINUM_ALLOY_CASING)
+                .define('B', AEBlocks.SKY_STONE_BLOCK)
+                .define('C', AEItems.LOGIC_PROCESSOR)
+                .define('D', NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
+                .unlockedBy("has_aluminum_alloy_casing", RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
+                .save(prov);
+        })
         .blockstate(BlockStateUtil::simpleExistingBlockState)
         .simpleItem()
         .register();
@@ -664,6 +694,18 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("ABA")
+                .define('A', NEBlocks.ALUMINUM_ALLOY_CASING)
+                .define('B', AEBlocks.SKY_STONE_BLOCK)
+                .define('C', AEItems.CALCULATION_PROCESSOR)
+                .define('D', NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
+                .unlockedBy("has_aluminum_alloy_casing", RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
+                .save(prov);
+        })
         .blockstate((ctx, prov) -> {
             prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())));
         })
@@ -801,6 +843,18 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("ABA")
+                .define('A', NEBlocks.ALUMINUM_ALLOY_CASING)
+                .define('B', AEBlocks.SKY_STONE_BLOCK)
+                .define('C', AEItems.ENGINEERING_PROCESSOR)
+                .define('D', NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
+                .unlockedBy("has_aluminum_alloy_casing", RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
+                .save(prov);
+        })
         .blockstate((ctx, prov) -> {
             ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_casing"));
             ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/crafting_casing_formed"));

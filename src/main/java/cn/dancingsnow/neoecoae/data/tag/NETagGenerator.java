@@ -10,5 +10,9 @@ public class NETagGenerator {
         provider.addTag(NETags.Items.CRYSTAL_INGOT_BASE)
             .add(Items.DIAMOND)
             .add(Items.EMERALD);
+
+        provider.addTag(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE)
+            .add(Items.DIAMOND)
+            .add(Items.EMERALD);
     }
 }

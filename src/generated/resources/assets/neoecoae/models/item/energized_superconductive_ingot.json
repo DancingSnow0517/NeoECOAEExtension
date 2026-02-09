@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "neoecoae:item/energized_superconductive_ingot"
+  }
+}

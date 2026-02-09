@@ -6,6 +6,7 @@
     "neoecoae:tungsten_block",
     "neoecoae:aluminum_alloy_block",
     "neoecoae:black_tungsten_alloy_block",
-    "neoecoae:energized_crystal_block"
+    "neoecoae:energized_crystal_block",
+    "neoecoae:energized_fluix_crystal_block"
   ]
 }

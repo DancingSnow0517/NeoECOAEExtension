@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:aluminum_alloy_casing"
+    },
+    "B": {
+      "item": "ae2:sky_stone_block"
+    },
+    "C": {
+      "item": "ae2:engineering_processor"
+    },
+    "D": {
+      "tag": "c:storage_blocks/energized_fluix_crystal"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "CDC",
+    "ABA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:crafting_casing"
+  }
+}
