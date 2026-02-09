@@ -185,7 +185,8 @@ public class MultiBlockInfoWrapper {
         for (ItemStack requiredItem : context.getRequiredItems()) {
             requiredItems.addChild(new ItemSlot()
                 .setItem(requiredItem)
-                .xeiRecipeIngredient(IngredientIO.INPUT));
+                .xeiRecipeIngredient(IngredientIO.INPUT)
+                .xeiRecipeSlot(IngredientIO.INPUT, 1));
         }
 //        for (int i = 0; i < itemHandler.getSlots(); i++) {
 //            SlotWidget widget = new SlotWidget(itemHandler, i, 4 + i * 18, 0, false, false)
