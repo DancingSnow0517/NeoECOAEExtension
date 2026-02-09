@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.items.cell;
 
 import appeng.api.config.Actionable;
+import appeng.api.config.IncludeExclude;
 import appeng.api.ids.AEComponents;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
@@ -12,7 +13,12 @@ import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
+import appeng.api.upgrades.IUpgradeInventory;
+import appeng.core.definitions.AEItems;
+import appeng.util.ConfigInventory;
+import appeng.util.prioritylist.IPartitionList;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -29,6 +35,13 @@ public class ECOStorageCell implements StorageCell {
     private final ISaveProvider container;
     private final IBasicECOCellItem cellType;
     private final AEKeyType keyType;
+    // filter
+    @Getter
+    private final IPartitionList partitionList;
+    @Getter
+    private final IncludeExclude partitionListMode;
+    private final boolean hasVoidUpgrade;
+
     private final ItemStack cellStack;
 
     private final int maxItemTypes;
@@ -53,6 +66,25 @@ public class ECOStorageCell implements StorageCell {
             this.storedAmounts = null;
             this.cellType = c;
             this.tier = c.getTier();
+
+            // Updates the partition list and mode based on installed upgrades and the configured filter.
+            var builder = IPartitionList.builder();
+
+            var upgrades = getUpgradesInventory();
+            var config = getConfigInventory();
+
+            boolean hasInverter = upgrades.isInstalled(AEItems.INVERTER_CARD);
+            boolean isFuzzy = upgrades.isInstalled(AEItems.FUZZY_CARD);
+            if (isFuzzy) {
+                builder.fuzzyMode(c.getFuzzyMode(cellStack));
+            }
+
+            builder.addAll(config.keySet());
+
+            partitionListMode = (hasInverter ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
+            partitionList = builder.build();
+
+            this.hasVoidUpgrade = upgrades.isInstalled(AEItems.VOID_CARD);
         } else {
             throw new IllegalArgumentException("itemStack must be an ECOStorageCellItem");
         }
@@ -199,16 +231,24 @@ public class ECOStorageCell implements StorageCell {
             return 0;
         }
 
+        if (!this.partitionList.matchesFilter(what, this.partitionListMode)) {
+            return 0;
+        }
+
+        if (this.cellType.isBlackListed(cellStack, what)) {
+            return 0;
+        }
+
         // Run regular insert logic and then apply void upgrade to the returned value.
         long inserted = innerInsert(what, amount, mode);
 
         // In the event that a void card is being used on a (full) unformatted cell, ensure it doesn't void any items
         // that the cell isn't even storing and cannot store to begin with
-        if (!canHoldNewItem()) {
+        if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
             return getCellItems().containsKey(what) ? amount : inserted;
         }
 
-        return inserted;
+        return hasVoidUpgrade ? amount : inserted;
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {
@@ -296,5 +336,13 @@ public class ECOStorageCell implements StorageCell {
         boolean used = !this.getCellItems().isEmpty() && this.insert(what, 1, Actionable.SIMULATE, source) == 1;
         boolean sameItem = this.extract(what, 1, Actionable.SIMULATE, source) > 0;
         return used || sameItem;
+    }
+
+    public IUpgradeInventory getUpgradesInventory() {
+        return ((ECOStorageCellItem) cellStack.getItem()).getUpgrades(cellStack);
+    }
+
+    public ConfigInventory getConfigInventory() {
+        return ((ECOStorageCellItem) cellStack.getItem()).getConfigInventory(cellStack);
     }
 }
