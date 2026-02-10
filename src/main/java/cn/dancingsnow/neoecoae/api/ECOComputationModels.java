@@ -29,10 +29,12 @@ public class ECOComputationModels {
     }
 
     public static ResourceLocation getCableDisconnectedModel(IECOTier tier) {
+        if (tier == null) return null;
         return cableModels.get(tier).normalModel;
     }
 
     public static ResourceLocation getCableConnectedModel(IECOTier tier) {
+        if (tier == null) return null;
         return cableModels.get(tier).formedModel;
     }
 

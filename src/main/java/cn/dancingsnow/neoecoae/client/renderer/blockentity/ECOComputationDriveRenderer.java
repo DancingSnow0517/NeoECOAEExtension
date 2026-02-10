@@ -82,7 +82,7 @@ public class ECOComputationDriveRenderer
                     } else {
                         poseStack.translate(0, -0.688, -0.3);
                     }
-                    cableModel = ECOComputationModels.getCableDisconnectedModel(blockEntity.getTier());
+                    cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
                 }
             } else {
                 if (blockEntity.isLowerDrive()) {
@@ -90,7 +90,7 @@ public class ECOComputationDriveRenderer
                 } else {
                     poseStack.translate(0, -0.688, -0.3);
                 }
-                cableModel = ECOComputationModels.getCableDisconnectedModel(blockEntity.getTier());
+                cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
             }
         }
         if (blockEntity.isLowerDrive()) {
