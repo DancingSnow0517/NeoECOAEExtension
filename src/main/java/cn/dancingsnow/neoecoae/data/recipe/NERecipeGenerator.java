@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.data.recipe;
 
+import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
@@ -47,5 +49,27 @@ public class NERecipeGenerator {
             .requireFluid(Tags.Fluids.WATER, 1000)
             .fluidOutput(new FluidStack(Fluids.LAVA, 1000))
             .save(provider, NeoECOAE.id("integrated_working_station/test"));
+
+        //ECO - CE4
+        IntegratedWorkingStationRecipe.builder()
+            .require(AEBlocks.CRAFTING_STORAGE_256K, 256)
+            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
+            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L4.asStack())
+            .save(provider);
+        //ECO - CE6
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEItems.ECO_COMPUTATION_CELL_L4, 4)
+            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 16)
+            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L6.asStack())
+            .save(provider);
+        //ECO - CE9
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEItems.ECO_COMPUTATION_CELL_L6, 4)
+            .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+            .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
+            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L9.asStack())
+            .save(provider);
     }
 }

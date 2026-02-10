@@ -8,7 +8,7 @@
       "item": "neoecoae:superconducting_processor_press"
     }
   },
-  "mode": "press",
+  "mode": "inscribe",
   "result": {
     "count": 1,
     "id": "neoecoae:superconducting_processor_print"

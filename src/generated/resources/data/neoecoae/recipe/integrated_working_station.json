@@ -1,0 +1,39 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "ae2:molecular_assembler"
+    },
+    "B": {
+      "item": "neoecoae:superconducting_processor"
+    },
+    "C": {
+      "item": "ae2:256k_crafting_storage"
+    },
+    "D": {
+      "item": "ae2:cell_workbench"
+    },
+    "E": {
+      "item": "neoecoae:aluminum_alloy_casing"
+    },
+    "F": {
+      "item": "ae2:condenser"
+    },
+    "G": {
+      "item": "ae2:inscriber"
+    },
+    "H": {
+      "item": "ae2:charger"
+    }
+  },
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GBH"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:integrated_working_station"
+  }
+}

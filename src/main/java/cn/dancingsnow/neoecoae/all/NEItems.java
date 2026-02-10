@@ -304,13 +304,25 @@ public class NEItems {
     public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR_PRESS = REGISTRATE
         .item("superconducting_processor_press", MaterialItem::new)
         .tag(ConventionTags.INSCRIBER_PRESSES)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("AAA")
+                .pattern("BCD")
+                .pattern("AAA")
+                .define('A', NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT)
+                .define('B', AEItems.ENGINEERING_PROCESSOR_PRESS)
+                .define('C', AEItems.CALCULATION_PROCESSOR_PRESS)
+                .define('D', AEItems.LOGIC_PROCESSOR_PRESS)
+                .unlockedBy("has_energized_superconductive_ingot", RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT))
+                .save(prov);
+        })
         .register();
 
     public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR_PRINT = REGISTRATE
         .item("superconducting_processor_print", MaterialItem::new)
         .recipe((ctx, prov) -> {
             InscriberRecipeBuilder.inscribe(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, ctx.get(), 1)
-                .setMode(InscriberProcessType.PRESS)
+                .setMode(InscriberProcessType.INSCRIBE)
                 .setTop(Ingredient.of(NEItems.SUPERCONDUCTING_PROCESSOR_PRESS))
                 .save(prov, NeoECOAE.id("inscriber/superconducting_processor_print"));
         })
@@ -319,10 +331,10 @@ public class NEItems {
     public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR = REGISTRATE
         .item("superconducting_processor", MaterialItem::new)
         .recipe((ctx, prov) -> {
-            InscriberRecipeBuilder.inscribe(Ingredient.of(Tags.Items.DUSTS_REDSTONE), ctx.get(), 1)
-                .setMode(InscriberProcessType.INSCRIBE)
-                .setTop(Ingredient.of(AEItems.SILICON_PRINT))
-                .setBottom(Ingredient.of(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT))
+            InscriberRecipeBuilder.inscribe(Ingredient.of(NEItems.CRYSTAL_MATRIX), ctx.get(), 1)
+                .setMode(InscriberProcessType.PRESS)
+                .setTop(Ingredient.of(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT))
+                .setBottom(Ingredient.of(AEItems.SILICON_PRINT))
                 .save(prov, NeoECOAE.id("inscriber/superconducting_processor"));
         })
         .register();

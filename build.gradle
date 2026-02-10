@@ -100,6 +100,8 @@ dependencies {
 
     api("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
     interfaceInjectionData("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
+
+    runtimeOnly("curse.maven:ae2-jei-integration-1074338:5748513")
 }
 
 neoForge {

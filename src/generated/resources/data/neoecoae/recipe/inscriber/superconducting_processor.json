@@ -2,16 +2,16 @@
   "type": "ae2:inscriber",
   "ingredients": {
     "bottom": {
-      "item": "neoecoae:superconducting_processor_print"
+      "item": "ae2:printed_silicon"
     },
     "middle": {
-      "tag": "c:dusts/redstone"
+      "item": "neoecoae:crystal_matrix"
     },
     "top": {
-      "item": "ae2:printed_silicon"
+      "item": "neoecoae:superconducting_processor_print"
     }
   },
-  "mode": "inscribe",
+  "mode": "press",
   "result": {
     "count": 1,
     "id": "neoecoae:superconducting_processor"
