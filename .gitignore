@@ -27,3 +27,5 @@ repo
 
 src/generated/resources/.cache/
 /src/guidebook/
+
+.mcopilot/

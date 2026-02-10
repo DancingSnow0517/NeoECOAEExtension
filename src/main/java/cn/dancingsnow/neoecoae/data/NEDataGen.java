@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.data;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.data.lang.NELangGenerator;
 import cn.dancingsnow.neoecoae.data.provider.NELangMergerProvider;
-import cn.dancingsnow.neoecoae.data.provider.NERegistryProvider;
 import cn.dancingsnow.neoecoae.data.recipe.NERecipeGenerator;
 import cn.dancingsnow.neoecoae.data.tag.NETagGenerator;
 import com.tterrag.registrate.providers.ProviderType;
@@ -33,7 +32,6 @@ public class NEDataGen {
         CompletableFuture<HolderLookup.Provider> registries = event.getLookupProvider();
         PackOutput packOutput = generator.getPackOutput();
 
-        generator.addProvider(event.includeServer(), new NERegistryProvider(packOutput, registries));
         generator.addProvider(event.includeClient(), new NELangMergerProvider(packOutput));
     }
 }

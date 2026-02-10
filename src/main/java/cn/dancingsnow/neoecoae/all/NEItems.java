@@ -2,8 +2,10 @@ package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.ids.AETags;
 import appeng.api.stacks.AEKeyType;
+import appeng.core.definitions.AEItems;
 import appeng.datagen.providers.tags.ConventionTags;
 import appeng.items.materials.MaterialItem;
+import appeng.recipes.handlers.InscriberProcessType;
 import appeng.recipes.handlers.InscriberRecipeBuilder;
 import appeng.recipes.transform.TransformCircumstance;
 import appeng.recipes.transform.TransformRecipeBuilder;
@@ -296,6 +298,32 @@ public class NEItems {
                 .define('B', NEItems.CRYOTHEUM)
                 .unlockedBy("has_cryotheum", RegistrateRecipeProvider.has(NEItems.CRYOTHEUM))
                 .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR_PRESS = REGISTRATE
+        .item("superconducting_processor_press", MaterialItem::new)
+        .tag(ConventionTags.INSCRIBER_PRESSES)
+        .register();
+
+    public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR_PRINT = REGISTRATE
+        .item("superconducting_processor_print", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            InscriberRecipeBuilder.inscribe(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, ctx.get(), 1)
+                .setMode(InscriberProcessType.PRESS)
+                .setTop(Ingredient.of(NEItems.SUPERCONDUCTING_PROCESSOR_PRESS))
+                .save(prov, NeoECOAE.id("inscriber/superconducting_processor_print"));
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR = REGISTRATE
+        .item("superconducting_processor", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            InscriberRecipeBuilder.inscribe(Ingredient.of(Tags.Items.DUSTS_REDSTONE), ctx.get(), 1)
+                .setMode(InscriberProcessType.INSCRIBE)
+                .setTop(Ingredient.of(AEItems.SILICON_PRINT))
+                .setBottom(Ingredient.of(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT))
+                .save(prov, NeoECOAE.id("inscriber/superconducting_processor"));
         })
         .register();
 
