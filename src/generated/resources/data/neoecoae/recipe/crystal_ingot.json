@@ -1,0 +1,30 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 50000,
+  "inputFluid": {
+    "amount": 500,
+    "tag": "minecraft:lava"
+  },
+  "inputItems": [
+    {
+      "count": 1,
+      "tag": "c:dusts/certus_quartz"
+    },
+    {
+      "count": 1,
+      "tag": "c:dusts/fluix"
+    },
+    {
+      "count": 1,
+      "tag": "c:dusts/energized_crystal"
+    },
+    {
+      "count": 1,
+      "tag": "neoecoae:crystal_ingot_base"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:crystal_ingot"
+  }
+}

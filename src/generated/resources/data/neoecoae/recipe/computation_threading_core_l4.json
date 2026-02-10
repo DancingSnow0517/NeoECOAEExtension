@@ -3,19 +3,22 @@
   "category": "misc",
   "key": {
     "A": {
-      "item": "neoecoae:energy_cell_l4"
+      "item": "ae2:256k_crafting_storage"
     },
     "B": {
       "item": "neoecoae:superconducting_processor"
+    },
+    "C": {
+      "item": "neoecoae:computation_casing"
     }
   },
   "pattern": [
-    "AAA",
     "ABA",
-    "AAA"
+    "ACA",
+    "ABA"
   ],
   "result": {
     "count": 1,
-    "id": "neoecoae:energy_cell_l6"
+    "id": "neoecoae:computation_threading_core_l4"
   }
 }

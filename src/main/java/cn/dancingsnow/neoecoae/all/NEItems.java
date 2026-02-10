@@ -243,6 +243,15 @@ public class NEItems {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_DUST),
                 Ingredient.of(NETags.Items.CRYSTAL_INGOT_BASE)
             );
+            IntegratedWorkingStationRecipe.builder()
+                .require(ConventionTags.CERTUS_QUARTZ_DUST)
+                .require(ConventionTags.FLUIX_DUST)
+                .require(NETags.Items.ENERGIZED_CRYSTAL_DUST)
+                .require(NETags.Items.CRYSTAL_INGOT_BASE)
+                .requireFluid(FluidTags.LAVA, 500)
+                .itemOutput(ctx.get())
+                .energy(50000)
+                .save(prov);
         })
         .register();
 
@@ -274,6 +283,15 @@ public class NEItems {
                 Ingredient.of(ConventionTags.SILICON),
                 Ingredient.of(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE)
             );
+            IntegratedWorkingStationRecipe.builder()
+                .require(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST)
+                .require(NETags.Items.ALUMINUM_DUST)
+                .require(ConventionTags.SILICON)
+                .require(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE)
+                .requireFluid(FluidTags.LAVA, 500)
+                .itemOutput(ctx.get())
+                .energy(50000)
+                .save(prov);
         })
         .register();
 
@@ -319,6 +337,10 @@ public class NEItems {
                 .define('D', AEItems.LOGIC_PROCESSOR_PRESS)
                 .unlockedBy("has_energized_superconductive_ingot", RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT))
                 .save(prov);
+            InscriberRecipeBuilder.inscribe(Tags.Items.STORAGE_BLOCKS_IRON, ctx.get(), 1)
+                .setMode(InscriberProcessType.INSCRIBE)
+                .setTop(Ingredient.of(ctx.get()))
+                .save(prov, NeoECOAE.id("inscriber/superconducting_processor_press"));
         })
         .register();
 

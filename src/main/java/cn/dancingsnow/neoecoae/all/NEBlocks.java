@@ -427,7 +427,7 @@ public class NEBlocks {
             prov.withExistingParent(ctx.getName(), prov.modLoc("block/integrated_working_station"));
         })
         .build()
-        .lang("ECO - Integrated Working Station")
+        .lang("ECO Integrated Working Station")
         .register();
 
     // ************************************ //
@@ -514,7 +514,7 @@ public class NEBlocks {
                     .pattern("ABA")
                     .pattern("AAA")
                     .define('A', NEBlocks.ENERGY_CELL_L4)
-                    .define('B', NEItems.SUPERCONDUCTING_PROCESSOR_PRINT)
+                    .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
                     .unlockedBy("has_energy_cell_l4", RegistrateRecipeProvider.has(NEBlocks.ENERGY_CELL_L4))
                     .save(prov);
         })

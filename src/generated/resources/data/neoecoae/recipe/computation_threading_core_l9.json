@@ -3,19 +3,19 @@
   "category": "misc",
   "key": {
     "A": {
-      "item": "neoecoae:energy_cell_l4"
+      "item": "neoecoae:computation_threading_core_l6"
     },
     "B": {
       "item": "neoecoae:superconducting_processor"
     }
   },
   "pattern": [
-    "AAA",
     "ABA",
-    "AAA"
+    "ABA",
+    "ABA"
   ],
   "result": {
     "count": 1,
-    "id": "neoecoae:energy_cell_l6"
+    "id": "neoecoae:computation_threading_core_l9"
   }
 }

@@ -1,0 +1,30 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 50000,
+  "inputFluid": {
+    "amount": 500,
+    "tag": "minecraft:lava"
+  },
+  "inputItems": [
+    {
+      "count": 1,
+      "tag": "c:dusts/energized_fluix_crystal"
+    },
+    {
+      "count": 1,
+      "tag": "c:dusts/aluminum"
+    },
+    {
+      "count": 1,
+      "tag": "c:silicon"
+    },
+    {
+      "count": 1,
+      "tag": "neoecoae:superconductive_ingot_base"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:energized_superconductive_ingot"
+  }
+}

@@ -3,19 +3,22 @@
   "category": "misc",
   "key": {
     "A": {
-      "item": "neoecoae:energy_cell_l4"
+      "item": "minecraft:blue_ice"
     },
     "B": {
+      "item": "neoecoae:computation_casing"
+    },
+    "C": {
       "item": "neoecoae:superconducting_processor"
     }
   },
   "pattern": [
-    "AAA",
     "ABA",
-    "AAA"
+    "BCB",
+    "ABA"
   ],
   "result": {
     "count": 1,
-    "id": "neoecoae:energy_cell_l6"
+    "id": "neoecoae:computation_cooling_controller_l4"
   }
 }

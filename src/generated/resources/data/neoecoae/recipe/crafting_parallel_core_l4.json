@@ -3,10 +3,10 @@
   "category": "misc",
   "key": {
     "A": {
-      "item": "neoecoae:energy_cell_l4"
+      "item": "ae2:crafting_accelerator"
     },
     "B": {
-      "item": "neoecoae:superconducting_processor"
+      "item": "neoecoae:crafting_casing"
     }
   },
   "pattern": [
@@ -16,6 +16,6 @@
   ],
   "result": {
     "count": 1,
-    "id": "neoecoae:energy_cell_l6"
+    "id": "neoecoae:crafting_parallel_core_l4"
   }
 }
