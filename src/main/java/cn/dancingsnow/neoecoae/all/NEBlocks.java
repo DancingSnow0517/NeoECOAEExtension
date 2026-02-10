@@ -848,11 +848,11 @@ public class NEBlocks {
                 .pattern("ABA")
                 .pattern("CDC")
                 .pattern("ABA")
-                .define('A', NEBlocks.ALUMINUM_ALLOY_CASING)
+                .define('A', NEBlocks.BLACK_TUNGSTEN_ALLOY_CASING)
                 .define('B', AEBlocks.SKY_STONE_BLOCK)
                 .define('C', AEItems.ENGINEERING_PROCESSOR)
                 .define('D', NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
-                .unlockedBy("has_aluminum_alloy_casing", RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
+                .unlockedBy("has_black_tungsten_alloy_casing", RegistrateRecipeProvider.has(NEBlocks.BLACK_TUNGSTEN_ALLOY_CASING))
                 .save(prov);
         })
         .blockstate((ctx, prov) -> {
