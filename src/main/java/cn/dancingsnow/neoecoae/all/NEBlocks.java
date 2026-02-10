@@ -2,14 +2,12 @@ package cn.dancingsnow.neoecoae.all;
 
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
+import appeng.core.definitions.AEParts;
+import appeng.datagen.providers.tags.ConventionTags;
 import appeng.decorative.solid.CertusQuartzClusterBlock;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.blocks.BuddingEnergizedCrystalBlock;
-import cn.dancingsnow.neoecoae.blocks.CasingBlock;
-import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
-import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
-import cn.dancingsnow.neoecoae.blocks.ECOMachineInterface;
+import cn.dancingsnow.neoecoae.blocks.*;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
@@ -406,6 +404,23 @@ public class NEBlocks {
                         .build();
                 });
         })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABC")
+                .pattern("DEF")
+                .pattern("GBH")
+                .define('A', AEBlocks.MOLECULAR_ASSEMBLER)
+                .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
+                .define('C', AEBlocks.CRAFTING_STORAGE_256K)
+                .define('D', AEBlocks.CELL_WORKBENCH)
+                .define('E', NEBlocks.ALUMINUM_ALLOY_CASING)
+                .define('F', AEBlocks.CONDENSER)
+                .define('G', AEBlocks.INSCRIBER)
+                .define('H', AEBlocks.CHARGER)
+                .unlockedBy("has_superconducting_processor", RegistrateRecipeProvider.has(NEItems.SUPERCONDUCTING_PROCESSOR))
+                .unlockedBy("has_aluminum_alloy_casing", RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
+                .save(prov);
+        })
         .item()
         .properties(p -> p.rarity(Rarity.RARE))
         .model((ctx, prov) -> {
@@ -432,6 +447,18 @@ public class NEBlocks {
         .blockstate((ctx, prov) -> {
             prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())));
         })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("ABA")
+                .define('A', NEBlocks.STORAGE_CASING)
+                .define('B', AEItems.LOGIC_PROCESSOR)
+                .define('C', AEItems.SINGULARITY)
+                .define('D', AEBlocks.INTERFACE)
+                    .unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING))
+                .save(prov);
+        })
         .register();
 
     public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L4 = REGISTRATE
@@ -447,6 +474,16 @@ public class NEBlocks {
                         .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                         .build();
                 }, ECOEnergyCellBlock.FORMED);
+        })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("AAA")
+                .pattern("ABA")
+                .pattern("AAA")
+                .define('A', AEBlocks.DENSE_ENERGY_CELL)
+                .define('B', NEBlocks.STORAGE_CASING)
+                .unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING))
+                .save(prov);
         })
         .item()
         .properties(p -> p.rarity(Rarity.UNCOMMON))
@@ -471,6 +508,16 @@ public class NEBlocks {
                         .build();
                 }, ECOEnergyCellBlock.FORMED);
         })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                    .pattern("AAA")
+                    .pattern("ABA")
+                    .pattern("AAA")
+                    .define('A', NEBlocks.ENERGY_CELL_L4)
+                    .define('B', NEItems.SUPERCONDUCTING_PROCESSOR_PRINT)
+                    .unlockedBy("has_energy_cell_l4", RegistrateRecipeProvider.has(NEBlocks.ENERGY_CELL_L4))
+                    .save(prov);
+        })
         .item()
         .properties(p -> p.rarity(Rarity.RARE))
         .model((ctx, provider) -> {
@@ -494,6 +541,16 @@ public class NEBlocks {
                         .build();
                 }, ECOEnergyCellBlock.FORMED);
         })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                    .pattern("AAA")
+                    .pattern("ABA")
+                    .pattern("AAA")
+                    .define('A', NEBlocks.ENERGY_CELL_L6)
+                    .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
+                    .unlockedBy("has_energy_cell_l6", RegistrateRecipeProvider.has(NEBlocks.ENERGY_CELL_L6))
+                    .save(prov);
+        })
         .item()
         .properties(p -> p.rarity(Rarity.EPIC))
         .model((ctx, provider) -> {
@@ -514,6 +571,18 @@ public class NEBlocks {
                     .modelFile(new ModelFile.UncheckedModelFile(provider.modLoc("block/builtin/eco_drive")))
                     .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                     .build(), ECODriveBlock.FORMED, ECODriveBlock.HAS_CELL);
+        })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ADA")
+                .pattern("BCB")
+                .pattern("ADA")
+                .define('A', NEBlocks.STORAGE_CASING)
+                .define('B', ConventionTags.SMART_DENSE_CABLE)
+                .define('C', AEBlocks.DRIVE)
+                .define('D', AEItems.LOGIC_PROCESSOR)
+                .unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING))
+                .save(prov);
         })
         .item()
         .model((ctx, provider) -> {
@@ -537,6 +606,17 @@ public class NEBlocks {
                             .build(),
                     ECOStorageVentBlock.FORMED
                 );
+        })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("BCB")
+                .pattern("ABA")
+                .define('A', NEBlocks.STORAGE_CASING)
+                .define('B', Blocks.BLUE_ICE)
+                .define('C', AEBlocks.QUARTZ_BLOCK)
+                .unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING))
+                .save(prov);
         })
         .simpleItem()
         .lang("Storage System Heat Sink")
@@ -641,6 +721,18 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
         .blockstate(BlockStateUtil::simpleExistingBlockState)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("ABA")
+                .define('A', NEBlocks.COMPUTATION_CASING)
+                .define('B', AEItems.CALCULATION_PROCESSOR)
+                .define('C', AEItems.SINGULARITY)
+                .define('D', AEBlocks.INTERFACE)
+                .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
+                .save(prov);
+        })
         .register();
 
     public static final BlockEntry<ECOComputationTransmitter> COMPUTATION_TRANSMITTER = REGISTRATE
@@ -663,6 +755,20 @@ public class NEBlocks {
                         .build();
                 });
         })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("AEA")
+                .define('A', NEBlocks.COMPUTATION_CASING)
+                .define('B', NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT)
+                .define('C', ConventionTags.COVERED_DENSE_CABLE)
+                .define('D', AEBlocks.INTERFACE)
+                .define('E', AEItems.CALCULATION_PROCESSOR)
+                .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
+                .unlockedBy("has_energized_superconductive_ingot", RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT))
+                .save(prov);
+        })
         .lang("ECO - CI Superconductive Transmitting Bus")
         .register();
 
@@ -682,6 +788,19 @@ public class NEBlocks {
                         .modelFile(formed ? modelFileFull : modelFileEmpty)
                         .build();
                 });
+        })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("AEA")
+                .define('A', NEBlocks.COMPUTATION_CASING)
+                .define('B', AEBlocks.CRAFTING_MONITOR)
+                .define('C', AEBlocks.CRAFTING_UNIT)
+                .define('D', AEBlocks.PATTERN_PROVIDER)
+                .define('E', AEItems.CALCULATION_PROCESSOR)
+                .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
+                .save(prov);
         })
         .item()
         .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/computation_drive_empty")))
@@ -726,6 +845,18 @@ public class NEBlocks {
         .block("crafting_interface", ECOMachineInterface<NECraftingCluster>::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("ABA")
+                .define('A', NEBlocks.CRAFTING_CASING)
+                .define('B', AEItems.ENGINEERING_PROCESSOR)
+                .define('C', AEItems.SINGULARITY)
+                .define('D', AEBlocks.INTERFACE)
+                .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
+                .save(prov);
+        })
         .blockstate(BlockStateUtil::simpleExistingBlockState)
         .simpleItem()
         .register();
@@ -750,6 +881,20 @@ public class NEBlocks {
         .block("crafting_worker", ECOCraftingWorker::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("CDC")
+                .pattern("AEA")
+                .define('A', AEBlocks.CRAFTING_STORAGE_256K)
+                .define('B', AEBlocks.INTERFACE)
+                .define('C', AEBlocks.CONTROLLER)
+                .define('D', NEBlocks.CRAFTING_CASING)
+                .define('E', NEBlocks.CRAFTING_VENT)
+                .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
+                .unlockedBy("has_crafting_vent", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_VENT))
+                .save(prov);
+        })
         .item()
         .properties(p -> p.rarity(Rarity.RARE))
         .build()
@@ -781,6 +926,18 @@ public class NEBlocks {
         .block("crafting_pattern_bus", ECOCraftingPatternBus::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("BCB")
+                .pattern("ADA")
+                .define('A', NEBlocks.CRAFTING_CASING)
+                .define('B', AEBlocks.PATTERN_PROVIDER)
+                .define('C', AEBlocks.INTERFACE)
+                .define('D', AEItems.ENGINEERING_PROCESSOR)
+                .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
+                .save(prov);
+        })
         .blockstate((ctx, prov) -> {
             ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_pattern_bus"));
             ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/crafting_pattern_bus_formed"));
@@ -804,6 +961,17 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate(BlockStateUtil::simpleExistingBlockState)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("ACA")
+                .pattern("ABA")
+                .define('A', NEBlocks.CRAFTING_CASING)
+                .define('B', AEParts.IMPORT_BUS)
+                .define('C', AEBlocks.INTERFACE)
+                .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
+                .save(prov);
+        })
         .simpleItem()
         .lang("ECO Fluid Input Hatch")
         .register();
@@ -813,6 +981,17 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate(BlockStateUtil::simpleExistingBlockState)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("ACA")
+                .pattern("ABA")
+                .define('A', NEBlocks.CRAFTING_CASING)
+                .define('B', AEParts.EXPORT_BUS)
+                .define('C', AEBlocks.INTERFACE)
+                .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
+                .save(prov);
+        })
         .simpleItem()
         .lang("ECO Fluid Output Hatch")
         .register();
@@ -835,6 +1014,17 @@ public class NEBlocks {
                             .build();
                     }
                 );
+        })
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("BCB")
+                .pattern("ABA")
+                .define('A', NEBlocks.CRAFTING_CASING)
+                .define('B', Blocks.BLUE_ICE)
+                .define('C', AEBlocks.QUARTZ_BLOCK)
+                .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
+                .save(prov);
         })
         .register();
 

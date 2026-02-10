@@ -1,0 +1,22 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 1000,
+  "inputItems": [
+    {
+      "count": 256,
+      "item": "ae2:256k_crafting_storage"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:superconducting_processor"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "id": "neoecoae:eco_computation_cell_l4"
+  }
+}
