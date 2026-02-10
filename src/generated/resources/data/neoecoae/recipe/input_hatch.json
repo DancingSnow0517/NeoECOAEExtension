@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:crafting_casing"
+    },
+    "B": {
+      "item": "ae2:import_bus"
+    },
+    "C": {
+      "item": "ae2:interface"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "ACA",
+    "ABA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:input_hatch"
+  }
+}
