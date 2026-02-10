@@ -1,11 +1,11 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_aluminum_alloy_casing": {
+    "has_black_tungsten_alloy_casing": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:aluminum_alloy_casing"
+            "items": "neoecoae:black_tungsten_alloy_casing"
           }
         ]
       },
@@ -21,7 +21,7 @@
   "requirements": [
     [
       "has_the_recipe",
-      "has_aluminum_alloy_casing"
+      "has_black_tungsten_alloy_casing"
     ]
   ],
   "rewards": {
