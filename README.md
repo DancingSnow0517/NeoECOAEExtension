@@ -1,25 +1,28 @@
+<p align="center"><img src="" alt="Logo"></p>
+<h1 align="center">Neo ECO AE Extension</h1>
+<p align="center">ECO AE Extension for modern Minecraft versions NeoForge (1.21.1+).</p>
+<h1 align="center">
 
-Installation information
-=======
+English | 简体中文 | 繁體中文 | 文言文
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+</h1>
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+## Overview
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+Neo Eco AE Extension is an upgraded version of [Eco AE Extension](https://github.com/sddsd2332/NovaEngineering-ECOAEExtension), incorporating the MMCE multi-block structures from [Nova Engineering - World](https://www.mcmod.cn/modpack/784.html). With the original author's consent, it is distributed under the GNU GENERAL PUBLIC LICENSE Version 3 (GPLv3).
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+## What does Neo Eco AE Extension offer?
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+Neo Eco AE Extension introduces three large-scale components to Applied Energistics 2, separating crafting, storage, and computation into three independent multiblock structures. Each structure has three tiers, with each tier providing a significant performance boost over the previous one.
+
+In addition, the mod offers a range of high-performance components, greatly enhancing the ease and comfort of automation, making your automation journey as effortless as breathing.
+
+## Important Reminder
+
+Neo Eco AE Extension and Eco AE Extension are related only through an authorized porting relationship. There is no direct affiliation or dependency between the two projects. Each is independently maintained and developed by separate development teams.
+
+Please do not submit issues, bug reports, or technical support requests related to Neo Eco AE Extension to the Eco AE Extension project. Such reports cannot be properly addressed and may cause unnecessary disruption to the maintenance and development work of the Eco AE Extension team.
+
+Project maintenance and development information:   
+Eco AE Extension is led and developed by **Hikari_Nova**;    
+Neo Eco AE Extension is led and developed by **DancingSnow0517**.    
