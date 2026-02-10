@@ -4,6 +4,11 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        provider.add("neoecoae.configuration.structure", "Structure");
+        provider.add("neoecoae.configuration.craftingSystemMaxLength", "Max Length of Crafting System");
+        provider.add("neoecoae.configuration.computationSystemMaxLength", "Max Length of Computation System");
+        provider.add("neoecoae.configuration.storageSystemMaxLength", "Max Length of Storage System");
+
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
