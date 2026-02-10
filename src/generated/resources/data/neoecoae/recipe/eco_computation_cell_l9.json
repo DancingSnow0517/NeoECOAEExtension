@@ -1,10 +1,10 @@
 {
   "type": "neoecoae:integrated_working_station",
-  "energy": 1000,
+  "energy": 1024000,
   "inputItems": [
     {
       "count": 4,
-      "item": "neoecoae:eco_computation_cell_l6"
+      "item": "neoecoae:eco_cell_component_256m"
     },
     {
       "count": 64,
@@ -13,6 +13,10 @@
     {
       "count": 64,
       "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 1,
+      "item": "neoecoae:crystal_matrix"
     }
   ],
   "itemOutput": {

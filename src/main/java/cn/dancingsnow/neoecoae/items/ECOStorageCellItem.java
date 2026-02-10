@@ -8,19 +8,29 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.core.AEConfig;
+import appeng.core.localization.PlayerMessages;
 import appeng.core.localization.Tooltips;
 import appeng.items.contents.CellConfig;
 import appeng.items.storage.StorageCellTooltipComponent;
+import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
+import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import cn.dancingsnow.neoecoae.items.cell.IBasicECOCellItem;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -169,5 +179,52 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public IUpgradeInventory getUpgrades(ItemStack stack) {
         return UpgradeInventories.forItem(stack, 4);
+    }
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        this.disassembleDrive(player.getItemInHand(hand), level, player);
+        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), player.getItemInHand(hand));
+    }
+
+    @Override
+    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
+        return this.disassembleDrive(stack, context.getLevel(), context.getPlayer())
+            ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
+            : InteractionResult.PASS;
+    }
+
+    private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
+        if (!InteractionUtil.isInAlternateUseMode(player)) {
+            return false;
+        }
+
+        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
+        if (disassembledStacks.isEmpty()) {
+            return false;
+        }
+
+        Inventory playerInventory = player.getInventory();
+        if (playerInventory.getSelected() != stack) {
+            return false;
+        }
+
+        ECOStorageCell cellInventory = getCellInventory(stack);
+        if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
+            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            return false;
+        }
+
+        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
+
+        // Drop items from the recipe.
+        for (var disassembledStack : disassembledStacks) {
+            playerInventory.placeItemBackInInventory(disassembledStack.copy());
+        }
+
+        // Drop upgrades
+        getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
+
+        return true;
     }
 }

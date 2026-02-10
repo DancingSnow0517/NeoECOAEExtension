@@ -1,0 +1,54 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_aluminum_allot": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:ingots/aluminum_alloy"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_crystal_matrix": {
+      "conditions": {
+        "items": [
+          {
+            "items": "neoecoae:crystal_matrix"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_redstone": {
+      "conditions": {
+        "items": [
+          {
+            "items": "#c:dusts/redstone"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "neoecoae:eco_fluid_cell_housing"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_crystal_matrix",
+      "has_redstone",
+      "has_aluminum_allot"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "neoecoae:eco_fluid_cell_housing"
+    ]
+  }
+}

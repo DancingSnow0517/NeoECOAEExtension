@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.data.recipe;
 
-import appeng.core.definitions.AEBlocks;
-import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
@@ -11,8 +9,6 @@ import mekanism.common.registries.MekanismFluids;
 import mekanism.common.tags.MekanismTags;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.conditions.ICondition;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
 import net.neoforged.neoforge.common.conditions.NotCondition;
@@ -41,35 +37,32 @@ public class NERecipeGenerator {
             .coolant(5000)
             .save(hasMekanism, NeoECOAE.id("cooling/sodium"));
 
-        IntegratedWorkingStationRecipe.builder()
-            .require(AEItems.ITEM_CELL_1K, 4)
-            .itemOutput(AEItems.ITEM_CELL_4K.stack())
-            .save(provider);
-        IntegratedWorkingStationRecipe.builder()
-            .requireFluid(Tags.Fluids.WATER, 1000)
-            .fluidOutput(new FluidStack(Fluids.LAVA, 1000))
-            .save(provider, NeoECOAE.id("integrated_working_station/test"));
-
         //ECO - CE4
         IntegratedWorkingStationRecipe.builder()
-            .require(AEBlocks.CRAFTING_STORAGE_256K, 256)
+            .require(NEItems.ECO_CELL_COMPONENT_16M, 4)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
-            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L4.asStack())
+            .require(NEItems.CRYSTAL_MATRIX)
+            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L4)
+            .energy(64000)
             .save(provider);
         //ECO - CE6
         IntegratedWorkingStationRecipe.builder()
-            .require(NEItems.ECO_COMPUTATION_CELL_L4, 4)
+            .require(NEItems.ECO_CELL_COMPONENT_64M, 4)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 16)
-            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L6.asStack())
+            .require(NEItems.CRYSTAL_MATRIX)
+            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L6)
+            .energy(256000)
             .save(provider);
         //ECO - CE9
         IntegratedWorkingStationRecipe.builder()
-            .require(NEItems.ECO_COMPUTATION_CELL_L6, 4)
+            .require(NEItems.ECO_CELL_COMPONENT_256M, 4)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
-            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L9.asStack())
+            .require(NEItems.CRYSTAL_MATRIX)
+            .itemOutput(NEItems.ECO_COMPUTATION_CELL_L9)
+            .energy(1024000)
             .save(provider);
     }
 }

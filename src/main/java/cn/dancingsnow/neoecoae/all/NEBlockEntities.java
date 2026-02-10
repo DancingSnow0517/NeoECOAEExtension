@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.AECapabilities;
+import appeng.blockentity.AEBaseBlockEntity;
 import appeng.blockentity.AEBaseInvBlockEntity;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -404,6 +405,7 @@ public class NEBlockEntities {
                 null,
                 null
             );
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.INTEGRATED_WORKING_STATION.asItem());
         })
         .register();
 

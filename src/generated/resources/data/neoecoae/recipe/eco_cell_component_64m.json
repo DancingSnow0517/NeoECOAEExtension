@@ -1,26 +1,26 @@
 {
   "type": "neoecoae:integrated_working_station",
-  "energy": 64000,
+  "energy": 48000,
   "inputItems": [
     {
-      "count": 4,
+      "count": 3,
       "item": "neoecoae:eco_cell_component_16m"
     },
     {
-      "count": 64,
+      "count": 48,
       "item": "neoecoae:energized_superconductive_ingot"
     },
     {
-      "count": 4,
+      "count": 16,
       "item": "neoecoae:superconducting_processor"
     },
     {
       "count": 1,
-      "item": "neoecoae:crystal_matrix"
+      "item": "neoecoae:crystal_ingot"
     }
   ],
   "itemOutput": {
     "count": 1,
-    "id": "neoecoae:eco_computation_cell_l4"
+    "id": "neoecoae:eco_cell_component_64m"
   }
 }

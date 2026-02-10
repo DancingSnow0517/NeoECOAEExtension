@@ -3,7 +3,7 @@
   "criteria": {
     "has_the_recipe": {
       "conditions": {
-        "recipe": "neoecoae:integrated_working_station/test"
+        "recipe": "neoecoae:eco_cell_component_64m"
       },
       "trigger": "minecraft:recipe_unlocked"
     }
@@ -15,7 +15,7 @@
   ],
   "rewards": {
     "recipes": [
-      "neoecoae:integrated_working_station/test"
+      "neoecoae:eco_cell_component_64m"
     ]
   }
 }

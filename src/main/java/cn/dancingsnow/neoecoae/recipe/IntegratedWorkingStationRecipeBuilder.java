@@ -32,9 +32,7 @@ import java.util.Map;
 public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     List<SizedIngredient> inputItems = new ArrayList<>();
     SizedFluidIngredient inputFluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
-    @Setter
     ItemStack itemOutput = ItemStack.EMPTY;
-    @Setter
     FluidStack fluidOutput = FluidStack.EMPTY;
     @Setter
     int energy = 1000;
@@ -90,6 +88,32 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     public IntegratedWorkingStationRecipeBuilder requireFluid(FluidStack stack) {
         return requireFluid(SizedFluidIngredient.of(stack));
+    }
+
+    public IntegratedWorkingStationRecipeBuilder itemOutput(ItemStack itemStack) {
+        this.itemOutput = itemStack;
+        return this;
+    }
+
+    public IntegratedWorkingStationRecipeBuilder itemOutput(ItemLike item, int count) {
+        return itemOutput(new ItemStack(item, count));
+    }
+
+    public IntegratedWorkingStationRecipeBuilder itemOutput(ItemLike item) {
+        return itemOutput(item, 1);
+    }
+
+    public IntegratedWorkingStationRecipeBuilder fluidOutput(FluidStack fluidStack) {
+        this.fluidOutput = fluidStack;
+        return this;
+    }
+
+    public IntegratedWorkingStationRecipeBuilder fluidOutput(Fluid fluid, int amount) {
+        return fluidOutput(new FluidStack(fluid, amount));
+    }
+
+    public IntegratedWorkingStationRecipeBuilder fluidOutput(Fluid fluid) {
+        return fluidOutput(fluid, 1000);
     }
 
     @Override

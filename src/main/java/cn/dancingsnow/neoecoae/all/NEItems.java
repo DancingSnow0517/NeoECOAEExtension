@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.core.definitions.AEItems;
 import appeng.datagen.providers.tags.ConventionTags;
 import appeng.items.materials.MaterialItem;
+import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.recipes.handlers.InscriberProcessType;
 import appeng.recipes.handlers.InscriberRecipeBuilder;
 import appeng.recipes.transform.TransformCircumstance;
@@ -14,6 +15,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -25,6 +27,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.neoforged.neoforge.common.Tags;
+
+import java.util.List;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -339,8 +343,80 @@ public class NEItems {
         })
         .register();
 
-    public static final ItemEntry<MaterialItem> ECO_CELL_HOUSING = REGISTRATE
-        .item("eco_cell_housing", MaterialItem::new)
+    public static final ItemEntry<MaterialItem> ECO_CELL_COMPONENT_16M = REGISTRATE
+        .item("eco_cell_component_16m", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            IntegratedWorkingStationRecipe.builder()
+                .require(AEItems.CELL_COMPONENT_256K, 48)
+                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 32)
+                .require(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
+                .require(NEItems.CRYSTAL_INGOT)
+                .energy(16000)
+                .itemOutput(ctx.get())
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> ECO_CELL_COMPONENT_64M = REGISTRATE
+        .item("eco_cell_component_64m", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_CELL_COMPONENT_16M, 3)
+                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 48)
+                .require(NEItems.SUPERCONDUCTING_PROCESSOR, 16)
+                .require(NEItems.CRYSTAL_INGOT)
+                .itemOutput(ctx.get())
+                .energy(48000)
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> ECO_CELL_COMPONENT_256M = REGISTRATE
+        .item("eco_cell_component_256m", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_CELL_COMPONENT_64M, 3)
+                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+                .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
+                .require(NEItems.CRYSTAL_INGOT)
+                .itemOutput(ctx.get())
+                .energy(144000)
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> ECO_ITEM_CELL_HOUSING = REGISTRATE
+        .item("eco_item_cell_housing", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("B B")
+                .pattern("CCC")
+                .define('A', NEItems.CRYSTAL_MATRIX)
+                .define('B', Tags.Items.DUSTS_REDSTONE)
+                .define('C', NETags.Items.ALUMINUM_INGOT)
+                .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(NEItems.CRYSTAL_MATRIX))
+                .unlockedBy("has_redstone", RegistrateRecipeProvider.has(Tags.Items.DUSTS_REDSTONE))
+                .unlockedBy("has_aluminum", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<MaterialItem> ECO_FLUID_CELL_HOUSING = REGISTRATE
+        .item("eco_fluid_cell_housing", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABA")
+                .pattern("B B")
+                .pattern("CCC")
+                .define('A', NEItems.CRYSTAL_MATRIX)
+                .define('B', Tags.Items.DUSTS_REDSTONE)
+                .define('C', NETags.Items.ALUMINUM_ALLOY_INGOT)
+                .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(NEItems.CRYSTAL_MATRIX))
+                .unlockedBy("has_redstone", RegistrateRecipeProvider.has(Tags.Items.DUSTS_REDSTONE))
+                .unlockedBy("has_aluminum_allot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .save(prov);
+        })
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_16M = REGISTRATE
@@ -349,6 +425,15 @@ public class NEItems {
             ECOTier.L4,
             AEKeyType.items()
         ))
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NEItems.ECO_ITEM_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_16M)
+                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
+                .save(prov);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
+            prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
         .lang("ECO - LE4 Storage Matrix (Item)")
         .register();
 
@@ -358,6 +443,15 @@ public class NEItems {
             ECOTier.L6,
             AEKeyType.items()
         ))
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NEItems.ECO_ITEM_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_64M)
+                .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
+                .save(prov);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
+            prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
         .lang("ECO - LE6 Storage Matrix (Item)")
         .register();
 
@@ -367,6 +461,15 @@ public class NEItems {
             ECOTier.L9,
             AEKeyType.items()
         ))
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NEItems.ECO_ITEM_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_256M)
+                .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
+                .save(prov);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
+            prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
         .lang("ECO - LE9 Storage Matrix (Item)")
         .register();
 
@@ -376,6 +479,15 @@ public class NEItems {
             ECOTier.L4,
             AEKeyType.fluids()
         ))
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NEItems.ECO_FLUID_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_16M)
+                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
+                .save(prov);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
+            prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
         .lang("ECO - LE4 Storage Matrix (Fluid)")
         .register();
 
@@ -385,6 +497,15 @@ public class NEItems {
             ECOTier.L6,
             AEKeyType.fluids()
         ))
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NEItems.ECO_FLUID_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_64M)
+                .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
+                .save(prov);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
+            prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
         .lang("ECO - LE6 Storage Matrix (Fluid)")
         .register();
 
@@ -394,6 +515,15 @@ public class NEItems {
             ECOTier.L9,
             AEKeyType.fluids()
         ))
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NEItems.ECO_FLUID_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_256M)
+                .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
+                .save(prov);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
+            prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
         .lang("ECO - LE9 Storage Matrix (Fluid)")
         .register();
 

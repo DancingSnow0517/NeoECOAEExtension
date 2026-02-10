@@ -1,0 +1,14 @@
+{
+  "type": "ae2:storage_cell_disassembly",
+  "cell": "neoecoae:eco_item_storage_cell_256m",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "id": "neoecoae:eco_item_cell_housing"
+    },
+    {
+      "count": 1,
+      "id": "neoecoae:eco_cell_component_256m"
+    }
+  ]
+}

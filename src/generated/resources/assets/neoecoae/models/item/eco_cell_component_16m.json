@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "neoecoae:item/eco_cell_housing"
+    "layer0": "neoecoae:item/eco_cell_component_16m"
   }
 }

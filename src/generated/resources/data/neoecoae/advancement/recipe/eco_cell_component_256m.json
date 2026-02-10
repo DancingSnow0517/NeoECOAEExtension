@@ -3,7 +3,7 @@
   "criteria": {
     "has_the_recipe": {
       "conditions": {
-        "recipe": "neoecoae:item_storage_cell_4k"
+        "recipe": "neoecoae:eco_cell_component_256m"
       },
       "trigger": "minecraft:recipe_unlocked"
     }
@@ -15,7 +15,7 @@
   ],
   "rewards": {
     "recipes": [
-      "neoecoae:item_storage_cell_4k"
+      "neoecoae:eco_cell_component_256m"
     ]
   }
 }
