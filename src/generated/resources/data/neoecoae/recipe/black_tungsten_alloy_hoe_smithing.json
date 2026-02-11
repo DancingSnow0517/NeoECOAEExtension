@@ -4,7 +4,7 @@
     "tag": "c:ingots/black_tungsten_alloy"
   },
   "base": {
-    "item": "neoecoae:aluminum_hoe"
+    "item": "neoecoae:tungsten_hoe"
   },
   "result": {
     "count": 1,

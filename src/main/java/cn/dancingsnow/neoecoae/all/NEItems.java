@@ -210,10 +210,10 @@ public class NEItems {
     public static final ItemEntry<SmithingTemplateItem> ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE = REGISTRATE
         .item("aluminum_alloy_upgrade_smithing_template", p -> new SmithingTemplateItem(
             REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.applies_to"), "Aluminum Equipment").withStyle(ChatFormatting.BLUE),
-            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.ingredients"), "Aluminum Ingot").withStyle(ChatFormatting.BLUE),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.ingredients"), "Aluminum Alloy Ingot").withStyle(ChatFormatting.BLUE),
             REGISTRATE.addLang("upgrade", NeoECOAE.id("aluminum_alloy_upgrade"), "Aluminum Alloy Upgrade").withStyle(ChatFormatting.GRAY),
             REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.base_slot_description"), "Add Aluminum weapon, or tool"),
-            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.additions_slot_description"), "Add Aluminum Ingot"),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.additions_slot_description"), "Add Aluminum Alloy Ingot"),
             List.of(
                 ResourceLocation.withDefaultNamespace("item/empty_slot_hoe"),
                 ResourceLocation.withDefaultNamespace("item/empty_slot_axe"),
@@ -322,10 +322,10 @@ public class NEItems {
     public static final ItemEntry<SmithingTemplateItem> BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE = REGISTRATE
         .item("black_tungsten_alloy_upgrade_smithing_template", p -> new SmithingTemplateItem(
             REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.applies_to"), "Tungsten Equipment").withStyle(ChatFormatting.BLUE),
-            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.ingredients"), "Tungsten Ingot").withStyle(ChatFormatting.BLUE),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.ingredients"), "Black Tungsten Alloy Ingot").withStyle(ChatFormatting.BLUE),
             REGISTRATE.addLang("upgrade", NeoECOAE.id("black_tungsten_alloy_upgrade"), "Black Tungsten Alloy Upgrade").withStyle(ChatFormatting.GRAY),
             REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.base_slot_description"), "Add Tungsten weapon, or tool"),
-            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.additions_slot_description"), "Add Tungsten Ingot"),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.additions_slot_description"), "Add Black Tungsten Alloy Ingot"),
             List.of(
                 ResourceLocation.withDefaultNamespace("item/empty_slot_hoe"),
                 ResourceLocation.withDefaultNamespace("item/empty_slot_axe"),
@@ -353,7 +353,7 @@ public class NEItems {
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
                     Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
-                    Ingredient.of(NEItems.ALUMINUM_AXE),
+                    Ingredient.of(NEItems.TUNGSTEN_AXE),
                     Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
                     RecipeCategory.TOOLS,
                     ctx.get()
@@ -370,7 +370,7 @@ public class NEItems {
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
                     Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
-                    Ingredient.of(NEItems.ALUMINUM_HOE),
+                    Ingredient.of(NEItems.TUNGSTEN_HOE),
                     Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
                     RecipeCategory.TOOLS,
                     ctx.get()
@@ -387,7 +387,7 @@ public class NEItems {
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
                     Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
-                    Ingredient.of(NEItems.ALUMINUM_SHOVEL),
+                    Ingredient.of(NEItems.TUNGSTEN_SHOVEL),
                     Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
                     RecipeCategory.TOOLS,
                     ctx.get()
@@ -404,7 +404,7 @@ public class NEItems {
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
                     Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
-                    Ingredient.of(NEItems.ALUMINUM_PICKAXE),
+                    Ingredient.of(NEItems.TUNGSTEN_PICKAXE),
                     Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
                     RecipeCategory.TOOLS,
                     ctx.get()
@@ -421,7 +421,7 @@ public class NEItems {
         .recipe((ctx, prov) -> {
             SmithingTransformRecipeBuilder.smithing(
                     Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
-                    Ingredient.of(NEItems.ALUMINUM_SWORD),
+                    Ingredient.of(NEItems.TUNGSTEN_SWORD),
                     Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
                     RecipeCategory.TOOLS,
                     ctx.get()
