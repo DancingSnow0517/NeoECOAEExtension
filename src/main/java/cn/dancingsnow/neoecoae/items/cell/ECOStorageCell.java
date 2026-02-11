@@ -34,6 +34,7 @@ public class ECOStorageCell implements StorageCell {
     @Nullable
     private final ISaveProvider container;
     private final IBasicECOCellItem cellType;
+    @Getter
     private final AEKeyType keyType;
     // filter
     @Getter

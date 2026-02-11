@@ -95,6 +95,8 @@
   "gui.neoecoae.crafting.total_parallelism.overflow": "Overflow: %d (%d%%)",
   "gui.neoecoae.crafting.worker_count": "Worker Cores: %d",
   "gui.neoecoae.integrated_working_station.energy": "Used Energy: %dk FE",
+  "gui.neoecoae.storage.energy": "Energy Monitoring",
+  "gui.neoecoae.storage.energy_status": "Energy Storage: %sAE / %sAE (%d%%)",
   "item.neoecoae.aluminum_alloy_axe": "Aluminum Alloy Axe",
   "item.neoecoae.aluminum_alloy_dust": "Aluminum Alloy Dust",
   "item.neoecoae.aluminum_alloy_hoe": "Aluminum Alloy Hoe",

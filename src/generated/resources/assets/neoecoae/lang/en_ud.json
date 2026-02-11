@@ -95,6 +95,8 @@
   "gui.neoecoae.crafting.total_parallelism.overflow": ")%d%%( %d :ʍoןɟɹǝʌO",
   "gui.neoecoae.crafting.worker_count": "%d :sǝɹoƆ ɹǝʞɹoM",
   "gui.neoecoae.integrated_working_station.energy": "ƎℲ ʞ%d :ʎbɹǝuƎ pǝs∩",
+  "gui.neoecoae.storage.energy": "buıɹoʇıuoW ʎbɹǝuƎ",
+  "gui.neoecoae.storage.energy_status": ")%d%%( ƎⱯ%s / ƎⱯ%s :ǝbɐɹoʇS ʎbɹǝuƎ",
   "item.neoecoae.aluminum_alloy_axe": "ǝxⱯ ʎoןןⱯ ɯnuıɯnןⱯ",
   "item.neoecoae.aluminum_alloy_dust": "ʇsnᗡ ʎoןןⱯ ɯnuıɯnןⱯ",
   "item.neoecoae.aluminum_alloy_hoe": "ǝoH ʎoןןⱯ ɯnuıɯnןⱯ",

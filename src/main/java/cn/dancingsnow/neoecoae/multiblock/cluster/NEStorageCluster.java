@@ -17,7 +17,9 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
 
     @Getter
     private ECOStorageSystemBlockEntity controller = null;
+    @Getter
     private final List<ECODriveBlockEntity> drives = new ArrayList<>();
+    @Getter
     private final List<ECOEnergyCellBlockEntity> energyCells = new ArrayList<>();
     private ECOMachineInterfaceBlockEntity<NEStorageCluster> theInterface = null;
     private final List<ECOMachineCasingBlockEntity<NEStorageCluster>> casings = new ArrayList<>();

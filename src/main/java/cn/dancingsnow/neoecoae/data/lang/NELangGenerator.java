@@ -4,6 +4,7 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class NELangGenerator {
     public static void accept(RegistrateLangProvider provider) {
+        GuiLangs.accept(provider);
         provider.add("neoecoae.configuration.structure", "Structure");
         provider.add("neoecoae.configuration.craftingSystemMaxLength", "Max Length of Crafting System");
         provider.add("neoecoae.configuration.computationSystemMaxLength", "Max Length of Computation System");
