@@ -37,6 +37,15 @@ public class NEItems {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
 
+    public static final ItemEntry<MaterialItem> IRON_DUST = REGISTRATE
+        .item("iron_dust", MaterialItem::new)
+        .tag(NETags.Items.IRON_DUST, Tags.Items.DUSTS)
+        .recipe((ctx, prov) -> {
+            InscriberRecipeBuilder.inscribe(Tags.Items.INGOTS_IRON, ctx.get(), 1)
+                .save(prov, NeoECOAE.id("inscribe/iron_dust"));
+        })
+        .register();
+
     public static final ItemEntry<MaterialItem> RAW_ALUMINUM_ORE = REGISTRATE
         .item("raw_aluminum_ore", MaterialItem::new)
         .recipe((ctx, prov) -> {
