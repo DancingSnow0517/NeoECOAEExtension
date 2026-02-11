@@ -5,7 +5,6 @@ import appeng.core.definitions.AEParts;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.integration.ponder.instructions.PlaceCableBusInstruction;
 import net.createmod.catnip.math.Pointing;
@@ -57,7 +56,7 @@ public class StorageSystemScene {
         builder.idle(45);
 
         builder.overlay().showOutlineWithText(util.select().position(controllerPos), 40)
-            .text("the controller")
+            .text("the controller...")
             .attachKeyFrame()
             .placeNearTarget()
             .pointAt(util.vector().topOf(controllerPos));
@@ -138,7 +137,7 @@ public class StorageSystemScene {
         builder.idle(45);
         builder.rotateCameraY(90 + 45);
         builder.overlay().showOutlineWithText(expand, 40)
-            .text("With more energy cells, drives, vents and casings")
+            .text("With more energy cells, drives and vents")
             .attachKeyFrame()
             .placeNearTarget()
             .pointAt(util.vector().topOf(5, 2, 4));

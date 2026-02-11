@@ -43,6 +43,7 @@ public class NEAppMekItems {
                 .unlockedBy("has_black_tungsten_alloy", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
                 .save(appmekInstalled);
         })
+        .lang("ECO Storage Matrix Housing (Chemical)")
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE

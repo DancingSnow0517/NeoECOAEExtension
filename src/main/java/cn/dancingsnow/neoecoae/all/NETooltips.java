@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.blocks.BuddingEnergizedCrystalBlock;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
@@ -146,6 +147,11 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.computation_parallel_core.0"),
                 Component.translatable("tooltip.neoecoae.computation_parallel_core.1"),
                 Component.translatable("tooltip.neoecoae.max_parallel_count", parallelCore.getTier().getCPUAccelerators())
+            );
+        }
+        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof BuddingEnergizedCrystalBlock) {
+            addTooltips(
+                Component.translatable("tooltip.neoecoae.budding_energized_crystal_block")
             );
         }
     }

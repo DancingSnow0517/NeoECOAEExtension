@@ -121,6 +121,8 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.computation_cell", "Provides %s bytes to the computation subsystem");
 
         provider.add("neoecoae.classic_pack", "Neo ECO AE Extension Classic Textures");
+
+        provider.add("tooltip.neoecoae.budding_energized_crystal_block", "Obtained by striking Budding Certus Quartz with lightning");
     }
 
     private static void addLangs(RegistrateLangProvider provider, String key, String... langs) {

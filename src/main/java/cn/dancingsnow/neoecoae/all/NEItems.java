@@ -377,6 +377,7 @@ public class NEItems {
                 .itemOutput(ctx.get())
                 .save(prov);
         })
+        .lang("16M ECO Storage Component")
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_CELL_COMPONENT_64M = REGISTRATE
@@ -391,6 +392,7 @@ public class NEItems {
                 .energy(48000)
                 .save(prov);
         })
+        .lang("64M ECO Storage Component")
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_CELL_COMPONENT_256M = REGISTRATE
@@ -405,6 +407,7 @@ public class NEItems {
                 .energy(144000)
                 .save(prov);
         })
+        .lang("256M ECO Storage Component")
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_ITEM_CELL_HOUSING = REGISTRATE
@@ -422,6 +425,7 @@ public class NEItems {
                 .unlockedBy("has_aluminum", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
                 .save(prov);
         })
+        .lang("ECO Storage Matrix Housing (Item)")
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_FLUID_CELL_HOUSING = REGISTRATE
@@ -439,6 +443,7 @@ public class NEItems {
                 .unlockedBy("has_aluminum_allot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
                 .save(prov);
         })
+        .lang("ECO Storage Matrix Housing (Fluid)")
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_16M = REGISTRATE
