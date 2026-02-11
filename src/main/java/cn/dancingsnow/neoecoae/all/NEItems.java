@@ -19,12 +19,22 @@ import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import net.minecraft.ChatFormatting;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.data.recipes.SmithingTransformRecipeBuilder;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.ShovelItem;
+import net.minecraft.world.item.SmithingTemplateItem;
+import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.neoforged.neoforge.common.Tags;
 
@@ -36,6 +46,390 @@ public class NEItems {
     static {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
+
+    public static final ItemEntry<AxeItem> ALUMINUM_AXE = REGISTRATE
+        .item("aluminum_axe", p -> new AxeItem(NEToolTier.ALUMINUM, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM, 6.0F, -3.2F)))
+        .tag(ItemTags.AXES)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("AA")
+                .pattern("AB")
+                .pattern(" B")
+                .define('A', NETags.Items.ALUMINUM_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<HoeItem> ALUMINUM_HOE = REGISTRATE
+        .item("aluminum_hoe", p -> new HoeItem(NEToolTier.ALUMINUM, p))
+        .properties(p -> p.attributes(HoeItem.createAttributes(NEToolTier.ALUMINUM, 0.0F, -3.0F)))
+        .tag(ItemTags.HOES)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("AA")
+                .pattern(" B")
+                .pattern(" B")
+                .define('A', NETags.Items.ALUMINUM_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<ShovelItem> ALUMINUM_SHOVEL = REGISTRATE
+        .item("aluminum_shovel", p -> new ShovelItem(NEToolTier.ALUMINUM, p))
+        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 1.5F, -3.0F)))
+        .tag(ItemTags.SHOVELS)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("A")
+                .pattern("B")
+                .pattern("B")
+                .define('A', NETags.Items.ALUMINUM_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<PickaxeItem> ALUMINUM_PICKAXE = REGISTRATE
+        .item("aluminum_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM, p))
+        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 1.0F, -2.8F)))
+        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("AAA")
+                .pattern(" B ")
+                .pattern(" B ")
+                .define('A', NETags.Items.ALUMINUM_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<SwordItem> ALUMINUM_SWORD = REGISTRATE
+        .item("aluminum_sword", p -> new SwordItem(NEToolTier.ALUMINUM, p))
+        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.ALUMINUM, 3F, -2.4F)))
+        .tag(ItemTags.SWORDS)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("A")
+                .pattern("A")
+                .pattern("B")
+                .define('A', NETags.Items.ALUMINUM_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_aluminum_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<AxeItem> TUNGSTEN_AXE = REGISTRATE
+        .item("tungsten_axe", p -> new AxeItem(NEToolTier.TUNGSTEN, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.TUNGSTEN, 6.0F, -3.2F)))
+        .tag(ItemTags.AXES)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("AA")
+                .pattern("AB")
+                .pattern(" B")
+                .define('A', NETags.Items.TUNGSTEN_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<HoeItem> TUNGSTEN_HOE = REGISTRATE
+        .item("tungsten_hoe", p -> new HoeItem(NEToolTier.TUNGSTEN, p))
+        .properties(p -> p.attributes(HoeItem.createAttributes(NEToolTier.TUNGSTEN, 0.0F, -3.0F)))
+        .tag(ItemTags.HOES)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("AA")
+                .pattern(" B")
+                .pattern(" B")
+                .define('A', NETags.Items.TUNGSTEN_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<ShovelItem> TUNGSTEN_SHOVEL = REGISTRATE
+        .item("tungsten_shovel", p -> new ShovelItem(NEToolTier.TUNGSTEN, p))
+        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 1.5F, -3.0F)))
+        .tag(ItemTags.SHOVELS)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("A")
+                .pattern("B")
+                .pattern("B")
+                .define('A', NETags.Items.TUNGSTEN_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<PickaxeItem> TUNGSTEN_PICKAXE = REGISTRATE
+        .item("tungsten_pickaxe", p -> new PickaxeItem(NEToolTier.TUNGSTEN, p))
+        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 1.0F, -2.8F)))
+        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("AAA")
+                .pattern(" B ")
+                .pattern(" B ")
+                .define('A', NETags.Items.TUNGSTEN_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<SwordItem> TUNGSTEN_SWORD = REGISTRATE
+        .item("tungsten_sword", p -> new SwordItem(NEToolTier.TUNGSTEN, p))
+        .properties(p -> p.attributes(ShovelItem.createAttributes(NEToolTier.TUNGSTEN, 3F, -2.4F)))
+        .tag(ItemTags.SWORDS)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                .pattern("A")
+                .pattern("A")
+                .pattern("B")
+                .define('A', NETags.Items.TUNGSTEN_INGOT)
+                .define('B', Items.STICK)
+                .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<SmithingTemplateItem> ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE = REGISTRATE
+        .item("aluminum_alloy_upgrade_smithing_template", p -> new SmithingTemplateItem(
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.applies_to"), "Aluminum Equipment").withStyle(ChatFormatting.BLUE),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.ingredients"), "Aluminum Ingot").withStyle(ChatFormatting.BLUE),
+            REGISTRATE.addLang("upgrade", NeoECOAE.id("aluminum_alloy_upgrade"), "Aluminum Alloy Upgrade").withStyle(ChatFormatting.GRAY),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.base_slot_description"), "Add Aluminum weapon, or tool"),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.additions_slot_description"), "Add Aluminum Ingot"),
+            List.of(
+                ResourceLocation.withDefaultNamespace("item/empty_slot_hoe"),
+                ResourceLocation.withDefaultNamespace("item/empty_slot_axe"),
+                ResourceLocation.withDefaultNamespace("item/empty_slot_sword"),
+                ResourceLocation.withDefaultNamespace("item/empty_slot_shovel"),
+                ResourceLocation.withDefaultNamespace("item/empty_slot_pickaxe")
+            ),
+            List.of(
+                ResourceLocation.withDefaultNamespace("item/empty_slot_ingot")
+            )
+        ))
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NETags.Items.ALUMINUM_ALLOY_INGOT)
+                .requires(NEItems.ENERGIZED_FLUIX_CRYSTAL)
+                .unlockedBy("has_aliminim_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<AxeItem> ALUMINUM_ALLOY_AXE = REGISTRATE
+        .item("aluminum_alloy_axe", p -> new AxeItem(NEToolTier.ALUMINUM_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 6.0F, -3.2F)))
+        .tag(ItemTags.AXES)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_AXE),
+                    Ingredient.of(NETags.Items.ALUMINUM_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.ALUMINUM_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<HoeItem> ALUMINUM_ALLOY_HOE = REGISTRATE
+        .item("aluminum_alloy_hoe", p -> new HoeItem(NEToolTier.ALUMINUM_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 0F, -3F)))
+        .tag(ItemTags.HOES)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_HOE),
+                    Ingredient.of(NETags.Items.ALUMINUM_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.ALUMINUM_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<ShovelItem> ALUMINUM_ALLOY_SHOVEL = REGISTRATE
+        .item("aluminum_alloy_shovel", p -> new ShovelItem(NEToolTier.ALUMINUM_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 1.5F, -3F)))
+        .tag(ItemTags.SHOVELS)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_SHOVEL),
+                    Ingredient.of(NETags.Items.ALUMINUM_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.ALUMINUM_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<PickaxeItem> ALUMINUM_ALLOY_PICKAXE = REGISTRATE
+        .item("aluminum_alloy_pickaxe", p -> new PickaxeItem(NEToolTier.ALUMINUM_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 1F, -2.8F)))
+        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_PICKAXE),
+                    Ingredient.of(NETags.Items.ALUMINUM_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.ALUMINUM_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<SwordItem> ALUMINUM_ALLOY_SWORD = REGISTRATE
+        .item("aluminum_alloy_sword", p -> new SwordItem(NEToolTier.ALUMINUM_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.ALUMINUM_ALLOY, 3F, -2.4F)))
+        .tag(ItemTags.SWORDS)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_SWORD),
+                    Ingredient.of(NETags.Items.ALUMINUM_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.ALUMINUM_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<SmithingTemplateItem> BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE = REGISTRATE
+        .item("black_tungsten_alloy_upgrade_smithing_template", p -> new SmithingTemplateItem(
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.applies_to"), "Tungsten Equipment").withStyle(ChatFormatting.BLUE),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.ingredients"), "Tungsten Ingot").withStyle(ChatFormatting.BLUE),
+            REGISTRATE.addLang("upgrade", NeoECOAE.id("black_tungsten_alloy_upgrade"), "Black Tungsten Alloy Upgrade").withStyle(ChatFormatting.GRAY),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.base_slot_description"), "Add Tungsten weapon, or tool"),
+            REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.additions_slot_description"), "Add Tungsten Ingot"),
+            List.of(
+                ResourceLocation.withDefaultNamespace("item/empty_slot_hoe"),
+                ResourceLocation.withDefaultNamespace("item/empty_slot_axe"),
+                ResourceLocation.withDefaultNamespace("item/empty_slot_sword"),
+                ResourceLocation.withDefaultNamespace("item/empty_slot_shovel"),
+                ResourceLocation.withDefaultNamespace("item/empty_slot_pickaxe")
+            ),
+            List.of(
+                ResourceLocation.withDefaultNamespace("item/empty_slot_ingot")
+            )
+        ))
+        .recipe((ctx, prov) -> {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
+                .requires(NEItems.ENERGIZED_FLUIX_CRYSTAL)
+                .unlockedBy("has_black_tungsten_alloy_ingot", RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
+                .save(prov);
+        })
+        .register();
+
+    public static final ItemEntry<AxeItem> BLACK_TUNGSTEN_ALLOY_AXE = REGISTRATE
+        .item("black_tungsten_alloy_axe", p -> new AxeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 6.0F, -3.2F)))
+        .tag(ItemTags.AXES)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_AXE),
+                    Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.BLACK_TUNGSTEN_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<HoeItem> BLACK_TUNGSTEN_ALLOY_HOE = REGISTRATE
+        .item("black_tungsten_alloy_hoe", p -> new HoeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 0F, -3F)))
+        .tag(ItemTags.HOES)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_HOE),
+                    Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.BLACK_TUNGSTEN_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<ShovelItem> BLACK_TUNGSTEN_ALLOY_SHOVEL = REGISTRATE
+        .item("black_tungsten_alloy_shovel", p -> new ShovelItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 1.5F, -3F)))
+        .tag(ItemTags.SHOVELS)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_SHOVEL),
+                    Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.BLACK_TUNGSTEN_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<PickaxeItem> BLACK_TUNGSTEN_ALLOY_PICKAXE = REGISTRATE
+        .item("black_tungsten_alloy_pickaxe", p -> new PickaxeItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 1F, -2.8F)))
+        .tag(ItemTags.PICKAXES, Tags.Items.MINING_TOOL_TOOLS)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_PICKAXE),
+                    Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.BLACK_TUNGSTEN_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
+
+    public static final ItemEntry<SwordItem> BLACK_TUNGSTEN_ALLOY_SWORD = REGISTRATE
+        .item("black_tungsten_alloy_sword", p -> new SwordItem(NEToolTier.BLACK_TUNGSTEN_ALLOY, p))
+        .properties(p -> p.attributes(AxeItem.createAttributes(NEToolTier.BLACK_TUNGSTEN_ALLOY, 3F, -2.4F)))
+        .tag(ItemTags.SWORDS)
+        .recipe((ctx, prov) -> {
+            SmithingTransformRecipeBuilder.smithing(
+                    Ingredient.of(NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE),
+                    Ingredient.of(NEItems.ALUMINUM_SWORD),
+                    Ingredient.of(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT),
+                    RecipeCategory.TOOLS,
+                    ctx.get()
+                )
+                .unlocks("has_item", RegistrateRecipeProvider.has(NEItems.BLACK_TUNGSTEN_ALLOY_INGOT))
+                .save(prov, ctx.getId().withSuffix("_smithing"));
+        })
+        .register();
 
     public static final ItemEntry<MaterialItem> IRON_DUST = REGISTRATE
         .item("iron_dust", MaterialItem::new)
@@ -50,7 +444,7 @@ public class NEItems {
         .item("raw_aluminum_ore", MaterialItem::new)
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
-                .requires(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK)
+                .requires(NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK)
                 .unlockedBy("has_raw_aluminum_block", RegistrateRecipeProvider.has(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK))
                 .save(prov);
         })

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "neoecoae:item/black_tungsten_alloy_upgrade_smithing_template"
+  }
+}

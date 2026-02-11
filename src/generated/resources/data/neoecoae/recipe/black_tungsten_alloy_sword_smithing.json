@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:smithing_transform",
+  "addition": {
+    "tag": "c:ingots/black_tungsten_alloy"
+  },
+  "base": {
+    "item": "neoecoae:aluminum_sword"
+  },
+  "result": {
+    "count": 1,
+    "id": "neoecoae:black_tungsten_alloy_sword"
+  },
+  "template": {
+    "item": "neoecoae:black_tungsten_alloy_upgrade_smithing_template"
+  }
+}
