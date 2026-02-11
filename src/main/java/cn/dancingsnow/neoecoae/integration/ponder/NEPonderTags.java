@@ -37,6 +37,7 @@ public class NEPonderTags {
             .add(NEBlocks.STORAGE_SYSTEM_L9)
             .add(NEBlocks.STORAGE_CASING)
             .add(NEBlocks.STORAGE_VENT)
+            .add(NEBlocks.STORAGE_INTERFACE)
             .add(NEBlocks.ENERGY_CELL_L4)
             .add(NEBlocks.ENERGY_CELL_L6)
             .add(NEBlocks.ENERGY_CELL_L9)
@@ -68,8 +69,34 @@ public class NEPonderTags {
             .add(NEBlocks.COMPUTATION_DRIVE)
             .add(NEBlocks.COMPUTATION_TRANSMITTER)
             .add(NEBlocks.COMPUTATION_INTERFACE)
+            .add(NEBlocks.COMPUTATION_CASING)
             .add(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4)
             .add(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6)
-            .add(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9);
+            .add(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9)
+            .add(NEItems.ECO_COMPUTATION_CELL_L4)
+            .add(NEItems.ECO_COMPUTATION_CELL_L6)
+            .add(NEItems.ECO_COMPUTATION_CELL_L9);
+
+        helper.registerTag(CRAFTING_SYSTEM_COMPONENTS)
+            .addToIndex()
+            .item(NEBlocks.CRAFTING_SYSTEM_L4, true, false)
+            .title("ECO Crafting System")
+            .description("")
+            .register();
+
+        helperEntry.addToTag(CRAFTING_SYSTEM_COMPONENTS)
+            .add(NEBlocks.CRAFTING_SYSTEM_L4)
+            .add(NEBlocks.CRAFTING_SYSTEM_L6)
+            .add(NEBlocks.CRAFTING_SYSTEM_L9)
+            .add(NEBlocks.CRAFTING_INTERFACE)
+            .add(NEBlocks.CRAFTING_PARALLEL_CORE_L4)
+            .add(NEBlocks.CRAFTING_PARALLEL_CORE_L6)
+            .add(NEBlocks.CRAFTING_PARALLEL_CORE_L9)
+            .add(NEBlocks.CRAFTING_WORKER)
+            .add(NEBlocks.CRAFTING_PATTERN_BUS)
+            .add(NEBlocks.INPUT_HATCH)
+            .add(NEBlocks.OUTPUT_HATCH)
+            .add(NEBlocks.CRAFTING_VENT)
+            .add(NEBlocks.CRAFTING_CASING);
     }
 }

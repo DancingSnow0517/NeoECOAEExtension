@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration.ponder;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.integration.ponder.scenes.ComputationSystemScene;
+import cn.dancingsnow.neoecoae.integration.ponder.scenes.CraftingSystemScene;
 import cn.dancingsnow.neoecoae.integration.ponder.scenes.StorageSystemScene;
 import com.tterrag.registrate.util.entry.ItemProviderEntry;
 import com.tterrag.registrate.util.entry.RegistryEntry;
@@ -37,7 +38,8 @@ public class NEPonderPlugin implements PonderPlugin {
         helper.forComponents(NEBlocks.COMPUTATION_SYSTEM_L4, NEBlocks.COMPUTATION_SYSTEM_L6, NEBlocks.COMPUTATION_SYSTEM_L9)
             .addStoryBoard("computation_system/creating", ComputationSystemScene::creating);
 
-
+        helper.forComponents(NEBlocks.CRAFTING_SYSTEM_L4, NEBlocks.CRAFTING_SYSTEM_L6, NEBlocks.CRAFTING_SYSTEM_L9)
+            .addStoryBoard("crafting_system/creating", CraftingSystemScene::creating);
     }
 
     @Override
