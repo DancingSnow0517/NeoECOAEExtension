@@ -1,10 +1,12 @@
 package cn.dancingsnow.neoecoae.integration.ponder.scenes;
 
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 public class CraftingSystemScene {
 
@@ -28,75 +30,132 @@ public class CraftingSystemScene {
         BlockPos upperBusPos = util.grid().at(4, 3, 4);
         BlockPos ventPos = util.grid().at(4, 2, 4);
 
+        Selection endCasings = util.select().fromTo(3,1, 5, 4, 3, 5);
+        Selection endReplacedParallels = util.select().position(3, 1, 5).add(util.select().position(3, 3, 5));
+        Selection endReplacedWorker = util.select().position(3, 2, 5);
+        Selection endReplacedBuses = util.select().position(4, 1, 5).add(util.select().position(4, 3, 5));
+        Selection endReplacedVent = util.select().position(4, 2, 5);
+        Selection endReplacedCasings = util.select().fromTo(3, 1, 6, 4, 3, 6);
+        Selection expand = endReplacedCasings.add(endCasings);
+
         builder.world().showSection(
-                structureSelection,
-                Direction.EAST
+            structureSelection,
+            Direction.EAST
         );
 
         builder.overlay().showOutlineWithText(structureSelection, 40)
-                .text("The ECO Crafting System consists of the following parts.")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(controllerPos));
+            .text("The ECO Crafting System consists of the following parts.")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(controllerPos));
         builder.idle(45);
 
         builder.overlay().showOutlineWithText(util.select().position(controllerPos), 40)
-                .text("the controller...")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(controllerPos));
+            .text("the controller...")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(controllerPos));
         builder.idle(45);
 
         builder.overlay().showOutlineWithText(upperParallel.add(lowerParallel), 40)
-                .text("the parallel cores...")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(upperParallelPos));
+            .text("the parallel cores...")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(upperParallelPos));
         builder.idle(45);
 
         builder.overlay().showOutlineWithText(util.select().position(workerPos), 40)
-                .text("the worker...")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(workerPos));
+            .text("the worker...")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(workerPos));
         builder.idle(45);
 
         builder.rotateCameraY(90 + 45);
         builder.idle(15);
 
         builder.overlay().showOutlineWithText(util.select().position(interfacePos), 40)
-                .text("the interface...")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(interfacePos));
+            .text("the interface...")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(interfacePos));
         builder.idle(45);
 
         builder.overlay().showOutlineWithText(fluidHatches, 40)
-                .text("the fluid hatches...")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(inputHatchPos));
+            .text("the fluid hatches...")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(inputHatchPos));
         builder.idle(45);
 
         builder.overlay().showOutlineWithText(upperBus.add(lowerBus), 40)
-                .text("the pattern buses...")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(upperBusPos));
+            .text("the pattern buses...")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(upperBusPos));
         builder.idle(45);
 
         builder.overlay().showOutlineWithText(util.select().position(ventPos), 40)
-                .text("the vent...")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(ventPos));
+            .text("the vent...")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(ventPos));
         builder.idle(45);
 
         builder.overlay().showOutlineWithText(structureSelection, 40)
-                .text("and remaining crafting casings...")
-                .attachKeyFrame()
-                .placeNearTarget()
-                .pointAt(util.vector().topOf(controllerPos.above()));
+            .text("and remaining crafting casings...")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(controllerPos.above()));
+        builder.idle(45);
+
+        builder.rotateCameraY(360 - 60 - 45);
+        builder.idle(20);
+        builder.addKeyframe();
+        builder.world().hideSection(endCasings, Direction.SOUTH);
+        builder.idle(15);
+        builder.world().setBlocks(
+            endReplacedParallels,
+            NEBlocks.CRAFTING_PARALLEL_CORE_L9.getDefaultState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST),
+            false
+        );
+        builder.world().setBlocks(
+            endReplacedWorker,
+            NEBlocks.CRAFTING_WORKER.getDefaultState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST),
+            false
+        );
+        builder.world().setBlocks(
+            endReplacedBuses,
+            NEBlocks.CRAFTING_PATTERN_BUS.getDefaultState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST),
+            false
+        );
+        builder.world().setBlocks(
+            endReplacedVent,
+            NEBlocks.CRAFTING_VENT.getDefaultState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST),
+            false
+        );
+        builder.world().setBlocks(
+            endReplacedCasings,
+            NEBlocks.CRAFTING_CASING.getDefaultState(),
+            false
+        );
+
+        builder.idle(15);
+        builder.world().showSection(endCasings, Direction.NORTH);
+        builder.world().showSection(endReplacedCasings, Direction.NORTH);
+        builder.overlay().showOutlineWithText(expand, 40)
+            .text("Structure can be expanded")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(3, 2, 5));
+
+        builder.idle(45);
+        builder.rotateCameraY(90 + 45);
+        builder.overlay().showOutlineWithText(expand, 40)
+            .text("With more parallel cores, workers, pattern buses and vents")
+            .attachKeyFrame()
+            .placeNearTarget()
+            .pointAt(util.vector().topOf(4, 2, 4));
         builder.idle(45);
 
         builder.markAsFinished();

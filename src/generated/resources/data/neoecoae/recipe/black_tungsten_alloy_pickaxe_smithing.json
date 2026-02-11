@@ -4,7 +4,7 @@
     "tag": "c:ingots/black_tungsten_alloy"
   },
   "base": {
-    "item": "neoecoae:aluminum_pickaxe"
+    "item": "neoecoae:tungsten_pickaxe"
   },
   "result": {
     "count": 1,

@@ -4,7 +4,7 @@
     "tag": "c:ingots/black_tungsten_alloy"
   },
   "base": {
-    "item": "neoecoae:aluminum_shovel"
+    "item": "neoecoae:tungsten_shovel"
   },
   "result": {
     "count": 1,
