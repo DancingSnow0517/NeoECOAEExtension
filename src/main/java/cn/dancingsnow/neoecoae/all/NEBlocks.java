@@ -328,6 +328,17 @@ public class NEBlocks {
         .loot((prov, block) -> {
             prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.ENERGIZED_CRYSTAL_BLOCK));
         })
+        .recipe((ctx, prov) -> {
+            TransformRecipeBuilder.transform(
+                prov,
+                NeoECOAE.id("transform/damaged_budding_energized_crystal"),
+                ctx.get(),
+                1,
+                TransformCircumstance.fluid(FluidTags.WATER),
+                Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_BLOCK),
+                Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
+            );
+        })
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
         .item()
         .tag(Tags.Items.BUDDING_BLOCKS)

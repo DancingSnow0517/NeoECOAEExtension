@@ -8,5 +8,6 @@ public class NERecipeGenerator {
         CoolingRecipes.init(provider);
 
         MekanismRecipes.init(provider);
+        EAERecipes.init(provider);
     }
 }

@@ -89,6 +89,9 @@ dependencies {
     implementation("curse.maven:mekanism-268560:7132168")
     implementation("curse.maven:applied-mekanistics-574300:7096962")
 
+    implementation("curse.maven:glodium-957920:5821676")
+    implementation("curse.maven:ex-pattern-provider-892005:7478960")
+
     implementation("curse.maven:jade-324717:7428884")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
