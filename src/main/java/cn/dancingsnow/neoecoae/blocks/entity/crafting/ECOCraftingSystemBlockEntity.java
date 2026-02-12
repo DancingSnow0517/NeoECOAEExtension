@@ -7,20 +7,42 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
-
+import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import org.appliedenergistics.yoga.YogaAlign;
+import org.appliedenergistics.yoga.YogaEdge;
+import org.appliedenergistics.yoga.YogaFlexDirection;
+import org.appliedenergistics.yoga.YogaGutter;
+import org.appliedenergistics.yoga.YogaJustify;
+
+import java.util.List;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, IGridTickable {
@@ -53,6 +75,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Getter
     @DescSynced
+    private int runningThreadCount = 0;
+
+    @Getter
+    @DescSynced
     private int threadCount = 0;
 
     @Getter
@@ -79,6 +105,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         super.onReady();
         getMainNode().setIdlePowerUsage(64);
     }
+
     @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
@@ -154,6 +181,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 threadCountPerWorker = 32;
             }
             threadCount = cluster.getParallelCores().size() * perCore;
+            runningThreadCount = cluster.getWorkers().stream().mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
         } else {
             threadCount = 0;
         }
@@ -314,10 +342,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 //        return root;
 //    }
 
-    private double getRunningThreadsPercentage() {
-        double availableThreads = getAvailableThreads();
-        return availableThreads > 0 ? getRunningThreads() / availableThreads : 0.0;
-    }
 
     private double getOverflowThreadsPercentage() {
         double totalThread = threadCount;
@@ -332,13 +356,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return threadCountPerWorker * workerCount;
     }
 
-    private int getRunningThreads() {
-        if (cluster != null) {
-            return cluster.getWorkers().stream().mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
-        }
-        return 0;
-    }
-
     private long getMaxEnergyUsage() {
         if (overclocked && !activeCooling) {
             return getAvailableThreads() * tier.getOverclockedCrafterPowerMultiply() * 100L;
@@ -346,14 +363,90 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return getAvailableThreads() * 100L;
     }
 
-    private String getFormatedMaxEnergyUsage() {
-        Tooltips.Amount amount = Tooltips.getAmount(getMaxEnergyUsage());
-        return amount.digit() + amount.unit();
+
+    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        UIElement root = new UIElement().layout(layout -> layout
+            .setPadding(YogaEdge.ALL, 4)
+            .setGap(YogaGutter.ALL, 2)
+            .setJustifyContent(YogaJustify.CENTER)
+        ).addClass("panel_bg");
+
+        ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
+        textPanel.addScrollViewChild(new TextElement()
+            .setText(getItemFromBlockEntity().getDescription())
+            .textStyle(ECOCraftingSystemBlockEntity::textStyle)
+            .layout(layout -> layout.marginBottom(5)));
+
+        textPanel.addScrollViewChildren(
+            new Label()
+                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.pattern_bus_count", patternBusCount)))
+                .textStyle(ECOCraftingSystemBlockEntity::textStyle),
+            new Label()
+                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.parallel_core_count", parallelCount)))
+                .textStyle(ECOCraftingSystemBlockEntity::textStyle),
+            new Label()
+                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.worker_count", workerCount)))
+                .textStyle(ECOCraftingSystemBlockEntity::textStyle)
+                .layout(layout -> layout.marginBottom(10))
+        );
+
+        textPanel.addScrollViewChild(new Label()
+            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.working_threads", runningThreadCount, getAvailableThreads(), (int) ((float) runningThreadCount / getAvailableThreads() * 100))))
+            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
+
+        textPanel.addScrollViewChild(new Label()
+            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.total_parallelism", threadCount)))
+            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
+        textPanel.addScrollViewChild(new Label()
+            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.total_parallelism.overflow", getOverflowThreads(), (int) (getOverflowThreadsPercentage() * 100))))
+            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
+
+        textPanel.addScrollViewChild(new Label()
+            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.max_energy_usage", Tooltips.ofNumber(getMaxEnergyUsage()))))
+            .textStyle(ECOCraftingSystemBlockEntity::textStyle)
+            .layout(layout -> layout.marginBottom(5)));
+
+        textPanel.addScrollViewChild(new UIElement()
+            .layout(layout -> layout.flexDirection(YogaFlexDirection.ROW).alignItems(YogaAlign.CENTER))
+            .addChildren(
+                new TextElement()
+                    .setText(Component.translatable("gui.neoecoae.crafting.enable_overlock"))
+                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
+                new Switch()
+                    .bind(DataBindingBuilder.bool(() -> overclocked, b -> overclocked = b).build()))
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
+                e.hoverTooltips = new HoverTooltips(
+                    List.of(Component.translatable("gui.neoecoae.crafting.overclocked.tooltip")),
+                    null,
+                    null,
+                    null
+                );
+            }));
+        textPanel.addScrollViewChild(new UIElement()
+            .layout(layout -> layout.flexDirection(YogaFlexDirection.ROW).alignItems(YogaAlign.CENTER))
+            .addChildren(
+                new TextElement()
+                    .setText(Component.translatable("gui.neoecoae.crafting.enable_active_cooling"))
+                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
+                new Switch()
+                    .bind(DataBindingBuilder.bool(() -> activeCooling, b -> activeCooling = b).build()))
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
+                e.hoverTooltips = new HoverTooltips(
+                    List.of(Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip")),
+                    null,
+                    null,
+                    null
+                );
+            }));
+
+        textPanel.layout(layout -> layout.setHeight(160).setWidth(220));
+
+        root.addChild(textPanel);
+        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 
-//    @Override
-//    public ModularUI createUI(Player entityPlayer) {
-//        return new ModularUI(createUI(), this, entityPlayer);
-//    }
+    private static void textStyle(TextElement.TextStyle style) {
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xadb0c4).textShadow(false);
+    }
 }
 
