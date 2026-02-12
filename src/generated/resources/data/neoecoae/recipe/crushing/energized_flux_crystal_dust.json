@@ -8,7 +8,7 @@
   "type": "mekanism:crushing",
   "input": {
     "count": 1,
-    "tag": "c:dusts/energized_fluix_crystal"
+    "tag": "c:gems/energized_fluix_crystal"
   },
   "output": {
     "count": 1,

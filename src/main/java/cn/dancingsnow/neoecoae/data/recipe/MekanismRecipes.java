@@ -72,7 +72,7 @@ public class MekanismRecipes {
         ).build(hasMekanism, NeoECOAE.id("crushing/energized_crystal_dust"));
 
         ItemStackToItemStackRecipeBuilder.crushing(
-            itemFrom(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST),
+            itemFrom(NETags.Items.ENERGIZED_FLUIX_CRYSTAL),
             NEItems.ENERGIZED_FLUIX_CRYSTAL_DUST.asStack()
         ).build(hasMekanism, NeoECOAE.id("crushing/energized_flux_crystal_dust"));
     }
