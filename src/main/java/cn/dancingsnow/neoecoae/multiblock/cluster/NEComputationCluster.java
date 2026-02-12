@@ -27,7 +27,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +39,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private final List<ECOComputationDriveBlockEntity> lowerDrives = new ArrayList<>();
     @Getter
     private final List<ECOComputationThreadingCoreBlockEntity> threadingCores = new ArrayList<>();
+    @Getter
+    private final List<ECOComputationParallelCoreBlockEntity> parallelCores = new ArrayList<>();
     @Getter
     @Nullable
     private ECOComputationSystemBlockEntity controller;
@@ -80,6 +81,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (blockEntity instanceof ECOComputationSystemBlockEntity system) {
             controller = system;
             actionSource = IActionSource.ofMachine(system);
+        }
+        if (blockEntity instanceof ECOComputationParallelCoreBlockEntity parallelCore) {
+            parallelCores.add(parallelCore);
         }
     }
 
@@ -187,6 +191,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 this.killCpu(plan, false, false);
             }
             recalculateRemainingStorage();
+        }
+        if (controller != null) {
+            controller.updateInfos();
         }
     }
 
