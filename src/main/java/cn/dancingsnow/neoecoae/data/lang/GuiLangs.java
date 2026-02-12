@@ -24,6 +24,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.enable_overlock", "Enable Overlock: ");
         provider.add("gui.neoecoae.crafting.overclocked.tooltip", "Boosting performance within a limited range while consuming more §cEnergy§f.");
         provider.add("gui.neoecoae.crafting.enable_active_cooling", "Enable Active Cooling: ");
-        provider.add("gui.neoecoae.crafting.active_cooling.tooltip", "Consumes coolant from the fluid input port to enhance performance and eliminate the additional energy cost of overclocking.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output port is full, coolant cannot be consumed from the fluid input port, preventing the machine from replenishing its coolant supply.");
+        provider.add("gui.neoecoae.crafting.active_cooling.tooltip", "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.");
     }
 }

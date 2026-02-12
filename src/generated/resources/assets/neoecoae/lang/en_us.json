@@ -69,7 +69,7 @@
   "gui.neoecoae.computation.parallel_info": "Parallel Count: %d",
   "gui.neoecoae.computation.storage_info": "Storage Used: %s / %s",
   "gui.neoecoae.computation.thread_info": "Thread Used: %d / %d",
-  "gui.neoecoae.crafting.active_cooling.tooltip": "Consumes coolant from the fluid input port to enhance performance and eliminate the additional energy cost of overclocking.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output port is full, coolant cannot be consumed from the fluid input port, preventing the machine from replenishing its coolant supply.",
+  "gui.neoecoae.crafting.active_cooling.tooltip": "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.",
   "gui.neoecoae.crafting.enable_active_cooling": "Enable Active Cooling: ",
   "gui.neoecoae.crafting.enable_overlock": "Enable Overlock: ",
   "gui.neoecoae.crafting.max_energy_usage": "Max Energy Usage: §b%s AE",
