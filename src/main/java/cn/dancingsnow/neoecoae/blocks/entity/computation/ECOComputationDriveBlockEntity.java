@@ -21,6 +21,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -68,6 +70,13 @@ public class ECOComputationDriveBlockEntity
 
     @Override
     public void scheduleRenderUpdate() {
+        if (level != null && level.isClientSide) {
+            scheduleRenderUpdateInternal();
+        }
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    private void scheduleRenderUpdateInternal() {
         Level level = Minecraft.getInstance().level;
         if (ownerBlockPos != null) {
             if (level.getBlockEntity(ownerBlockPos) instanceof ECOComputationSystemBlockEntity systemBlockEntity) {
