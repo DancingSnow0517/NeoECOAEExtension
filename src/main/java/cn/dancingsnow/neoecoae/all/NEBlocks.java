@@ -5,6 +5,9 @@ import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
 import appeng.datagen.providers.tags.ConventionTags;
 import appeng.decorative.solid.CertusQuartzClusterBlock;
+import appeng.recipes.transform.TransformCircumstance;
+import appeng.recipes.transform.TransformRecipeBuilder;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.*;
@@ -36,8 +39,10 @@ import net.minecraft.core.Direction;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
@@ -275,6 +280,17 @@ public class NEBlocks {
         .loot((prov, block) -> {
             prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL));
         })
+        .recipe((ctx, prov) -> {
+            TransformRecipeBuilder.transform(
+                prov,
+                NeoECOAE.id("transform/flawed_budding_energized_crystal"),
+                ctx.get(),
+                1,
+                TransformCircumstance.fluid(FluidTags.WATER),
+                Ingredient.of(NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL),
+                Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
+            );
+        })
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
         .item()
         .tag(Tags.Items.BUDDING_BLOCKS)
@@ -287,6 +303,17 @@ public class NEBlocks {
         .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
         .loot((prov, block) -> {
             prov.add(block, prov.createSingleItemTableWithSilkTouch(block, NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL));
+        })
+        .recipe((ctx, prov) -> {
+            TransformRecipeBuilder.transform(
+                prov,
+                NeoECOAE.id("transform/chipped_budding_energized_crystal"),
+                ctx.get(),
+                1,
+                TransformCircumstance.fluid(FluidTags.WATER),
+                Ingredient.of(NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL),
+                Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
+            );
         })
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
         .item()

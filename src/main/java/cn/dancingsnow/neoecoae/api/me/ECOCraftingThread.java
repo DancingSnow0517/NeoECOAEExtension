@@ -139,7 +139,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private int userPower(int ticksPassed, int bonusValue, double acceleratorTax) {
         var grid = this.worker.getMainNode().getGrid();
         if (grid != null) {
-            var safePower = Math.min(ticksPassed * bonusValue * acceleratorTax, 5000);
+            var safePower = Math.min(ticksPassed * bonusValue * acceleratorTax, 500000);
             return (int) (grid.getEnergyService().extractAEPower(safePower, Actionable.MODULATE, PowerMultiplier.CONFIG) / acceleratorTax);
         } else {
             return 0;
