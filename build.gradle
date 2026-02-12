@@ -65,6 +65,15 @@ repositories {
             includeGroup "dev.latvian.apps"
         }
     }
+    repositories {
+        maven {
+            name = 'GeckoLib'
+            url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+            content {
+                includeGroup("software.bernie.geckolib")
+            }
+        }
+    }
 
     maven {
         url 'https://jitpack.io'
@@ -92,6 +101,8 @@ dependencies {
     implementation("curse.maven:glodium-957920:5821676")
     implementation("curse.maven:ex-pattern-provider-892005:7478960")
 
+    implementation("curse.maven:advancedae-1084104:7374386")
+
     implementation("curse.maven:jade-324717:7428884")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
@@ -100,6 +111,8 @@ dependencies {
     implementation("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}")
     runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
+
+    implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
 
     api("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
     interfaceInjectionData("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
