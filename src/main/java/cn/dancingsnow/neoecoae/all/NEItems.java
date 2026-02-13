@@ -444,7 +444,7 @@ public class NEItems {
         .item("raw_aluminum_ore", MaterialItem::new)
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
-                .requires(NETags.Items.RAW_TUNGSTEN_STORAGE_BLOCK)
+                .requires(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK)
                 .unlockedBy("has_raw_aluminum_block", RegistrateRecipeProvider.has(NETags.Items.RAW_ALUMINUM_STORAGE_BLOCK))
                 .save(prov);
         })
