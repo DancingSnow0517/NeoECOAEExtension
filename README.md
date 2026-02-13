@@ -1,9 +1,9 @@
-<p align="center"><img src="" alt="Logo"></p>
+<p align="center"><img src="/images/logo.png" alt="Logo"></p>
 <h1 align="center">Neo ECO AE Extension</h1>
 <p align="center">ECO AE Extension for modern Minecraft versions NeoForge (1.21.1+).</p>
 <h1 align="center">
 
-English | 简体中文 | 繁體中文 | 文言文
+English | [简体中文](/README_ZH_CN.md) | [繁體中文](/README_ZH_HK.md) | 文言文
 
 </h1>
 

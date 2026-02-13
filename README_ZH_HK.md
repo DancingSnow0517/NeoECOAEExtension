@@ -1,3 +1,12 @@
+<p align="center"><img src="/images/logo.png" alt="Logo"></p>
+<h1 align="center">Neo ECO AE Extension</h1>
+<p align="center">ECO AE Extension for modern Minecraft versions NeoForge (1.21.1+).</p>
+<h1 align="center">
+
+[English](/README.md) | [简体中文](/README_ZH_CN.md) | 繁體中文 | 文言文
+
+</h1>
+
 ## 概述
 
 Neo Eco AE Extension是[Eco AE Extension](https://github.com/sddsd2332/NovaEngineering-ECOAEExtension)的高版本移植, 添加了來自[新星工程：世界](https://www.mcmod.cn/modpack/784.html)中的 MMCE 多方塊結構。在獲得原作者授權的前提下，本項目以 GNU 通用公共許可證第3版（GPLv3）發布。
