@@ -66,6 +66,7 @@
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO Crafting System",
   "config.jade.plugin_neoecoae.eco_crafting_worker": "ECO Crafting Worker",
   "config.jade.plugin_neoecoae.eco_drive": "ECO Drive",
+  "emi.category.neoecoae.multiblock": "ECO Multiblock Info",
   "gui.neoecoae.computation.parallel_info": "Parallel Count: %d",
   "gui.neoecoae.computation.storage_info": "Storage Used: %s / %s",
   "gui.neoecoae.computation.thread_info": "Thread Used: %d / %d",

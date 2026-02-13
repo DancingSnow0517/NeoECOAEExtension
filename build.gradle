@@ -65,14 +65,18 @@ repositories {
             includeGroup "dev.latvian.apps"
         }
     }
-    repositories {
-        maven {
-            name = 'GeckoLib'
-            url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
-            content {
-                includeGroup("software.bernie.geckolib")
-            }
+    maven {
+        name = 'GeckoLib'
+        url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+        content {
+            includeGroup("software.bernie.geckolib")
         }
+    }
+
+    maven {
+        // emi
+        name = "TerraformersMC"
+        url = "https://maven.terraformersmc.com/"
     }
 
     maven {
@@ -107,6 +111,7 @@ dependencies {
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
+    compileOnly("dev.emi:emi-neoforge:${emi_version}")
 
     implementation("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}")

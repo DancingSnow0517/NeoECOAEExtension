@@ -3,11 +3,11 @@ package cn.dancingsnow.neoecoae.integration.jei.categories.multiblock;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
+import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.ModularUIRecipeCategory;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.helpers.IGuiHelper;
-import mezz.jei.api.helpers.IJeiHelpers;
 import mezz.jei.api.recipe.IFocusGroup;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.RecipeType;
@@ -50,7 +50,7 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
 
     @Override
     public int getHeight() {
-        return 200;
+        return 170;
     }
 
     @Override

@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.integration.jei.categories.multiblock;
+package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
@@ -11,7 +11,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Scene;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Scroller;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
@@ -19,12 +19,10 @@ import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.NonNullList;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
-import net.neoforged.neoforge.items.ItemStackHandler;
 import org.appliedenergistics.yoga.YogaEdge;
+import org.appliedenergistics.yoga.YogaFlexDirection;
 import org.appliedenergistics.yoga.YogaGutter;
 import org.appliedenergistics.yoga.YogaPositionType;
 
@@ -48,7 +46,7 @@ public class MultiBlockInfoWrapper {
     private boolean formed = false;
 
     private ItemStack selectedItem = ItemStack.EMPTY;
-    private UIElement requiredItems;
+    private ScrollerView requiredItems;
 
     public MultiBlockInfoWrapper(MultiBlockDefinition definition) {
         this.definition = definition;
@@ -58,7 +56,7 @@ public class MultiBlockInfoWrapper {
     public ModularUI createModularUI() {
         var root = new UIElement().layout(layout -> layout
             .setWidth(170)
-            .setHeight(200)
+            .setHeight(170)
             .setPadding(YogaEdge.ALL, 4)
             .setGap(YogaGutter.ALL, 2)
         ).addClass("panel_bg");
@@ -72,7 +70,7 @@ public class MultiBlockInfoWrapper {
             .setShowHoverBlockTips(true)
             .useCacheBuffer()
             .setOnSelected(this::onSelect);
-        scene.getLayout().setWidth(165).setHeight(170);
+        scene.getLayout().setWidth(165).setHeight(130);
         root.addChild(scene);
 
         UIElement buttons = new UIElement().layout(layout -> layout
@@ -108,9 +106,10 @@ public class MultiBlockInfoWrapper {
                 .setPosition(YogaEdge.TOP, 14))
             .addClass("panel_border"));
 
-        requiredItems = new Scroller.Horizontal()
-            .layout(layout -> layout.setWidthPercent(100).setHeight(18).paddingAll(0))
-            .addClass("panel_border");
+        requiredItems = new ScrollerView();
+        requiredItems.viewPort(c -> c.layout(layout-> layout.paddingAll(1).paddingBottom(3)).addClass("panel_bg"));
+        requiredItems.viewContainer(c -> c.layout(layout -> layout.flexDirection(YogaFlexDirection.ROW)).addClass("panel_border"));
+        requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(27));
         root.addChild(requiredItems);
 
         createScene();
@@ -179,11 +178,9 @@ public class MultiBlockInfoWrapper {
             }
             scene.setRenderedCore(rendered);
         }
-//        scrollableWidgetGroup.clearAllWidgets();
-        IItemHandlerModifiable itemHandler = new ItemStackHandler(NonNullList.copyOf(context.getRequiredItems()));
-        requiredItems.clearAllChildren();
+        requiredItems.viewContainer.clearAllChildren();
         for (ItemStack requiredItem : context.getRequiredItems()) {
-            requiredItems.addChild(new ItemSlot()
+            requiredItems.addScrollViewChild(new ItemSlot()
                 .setItem(requiredItem)
                 .xeiRecipeIngredient(IngredientIO.INPUT)
                 .xeiRecipeSlot(IngredientIO.INPUT, 1));
