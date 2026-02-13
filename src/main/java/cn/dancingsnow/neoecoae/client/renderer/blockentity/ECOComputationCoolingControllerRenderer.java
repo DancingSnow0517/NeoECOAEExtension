@@ -29,7 +29,7 @@ public class ECOComputationCoolingControllerRenderer implements IFixedBlockEntit
         poseStack.pushPose();
         translate(poseStack, facing);
         poseStack.mulPose(Axis.YP.rotationDegrees(rotation));
-        tesselateModel(
+        tessellateModel(
             poseStack,
             bufferSource,
             NEExtraModels.COMPUTATION_COOLING_CONTROLLER_GLASS,

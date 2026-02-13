@@ -16,8 +16,7 @@
   ],
   "client": [
     "ModelBakeryMixin",
-    "PatternEncodingTermScreenMixin",
-    "PonderLevelMixin"
+    "PatternEncodingTermScreenMixin"
   ],
   "server": [],
   "injectors": {

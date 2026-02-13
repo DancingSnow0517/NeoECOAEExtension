@@ -10,10 +10,6 @@ public class AppMekIntegration {
 
     public void apply() {
         NEAppMekItems.register();
-        NeoECOAE.MOD_BUS.addListener(this::onFMLCommonSetup);
-    }
-
-    private void onFMLCommonSetup(FMLCommonSetupEvent event) {
         ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_chemical"));
         ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_chemical"));
         ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_chemical"));

@@ -5,7 +5,6 @@ import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
-import cn.dancingsnow.neoecoae.client.model.data.ECODriveModelData;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
@@ -21,7 +20,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -109,11 +107,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     ) {
         super(type, pos, blockState);
         getMainNode().addService(IStorageProvider.class, this);
-    }
-
-    @Override
-    public ModelData getModelData() {
-        return ECODriveModelData.create(cellStack == null ? ItemStack.EMPTY : cellStack);
     }
 
     public void setCellStack(@Nullable ItemStack cellStack) {

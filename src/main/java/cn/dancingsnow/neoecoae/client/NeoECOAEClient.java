@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
+import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
@@ -37,6 +38,10 @@ public class NeoECOAEClient {
         FixedBlockEntityRenderers.register(
             NEBlockEntities.COMPUTATION_DRIVE.get(),
             new ECOComputationDriveRenderer()
+        );
+        FixedBlockEntityRenderers.register(
+            NEBlockEntities.ECO_DRIVE.get(),
+            new ECODriveRenderer()
         );
 //        FixedBlockEntityRenderers.register(
 //            NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L4.get(),

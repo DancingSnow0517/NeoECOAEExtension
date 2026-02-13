@@ -28,42 +28,13 @@ public class ECODriveModel implements BasicUnbakedModel {
         Function<Material, TextureAtlasSprite> function,
         ModelState modelState
     ) {
-        Map<Item, BakedModel> map = new IdentityHashMap<>();
-        ECOCellModels.getRegistry().forEach((item, resourceLocation) -> {
-            BakedModel model = ECOCellModels.getModel(
-                item,
-                loc -> bakeWithParentResolved(
-                    loc,
-                    modelBaker,
-                    function,
-                    modelState
-                )
-            );
-            map.put(item, model);
-        });
-        BakedModel defaultModel = bakeWithParentResolved(ECOCellModels.DEFAULT_MODEL, modelBaker, function, modelState);
         BakedModel driveEmptyModel = modelBaker.bake(DRIVE_EMPTY, modelState, function);
         BakedModel driveFullModel = modelBaker.bake(DRIVE_FULL, modelState, function);
         Preconditions.checkNotNull(driveEmptyModel);
         Preconditions.checkNotNull(driveFullModel);
-        Preconditions.checkNotNull(defaultModel);
         return new ECODriveBakedModel(
             driveEmptyModel,
-            driveFullModel,
-            map,
-            defaultModel,
-            modelState.getRotation()
+            driveFullModel
         );
-    }
-
-    private BakedModel bakeWithParentResolved(
-        ResourceLocation location,
-        ModelBaker modelBaker,
-        Function<Material, TextureAtlasSprite> function,
-        ModelState modelState
-    ) {
-        UnbakedModel unbakedModel = modelBaker.getModel(location);
-        unbakedModel.resolveParents(modelBaker::getModel);
-        return unbakedModel.bake(modelBaker, function, modelState);
     }
 }
