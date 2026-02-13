@@ -115,3 +115,4 @@ file="META-INF/accesstransformer.cfg"
     modrinth="udZtKfzP"
     curseforge=1460639
     loaders=["neoforge"]
+    game-versions=["1.21.1"]
