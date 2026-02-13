@@ -139,7 +139,6 @@ neoForge {
 
             systemProperty 'guideme.ae2.guide.sources', file('guidebook').absolutePath
             systemProperty 'guideme.ae2.guide.sourcesNamespace', 'neoecoae'
-            systemProperty 'guideme.showOnStartup', 'neoecoae:guide'
         }
 
         server {
