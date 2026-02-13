@@ -86,14 +86,32 @@ file="META-INF/accesstransformer.cfg"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
-    modId="ldlib2"
+    modId="ae2"
     type="required"
-    versionRange="[2.1.9, )"
+    versionRange="[19.2.17,)"
     ordering="NONE"
     side="BOTH"
+    [dependencies."${mod_id}".mc-publish]
+        modrinth="ae2"
+        curseforge="applied-energistics-2"
+
+[[dependencies.${mod_id}]]
+    modId="ldlib2"
+    type="required"
+    versionRange="[2.1.9,)"
+    ordering="NONE"
+    side="BOTH"
+    [dependencies."${mod_id}".mc-publish]
+        modrinth="ldlib"
+        curseforge="ldlib"
 
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.
 #[features.${mod_id}]
 #openGLVersion="[3.2,)"
+
+[mc-publish]
+    modrinth="udZtKfzP"
+    curseforge=1460639
+    loaders=["neoforge"]
