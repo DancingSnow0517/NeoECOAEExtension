@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "#minecraft:is_end",
+  "features": "neoecoae:end_tungsten_ore",
+  "step": "underground_ores"
+}

@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.data.lang.NELangGenerator;
 import cn.dancingsnow.neoecoae.data.provider.NELangMergerProvider;
 import cn.dancingsnow.neoecoae.data.recipe.NERecipeGenerator;
 import cn.dancingsnow.neoecoae.data.tag.NETagGenerator;
+import cn.dancingsnow.neoecoae.data.worldgen.NEWorldGenRegistryProvider;
 import com.tterrag.registrate.providers.ProviderType;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.DataGenerator;
@@ -33,5 +34,6 @@ public class NEDataGen {
         PackOutput packOutput = generator.getPackOutput();
 
         generator.addProvider(event.includeClient(), new NELangMergerProvider(packOutput));
+        generator.addProvider(event.includeServer(), new NEWorldGenRegistryProvider(packOutput, registries));
     }
 }
