@@ -20,6 +20,9 @@ item_ids:
   - neoecoae:computation_cooling_controller_l9
   - neoecoae:computation_interface
   - neoecoae:computation_casing
+  - neoecoae:eco_computation_cell_l4
+  - neoecoae:eco_computation_cell_l6
+  - neoecoae:eco_computation_cell_l9
 ---
 
 # ECO 计算系统
