@@ -1,16 +1,39 @@
 package cn.dancingsnow.neoecoae.data.recipe;
 
 import appeng.core.definitions.AEBlocks;
+import appeng.core.definitions.AEItems;
+import appeng.datagen.providers.tags.ConventionTags;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.Items;
 
 public class EcoMachineRecipes {
     public static void init(RegistrateRecipeProvider provider) {
+        //Energized crystal
+        IntegratedWorkingStationRecipe.builder()
+            .require(AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED, 4)
+            .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 4)
+            .requireFluid(FluidTags.WATER, 250)
+            .energy(62500)
+            .itemOutput(NEItems.ENERGIZED_CRYSTAL, 8)
+            .save(provider, NeoECOAE.id("eco_station/energized_crystal"));
+
+        //Energized fluix crystal
+        IntegratedWorkingStationRecipe.builder()
+            .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 8)
+            .require(ConventionTags.FLUIX_CRYSTAL, 8)
+            .requireFluid(FluidTags.WATER, 250)
+            .energy(62500)
+            .itemOutput(NEItems.ENERGIZED_FLUIX_CRYSTAL, 8)
+            .save(provider, NeoECOAE.id("eco_station/energized_fluix_crystal"));
+
         //ECO - CE4
         IntegratedWorkingStationRecipe.builder()
             .require(NEItems.ECO_CELL_COMPONENT_16M, 4)
