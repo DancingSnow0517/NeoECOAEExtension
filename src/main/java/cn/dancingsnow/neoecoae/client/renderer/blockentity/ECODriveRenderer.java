@@ -112,14 +112,11 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         }
         poseStack.mulPose(rotation);
         ResourceLocation modelLocation = ECOCellModels.getModelLocation(cellStack.getItem());
-        tessellateModelWithAO(
-            blockEntity.getLevel(),
-            modelLocation,
-            blockEntity.getBlockState(),
-            blockEntity.getBlockPos(),
+        tessellateModel(
             poseStack,
             bufferSource,
-            RNG.get(),
+            modelLocation,
+            packedLight,
             packedOverlay
         );
         poseStack.popPose();
