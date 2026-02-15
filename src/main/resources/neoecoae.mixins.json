@@ -14,7 +14,9 @@
     "IOPortMenuMixin",
     "LightningBoltMixin",
     "PatternEncodingTermMenuMixin",
-    "StoredEnergyAmountMixin"
+    "StoredEnergyAmountMixin",
+    "aae.ContainerExIOPortMixin",
+    "aae.TileExIOPortMixin"
   ],
   "client": [
     "ModelBakeryMixin",
