@@ -6,12 +6,15 @@ import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEGridServices;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -31,6 +34,7 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
+import net.neoforged.neoforge.registries.NewRegistryEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,13 +52,14 @@ public class NeoECOAE {
 
     public NeoECOAE(IEventBus modBus, ModContainer modContainer) {
         MOD_BUS = modBus;
-        
+
         NECreativeTabs.register();
         NEItems.register();
         NEBlocks.register();
         NEBlockEntities.register();
         NEDataGen.configureDataGen();
         NEGridServices.register();
+        NECellTypes.register(modBus);
         NERecipeTypes.register(modBus);
 
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
@@ -64,6 +69,8 @@ public class NeoECOAE {
         modContainer.registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
 
         modBus.addListener(NeoECOAE::initUpgrades);
+        modBus.addListener(NeoECOAE::initStorageCells);
+        modBus.addListener(NeoECOAE::newRegistry);
         modBus.addListener(NeoECOAE::addClassicPack);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
     }
@@ -88,6 +95,16 @@ public class NeoECOAE {
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
             }
         });
+    }
+
+    private static void initStorageCells(FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> {
+            ECOStorageCells.register(ECOStorageCellItem.Handler.INSTANCE);
+        });
+    }
+
+    private static void newRegistry(NewRegistryEvent event) {
+        event.register(NERegistries.CELL_TYPE);
     }
 
     private static void addClassicPack(AddPackFindersEvent event) {

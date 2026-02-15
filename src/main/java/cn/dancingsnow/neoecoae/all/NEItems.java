@@ -853,7 +853,8 @@ public class NEItems {
         .item("eco_item_storage_cell_16m", p -> new ECOStorageCellItem(
             p.stacksTo(1).rarity(Rarity.UNCOMMON),
             ECOTier.L4,
-            AEKeyType.items()
+            AEKeyType.items(),
+            NECellTypes.ITEM
         ))
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -871,7 +872,8 @@ public class NEItems {
         .item("eco_item_storage_cell_64m", p -> new ECOStorageCellItem(
             p.stacksTo(1).rarity(Rarity.RARE),
             ECOTier.L6,
-            AEKeyType.items()
+            AEKeyType.items(),
+            NECellTypes.ITEM
         ))
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -889,7 +891,8 @@ public class NEItems {
         .item("eco_item_storage_cell_256m", p -> new ECOStorageCellItem(
             p.stacksTo(1).rarity(Rarity.EPIC),
             ECOTier.L9,
-            AEKeyType.items()
+            AEKeyType.items(),
+            NECellTypes.ITEM
         ))
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -907,7 +910,8 @@ public class NEItems {
         .item("eco_fluid_storage_cell_16m", p -> new ECOStorageCellItem(
             p.stacksTo(1).rarity(Rarity.UNCOMMON),
             ECOTier.L4,
-            AEKeyType.fluids()
+            AEKeyType.fluids(),
+            NECellTypes.FLUID
         ))
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -925,7 +929,8 @@ public class NEItems {
         .item("eco_fluid_storage_cell_64m", p -> new ECOStorageCellItem(
             p.stacksTo(1).rarity(Rarity.RARE),
             ECOTier.L6,
-            AEKeyType.fluids()
+            AEKeyType.fluids(),
+            NECellTypes.FLUID
         ))
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -943,7 +948,8 @@ public class NEItems {
         .item("eco_fluid_storage_cell_256m", p -> new ECOStorageCellItem(
             p.stacksTo(1).rarity(Rarity.EPIC),
             ECOTier.L9,
-            AEKeyType.fluids()
+            AEKeyType.fluids(),
+            NECellTypes.FLUID
         ))
         .recipe((ctx, prov) -> {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())

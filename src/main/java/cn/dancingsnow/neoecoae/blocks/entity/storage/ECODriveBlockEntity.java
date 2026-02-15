@@ -4,10 +4,12 @@ import appeng.api.networking.IGridNodeListener;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
+import cn.dancingsnow.neoecoae.util.ICellHost;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
@@ -26,65 +28,12 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IStorageProvider {
+    implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost {
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
-    public final IItemHandler HANDLER = new IItemHandler() {
-
-        @Override
-        public int getSlots() {
-            return 1;
-        }
-
-        @Override
-        public ItemStack getStackInSlot(int slot) {
-            return cellStack != null ? cellStack : ItemStack.EMPTY;
-        }
-
-        @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (cellStack != null) {
-                return stack;
-            } else {
-                if (stack.isEmpty()) {
-                    return ItemStack.EMPTY;
-                }
-                if (!simulate) {
-                    setCellStack(stack.copyWithCount(1));
-                }
-                ItemStack copy = stack.copy();
-                copy.shrink(1);
-                return copy;
-            }
-        }
-
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (cellStack == null) {
-                return ItemStack.EMPTY;
-            }
-            if (amount <= 0) {
-                return ItemStack.EMPTY;
-            }
-            ItemStack copy = cellStack.copyWithCount(1);
-            if (!simulate) {
-                setCellStack(null);
-            }
-            return copy;
-        }
-
-        @Override
-        public int getSlotLimit(int slot) {
-            return 1;
-        }
-
-        @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            return stack.getItem() instanceof ECOStorageCellItem;
-        }
-    };
+    public final IItemHandler HANDLER = new CellHostItemHandler(this);
 
     @Getter
     @DescSynced
@@ -109,6 +58,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         getMainNode().addService(IStorageProvider.class, this);
     }
 
+    @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
         this.cellStack = cellStack;
         if (cellStack != null) {
@@ -120,11 +70,16 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         this.cellStack = cellStack;
     }
 
+    @Override
+    public boolean isItemValid(ItemStack stack) {
+        return ECOStorageCells.isCellHandled(stack);
+    }
+
     private void updateState() {
         double power = 256;
         if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
             IECOTier mainTier = storageCluster.getController().getTier();
-            ECOStorageCell cellInventory = getCellInventory();
+            IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 power += cellInventory.getIdleDrain();
             }
@@ -147,9 +102,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     @Nullable
-    public ECOStorageCell getCellInventory() {
+    public IECOStorageCell getCellInventory() {
         if (cellStack != null) {
-            return ECOStorageCellItem.getCellInventory(cellStack);
+            return ECOStorageCells.getCellInventory(cellStack, null);
         }
         return null;
     }
@@ -158,7 +113,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void mountInventories(IStorageMounts storageMounts) {
         if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
             IECOTier mainTier = storageCluster.getController().getTier();
-            ECOStorageCell cellInventory = getCellInventory();
+            IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 storageMounts.mount(cellInventory);
                 mounted = true;

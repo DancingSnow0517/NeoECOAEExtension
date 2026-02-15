@@ -4,13 +4,14 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.core.localization.Tooltips;
+import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -33,7 +34,6 @@ import org.appliedenergistics.yoga.YogaEdge;
 import org.appliedenergistics.yoga.YogaGutter;
 import org.appliedenergistics.yoga.YogaJustify;
 
-import java.util.Comparator;
 import java.util.List;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity,  IGridTickable {
@@ -134,13 +134,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             usedBytes = new long[AEKeyTypesInternal.getAllTypes().size()];
             totalBytes = new long[AEKeyTypesInternal.getAllTypes().size()];
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
-                ECOStorageCell inv = drive.getCellInventory();
+                IECOStorageCell inv = drive.getCellInventory();
                 if (inv != null) {
-                    AEKeyType keyType = inv.getKeyType();
-                    usedTypes[keyType.getRawId()] += inv.getStoredItemTypes();
-                    totalTypes[keyType.getRawId()] += inv.getTotalItemTypes();
-                    usedBytes[keyType.getRawId()] += inv.getUsedBytes();
-                    totalBytes[keyType.getRawId()] += inv.getTotalBytes();
+                    ECOCellType cellType = inv.getCellType();
+                    int id = NERegistries.CELL_TYPE.getId(cellType);
+                    usedTypes[id] += inv.getStoredItemTypes();
+                    totalTypes[id] += inv.getTotalItemTypes();
+                    usedBytes[id] += inv.getUsedBytes();
+                    totalBytes[id] += inv.getTotalBytes();
                 }
             }
             setChanged();
@@ -159,18 +160,17 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             .setText(getItemFromBlockEntity().getDescription())
             .textStyle(ECOStorageSystemBlockEntity::textStyle)
             .layout(layout -> layout.marginBottom(5)));
-        //noinspection UnstableApiUsage
-        AEKeyTypesInternal.getAllTypes().stream()
-            .sorted(Comparator.comparingInt(AEKeyType::getRawId))
-            .forEachOrdered(keyType -> {
+        NERegistries.CELL_TYPE.stream()
+            .forEachOrdered(cellType -> {
+                int id = NERegistries.CELL_TYPE.getId(cellType);
                 textPanel.addScrollViewChild(new Label()
-                    .setText(keyType.getDescription())
+                    .setText(cellType.desc())
                     .textStyle(ECOStorageSystemBlockEntity::textStyle));
                 textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.typesUsed(usedTypes[keyType.getRawId()], totalTypes[keyType.getRawId()])))
+                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.typesUsed(usedTypes[id], totalTypes[id])))
                     .textStyle(ECOStorageSystemBlockEntity::textStyle));
                 textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.bytesUsed(usedBytes[keyType.getRawId()], totalBytes[keyType.getRawId()])))
+                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.bytesUsed(usedBytes[id], totalBytes[id])))
                     .textStyle(ECOStorageSystemBlockEntity::textStyle));
             });
 

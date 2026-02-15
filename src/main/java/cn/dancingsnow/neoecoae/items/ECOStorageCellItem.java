@@ -5,6 +5,7 @@ import appeng.api.config.IncludeExclude;
 import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
+import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.core.AEConfig;
@@ -16,8 +17,11 @@ import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
-import cn.dancingsnow.neoecoae.items.cell.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -39,6 +43,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
@@ -48,14 +53,16 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     private final int bytesPerType;
     private final int totalTypes;
     private final AEKeyType keyType;
+    private final Supplier<ECOCellType> cellType;
 
-    public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType) {
+    public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType, Supplier<ECOCellType> cellType) {
         super(properties);
         this.tier = tier;
         this.totalBytes = tier.getStorageTotalBytes();
         this.bytesPerType = 1 << (12 + tier.getTier());
         this.totalTypes = tier.getStorageTotalTypes(keyType);
         this.keyType = keyType;
+        this.cellType = cellType;
     }
 
     @Override
@@ -76,6 +83,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public int getTotalTypes() {
         return totalTypes;
+    }
+
+    @Override
+    public ECOCellType getCellType() {
+        return cellType.get();
     }
 
     @Override
@@ -226,5 +238,20 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
 
         return true;
+    }
+
+    public static class Handler implements IECOCellHandler {
+
+        public static final Handler INSTANCE = new Handler();
+
+        @Override
+        public boolean isCell(ItemStack stack) {
+            return stack.getItem() instanceof ECOStorageCellItem;
+        }
+
+        @Override
+        public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
+            return ECOStorageCellItem.getCellInventory(is);
+        }
     }
 }

@@ -3,8 +3,8 @@ package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 import appeng.client.render.tesr.CellLedRenderer;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -36,7 +36,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
             return;
         }
-        ECOStorageCell cellInventory = blockEntity.getCellInventory();
+        IECOStorageCell cellInventory = blockEntity.getCellInventory();
         if (cellInventory != null) {
             int stateColor = FastColor.ARGB32.color(255, cellInventory.getStatus().getStateColor());
 

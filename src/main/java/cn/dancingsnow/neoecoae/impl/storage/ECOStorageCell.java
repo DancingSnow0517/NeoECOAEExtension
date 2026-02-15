@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.items.cell;
+package cn.dancingsnow.neoecoae.impl.storage;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.IncludeExclude;
@@ -12,12 +12,14 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
-import appeng.api.storage.cells.StorageCell;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.core.definitions.AEItems;
 import appeng.util.ConfigInventory;
 import appeng.util.prioritylist.IPartitionList;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
+import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
@@ -30,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ECOStorageCell implements StorageCell {
+public class ECOStorageCell implements IECOStorageCell {
     @Nullable
     private final ISaveProvider container;
     private final IBasicECOCellItem cellType;
@@ -337,6 +339,11 @@ public class ECOStorageCell implements StorageCell {
         boolean used = !this.getCellItems().isEmpty() && this.insert(what, 1, Actionable.SIMULATE, source) == 1;
         boolean sameItem = this.extract(what, 1, Actionable.SIMULATE, source) > 0;
         return used || sameItem;
+    }
+
+    @Override
+    public ECOCellType getCellType() {
+        return ((ECOStorageCellItem) cellStack.getItem()).getCellType();
     }
 
     public IUpgradeInventory getUpgradesInventory() {

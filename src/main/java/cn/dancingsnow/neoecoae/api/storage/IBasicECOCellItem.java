@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.items.cell;
+package cn.dancingsnow.neoecoae.api.storage;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -12,6 +12,7 @@ public interface IBasicECOCellItem extends ICellWorkbenchItem {
     long getBytes();
     int getBytesPerType();
     int getTotalTypes();
+    ECOCellType getCellType();
     default boolean isBlackListed(ItemStack cellStack, AEKey what) {
         return false;
     }

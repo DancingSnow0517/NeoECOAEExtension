@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.integration.jade.provider;
 
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.items.cell.ECOStorageCell;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -41,7 +41,7 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
         if (blockAccessor.getBlockEntity() instanceof ECODriveBlockEntity be) {
             compoundTag.putBoolean("mounted", be.isMounted());
-            ECOStorageCell cellInventory = be.getCellInventory();
+            IECOStorageCell cellInventory = be.getCellInventory();
             if (cellInventory != null) {
                 compoundTag.putLong("usedBytes", cellInventory.getUsedBytes());
                 compoundTag.putLong("totalBytes", cellInventory.getTotalBytes());
