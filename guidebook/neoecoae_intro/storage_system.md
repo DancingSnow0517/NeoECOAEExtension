@@ -97,14 +97,22 @@ The <ItemLink id="neoecoae:storage_casing" /> blocks form the frame of the multi
 ## Building the Structure
 
 1. Place the **Controller** facing outward
-2. Build the structural frame using **Storage Casing** blocks around and behind the controller
+2. Build the structural frame using **Storage Casing** blocks around the controller (excluding the right side and back-right side)
 3. Place the **Interface** at the designated position (back-left of controller)
 4. Add **Drives** in a horizontal row extending from the right side of the controller
-5. Place **Energy Cells** behind the drives (one row above, one row below)
-6. Add **Heat Sinks** in a row behind the controller
-7. Complete the structure with remaining casing blocks
+5. For each vertical column of drives on the right side, place one Energy Cell above, one Heat Sink in the middle, and one Energy Cell below on the back of the drives
+6. Complete the structure with remaining casing blocks
 
 The structure is extensible - you can add more drives and energy cells to increase capacity.
+
+<GameScene zoom="4">
+  <ImportStructure src="../scenes/store_min.nbt" />
+  <IsometricCamera yaw="45" pitch="30" />
+</GameScene>
+
+<GameScene zoom="4">
+  <ImportStructure src="../scenes/store_min.nbt" />
+</GameScene>
 
 ## Storage Cells
 
