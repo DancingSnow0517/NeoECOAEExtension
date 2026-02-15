@@ -56,6 +56,9 @@ jobs:
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
 
+          game-versions: |
+            1.21.1
+
           files: |
             build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}.jar
             build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}-sources.jar
