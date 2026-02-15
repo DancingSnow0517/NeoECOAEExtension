@@ -17,7 +17,7 @@ public class NECellTypes {
 
     public static final DeferredHolder<ECOCellType, ECOCellType> FLUID = CELL_TYPES.register(
         "fluids",
-        () -> new ECOCellType(AEKeyType.items().getDescription())
+        () -> new ECOCellType(AEKeyType.fluids().getDescription())
     );
 
     public static void register(IEventBus modBus) {
