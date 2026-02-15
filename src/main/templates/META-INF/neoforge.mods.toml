@@ -91,7 +91,7 @@ file="META-INF/accesstransformer.cfg"
     versionRange="[19.2.17,)"
     ordering="NONE"
     side="BOTH"
-    [dependencies."${mod_id}".mc-publish]
+    [dependencies.${mod_id}.mc-publish]
         modrinth="ae2"
         curseforge="applied-energistics-2"
 
@@ -101,7 +101,7 @@ file="META-INF/accesstransformer.cfg"
     versionRange="[2.1.9,)"
     ordering="NONE"
     side="BOTH"
-    [dependencies."${mod_id}".mc-publish]
+    [dependencies.${mod_id}.mc-publish]
         modrinth="ldlib"
         curseforge="ldlib"
 
