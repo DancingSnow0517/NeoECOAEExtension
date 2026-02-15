@@ -3,7 +3,7 @@
 <p align="center">ECO AE Extension for modern Minecraft versions NeoForge (1.21.1+).</p>
 <h1 align="center">
 
-English | [简体中文](/README_ZH_CN.md) | [繁體中文](/README_ZH_HK.md) | 文言文
+English | [简体中文](/README_ZH_CN.md) | [繁體中文](/README_ZH_HK.md) | [文言文](/README_LZH.md)
 
 </h1>
 

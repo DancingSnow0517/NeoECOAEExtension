@@ -122,13 +122,22 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 3. Place the **Interface** at the designated position (back-left of controller)
 4. Add the **Fluid Input Hatch** above the interface
 5. Add the **Fluid Output Hatch** below the interface
-6. Place **Workers** in a horizontal row extending from the controller
+6. Place **Workers** in a horizontal row extending from the right side of the Crafting Casing on the right side of the controller
 7. Add **Parallel Cores** in upper and lower rows (above and below workers)
 8. Place **Heat Sinks** behind the workers
 9. Add **Pattern Buses** in upper and lower rows (above and below heat sinks)
 10. Complete the structure with remaining casing blocks
 
 The structure is extensible - add more workers, parallel cores, pattern buses, and heat sinks to increase capacity.
+
+<GameScene zoom="4">
+  <ImportStructure src="../scenes/craft_min.nbt" />
+  <IsometricCamera yaw="45" pitch="30" />
+</GameScene>
+
+<GameScene zoom="4">
+  <ImportStructure src="../scenes/craft_min.nbt" />
+</GameScene>
 
 ## Usage
 

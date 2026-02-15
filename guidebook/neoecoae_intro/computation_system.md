@@ -122,14 +122,23 @@ The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the m
 1. Place the **Controller** facing outward
 2. Build the structural frame using **Computation Casing** blocks around the controller
 3. Place the **Interface** at the designated position (back-left of controller)
-4. Add **Transmitters** in a horizontal row extending from the controller
+4. Add **Transmitters** in a horizontal row extending from the right side of the Computation Casing on the right side of the controller
 5. Place **Threading Cores** behind the transmitters
 6. Add **Drives** in upper and lower rows (above and below the transmitters)
 7. Place **Parallel Cores** in upper and lower rows (above and below the threading cores)
-8. Add the **Cooling Controller** at the end of the transmitter row
+8. Add the **Cooling Controller** at the end of the transmitter row (the player should place it on the right side of the structure, facing the controller)
 9. Complete the structure with remaining casing blocks
 
 The structure is extensible - add more threading cores, parallel cores, drives, and transmitters to increase capacity.
+
+<GameScene zoom="4">
+  <ImportStructure src="../scenes/comp_min.nbt" />
+  <IsometricCamera yaw="45" pitch="30" />
+</GameScene>
+
+<GameScene zoom="4">
+  <ImportStructure src="../scenes/comp_min.nbt" />
+</GameScene>
 
 ## Computation Cells
 
