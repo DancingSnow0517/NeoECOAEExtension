@@ -436,7 +436,7 @@ public class NEItems {
         .tag(NETags.Items.IRON_DUST, Tags.Items.DUSTS)
         .recipe((ctx, prov) -> {
             InscriberRecipeBuilder.inscribe(Tags.Items.INGOTS_IRON, ctx.get(), 1)
-                .save(prov, NeoECOAE.id("inscribe/iron_dust"));
+                .save(prov, NeoECOAE.id("inscriber/iron_dust"));
         })
         .register();
 
@@ -647,14 +647,14 @@ public class NEItems {
                 Ingredient.of(NETags.Items.CRYSTAL_INGOT_BASE)
             );
             IntegratedWorkingStationRecipe.builder()
-                .require(ConventionTags.CERTUS_QUARTZ_DUST)
-                .require(ConventionTags.FLUIX_DUST)
-                .require(NETags.Items.ENERGIZED_CRYSTAL_DUST)
-                .require(NETags.Items.CRYSTAL_INGOT_BASE)
-                .requireFluid(FluidTags.LAVA, 500)
-                .itemOutput(ctx.get())
-                .energy(50000)
-                .save(prov);
+                .require(ConventionTags.CERTUS_QUARTZ_DUST, 4)
+                .require(ConventionTags.FLUIX_DUST, 4)
+                .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 4)
+                .require(NETags.Items.CRYSTAL_INGOT_BASE, 4)
+                .requireFluid(FluidTags.LAVA, 2000)
+                .itemOutput(ctx.get(), 4)
+                .energy(200000)
+                .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
         })
         .register();
 
@@ -687,13 +687,17 @@ public class NEItems {
                 Ingredient.of(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE)
             );
             IntegratedWorkingStationRecipe.builder()
-                .require(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST)
-                .require(NETags.Items.ALUMINUM_DUST)
-                .require(ConventionTags.SILICON)
-                .require(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE)
-                .requireFluid(FluidTags.LAVA, 500)
-                .itemOutput(ctx.get())
-                .energy(50000)
+                .require(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST, 4)
+                .require(NETags.Items.ALUMINUM_DUST, 4)
+                .require(ConventionTags.SILICON, 4)
+                .require(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE, 4)
+                .requireFluid(FluidTags.LAVA, 2000)
+                .itemOutput(ctx.get(), 4)
+                .energy(200000)
+                .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
+                .requires(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK)
+                .unlockedBy("has_block", RegistrateRecipeProvider.has(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK))
                 .save(prov);
         })
         .register();

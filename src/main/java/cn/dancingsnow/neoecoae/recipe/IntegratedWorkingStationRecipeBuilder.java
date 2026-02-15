@@ -3,11 +3,7 @@ package cn.dancingsnow.neoecoae.recipe;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import net.minecraft.advancements.Advancement;
-import net.minecraft.advancements.AdvancementRequirements;
-import net.minecraft.advancements.AdvancementRewards;
 import net.minecraft.advancements.Criterion;
-import net.minecraft.advancements.critereon.RecipeUnlockedTrigger;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.recipes.RecipeBuilder;
 import net.minecraft.data.recipes.RecipeOutput;
@@ -24,9 +20,7 @@ import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Accessors(fluent = true, chain = true)
 public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
@@ -36,8 +30,6 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     FluidStack fluidOutput = FluidStack.EMPTY;
     @Setter
     int energy = 1000;
-
-    protected final Map<String, Criterion<?>> criteria = new LinkedHashMap<>();
 
     public IntegratedWorkingStationRecipeBuilder require(SizedIngredient ingredient) {
         inputItems.add(ingredient);
@@ -118,7 +110,6 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     @Override
     public RecipeBuilder unlockedBy(String name, Criterion<?> criterion) {
-        criteria.put(name, criterion);
         return this;
     }
 
@@ -147,13 +138,7 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
-        Advancement.Builder advancement = recipeOutput.advancement()
-            .addCriterion("has_the_recipe", RecipeUnlockedTrigger.unlocked(id))
-            .rewards(AdvancementRewards.Builder.recipe(id))
-            .requirements(AdvancementRequirements.Strategy.OR);
-        criteria.forEach(advancement::addCriterion);
-
         IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy);
-        recipeOutput.accept(id, recipe, advancement.build(id.withPrefix("recipe/")));
+        recipeOutput.accept(id, recipe, null);
     }
 }

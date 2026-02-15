@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
+import com.glodblock.github.extendedae.recipe.CircuitCutterRecipeBuilder;
 import com.glodblock.github.extendedae.recipe.CrystalAssemblerRecipeBuilder;
 import com.glodblock.github.extendedae.recipe.CrystalFixerRecipeBuilder;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
@@ -37,5 +38,10 @@ public class EAERecipes {
             .input(NEItems.CRYSTAL_MATRIX, 4)
             .input(AEItems.SILICON_PRINT, 4)
             .save(extendedaeInstalled, NeoECOAE.id("crystal_assembler/superconducting_processor"));
+
+        // 电路切片机
+        CircuitCutterRecipeBuilder.cut(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT, 9)
+            .input(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK)
+            .save(extendedaeInstalled, NeoECOAE.id("circuit_cutter/superconducting_processor_print"));
     }
 }

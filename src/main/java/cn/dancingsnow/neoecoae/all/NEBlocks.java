@@ -260,6 +260,24 @@ public class NEBlocks {
         .build()
         .register();
 
+    public static final BlockEntry<Block> ENERGIZED_SUPERCONDUCTIVE_BLOCK = REGISTRATE
+        .block("energized_superconductive_block", Block::new)
+        .initialProperties(() -> Blocks.QUARTZ_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.STORAGE_BLOCKS)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("AAA")
+                .pattern("AAA")
+                .pattern("AAA")
+                .define('A', NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT)
+                .unlockedBy("has_energized_superconductive_ingot", RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT))
+                .save(prov);
+        })
+        .item()
+        .tag(Tags.Items.STORAGE_BLOCKS)
+        .build()
+        .register();
+
     public static final BlockEntry<BuddingEnergizedCrystalBlock> FLAWLESS_BUDDING_ENERGIZED_CRYSTAL = REGISTRATE
         .block("flawless_budding_energized_crystal", BuddingEnergizedCrystalBlock::new)
         .initialProperties(() -> Blocks.QUARTZ_BLOCK)

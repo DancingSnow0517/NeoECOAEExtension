@@ -2,11 +2,7 @@ package cn.dancingsnow.neoecoae.recipe;
 
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import net.minecraft.advancements.Advancement;
-import net.minecraft.advancements.AdvancementRequirements;
-import net.minecraft.advancements.AdvancementRewards;
 import net.minecraft.advancements.Criterion;
-import net.minecraft.advancements.critereon.RecipeUnlockedTrigger;
 import net.minecraft.data.recipes.RecipeBuilder;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.resources.ResourceLocation;
@@ -18,8 +14,6 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 
 @Accessors(fluent = true, chain = true)
@@ -30,8 +24,6 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     private FluidStack output = FluidStack.EMPTY;
     @Setter
     private int coolant = 0;
-
-    protected final Map<String, Criterion<?>> criteria = new LinkedHashMap<>();
 
     public CoolingRecipeBuilder input(SizedFluidIngredient ingredient) {
         this.input = ingredient;
@@ -48,7 +40,6 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
 
     @Override
     public CoolingRecipeBuilder unlockedBy(String name, Criterion<?> criterion) {
-        criteria.put(name, criterion);
         return this;
     }
 
@@ -73,12 +64,7 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
         if (coolant <= 0) {
             throw new IllegalStateException("coolant must be greater than 0");
         }
-        Advancement.Builder advancement = recipeOutput.advancement()
-            .addCriterion("has_the_recipe", RecipeUnlockedTrigger.unlocked(id))
-            .rewards(AdvancementRewards.Builder.recipe(id))
-            .requirements(AdvancementRequirements.Strategy.OR);
-        criteria.forEach(advancement::addCriterion);
         CoolingRecipe recipe = new CoolingRecipe(input, output, coolant);
-        recipeOutput.accept(id, recipe, advancement.build(id.withPrefix("recipe/")));
+        recipeOutput.accept(id, recipe, null);
     }
 }

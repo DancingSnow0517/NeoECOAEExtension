@@ -23,7 +23,7 @@ public class EcoMachineRecipes {
             .requireFluid(FluidTags.WATER, 250)
             .energy(62500)
             .itemOutput(NEItems.ENERGIZED_CRYSTAL, 8)
-            .save(provider, NeoECOAE.id("eco_station/energized_crystal"));
+            .save(provider, NeoECOAE.id("integrated_working_station/energized_crystal"));
 
         //Energized fluix crystal
         IntegratedWorkingStationRecipe.builder()
@@ -32,7 +32,7 @@ public class EcoMachineRecipes {
             .requireFluid(FluidTags.WATER, 250)
             .energy(62500)
             .itemOutput(NEItems.ENERGIZED_FLUIX_CRYSTAL, 8)
-            .save(provider, NeoECOAE.id("eco_station/energized_fluix_crystal"));
+            .save(provider, NeoECOAE.id("integrated_working_station/energized_fluix_crystal"));
 
         //ECO - CE4
         IntegratedWorkingStationRecipe.builder()
