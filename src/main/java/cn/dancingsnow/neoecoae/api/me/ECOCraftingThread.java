@@ -13,6 +13,7 @@ import appeng.menu.AutoCraftingMenu;
 import cn.dancingsnow.neoecoae.api.NEFakePlayer;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -162,11 +163,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             for (ItemStack item : remainingItems) {
                 eject(storage, item);
             }
-            NeoForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
-                NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()),
-                outputItem,
-                craftingInv
-            ));
+            if (NEConfig.postCraftingEvent) {
+                NeoForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
+                    NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()),
+                    outputItem,
+                    craftingInv
+                ));
+            }
             outputItem = ItemStack.EMPTY;
             remainingItems.clear();
             return true;

@@ -166,6 +166,7 @@
   "neoecoae.classic_pack": "Neo ECO AE Extension Classic Textures",
   "neoecoae.configuration.computationSystemMaxLength": "Max Length of Computation System",
   "neoecoae.configuration.craftingSystemMaxLength": "Max Length of Crafting System",
+  "neoecoae.configuration.postCraftingEvent": "Post Crafting Event",
   "neoecoae.configuration.storageSystemMaxLength": "Max Length of Storage System",
   "neoecoae.configuration.structure": "Structure",
   "neoecoae.tooltip.upload_pattern": "Upload Pattern into available ECO Crafting System",

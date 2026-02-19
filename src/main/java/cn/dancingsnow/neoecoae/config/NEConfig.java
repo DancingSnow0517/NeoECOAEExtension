@@ -30,16 +30,22 @@ public class NEConfig {
         BUILDER.pop();
     }
 
+    private static final ModConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER
+        .comment("Is post a crafting event when crafting system finished a recipe.", "It may cause lag when installed Balm")
+        .define("postCraftingEvent", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength;
     public static int computationSystemMaxLength;
     public static int storageSystemMaxLength;
+    public static boolean postCraftingEvent;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent event) {
         craftingSystemMaxLength = CRAFTING_SYSTEM_MAX_LENGTH.get();
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
+        postCraftingEvent = POST_CRAFTING_EVENT.get();
     }
 }
