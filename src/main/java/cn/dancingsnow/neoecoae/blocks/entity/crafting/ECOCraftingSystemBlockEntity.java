@@ -202,7 +202,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private void updateOverlockTimes() {
         int overflow = threadCount - threadCountPerWorker * workerCount;
         float radio = (float) threadCount / overflow;
-        overlockTimes = Math.min(Math.round(radio / 0.05f), 9);
+        overlockTimes = Math.clamp(Math.round(radio / 0.05f), 0, 9);
     }
 
     public boolean canConsumeCoolant(int coolant) {
