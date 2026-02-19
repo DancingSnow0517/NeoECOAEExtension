@@ -92,6 +92,7 @@ public class ECOComputationDriveBlockEntity
         if (this.cluster != null) {
             this.cluster.recalculateRemainingStorage();
         }
+        setChanged();
     }
 
     @Override
@@ -120,6 +121,7 @@ public class ECOComputationDriveBlockEntity
     @Override
     public void setFormed(boolean formed) {
         this.formedState = formed;
+        setChanged();
     }
 
     @Override
@@ -131,12 +133,14 @@ public class ECOComputationDriveBlockEntity
         } else {
             ownerBlockPos = null;
         }
+        setChanged();
     }
 
     @Override
     public void disconnect(boolean update) {
         super.disconnect(update);
         isLowerDrive = false;
+        setChanged();
     }
 
     @Override

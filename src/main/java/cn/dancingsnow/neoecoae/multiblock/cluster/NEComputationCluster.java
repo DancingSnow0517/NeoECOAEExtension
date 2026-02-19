@@ -72,6 +72,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 upperDrives.add(driveBlockEntity);
             } else {
                 driveBlockEntity.setLowerDrive(true);
+                driveBlockEntity.setChanged();
                 lowerDrives.add(driveBlockEntity);
             }
         }

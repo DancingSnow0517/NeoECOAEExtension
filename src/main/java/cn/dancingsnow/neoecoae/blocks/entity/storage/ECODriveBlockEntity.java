@@ -68,6 +68,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         }
         updateState();
         this.cellStack = cellStack;
+        setChanged();
     }
 
     @Override
@@ -117,10 +118,12 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 storageMounts.mount(cellInventory);
                 mounted = true;
+                setChanged();
                 return;
             }
         }
         mounted = false;
+        setChanged();
     }
 
     @Override
@@ -133,6 +136,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
         online = getMainNode().isOnline();
+        setChanged();
     }
 
     @Override
