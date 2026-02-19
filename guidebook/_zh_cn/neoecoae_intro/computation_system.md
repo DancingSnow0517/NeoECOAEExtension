@@ -131,13 +131,9 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
 
 结构可扩展——添加更多线程核心、并行核心、驱动器和传输总线以增加容量。
 
-<GameScene zoom="4">
+<GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/comp_min.nbt" />
   <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
-
-<GameScene zoom="4">
-  <ImportStructure src="../scenes/comp_min.nbt" />
 </GameScene>
 
 ## 计算单元

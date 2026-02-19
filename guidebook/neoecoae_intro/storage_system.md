@@ -105,13 +105,9 @@ The <ItemLink id="neoecoae:storage_casing" /> blocks form the frame of the multi
 
 The structure is extensible - you can add more drives and energy cells to increase capacity.
 
-<GameScene zoom="4">
+<GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/store_min.nbt" />
   <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
-
-<GameScene zoom="4">
-  <ImportStructure src="../scenes/store_min.nbt" />
 </GameScene>
 
 ## Storage Cells

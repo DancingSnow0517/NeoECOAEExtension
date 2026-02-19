@@ -130,13 +130,9 @@ ECO 合成系统是一个高级多方块样板供应器，可并行处理合成�
 
 结构可扩展——添加更多工作核心、并行核心、样板总线和散热器以增加容量。
 
-<GameScene zoom="4">
+<GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/craft_min.nbt" />
   <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
-
-<GameScene zoom="4">
-  <ImportStructure src="../scenes/craft_min.nbt" />
 </GameScene>
 
 ## 使用方法

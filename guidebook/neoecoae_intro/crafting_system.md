@@ -130,13 +130,9 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 
 The structure is extensible - add more workers, parallel cores, pattern buses, and heat sinks to increase capacity.
 
-<GameScene zoom="4">
+<GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/craft_min.nbt" />
   <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
-
-<GameScene zoom="4">
-  <ImportStructure src="../scenes/craft_min.nbt" />
 </GameScene>
 
 ## Usage

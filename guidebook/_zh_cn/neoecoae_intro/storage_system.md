@@ -105,13 +105,9 @@ ECO 存储系统是一个可扩展的多方块存储解决方案，为你的ME�
 
 结构可扩展——你可以添加更多驱动器和能量元件以增加容量。
 
-<GameScene zoom="4">
+<GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/store_min.nbt" />
   <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
-
-<GameScene zoom="4">
-  <ImportStructure src="../scenes/store_min.nbt" />
 </GameScene>
 
 ## 存储单元

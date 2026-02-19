@@ -131,13 +131,9 @@ The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the m
 
 The structure is extensible - add more threading cores, parallel cores, drives, and transmitters to increase capacity.
 
-<GameScene zoom="4">
+<GameScene zoom="4" interactive={true}>
   <ImportStructure src="../scenes/comp_min.nbt" />
   <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
-
-<GameScene zoom="4">
-  <ImportStructure src="../scenes/comp_min.nbt" />
 </GameScene>
 
 ## Computation Cells
