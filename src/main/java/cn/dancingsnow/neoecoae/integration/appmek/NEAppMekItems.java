@@ -7,7 +7,7 @@ import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOAETypeCounts;
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.integration.appmek.item.ECOChemicalStorageCellItem;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import me.ramidzkh.mekae2.ae2.MekanismKeyType;
@@ -46,12 +46,10 @@ public class NEAppMekItems {
         .lang("ECO Storage Matrix Housing (Chemical)")
         .register();
 
-    public static final ItemEntry<ECOStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE
-        .item("eco_chemical_storage_cell_16m", p -> new ECOStorageCellItem(
+    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE
+        .item("eco_chemical_storage_cell_16m", p -> new ECOChemicalStorageCellItem(
             p.stacksTo(1).rarity(Rarity.UNCOMMON),
-            ECOTier.L4,
-            MekanismKeyType.TYPE,
-            NEAppMekCellTypes.MEKANISM
+            ECOTier.L4
         ))
         .recipe((ctx, prov) -> {
             RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
@@ -66,12 +64,10 @@ public class NEAppMekItems {
         .lang("ECO - LE4 Storage Matrix (Chemical)")
         .register();
 
-    public static final ItemEntry<ECOStorageCellItem> ECO_CHEMICAL_CELL_64M = REGISTRATE
-        .item("eco_chemical_storage_cell_64m", p -> new ECOStorageCellItem(
+    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = REGISTRATE
+        .item("eco_chemical_storage_cell_64m", p -> new ECOChemicalStorageCellItem(
             p.stacksTo(1).rarity(Rarity.RARE),
-            ECOTier.L6,
-            MekanismKeyType.TYPE,
-            NEAppMekCellTypes.MEKANISM
+            ECOTier.L6
         ))
         .recipe((ctx, prov) -> {
             RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
@@ -86,12 +82,10 @@ public class NEAppMekItems {
         .lang("ECO - LE6 Storage Matrix (Chemical)")
         .register();
 
-    public static final ItemEntry<ECOStorageCellItem> ECO_CHEMICAL_CELL_256M = REGISTRATE
-        .item("eco_chemical_storage_cell_256m", p -> new ECOStorageCellItem(
+    public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = REGISTRATE
+        .item("eco_chemical_storage_cell_256m", p -> new ECOChemicalStorageCellItem(
             p.stacksTo(1).rarity(Rarity.EPIC),
-            ECOTier.L9,
-            MekanismKeyType.TYPE,
-            NEAppMekCellTypes.MEKANISM
+            ECOTier.L9
         ))
         .recipe((ctx, prov) -> {
             RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));

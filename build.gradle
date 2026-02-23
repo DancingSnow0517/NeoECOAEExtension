@@ -85,6 +85,7 @@ repositories {
             includeGroup "com.github.rtyley"
         }
     }
+    maven { url "https://maven.shedaniel.me/" }
 }
 
 dependencies {
