@@ -55,10 +55,12 @@ public class ECOComputationDriveBlockEntity
     @Getter
     @DescSynced
     @RequireRerender
+    @Nullable
     private BlockPos ownerBlockPos;
 
     @Setter
     @Getter
+    @Nullable
     private IECOTier tier;
 
     @Getter

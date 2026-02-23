@@ -56,7 +56,7 @@ public class ECOComputationDriveRenderer
         IECOTier cableTier = blockEntity.getTier();
         if (itemStack != null && !itemStack.isEmpty() && itemStack.getItem() instanceof ECOComputationCellItem item) {
             IECOTier itemTier = item.getTier();
-            shouldCellWork = formed && itemTier.compareTo(blockEntity.getTier()) <= 0;
+            shouldCellWork = formed && blockEntity.getTier() != null && itemTier.compareTo(blockEntity.getTier()) <= 0;
             ResourceLocation cellModel = shouldCellWork
                 ? ECOComputationModels.getFormedModel(itemStack.getItem())
                 : ECOComputationModels.getNormalModel(itemStack.getItem());
