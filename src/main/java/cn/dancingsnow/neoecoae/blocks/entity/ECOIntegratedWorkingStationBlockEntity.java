@@ -609,6 +609,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     private void onConfigChanged(IConfigManager manager, Setting<?> setting) {
         if (setting == Settings.AUTO_EXPORT) {
             getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
+            shouldAutoExport = manager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
         }
 
         saveChanges();
