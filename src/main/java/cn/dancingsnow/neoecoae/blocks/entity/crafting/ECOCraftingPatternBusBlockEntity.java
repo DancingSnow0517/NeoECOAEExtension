@@ -31,6 +31,8 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import dev.vfyjxf.taffy.style.AlignContent;
+import dev.vfyjxf.taffy.style.FlexDirection;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -41,10 +43,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
-import org.appliedenergistics.yoga.YogaEdge;
-import org.appliedenergistics.yoga.YogaFlexDirection;
-import org.appliedenergistics.yoga.YogaGutter;
-import org.appliedenergistics.yoga.YogaJustify;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -209,9 +207,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
-            .setPadding(YogaEdge.ALL, 4)
-            .setGap(YogaGutter.ALL, 2)
-            .setJustifyContent(YogaJustify.CENTER)
+            .paddingAll(4)
+            .gapAll(2)
+            .justifyContent(AlignContent.CENTER)
         ).addClass("panel_bg");
 
         root.addChild(new TextElement()
@@ -222,7 +220,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
         UIElement patternInv = new UIElement().addClass("panel_border");
         for (int row = 0; row < COL_SIZE; row++) {
-            UIElement rowInv = new UIElement().layout(layout -> layout.setFlexDirection(YogaFlexDirection.ROW));
+            UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
                 UIElement slot = new PatternItemSlot(new ItemHandlerSlot(itemHandler, slotIndex))
@@ -232,7 +230,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             patternInv.addChild(rowInv);
         }
         root.addChild(patternInv);
-        root.addChild(new InventorySlots().layout(layout -> layout.setMargin(YogaEdge.TOP, 5)));
+        root.addChild(new InventorySlots().layout(layout -> layout.marginTop(5)));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 }

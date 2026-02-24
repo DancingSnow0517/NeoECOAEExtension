@@ -62,11 +62,14 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.style.LayoutStyle;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import dev.vfyjxf.taffy.style.AlignContent;
+import dev.vfyjxf.taffy.style.AlignItems;
+import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import guideme.GuidesCommon;
 import guideme.PageAnchor;
 import lombok.Getter;
@@ -91,12 +94,6 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
-import org.appliedenergistics.yoga.YogaAlign;
-import org.appliedenergistics.yoga.YogaEdge;
-import org.appliedenergistics.yoga.YogaFlexDirection;
-import org.appliedenergistics.yoga.YogaGutter;
-import org.appliedenergistics.yoga.YogaJustify;
-import org.appliedenergistics.yoga.YogaPositionType;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -641,16 +638,16 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
-            .setPadding(YogaEdge.ALL, 4)
-            .setGap(YogaGutter.ALL, 2)
-            .setJustifyContent(YogaJustify.CENTER)
+            .paddingAll( 4)
+            .gapAll( 2)
+            .justifyContent(AlignContent.CENTER)
         ).addClass("panel_bg");
 
         root.addChild(new TextElement()
             .setText("block.neoecoae.integrated_working_station", true)
             .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
 
-        UIElement inputArea = new UIElement().layout(layout -> layout.flexDirection(YogaFlexDirection.ROW).setMargin(YogaEdge.BOTTOM, 5));
+        UIElement inputArea = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW).marginBottom(5));
         // Input Fluid
         UIElement inputFluid = new UIElement().addClass("panel_border");
         inputFluid.addChild(new FluidSlot()
@@ -658,20 +655,20 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
             .setAllowClickDrained(true)
             .setAllowClickDrained(true)
-            .layout(LayoutStyle::setHeightMaxContent));
+            .layout(style -> style.heightPercent(100)));
         inputArea.addChild(inputFluid);
         // Clear button to the right of fluid slot, bottom-aligned with the fluid slot
         inputArea.addChild(new Button()
             .noText()
             .addPostIcon(AETextures.icon(Icon.CLEAR))
             .setOnServerClick(e -> clearFluid())
-            .layout(layout -> layout.setWidth(8).setHeight(8).setAlignSelf(YogaAlign.FLEX_END).paddingAll(1)));
+            .layout(layout -> layout.width(8).height(8).alignSelf(AlignItems.FLEX_END).paddingAll(1)));
 
 
         // Input slots
-        UIElement inputSlots = new UIElement().addClass("panel_border").layout(layout -> layout.setMargin(YogaEdge.LEFT, 10).setMargin(YogaEdge.RIGHT, 10));
+        UIElement inputSlots = new UIElement().addClass("panel_border").layout(layout -> layout.marginLeft(10).marginRight(10));
         for (int x = 0; x < 3; x++) {
-            UIElement row = new UIElement().layout(layout -> layout.setFlexDirection(YogaFlexDirection.ROW));
+            UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int y = 0; y < 3; y++) {
                 int i = x + y * 3;
                 row.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), i)));
@@ -682,21 +679,21 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         // output slot
         UIElement outputSlots = new UIElement().layout(layout -> {
-            layout.setMargin(YogaEdge.LEFT, 5);
-            layout.setFlexDirection(YogaFlexDirection.COLUMN);
-            layout.setJustifyContent(YogaJustify.CENTER);
+            layout.marginLeft(5);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.justifyContent(AlignContent.CENTER);
         });
-        UIElement outputSlot = new UIElement().addClass("panel_border").layout(layout -> layout.setJustifyContent(YogaJustify.CENTER));
+        UIElement outputSlot = new UIElement().addClass("panel_border").layout(layout -> layout.justifyContent(AlignContent.CENTER));
         outputSlots.addChild(outputSlot);
         outputSlot.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), 9)));
         inputArea.addChild(outputSlots);
 
         // progress bar
         UIElement progressBar = new UIElement().layout(layout -> {
-            layout.setMargin(YogaEdge.LEFT, 2);
-            layout.setMargin(YogaEdge.RIGHT, 5);
-            layout.setFlexDirection(YogaFlexDirection.COLUMN);
-            layout.setJustifyContent(YogaJustify.CENTER);
+            layout.marginLeft(2);
+            layout.marginRight(5);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.justifyContent(AlignContent.CENTER);
         }).addChildren(
             new ProgressBar()
                 .bindDataSource(SupplierDataSource.of(() -> (float) processingTime))
@@ -704,7 +701,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 .progressBarStyle(style -> style.fillDirection(FillDirection.UP_TO_DOWN).interpolate(false))
                 .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
                 .label(label -> label.setText(""))
-                .layout(layout -> layout.setHeight(18).setWidth(6))
+                .layout(layout -> layout.height(18).width(6))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                     event.hoverTooltips = new HoverTooltips(
                         List.of(Component.literal("%.0f%%".formatted((float) processingTime / MAX_PROCESSING_STEPS * 100))),
@@ -722,7 +719,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .noText()
             .addPostIcon(AETextures.icon(Icon.CLEAR))
             .setOnServerClick(e -> clearFluidOut())
-            .layout(layout -> layout.setWidth(8).setHeight(8).setAlignSelf(YogaAlign.FLEX_END).paddingAll(1)));
+            .layout(layout -> layout.width(8).height(8).alignSelf(AlignItems.FLEX_END).paddingAll(1)));
         // output fluid
         UIElement outputFluid = new UIElement().addClass("panel_border");
         outputFluid.addChild(new FluidSlot()
@@ -730,7 +727,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .slotStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP))
             .setAllowClickFilled(true)
             .setAllowClickDrained(false)
-            .layout(LayoutStyle::setHeightMaxContent));
+            .layout(style -> style.heightPercent(100)));
         inputArea.addChild(outputFluid);
 
 
@@ -739,11 +736,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         // Upgrades panel on the right (凸出式)
         UIElement upgradesPanel = new UIElement().layout(layout -> {
-            layout.positionType(YogaPositionType.ABSOLUTE);
-            layout.setPosition(YogaEdge.RIGHT, -22);
-            layout.setPosition(YogaEdge.TOP, 0);
-            layout.setPadding(YogaEdge.ALL, 2);
-            layout.setPadding(YogaEdge.BOTTOM, 4);
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.right(-22);
+            layout.top(0);
+            layout.paddingAll(2);
+            layout.paddingBottom(4);
         }).style(style -> style.background(NETextures.BACKGROUND));
         // add four upgrade slots vertically
         for (int i = 0; i < 4; i++) {
@@ -760,11 +757,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         root.addChild(upgradesPanel);
 
         UIElement settingsPanel = new UIElement().layout(layout -> {
-            layout.positionType(YogaPositionType.ABSOLUTE);
-            layout.setPosition(YogaEdge.LEFT, -22);
-            layout.setPosition(YogaEdge.TOP, 0);
-            layout.setPadding(YogaEdge.ALL, 2);
-            layout.setPadding(YogaEdge.BOTTOM, 4);
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(-22);
+            layout.top(0);
+            layout.paddingAll(2);
+            layout.paddingBottom(4);
         }).style(style -> style.background(NETextures.BACKGROUND));
 
         settingsPanel.addChild(new Button()
@@ -781,7 +778,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     null
                 );
             })
-            .layout(style -> style.setHeight(20).setWidth(18)));
+            .layout(style -> style.height(20).width(18)));
 
         settingsPanel.addChild(new Toggle()
             .noText()
@@ -789,7 +786,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .toggleButton(button -> button.setOnServerClick(e -> {
                 shouldAutoExport = !shouldAutoExport;
                 configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
-            }).layout(layout -> layout.setHeight(20).setWidth(18)))
+            }).layout(layout -> layout.height(20).width(18)))
             .bindDataSource(SupplierDataSource.of(() -> shouldAutoExport))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 event.hoverTooltips = new HoverTooltips(
@@ -802,7 +799,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     null
                 );
             })
-            .layout(layout -> layout.setWidth(18).setHeight(22).paddingAll(0)));
+            .layout(layout -> layout.width(18).height(22).paddingAll(0)));
 
         root.addChild(settingsPanel);
 
@@ -810,7 +807,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .setText("container.inventory", true)
             .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
 
-        root.addChild(new InventorySlots().layout(layout -> layout.setMargin(YogaEdge.TOP, 2)));
+        root.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 }

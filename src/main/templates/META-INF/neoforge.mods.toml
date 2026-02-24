@@ -98,7 +98,7 @@ file="META-INF/accesstransformer.cfg"
 [[dependencies.${mod_id}]]
     modId="ldlib2"
     type="required"
-    versionRange="[2.1.9,)"
+    versionRange="[2.2.1,)"
     ordering="NONE"
     side="BOTH"
     [dependencies.${mod_id}.mc-publish]

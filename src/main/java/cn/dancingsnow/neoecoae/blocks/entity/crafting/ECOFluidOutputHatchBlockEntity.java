@@ -11,6 +11,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import dev.vfyjxf.taffy.style.AlignContent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -22,9 +23,6 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import org.appliedenergistics.yoga.YogaEdge;
-import org.appliedenergistics.yoga.YogaGutter;
-import org.appliedenergistics.yoga.YogaJustify;
 
 import java.util.List;
 
@@ -67,9 +65,9 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
-            .setPadding(YogaEdge.ALL, 4)
-            .setGap(YogaGutter.ALL, 2)
-            .setJustifyContent(YogaJustify.CENTER)
+            .paddingAll(4)
+            .gapAll(2)
+            .justifyContent(AlignContent.CENTER)
         ).addClass("panel_bg");
         root.addChild(new TextElement()
             .setText("block.neoecoae.output_hatch", true)
@@ -84,38 +82,4 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 
-//    private WidgetGroup createUI() {
-//        WidgetGroup root = new WidgetGroup();
-//        root.setSize(180, 145);
-//        root.setBackground(GuiTextures.BACKGROUND);
-//
-//        TextTextureWidget text = new TextTextureWidget();
-//        text.setText(Component.translatable("block.neoecoae.output_hatch"));
-//        text.setSelfPosition(8, 8);
-//        text.textureStyle(t -> t.setType(TextTexture.TextType.LEFT_ROLL).setColor(0x403E53).setDropShadow(false));
-//        text.setSize(160, 9);
-//        root.addWidget(text);
-//
-//        AEStyleWidgetGroup tankGroup = new AEStyleWidgetGroup();
-//        tankGroup.initTemplate();
-//
-//        tankGroup.setSize(18, 18);
-//        tankGroup.setSelfPosition(81, 28);
-//        AEStyleTankWidget tankWidget = new AEStyleTankWidget(tank, 0, 0, 0,true, false);
-//        tankWidget.initTemplate();
-//        tankGroup.addWidget(tankWidget);
-//
-//        root.addWidget(tankGroup);
-//
-//        AEStylePlayerInventoryWidget playerInventoryWidget = new AEStylePlayerInventoryWidget();
-//        playerInventoryWidget.setSelfPosition(4, 52);
-//        root.addWidget(playerInventoryWidget);
-//
-//        return root;
-//    }
-//
-//    @Override
-//    public ModularUI createUI(Player entityPlayer) {
-//        return new ModularUI(createUI(), this, entityPlayer);
-//    }
 }

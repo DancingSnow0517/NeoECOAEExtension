@@ -25,14 +25,12 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import dev.vfyjxf.taffy.style.AlignContent;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import org.appliedenergistics.yoga.YogaEdge;
-import org.appliedenergistics.yoga.YogaGutter;
-import org.appliedenergistics.yoga.YogaJustify;
 
 import java.util.List;
 
@@ -150,9 +148,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
-            .setPadding(YogaEdge.ALL, 4)
-            .setGap(YogaGutter.ALL, 2)
-            .setJustifyContent(YogaJustify.CENTER)
+            .paddingAll(4)
+            .gapAll(2)
+            .justifyContent(AlignContent.CENTER)
         ).addClass("panel_bg");
 
         ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
@@ -183,7 +181,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.storage.energy_status", Tooltips.ofNumber(storedEnergy), Tooltips.ofNumber(maxEnergy), (int) ((double) storedEnergy / maxEnergy * 100))))
             .textStyle(ECOStorageSystemBlockEntity::textStyle));
 
-        textPanel.layout(layout -> layout.setHeight(160).setWidth(220));
+        textPanel.layout(layout -> layout.height(160).width(220));
 
         root.addChild(textPanel);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
