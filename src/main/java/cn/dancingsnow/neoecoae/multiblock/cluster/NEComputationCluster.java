@@ -243,6 +243,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     private void killCpu(ICraftingPlan plan, boolean update, boolean recalculate) {
         ECOCraftingCPU cpu = activeCpus.get(plan);
+        if (cpu == null) {
+            // CPU may have already been removed by another call (e.g., from recalculateRemainingStorage)
+            return;
+        }
         cpu.getLogic().cancel();
         cpu.getLogic().markForDeletion();
         cpu.getOwner().deactivate(cpu);
