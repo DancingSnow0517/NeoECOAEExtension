@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
+import cn.dancingsnow.neoecoae.all.NEEcoTiers;
 import cn.dancingsnow.neoecoae.all.NEGridServices;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
@@ -59,6 +60,7 @@ public class NeoECOAE {
         NEBlockEntities.register();
         NEDataGen.configureDataGen();
         NEGridServices.register();
+        NEEcoTiers.register();
         NECellTypes.register(modBus);
         NERecipeTypes.register(modBus);
 
@@ -105,6 +107,7 @@ public class NeoECOAE {
 
     private static void newRegistry(NewRegistryEvent event) {
         event.register(NERegistries.CELL_TYPE);
+        event.register(NERegistries.ECO_TIER);
     }
 
     private static void addClassicPack(AddPackFindersEvent event) {

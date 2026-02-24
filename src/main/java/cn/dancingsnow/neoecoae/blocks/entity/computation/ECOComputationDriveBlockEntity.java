@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
-import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
 
@@ -13,16 +12,12 @@ import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBloc
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import lombok.Setter;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,33 +55,15 @@ public class ECOComputationDriveBlockEntity
 
     @Setter
     @Getter
+    @DescSynced
     @Nullable
-    private IECOTier tier;
+    private IECOTier tier = null;
 
     @Getter
     private final IItemHandler itemHandler = new CellHostItemHandler(this);
 
     public ECOComputationDriveBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
-    }
-
-    @Override
-    public void scheduleRenderUpdate() {
-        if (level != null && level.isClientSide) {
-            scheduleRenderUpdateInternal();
-        }
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    private void scheduleRenderUpdateInternal() {
-        Level level = Minecraft.getInstance().level;
-        if (ownerBlockPos != null) {
-            if (level.getBlockEntity(ownerBlockPos) instanceof ECOComputationSystemBlockEntity systemBlockEntity) {
-                this.tier = systemBlockEntity.getTier();
-            }
-        }
-        SectionPos sectionPos = SectionPos.of(worldPosition);
-        Minecraft.getInstance().levelRenderer.setSectionDirty(sectionPos.x(), sectionPos.y(), sectionPos.z());
     }
 
     public void setCellStack(@Nullable ItemStack cellStack) {
@@ -127,15 +104,22 @@ public class ECOComputationDriveBlockEntity
     }
 
     @Override
-    public void updateCluster(@Nullable NEComputationCluster cluster) {
-        super.updateCluster(cluster);
-        this.formedState = cluster != null;
+    public void updateState(boolean updateExposed) {
+        super.updateState(updateExposed);
+        formedState = cluster != null;
         if (cluster != null) {
-            ownerBlockPos = cluster.getController().getBlockPos();
+            ECOComputationSystemBlockEntity controller = cluster.getController();
+            if (controller != null) {
+                tier = controller.getTier();
+                ownerBlockPos = controller.getBlockPos();
+            } else {
+                tier = null;
+                ownerBlockPos = null;
+            }
         } else {
+            tier = null;
             ownerBlockPos = null;
         }
-        setChanged();
     }
 
     @Override

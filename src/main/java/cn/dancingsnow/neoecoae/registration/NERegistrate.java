@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.registration;
 
+import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
@@ -8,6 +9,7 @@ import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.builders.BlockEntityBuilder;
 import com.tterrag.registrate.builders.NoConfigBuilder;
 import com.tterrag.registrate.util.entry.RegistryEntry;
+import com.tterrag.registrate.util.nullness.NonNullSupplier;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -95,6 +97,14 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     public NERegistrate defaultCreativeTab(RegistryEntry<CreativeModeTab, CreativeModeTab> tab) {
         defaultCreativeTab(tab.getKey());
         return self();
+    }
+
+    public <T extends IECOTier> NoConfigBuilder<IECOTier, T, NERegistrate> ecoTier(String name, NonNullSupplier<T> factory) {
+        return ecoTier(self(), name, factory);
+    }
+
+    public <P, T extends IECOTier> NoConfigBuilder<IECOTier, T, P> ecoTier(P parent, String name, NonNullSupplier<T> factory) {
+        return this.generic(parent, name, NERegistries.Keys.ECO_TIER, factory);
     }
 
     public NERegistrate clearDefaultCreativeTab() {
