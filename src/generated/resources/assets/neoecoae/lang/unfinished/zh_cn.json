@@ -67,6 +67,7 @@
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO 合成系统",
   "config.jade.plugin_neoecoae.eco_crafting_worker": "ECO 工作核心",
   "config.jade.plugin_neoecoae.eco_drive": "ECO - 驱动器",
+  "emi.category.neoecoae.integrated_working_station": "UNLOCALIZED: Integrated Working Station",
   "emi.category.neoecoae.multiblock": "ECO 多方块信息",
   "gui.neoecoae.computation.parallel_info": "并行数: %d",
   "gui.neoecoae.computation.storage_info": "已用存储: %s / %s",

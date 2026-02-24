@@ -67,6 +67,7 @@
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO 冶造之分",
   "config.jade.plugin_neoecoae.eco_crafting_worker": "ECO 工之心",
   "config.jade.plugin_neoecoae.eco_drive": "ECO - 驅機",
+  "emi.category.neoecoae.integrated_working_station": "UNLOCALIZED: Integrated Working Station",
   "emi.category.neoecoae.multiblock": "ECO 多方構訊",
   "gui.neoecoae.computation.parallel_info": "並算之數: %d",
   "gui.neoecoae.computation.storage_info": "已用藏量: %s / %s",

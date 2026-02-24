@@ -1,5 +1,6 @@
-package cn.dancingsnow.neoecoae.integration.emi;
+package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
+import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.lowdragmc.lowdraglib2.integration.xei.emi.ModularUIEMIRecipe;

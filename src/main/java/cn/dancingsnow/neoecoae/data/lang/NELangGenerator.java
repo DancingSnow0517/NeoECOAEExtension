@@ -27,6 +27,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
 
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
+        provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");
 
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] to show more info");
         provider.add("tooltip.neoecoae.max_lenth", "Maximum length of structure: %d");
