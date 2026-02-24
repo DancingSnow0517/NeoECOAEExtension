@@ -4,9 +4,11 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.integration.emi.recipe.CoolingEmiRecipe;
 import cn.dancingsnow.neoecoae.integration.emi.recipe.IntegrationWorkingStationEmiRecipe;
 import cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import dev.emi.emi.api.EmiEntrypoint;
 import dev.emi.emi.api.EmiPlugin;
@@ -27,9 +29,11 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
     public static final EmiRecipeCategory MULTIBLOCK = new EmiRecipeCategory(NeoECOAE.id("multiblock"), EmiStack.of(NEBlocks.STORAGE_SYSTEM_L4));
     public static final EmiRecipeCategory INTEGRATED_WORKING_STATION = new EmiRecipeCategory(NeoECOAE.id("integrated_working_station"), EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
+    public static final EmiRecipeCategory COOLING = new EmiRecipeCategory(NeoECOAE.id("cooling"), EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
 
     @Override
     public void register(EmiRegistry registry) {
+        // multiblock
         registry.addCategory(MULTIBLOCK);
         registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.STORAGE_SYSTEM_L4));
         registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.STORAGE_SYSTEM_L6));
@@ -45,10 +49,20 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
             registry.addRecipe(new MultiblockEmiRecipe(definition));
         }
 
+        // integrated working station
         registry.addCategory(INTEGRATED_WORKING_STATION);
         registry.addWorkstation(INTEGRATED_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
         for (RecipeHolder<IntegratedWorkingStationRecipe> holder : registry.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
             registry.addRecipe(new IntegrationWorkingStationEmiRecipe(holder));
+        }
+
+        // cooling
+        registry.addCategory(COOLING);
+        registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L4));
+        registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L6));
+        registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
+        for (RecipeHolder<CoolingRecipe> holder : registry.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
+            registry.addRecipe(new CoolingEmiRecipe(holder));
         }
     }
 
