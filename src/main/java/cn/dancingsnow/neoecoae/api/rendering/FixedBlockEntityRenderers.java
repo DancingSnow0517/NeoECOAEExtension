@@ -6,7 +6,7 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
+import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -24,10 +24,10 @@ public class FixedBlockEntityRenderers {
         AddSectionGeometryEvent.SectionRenderingContext context,
         BlockPos sectionOrigin
     ) {
-        Level level = Minecraft.getInstance().level;
+        BlockAndTintGetter region = context.getRegion();
         List<BlockEntity> blockEntities = new ArrayList<>();
         for (BlockPos pos : BlockPos.betweenClosed(sectionOrigin, sectionOrigin.offset(15, 15, 15))) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
+            BlockEntity blockEntity = region.getBlockEntity(pos);
             if (blockEntity != null) {
                 if (renderers.containsKey(blockEntity.getType())) {
                     blockEntities.add(blockEntity);
@@ -37,12 +37,12 @@ public class FixedBlockEntityRenderers {
         MultiBufferSource bufferSource = new DelegatedBufferSource(context);
         for (BlockEntity blockEntity : blockEntities) {
             render(
-                level,
+                region,
                 blockEntity,
                 Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(Minecraft.getInstance().isPaused()),
                 context.getPoseStack(),
                 bufferSource,
-                LevelRenderer.getLightColor(level, blockEntity.getBlockPos()),
+                LevelRenderer.getLightColor(region, blockEntity.getBlockPos()),
                 OverlayTexture.NO_OVERLAY,
                 sectionOrigin
             );
@@ -51,7 +51,7 @@ public class FixedBlockEntityRenderers {
 
     @SuppressWarnings("rawtypes")
     public static void render(
-        Level level,
+        BlockAndTintGetter level,
         BlockEntity blockEntity,
         float partialTick,
         PoseStack poseStack,
