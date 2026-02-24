@@ -61,7 +61,7 @@ public class NeoECOAE {
         NEDataGen.configureDataGen();
         NEGridServices.register();
         NEEcoTiers.register();
-        NECellTypes.register(modBus);
+        NECellTypes.register();
         NERecipeTypes.register(modBus);
 
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Loading Integrations");
