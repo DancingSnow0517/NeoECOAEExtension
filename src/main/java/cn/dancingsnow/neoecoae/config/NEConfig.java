@@ -11,19 +11,32 @@ public class NEConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     static {
-        BUILDER.push("structure");
+        BUILDER
+            .comment(
+                "Multiblock structure size limits."
+            )
+            .push("structure");
     }
 
     private static final ModConfigSpec.IntValue CRAFTING_SYSTEM_MAX_LENGTH = BUILDER
-        .comment("")
+        .comment(
+            "Maximum length (in blocks) allowed for the Crafting System multiblock.",
+            "Higher values allow longer expansions but may increase structure check cost."
+        )
         .defineInRange("craftingSystemMaxLength", 15, 5, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue COMPUTATION_SYSTEM_MAX_LENGTH = BUILDER
-        .comment("")
+        .comment(
+            "Maximum length (in blocks) allowed for the Computation System multiblock.",
+            "Higher values allow longer expansions but may increase structure check cost."
+        )
         .defineInRange("computationSystemMaxLength", 15, 5, Integer.MAX_VALUE);
 
     private static final ModConfigSpec.IntValue STORAGE_SYSTEM_MAX_LENGTH = BUILDER
-        .comment("")
+        .comment(
+            "Maximum length (in blocks) allowed for the Storage System multiblock.",
+            "Higher values allow longer expansions but may increase structure check cost."
+        )
         .defineInRange("storageSystemMaxLength", 15, 4, Integer.MAX_VALUE);
 
     static {
@@ -31,7 +44,10 @@ public class NEConfig {
     }
 
     private static final ModConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER
-        .comment("Is post a crafting event when crafting system finished a recipe.", "It may cause lag when installed Balm")
+        .comment(
+            "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.",
+            "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
+        )
         .define("postCraftingEvent", false);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
