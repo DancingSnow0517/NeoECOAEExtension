@@ -12,7 +12,7 @@
 // button
 button:host {
   base-background: built-in(ui-eco:BUTTON);
-  hover-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
+  hover-background: built-in(ui-eco:BUTTON_HOVER);
   pressed-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
   padding-all: 3;
   height: 16;
@@ -26,7 +26,7 @@ button.__disabled__ .__button_text__ {
 // toggle
 .__toggle_button__ {
   base-background: built-in(ui-eco:BUTTON);
-  hover-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
+  hover-background: built-in(ui-eco:BUTTON_HOVER);
   pressed-background: built-in(ui-eco:BUTTON_HIGHLIGHTED);
 }
 

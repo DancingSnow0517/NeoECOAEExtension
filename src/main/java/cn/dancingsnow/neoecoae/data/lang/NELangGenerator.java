@@ -24,7 +24,6 @@ public class NELangGenerator {
         provider.add("category.neoecoae.cooling.coolant", "Coolant: %d");
         provider.add("category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("category.neoecoae.integrated_working_station", "Integrated Working Station");
-        provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
 
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");

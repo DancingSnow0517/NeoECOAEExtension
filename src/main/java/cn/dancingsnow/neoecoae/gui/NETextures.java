@@ -29,6 +29,9 @@ public class NETextures {
     public static final IGuiTexture BUTTON_DISABLED = SpriteTexture.of(NeoECOAE.id("textures/gui/button_disabled.png"))
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2,4,2,4);
+    public static final IGuiTexture BUTTON_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/button_hover.png"))
+        .setSpriteSize(Size.of(20, 20))
+        .setBorder(2,3,2,4);
     public static final IGuiTexture BUTTON_HIGHLIGHTED = SpriteTexture.of(NeoECOAE.id("textures/gui/button_highlighted.png"))
         .setSpriteSize(Size.of(20, 20))
         .setBorder(2,3,2,4);
@@ -44,6 +47,7 @@ public class NETextures {
         .setSpriteSize(Size.of(4, 16));
 
     public static final IGuiTexture PATTERN_OVERLAY = widgetTexture("pattern_overlay.png");
+    public static final IGuiTexture OUTPUTS = widgetTexture("outputs.png");
 
     public static final IGuiTexture COOLING_OFF = widgetTexture("crafting/cooling_off.png");
     public static final IGuiTexture COOLING_OFF_DOWN = widgetTexture("crafting/cooling_off_down.png");

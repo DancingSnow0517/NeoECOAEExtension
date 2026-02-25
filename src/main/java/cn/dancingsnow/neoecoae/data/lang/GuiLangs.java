@@ -4,6 +4,18 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        // integrated working station
+        provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
+        provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");
+        provider.add("gui.neoecoae.integrated_working_station.allow_outputs.enabled", "Enabled");
+        provider.add("gui.neoecoae.integrated_working_station.allow_outputs.disabled", "Disabled");
+        provider.add("gui.neoecoae.relative_side.front", "Front");
+        provider.add("gui.neoecoae.relative_side.back", "Back");
+        provider.add("gui.neoecoae.relative_side.left", "Left");
+        provider.add("gui.neoecoae.relative_side.right", "Right");
+        provider.add("gui.neoecoae.relative_side.top", "Top");
+        provider.add("gui.neoecoae.relative_side.bottom", "Bottom");
+
         // storage
         provider.add("gui.neoecoae.storage.energy", "Energy Monitoring");
         provider.add("gui.neoecoae.storage.energy_status", "Energy Storage: %sAE / %sAE (%d%%)");

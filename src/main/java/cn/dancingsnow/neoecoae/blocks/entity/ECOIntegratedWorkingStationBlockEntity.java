@@ -15,6 +15,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.orientation.RelativeSide;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
@@ -48,6 +49,7 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -63,12 +65,15 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import guideme.GuidesCommon;
 import guideme.PageAnchor;
@@ -84,6 +89,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -97,10 +103,13 @@ import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBlockEntity
     implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
@@ -193,6 +202,10 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Getter
     @DescSynced
     private int processingTime = 0;
+
+    @Persisted
+    @DescSynced
+    private final EnumSet<RelativeSide> allowOutputs = EnumSet.allOf(RelativeSide.class);
 
     private boolean dirty = false;
 
@@ -535,8 +548,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             return false;
         }
 
-        for (var side : Direction.values()) {
-            var target = getTarget(side);
+        for (var side : allowOutputs) {
+            var target = getTarget(getOrientation().getSide(side));
 
             if (target != null) {
                 var source = IActionSource.ofMachine(this);
@@ -638,10 +651,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll( 4)
-            .gapAll( 2)
+            .paddingAll(4)
+            .gapAll(2)
             .justifyContent(AlignContent.CENTER)
         ).addClass("panel_bg");
+
+        // Floating output side config window (hidden by default)
+        UIElement allowOutputWindow = allowOutputPanel();
 
         root.addChild(new TextElement()
             .setText("block.neoecoae.integrated_working_station", true)
@@ -801,6 +817,21 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             })
             .layout(layout -> layout.width(18).height(22).paddingAll(0)));
 
+        // Open floating output side config
+        settingsPanel.addChild(new Button()
+            .noText()
+            .addPostIcon(NETextures.OUTPUTS)
+            .setOnClick(e -> allowOutputWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
+            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                event.hoverTooltips = new HoverTooltips(
+                    List.of(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE)),
+                    null,
+                    null,
+                    null
+                );
+            })
+            .layout(style -> style.height(20).width(18)));
+
         root.addChild(settingsPanel);
 
         root.addChild(new TextElement()
@@ -808,6 +839,190 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
 
         root.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
+
+        // Add absolute-positioned floating window last so it renders on top
+        root.addChild(allowOutputWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private UIElement allowOutputPanel() {
+        UIElement window = new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(6);
+            layout.top(6);
+            layout.display(TaffyDisplay.NONE);
+        }).addClass("panel_bg");
+
+        UIElement titleBar = new UIElement().layout(layout -> {
+            layout.flexDirection(FlexDirection.ROW);
+            layout.justifyContent(AlignContent.SPACE_BETWEEN);
+            layout.alignItems(AlignItems.CENTER);
+            layout.gapAll(2);
+        });
+
+        titleBar.addChild(new TextElement()
+            .setText("gui.neoecoae.integrated_working_station.allow_outputs", true)
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+
+        titleBar.addChild(new Button()
+            .noText()
+            .addPostIcon(AETextures.icon(Icon.CLEAR))
+            .setOnClick(e -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
+            .layout(layout -> layout.width(12).height(12).paddingAll(1)));
+
+        window.addChild(titleBar);
+
+        // Drag the window via title bar
+        WindowDragHelper.setDragMove(titleBar, window, null, null);
+
+        UIElement grid = new UIElement().layout(layout -> {
+            layout.display(TaffyDisplay.GRID);
+            layout.gridTemplateColumns("1fr 1fr 1fr");
+            layout.gridTemplateRows("auto auto auto");
+            // Keep horizontal compact; add extra vertical spacing via cell margins
+            layout.gapAll(2);
+            layout.alignItems(AlignItems.CENTER);
+            layout.justifyItems(AlignItems.CENTER);
+        });
+
+        window.addChild(grid);
+
+        Function<RelativeSide, String> toRow = side -> switch (side) {
+            case TOP -> "1";
+            case LEFT, FRONT, RIGHT -> "2";
+            case BOTTOM, BACK -> "3";
+        };
+
+        Function<RelativeSide, String> toColumn = side -> switch (side) {
+            case LEFT -> "1";
+            case TOP, FRONT, BOTTOM -> "2";
+            case RIGHT, BACK -> "3";
+        };
+
+        Function<RelativeSide, RelativeSide> toInternalSide = uiSide -> switch (uiSide) {
+            case LEFT -> RelativeSide.RIGHT;
+            case RIGHT -> RelativeSide.LEFT;
+            default -> uiSide;
+        };
+
+        Function<RelativeSide, IGuiTexture> sideIcon = uiSide -> {
+            if (level == null) {
+                return IGuiTexture.EMPTY;
+            }
+
+            RelativeSide internalSide = toInternalSide.apply(uiSide);
+
+            Direction worldDir;
+            try {
+                worldDir = getOrientation().getSide(internalSide);
+            } catch (Throwable ignored) {
+                return IGuiTexture.EMPTY;
+            }
+
+            BlockPos targetPos = worldPosition.relative(worldDir);
+            BlockState targetState = level.getBlockState(targetPos);
+
+            var item = targetState.getBlock().asItem();
+            if (item == Items.AIR) {
+                return IGuiTexture.EMPTY;
+            }
+            return new ItemStackTexture(new ItemStack(item));
+        };
+
+        BiFunction<RelativeSide, String, UIElement> sideToggle = (uiSide, labelKey) -> {
+            RelativeSide internalSide = toInternalSide.apply(uiSide);
+
+            var applyBackground = (java.util.function.BiConsumer<Button, Boolean>) (button, enabled) -> button.buttonStyle(style -> style
+                .baseTexture(enabled ? NETextures.BUTTON_HIGHLIGHTED : NETextures.BUTTON)
+                .hoverTexture(NETextures.BUTTON_HIGHLIGHTED)
+                .pressedTexture(NETextures.BUTTON_HIGHLIGHTED)
+            );
+
+            int extraRowSpacing = switch (uiSide) {
+                case TOP, LEFT, FRONT, RIGHT -> 4;
+                default -> 0;
+            };
+
+            UIElement cell = new UIElement().layout(layout -> {
+                layout.gridRow(toRow.apply(uiSide));
+                layout.gridColumn(toColumn.apply(uiSide));
+                layout.alignItems(AlignItems.CENTER);
+                layout.justifyContent(AlignContent.CENTER);
+                layout.marginBottom(extraRowSpacing);
+            });
+
+            IGuiTexture icon = sideIcon.apply(uiSide);
+            Toggle toggle = new Toggle();
+            toggle.noText();
+            // Mark icon: always render the adjacent-block item icon
+            toggle.toggleStyle(style -> style.markTexture(icon).unmarkTexture(icon));
+            toggle.toggleButton(button -> {
+                button.layout(layout -> layout.height(20).width(20).paddingAll(2));
+                button.setOnServerClick(e -> {
+                    if (allowOutputs.contains(internalSide)) {
+                        allowOutputs.remove(internalSide);
+                    } else {
+                        allowOutputs.add(internalSide);
+                    }
+
+                    // Clear cached strategy for this direction so it refreshes when re-enabled
+                    try {
+                        exportStrategies.remove(getOrientation().getSide(internalSide));
+                    } catch (Throwable ignored) {
+                    }
+
+                    saveChanges();
+                    markForUpdate();
+                });
+            });
+            toggle.bindDataSource(SupplierDataSource.of(() -> allowOutputs.contains(internalSide)));
+            toggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                var enabled = allowOutputs.contains(internalSide);
+                event.hoverTooltips = new HoverTooltips(
+                    List.of(
+                        Component.translatable(labelKey).withStyle(ChatFormatting.WHITE),
+                        Component.translatable(enabled
+                            ? "gui.neoecoae.integrated_working_station.allow_outputs.enabled"
+                            : "gui.neoecoae.integrated_working_station.allow_outputs.disabled").withStyle(ChatFormatting.GRAY)
+                    ),
+                    null,
+                    null,
+                    null
+                );
+            });
+
+            toggle.layout(layout -> layout.width(20).height(20).paddingAll(0));
+
+            // Keep visuals in-sync immediately on the client, while server remains authoritative
+            toggle.setOnToggleChanged(on -> {
+                if (level != null && level.isClientSide) {
+                    if (on) {
+                        allowOutputs.add(internalSide);
+                    } else {
+                        allowOutputs.remove(internalSide);
+                    }
+                }
+                applyBackground.accept(toggle.toggleButton, on);
+            });
+
+            // Initialize background based on current synced value
+            applyBackground.accept(toggle.toggleButton, allowOutputs.contains(internalSide));
+
+            cell.addChild(toggle);
+
+            return cell;
+        };
+
+        //    上
+        // 左 正 右
+        //    下 背
+        grid.addChild(sideToggle.apply(RelativeSide.TOP, "gui.neoecoae.relative_side.top"));
+        grid.addChild(sideToggle.apply(RelativeSide.LEFT, "gui.neoecoae.relative_side.left"));
+        grid.addChild(sideToggle.apply(RelativeSide.FRONT, "gui.neoecoae.relative_side.front"));
+        grid.addChild(sideToggle.apply(RelativeSide.RIGHT, "gui.neoecoae.relative_side.right"));
+        grid.addChild(sideToggle.apply(RelativeSide.BOTTOM, "gui.neoecoae.relative_side.bottom"));
+        grid.addChild(sideToggle.apply(RelativeSide.BACK, "gui.neoecoae.relative_side.back"));
+
+        return window;
     }
 }
