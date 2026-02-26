@@ -47,6 +47,7 @@ import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
@@ -200,7 +201,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     @Setter
     @Getter
-    @DescSynced
     private int processingTime = 0;
 
     @Persisted
@@ -712,15 +712,16 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             layout.justifyContent(AlignContent.CENTER);
         }).addChildren(
             new ProgressBar()
-                .bindDataSource(SupplierDataSource.of(() -> (float) processingTime))
                 .setMaxValue(MAX_PROCESSING_STEPS)
-                .progressBarStyle(style -> style.fillDirection(FillDirection.UP_TO_DOWN).interpolate(false))
+                .progressBarStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP).interpolate(false))
                 .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
                 .label(label -> label.setText(""))
+                .bind(DataBindingBuilder.floatValS2C(() -> (float) processingTime).build())
                 .layout(layout -> layout.height(18).width(6))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                    Float value = ((ProgressBar) event.currentElement).getValue();
                     event.hoverTooltips = new HoverTooltips(
-                        List.of(Component.literal("%.0f%%".formatted((float) processingTime / MAX_PROCESSING_STEPS * 100))),
+                        List.of(Component.literal("%.0f%%".formatted(value / MAX_PROCESSING_STEPS * 100))),
                         null,
                         null,
                         null
