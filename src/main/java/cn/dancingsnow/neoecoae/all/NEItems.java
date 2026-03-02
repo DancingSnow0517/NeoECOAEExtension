@@ -776,7 +776,7 @@ public class NEItems {
         .item("eco_cell_component_16m", MaterialItem::new)
         .recipe((ctx, prov) -> {
             IntegratedWorkingStationRecipe.builder()
-                .require(AEItems.CELL_COMPONENT_256K, 48)
+                .require(AEItems.CELL_COMPONENT_256K, 12)
                 .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 32)
                 .require(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
                 .require(NEItems.CRYSTAL_INGOT)
