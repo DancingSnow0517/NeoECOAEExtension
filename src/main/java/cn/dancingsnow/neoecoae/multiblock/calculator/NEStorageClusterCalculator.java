@@ -107,7 +107,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             right,
             upperEnergyCellStart,
             (state, pos) -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                && cell.getBlockEntity(level, pos).getTier() == tier
+                && tier.supportsComponentTier(cell.getBlockEntity(level, pos).getTier())
                 && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
         if (upperEnergyCellResult.isError()) {
@@ -119,7 +119,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 level,
                 upperEnergyCellStart,
                 state -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                    && cell.getBlockEntity(level, upperEnergyCellEnd).getTier() == tier
+                    && tier.supportsComponentTier(cell.getBlockEntity(level, upperEnergyCellEnd).getTier())
                     && state.getValue(ECOEnergyCellBlock.FACING) == back
             );
         }
@@ -129,7 +129,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             right,
             lowerEnergyCellStart,
             (state, pos) -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                && cell.getBlockEntity(level, pos).getTier() == tier
+                && tier.supportsComponentTier(cell.getBlockEntity(level, pos).getTier())
                 && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
         if (lowerEnergyCellResult.isError()) {

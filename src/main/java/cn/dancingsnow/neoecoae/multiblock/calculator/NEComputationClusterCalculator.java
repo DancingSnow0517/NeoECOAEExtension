@@ -202,7 +202,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction facing
     ) {
         return (s, p) -> s.getBlock() instanceof ECOComputationParallelCore core
-            && core.getBlockEntity(level, p).getTier() == tier
+            && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 
@@ -212,7 +212,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction facing
     ) {
         return (s, p) -> s.getBlock() instanceof ECOComputationThreadingCore core
-            && core.getBlockEntity(level, p).getTier() == tier
+            && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 
@@ -222,7 +222,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction facing
     ) {
         return (s, p) -> s.getBlock() instanceof ECOComputationCoolingController core
-            && core.getBlockEntity(level, p).getTier() == tier
+            && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 

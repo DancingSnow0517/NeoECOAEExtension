@@ -187,7 +187,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         Direction facing
     ) {
         return (s, p) -> s.getBlock() instanceof ECOCraftingParallelCore core
-            && core.getBlockEntity(level, p).getTier() == tier
+            && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 

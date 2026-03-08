@@ -82,4 +82,8 @@ public interface IECOTier {
     default int compareTo(IECOTier tier) {
         return Integer.compare(this.getTier(), tier.getTier());
     }
+
+    default boolean supportsComponentTier(IECOTier componentTier) {
+        return compareTo(componentTier) >= 0;
+    }
 }
