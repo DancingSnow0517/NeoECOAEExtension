@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
@@ -244,6 +245,33 @@ public class NEMultiBlocks {
 
     private static BlockPos pos(int x, int y, int z) {
         return new BlockPos(x, y, z);
+    }
+
+    public static MultiBlockDefinition getComputationSystemDefinition(IECOTier tier) {
+        return switch (tier.getTier()) {
+            case 1 -> COMPUTATION_SYSTEM_L4;
+            case 2 -> COMPUTATION_SYSTEM_L6;
+            case 3 -> COMPUTATION_SYSTEM_L9;
+            default -> null;
+        };
+    }
+
+    public static MultiBlockDefinition getStorageSystemDefinition(IECOTier tier) {
+        return switch (tier.getTier()) {
+            case 1 -> STORAGE_SYSTEM_L4;
+            case 2 -> STORAGE_SYSTEM_L6;
+            case 3 -> STORAGE_SYSTEM_L9;
+            default -> null;
+        };
+    }
+
+    public static MultiBlockDefinition getCraftingSystemDefinition(IECOTier tier) {
+        return switch (tier.getTier()) {
+            case 1 -> CRAFTING_SYSTEM_L4;
+            case 2 -> CRAFTING_SYSTEM_L6;
+            case 3 -> CRAFTING_SYSTEM_L9;
+            default -> null;
+        };
     }
 
 }

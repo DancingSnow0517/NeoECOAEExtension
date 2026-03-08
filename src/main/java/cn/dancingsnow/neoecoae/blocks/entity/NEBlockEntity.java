@@ -68,6 +68,12 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
+    public void rebuildMultiblock() {
+        if (level instanceof ServerLevel serverLevel) {
+            calculator.calculateMultiblock(serverLevel, worldPosition);
+        }
+    }
+
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         if (reason != IGridNodeListener.State.GRID_BOOT) {

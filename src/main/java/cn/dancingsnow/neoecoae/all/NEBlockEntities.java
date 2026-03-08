@@ -135,6 +135,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.STORAGE_SYSTEM_L4)
         .validBlock(NEBlocks.STORAGE_SYSTEM_L4)
+        .serverTicker(ECOStorageSystemBlockEntity::tick)
         .register();
 
     public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L6 = REGISTRATE
@@ -144,6 +145,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.STORAGE_SYSTEM_L6)
         .validBlock(NEBlocks.STORAGE_SYSTEM_L6)
+        .serverTicker(ECOStorageSystemBlockEntity::tick)
         .register();
 
     public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L9 = REGISTRATE
@@ -153,6 +155,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.STORAGE_SYSTEM_L9)
         .validBlock(NEBlocks.STORAGE_SYSTEM_L9)
+        .serverTicker(ECOStorageSystemBlockEntity::tick)
         .register();
 
     public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L4 = REGISTRATE
@@ -422,6 +425,7 @@ public class NEBlockEntities {
             )
             .forBlock(block)
             .validBlock(block)
+            .serverTicker(ECOCraftingSystemBlockEntity::tick)
             .register();
     }
 
@@ -502,6 +506,7 @@ public class NEBlockEntities {
             )
             .forBlock(block)
             .validBlock(block)
+            .serverTicker(ECOComputationSystemBlockEntity::tick)
             .register();
     }
 
