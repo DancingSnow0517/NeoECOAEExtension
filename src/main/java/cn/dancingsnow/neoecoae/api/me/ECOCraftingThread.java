@@ -82,7 +82,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 isBusy = false;
                 setChanged();
             }
-            return TickRateModulation.IDLE;
+            return TickRateModulation.URGENT;
         }
         setChanged();
         return TickRateModulation.URGENT;
@@ -109,9 +109,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private boolean calcPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, ECOCraftingSystemBlockEntity controller) {
         if (controller.isActiveCooling()) {
-            if (controller.canConsumeCoolant(5)) {
-                controller.consumeCoolant(5);
-            } else {
+            if (!controller.tryConsumeCoolant(5, controller.isOverclocked() ? controller.getOverlockTimes() : 0)) {
                 return false;
             }
         }

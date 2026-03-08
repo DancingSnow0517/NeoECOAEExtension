@@ -124,12 +124,17 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         runningThreads++;
         setChanged();
         markForUpdate();
+        wakeTickingDevice();
     }
 
     public void onThreadStop() {
         runningThreads--;
         setChanged();
         markForUpdate();
+    }
+
+    private void wakeTickingDevice() {
+        getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
     }
 
     @Override
