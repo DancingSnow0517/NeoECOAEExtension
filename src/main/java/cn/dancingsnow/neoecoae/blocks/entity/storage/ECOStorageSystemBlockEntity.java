@@ -299,7 +299,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }).style(style -> style.background(NETextures.BACKGROUND));
         buildButtonPanel.addChild(new Button()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.HELP))
+            .addPostIcon(AETextures.icon(Icon.CRAFT_HAMMER))
             .setOnClick(event -> buildWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 event.hoverTooltips = new HoverTooltips(
