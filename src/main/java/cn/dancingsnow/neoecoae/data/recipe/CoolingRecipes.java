@@ -21,18 +21,21 @@ public class CoolingRecipes {
         CoolingRecipe.builder()
             .input(FluidTags.WATER, 100)
             .coolant(1500)
+            .maxOverclock(2)
             .save(notMekanism, NeoECOAE.id("cooling/water"));
 
         CoolingRecipe.builder()
             .input(FluidTags.WATER, 100)
             .output(new FluidStack(MekanismFluids.STEAM, 100))
             .coolant(1500)
+            .maxOverclock(2)
             .save(hasMekanism, NeoECOAE.id("cooling/water_with_steam"));
 
         CoolingRecipe.builder()
             .input(MekanismTags.Fluids.SODIUM, 100)
             .output(new FluidStack(MekanismFluids.SUPERHEATED_SODIUM, 100))
             .coolant(5000)
+            .maxOverclock(6)
             .save(hasMekanism, NeoECOAE.id("cooling/sodium"));
     }
 }

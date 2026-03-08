@@ -14,5 +14,6 @@
     "amount": 100,
     "tag": "minecraft:water"
   },
+  "max_overclock": 2,
   "output": {}
 }

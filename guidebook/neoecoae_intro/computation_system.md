@@ -159,6 +159,19 @@ The GUI displays:
 - Used storage / Available storage
 - Parallelism count
 
+### ECO CPU Scheduling
+
+The ECO computation system uses a more aggressive crafting CPU scheduling model than the original AE-style smoothed scheduling.
+
+This scheduling model is specifically meant to support the high-speed workers used by the ECO crafting system: when a worker can finish a pattern in only a few ticks at high overclock levels, the CPU must refill the next batch of work immediately to avoid idle gaps.
+
+- Original AE-style scheduling smooths pattern submission across multiple ticks
+- ECO CPU refills available work every tick based on the currently free providers and workers
+- This is especially important for ECO crafting systems, where high overclock levels can complete patterns in very few ticks
+- As a result, the system spends less time idle between completed pattern executions and maintains higher sustained throughput
+
+In practice, the ECO computation system favors sustained throughput over conservative per-tick smoothing.
+
 ### CPU Selection Modes
 
 The computation system supports different CPU selection modes:

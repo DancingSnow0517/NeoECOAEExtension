@@ -19,12 +19,25 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
         CompoundTag data = blockAccessor.getServerData();
         if (data.contains("overclocked") && data.getBoolean("overclocked")) {
             iTooltip.add(Component.translatable("jade.neoecoae.overclocked"));
+            iTooltip.add(Component.translatable(
+                "jade.neoecoae.overclock_status",
+                data.getInt("theoreticalOverclock"),
+                data.getInt("effectiveOverclock")
+            ));
         }
         if (data.contains("activeCooling") && data.getBoolean("activeCooling")) {
             iTooltip.add(Component.translatable("jade.neoecoae.activeCooling"));
         }
         if (data.contains("coolant")) {
             iTooltip.add(Component.translatable("jade.neoecoae.coolant", data.getInt("coolant")));
+        }
+        if (data.contains("coolingMaxOverclock")) {
+            int coolingMaxOverclock = data.getInt("coolingMaxOverclock");
+            if (coolingMaxOverclock >= 0) {
+                iTooltip.add(Component.translatable("jade.neoecoae.coolant_max_overclock", coolingMaxOverclock));
+            } else {
+                iTooltip.add(Component.translatable("jade.neoecoae.coolant_max_overclock.none"));
+            }
         }
     }
 
@@ -34,6 +47,9 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
             compoundTag.putBoolean("overclocked", system.isOverclocked());
             compoundTag.putBoolean("activeCooling", system.isActiveCooling());
             compoundTag.putInt("coolant", system.getCoolant());
+            compoundTag.putInt("theoreticalOverclock", system.getOverlockTimes());
+            compoundTag.putInt("effectiveOverclock", system.getEffectiveOverclockTimes());
+            compoundTag.putInt("coolingMaxOverclock", system.getDisplayedCoolingMaxOverclock());
         }
     }
 

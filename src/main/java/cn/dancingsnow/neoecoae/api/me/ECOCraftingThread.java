@@ -109,7 +109,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private boolean calcPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, ECOCraftingSystemBlockEntity controller) {
         if (controller.isActiveCooling()) {
-            if (!controller.tryConsumeCoolant(5, controller.isOverclocked() ? controller.getOverlockTimes() : 0)) {
+            if (!controller.tryConsumeCoolant(5, controller.getEffectiveOverclockTimes())) {
                 return false;
             }
         }

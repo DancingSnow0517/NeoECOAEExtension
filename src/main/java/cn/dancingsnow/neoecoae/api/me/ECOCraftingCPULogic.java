@@ -51,11 +51,6 @@ public class ECOCraftingCPULogic {
      */
     @Getter
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
-    /**
-     * Used crafting operations over the last 3 ticks.
-     */
-    private final int[] usedOps = new int[3];
-
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     /**
      * True if the CPU is currently trying to clear its inventory but is not able to.
@@ -145,8 +140,7 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        var remainingOperations = cpu.getCoProcessors() + 1 - (this.usedOps[0] + this.usedOps[1] + this.usedOps[2]);
-        final var started = remainingOperations;
+        var remainingOperations = cpu.getCoProcessors() + 1;
 
         if (remainingOperations > 0) {
             do {
@@ -159,9 +153,6 @@ public class ECOCraftingCPULogic {
                 }
             } while (remainingOperations > 0);
         }
-        this.usedOps[2] = this.usedOps[1];
-        this.usedOps[1] = this.usedOps[0];
-        this.usedOps[0] = started - remainingOperations;
     }
 
     /**

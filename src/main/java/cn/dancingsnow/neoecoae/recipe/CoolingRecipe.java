@@ -18,7 +18,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Contract;
 
-public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int coolant) implements Recipe<CoolingRecipe.Input> {
+public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock) implements Recipe<CoolingRecipe.Input> {
 
     @Contract("-> new")
     public static CoolingRecipeBuilder builder() {
@@ -55,11 +55,20 @@ public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int c
         return NERecipeTypes.COOLING.get();
     }
 
+    public int inputAmount() {
+        return input.amount();
+    }
+
+    public int outputAmount() {
+        return output.getAmount();
+    }
+
     public static class Serializer implements RecipeSerializer<CoolingRecipe> {
         private static final MapCodec<CoolingRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
             SizedFluidIngredient.FLAT_CODEC.fieldOf("input").forGetter(CoolingRecipe::input),
             FluidStack.OPTIONAL_CODEC.fieldOf("output").forGetter(CoolingRecipe::output),
-            Codec.INT.fieldOf("coolant").forGetter(CoolingRecipe::coolant)
+            Codec.INT.fieldOf("coolant").forGetter(CoolingRecipe::coolant),
+            Codec.INT.optionalFieldOf("max_overclock", 9).forGetter(CoolingRecipe::maxOverclock)
         ).apply(ins, CoolingRecipe::new));
 
         private static final StreamCodec<RegistryFriendlyByteBuf, CoolingRecipe> STREAM_CODEC = StreamCodec.composite(
@@ -69,6 +78,8 @@ public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int c
             CoolingRecipe::output,
             ByteBufCodecs.VAR_INT,
             CoolingRecipe::coolant,
+            ByteBufCodecs.VAR_INT,
+            CoolingRecipe::maxOverclock,
             CoolingRecipe::new
         );
 

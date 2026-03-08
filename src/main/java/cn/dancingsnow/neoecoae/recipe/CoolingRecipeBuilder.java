@@ -24,6 +24,8 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     private FluidStack output = FluidStack.EMPTY;
     @Setter
     private int coolant = 0;
+    @Setter
+    private int maxOverclock = 9;
 
     public CoolingRecipeBuilder input(SizedFluidIngredient ingredient) {
         this.input = ingredient;
@@ -64,7 +66,10 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
         if (coolant <= 0) {
             throw new IllegalStateException("coolant must be greater than 0");
         }
-        CoolingRecipe recipe = new CoolingRecipe(input, output, coolant);
+        if (maxOverclock < 0) {
+            throw new IllegalStateException("maxOverclock must not be negative");
+        }
+        CoolingRecipe recipe = new CoolingRecipe(input, output, coolant, maxOverclock);
         recipeOutput.accept(id, recipe, null);
     }
 }

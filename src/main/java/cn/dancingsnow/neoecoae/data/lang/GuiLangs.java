@@ -59,9 +59,15 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.total_parallelism", "Total Parallelism: %d");
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %d (%d%%)");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy Usage: §b%s AE");
+        provider.add("gui.neoecoae.crafting.overclock_status", "Theoretical Overclock: %d, Effective Overclock: %d");
+        provider.add("gui.neoecoae.crafting.overclock_status.disabled", "Theoretical Overclock: 0, Effective Overclock: 0");
         provider.add("gui.neoecoae.crafting.enable_overlock", "Enable Overlock: ");
         provider.add("gui.neoecoae.crafting.overclocked.tooltip", "Boosting performance within a limited range while consuming more §cEnergy§f.");
         provider.add("gui.neoecoae.crafting.enable_active_cooling", "Enable Active Cooling: ");
         provider.add("gui.neoecoae.crafting.active_cooling.tooltip", "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.");
+        provider.add("gui.neoecoae.crafting.clear_coolant", "Clear");
+        provider.add("gui.neoecoae.crafting.clear_coolant.tooltip", "Clears the cached coolant so you can switch to a different coolant.");
+        provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
+        provider.add("gui.neoecoae.crafting.coolant_max_overclock.none", "Current Coolant Max Overclock: None");
     }
 }

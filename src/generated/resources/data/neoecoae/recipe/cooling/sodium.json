@@ -11,6 +11,7 @@
     "amount": 100,
     "tag": "c:sodium"
   },
+  "max_overclock": 6,
   "output": {
     "amount": 100,
     "id": "mekanism:superheated_sodium"

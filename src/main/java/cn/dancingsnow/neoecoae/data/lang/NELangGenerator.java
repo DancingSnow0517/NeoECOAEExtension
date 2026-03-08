@@ -7,6 +7,7 @@ public class NELangGenerator {
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
 
+        // jade
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
@@ -17,6 +18,9 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.overclocked", "Overclock Enabled");
         provider.add("jade.neoecoae.activeCooling", "Active Cooling Enabled");
         provider.add("jade.neoecoae.coolant", "Coolant: %d");
+        provider.add("jade.neoecoae.coolant_max_overclock", "Coolant Max Overclock: %d");
+        provider.add("jade.neoecoae.coolant_max_overclock.none", "Coolant Max Overclock: None");
+        provider.add("jade.neoecoae.overclock_status", "Theoretical/Effective Overclock: %d/%d");
 
         provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern into available ECO Crafting System");
 
