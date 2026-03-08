@@ -32,6 +32,9 @@ The [ECO Crafting System](crafting_system.md) is an advanced pattern provider wi
 - Active cooling for enhanced performance
 - Three tiers: F4, F6, F9
 
+### Multiblock Auto Builder
+The [Multiblock Auto Builder](multiblock_builder.md) explains the controller-side building panel, including structure preview, length adjustment, material checks, and automatic placement.
+
 ## Energized Budding Crystal
 
 The [Energized Budding Crystal](energized_crystal.md) is a key material for crafting many components in this mod. Learn how to obtain it through lightning strikes or the Crystal Fixer.
@@ -44,8 +47,9 @@ The [Integrated Working Station](integrated_working_station.md) is an advanced c
 
 1. Gather materials and craft the required components for your chosen system
 2. Build the multiblock structure according to the system's requirements
-3. Right-click the controller to verify the structure is formed correctly
-4. Connect the system to your ME Network through the interface block
+3. You can also use the [Multiblock Auto Builder](multiblock_builder.md) to preview and place missing blocks automatically
+4. Right-click the controller to verify the structure is formed correctly
+5. Connect the system to your ME Network through the interface block
 
 ## Tier System
 
