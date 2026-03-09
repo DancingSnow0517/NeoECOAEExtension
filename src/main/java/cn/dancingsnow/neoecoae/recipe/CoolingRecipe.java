@@ -68,7 +68,7 @@ public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int c
             SizedFluidIngredient.FLAT_CODEC.fieldOf("input").forGetter(CoolingRecipe::input),
             FluidStack.OPTIONAL_CODEC.fieldOf("output").forGetter(CoolingRecipe::output),
             Codec.INT.fieldOf("coolant").forGetter(CoolingRecipe::coolant),
-            Codec.INT.optionalFieldOf("max_overclock", 9).forGetter(CoolingRecipe::maxOverclock)
+            Codec.INT.optionalFieldOf("max_overclock", 0).forGetter(CoolingRecipe::maxOverclock)
         ).apply(ins, CoolingRecipe::new));
 
         private static final StreamCodec<RegistryFriendlyByteBuf, CoolingRecipe> STREAM_CODEC = StreamCodec.composite(

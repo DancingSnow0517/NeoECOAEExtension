@@ -5,6 +5,7 @@ import appeng.core.definitions.AEItems;
 import appeng.datagen.providers.tags.ConventionTags;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.all.NEFluids;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -13,6 +14,7 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.Items;
+import net.neoforged.neoforge.common.Tags;
 
 public class EcoMachineRecipes {
     public static void init(RegistrateRecipeProvider provider) {
@@ -264,5 +266,14 @@ public class EcoMachineRecipes {
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
             .unlockedBy("has_crafting_parallel_core_l6", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_PARALLEL_CORE_L6))
             .save(provider);
+
+        // cryotheum_solution
+        IntegratedWorkingStationRecipe.builder()
+            .require(NEItems.CRYOTHEUM_CRYSTAL, 4)
+            .require(NEItems.ENERGIZED_CRYSTAL, 2)
+            .require(Tags.Items.DUSTS_REDSTONE, 2)
+            .requireFluid(FluidTags.WATER, 1000)
+            .fluidOutput(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 1000)
+            .save(provider, NeoECOAE.id("integrated_working_station/cryotheum_solution"));
     }
 }

@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.recipe;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.minecraft.advancements.Criterion;
+import net.minecraft.core.Holder;
 import net.minecraft.data.recipes.RecipeBuilder;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.resources.ResourceLocation;
@@ -38,6 +39,18 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
 
     public CoolingRecipeBuilder input(FluidStack stack) {
         return input(SizedFluidIngredient.of(stack));
+    }
+
+    public CoolingRecipeBuilder input(Fluid fluid, int amount) {
+        return input(new FluidStack(fluid, amount));
+    }
+
+    public CoolingRecipeBuilder output(Holder<Fluid> fluid, int amount) {
+        return output(fluid.value(), amount);
+    }
+
+    public CoolingRecipeBuilder output(Fluid fluid, int amount) {
+        return output(new FluidStack(fluid, amount));
     }
 
     @Override
