@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEEcoTiers;
+import cn.dancingsnow.neoecoae.all.NEFluids;
 import cn.dancingsnow.neoecoae.all.NEGridServices;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
@@ -57,6 +58,7 @@ public class NeoECOAE {
         NECreativeTabs.register();
         NEItems.register();
         NEBlocks.register();
+        NEFluids.register();
         NEBlockEntities.register();
         NEDataGen.configureDataGen();
         NEGridServices.register();
