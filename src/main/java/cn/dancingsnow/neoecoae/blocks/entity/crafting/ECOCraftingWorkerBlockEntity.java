@@ -108,8 +108,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
                 return true;
             }
-            if (craftingThreads.stream().anyMatch(ECOCraftingThread::isFree)) {
-                return false;
+            for (ECOCraftingThread craftingThread : craftingThreads) {
+                if (craftingThread.isFree()) {
+                    return false;
+                }
             }
             if (craftingThreads.size() < controller.getThreadCountPerWorker()) {
                 ECOCraftingThread thread = new ECOCraftingThread(this);
