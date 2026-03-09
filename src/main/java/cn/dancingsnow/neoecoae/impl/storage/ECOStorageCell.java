@@ -164,7 +164,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     protected Object2LongMap<AEKey> getCellItems() {
         if (this.storedAmounts == null) {
-            this.storedAmounts = new Object2LongOpenHashMap<>();
+            this.storedAmounts = new Object2LongOpenHashMap<>(maxItemTypes);
             this.loadCellItems();
         }
 

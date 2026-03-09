@@ -74,14 +74,16 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 return false;
             }
             AtomicBoolean pushed = new AtomicBoolean(false);
-            craftingThreads.stream().filter(ECOCraftingThread::isFree).forEach(t -> {
-                if (pushed.get()) {
-                    return;
+            for (ECOCraftingThread t : craftingThreads) {
+                if (t.isFree()) {
+                    if (pushed.get()) {
+                        continue;
+                    }
+                    if (t.pushPattern(pattern, table, controller)) {
+                        pushed.set(true);
+                    }
                 }
-                if (t.pushPattern(pattern, table, controller)) {
-                    pushed.set(true);
-                }
-            });
+            }
             if (!pushed.get()) {
                 if (craftingThreads.size() < controller.getThreadCountPerWorker()) {
                     ECOCraftingThread thread = new ECOCraftingThread(this);
@@ -125,6 +127,13 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         setChanged();
         markForUpdate();
         wakeTickingDevice();
+    }
+
+    @Override
+    public void setChanged() {
+        if (this.level != null) {
+            level.blockEntityChanged(getBlockPos());
+        }
     }
 
     public void onThreadStop() {
