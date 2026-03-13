@@ -166,6 +166,7 @@ public abstract class CraftingServiceMixin {
     @Inject(
         method = "insertIntoCpus",
         at = @At("RETURN"),
+        cancellable = true,
         order = 500
     )
     private void onInsertIntoCpus(
