@@ -182,6 +182,7 @@ public abstract class CraftingServiceMixin {
                 }
             }
         }
+        cir.setReturnValue(inserted.get());
     }
 
     @Inject(
