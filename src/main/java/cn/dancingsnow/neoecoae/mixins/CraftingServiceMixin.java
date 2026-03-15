@@ -165,7 +165,7 @@ public abstract class CraftingServiceMixin {
 
     @Inject(
         method = "insertIntoCpus",
-        at = @At("RETURN"),
+        at = @At(value = "RETURN", shift = At.Shift.BY, by = -1),
         order = 500
     )
     private void onInsertIntoCpus(
