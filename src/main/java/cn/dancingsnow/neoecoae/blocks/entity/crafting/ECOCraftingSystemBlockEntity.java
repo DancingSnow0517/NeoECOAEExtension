@@ -129,6 +129,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
+    private transient boolean runtimeStatsRefreshQueued;
+    private transient long runtimeStatsQueuedAtTick = Long.MIN_VALUE;
 
     public ECOCraftingSystemBlockEntity(
         BlockEntityType<?> type,
@@ -226,6 +228,32 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public void onRuntimeStatsChanged(String reason) {
+        if (level instanceof ServerLevel serverLevel) {
+            queueRuntimeStatsRefresh(serverLevel);
+            return;
+        }
+        refreshRuntimeStatsIfChanged();
+    }
+
+    private void queueRuntimeStatsRefresh(ServerLevel serverLevel) {
+        if (!runtimeStatsRefreshQueued) {
+            runtimeStatsRefreshQueued = true;
+            runtimeStatsQueuedAtTick = serverLevel.getGameTime();
+        }
+    }
+
+    private void flushQueuedRuntimeStatsRefresh(ServerLevel serverLevel) {
+        if (!runtimeStatsRefreshQueued) {
+            return;
+        }
+
+        long currentTick = serverLevel.getGameTime();
+        if (currentTick <= runtimeStatsQueuedAtTick) {
+            return;
+        }
+
+        runtimeStatsRefreshQueued = false;
+        runtimeStatsQueuedAtTick = Long.MIN_VALUE;
         refreshRuntimeStatsIfChanged();
     }
 
@@ -467,7 +495,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+
+        flushQueuedRuntimeStatsRefresh(serverLevel);
+
+        if (!buildInProgress || buildSession == null) {
             return;
         }
 
