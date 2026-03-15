@@ -365,7 +365,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private int getOverflowThreads() {
-        return Math.min(0, threadCount - getAvailableThreads());
+        // Legacy UI semantics: this metric is a signed delta that is clamped to <= 0.
+        // Keep behavior unchanged to avoid altering existing display expectations.
+        int signedDelta = threadCount - getAvailableThreads();
+        return Math.min(0, signedDelta);
     }
 
     private int getAvailableThreads() {

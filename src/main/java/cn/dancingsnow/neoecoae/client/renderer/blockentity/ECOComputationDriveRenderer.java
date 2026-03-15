@@ -58,8 +58,8 @@ public class ECOComputationDriveRenderer
             IECOTier itemTier = item.getTier();
             shouldCellWork = formed && blockEntity.getTier() != null && itemTier.compareTo(blockEntity.getTier()) <= 0;
             ResourceLocation cellModel = shouldCellWork
-                ? ECOComputationModels.getFormedModel(itemStack.getItem())
-                : ECOComputationModels.getNormalModel(itemStack.getItem());
+                ? ECOComputationModels.getFormedModelOrDefault(itemStack.getItem())
+                : ECOComputationModels.getNormalModelOrDefault(itemStack.getItem());
             if (shouldCellWork) {
                 cableTier = itemTier;
             }
@@ -87,7 +87,7 @@ public class ECOComputationDriveRenderer
             if (itemStack != null) {
                 if (shouldCellWork) {
                     poseStack.translate(0, 0, -0.35);
-                    cableModel = ECOComputationModels.getCableConnectedModel(cableTier);
+                    cableModel = ECOComputationModels.getCableConnectedModelOrDefault(cableTier);
                     connected = true;
                 } else {
                     if (blockEntity.isLowerDrive()) {
@@ -95,7 +95,7 @@ public class ECOComputationDriveRenderer
                     } else {
                         poseStack.translate(0, -0.688, -0.3);
                     }
-                    cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
+                    cableModel = ECOComputationModels.getCableDisconnectedModelOrDefault(cableTier);
                 }
             } else {
                 if (blockEntity.isLowerDrive()) {
@@ -103,7 +103,7 @@ public class ECOComputationDriveRenderer
                 } else {
                     poseStack.translate(0, -0.688, -0.3);
                 }
-                cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
+                cableModel = ECOComputationModels.getCableDisconnectedModelOrDefault(cableTier);
             }
         }
         if (blockEntity.isLowerDrive()) {

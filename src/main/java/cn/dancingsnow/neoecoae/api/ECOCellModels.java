@@ -9,6 +9,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ItemLike;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
@@ -19,7 +20,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-@EventBusSubscriber
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class ECOCellModels {
     private static final Map<Holder<Item>, ResourceLocation> deferredRegistration = new HashMap<>();
     @Getter

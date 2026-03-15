@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.rendering;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.logging.LogUtils;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -16,13 +17,37 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import org.slf4j.Logger;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static cn.dancingsnow.neoecoae.util.ThreadLocalRandomHelper.getRandom;
 
 public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
+    Logger LOGGER = LogUtils.getLogger();
+    long MISSING_MODEL_WARN_THROTTLE_MILLIS = 30_000L;
+    Map<String, Long> MISSING_MODEL_WARN_TIMESTAMPS = new ConcurrentHashMap<>();
+
     void renderFixed(T blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay);
+
+    private static boolean isMissingModel(Minecraft minecraft, BakedModel bakedModel) {
+        return bakedModel == null || bakedModel == minecraft.getModelManager().getMissingModel();
+    }
+
+    private static void warnMissingModelThrottled(ResourceLocation model) {
+        String throttleKey = String.valueOf(model);
+        long now = System.currentTimeMillis();
+
+        MISSING_MODEL_WARN_TIMESTAMPS.compute(throttleKey, (__, lastTimestamp) -> {
+            if (lastTimestamp == null || now - lastTimestamp >= MISSING_MODEL_WARN_THROTTLE_MILLIS) {
+                LOGGER.warn("[NeoECOAE] Skip fixed renderer model because it resolved to missing model: {}.", model);
+                return now;
+            }
+            return lastTimestamp;
+        });
+    }
 
     default void tessellateModelWithAO(
         BlockAndTintGetter level,
@@ -62,6 +87,10 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         ModelBlockRenderer modelRenderer = mc.getBlockRenderer().getModelRenderer();
         BakedModel bakedModel = mc.getModelManager()
             .getModel(ModelResourceLocation.standalone(model));
+        if (isMissingModel(mc, bakedModel)) {
+            warnMissingModelThrottled(model);
+            return;
+        }
         VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
         modelRenderer.tesselateWithAO(
             level,
@@ -105,6 +134,10 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         Minecraft mc = Minecraft.getInstance();
         BakedModel bakedModel = mc.getModelManager()
             .getModel(ModelResourceLocation.standalone(model));
+        if (isMissingModel(mc, bakedModel)) {
+            warnMissingModelThrottled(model);
+            return;
+        }
         for (Direction value : Direction.values()) {
             List<BakedQuad> quads = bakedModel.getQuads(
                 null,

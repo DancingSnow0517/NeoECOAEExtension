@@ -14,7 +14,7 @@ import net.neoforged.neoforge.client.event.ModelEvent;
 import java.util.HashSet;
 import java.util.Set;
 
-@EventBusSubscriber(value = Dist.CLIENT)
+@EventBusSubscriber(modid = NeoECOAE.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class NEExtraModels {
     private static final Set<ResourceLocation> MODELS = new HashSet<>();
 
