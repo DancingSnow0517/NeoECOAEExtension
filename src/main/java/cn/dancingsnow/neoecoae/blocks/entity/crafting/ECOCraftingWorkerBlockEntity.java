@@ -128,6 +128,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         runningThreads++;
         setChanged();
         markForUpdate();
+        notifyControllerRuntimeStatsChanged("thread_start");
         wakeTickingDevice();
     }
 
@@ -139,9 +140,16 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public void onThreadStop() {
-        runningThreads--;
+        runningThreads = Math.max(0, runningThreads - 1);
         setChanged();
         markForUpdate();
+        notifyControllerRuntimeStatsChanged("thread_stop");
+    }
+
+    private void notifyControllerRuntimeStatsChanged(String reason) {
+        if (cluster != null && cluster.getController() != null) {
+            cluster.getController().onRuntimeStatsChanged(reason);
+        }
     }
 
     private void wakeTickingDevice() {

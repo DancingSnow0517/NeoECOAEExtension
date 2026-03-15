@@ -250,10 +250,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         cpu.getLogic().cancel();
         cpu.getLogic().markForDeletion();
         cpu.getOwner().deactivate(cpu);
+        this.activeCpus.remove(plan);
         if (recalculate) {
             this.recalculateRemainingStorage();
         }
-        this.activeCpus.remove(plan);
         if (update) {
             updateGridForChangedCpu(this);
         }

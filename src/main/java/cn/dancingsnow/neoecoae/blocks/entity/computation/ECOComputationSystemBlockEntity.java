@@ -56,6 +56,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Getter
     private final IECOTier tier;
 
+    @DescSynced
     private int usedThread;
     @DescSynced
     private int totalThread;
@@ -106,32 +107,48 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public void updateInfos() {
+        int newUsedThread = 0;
+        int newTotalThread = 0;
+        int newParallelCount = 0;
+        long newAvailableBytes = 0;
+        long newTotalBytes = 0;
+
         if (cluster != null) {
-            availableBytes = cluster.getAvailableStorage();
-            totalBytes = 0;
+            newAvailableBytes = cluster.getAvailableStorage();
             for (ECOComputationDriveBlockEntity drive : cluster.getUpperDrives()) {
                 ItemStack cellStack = drive.getCellStack();
                 if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    totalBytes += cellItem.getTier().getCPUTotalBytes();
+                    newTotalBytes += cellItem.getTier().getCPUTotalBytes();
                 }
             }
             for (ECOComputationDriveBlockEntity drive : cluster.getLowerDrives()) {
                 ItemStack cellStack = drive.getCellStack();
                 if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    totalBytes += cellItem.getTier().getCPUTotalBytes();
+                    newTotalBytes += cellItem.getTier().getCPUTotalBytes();
                 }
             }
 
-            usedThread = cluster.getActiveCPUs().size();
-            totalThread = cluster.getMaxThreads();
-            parallelCount = cluster.getParallelCores().stream().mapToInt(e -> e.getTier().getCPUAccelerators()).sum();
-        } else {
-            totalThread = 0;
-            parallelCount = 0;
-            availableBytes = 0;
-            totalBytes = 0;
+            newUsedThread = cluster.getActiveCPUs().size();
+            newTotalThread = cluster.getMaxThreads();
+            newParallelCount = cluster.getParallelCores().stream().mapToInt(e -> e.getTier().getCPUAccelerators()).sum();
         }
-        setChanged();
+
+        boolean changed = usedThread != newUsedThread
+            || totalThread != newTotalThread
+            || parallelCount != newParallelCount
+            || availableBytes != newAvailableBytes
+            || totalBytes != newTotalBytes;
+
+        usedThread = newUsedThread;
+        totalThread = newTotalThread;
+        parallelCount = newParallelCount;
+        availableBytes = newAvailableBytes;
+        totalBytes = newTotalBytes;
+
+        if (changed) {
+            setChanged();
+            markForUpdate();
+        }
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {

@@ -153,7 +153,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             serverLevel.getServer().executeIfPossible(() -> {
                 setChanged();
                 markForUpdate();
-                updateInfo();
+                onRuntimeStatsChanged("persistence");
             });
         }
     }
@@ -162,7 +162,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
         if (updateExposed) {
-            updateInfo();
+            onRuntimeStatsChanged("state_update");
         }
     }
 
@@ -196,25 +196,51 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return coolant < targetCoolant ? TickRateModulation.URGENT : TickRateModulation.IDLE;
     }
 
-    private void updateInfo() {
+    private boolean updateInfo() {
+        int oldPatternBusCount = patternBusCount;
+        int oldParallelCount = parallelCount;
+        int oldWorkerCount = workerCount;
+        int oldRunningThreadCount = runningThreadCount;
+        int oldThreadCount = threadCount;
+        int oldThreadCountPerWorker = threadCountPerWorker;
+        int oldOverlockTimes = overlockTimes;
+
         updateThreadCount();
         updateCount();
         updateOverlockTimes();
+
+        return oldPatternBusCount != patternBusCount
+            || oldParallelCount != parallelCount
+            || oldWorkerCount != workerCount
+            || oldRunningThreadCount != runningThreadCount
+            || oldThreadCount != threadCount
+            || oldThreadCountPerWorker != threadCountPerWorker
+            || oldOverlockTimes != overlockTimes;
+    }
+
+    private void refreshRuntimeStatsIfChanged() {
+        if (updateInfo()) {
+            setChanged();
+            markForUpdate();
+        }
+    }
+
+    public void onRuntimeStatsChanged(String reason) {
+        refreshRuntimeStatsIfChanged();
     }
 
     private void updateThreadCount() {
+        threadCountPerWorker = overclocked ? 32 * getTier().getOverclockedCrafterQueueMultiply() : 32;
         if (cluster != null && !cluster.getParallelCores().isEmpty()) {
             int perCore = tier.getCrafterParallel();
             if (overclocked) {
                 perCore += tier.getOverclockedCrafterParallel();
-                threadCountPerWorker = 32 * getTier().getOverclockedCrafterQueueMultiply();
-            } else {
-                threadCountPerWorker = 32;
             }
             threadCount = cluster.getParallelCores().size() * perCore;
             runningThreadCount = cluster.getWorkers().stream().mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
         } else {
             threadCount = 0;
+            runningThreadCount = 0;
         }
     }
 
@@ -232,8 +258,32 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateOverlockTimes() {
         int overflow = threadCount - threadCountPerWorker * workerCount;
+        if (threadCount <= 0 || overflow <= 0) {
+            overlockTimes = 0;
+            return;
+        }
         float radio = (float) threadCount / overflow;
         overlockTimes = Math.clamp(Math.round(radio / 0.05f), 0, 9);
+    }
+
+    private void setOverclocked(boolean overclocked) {
+        if (this.overclocked == overclocked) {
+            return;
+        }
+        this.overclocked = overclocked;
+        setChanged();
+        markForUpdate();
+        onRuntimeStatsChanged("overclock_toggle");
+    }
+
+    private void setActiveCooling(boolean activeCooling) {
+        if (this.activeCooling == activeCooling) {
+            return;
+        }
+        this.activeCooling = activeCooling;
+        setChanged();
+        markForUpdate();
+        onRuntimeStatsChanged("active_cooling_toggle");
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
@@ -292,6 +342,19 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private int getAvailableThreads() {
         return threadCountPerWorker * workerCount;
+    }
+
+    private int getDisplayAvailableThreads() {
+        return Math.max(1, getAvailableThreads());
+    }
+
+    private int getDisplayRunningThreadCount() {
+        return Math.clamp(runningThreadCount, 0, getDisplayAvailableThreads());
+    }
+
+    private int getWorkingThreadsPercentage() {
+        int displayMax = getDisplayAvailableThreads();
+        return Math.clamp(Math.round((float) getDisplayRunningThreadCount() / displayMax * 100.0F), 0, 100);
     }
 
     private long getMaxEnergyUsage() {
@@ -477,7 +540,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         );
 
         textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.working_threads", runningThreadCount, getAvailableThreads(), (int) ((float) runningThreadCount / getAvailableThreads() * 100))))
+            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.working_threads", getDisplayRunningThreadCount(), getDisplayAvailableThreads(), getWorkingThreadsPercentage())))
             .textStyle(ECOCraftingSystemBlockEntity::textStyle));
 
         textPanel.addScrollViewChild(new Label()
@@ -503,7 +566,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                     .setText(Component.translatable("gui.neoecoae.crafting.enable_overlock"))
                     .textStyle(ECOCraftingSystemBlockEntity::textStyle),
                 new Switch()
-                    .bind(DataBindingBuilder.bool(() -> overclocked, b -> overclocked = b).build()))
+                    .bind(DataBindingBuilder.bool(() -> overclocked, this::setOverclocked).build()))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
                 e.hoverTooltips = new HoverTooltips(
                     List.of(Component.translatable("gui.neoecoae.crafting.overclocked.tooltip")),
@@ -519,7 +582,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                     .setText(Component.translatable("gui.neoecoae.crafting.enable_active_cooling"))
                     .textStyle(ECOCraftingSystemBlockEntity::textStyle),
                 new Switch()
-                    .bind(DataBindingBuilder.bool(() -> activeCooling, b -> activeCooling = b).build()))
+                    .bind(DataBindingBuilder.bool(() -> activeCooling, this::setActiveCooling).build()))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
                 e.hoverTooltips = new HoverTooltips(
                     List.of(Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip")),
