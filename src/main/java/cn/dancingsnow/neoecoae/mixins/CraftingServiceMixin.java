@@ -79,7 +79,7 @@ public abstract class CraftingServiceMixin {
             ordinal = 0
         )
     )
-    private void tickClusters1(CallbackInfo ci, @Local long latestChange) {
+    private void tickClusters1(CallbackInfo ci, @Local(name = "latestChange") long latestChange) {
         long latestChangeLocal = 0L;
 
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
@@ -204,7 +204,7 @@ public abstract class CraftingServiceMixin {
         boolean prioritizePower,
         IActionSource src,
         CallbackInfoReturnable<ICraftingSubmitResult> cir,
-        @Local MutableObject<UnsuitableCpus> unsuitableCpusResult
+        @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
         if (target instanceof NEComputationCluster advCpuCluster) {
             cir.setReturnValue(advCpuCluster.submitJob(this.grid, job, src, requestingMachine));
@@ -276,7 +276,7 @@ public abstract class CraftingServiceMixin {
     )
     private void onGetCpus(
         CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir,
-        @Local ImmutableSet.Builder<ICraftingCPU> cpus
+        @Local(name = "cpus") ImmutableSet.Builder<ICraftingCPU> cpus
     ) {
         for (var cluster : this.neoecoae$computationClusters) {
             List<ECOCraftingCPU> ecoCpus = cluster.getActiveCPUs();
@@ -297,7 +297,7 @@ public abstract class CraftingServiceMixin {
     private void onGetRequestedAmount(
         AEKey what,
         CallbackInfoReturnable<Long> cir,
-        @Local LocalLongRef requested
+        @Local(name = "requested") LocalLongRef requested
     ) {
         for (var cluster : this.neoecoae$computationClusters) {
             for (var cpu : cluster.getActiveCPUs()) {
