@@ -24,7 +24,7 @@ public class ECOCellModels {
     private static final Map<Holder<Item>, ResourceLocation> deferredRegistration = new HashMap<>();
     @Getter
     private static final Map<Item, ResourceLocation> registry = new IdentityHashMap<>();
-    public static final ResourceLocation DEFAULT_MODEL = NeoECOAE.id("cell/storage_cell_l4_item");
+    public static final ResourceLocation DEFAULT_MODEL = NeoECOAE.id("block/cell/storage_cell_l4_item");
 
     static {
         register(NEItems.ECO_ITEM_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_item"));
@@ -51,15 +51,23 @@ public class ECOCellModels {
         registry.put(item, model);
     }
 
-    @SubscribeEvent
-    public static void on(FMLClientSetupEvent e) {
+    public static void runDeferredRegistration() {
         deferredRegistration.forEach((itemHolder, location) -> {
-            register(itemHolder.value(), location);
+            Item item = itemHolder.value();
+            if (item != null) {
+                register(item, location);
+            }
         });
     }
 
     @SubscribeEvent
+    public static void on(FMLClientSetupEvent e) {
+        runDeferredRegistration();
+    }
+
+    @SubscribeEvent
     public static void on(ModelEvent.RegisterAdditional e) {
+        runDeferredRegistration();
         registry.forEach((__, location) -> {
             e.register(ModelResourceLocation.standalone(location));
         });

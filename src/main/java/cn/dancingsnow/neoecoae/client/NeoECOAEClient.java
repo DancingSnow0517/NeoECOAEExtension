@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
+import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
@@ -35,6 +36,7 @@ public class NeoECOAEClient {
     public static void onClientSetup(FMLClientSetupEvent event) {
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
         ECOComputationModels.runDeferredRegistration();
+        ECOCellModels.runDeferredRegistration();
         FixedBlockEntityRenderers.register(
             NEBlockEntities.COMPUTATION_DRIVE.get(),
             new ECOComputationDriveRenderer()
