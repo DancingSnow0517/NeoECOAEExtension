@@ -5,7 +5,6 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.stacks.AEKeyTypesInternal;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
@@ -106,6 +105,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     ) {
         super(type, pos, blockState);
         this.tier = tier;
+        resetStorageInfos();
 
         getMainNode().addService(IGridTickable.class, this);
     }
@@ -161,7 +161,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void resetStorageInfos() {
-        int typeCount = NERegistries.CELL_TYPE.size();
+        int typeCount = getCellTypeCount();
         usedTypes = new long[typeCount];
         totalTypes = new long[typeCount];
         usedBytes = new long[typeCount];
@@ -180,15 +180,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 maxEnergy += (long) energyCell.getAEMaxPower();
             }
 
-            usedTypes = new long[AEKeyTypesInternal.getAllTypes().size()];
-            totalTypes = new long[AEKeyTypesInternal.getAllTypes().size()];
-            usedBytes = new long[AEKeyTypesInternal.getAllTypes().size()];
-            totalBytes = new long[AEKeyTypesInternal.getAllTypes().size()];
+            int typeCount = getCellTypeCount();
+            usedTypes = new long[typeCount];
+            totalTypes = new long[typeCount];
+            usedBytes = new long[typeCount];
+            totalBytes = new long[typeCount];
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
                 IECOStorageCell inv = drive.getCellInventory();
                 if (inv != null) {
                     ECOCellType cellType = inv.getCellType();
                     int id = NERegistries.CELL_TYPE.getId(cellType);
+                    if (id < 0 || id >= typeCount) {
+                        continue;
+                    }
                     usedTypes[id] += inv.getStoredItemTypes();
                     totalTypes[id] += inv.getTotalItemTypes();
                     usedBytes[id] += inv.getUsedBytes();
@@ -247,6 +251,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
+        resetStorageInfosIfNeeded();
         UIElement root = new UIElement().layout(layout -> layout
             .paddingAll(4)
             .gapAll(2)
@@ -267,10 +272,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     .setText(cellType.desc())
                     .textStyle(ECOStorageSystemBlockEntity::textStyle));
                 textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.typesUsed(usedTypes[id], totalTypes[id])))
+                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.typesUsed(getArrayValue(usedTypes, id), getArrayValue(totalTypes, id))))
                     .textStyle(ECOStorageSystemBlockEntity::textStyle));
                 textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.bytesUsed(usedBytes[id], totalBytes[id])))
+                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.bytesUsed(getArrayValue(usedBytes, id), getArrayValue(totalBytes, id))))
                     .textStyle(ECOStorageSystemBlockEntity::textStyle));
             });
 
@@ -318,6 +323,28 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         root.addChild(buildButtonPanel);
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private void resetStorageInfosIfNeeded() {
+        int typeCount = getCellTypeCount();
+        if (usedTypes == null || totalTypes == null || usedBytes == null || totalBytes == null) {
+            resetStorageInfos();
+            return;
+        }
+        if (usedTypes.length != typeCount || totalTypes.length != typeCount || usedBytes.length != typeCount || totalBytes.length != typeCount) {
+            resetStorageInfos();
+        }
+    }
+
+    private int getCellTypeCount() {
+        return Math.max(NERegistries.CELL_TYPE.size(), 1);
+    }
+
+    private static long getArrayValue(long[] array, int index) {
+        if (array == null || index < 0 || index >= array.length) {
+            return 0;
+        }
+        return array[index];
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
