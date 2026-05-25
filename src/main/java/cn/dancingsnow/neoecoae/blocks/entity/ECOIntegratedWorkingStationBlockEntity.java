@@ -121,6 +121,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
     private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
+    private static final long EXPORT_TARGET_CACHE_TTL_TICKS = 20;
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -218,6 +219,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     @SuppressWarnings("UnstableApiUsage")
     private final HashMap<Direction, Map<AEKeyType, ExternalStorageStrategy>> exportStrategies = new HashMap<>();
+    private final HashMap<Direction, CachedExportTarget> exportTargets = new HashMap<>();
 
     @Getter
     @Setter
@@ -591,9 +593,19 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     @SuppressWarnings("UnstableApiUsage")
     private @Nullable CompositeStorage getTarget(Direction dir) {
+        if (!(this.level instanceof ServerLevel serverLevel)) {
+            return null;
+        }
+
+        var gameTime = serverLevel.getGameTime();
+        var cached = this.exportTargets.get(dir);
+        if (cached != null && cached.expiresAtTick > gameTime) {
+            return cached.target;
+        }
+
         if (this.exportStrategies.get(dir) == null) {
             var be = this.getBlockEntity();
-            this.exportStrategies.put(dir, StackWorldBehaviors.createExternalStorageStrategies((ServerLevel) be.getLevel(), be.getBlockPos().relative(dir), dir.getOpposite()));
+            this.exportStrategies.put(dir, StackWorldBehaviors.createExternalStorageStrategies(serverLevel, be.getBlockPos().relative(dir), dir.getOpposite()));
         }
 
         var externalStorages = new IdentityHashMap<AEKeyType, MEStorage>(2);
@@ -605,10 +617,17 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             }
         }
 
+        CompositeStorage target = null;
         if (!externalStorages.isEmpty()) {
-            return new CompositeStorage(externalStorages);
+            target = new CompositeStorage(externalStorages);
         }
-        return null;
+        this.exportTargets.put(dir, new CachedExportTarget(target, gameTime + EXPORT_TARGET_CACHE_TTL_TICKS));
+        return target;
+    }
+
+    private void invalidateExportCache(Direction dir) {
+        this.exportStrategies.remove(dir);
+        this.exportTargets.remove(dir);
     }
 
     @Override
@@ -991,11 +1010,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                         allowOutputs.add(internalSide);
                     }
 
-                    // Clear cached strategy for this direction so it refreshes when re-enabled
-                    try {
-                        exportStrategies.remove(getOrientation().getSide(internalSide));
-                    } catch (Throwable ignored) {
-                    }
+                    invalidateExportCache(getOrientation().getSide(internalSide));
 
                     saveChanges();
                     markForUpdate();
@@ -1050,5 +1065,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         grid.addChild(sideToggle.apply(RelativeSide.BACK, "gui.neoecoae.relative_side.back"));
 
         return window;
+    }
+
+    private record CachedExportTarget(@Nullable CompositeStorage target, long expiresAtTick) {
     }
 }

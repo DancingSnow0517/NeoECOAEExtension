@@ -6,6 +6,13 @@ plugins {
     id 'io.freefair.lombok' version '8.7.1'
 }
 
+def gradleLauncherJava = JavaVersion.current().majorVersion.toInteger()
+if (gradle.gradleVersion == '8.12.1' && gradleLauncherJava >= 25) {
+    throw new GradleException(
+        'Unsupported Java runtime for this project. Use JDK 21 to run Gradle 8.12.1 for Neo ECO AE Extension / Minecraft 1.21.1.'
+    )
+}
+
 tasks.named('wrapper', Wrapper).configure {
     distributionType = Wrapper.DistributionType.BIN
 }

@@ -1,14 +1,18 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 import com.google.common.base.Preconditions;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -17,6 +21,7 @@ import net.minecraft.world.level.Level;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.features.IPlayerRegistry;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingLink;
@@ -38,6 +43,11 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 
 public class ECOCraftingCPULogic {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOCraftingCPULogic.class);
+    private static final double POWER_EPSILON = 0.01;
+    private static final int LOW_POWER_BACKOFF_TICKS = 2;
+    private static final int BUDGET_WARNING_THRESHOLD = 20;
+    private static final long BUDGET_WARNING_INTERVAL_TICKS = 200;
 
     final ECOCraftingCPU cpu;
 
@@ -63,6 +73,8 @@ public class ECOCraftingCPULogic {
 
     @Getter
     private boolean markedForDeletion = false;
+    private long lastBudgetWarningTick = Long.MIN_VALUE;
+    private int consecutiveBudgetExhaustions = 0;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -140,19 +152,14 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        var remainingOperations = cpu.getCoProcessors() + 1;
-
-        if (remainingOperations > 0) {
-            do {
-                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel());
-
-                if (pushedPatterns > 0) {
-                    remainingOperations -= pushedPatterns;
-                } else {
-                    break;
-                }
-            } while (remainingOperations > 0);
+        var currentTick = TickHandler.instance().getCurrentTick();
+        if (job.lowPowerUntilTick > currentTick) {
+            return;
         }
+
+        var budget = createTickBudget();
+        var result = executeCrafting(budget, cc, eg, cpu.getLevel(), currentTick);
+        handleTickResult(result, budget, currentTick);
     }
 
     /**
@@ -160,85 +167,46 @@ public class ECOCraftingCPULogic {
      *
      * @return How many patterns were successfully pushed.
      */
-    public int executeCrafting(
-        int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+    private CraftingTickResult executeCrafting(
+        CraftingTickBudget budget, CraftingService craftingService, IEnergyService energyService, Level level, long currentTick) {
         var job = this.job;
-        if (job == null) return 0;
-
-        var pushedPatterns = 0;
-
-        var it = job.tasks.entrySet().iterator();
-        taskLoop:
-        while (it.hasNext()) {
-            var task = it.next();
-            if (task.getValue().value <= 0) {
-                it.remove();
-                continue;
-            }
-
-            var details = task.getKey();
-            var expectedOutputs = new KeyCounter();
-            var expectedContainerItems = new KeyCounter();
-            // Contains the inputs for the pattern.
-            @Nullable
-            var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                details, inventory, level, expectedOutputs, expectedContainerItems);
-
-            // Try to push to each provider.
-            for (var provider : craftingService.getProviders(details)) {
-                if (craftingContainer == null) break;
-                if (provider.isBusy()) continue;
-
-                var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
-
-                if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                    < patternPower - 0.01) break;
-
-                if (provider.pushPattern(details, craftingContainer)) {
-                    energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                    pushedPatterns++;
-
-                    for (var expectedOutput : expectedOutputs) {
-                        job.waitingFor.insert(
-                            expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
-                    }
-                    for (var expectedContainerItem : expectedContainerItems) {
-                        job.waitingFor.insert(
-                            expectedContainerItem.getKey(),
-                            expectedContainerItem.getLongValue(),
-                            Actionable.MODULATE);
-                        job.timeTracker.addMaxItems(
-                            expectedContainerItem.getLongValue(),
-                            expectedContainerItem.getKey().getType());
-                    }
-
-                    cpu.markDirty();
-
-                    task.getValue().value--;
-                    if (task.getValue().value <= 0) {
-                        it.remove();
-                        continue taskLoop;
-                    }
-
-                    if (pushedPatterns == maxPatterns) {
-                        break taskLoop;
-                    }
-
-                    // Prepare next inputs.
-                    expectedOutputs.reset();
-                    expectedContainerItems.reset();
-                    craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                        details, inventory, level, expectedOutputs, expectedContainerItems);
-                }
-            }
-
-            // Failed to push this pattern, reinject the inputs.
-            if (craftingContainer != null) {
-                CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
-            }
+        if (job == null) return new CraftingTickResult(0, ExhaustionReason.NONE);
+        if (job.tasks.isEmpty()) {
+            job.nextTaskIndex = 0;
+            return new CraftingTickResult(0, ExhaustionReason.NONE);
         }
 
-        return pushedPatterns;
+        var initialTaskCount = job.tasks.size();
+        var startTaskIndex = normalizeIndex(job.nextTaskIndex, initialTaskCount);
+        var result = processTaskRange(
+            job,
+            startTaskIndex,
+            initialTaskCount,
+            budget,
+            craftingService,
+            energyService,
+            level,
+            currentTick);
+
+        if (result.exhaustionReason == ExhaustionReason.NONE && startTaskIndex > 0 && budget.canContinue()) {
+            var wrappedResult = processTaskRange(
+                job,
+                0,
+                Math.min(startTaskIndex, job.tasks.size()),
+                budget,
+                craftingService,
+                energyService,
+                level,
+                currentTick);
+            result = result.merge(wrappedResult);
+        }
+
+        if (job.tasks.isEmpty()) {
+            job.nextTaskIndex = 0;
+        } else {
+            job.nextTaskIndex = normalizeIndex(job.nextTaskIndex, job.tasks.size());
+        }
+        return result;
     }
 
     /**
@@ -507,5 +475,397 @@ public class ECOCraftingCPULogic {
 
     public void markForDeletion() {
         this.markedForDeletion = true;
+    }
+
+    private CraftingTickBudget createTickBudget() {
+        var coProcessors = Math.max(0, cpu.getCoProcessors());
+        var effectiveCoProcessors = Math.min(coProcessors, NEConfig.ecoCraftingEffectiveCoProcessorCap);
+        var scaledBonus = (int) Math.sqrt((double) effectiveCoProcessors);
+        var maxOperations = Math.max(1, NEConfig.ecoCraftingMaxOperationsPerTick);
+        var maxPatterns = Math.max(1, Math.min(Math.min(NEConfig.ecoCraftingMaxPatternsPerTick, 1 + scaledBonus), maxOperations));
+        var maxProviderChecks = Math.max(maxPatterns, NEConfig.ecoCraftingMaxProviderChecksPerTick);
+        return new CraftingTickBudget(
+            maxOperations,
+            maxPatterns,
+            maxProviderChecks,
+            System.nanoTime() + NEConfig.ecoCraftingTimeBudgetNanos,
+            effectiveCoProcessors);
+    }
+
+    private CraftingTickResult processTaskRange(
+        ExecutingCraftingJob job,
+        int startInclusive,
+        int endExclusive,
+        CraftingTickBudget budget,
+        CraftingService craftingService,
+        IEnergyService energyService,
+        Level level,
+        long currentTick
+    ) {
+        var pushedPatterns = 0;
+        var exhaustionReason = ExhaustionReason.NONE;
+        var iterator = job.tasks.entrySet().iterator();
+        for (int skipped = 0; skipped < startInclusive && iterator.hasNext(); skipped++) {
+            iterator.next();
+        }
+
+        var taskIndex = startInclusive;
+        while (iterator.hasNext() && taskIndex < endExclusive) {
+            if (!budget.canContinue()) {
+                exhaustionReason = budget.getExhaustionReason();
+                break;
+            }
+
+            var task = iterator.next();
+            var progress = task.getValue();
+            if (progress.value <= 0) {
+                iterator.remove();
+                continue;
+            }
+
+            var attempt = tryPushPattern(task, budget, craftingService, energyService, level, currentTick);
+            pushedPatterns += attempt.pushedPatterns;
+
+            if (progress.value <= 0) {
+                iterator.remove();
+            }
+
+            if (attempt.advanceTaskCursor) {
+                job.nextTaskIndex = progress.value > 0 ? taskIndex + 1 : taskIndex;
+            } else {
+                job.nextTaskIndex = taskIndex;
+            }
+
+            if (attempt.exhaustionReason != ExhaustionReason.NONE) {
+                exhaustionReason = attempt.exhaustionReason;
+                break;
+            }
+
+            taskIndex++;
+        }
+
+        return new CraftingTickResult(pushedPatterns, exhaustionReason);
+    }
+
+    private PatternPushAttempt tryPushPattern(
+        Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress> task,
+        CraftingTickBudget budget,
+        CraftingService craftingService,
+        IEnergyService energyService,
+        Level level,
+        long currentTick
+    ) {
+        if (!budget.tryConsumeOperation()) {
+            return PatternPushAttempt.exhausted(budget.getExhaustionReason());
+        }
+
+        var details = task.getKey();
+        var progress = task.getValue();
+        var expectedOutputs = new KeyCounter();
+        var expectedContainerItems = new KeyCounter();
+        @Nullable
+        var craftingContainer = CraftingCpuHelper.extractPatternInputs(
+            details, inventory, level, expectedOutputs, expectedContainerItems);
+
+        if (craftingContainer == null) {
+            progress.nextProviderIndex = 0;
+            return PatternPushAttempt.noProgress(true);
+        }
+
+        if (!budget.tryConsumePatternAttempt()) {
+            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+            return PatternPushAttempt.exhausted(budget.getExhaustionReason());
+        }
+
+        var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
+        budget.recordEnergySimulation();
+        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+            < patternPower - POWER_EPSILON) {
+            job.lowPowerUntilTick = currentTick + LOW_POWER_BACKOFF_TICKS;
+            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+            return new PatternPushAttempt(0, ExhaustionReason.LOW_POWER, false);
+        }
+
+        var remainingProviderChecks = budget.getRemainingProviderChecks();
+        if (remainingProviderChecks <= 0) {
+            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+            return PatternPushAttempt.exhausted(budget.getExhaustionReason());
+        }
+
+        int enumeratedProviders = 0;
+        int deferredProviderCount = Math.min(Math.max(0, progress.nextProviderIndex), Math.max(0, remainingProviderChecks - 1));
+        var deferredProviders = new java.util.ArrayList<appeng.api.networking.crafting.ICraftingProvider>(
+            Math.min(deferredProviderCount, budget.getRemainingProviderChecks()));
+        boolean providerBudgetExhausted = false;
+        for (var provider : craftingService.getProviders(details)) {
+            if (!budget.tryConsumeProviderCheck()) {
+                providerBudgetExhausted = true;
+                break;
+            }
+
+            enumeratedProviders++;
+            if (deferredProviderCount > 0) {
+                deferredProviders.add(provider);
+                deferredProviderCount--;
+                continue;
+            }
+
+            if (provider == null || provider.isBusy()) {
+                continue;
+            }
+
+            if (provider.pushPattern(details, craftingContainer)) {
+                job.lowPowerUntilTick = 0;
+                // The provider has already accepted the pattern, so this path cannot roll the dispatch back.
+                // If actual extraction underflows after a successful simulation on the same server-thread tick,
+                // suspend further dispatch and surface it loudly instead of silently continuing free pushes.
+                var extractedPower = energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                if (extractedPower < patternPower - POWER_EPSILON) {
+                    LOGGER.error(
+                        "ECO crafting CPU at {} in {} accepted a pattern after power simulation, but actual extraction underflowed (required={}, extracted={}). Suspending further dispatch.",
+                        formatCpuPosition(),
+                        cpu.getLevel().dimension().location(),
+                        patternPower,
+                        extractedPower);
+                    job.suspended = true;
+                    job.lowPowerUntilTick = currentTick + LOW_POWER_BACKOFF_TICKS;
+                }
+                finishPatternPush(expectedOutputs, expectedContainerItems);
+                progress.value--;
+                progress.nextProviderIndex = enumeratedProviders;
+                cpu.markDirty();
+                return new PatternPushAttempt(1, ExhaustionReason.NONE, true);
+            }
+        }
+
+        if (enumeratedProviders == 0) {
+            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+            return PatternPushAttempt.noProgress(true);
+        }
+
+        for (int deferredIndex = 0; deferredIndex < deferredProviders.size(); deferredIndex++) {
+            var provider = deferredProviders.get(deferredIndex);
+            if (provider == null || provider.isBusy()) {
+                continue;
+            }
+
+            if (provider.pushPattern(details, craftingContainer)) {
+                job.lowPowerUntilTick = 0;
+                var extractedPower = energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                if (extractedPower < patternPower - POWER_EPSILON) {
+                    LOGGER.error(
+                        "ECO crafting CPU at {} in {} accepted a pattern after power simulation, but actual extraction underflowed (required={}, extracted={}). Suspending further dispatch.",
+                        formatCpuPosition(),
+                        cpu.getLevel().dimension().location(),
+                        patternPower,
+                        extractedPower);
+                    job.suspended = true;
+                    job.lowPowerUntilTick = currentTick + LOW_POWER_BACKOFF_TICKS;
+                }
+                finishPatternPush(expectedOutputs, expectedContainerItems);
+                progress.value--;
+                progress.nextProviderIndex = normalizeIndex(deferredIndex + 1, enumeratedProviders);
+                cpu.markDirty();
+                return new PatternPushAttempt(1, ExhaustionReason.NONE, true);
+            }
+        }
+
+        if (providerBudgetExhausted) {
+            progress.nextProviderIndex = normalizeIndex(deferredProviders.size() + 1, enumeratedProviders);
+            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+            return PatternPushAttempt.exhausted(budget.getExhaustionReason());
+        }
+
+        progress.nextProviderIndex = normalizeIndex(progress.nextProviderIndex + 1, enumeratedProviders);
+        CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+        return PatternPushAttempt.noProgress(true);
+    }
+
+    private void finishPatternPush(KeyCounter expectedOutputs, KeyCounter expectedContainerItems) {
+        var job = this.job;
+        if (job == null) {
+            return;
+        }
+
+        for (var expectedOutput : expectedOutputs) {
+            job.waitingFor.insert(expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
+        }
+        for (var expectedContainerItem : expectedContainerItems) {
+            job.waitingFor.insert(
+                expectedContainerItem.getKey(),
+                expectedContainerItem.getLongValue(),
+                Actionable.MODULATE);
+            job.timeTracker.addMaxItems(
+                expectedContainerItem.getLongValue(),
+                expectedContainerItem.getKey().getType());
+        }
+    }
+
+    private void handleTickResult(CraftingTickResult result, CraftingTickBudget budget, long currentTick) {
+        if (result.exhaustionReason == ExhaustionReason.NONE) {
+            consecutiveBudgetExhaustions = 0;
+            return;
+        }
+
+        if (result.exhaustionReason == ExhaustionReason.LOW_POWER) {
+            consecutiveBudgetExhaustions = 0;
+            if (NEConfig.ecoCraftingDebugProfiling) {
+                LOGGER.info(
+                    "ECO crafting CPU throttled for low power at {} in {} (queue={}, coProcessors={}, effectiveCoProcessors={}, providerChecks={}, energySimulations={})",
+                    formatCpuPosition(),
+                    cpu.getLevel().dimension().location(),
+                    job != null ? job.tasks.size() : 0,
+                    Math.max(0, cpu.getCoProcessors()),
+                    budget.effectiveCoProcessors,
+                    budget.providerChecks,
+                    budget.energySimulations);
+            }
+            return;
+        }
+
+        consecutiveBudgetExhaustions++;
+        if (NEConfig.ecoCraftingDebugProfiling) {
+            LOGGER.info(
+                "ECO crafting CPU deferred work at {} in {} (reason={}, queue={}, coProcessors={}, effectiveCoProcessors={}, pushedPatterns={}, operations={}, providerChecks={}, energySimulations={})",
+                formatCpuPosition(),
+                cpu.getLevel().dimension().location(),
+                result.exhaustionReason.name(),
+                job != null ? job.tasks.size() : 0,
+                Math.max(0, cpu.getCoProcessors()),
+                budget.effectiveCoProcessors,
+                result.pushedPatterns,
+                budget.operations,
+                budget.providerChecks,
+                budget.energySimulations);
+        }
+
+        if (consecutiveBudgetExhaustions >= BUDGET_WARNING_THRESHOLD
+            && currentTick - lastBudgetWarningTick >= BUDGET_WARNING_INTERVAL_TICKS) {
+            lastBudgetWarningTick = currentTick;
+            LOGGER.warn(
+                "ECO crafting CPU at {} in {} repeatedly hit per-tick limits (reason={}, queue={}, effectiveCoProcessors={}, providerChecks={}, pushedPatterns={}).",
+                formatCpuPosition(),
+                cpu.getLevel().dimension().location(),
+                result.exhaustionReason.name(),
+                job != null ? job.tasks.size() : 0,
+                budget.effectiveCoProcessors,
+                budget.providerChecks,
+                result.pushedPatterns);
+        }
+    }
+
+    private String formatCpuPosition() {
+        return cpu.getOwner() != null ? cpu.getOwner().getBlockPos().toShortString() : "<virtual>";
+    }
+
+    private static int normalizeIndex(int index, int size) {
+        if (size <= 0) {
+            return 0;
+        }
+        return Math.floorMod(index, size);
+    }
+
+    private enum ExhaustionReason {
+        NONE,
+        OPERATION_LIMIT,
+        PATTERN_LIMIT,
+        PROVIDER_CHECK_LIMIT,
+        TIME_LIMIT,
+        LOW_POWER
+    }
+
+    private static final class CraftingTickBudget {
+        private final int maxOperations;
+        private final int maxPatterns;
+        private final int maxProviderChecks;
+        private final long deadlineNanos;
+        private final int effectiveCoProcessors;
+        private int operations;
+        private int patternAttempts;
+        private int providerChecks;
+        private int energySimulations;
+
+        private CraftingTickBudget(
+            int maxOperations,
+            int maxPatterns,
+            int maxProviderChecks,
+            long deadlineNanos,
+            int effectiveCoProcessors
+        ) {
+            this.maxOperations = maxOperations;
+            this.maxPatterns = maxPatterns;
+            this.maxProviderChecks = maxProviderChecks;
+            this.deadlineNanos = deadlineNanos;
+            this.effectiveCoProcessors = effectiveCoProcessors;
+        }
+
+        private boolean canContinue() {
+            return getExhaustionReason() == ExhaustionReason.NONE;
+        }
+
+        private boolean tryConsumeOperation() {
+            if (getExhaustionReason() != ExhaustionReason.NONE || operations >= maxOperations) {
+                return false;
+            }
+            operations++;
+            return getExhaustionReason() == ExhaustionReason.NONE;
+        }
+
+        private boolean tryConsumePatternAttempt() {
+            if (getExhaustionReason() != ExhaustionReason.NONE || patternAttempts >= maxPatterns) {
+                return false;
+            }
+            patternAttempts++;
+            return getExhaustionReason() == ExhaustionReason.NONE;
+        }
+
+        private boolean tryConsumeProviderCheck() {
+            if (getExhaustionReason() != ExhaustionReason.NONE || providerChecks >= maxProviderChecks) {
+                return false;
+            }
+            providerChecks++;
+            return getExhaustionReason() == ExhaustionReason.NONE;
+        }
+
+        private int getRemainingProviderChecks() {
+            return Math.max(0, maxProviderChecks - providerChecks);
+        }
+
+        private void recordEnergySimulation() {
+            energySimulations++;
+        }
+
+        private ExhaustionReason getExhaustionReason() {
+            if (System.nanoTime() >= deadlineNanos) {
+                return ExhaustionReason.TIME_LIMIT;
+            }
+            if (operations >= maxOperations) {
+                return ExhaustionReason.OPERATION_LIMIT;
+            }
+            if (patternAttempts >= maxPatterns) {
+                return ExhaustionReason.PATTERN_LIMIT;
+            }
+            if (providerChecks >= maxProviderChecks) {
+                return ExhaustionReason.PROVIDER_CHECK_LIMIT;
+            }
+            return ExhaustionReason.NONE;
+        }
+    }
+
+    private record CraftingTickResult(int pushedPatterns, ExhaustionReason exhaustionReason) {
+        private CraftingTickResult merge(CraftingTickResult other) {
+            var mergedReason = this.exhaustionReason != ExhaustionReason.NONE ? this.exhaustionReason : other.exhaustionReason;
+            return new CraftingTickResult(this.pushedPatterns + other.pushedPatterns, mergedReason);
+        }
+    }
+
+    private record PatternPushAttempt(int pushedPatterns, ExhaustionReason exhaustionReason, boolean advanceTaskCursor) {
+        private static PatternPushAttempt exhausted(ExhaustionReason reason) {
+            return new PatternPushAttempt(0, reason, false);
+        }
+
+        private static PatternPushAttempt noProgress(boolean advanceTaskCursor) {
+            return new PatternPushAttempt(0, ExhaustionReason.NONE, advanceTaskCursor);
+        }
     }
 }

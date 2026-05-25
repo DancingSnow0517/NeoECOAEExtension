@@ -18,7 +18,7 @@
 
 package cn.dancingsnow.neoecoae.api.me;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
@@ -49,17 +49,22 @@ public class ExecutingCraftingJob {
     private static final String NBT_REMAINING_AMOUNT = "remainingAmount";
     private static final String NBT_TASKS = "tasks";
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
+    private static final String NBT_NEXT_TASK_INDEX = "nextTaskIndex";
+    private static final String NBT_LOW_POWER_UNTIL_TICK = "lowPowerUntilTick";
+    private static final String NBT_NEXT_PROVIDER_INDEX = "nextProviderIndex";
     private static final String NBT_SUSPENDED = "suspended";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
-    final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
+    final Map<IPatternDetails, TaskProgress> tasks = new LinkedHashMap<>();
     final ElapsedTimeTracker timeTracker;
     GenericStack finalOutput;
     long remainingAmount;
     @Nullable
     Integer playerId;
     boolean suspended;
+    int nextTaskIndex;
+    long lowPowerUntilTick;
 
     @FunctionalInterface
     interface CraftingDifferenceListener {
@@ -88,6 +93,8 @@ public class ExecutingCraftingJob {
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
+        this.nextTaskIndex = 0;
+        this.lowPowerUntilTick = 0;
     }
 
     ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
@@ -117,11 +124,16 @@ public class ExecutingCraftingJob {
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
+                if (item.contains(NBT_NEXT_PROVIDER_INDEX, Tag.TAG_INT)) {
+                    tp.nextProviderIndex = item.getInt(NBT_NEXT_PROVIDER_INDEX);
+                }
                 this.tasks.put(details, tp);
             }
         }
 
         this.suspended = data.getBoolean(NBT_SUSPENDED);
+        this.nextTaskIndex = data.getInt(NBT_NEXT_TASK_INDEX);
+        this.lowPowerUntilTick = data.getLong(NBT_LOW_POWER_UNTIL_TICK);
     }
 
     CompoundTag writeToNBT(HolderLookup.Provider registries) {
@@ -140,11 +152,14 @@ public class ExecutingCraftingJob {
         for (var e : this.tasks.entrySet()) {
             var item = e.getKey().getDefinition().toTag(registries);
             item.putLong(NBT_CRAFTING_PROGRESS, e.getValue().value);
+            item.putInt(NBT_NEXT_PROVIDER_INDEX, e.getValue().nextProviderIndex);
             list.add(item);
         }
         data.put(NBT_TASKS, list);
 
         data.putLong(NBT_REMAINING_AMOUNT, remainingAmount);
+        data.putInt(NBT_NEXT_TASK_INDEX, nextTaskIndex);
+        data.putLong(NBT_LOW_POWER_UNTIL_TICK, lowPowerUntilTick);
         if (this.playerId != null) {
             data.putInt(NBT_PLAYER_ID, this.playerId);
         }
@@ -155,5 +170,6 @@ public class ExecutingCraftingJob {
 
     static class TaskProgress {
         long value = 0;
+        int nextProviderIndex = 0;
     }
 }
