@@ -12,9 +12,9 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
+import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -77,10 +77,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             workerStart,
             matchingStateFacing(NEBlocks.CRAFTING_WORKER, front)
         );
-        if (workerEndResult.isError()) {
+        if (workerEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos workerEnd = workerEndResult.getOrThrow();
+        BlockPos workerEnd = workerEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos upperParallelCoreStart = workerStart.relative(top);
         DataResult<BlockPos> upperParallelCoreEndResult = validateBlockLine(
@@ -89,10 +89,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             upperParallelCoreStart,
             matchingParallelCore(level, tier, front)
         );
-        if (upperParallelCoreEndResult.isError()) {
+        if (upperParallelCoreEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.getOrThrow();
+        BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos lowerParallelCoreStart = workerStart.relative(down);
         DataResult<BlockPos> lowerParallelCoreEndResult = validateBlockLine(
@@ -101,10 +101,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             lowerParallelCoreStart,
             matchingParallelCore(level, tier, front)
         );
-        if (lowerParallelCoreEndResult.isError()) {
+        if (lowerParallelCoreEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.getOrThrow();
+        BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos ventStart = workerStart.relative(back);
         DataResult<BlockPos> ventEndResult = validateBlockLine(
@@ -113,10 +113,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             ventStart,
             matchingStateFacing(NEBlocks.CRAFTING_VENT, back)
         );
-        if (ventEndResult.isError()) {
+        if (ventEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos ventEnd = ventEndResult.getOrThrow();
+        BlockPos ventEnd = ventEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos upperPatternBusStart = ventStart.relative(top);
         DataResult<BlockPos> upperPatternBusEndResult = validateBlockLine(
@@ -125,10 +125,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             upperPatternBusStart,
             matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, back)
         );
-        if (upperPatternBusEndResult.isError()) {
+        if (upperPatternBusEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos upperPatternBusEnd = upperPatternBusEndResult.getOrThrow();
+        BlockPos upperPatternBusEnd = upperPatternBusEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos lowerPatternBusStart = ventStart.relative(down);
         DataResult<BlockPos> lowerPatternBusEndResult = validateBlockLine(
@@ -137,10 +137,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             lowerPatternBusStart,
             matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, back)
         );
-        if (lowerPatternBusEndResult.isError()) {
+        if (lowerPatternBusEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos lowerPatternBusEnd = lowerPatternBusEndResult.getOrThrow();
+        BlockPos lowerPatternBusEnd = lowerPatternBusEndResult.getOrThrow(false, ignored -> {});
 
         List<BlockPos> endCasing = Stream.of(
             workerEnd,
@@ -155,7 +155,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             return false;
         }
 
-        return validateBlocks(level, endCasing, BlockState::is, NEBlocks.CRAFTING_CASING);
+        return validateBlocks(level, endCasing, BlockState::is, NEBlocks.CRAFTING_CASING.get());
     }
 
     @Override
@@ -164,13 +164,13 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     }
 
     private static boolean validateHatchAndInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down, Direction left) {
-        if (!validateBlock(level, interfacePos, BlockState::is, NEBlocks.CRAFTING_INTERFACE)) {
+        if (!validateBlock(level, interfacePos, BlockState::is, NEBlocks.CRAFTING_INTERFACE.get())) {
             return false;
         }
-        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, NEBlocks.INPUT_HATCH)) {
+        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, NEBlocks.INPUT_HATCH.get())) {
             return false;
         }
-        return validateBlock(level, interfacePos.relative(down), BlockState::is, NEBlocks.OUTPUT_HATCH);
+        return validateBlock(level, interfacePos.relative(down), BlockState::is, NEBlocks.OUTPUT_HATCH.get());
     }
 
     private boolean validateCasing(ServerLevel level, BlockPos controllerPos, Direction top, Direction down, Direction direction) {
@@ -192,10 +192,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     }
 
     private BiPredicate<BlockState, BlockPos> matchingStateFacing(
-        Holder<Block> block,
+        BlockEntry<? extends Block> block,
         Direction facing
     ) {
-        return (s, p) -> s.is(block)
+        return (s, p) -> s.is(block.get())
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 }

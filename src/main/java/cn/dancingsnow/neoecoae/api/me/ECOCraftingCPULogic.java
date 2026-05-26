@@ -29,8 +29,8 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.core.AELog;
-import appeng.core.network.ClientboundPacket;
-import appeng.core.network.clientbound.CraftingJobStatusPacket;
+import appeng.core.sync.BasePacket;
+import appeng.core.sync.packets.CraftingJobStatusPacket;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.*;
 import appeng.crafting.inv.ListCraftingInventory;
@@ -99,7 +99,7 @@ public class ECOCraftingCPULogic {
 
         notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
 
-        // Non-standalone jobs need another link for the requester, and both links need to be submitted to the cache.
+        // Jobs with an external requester need another link, and both links need to be submitted to the cache.
         if (requester != null) {
             var linkReq = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, false, true), requester);
 
@@ -394,7 +394,7 @@ public class ECOCraftingCPULogic {
     }
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        this.inventory.readFromNBT(data.getList("inventory", 10), registries);
+        this.inventory.readFromNBT(data.getList("inventory", 10));
         if (data.contains("job")) {
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             if (this.job.finalOutput == null) {
@@ -404,7 +404,7 @@ public class ECOCraftingCPULogic {
     }
 
     public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        data.put("inventory", this.inventory.writeToNBT(registries));
+        data.put("inventory", this.inventory.writeToNBT());
         if (this.job != null) {
             data.put("job", this.job.writeToNBT(registries));
         }
@@ -499,9 +499,9 @@ public class ECOCraftingCPULogic {
         var connectedPlayer = IPlayerRegistry.getConnected(server, playerId);
         if (connectedPlayer != null) {
             var jobId = job.link.getCraftingID();
-            ClientboundPacket message = new CraftingJobStatusPacket(
+            BasePacket message = new CraftingJobStatusPacket(
                 jobId, job.finalOutput.what(), job.finalOutput.amount(), job.remainingAmount, status);
-            connectedPlayer.connection.send(message);
+            connectedPlayer.connection.send(message.toPacket(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
         }
     }
 

@@ -37,8 +37,8 @@ public record AutoExportSides(Set<RelativeSide> sides) {
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof AutoExportSides(Set<RelativeSide> sides1))) return false;
-        return Objects.equals(sides, sides1);
+        if (!(o instanceof AutoExportSides other)) return false;
+        return Objects.equals(sides, other.sides);
     }
 
     @Override

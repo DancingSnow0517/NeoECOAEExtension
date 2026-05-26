@@ -8,16 +8,16 @@ import net.minecraft.resources.ResourceLocation;
 public interface IECOTier {
     int getTier();
     /**
-     * 合成系统并行核心并行数量
+     * 鍚堟垚绯荤粺骞惰鏍稿績骞惰鏁伴噺
      *
-     * @return 并行数量
+     * @return 骞惰鏁伴噺
      */
     int getCrafterParallel();
 
     /**
-     * 合成系统并行核心超频后并行数量
+     * 鍚堟垚绯荤粺骞惰鏍稿績瓒呴鍚庡苟琛屾暟閲?
      *
-     * @return 超频后并行数量
+     * @return 瓒呴鍚庡苟琛屾暟閲?
      */
     int getOverclockedCrafterParallel();
 
@@ -29,37 +29,37 @@ public interface IECOTier {
         return getOverclockedCrafterQueueMultiply();
     }
     /**
-     * 计算系统并行核心并行数量
+     * 璁＄畻绯荤粺骞惰鏍稿績骞惰鏁伴噺
      *
-     * @return 并行数量
+     * @return 骞惰鏁伴噺
      */
     int getCPUAccelerators();
 
     /**
-     * 计算系统线程核心线程数量
+     * 璁＄畻绯荤粺绾跨▼鏍稿績绾跨▼鏁伴噺
      *
-     * @return 线程数量
+     * @return 绾跨▼鏁伴噺
      */
     int getCPUThreads();
 
     /**
-     * 计算系统闪存晶阵字节数量
+     * 璁＄畻绯荤粺闂瓨鏅堕樀瀛楄妭鏁伴噺
      *
-     * @return 闪存晶阵字节数量
+     * @return 闂瓨鏅堕樀瀛楄妭鏁伴噺
      */
     long getCPUTotalBytes();
 
     /**
-     * 存储系统存储矩阵字节数量
+     * 瀛樺偍绯荤粺瀛樺偍鐭╅樀瀛楄妭鏁伴噺
      *
-     * @return 存储矩阵字节数量
+     * @return 瀛樺偍鐭╅樀瀛楄妭鏁伴噺
      */
     long getStorageTotalBytes();
 
     /**
-     * 存储系统储电方块每个方块储电量
+     * 瀛樺偍绯荤粺鍌ㄧ數鏂瑰潡姣忎釜鏂瑰潡鍌ㄧ數閲?
      *
-     * @return 储电量
+     * @return 鍌ㄧ數閲?
      */
     long getPowerStorageSize();
 
@@ -70,10 +70,10 @@ public interface IECOTier {
     }
 
     /**
-     * 存储系统存储矩阵类型数量
+     * 瀛樺偍绯荤粺瀛樺偍鐭╅樀绫诲瀷鏁伴噺
      *
-     * @param keyType 根据 {@link AEKeyType} 不同，类型数量
-     * @return 存储矩阵类型数量
+     * @param keyType 鏍规嵁 {@link AEKeyType} 涓嶅悓锛岀被鍨嬫暟閲?
+     * @return 瀛樺偍鐭╅樀绫诲瀷鏁伴噺
      */
     default int getStorageTotalTypes(AEKeyType keyType) {
         return ECOAETypeCounts.getByType(keyType);

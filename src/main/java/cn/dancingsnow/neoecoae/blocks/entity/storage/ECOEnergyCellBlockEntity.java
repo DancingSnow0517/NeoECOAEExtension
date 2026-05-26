@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
-import appeng.api.config.PowerUnit;
+import appeng.api.config.PowerUnits;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.api.networking.events.GridPowerStorageStateChanged;
@@ -26,7 +26,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.ChunkStatus;
 
 public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
     implements IExternalPowerSink, IGridTickable, ISyncPersistRPCBlockEntity {
@@ -105,7 +105,6 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         return formed ? AccessRestriction.READ_WRITE : AccessRestriction.NO_ACCESS;
     }
 
-    @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
@@ -139,13 +138,14 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     @Override
-    public double injectExternalPower(PowerUnit externalUnit, double amount, Actionable mode) {
-        return PowerUnit.AE.convertTo(externalUnit, injectAEPower(PowerUnit.AE.convertTo(externalUnit, amount), mode));
+    public double injectExternalPower(PowerUnits externalUnit, double amount, Actionable mode) {
+        double aeAmount = externalUnit.convertTo(PowerUnits.AE, amount);
+        return PowerUnits.AE.convertTo(externalUnit, injectAEPower(aeAmount, mode));
     }
 
     @Override
-    public double getExternalPowerDemand(PowerUnit externalUnit, double maxPowerRequired) {
-        return PowerUnit.AE.convertTo(externalUnit, Math.max(0.0, getAEMaxPower() - getAECurrentPower()));
+    public double getExternalPowerDemand(PowerUnits externalUnit, double maxPowerRequired) {
+        return PowerUnits.AE.convertTo(externalUnit, Math.max(0.0, getAEMaxPower() - getAECurrentPower()));
     }
 
     private void setChangedNoTicketUpdate() {
@@ -167,7 +167,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 20, !neighborChangePending);
+        return new TickingRequest(1, 20, !neighborChangePending, false);
     }
 
     @Override

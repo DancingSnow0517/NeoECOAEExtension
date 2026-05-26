@@ -8,7 +8,7 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 @SuppressWarnings("Convert2MethodRef")
 public class NECreativeTabs {
-    public static final RegistryEntry<CreativeModeTab, CreativeModeTab> ECO = REGISTRATE
+    public static final RegistryEntry<CreativeModeTab> ECO = REGISTRATE
         .defaultCreativeTab(
             "main",
             CreativeModeTab.builder()

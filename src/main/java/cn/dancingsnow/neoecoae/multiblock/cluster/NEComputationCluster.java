@@ -68,7 +68,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (blockEntity instanceof ECOComputationDriveBlockEntity driveBlockEntity) {
             Level level = driveBlockEntity.getLevel();
             BlockState bottomBlock = level.getBlockState(driveBlockEntity.getBlockPos().relative(Direction.DOWN));
-            if (bottomBlock.is(NEBlocks.COMPUTATION_TRANSMITTER)) {
+            if (bottomBlock.is(NEBlocks.COMPUTATION_TRANSMITTER.get())) {
                 upperDrives.add(driveBlockEntity);
             } else {
                 driveBlockEntity.setLowerDrive(true);

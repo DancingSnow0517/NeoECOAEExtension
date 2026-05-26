@@ -150,7 +150,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(20, 20, false);
+        return new TickingRequest(20, 20, false, false);
     }
 
 
@@ -451,7 +451,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
@@ -460,7 +460,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
@@ -481,7 +481,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
         boolean hasMaterials = player instanceof ServerPlayer serverPlayer
             && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
@@ -509,7 +509,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
         if (!plan.getConflictPositions().isEmpty()) {
             syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.conflicts_detected");

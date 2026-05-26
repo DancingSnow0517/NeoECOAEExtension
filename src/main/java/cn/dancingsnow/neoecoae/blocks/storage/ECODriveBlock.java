@@ -9,7 +9,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
@@ -38,22 +37,20 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        ItemStack heldItem = player.getItemInHand(hand);
         if (heldItem.getItem() instanceof ECOStorageCellItem) {
             if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
                 if (be.getCellStack() == null) {
-                    if (level.isClientSide) return ItemInteractionResult.SUCCESS;
-                    be.setCellStack(heldItem);
-                    player.setItemInHand(hand, ItemStack.EMPTY);
-                    return ItemInteractionResult.sidedSuccess(level.isClientSide());
+                    if (level.isClientSide) return InteractionResult.SUCCESS;
+                    be.setCellStack(heldItem.copyWithCount(1));
+                    if (!player.getAbilities().instabuild) {
+                        heldItem.shrink(1);
+                    }
+                    return InteractionResult.sidedSuccess(level.isClientSide());
                 }
             }
         }
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
                 if (level.isClientSide) return InteractionResult.SUCCESS;

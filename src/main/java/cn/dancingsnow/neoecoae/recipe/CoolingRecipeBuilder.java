@@ -11,8 +11,8 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;

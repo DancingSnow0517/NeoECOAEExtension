@@ -48,10 +48,10 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.neoforged.neoforge.client.model.generators.BlockModelBuilder;
-import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
-import net.neoforged.neoforge.client.model.generators.ModelFile;
-import net.neoforged.neoforge.common.Tags;
+import net.minecraftforge.client.model.generators.BlockModelBuilder;
+import net.minecraftforge.client.model.generators.ConfiguredModel;
+import net.minecraftforge.client.model.generators.ModelFile;
+import net.minecraftforge.common.Tags;
 
 import java.util.Locale;
 
@@ -285,9 +285,9 @@ public class NEBlocks {
         .loot((prov, block) -> {
             prov.add(block, prov.createSingleItemTable(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL));
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING_BLOCKS)
         .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
+        .tag(NETags.Items.BUDDING_BLOCKS)
         .build()
         .register();
 
@@ -309,9 +309,9 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING_BLOCKS)
         .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
+        .tag(NETags.Items.BUDDING_BLOCKS)
         .build()
         .register();
 
@@ -333,9 +333,9 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING_BLOCKS)
         .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
+        .tag(NETags.Items.BUDDING_BLOCKS)
         .build()
         .register();
 
@@ -357,9 +357,9 @@ public class NEBlocks {
                 Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL)
             );
         })
-        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, Tags.Blocks.BUDDING_BLOCKS)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING_BLOCKS)
         .item()
-        .tag(Tags.Items.BUDDING_BLOCKS)
+        .tag(NETags.Items.BUDDING_BLOCKS)
         .build()
         .register();
 
@@ -372,9 +372,9 @@ public class NEBlocks {
             prov.directionalBlock(ctx.get(), model);
         })
         .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .tag(NETags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
-        .tag(Tags.Items.CLUSTERS)
+        .tag(NETags.Items.CLUSTERS)
         .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
         .build()
         .register();
@@ -388,9 +388,9 @@ public class NEBlocks {
             prov.directionalBlock(ctx.get(), model);
         })
         .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .tag(NETags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
-        .tag(Tags.Items.CLUSTERS)
+        .tag(NETags.Items.CLUSTERS)
         .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
         .build()
         .register();
@@ -404,9 +404,9 @@ public class NEBlocks {
             prov.directionalBlock(ctx.get(), model);
         })
         .loot(LootTableUtil::energizedBud)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .tag(NETags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
-        .tag(Tags.Items.CLUSTERS)
+        .tag(NETags.Items.CLUSTERS)
         .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
         .build()
         .register();
@@ -420,9 +420,9 @@ public class NEBlocks {
             prov.directionalBlock(ctx.get(), model);
         })
         .loot(LootTableUtil::energizedCluster)
-        .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
+        .tag(NETags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
-        .tag(Tags.Items.CLUSTERS)
+        .tag(NETags.Items.CLUSTERS)
         .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("block/" + ctx.getName())))
         .build()
         .register();

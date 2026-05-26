@@ -16,30 +16,16 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import java.util.Optional;
 
 public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     private static final Logger logger = LogManager.getLogger(NERegistrate.class);
 
     public static NERegistrate create(String modid) {
-        NERegistrate registrate = new NERegistrate(modid);
-        Optional<IEventBus> modEventBus = ModList.get().getModContainerById(modid).map(ModContainer::getEventBus);
-        modEventBus.ifPresentOrElse(registrate::registerEventListeners, () -> {
-            String message = "# [Registrate] Failed to register eventListeners for mod " + modid + ", This should be reported to this mod's dev #";
-            StringBuilder hashtags = new StringBuilder().append("#".repeat(message.length()));
-            logger.fatal(hashtags.toString());
-            logger.fatal(message);
-            logger.fatal(hashtags.toString());
-        });
-        return registrate;
+        return new NERegistrate(modid);
     }
 
     protected NERegistrate(String modid) {
@@ -50,7 +36,6 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     public NERegistrate registerEventListeners(IEventBus bus) {
         super.registerEventListeners(bus);
         bus.addListener(this::onCommonSetup);
-        bus.addListener(this::onRegisterCapabilities);
         return self();
     }
 
@@ -95,7 +80,7 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
         return this.generic(parent, name, Registries.CREATIVE_MODE_TAB, builder::build);
     }
 
-    public NERegistrate defaultCreativeTab(RegistryEntry<CreativeModeTab, CreativeModeTab> tab) {
+    public NERegistrate defaultCreativeTab(RegistryEntry<CreativeModeTab> tab) {
         defaultCreativeTab(tab.getKey());
         return self();
     }
@@ -122,19 +107,10 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     }
 
     public void onCommonSetup(FMLCommonSetupEvent event) {
-        for (RegistryEntry<BlockEntityType<?>, BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
+        for (RegistryEntry<BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
             //noinspection rawtypes
             if (entry instanceof NEBlockEntityEntry entityEntry) {
                 entityEntry.onCommonSetup(event);
-            }
-        }
-    }
-
-    public void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
-        for (RegistryEntry<BlockEntityType<?>, BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
-            //noinspection rawtypes
-            if (entry instanceof NEBlockEntityEntry entityEntry) {
-                entityEntry.onRegisterCapabilies(event);
             }
         }
     }

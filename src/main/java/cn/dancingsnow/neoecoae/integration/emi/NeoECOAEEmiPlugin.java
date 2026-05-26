@@ -17,8 +17,8 @@ import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;

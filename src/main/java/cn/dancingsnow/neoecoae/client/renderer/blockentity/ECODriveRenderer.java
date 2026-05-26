@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FastColor;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -33,12 +32,16 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
     @Override
     public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
+        renderFixed(blockEntity, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
         if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
             return;
         }
         IECOStorageCell cellInventory = blockEntity.getCellInventory();
         if (cellInventory != null) {
-            int stateColor = FastColor.ARGB32.color(255, cellInventory.getStatus().getStateColor());
+            int stateColor = cellInventory.getStatus().getStateColor();
+            int red = stateColor >> 16 & 255;
+            int green = stateColor >> 8 & 255;
+            int blue = stateColor & 255;
 
             BlockState blockState = blockEntity.getBlockState();
             Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
@@ -64,10 +67,10 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
             VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
 
-            consumer.addVertex(matrix, xStart, 0, zStart).setColor(stateColor);
-            consumer.addVertex(matrix, xEnd, 0, zStart).setColor(stateColor);
-            consumer.addVertex(matrix, xEnd, 0, zEnd).setColor(stateColor);
-            consumer.addVertex(matrix, xStart, 0, zEnd).setColor(stateColor);
+            consumer.vertex(matrix, xStart, 0, zStart).color(red, green, blue, 255).endVertex();
+            consumer.vertex(matrix, xEnd, 0, zStart).color(red, green, blue, 255).endVertex();
+            consumer.vertex(matrix, xEnd, 0, zEnd).color(red, green, blue, 255).endVertex();
+            consumer.vertex(matrix, xStart, 0, zEnd).color(red, green, blue, 255).endVertex();
 
             poseStack.popPose();
         }

@@ -17,12 +17,13 @@ import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBloc
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -60,14 +61,12 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
-        this.cellStack = cellStack;
-        if (cellStack != null) {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, true));
-        } else {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, false));
+        this.cellStack = normalizeCellStack(cellStack);
+        if (getLevel() != null) {
+            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, this.cellStack != null));
         }
         updateState();
-        this.cellStack = cellStack;
+        markForUpdate();
         setChanged();
     }
 
@@ -78,8 +77,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     private void updateState() {
         double power = 256;
-        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
-            IECOTier mainTier = storageCluster.getController().getTier();
+        if (cluster != null && cluster.getController() != null) {
+            IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 power += cellInventory.getIdleDrain();
@@ -89,9 +88,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         IStorageProvider.requestUpdate(getMainNode());
     }
 
-    @Override
     public void scheduleRenderUpdate() {
-        markForClientUpdate();
+        markForUpdate();
     }
 
     @Override
@@ -112,8 +110,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
-        if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
-            IECOTier mainTier = storageCluster.getController().getTier();
+        if (cluster != null && cluster.getController() != null) {
+            IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 storageMounts.mount(cellInventory);
@@ -139,7 +137,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         setChanged();
     }
 
-    @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
@@ -147,5 +144,54 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 markForUpdate();
             });
         }
+    }
+
+    @Override
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        loadDriveVisualState(data);
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        saveDriveVisualState(data);
+    }
+
+    @Override
+    protected void saveVisualState(CompoundTag data) {
+        super.saveVisualState(data);
+        saveDriveVisualState(data);
+    }
+
+    @Override
+    protected void loadVisualState(CompoundTag data) {
+        super.loadVisualState(data);
+        loadDriveVisualState(data);
+    }
+
+    private void saveDriveVisualState(CompoundTag data) {
+        if (cellStack != null && !cellStack.isEmpty()) {
+            data.put("cellStack", cellStack.save(new CompoundTag()));
+        }
+        data.putBoolean("mounted", mounted);
+        data.putBoolean("online", online);
+    }
+
+    private void loadDriveVisualState(CompoundTag data) {
+        if (data.contains("cellStack")) {
+            this.cellStack = normalizeCellStack(ItemStack.of(data.getCompound("cellStack")));
+        } else {
+            this.cellStack = null;
+        }
+        this.mounted = data.getBoolean("mounted");
+        this.online = data.getBoolean("online");
+    }
+
+    private static @Nullable ItemStack normalizeCellStack(@Nullable ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+        return stack.copyWithCount(1);
     }
 }

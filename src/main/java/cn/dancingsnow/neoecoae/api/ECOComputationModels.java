@@ -1,18 +1,18 @@
 package cn.dancingsnow.neoecoae.api;
 
-import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 public class ECOComputationModels {
-    private static final Map<Holder<Item>, Entry> deferredRegistration = new IdentityHashMap<>();
+    private static final Map<Supplier<? extends Item>, Entry> deferredRegistration = new IdentityHashMap<>();
     private static final Map<Item, Entry> map = new IdentityHashMap<>();
     private static final Map<IECOTier, Entry> cableModels = new IdentityHashMap<>();
 
-    public static void registerCellModel(Holder<Item> item, ResourceLocation normalModel, ResourceLocation formedModel) {
+    public static void registerCellModel(Supplier<? extends Item> item, ResourceLocation normalModel, ResourceLocation formedModel) {
         deferredRegistration.put(item, new Entry(normalModel, formedModel));
     }
 
@@ -40,7 +40,7 @@ public class ECOComputationModels {
 
     public static void runDeferredRegistration() {
         deferredRegistration.forEach((itemSupplier, entry) -> {
-            map.put(itemSupplier.value(), entry);
+            map.put(itemSupplier.get(), entry);
         });
     }
 

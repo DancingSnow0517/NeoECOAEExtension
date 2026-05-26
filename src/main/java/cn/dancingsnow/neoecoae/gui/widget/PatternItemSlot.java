@@ -22,7 +22,7 @@ public class PatternItemSlot extends ItemSlot {
 
     @Override
     protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
-        if (itemStack.getItem() instanceof EncodedPatternItem<?> patternItem) {
+        if (itemStack.getItem() instanceof EncodedPatternItem patternItem) {
             ItemStack output = patternItem.getOutput(itemStack);
             if (!output.isEmpty()) {
                 DrawerHelper.drawItemStack(guiContext.graphics, output, 0, 0, -1, null);

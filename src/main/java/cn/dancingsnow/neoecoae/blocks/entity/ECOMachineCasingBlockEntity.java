@@ -38,7 +38,7 @@ public class ECOMachineCasingBlockEntity<C extends NECluster<C>> extends NEBlock
         level.setBlock(
             worldPosition,
             newState,
-            Block.UPDATE_CLIENTS
+            Block.UPDATE_ALL_IMMEDIATE
         );
     }
 }

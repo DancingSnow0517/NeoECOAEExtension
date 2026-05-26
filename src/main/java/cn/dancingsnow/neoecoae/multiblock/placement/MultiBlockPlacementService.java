@@ -11,8 +11,8 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -155,8 +155,8 @@ public final class MultiBlockPlacementService {
             return 0;
         }
 
-        int count = ItemStack.isSameItemSameComponents(stack, target) ? stack.getCount() : 0;
-        IItemHandler itemHandler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+        int count = ItemStack.isSameItemSameTags(stack, target) ? stack.getCount() : 0;
+        IItemHandler itemHandler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
         if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
             return count;
         }
@@ -182,7 +182,7 @@ public final class MultiBlockPlacementService {
             return remaining;
         }
 
-        if (ItemStack.isSameItemSameComponents(stack, target)) {
+        if (ItemStack.isSameItemSameTags(stack, target)) {
             int taken = Math.min(stack.getCount(), remaining);
             stack.shrink(taken);
             remaining -= taken;
@@ -191,7 +191,7 @@ public final class MultiBlockPlacementService {
             }
         }
 
-        IItemHandler itemHandler = stack.getCapability(Capabilities.ItemHandler.ITEM);
+        IItemHandler itemHandler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
         if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
             return remaining;
         }
@@ -205,7 +205,7 @@ public final class MultiBlockPlacementService {
             if (slotStack.isEmpty()) {
                 continue;
             }
-            if (ItemStack.isSameItemSameComponents(slotStack, target)) {
+            if (ItemStack.isSameItemSameTags(slotStack, target)) {
                 int toExtract = Math.min(slotStack.getCount(), remaining);
                 ItemStack extracted = itemHandler.extractItem(slot, toExtract, false);
                 remaining -= extracted.getCount();
@@ -221,7 +221,7 @@ public final class MultiBlockPlacementService {
 
     private static void mergeItem(List<ItemStack> requiredItems, ItemStack toAdd) {
         for (ItemStack requiredItem : requiredItems) {
-            if (ItemStack.isSameItemSameComponents(requiredItem, toAdd)) {
+            if (ItemStack.isSameItemSameTags(requiredItem, toAdd)) {
                 requiredItem.grow(toAdd.getCount());
                 return;
             }

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -13,12 +14,13 @@ import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -67,14 +69,20 @@ public class ECOComputationDriveBlockEntity
     }
 
     public void setCellStack(@Nullable ItemStack cellStack) {
-        this.cellStack = cellStack;
+        this.cellStack = normalizeCellStack(cellStack);
+        if (getLevel() != null) {
+            getLevel().setBlockAndUpdate(
+                getBlockPos(),
+                getBlockState().setValue(ECOComputationDrive.HAS_CELL, this.cellStack != null)
+            );
+        }
         if (this.cluster != null) {
             this.cluster.recalculateRemainingStorage();
         }
+        markForUpdate();
         setChanged();
     }
 
-    @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
@@ -132,5 +140,58 @@ public class ECOComputationDriveBlockEntity
     @Override
     public boolean isItemValid(ItemStack stack) {
         return stack.getItem() instanceof ECOComputationCellItem;
+    }
+
+    @Override
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        loadDriveVisualState(data);
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        saveDriveVisualState(data);
+    }
+
+    @Override
+    protected void saveVisualState(CompoundTag data) {
+        super.saveVisualState(data);
+        saveDriveVisualState(data);
+    }
+
+    @Override
+    protected void loadVisualState(CompoundTag data) {
+        super.loadVisualState(data);
+        loadDriveVisualState(data);
+    }
+
+    private void saveDriveVisualState(CompoundTag data) {
+        if (cellStack != null && !cellStack.isEmpty()) {
+            data.put("cellStack", cellStack.save(new CompoundTag()));
+        }
+        data.putBoolean("formedState", formedState);
+        data.putBoolean("isLowerDrive", isLowerDrive);
+        if (ownerBlockPos != null) {
+            data.putLong("ownerBlockPos", ownerBlockPos.asLong());
+        }
+    }
+
+    private void loadDriveVisualState(CompoundTag data) {
+        if (data.contains("cellStack")) {
+            this.cellStack = normalizeCellStack(ItemStack.of(data.getCompound("cellStack")));
+        } else {
+            this.cellStack = null;
+        }
+        this.formedState = data.getBoolean("formedState");
+        this.isLowerDrive = data.getBoolean("isLowerDrive");
+        this.ownerBlockPos = data.contains("ownerBlockPos") ? BlockPos.of(data.getLong("ownerBlockPos")) : null;
+    }
+
+    private static @Nullable ItemStack normalizeCellStack(@Nullable ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+        return stack.copyWithCount(1);
     }
 }

@@ -10,7 +10,7 @@ import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
-import net.neoforged.neoforge.common.Tags;
+import net.minecraftforge.common.Tags;
 
 public class NEConfiguredFeatures {
     public static final ResourceKey<ConfiguredFeature<?, ?>>

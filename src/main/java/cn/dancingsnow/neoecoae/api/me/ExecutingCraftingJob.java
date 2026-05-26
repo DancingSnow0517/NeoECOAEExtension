@@ -98,10 +98,10 @@ public class ExecutingCraftingJob {
             ((CraftingService) grid.getCraftingService()).addLink(link);
         }
 
-        this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
+        this.finalOutput = GenericStack.readTag(data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
-        this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
+        this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND));
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);
@@ -112,7 +112,7 @@ public class ExecutingCraftingJob {
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
-            var pattern = AEItemKey.fromTag(registries, item);
+            var pattern = AEItemKey.fromTag(item);
             var details = PatternDetailsHelper.decodePattern(pattern, logic.cpu.getLevel());
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
@@ -131,14 +131,14 @@ public class ExecutingCraftingJob {
         link.writeToNBT(linkData);
         data.put(NBT_LINK, linkData);
 
-        data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(registries, finalOutput));
+        data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(finalOutput));
 
-        data.put(NBT_WAITING_FOR, waitingFor.writeToNBT(registries));
+        data.put(NBT_WAITING_FOR, waitingFor.writeToNBT());
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
 
         final ListTag list = new ListTag();
         for (var e : this.tasks.entrySet()) {
-            var item = e.getKey().getDefinition().toTag(registries);
+            var item = e.getKey().getDefinition().toTag();
             item.putLong(NBT_CRAFTING_PROGRESS, e.getValue().value);
             list.add(item);
         }

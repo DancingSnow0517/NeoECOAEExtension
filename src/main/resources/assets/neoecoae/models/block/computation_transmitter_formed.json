@@ -84,7 +84,7 @@
 			"from": [1, 6, 2],
 			"to": [15, 10, 6],
 			"faces": {
-				"north": {"uv": [1, 6, 15, 10], "texture": "#7", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+				"north": {"uv": [1, 6, 15, 10], "texture": "#7", "forge_data": {"block_light": 15, "sky_light": 15}}
 			}
 		}
 	]

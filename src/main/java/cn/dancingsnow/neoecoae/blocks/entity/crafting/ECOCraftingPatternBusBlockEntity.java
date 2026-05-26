@@ -42,7 +42,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -158,13 +158,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             .addService(IECOPatternStorage.class, this);
     }
 
-    @Override
     public void saveChangedInventory(AppEngInternalInventory inv) {
         this.saveChanges();
     }
 
     @Override
-    public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+    public void onChangeInventory(InternalInventory inv, int slot) {
         this.saveChanges();
         updatePatternDetails();
     }
@@ -186,7 +185,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         ICraftingProvider.requestUpdate(this.getMainNode());
     }
 
-    @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {

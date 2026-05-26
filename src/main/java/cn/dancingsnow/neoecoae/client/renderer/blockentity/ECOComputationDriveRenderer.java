@@ -139,8 +139,6 @@ public class ECOComputationDriveRenderer
 
     @Override
     public void render(ECOComputationDriveBlockEntity driveBlockEntity, float v, PoseStack poseStack, MultiBufferSource multiBufferSource, int i, int i1) {
-//        if (PonderPlatformUtils.isPonderLevel(driveBlockEntity.getLevel()) || driveBlockEntity.getLevel() instanceof DummyWorld) {
-//            renderFixed(driveBlockEntity, v, poseStack, multiBufferSource, i, i1);
-//        }
+        renderFixed(driveBlockEntity, v, poseStack, multiBufferSource, i, i1);
     }
 }

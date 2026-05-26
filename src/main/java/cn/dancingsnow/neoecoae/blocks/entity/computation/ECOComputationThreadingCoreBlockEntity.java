@@ -18,7 +18,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import net.minecraftforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -64,13 +64,13 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
         for (int i = 0; i < cpus.length; i++) {
             ECOCraftingCPU cpu = cpus[i];
             if (cpu != null) {
                 CompoundTag tag = new CompoundTag();
-                cpu.writeToNBT(tag, registries);
+                cpu.writeToNBT(tag, null);
                 data.put("CPU" + i, tag);
             }
         }
@@ -84,11 +84,7 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                 CompoundTag tag = deferredInit[i];
                 if (tag != null) {
                     ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
-                    HolderLookup.Provider registries = ServerLifecycleHooks.getCurrentServer()
-                        .getServerResources()
-                        .managers()
-                        .fullRegistries()
-                        .get();
+                    HolderLookup.Provider registries = ServerLifecycleHooks.getCurrentServer().registryAccess();
                     deferredInit[i] = null;
                     cpu.readFromNBT(tag, registries);
                     if (cpu.getPlan() != null) {
@@ -102,8 +98,8 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
         for (int i = 0; i < cpus.length; i++) {
             if (data.contains("CPU" + i)) {
                 deferredInit[i] = data.getCompound("CPU" + i);

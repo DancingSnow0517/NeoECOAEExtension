@@ -36,9 +36,9 @@ public class ElapsedTimeTracker {
     private long elapsedTime = 0;
 
     private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(
-            AEKeyTypes.getAll().size());
+            4);
     private final Reference2LongMap<AEKeyType> completedWorkByType = new Reference2LongOpenHashMap<>(
-            AEKeyTypes.getAll().size());
+            4);
 
     public ElapsedTimeTracker() {
     }

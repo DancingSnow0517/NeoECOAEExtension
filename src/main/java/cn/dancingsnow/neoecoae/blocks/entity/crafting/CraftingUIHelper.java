@@ -13,7 +13,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 
 import java.util.List;
 

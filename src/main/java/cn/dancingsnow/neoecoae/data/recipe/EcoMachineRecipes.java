@@ -14,7 +14,7 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.common.Tags;
+import net.minecraftforge.common.Tags;
 
 public class EcoMachineRecipes {
     public static void init(RegistrateRecipeProvider provider) {

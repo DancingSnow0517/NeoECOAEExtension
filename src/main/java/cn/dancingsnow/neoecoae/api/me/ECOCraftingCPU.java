@@ -127,7 +127,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
     }
 
     private void writeCraftingPlanToNBT(ICraftingPlan plan, CompoundTag tag, HolderLookup.Provider registries) {
-        CompoundTag outputTag = GenericStack.writeTag(registries, plan.finalOutput());
+        CompoundTag outputTag = GenericStack.writeTag(plan.finalOutput());
         tag.put("output", outputTag);
         tag.putLong("bytes", plan.bytes());
         tag.putBoolean("simulation", plan.simulation());
@@ -135,7 +135,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
     }
 
     private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        GenericStack output = GenericStack.readTag(registries, tag.getCompound("output"));
+        GenericStack output = GenericStack.readTag(tag.getCompound("output"));
         long bytes = tag.getLong("bytes");
         boolean simulation = tag.getBoolean("simulation");
         boolean multiplePaths = tag.getBoolean("multiplePaths");

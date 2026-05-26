@@ -29,17 +29,17 @@ public class NEMultiBlocks {
     public static final List<MultiBlockDefinition> DEFINITIONS = new ArrayList<>();
 
     public static final MultiBlockDefinition STORAGE_SYSTEM_L4 = storageSystem(
-        NEBlocks.STORAGE_SYSTEM_L4,
+        holder(NEBlocks.STORAGE_SYSTEM_L4),
         NEBlocks.STORAGE_SYSTEM_L4.getDefaultState(),
         NEBlocks.ENERGY_CELL_L4.getDefaultState().setValue(ECOEnergyCellBlock.FACING, Direction.SOUTH)
     );
     public static final MultiBlockDefinition STORAGE_SYSTEM_L6 = storageSystem(
-        NEBlocks.STORAGE_SYSTEM_L6,
+        holder(NEBlocks.STORAGE_SYSTEM_L6),
         NEBlocks.STORAGE_SYSTEM_L6.getDefaultState(),
         NEBlocks.ENERGY_CELL_L6.getDefaultState().setValue(ECOEnergyCellBlock.FACING, Direction.SOUTH)
     );
     public static final MultiBlockDefinition STORAGE_SYSTEM_L9 = storageSystem(
-        NEBlocks.STORAGE_SYSTEM_L9,
+        holder(NEBlocks.STORAGE_SYSTEM_L9),
         NEBlocks.STORAGE_SYSTEM_L9.getDefaultState(),
         NEBlocks.ENERGY_CELL_L9.getDefaultState().setValue(ECOEnergyCellBlock.FACING, Direction.SOUTH)
     );
@@ -85,7 +85,7 @@ public class NEMultiBlocks {
         BlockEntry<ECOCraftingParallelCore> parallelCore
     ) {
         BlockState casing = NEBlocks.CRAFTING_CASING.getDefaultState();
-        return MultiBlockDefinition.builder(main)
+        return MultiBlockDefinition.builder(holder(main))
             .setBlock(pos(1, 1, 0), main.getDefaultState())
             .setBlock(pos(1, 0, 0), casing)
             .setBlock(pos(2, 0, 0), casing)
@@ -140,7 +140,7 @@ public class NEMultiBlocks {
         BlockEntry<ECOComputationCoolingController> cooler
     ) {
         BlockState casing = NEBlocks.COMPUTATION_CASING.getDefaultState();
-        return MultiBlockDefinition.builder(main)
+        return MultiBlockDefinition.builder(holder(main))
             .setBlock(pos(1, 1, 0), main.getDefaultState())
             .setBlock(pos(1, 0, 0), casing)
             .setBlock(pos(2, 0, 0), casing)
@@ -245,6 +245,10 @@ public class NEMultiBlocks {
 
     private static BlockPos pos(int x, int y, int z) {
         return new BlockPos(x, y, z);
+    }
+
+    private static Holder<Block> holder(BlockEntry<? extends Block> entry) {
+        return entry.get().builtInRegistryHolder();
     }
 
     public static MultiBlockDefinition getComputationSystemDefinition(IECOTier tier) {

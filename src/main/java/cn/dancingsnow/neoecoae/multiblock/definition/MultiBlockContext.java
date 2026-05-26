@@ -1,13 +1,12 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import com.lowdragmc.lowdraglib2.utils.data.BlockInfo;
-import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -29,12 +28,12 @@ public abstract class MultiBlockContext {
 
     public abstract boolean isFormed();
 
-    public static MultiBlockContext.DummyDelegated dummyDelegated(int repeats, TrackedDummyWorld world) {
+    public static MultiBlockContext.DummyDelegated dummyDelegated(int repeats, Level world) {
         return new DummyDelegated(repeats, world);
     }
 
     public static class DummyDelegated extends MultiBlockContext {
-        private final TrackedDummyWorld dummyWorld;
+        private final Level dummyWorld;
         private final List<ItemStack> itemStacks = new ArrayList<>(16);
         private final List<BlockPos> posList = new ArrayList<>();
         @Getter
@@ -43,7 +42,7 @@ public abstract class MultiBlockContext {
         @Getter
         private boolean formed = false;
 
-        public DummyDelegated(int repeats, TrackedDummyWorld dummyWorld) {
+        public DummyDelegated(int repeats, Level dummyWorld) {
             this.dummyWorld = dummyWorld;
             this.repeats = repeats;
         }
@@ -55,7 +54,7 @@ public abstract class MultiBlockContext {
             if (pos.getY() < 0) return;
             posList.add(pos);
             yMax = Math.max(pos.getY(), yMax);
-            dummyWorld.addBlock(pos, new BlockInfo(blockState));
+            dummyWorld.setBlock(pos, blockState, Block.UPDATE_CLIENTS);
         }
 
         @Override
@@ -72,7 +71,7 @@ public abstract class MultiBlockContext {
             if (itemStack.isEmpty()) return;
             boolean added = false;
             for (ItemStack stack : itemStacks) {
-                if (ItemStack.isSameItemSameComponents(itemStack, stack)) {
+                if (ItemStack.isSameItemSameTags(itemStack, stack)) {
                     if (stack.getCount() + itemStack.getCount() > stack.getMaxStackSize()) {
                         itemStack.setCount(stack.getCount() + itemStack.getCount() - stack.getMaxStackSize());
                         stack.setCount(stack.getMaxStackSize());

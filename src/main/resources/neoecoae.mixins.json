@@ -2,26 +2,9 @@
   "required": true,
   "minVersion": "0.8",
   "package": "cn.dancingsnow.neoecoae.mixins",
-  "compatibilityLevel": "JAVA_21",
-  "mixins": [
-    "AppEngInternalInventoryMixin",
-    "CPUSelectionListMixin",
-    "CraftingCpuListEntryMixin",
-    "CraftingCPUMenuMixin",
-    "CraftingServiceMixin",
-    "CraftingStatusMenuMixin",
-    "IOPortBlockEntityMixin",
-    "IOPortMenuMixin",
-    "LightningBoltMixin",
-    "PatternEncodingTermMenuMixin",
-    "StoredEnergyAmountMixin",
-    "aae.ContainerExIOPortMixin",
-    "aae.TileExIOPortMixin"
-  ],
-  "client": [
-    "ModelBakeryMixin",
-    "PatternEncodingTermScreenMixin"
-  ],
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [],
+  "client": [],
   "server": [],
   "injectors": {
     "defaultRequire": 1

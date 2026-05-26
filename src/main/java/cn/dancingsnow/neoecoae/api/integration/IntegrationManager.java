@@ -3,11 +3,11 @@ package cn.dancingsnow.neoecoae.api.integration;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import lombok.extern.slf4j.Slf4j;
-import net.neoforged.fml.loading.LoadingModList;
-import net.neoforged.fml.loading.moddiscovery.ModFileInfo;
-import net.neoforged.fml.loading.progress.ProgressMeter;
-import net.neoforged.fml.loading.progress.StartupNotificationManager;
-import net.neoforged.neoforgespi.language.ModFileScanData;
+import net.minecraftforge.fml.loading.LoadingModList;
+import net.minecraftforge.fml.loading.moddiscovery.ModFileInfo;
+import net.minecraftforge.fml.loading.progress.ProgressMeter;
+import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
+import net.minecraftforge.forgespi.language.ModFileScanData;
 
 import java.lang.annotation.ElementType;
 

@@ -341,7 +341,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
@@ -350,7 +350,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
@@ -371,7 +371,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
             serverLevel,
             worldPosition,
@@ -413,7 +413,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
             serverLevel,
             worldPosition,

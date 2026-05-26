@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.integration.appmek.item.ECOChemicalStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 
 import java.util.List;
 
@@ -18,9 +18,9 @@ public class AppMekIntegration {
     public void apply() {
         NEAppMekCellTypes.register();
         NEAppMekItems.register();
-        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_chemical"));
-        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_chemical"));
-        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_chemical"));
+        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_16M, ECOCellModels.STORAGE_CELL_L4_CHEMICAL);
+        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_64M, ECOCellModels.STORAGE_CELL_L6_CHEMICAL);
+        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_256M, ECOCellModels.STORAGE_CELL_L9_CHEMICAL);
 
         NeoECOAE.MOD_BUS.addListener(this::initUpgrades);
     }

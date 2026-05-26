@@ -1,29 +1,29 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
-import org.jetbrains.annotations.NotNull;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import cn.dancingsnow.neoecoae.compat.crafting.FluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public record IntegratedWorkingStationRecipe(
+    ResourceLocation id,
     List<SizedIngredient> inputItems,
     SizedFluidIngredient inputFluid,
     ItemStack itemOutput,
@@ -31,48 +31,55 @@ public record IntegratedWorkingStationRecipe(
     int energy
 ) implements Recipe<IntegratedWorkingStationRecipe.Input> {
 
-    public static IntegratedWorkingStationRecipeBuilder builder() {
-        return new IntegratedWorkingStationRecipeBuilder();
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        public Builder require(Object ingredient) { return this; }
+        public Builder require(Object ingredient, int count) { return this; }
+        public Builder requireFluid(Object fluid, int amount) { return this; }
+        public Builder itemOutput(Object output) { return this; }
+        public Builder itemOutput(Object output, int count) { return this; }
+        public Builder fluidOutput(Object output, int amount) { return this; }
+        public Builder energy(int energy) { return this; }
+        public void save(Object provider) {}
+        public void save(Object provider, ResourceLocation id) {}
     }
 
     @Override
     public boolean matches(Input recipeInput, Level level) {
-        // Match item inputs with quantities: simulate consuming from provided stacks so the same slot isn't reused
-        var provided = recipeInput.inputs();
-        // mutable remaining counts for each provided slot
+        List<ItemStack> provided = recipeInput.inputs();
         int[] remaining = new int[provided.size()];
         for (int i = 0; i < provided.size(); i++) {
-            var s = provided.get(i);
-            remaining[i] = (s == null) ? 0 : s.getCount();
+            ItemStack stack = provided.get(i);
+            remaining[i] = stack == null ? 0 : stack.getCount();
         }
 
-        for (var req : inputItems) {
+        for (SizedIngredient req : inputItems) {
             int needed = req.count();
-            if (needed <= 0) continue;
-
             for (int i = 0; i < provided.size() && needed > 0; i++) {
-                var s = provided.get(i);
-                if (s == null || s.isEmpty() || remaining[i] <= 0) continue;
-                if (req.ingredient().test(s)) {
+                ItemStack stack = provided.get(i);
+                if (stack != null && !stack.isEmpty() && remaining[i] > 0 && req.ingredient().test(stack)) {
                     int take = Math.min(remaining[i], needed);
                     remaining[i] -= take;
                     needed -= take;
                 }
             }
-
-            if (needed > 0) return false;
+            if (needed > 0) {
+                return false;
+            }
         }
 
         FluidStack providedFluid = recipeInput.fluid();
-
-        if (inputFluid.ingredient().isEmpty()) return true;
-        if (providedFluid == null || providedFluid.isEmpty()) return false;
-        if (!inputFluid.test(providedFluid)) return false;
-        return providedFluid.getAmount() >= inputFluid.amount();
+        if (inputFluid.ingredient().isEmpty()) {
+            return true;
+        }
+        return providedFluid != null && !providedFluid.isEmpty() && inputFluid.test(providedFluid);
     }
 
     @Override
-    public ItemStack assemble(Input inv, HolderLookup.@NotNull Provider registries) {
+    public ItemStack assemble(Input inv, RegistryAccess registries) {
         return getResultItem(registries).copy();
     }
 
@@ -82,8 +89,13 @@ public record IntegratedWorkingStationRecipe(
     }
 
     @Override
-    public ItemStack getResultItem(HolderLookup.@NotNull Provider registries) {
+    public ItemStack getResultItem(RegistryAccess registries) {
         return itemOutput;
+    }
+
+    @Override
+    public ResourceLocation getId() {
+        return id;
     }
 
     @Override
@@ -105,65 +117,84 @@ public record IntegratedWorkingStationRecipe(
         return !itemOutput.isEmpty();
     }
 
-
     public boolean hasFluidOutput() {
         return !fluidOutput.isEmpty();
     }
 
     public static class Serializer implements RecipeSerializer<IntegratedWorkingStationRecipe> {
-        public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
-            SizedIngredient.FLAT_CODEC.listOf(0, 9).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
-            SizedFluidIngredient.FLAT_CODEC.optionalFieldOf("inputFluid", new SizedFluidIngredient(FluidIngredient.empty(), 1)).forGetter(IntegratedWorkingStationRecipe::inputFluid),
-            ItemStack.OPTIONAL_CODEC.optionalFieldOf("itemOutput", ItemStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::itemOutput),
-            FluidStack.OPTIONAL_CODEC.optionalFieldOf("fluidOutput", FluidStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::fluidOutput),
-            Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
-        ).apply(ins, IntegratedWorkingStationRecipe::new));
-
-        public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = StreamCodec.composite(
-            SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(9)),
-            IntegratedWorkingStationRecipe::inputItems,
-            SizedFluidIngredient.STREAM_CODEC,
-            IntegratedWorkingStationRecipe::inputFluid,
-            ItemStack.OPTIONAL_STREAM_CODEC,
-            IntegratedWorkingStationRecipe::itemOutput,
-            FluidStack.OPTIONAL_STREAM_CODEC,
-            IntegratedWorkingStationRecipe::fluidOutput,
-            ByteBufCodecs.VAR_INT,
-            IntegratedWorkingStationRecipe::energy,
-            IntegratedWorkingStationRecipe::new
-        );
-
         @Override
-        public MapCodec<IntegratedWorkingStationRecipe> codec() {
-            return CODEC;
+        public IntegratedWorkingStationRecipe fromJson(ResourceLocation id, JsonObject json) {
+            List<SizedIngredient> inputItems = new ArrayList<>();
+            if (json.has("inputItems")) {
+                JsonArray array = json.getAsJsonArray("inputItems");
+                for (int i = 0; i < array.size(); i++) {
+                    inputItems.add(SizedIngredient.fromJson(array.get(i)));
+                }
+            }
+            SizedFluidIngredient inputFluid = json.has("inputFluid")
+                ? SizedFluidIngredient.fromJson(json.get("inputFluid"))
+                : new SizedFluidIngredient(FluidIngredient.empty(), 0);
+            ItemStack itemOutput = json.has("itemOutput")
+                ? ShapedRecipe.itemStackFromJson(json.getAsJsonObject("itemOutput"))
+                : ItemStack.EMPTY;
+            FluidStack fluidOutput = json.has("fluidOutput")
+                ? new FluidStack(
+                    SizedFluidIngredient.fromJson(json.get("fluidOutput")).ingredient().fluid(),
+                    SizedFluidIngredient.fromJson(json.get("fluidOutput")).amount()
+                )
+                : FluidStack.EMPTY;
+            int energy = json.has("energy") ? json.get("energy").getAsInt() : 0;
+            return new IntegratedWorkingStationRecipe(id, inputItems, inputFluid, itemOutput, fluidOutput, energy);
         }
 
         @Override
-        public StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> streamCodec() {
-            return STREAM_CODEC;
+        public IntegratedWorkingStationRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
+            int size = buffer.readVarInt();
+            List<SizedIngredient> inputItems = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
+                inputItems.add(SizedIngredient.fromNetwork(buffer));
+            }
+            return new IntegratedWorkingStationRecipe(
+                id,
+                inputItems,
+                SizedFluidIngredient.fromNetwork(buffer),
+                buffer.readItem(),
+                FluidStack.readFromPacket(buffer),
+                buffer.readVarInt()
+            );
+        }
+
+        @Override
+        public void toNetwork(FriendlyByteBuf buffer, IntegratedWorkingStationRecipe recipe) {
+            buffer.writeVarInt(recipe.inputItems.size());
+            for (SizedIngredient inputItem : recipe.inputItems) {
+                inputItem.toNetwork(buffer);
+            }
+            recipe.inputFluid.toNetwork(buffer);
+            buffer.writeItem(recipe.itemOutput);
+            recipe.fluidOutput.writeToPacket(buffer);
+            buffer.writeVarInt(recipe.energy);
         }
     }
 
-    public record Input(List<ItemStack> inputs, @Nullable FluidStack fluid) implements RecipeInput {
+    public static class Input extends SimpleContainer {
+        private final List<ItemStack> inputs;
+        @Nullable
+        private final FluidStack fluid;
 
-        @Override
-        public ItemStack getItem(int index) {
-            return inputs.get(index);
+        public Input(List<ItemStack> inputs, @Nullable FluidStack fluid) {
+            super(inputs.toArray(ItemStack[]::new));
+            this.inputs = inputs;
+            this.fluid = fluid;
         }
 
-        @Override
-        public int size() {
-            return inputs.size();
+        public List<ItemStack> inputs() {
+            return inputs;
         }
 
-        @Override
-        public boolean isEmpty() {
-            for (ItemStack input : inputs) {
-                if (!input.isEmpty()) {
-                    return false;
-                }
-            }
-            return fluid == null || fluid.isEmpty();
+        @Nullable
+        public FluidStack fluid() {
+            return fluid;
         }
     }
 }

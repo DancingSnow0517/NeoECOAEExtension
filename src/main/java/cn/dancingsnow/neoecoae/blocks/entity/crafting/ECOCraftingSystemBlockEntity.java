@@ -49,9 +49,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import org.jetbrains.annotations.Nullable;
@@ -147,7 +147,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         getMainNode().setIdlePowerUsage(64);
     }
 
-    @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
@@ -168,7 +167,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 10, false);
+        return new TickingRequest(1, 10, false, false);
     }
 
     @Override
@@ -233,7 +232,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private void updateOverlockTimes() {
         int overflow = threadCount - threadCountPerWorker * workerCount;
         float radio = (float) threadCount / overflow;
-        overlockTimes = Math.clamp(Math.round(radio / 0.05f), 0, 9);
+        overlockTimes = net.minecraft.util.Mth.clamp(Math.round(radio / 0.05f), 0, 9);
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
@@ -315,7 +314,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             NERecipeTypes.COOLING.get(),
             new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid()),
             getLevel()
-        ).map(net.minecraft.world.item.crafting.RecipeHolder::value).orElse(null);
+        ).orElse(null);
     }
 
     private boolean canRefillWith(int maxOverclock) {
@@ -371,7 +370,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (!output.isEmpty()) {
             int outputAmount = (int) ((long) drained * recipe.outputAmount() / inputAmount);
             if (outputAmount > 0) {
-                outputHatch.fill(output.copyWithAmount(outputAmount), IFluidHandler.FluidAction.EXECUTE);
+                outputHatch.fill(new FluidStack(output, outputAmount), IFluidHandler.FluidAction.EXECUTE);
             }
         }
 
@@ -392,7 +391,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return Long.MAX_VALUE;
         }
         FluidStack stored = outputHatch.getFluid();
-        if (!stored.isEmpty() && !FluidStack.isSameFluidSameComponents(stored, output)) {
+        if (!stored.isEmpty() && !stored.isFluidStackIdentical(output)) {
             return 0;
         }
         int outputAmount = recipe.outputAmount();
@@ -684,7 +683,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
@@ -693,7 +692,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
@@ -714,7 +713,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
         boolean hasMaterials = player instanceof ServerPlayer serverPlayer
             && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
@@ -742,7 +741,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
         if (!plan.getConflictPositions().isEmpty()) {
             syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.conflicts_detected");

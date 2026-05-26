@@ -5,7 +5,7 @@ import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.orientation.BlockOrientation;
-import appeng.blockentity.grid.AENetworkedBlockEntity;
+import appeng.blockentity.grid.AENetworkBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
@@ -16,7 +16,6 @@ import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
@@ -32,7 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
-    extends AENetworkedBlockEntity implements IAEMultiBlock<C> {
+    extends AENetworkBlockEntity implements IAEMultiBlock<C> {
 
     @Setter
     @Getter
@@ -110,7 +109,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         level.setBlock(
             worldPosition,
             newState,
-            Block.UPDATE_CLIENTS
+            Block.UPDATE_ALL_IMMEDIATE
         );
         if (updateExposed) {
             onGridConnectableSidesChanged();
@@ -118,10 +117,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     }
 
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        CompoundTag tag = super.getUpdateTag(registries);
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag();
         if (this instanceof ISyncMangedHolder syncMangedHolder) {
-            tag.put(syncMangedHolder.getSyncTag(), syncMangedHolder.serializeInitialData(registries));
+            tag.put(syncMangedHolder.getSyncTag(), syncMangedHolder.serializeInitialData(null));
         }
         return tag;
     }

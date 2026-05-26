@@ -1,8 +1,6 @@
 package cn.dancingsnow.neoecoae.all;
 
-import appeng.api.AECapabilities;
 import appeng.blockentity.AEBaseBlockEntity;
-import appeng.blockentity.AEBaseInvBlockEntity;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
@@ -26,8 +24,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageVentBlockEntity;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEComputationClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NECraftingClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
@@ -37,7 +33,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.registration.NEBlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntry;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -111,9 +107,8 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.ECO_DRIVE)
         .validBlock(NEBlocks.ECO_DRIVE)
-        .renderer(() -> ECODriveRenderer::new)
         .registerCapability(event -> event.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+            ForgeCapabilities.ITEM_HANDLER,
             NEBlockEntities.ECO_DRIVE.get(),
             (be, side) -> be.HANDLER
         ))
@@ -236,7 +231,7 @@ public class NEBlockEntities {
         .serverTicker(ECOFluidInputHatchBlockEntity::tick)
         .registerCapability(event -> {
             event.registerBlockEntity(
-                Capabilities.FluidHandler.BLOCK,
+                ForgeCapabilities.FLUID_HANDLER,
                 NEBlockEntities.INPUT_HATCH.get(),
                 (be, side) -> be.tank
             );
@@ -250,7 +245,7 @@ public class NEBlockEntities {
         .serverTicker(ECOFluidOutputHatchBlockEntity::tick)
         .registerCapability(event -> {
             event.registerBlockEntity(
-                Capabilities.FluidHandler.BLOCK,
+                ForgeCapabilities.FLUID_HANDLER,
                 NEBlockEntities.OUTPUT_HATCH.get(),
                 (be, side) -> be.tank
             );
@@ -274,7 +269,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.CRAFTING_PATTERN_BUS)
         .validBlock(NEBlocks.CRAFTING_PATTERN_BUS)
         .registerCapability(e -> e.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+            ForgeCapabilities.ITEM_HANDLER,
             NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
             (be, side) -> be.itemHandler
         ))
@@ -369,38 +364,15 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.COMPUTATION_DRIVE)
         .validBlock(NEBlocks.COMPUTATION_DRIVE)
         .registerCapability(e -> e.registerBlockEntity(
-            Capabilities.ItemHandler.BLOCK,
+            ForgeCapabilities.ITEM_HANDLER,
             NEBlockEntities.COMPUTATION_DRIVE.get(),
             (be, unused) -> be.getItemHandler()
         ))
-        .renderer(() -> ECOComputationDriveRenderer::new)
         .register();
 
     public static final BlockEntityEntry<ECOIntegratedWorkingStationBlockEntity> INTEGRATED_WORKING_STATION_BLOCK = REGISTRATE
         .blockEntity("integrated_working_station", ECOIntegratedWorkingStationBlockEntity::new)
         .validBlock(NEBlocks.INTEGRATED_WORKING_STATION)
-        .registerCapability(e -> {
-            e.registerBlockEntity(
-                AECapabilities.IN_WORLD_GRID_NODE_HOST,
-                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-                (be, unused) -> be
-            );
-            e.registerBlockEntity(
-                Capabilities.ItemHandler.BLOCK,
-                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-                AEBaseInvBlockEntity::getExposedItemHandler
-            );
-            e.registerBlockEntity(
-                Capabilities.FluidHandler.BLOCK,
-                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-                (be, side) -> be.getFluidCombined()
-            );
-            e.registerBlockEntity(
-                Capabilities.EnergyStorage.BLOCK,
-                NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
-                ECOIntegratedWorkingStationBlockEntity::getEnergyStorage
-            );
-        })
         .onRegister(type -> {
             NEBlocks.INTEGRATED_WORKING_STATION.get().setBlockEntity(
                 ECOIntegratedWorkingStationBlockEntity.class,

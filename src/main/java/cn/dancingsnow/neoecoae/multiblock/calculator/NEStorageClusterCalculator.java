@@ -64,10 +64,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         if (!validateCasing(level, controllerPos, top, down, left)) return false;
         if (!validateCasing(level, controllerPos, top, down, back)) return false;
         if (!validateInterface(level, controllerPos.relative(left).relative(back), top, down)) return false;
-        if (!validateBlock(level, controllerPos.relative(top), BlockState::is, NEBlocks.STORAGE_CASING)) {
+        if (!validateBlock(level, controllerPos.relative(top), BlockState::is, NEBlocks.STORAGE_CASING.get())) {
             return false;
         }
-        if (!validateBlock(level, controllerPos.relative(down), BlockState::is, NEBlocks.STORAGE_CASING)) {
+        if (!validateBlock(level, controllerPos.relative(down), BlockState::is, NEBlocks.STORAGE_CASING.get())) {
             return false;
         }
         BlockPos storageBlocksStart = controllerPos.relative(right).relative(top);
@@ -75,7 +75,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             right,
             controllerPos.relative(right).relative(down),
-            ((state, pos) -> state.is(NEBlocks.ECO_DRIVE)
+            ((state, pos) -> state.is(NEBlocks.ECO_DRIVE.get())
                 && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == front
             )
         );
@@ -83,7 +83,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             storageBlocksStart,
             storageBlocksEnd,
-            state -> state.is(NEBlocks.ECO_DRIVE)
+            state -> state.is(NEBlocks.ECO_DRIVE.get())
                 && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == front
         )) {
             return false;
@@ -93,13 +93,13 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             level,
             right,
             ventStart,
-            (it, pos) -> it.is(NEBlocks.STORAGE_VENT)
+            (it, pos) -> it.is(NEBlocks.STORAGE_VENT.get())
                 && it.getValue(ECOStorageVentBlock.FACING) == back
         );
-        if (ventEndResult.isError()) {
+        if (ventEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos ventEnd = ventEndResult.getOrThrow();
+        BlockPos ventEnd = ventEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos upperEnergyCellStart = controllerPos.relative(back).relative(top).relative(right);
         DataResult<BlockPos> upperEnergyCellResult = validateBlockLine(
@@ -110,10 +110,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 && tier.supportsComponentTier(cell.getBlockEntity(level, pos).getTier())
                 && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
-        if (upperEnergyCellResult.isError()) {
+        if (upperEnergyCellResult.error().isPresent()) {
             return false;
         }
-        BlockPos upperEnergyCellEnd = upperEnergyCellResult.getOrThrow();
+        BlockPos upperEnergyCellEnd = upperEnergyCellResult.getOrThrow(false, ignored -> {});
         if (upperEnergyCellEnd.equals(upperEnergyCellStart)) {
             return validateBlock(
                 level,
@@ -132,10 +132,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 && tier.supportsComponentTier(cell.getBlockEntity(level, pos).getTier())
                 && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
-        if (lowerEnergyCellResult.isError()) {
+        if (lowerEnergyCellResult.error().isPresent()) {
             return false;
         }
-        BlockPos lowerEnergyCellEnd = lowerEnergyCellResult.getOrThrow();
+        BlockPos lowerEnergyCellEnd = lowerEnergyCellResult.getOrThrow(false, ignored -> {});
 
         BlockPos.MutableBlockPos tailCasing = storageBlocksEnd.mutable().move(right).move(top);
         List<BlockPos> tailCasingPoses = List.of(
@@ -149,7 +149,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         if (!ensureSameSurface(tailCasingPoses)) {
             return false;
         }
-        return validateBlocks(level, tailCasingPoses, BlockState::is, NEBlocks.STORAGE_CASING);
+        return validateBlocks(level, tailCasingPoses, BlockState::is, NEBlocks.STORAGE_CASING.get());
     }
 
     @Override

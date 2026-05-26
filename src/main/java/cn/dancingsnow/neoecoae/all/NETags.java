@@ -43,10 +43,12 @@ public class NETags {
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL = common("gems/energized_fluix_crystal");
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_DUST = common("dusts/energized_fluix_crystal");
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common("storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Item> BUDDING_BLOCKS = common("budding_blocks");
+        public static final TagKey<Item> CLUSTERS = common("clusters");
 
-        // 用于制作水晶锭的基底
+        // 鐢ㄤ簬鍒朵綔姘存櫠閿殑鍩哄簳
         public static final TagKey<Item> CRYSTAL_INGOT_BASE = mod("crystal_ingot_base");
-        // 用于制作超导锭的基底
+        // 鐢ㄤ簬鍒朵綔瓒呭閿殑鍩哄簳
         public static final TagKey<Item> SUPERCONDUCTIVE_INGOT_BASE = mod("superconductive_ingot_base");
 
         private static TagKey<Item> mod(String path) {
@@ -72,6 +74,8 @@ public class NETags {
 
         public static final TagKey<Block> ENERGIZED_CRYSTAL_STORAGE_BLOCK = common("storage_blocks/energized_crystal");
         public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common("storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Block> BUDDING_BLOCKS = common("budding_blocks");
+        public static final TagKey<Block> CLUSTERS = common("clusters");
 
         private static TagKey<Block> mod(String path) {
             return BlockTags.create(NeoECOAE.id(path));

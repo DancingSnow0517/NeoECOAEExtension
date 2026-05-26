@@ -14,9 +14,9 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
+import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -86,10 +86,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
                 front
             )
         );
-        if (connectorEndResult.isError()) {
+        if (connectorEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos connectorEnd = connectorEndResult.getOrThrow();
+        BlockPos connectorEnd = connectorEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos threadingCoreStart = connectorStart.relative(back);
         DataResult<BlockPos> threadingCoreEndResult = validateBlockLine(
@@ -98,10 +98,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             threadingCoreStart,
             matchingThreadingCore(level, tier, back)
         );
-        if (threadingCoreEndResult.isError()) {
+        if (threadingCoreEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos threadingCoreEnd = threadingCoreEndResult.getOrThrow();
+        BlockPos threadingCoreEnd = threadingCoreEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos upperParallelCoreStart = threadingCoreStart.relative(top);
         DataResult<BlockPos> upperParallelCoreEndResult = validateBlockLine(
@@ -110,10 +110,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             upperParallelCoreStart,
             matchingParallelCore(level, tier, back)
         );
-        if (upperParallelCoreEndResult.isError()) {
+        if (upperParallelCoreEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.getOrThrow();
+        BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos lowerParallelCoreStart = threadingCoreStart.relative(down);
         DataResult<BlockPos> lowerParallelCoreEndResult = validateBlockLine(
@@ -122,10 +122,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             lowerParallelCoreStart,
             matchingParallelCore(level, tier, back)
         );
-        if (lowerParallelCoreEndResult.isError()) {
+        if (lowerParallelCoreEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.getOrThrow();
+        BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos upperDriveStart = connectorStart.relative(top);
         DataResult<BlockPos> upperDriveEndResult = validateBlockLine(
@@ -134,10 +134,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             upperDriveStart,
             matchingStateFacing(NEBlocks.COMPUTATION_DRIVE, front)
         );
-        if (upperDriveEndResult.isError()) {
+        if (upperDriveEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos upperDriveEnd = upperDriveEndResult.getOrThrow();
+        BlockPos upperDriveEnd = upperDriveEndResult.getOrThrow(false, ignored -> {});
 
         BlockPos lowerDriveStart = connectorStart.relative(down);
         DataResult<BlockPos> lowerDriveEndResult = validateBlockLine(
@@ -146,10 +146,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             lowerDriveStart,
             matchingStateFacing(NEBlocks.COMPUTATION_DRIVE, front)
         );
-        if (lowerDriveEndResult.isError()) {
+        if (lowerDriveEndResult.error().isPresent()) {
             return false;
         }
-        BlockPos lowerDriveEnd = lowerDriveEndResult.getOrThrow();
+        BlockPos lowerDriveEnd = lowerDriveEndResult.getOrThrow(false, ignored -> {});
 
         List<BlockPos> tails = List.of(
             connectorEnd,
@@ -180,7 +180,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             return false;
         }
 
-        return validateBlocks(level, tailCasings, BlockState::is, NEBlocks.COMPUTATION_CASING);
+        return validateBlocks(level, tailCasings, BlockState::is, NEBlocks.COMPUTATION_CASING.get());
     }
 
     @Override
@@ -227,10 +227,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     }
 
     private BiPredicate<BlockState, BlockPos> matchingStateFacing(
-        Holder<Block> block,
+        BlockEntry<? extends Block> block,
         Direction facing
     ) {
-        return (s, p) -> s.is(block)
+        return (s, p) -> s.is(block.get())
             && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 }

@@ -26,7 +26,7 @@ import appeng.api.upgrades.Upgrades;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
-import appeng.blockentity.grid.AENetworkedPoweredBlockEntity;
+import appeng.blockentity.grid.AENetworkPowerBlockEntity;
 import appeng.client.gui.Icon;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
@@ -35,14 +35,13 @@ import appeng.core.localization.GuiText;
 import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
 import appeng.util.SettingsFrom;
+import appeng.util.ConfigManager;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
 import appeng.util.inv.filter.AEItemFilters;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.all.NEDataComponents;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
-import cn.dancingsnow.neoecoae.api.components.AutoExportSides;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.gui.AETextures;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
@@ -87,7 +86,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -96,16 +94,15 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -117,7 +114,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBlockEntity
+public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
     implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
     private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
@@ -230,9 +227,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         this.setInternalMaxPower(MAX_POWER_STORAGE);
 
         this.upgrades = UpgradeInventories.forMachine(NEBlocks.INTEGRATED_WORKING_STATION, 4, this::saveChanges);
-        this.configManager = IConfigManager.builder(this::onConfigChanged)
-            .registerSetting(Settings.AUTO_EXPORT, YesNo.NO)
-            .build();
+        this.configManager = new ConfigManager(this::onConfigChanged);
+        this.configManager.registerSetting(Settings.AUTO_EXPORT, YesNo.NO);
 
         this.setPowerSides(getGridConnectableSides(getOrientation()));
     }
@@ -255,7 +251,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             final BlockState newState = current.setValue(ECOIntegratedWorkingStation.WORKING, working);
 
             if (current != newState) {
-                this.level.setBlock(this.worldPosition, newState, Block.UPDATE_CLIENTS);
+                this.level.setBlock(this.worldPosition, newState, Block.UPDATE_ALL_IMMEDIATE);
             }
         }
     }
@@ -279,22 +275,22 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        this.inputTank.readFromNBT(registries, data.getCompound("inputTank"));
-        this.outputTank.readFromNBT(registries, data.getCompound("outputTank"));
-        this.upgrades.readFromNBT(data, "upgrades", registries);
-        this.configManager.readFromNBT(data, registries);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        this.inputTank.readFromNBT(data.getCompound("inputTank"));
+        this.outputTank.readFromNBT(data.getCompound("outputTank"));
+        this.upgrades.readFromNBT(data, "upgrades");
+        this.configManager.readFromNBT(data);
         shouldAutoExport = configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        data.put("inputTank", this.inputTank.writeToNBT(registries, new CompoundTag()));
-        data.put("outputTank", this.outputTank.writeToNBT(registries, new CompoundTag()));
-        upgrades.writeToNBT(data, "upgrades", registries);
-        configManager.writeToNBT(data, registries);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        data.put("inputTank", this.inputTank.writeToNBT(new CompoundTag()));
+        data.put("outputTank", this.outputTank.writeToNBT(new CompoundTag()));
+        upgrades.writeToNBT(data, "upgrades");
+        configManager.writeToNBT(data);
     }
 
     @Override
@@ -339,7 +335,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     @Override
-    public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+    public void onChangeInventory(InternalInventory inv, int slot) {
         onChangeInventory();
     }
 
@@ -388,12 +384,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
             new IntegratedWorkingStationRecipe.Input(inputs, this.inputTank.getFluid()),
             level
-        ).map(RecipeHolder::value).orElse(null);
+        ).orElse(null);
     }
 
     @Override
     public TickingRequest getTickingRequest(IGridNode iGridNode) {
-        return new TickingRequest(1, 20, !hasAutoExportWork() && !this.hasCraftWork());
+        return new TickingRequest(1, 20, !hasAutoExportWork() && !this.hasCraftWork(), false);
     }
 
     @Override
@@ -526,7 +522,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
                             FluidStack fluidStack = this.inputTank.getFluid();
                             if (out.inputFluid().test(fluidStack)) {
-                                inputTank.drain(fluidStack.copyWithAmount(out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
+                                inputTank.drain(new FluidStack(fluidStack, out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
                             }
 
                             this.setProcessingTime(0);
@@ -573,7 +569,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 if (fluid != null && fluid.what() != null) {
                     var extracted = this.outputTank.drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
                     var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    this.outputTank.fill(outFluid.copyWithAmount((int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
+                    this.outputTank.fill(new FluidStack(outFluid, (int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
 
                     if (this.outputTank.getFluidAmount() == 0) clearFluidOut();
 
@@ -639,26 +635,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     @Override
-    public void exportSettings(SettingsFrom mode, DataComponentMap.Builder builder, @Nullable Player player) {
-        super.exportSettings(mode, builder, player);
-        if (mode == SettingsFrom.MEMORY_CARD) {
-            builder.set(NEDataComponents.AUTO_EXPORT_SIDES, new AutoExportSides(allowOutputs));
-        }
-    }
-
-    @Override
-    public void importSettings(SettingsFrom mode, DataComponentMap input, @Nullable Player player) {
-        super.importSettings(mode, input, player);
-        if (mode == SettingsFrom.MEMORY_CARD) {
-            AutoExportSides autoExportSides = input.get(NEDataComponents.AUTO_EXPORT_SIDES);
-            if (autoExportSides != null) {
-                this.allowOutputs.clear();
-                this.allowOutputs.addAll(autoExportSides.sides());
-            }
-        }
-    }
-
-    @Override
     public void clearContent() {
         super.clearContent();
         this.inputTank.setFluid(FluidStack.EMPTY);
@@ -712,7 +688,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int y = 0; y < 3; y++) {
                 int i = x + y * 3;
-                row.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), i)));
+                row.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) invExposed.toItemHandler(), i)));
             }
             inputSlots.addChild(row);
         }
@@ -726,7 +702,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         });
         UIElement outputSlot = new UIElement().addClass("panel_border").layout(layout -> layout.justifyContent(AlignContent.CENTER));
         outputSlots.addChild(outputSlot);
-        outputSlot.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), 9)));
+        outputSlot.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) invExposed.toItemHandler(), 9)));
         inputArea.addChild(outputSlots);
 
         // progress bar
@@ -776,7 +752,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // add main input area and upgrades panel side-by-side
         root.addChild(inputArea);
 
-        // Upgrades panel on the right (凸出式)
+        // Upgrades panel on the right (閸戠鍤?
         UIElement upgradesPanel = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.right(-22);
@@ -814,7 +790,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             })
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 event.hoverTooltips = new HoverTooltips(
-                    List.of(ButtonToolTips.OpenGuide.text().withColor(-1), ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)),
+                    List.of(ButtonToolTips.OpenGuide.text().withStyle(style -> style.withColor(-1)), ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)),
                     null,
                     null,
                     null
@@ -833,7 +809,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 event.hoverTooltips = new HoverTooltips(
                     List.of(
-                        ButtonToolTips.AutoExport.text().withColor(-1),
+                        ButtonToolTips.AutoExport.text().withStyle(style -> style.withColor(-1)),
                         (shouldAutoExport ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
                     ),
                     null,
@@ -1039,9 +1015,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             return cell;
         };
 
-        //    上
-        // 左 正 右
-        //    下 背
+        //    娑?
+        // 瀹?濮?閸?
+        //    娑?閼?
         grid.addChild(sideToggle.apply(RelativeSide.TOP, "gui.neoecoae.relative_side.top"));
         grid.addChild(sideToggle.apply(RelativeSide.LEFT, "gui.neoecoae.relative_side.left"));
         grid.addChild(sideToggle.apply(RelativeSide.FRONT, "gui.neoecoae.relative_side.front"));

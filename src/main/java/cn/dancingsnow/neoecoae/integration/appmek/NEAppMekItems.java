@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.appmek;
 
 import appeng.items.materials.MaterialItem;
-import appeng.recipes.game.StorageCellDisassemblyRecipe;
+import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
@@ -16,8 +16,8 @@ import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
 import net.minecraft.world.item.Rarity;
-import net.neoforged.neoforge.common.Tags;
-import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
+import net.minecraftforge.common.Tags;
+import net.minecraftforge.common.conditions.ModLoadedCondition;
 
 import java.util.List;
 

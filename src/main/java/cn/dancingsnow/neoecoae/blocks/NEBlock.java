@@ -39,7 +39,7 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
         final NEBlockEntity<?, T> be = this.getBlockEntity(level, pos);
         if (be != null) {
             be.updateMultiBlock(neighborPos);

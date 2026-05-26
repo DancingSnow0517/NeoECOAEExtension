@@ -8,7 +8,7 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 public class NEAppMekCellTypes {
 
-    public static final RegistryEntry<ECOCellType, ECOCellType> MEKANISM = REGISTRATE
+    public static final RegistryEntry<ECOCellType> MEKANISM = REGISTRATE
         .cellType("mekanism", () -> new ECOCellType(MekanismKeyType.TYPE.getDescription()))
         .register();
 

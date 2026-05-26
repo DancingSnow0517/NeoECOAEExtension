@@ -1,9 +1,9 @@
 {
-  "neoforge:conditions": [
+  "forge:conditions": [
     {
-      "type": "neoforge:not",
+      "type": "forge:not",
       "value": {
-        "type": "neoforge:mod_loaded",
+        "type": "forge:mod_loaded",
         "modid": "mekanism"
       }
     }

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.util;
 
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandler;
 
 public class CellHostItemHandler implements IItemHandler {
     private final ICellHost host;

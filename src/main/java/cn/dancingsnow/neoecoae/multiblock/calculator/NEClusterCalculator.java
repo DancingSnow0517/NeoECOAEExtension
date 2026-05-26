@@ -4,6 +4,7 @@ import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.mojang.serialization.DataResult;
+import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -163,13 +164,23 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         Direction down,
         Holder<Block> casing
     ) {
-        if (!validateBlock(level, centerPos, BlockState::is, casing)) {
+        if (!validateBlock(level, centerPos, (state, block) -> state.is(block.value()), casing)) {
             return false;
         }
-        if (!validateBlock(level, centerPos.relative(top), BlockState::is, casing)) {
+        if (!validateBlock(level, centerPos.relative(top), (state, block) -> state.is(block.value()), casing)) {
             return false;
         }
-        return validateBlock(level, centerPos.relative(down), BlockState::is, casing);
+        return validateBlock(level, centerPos.relative(down), (state, block) -> state.is(block.value()), casing);
+    }
+
+    protected static boolean validateCasing(
+        ServerLevel level,
+        BlockPos centerPos,
+        Direction top,
+        Direction down,
+        BlockEntry<? extends Block> casing
+    ) {
+        return validateCasing(level, centerPos, top, down, casing.get().builtInRegistryHolder());
     }
 
     protected boolean validateInterface(
@@ -180,19 +191,37 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         Holder<Block> interfaceType,
         Holder<Block> casingType
     ) {
-        if (!validateBlock(level, interfacePos, BlockState::is, interfaceType)) {
+        if (!validateBlock(level, interfacePos, (state, block) -> state.is(block.value()), interfaceType)) {
             return false;
         }
-        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, casingType)) {
+        if (!validateBlock(level, interfacePos.relative(top), (state, block) -> state.is(block.value()), casingType)) {
             return false;
         }
-        return validateBlock(level, interfacePos.relative(down), BlockState::is, casingType);
+        return validateBlock(level, interfacePos.relative(down), (state, block) -> state.is(block.value()), casingType);
+    }
+
+    protected boolean validateInterface(
+        ServerLevel level,
+        BlockPos interfacePos,
+        Direction top,
+        Direction down,
+        BlockEntry<? extends Block> interfaceType,
+        BlockEntry<? extends Block> casingType
+    ) {
+        return validateInterface(
+            level,
+            interfacePos,
+            top,
+            down,
+            interfaceType.get().builtInRegistryHolder(),
+            casingType.get().builtInRegistryHolder()
+        );
     }
 
     protected static boolean ensureSameSurface(List<BlockPos> list) {
-        int x = list.getFirst().getX();
-        int y = list.getFirst().getY();
-        int z = list.getFirst().getZ();
+        int x = list.get(0).getX();
+        int y = list.get(0).getY();
+        int z = list.get(0).getZ();
         boolean sameX = true;
         boolean sameY = true;
         boolean sameZ = true;

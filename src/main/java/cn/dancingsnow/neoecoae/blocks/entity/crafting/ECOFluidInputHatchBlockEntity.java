@@ -4,15 +4,15 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 
 public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidInputHatchBlockEntity> {
 
@@ -30,7 +30,10 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         for (Direction face : Direction.values()) {
-            IFluidHandler sourceHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
+            BlockEntity blockEntity = level.getBlockEntity(pos.relative(face));
+            IFluidHandler sourceHandler = blockEntity == null ? null : blockEntity
+                .getCapability(ForgeCapabilities.FLUID_HANDLER, face.getOpposite())
+                .orElse(null);
             if (sourceHandler != null) {
                 if (!FluidUtil.tryFluidTransfer(tank, sourceHandler, tank.getCapacity(), true).isEmpty()) {
                     return;
@@ -44,14 +47,14 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        tank.writeToNBT(registries, data);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        tank.writeToNBT(data);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        tank.readFromNBT(registries, data);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        tank.readFromNBT(data);
     }
 }

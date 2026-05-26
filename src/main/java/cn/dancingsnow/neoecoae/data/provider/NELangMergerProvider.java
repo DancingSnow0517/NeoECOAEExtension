@@ -9,8 +9,8 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforgespi.locating.IModFile;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforgespi.locating.IModFile;
 import org.slf4j.Logger;
 
 import java.io.BufferedReader;

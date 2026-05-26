@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.api;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.minecraftforge.common.util.FakePlayerFactory;
 
 import java.util.UUID;
 

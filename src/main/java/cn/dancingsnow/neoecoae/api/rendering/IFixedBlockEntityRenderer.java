@@ -8,7 +8,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -61,7 +60,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         Minecraft mc = Minecraft.getInstance();
         ModelBlockRenderer modelRenderer = mc.getBlockRenderer().getModelRenderer();
         BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
+            .getModel(model);
         VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
         modelRenderer.tesselateWithAO(
             level,
@@ -104,7 +103,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     ) {
         Minecraft mc = Minecraft.getInstance();
         BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
+            .getModel(model);
         for (Direction value : Direction.values()) {
             List<BakedQuad> quads = bakedModel.getQuads(
                 null,
@@ -144,7 +143,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
             buffer.putBulkData(
                 poseStack.last(),
                 quad,
-                1, 1, 1, 1,
+                1, 1, 1,
                 packedLight,
                 packedOverlay
             );

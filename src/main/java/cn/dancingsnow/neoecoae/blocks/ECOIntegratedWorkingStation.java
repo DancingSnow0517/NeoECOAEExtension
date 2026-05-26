@@ -10,6 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -94,7 +95,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         if (player instanceof ServerPlayer serverPlayer) {
             BlockUIMenuType.openUI(serverPlayer, pos);
             return InteractionResult.CONSUME;
@@ -103,7 +104,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     }
 
     @Override
-    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return switch (state.getValue(FACING)) {
             case NORTH -> NORTH;
             case EAST -> EAST;

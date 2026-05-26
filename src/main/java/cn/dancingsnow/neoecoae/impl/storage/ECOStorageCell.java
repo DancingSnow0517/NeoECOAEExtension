@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.impl.storage;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.IncludeExclude;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -159,7 +158,7 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     private List<GenericStack> getStoredStacks() {
-        return cellStack.getOrDefault(AEComponents.STORAGE_CELL_INV, List.of());
+        return List.of();
     }
 
     protected Object2LongMap<AEKey> getCellItems() {
@@ -201,11 +200,8 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
 
-        if (stacks.isEmpty()) {
-            cellStack.remove(AEComponents.STORAGE_CELL_INV);
-        } else {
-            cellStack.set(AEComponents.STORAGE_CELL_INV, stacks);
-        }
+        // 1.20.1 has no item data components. Persisted cell contents will be
+        // restored through NBT in a later pass.
 
         this.storedItems = (short) this.storedAmounts.size();
 

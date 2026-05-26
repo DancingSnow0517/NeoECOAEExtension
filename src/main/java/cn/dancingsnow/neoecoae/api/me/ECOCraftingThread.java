@@ -15,16 +15,15 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.INBTSerializable;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.INBTSerializable;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import org.jetbrains.annotations.UnknownNullability;
 
 import java.util.ArrayList;
@@ -56,11 +55,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     /**
-     * 工作 tick 方法
+     * 宸ヤ綔 tick 鏂规硶
      *
-     * @param overlockTimes 超频次数（每次超频减少1tick时间）
-     * @param powerMultiply 能量倍率（用于超频无冷却的情况）
-     * @param ticksSinceLastCall 距离上传调用多少 tick
+     * @param overlockTimes 瓒呴娆℃暟锛堟瘡娆¤秴棰戝噺灏?tick鏃堕棿锛?
+     * @param powerMultiply 鑳介噺鍊嶇巼锛堢敤浜庤秴棰戞棤鍐峰嵈鐨勬儏鍐碉級
+     * @param ticksSinceLastCall 璺濈涓婁紶璋冪敤澶氬皯 tick
      */
     public TickRateModulation tick(int overlockTimes, int powerMultiply, int ticksSinceLastCall) {
         if (!isBusy) {
@@ -93,11 +92,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     /**
-     * 提交样板
+     * 鎻愪氦鏍锋澘
      *
-     * @param pattern    要提交的样板
+     * @param pattern    瑕佹彁浜ょ殑鏍锋澘
      * @param controller
-     * @return 是否成功
+     * @return 鏄惁鎴愬姛
      */
     public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, ECOCraftingSystemBlockEntity controller) {
         if (isBusy) {
@@ -115,14 +114,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         craftingInv.clearContent();
         pattern.fillCraftingGrid(table, craftingInv::setItem);
-        ItemStack outputItem = pattern.assemble(craftingInv.asCraftInput(), worker.getLevel());
+        ItemStack outputItem = pattern.assemble(craftingInv, worker.getLevel());
         if (outputItem.isEmpty()) {
             return false;
         }
         this.outputItem = outputItem;
         remainingItems.clear();
         List<ItemStack> list = new ArrayList<>();
-        for (ItemStack item : pattern.getRemainingItems(craftingInv.asCraftInput())) {
+        for (ItemStack item : pattern.getRemainingItems(craftingInv)) {
             if (!item.isEmpty()) {
                 list.add(item);
             }
@@ -162,7 +161,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 eject(storage, item);
             }
             if (NEConfig.postCraftingEvent) {
-                NeoForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
+                MinecraftForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
                     NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()),
                     outputItem,
                     craftingInv
@@ -191,30 +190,30 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     @Override
-    public @UnknownNullability CompoundTag serializeNBT(HolderLookup.Provider provider) {
+    public @UnknownNullability CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean("isBusy", isBusy);
         tag.putBoolean("reboot", reboot);
         tag.putInt("progress", progress);
-        tag.put("outputItem", outputItem.saveOptional(provider));
+        tag.put("outputItem", outputItem.save(new CompoundTag()));
         ListTag remaining = new ListTag();
         for (ItemStack remainingItem : remainingItems) {
-            remaining.add(remainingItem.saveOptional(provider));
+            remaining.add(remainingItem.save(new CompoundTag()));
         }
         tag.put("remainingItems", remaining);
         return tag;
     }
 
     @Override
-    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
+    public void deserializeNBT(CompoundTag nbt) {
         this.isBusy = nbt.getBoolean("isBusy");
         this.reboot = nbt.getBoolean("reboot");
         this.progress = nbt.getInt("progress");
-        this.outputItem = ItemStack.parseOptional(provider, nbt.getCompound("outputItem"));
+        this.outputItem = ItemStack.of(nbt.getCompound("outputItem"));
         ListTag remaining = nbt.getList("remainingItems", Tag.TAG_COMPOUND);
         remainingItems.clear();
         for (int i = 0; i < remaining.size(); i++) {
-            remainingItems.add(ItemStack.parseOptional(provider, remaining.getCompound(i)));
+            remainingItems.add(ItemStack.of(remaining.getCompound(i)));
         }
     }
 }

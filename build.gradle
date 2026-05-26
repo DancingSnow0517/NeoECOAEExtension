@@ -2,7 +2,7 @@ plugins {
     id 'idea'
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.78'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
     id 'io.freefair.lombok' version '8.7.1'
 }
 
@@ -13,16 +13,24 @@ tasks.named('wrapper', Wrapper).configure {
 version = mod_version
 group = mod_group_id
 
-
 base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 repositories {
     mavenLocal()
+    maven {
+        name = "Aliyun Public"
+        url = "https://maven.aliyun.com/repository/public"
+    }
+    maven {
+        name = "Aliyun Central"
+        url = "https://maven.aliyun.com/repository/central"
+    }
     mavenCentral()
+    maven { url = 'https://maven.minecraftforge.net' }
     maven {
         name = "Modrinth Maven"
         url = "https://api.modrinth.com/maven"
@@ -37,28 +45,25 @@ repositories {
             includeGroup "curse.maven"
         }
     }
-    maven { // Registrate Fork
+    maven {
         name = "Ithundxr Maven"
         url = "https://maven.ithundxr.dev/snapshots"
     }
-    maven {// Ldlib
+    maven {
         name "firstdarkdev"
         url "https://maven.firstdarkdev.xyz/snapshots"
     }
     maven {
-        // location of the maven that hosts JEI files since January 2023
         name = "Jared's maven"
         url = "https://maven.blamejared.com/"
     }
     maven {
-        // location of a maven mirror for JEI files, as a fallback
         name = "ModMaven"
         url = "https://modmaven.dev"
     }
     maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
-    maven { url = "https://maven.createmod.net" } // Create, Ponder, Flywheel
+    maven { url = "https://maven.createmod.net" }
     maven {
-        // kubejs
         url "https://maven.latvian.dev/releases"
         content {
             includeGroup "dev.latvian.mods"
@@ -72,13 +77,10 @@ repositories {
             includeGroup("software.bernie.geckolib")
         }
     }
-
     maven {
-        // emi
         name = "TerraformersMC"
         url = "https://maven.terraformersmc.com/"
     }
-
     maven {
         url 'https://jitpack.io'
         content {
@@ -88,108 +90,112 @@ repositories {
     maven { url "https://maven.shedaniel.me/" }
 }
 
-dependencies {
-    api("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
-    jarJar("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
-
-    compileOnly("org.appliedenergistics:guideme:21.1.1:api")
-    runtimeOnly("org.appliedenergistics:guideme:21.1.1")
-
-    implementation("org.appliedenergistics:appliedenergistics2:19.2.17")
-
-    implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }
-    compileOnly("org.appliedenergistics.yoga:yoga:${yoga_version}")
-    compileOnly("dev.vfyjxf:taffy:${taffy_version}")
-
-    implementation("curse.maven:mekanism-268560:7132168")
-    implementation("curse.maven:applied-mekanistics-574300:7096962")
-
-    implementation("curse.maven:glodium-957920:5821676")
-    implementation("curse.maven:ex-pattern-provider-892005:7478960")
-
-    implementation("curse.maven:advancedae-1084104:7374386")
-
-    implementation("curse.maven:jade-324717:7428884")
-
-    compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
-    runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
-    compileOnly("dev.emi:emi-neoforge:${emi_version}")
-
-    implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
-
-    api("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
-    interfaceInjectionData("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
-}
-
-neoForge {
-    version = project.neo_version
-
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
-    }
+minecraft {
+    mappings channel: 'official', version: minecraft_version
+    copyIdeResources = true
 
     runs {
         client {
-            client()
-
-            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            workingDirectory project.file('run/client')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
         }
 
         aeGuide {
-            client()
-
-            systemProperty 'guideme.ae2.guide.sources', file('guidebook').absolutePath
-            systemProperty 'guideme.ae2.guide.sourcesNamespace', 'neoecoae'
+            parent runs.client
+            property 'guideme.ae2.guide.sources', file('guidebook').absolutePath
+            property 'guideme.ae2.guide.sourcesNamespace', 'neoecoae'
         }
 
         server {
-            server()
-            programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        gameTestServer {
-            type = "gameTestServer"
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            workingDirectory project.file('run/server')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            args '--nogui'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
         }
 
         data {
-            data()
-
-            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
-        }
-
-        configureEach {
-            systemProperty 'forge.logging.markers', 'REGISTRIES'
-            jvmArgument '-XX:+IgnoreUnrecognizedVMOptions'
-            jvmArgument '-XX:+AllowEnhancedClassRedefinition'
-            logLevel = org.slf4j.event.Level.DEBUG
-        }
-    }
-
-    mods {
-        "${mod_id}" {
-            sourceSet(sourceSets.main)
+            workingDirectory project.file('run/data')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            args '--mod', project.mod_id, '--all',
+                    '--output', file('src/generated/resources/').absolutePath,
+                    '--existing', file('src/main/resources/').absolutePath
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
         }
     }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    api fg.deobf("com.tterrag.registrate:Registrate:MC1.20-1.3.3")
+    implementation fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
+
+    compileOnly("org.appliedenergistics:guideme:${guideme_version}:api")
+    runtimeOnly fg.deobf("org.appliedenergistics:guideme:${guideme_version}")
+
+    implementation fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
+    compileOnly("dev.vfyjxf:taffy:${taffy_version}")
+
+    compileOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")
+    runtimeOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")
+    compileOnly fg.deobf("curse.maven:applied-mekanistics-574300:${appmek_file_id}")
+    runtimeOnly fg.deobf("curse.maven:applied-mekanistics-574300:${appmek_file_id}")
+
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
+    runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
+    compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
+
+    implementation fg.deobf("software.bernie.geckolib:geckolib-forge-${minecraft_version}:${geckolib_version}")
+
+    compileOnly("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
+    annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
+    implementation("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")
 }
 
 sourceSets.main.resources {
-    srcDirs 'src/generated/resources', 'src/guidebook/resources'
+    srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources'
 }
 
-configurations {
-    runtimeClasspath.extendsFrom localRuntime
+sourceSets.main.java {
+    exclude 'cn/dancingsnow/neoecoae/integration/**'
+    exclude 'cn/dancingsnow/neoecoae/mixins/**'
+    exclude 'cn/dancingsnow/neoecoae/client/model/**'
+    exclude 'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java'
+    exclude 'cn/dancingsnow/neoecoae/client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java'
+    exclude 'cn/dancingsnow/neoecoae/data/**'
+    exclude 'cn/dancingsnow/neoecoae/recipe/*Builder.java'
+    exclude 'cn/dancingsnow/neoecoae/all/NEDataComponents.java'
+    exclude 'cn/dancingsnow/neoecoae/api/components/**'
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
     var replaceProperties = [
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
-            neo_version_range      : neo_version_range,
+            forge_version          : forge_version,
+            forge_version_range    : forge_version_range,
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
@@ -206,7 +212,25 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 
 sourceSets.main.resources.srcDir generateModMetadata
 
-neoForge.ideSyncTask generateModMetadata
+processResources.dependsOn generateModMetadata
+tasks.named('processResources', ProcessResources).configure {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+jar {
+    manifest {
+        attributes([
+                "Specification-Title"     : mod_id,
+                "Specification-Vendor"    : mod_authors,
+                "Specification-Version"   : "1",
+                "Implementation-Title"    : project.name,
+                "Implementation-Version"  : project.jar.archiveVersion,
+                "Implementation-Vendor"   : mod_authors,
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                "MixinConfigs"            : "${mod_id}.mixins.json"
+        ])
+    }
+}
 
 publishing {
     publications {
@@ -222,7 +246,7 @@ publishing {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+    options.encoding = 'UTF-8'
 }
 
 tasks.register('copyGuidebook', Copy) {
@@ -248,7 +272,6 @@ tasks.register('sourcesJar', Jar) {
 artifacts {
     archives sourcesJar
 }
-
 
 lombok {
     version = "1.18.34"

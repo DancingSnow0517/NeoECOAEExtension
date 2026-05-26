@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.items;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.IncludeExclude;
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.ISaveProvider;
@@ -13,7 +12,7 @@ import appeng.core.localization.PlayerMessages;
 import appeng.core.localization.Tooltips;
 import appeng.items.contents.CellConfig;
 import appeng.items.storage.StorageCellTooltipComponent;
-import appeng.recipes.game.StorageCellDisassemblyRecipe;
+import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -91,7 +90,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> lines, TooltipFlag tooltipFlag) {
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
@@ -174,18 +173,24 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
-        return is.getOrDefault(AEComponents.STORAGE_CELL_FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        if (is.hasTag() && is.getTag().contains("fuzzyMode")) {
+            try {
+                return FuzzyMode.valueOf(is.getTag().getString("fuzzyMode"));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return FuzzyMode.IGNORE_ALL;
     }
 
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-        is.set(AEComponents.STORAGE_CELL_FUZZY_MODE, fzMode);
+        is.getOrCreateTag().putString("fuzzyMode", fzMode.name());
     }
 
 
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
-        return CellConfig.create(Set.of(keyType), is);
+        return CellConfig.create(key -> key.getType() == keyType, is);
     }
 
     @Override

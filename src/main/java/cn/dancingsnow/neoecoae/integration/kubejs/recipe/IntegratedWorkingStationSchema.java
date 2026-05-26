@@ -13,9 +13,9 @@ import dev.latvian.mods.kubejs.recipe.schema.KubeRecipeFactory;
 import dev.latvian.mods.kubejs.recipe.schema.RecipeSchema;
 import dev.latvian.mods.kubejs.util.IntBounds;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 
 import java.util.ArrayList;
 import java.util.List;

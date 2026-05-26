@@ -9,11 +9,12 @@ import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 
 import java.util.List;
 import java.util.Set;
@@ -157,7 +158,7 @@ public class NETooltips {
     }
 
     private static void addTooltips(Component... tooltips) {
-        if (flags.hasShiftDown()) {
+        if (Screen.hasShiftDown()) {
             tooltip.addAll(List.of(tooltips));
         } else {
             tooltip.add(HOLD_SHIFT);

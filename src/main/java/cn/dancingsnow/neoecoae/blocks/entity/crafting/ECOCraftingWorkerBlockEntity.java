@@ -9,7 +9,6 @@ import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -41,7 +40,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 10, false);
+        return new TickingRequest(1, 10, false, false);
     }
 
     @Override
@@ -149,23 +148,23 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
         ListTag threads = new ListTag();
         for (ECOCraftingThread thread : craftingThreads) {
-            threads.add(thread.serializeNBT(registries));
+            threads.add(thread.serializeNBT());
         }
         data.put("craftingThreads", threads);
         data.putInt("runningThreads", runningThreads);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         for (int i = 0; i < threads.size(); i++) {
             ECOCraftingThread thread = new ECOCraftingThread(this);
-            thread.deserializeNBT(registries, threads.getCompound(i));
+            thread.deserializeNBT(threads.getCompound(i));
             craftingThreads.add(thread);
         }
         runningThreads = data.getInt("runningThreads");

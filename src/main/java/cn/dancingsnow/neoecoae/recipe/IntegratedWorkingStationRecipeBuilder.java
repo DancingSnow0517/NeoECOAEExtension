@@ -13,10 +13,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.common.crafting.SizedIngredient;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import net.minecraftforge.fluids.FluidStack;
+import cn.dancingsnow.neoecoae.compat.crafting.FluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
