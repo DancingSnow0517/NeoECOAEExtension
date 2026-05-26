@@ -7,7 +7,14 @@ fi
 
 resolve_candidate() {
   local candidate="$1"
-  [[ -n "$candidate" && -x "$candidate/bin/java" ]] && printf '%s\n' "$candidate"
+  if [[ -n "$candidate" && -x "$candidate/bin/java" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  if [[ -n "$candidate" && -x "$candidate/Contents/Home/bin/java" ]]; then
+    printf '%s\n' "$candidate/Contents/Home"
+    return 0
+  fi
 }
 
 if [[ $# -gt 0 ]]; then
@@ -26,7 +33,17 @@ if [[ -z "${resolved:-}" ]]; then
     while IFS= read -r candidate; do
       resolved="$(resolve_candidate "$candidate" || true)"
       [[ -n "$resolved" ]] && break 2
-    done < <(find "$root" -maxdepth 1 -type d \( -name '*21*' -o -name 'jdk-21*' \) 2>/dev/null | sort -r)
+    done < <(find "$root" -maxdepth 1 -type d \
+      \( -name 'jdk-21*' \
+         -o -name 'java-21*' \
+         -o -name '*openjdk-21*' \
+         -o -name '*temurin-21*' \
+         -o -name '*zulu-21*' \
+         -o -name '*microsoft-21*' \
+         -o -name '*corretto-21*' \
+         -o -name '*-21*.jdk' \
+         -o -name 'jdk-21*.jdk' \) \
+      2>/dev/null | sort -r)
   done
 fi
 

@@ -163,9 +163,12 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * Try to push patterns into available interfaces, i.e. do the actual crafting execution.
+     * Executes one bounded ECO crafting scheduling pass.
      *
-     * @return How many patterns were successfully pushed.
+     * <p>The scheduler resumes from the persisted task and provider cursors, and stops when the
+     * {@link CraftingTickBudget} is exhausted, power is insufficient, or no more progress can be made.</p>
+     *
+     * @return The number of pushed patterns and the reason scheduling stopped.
      */
     private CraftingTickResult executeCrafting(
         CraftingTickBudget budget, CraftingService craftingService, IEnergyService energyService, Level level, long currentTick) {
@@ -506,6 +509,9 @@ public class ECOCraftingCPULogic {
         var exhaustionReason = ExhaustionReason.NONE;
         var iterator = job.tasks.entrySet().iterator();
         for (int skipped = 0; skipped < startInclusive && iterator.hasNext(); skipped++) {
+            if (!budget.canContinue()) {
+                return new CraftingTickResult(pushedPatterns, budget.getExhaustionReason());
+            }
             iterator.next();
         }
 
