@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
@@ -61,7 +62,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IGridTickable {
+    implements ISyncPersistRPCBlockEntity, IUIHolder, IGridTickable {
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
@@ -468,6 +469,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
 
+    @Deprecated(forRemoval = true)
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
             .paddingAll(4)
@@ -497,7 +499,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         );
 
         textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.working_threads", runningThreadCount, getAvailableThreads(), (int) ((float) runningThreadCount / getAvailableThreads() * 100))))
+            .bindDataSource(SupplierDataSource.of(() -> Component.translatable(
+                "gui.neoecoae.crafting.working_threads",
+                runningThreadCount,
+                getAvailableThreads(),
+                getAvailableThreads() <= 0 ? 0 : (int) ((float) runningThreadCount / getAvailableThreads() * 100)
+            )))
             .textStyle(ECOCraftingSystemBlockEntity::textStyle));
 
         textPanel.addScrollViewChild(new Label()
@@ -869,5 +876,19 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
         return LDLib1MachineUIs.createCraftingControllerUI(this, player);
     }
-}
 
+    @Override
+    public boolean isInvalid() {
+        return isRemoved();
+    }
+
+    @Override
+    public boolean isRemote() {
+        return level != null && level.isClientSide();
+    }
+
+    @Override
+    public void markAsDirty() {
+        setChanged();
+    }
+}

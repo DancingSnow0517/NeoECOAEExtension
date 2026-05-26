@@ -82,10 +82,10 @@
   "gui.neoecoae.crafting.coolant_max_overclock.none": "Current Coolant Max Overclock: None",
   "gui.neoecoae.crafting.enable_active_cooling": "Enable Active Cooling: ",
   "gui.neoecoae.crafting.enable_overlock": "Enable Overlock: ",
-  "gui.neoecoae.crafting.max_energy_usage": "Max Energy Usage: 搂b%s AE",
+  "gui.neoecoae.crafting.max_energy_usage": "Max Energy Usage: \u6402b%s AE",
   "gui.neoecoae.crafting.overclock_status": "Theoretical Overclock: %d, Effective Overclock: %d",
   "gui.neoecoae.crafting.overclock_status.disabled": "Theoretical Overclock: 0, Effective Overclock: 0",
-  "gui.neoecoae.crafting.overclocked.tooltip": "Boosting performance within a limited range while consuming more 搂cEnergy搂f.",
+  "gui.neoecoae.crafting.overclocked.tooltip": "Boosting performance within a limited range while consuming more \u6402cEnergy\u6402f.",
   "gui.neoecoae.crafting.parallel_core_count": "Parallel Cores: %d",
   "gui.neoecoae.crafting.pattern_bus_count": "Pattern Buses: %d",
   "gui.neoecoae.crafting.total_parallelism": "Total Parallelism: %d",
@@ -263,5 +263,7 @@
   "tooltip.neoecoae.storage_dirve.1": "The drivable storage matrix tier depends on the storage subsystem host controller",
   "tooltip.neoecoae.storage_system": "The core of the storage subsystem",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "Aluminum Alloy Upgrade",
-  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade"
+  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade",
+  "gui.neoecoae.migration_ui.no_ldlib1_ui": "No LDLib1 UI is implemented for this machine",
+  "gui.neoecoae.crafting.coolant_amount": "Coolant: %s / %s"
 }

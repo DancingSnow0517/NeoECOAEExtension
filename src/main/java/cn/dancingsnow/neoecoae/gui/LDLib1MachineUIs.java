@@ -22,17 +22,21 @@ public final class LDLib1MachineUIs {
     private static final ResourceTexture SLOT = texture("textures/gui/slot.png");
     private static final ResourceTexture BAR = texture("textures/gui/bar.png");
     private static final ResourceTexture BAR_CONTAINER = texture("textures/gui/bar_container.png");
+    private static final int TITLE_COLOR = 0xFF303040;
+    private static final int LABEL_COLOR = 0xFF3F3D52;
+    private static final int STATUS_COLOR = 0xFF303040;
+    private static final int BUTTON_TEXT_COLOR = 0xFFFFFFFF;
 
     private LDLib1MachineUIs() {
     }
 
     public static ModularUI createIntegratedWorkingStationUI(ECOIntegratedWorkingStationBlockEntity be, Player player) {
-        int width = 198;
-        int height = 222;
+        int width = 230;
+        int height = 238;
         var ui = new ModularUI(width, height, be, player).background(panel());
 
-        ui.widget(label(8, 8, Component.translatable("block.neoecoae.integrated_working_station"), 0xFFFFFFFF));
-        ui.widget(label(8, 24, Component.literal("Progress"), 0xFFB8C7D9));
+        ui.widget(label(8, 8, Component.translatable("block.neoecoae.integrated_working_station"), TITLE_COLOR));
+        ui.widget(label(8, 24, Component.literal("Progress"), LABEL_COLOR));
         ui.widget(new ProgressWidget(
             () -> be.getMaxProcessingTime() <= 0 ? 0.0 : be.getProcessingTime() / (double) be.getMaxProcessingTime(),
             70,
@@ -44,7 +48,7 @@ public final class LDLib1MachineUIs {
             .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
             .setDynamicHoverTips(value -> "%d%%".formatted((int) Math.round(value * 100))));
 
-        ui.widget(label(8, 48, Component.literal("Fluids"), 0xFFB8C7D9));
+        ui.widget(label(8, 48, Component.literal("Fluids"), LABEL_COLOR));
         ui.widget(new TankWidget(
             new FluidTransferWrapper(be.getInputTank()),
             0,
@@ -66,21 +70,21 @@ public final class LDLib1MachineUIs {
             true
         ).setShowAmount(true).setBackground(SLOT).setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP));
 
-        ui.widget(label(62, 48, Component.literal("Input"), 0xFFB8C7D9));
+        ui.widget(label(62, 48, Component.literal("Input"), LABEL_COLOR));
         addInventory(ui, be.getInput().toContainer(), 9, 62, 62, 3, true, true);
 
-        ui.widget(label(124, 48, Component.literal("Output"), 0xFFB8C7D9));
-        addInventory(ui, be.getOutput().toContainer(), 1, 124, 62, 1, false, true);
+        ui.widget(label(130, 48, Component.literal("Output"), LABEL_COLOR));
+        addInventory(ui, be.getOutput().toContainer(), 1, 130, 62, 1, false, true);
 
-        ui.widget(label(150, 48, Component.literal("Upgrades"), 0xFFB8C7D9));
-        addInventory(ui, be.getUpgrades().toContainer(), 4, 150, 62, 2, true, true);
+        ui.widget(label(178, 48, Component.literal("Upgrades"), LABEL_COLOR));
+        addInventory(ui, be.getUpgrades().toContainer(), 4, 178, 62, 1, true, true);
 
         ui.widget(new ButtonWidget(
-            124,
-            92,
-            56,
+            130,
+            112,
+            84,
             18,
-            new TextTexture(() -> autoExportText(be)).setColor(0xFFFFFFFF).setWidth(54),
+            new TextTexture(() -> "Auto Export: " + autoExportText(be)).setColor(BUTTON_TEXT_COLOR).setWidth(82),
             data -> {
                 if (!data.isRemote) {
                     be.toggleAutoExport();
@@ -88,51 +92,51 @@ public final class LDLib1MachineUIs {
             }
         ).setHoverTooltips(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs")));
 
-        ui.widget(label(8, 124, Component.translatable("container.inventory"), 0xFFFFFFFF));
-        addPlayerInventorySlots(ui, player, 8, 138);
+        ui.widget(label(8, 138, Component.translatable("container.inventory"), TITLE_COLOR));
+        addPlayerInventorySlots(ui, player, 8, 152);
         return ui;
     }
 
     public static ModularUI createCraftingControllerUI(ECOCraftingSystemBlockEntity be, Player player) {
         int width = 210;
-        int height = 246;
+        int height = 260;
         var ui = new ModularUI(width, height, be, player).background(panel());
 
-        ui.widget(label(8, 8, be.getBlockState().getBlock().getName(), 0xFFFFFFFF));
+        ui.widget(label(8, 8, be.getBlockState().getBlock().getName(), TITLE_COLOR));
         int y = 26;
-        ui.widget(dynamicLabel(8, y, () -> boolLine("gui.neoecoae.crafting.enable_overlock", be.isOverclocked()), 0xFFB8C7D9));
+        ui.widget(dynamicLabel(8, y, () -> boolLine("gui.neoecoae.crafting.enable_overlock", be.isOverclocked()), STATUS_COLOR));
         y += 12;
-        ui.widget(dynamicLabel(8, y, () -> boolLine("gui.neoecoae.crafting.enable_active_cooling", be.isActiveCooling()), 0xFFB8C7D9));
+        ui.widget(dynamicLabel(8, y, () -> boolLine("gui.neoecoae.crafting.enable_active_cooling", be.isActiveCooling()), STATUS_COLOR));
         y += 12;
         ui.widget(dynamicLabel(8, y, () -> Component.translatable(
             "gui.neoecoae.crafting.coolant_amount",
             Tooltips.ofNumber(be.getCoolant()),
             Tooltips.ofNumber(ECOCraftingSystemBlockEntity.MAX_COOLANT)
-        ).getString(), 0xFFB8C7D9));
+        ).getString(), STATUS_COLOR));
         y += 12;
         ui.widget(dynamicLabel(8, y, () -> Component.translatable(
             "gui.neoecoae.crafting.working_threads",
             be.getRunningThreadCount(),
             be.getAvailableThreads(),
             be.getAvailableThreads() <= 0 ? 0 : (int) (be.getRunningThreadCount() * 100.0f / be.getAvailableThreads())
-        ).getString(), 0xFFB8C7D9));
+        ).getString(), STATUS_COLOR));
         y += 12;
-        ui.widget(dynamicLabel(8, y, () -> Component.translatable("gui.neoecoae.crafting.parallel_core_count", be.getParallelCount()).getString(), 0xFFB8C7D9));
+        ui.widget(dynamicLabel(8, y, () -> Component.translatable("gui.neoecoae.crafting.parallel_core_count", be.getParallelCount()).getString(), STATUS_COLOR));
         y += 12;
-        ui.widget(dynamicLabel(8, y, () -> Component.translatable("gui.neoecoae.crafting.pattern_bus_count", be.getPatternBusCount()).getString(), 0xFFB8C7D9));
+        ui.widget(dynamicLabel(8, y, () -> Component.translatable("gui.neoecoae.crafting.pattern_bus_count", be.getPatternBusCount()).getString(), STATUS_COLOR));
         y += 12;
-        ui.widget(dynamicLabel(8, y, () -> Component.translatable("gui.neoecoae.crafting.worker_count", be.getWorkerCount()).getString(), 0xFFB8C7D9));
+        ui.widget(dynamicLabel(8, y, () -> Component.translatable("gui.neoecoae.crafting.worker_count", be.getWorkerCount()).getString(), STATUS_COLOR));
         y += 12;
-        ui.widget(dynamicLabel(8, y, () -> Component.translatable("gui.neoecoae.crafting.overclock_status", be.getOverlockTimes(), be.getEffectiveOverclockTimes()).getString(), 0xFFB8C7D9));
+        ui.widget(dynamicLabel(8, y, () -> "Overclock: %d / %d".formatted(be.getOverlockTimes(), be.getEffectiveOverclockTimes()), STATUS_COLOR));
         y += 14;
-        ui.widget(dynamicLabel(8, y, () -> be.getPreviewStatusComponent().getString(), 0xFFFFFFFF));
+        ui.widget(dynamicLabel(8, y, () -> be.getPreviewStatusComponent().getString(), STATUS_COLOR));
 
         ui.widget(new ButtonWidget(
             8,
-            126,
+            138,
             52,
             16,
-            new TextTexture(Component.translatable("gui.neoecoae.multiblock.preview").getString()).setColor(0xFFFFFFFF).setWidth(50),
+            new TextTexture(Component.translatable("gui.neoecoae.multiblock.preview").getString()).setColor(BUTTON_TEXT_COLOR).setWidth(50),
             data -> {
                 if (!data.isRemote) {
                     be.previewStructure(player);
@@ -141,10 +145,10 @@ public final class LDLib1MachineUIs {
         ));
         ui.widget(new ButtonWidget(
             64,
-            126,
+            138,
             52,
             16,
-            new TextTexture(Component.translatable("gui.neoecoae.multiblock.build").getString()).setColor(0xFFFFFFFF).setWidth(50),
+            new TextTexture(Component.translatable("gui.neoecoae.multiblock.build").getString()).setColor(BUTTON_TEXT_COLOR).setWidth(50),
             data -> {
                 if (!data.isRemote) {
                     be.autoBuild(player);
@@ -153,10 +157,10 @@ public final class LDLib1MachineUIs {
         ));
         ui.widget(new ButtonWidget(
             120,
-            126,
+            138,
             64,
             16,
-            new TextTexture(Component.translatable("gui.neoecoae.crafting.clear_coolant").getString()).setColor(0xFFFFFFFF).setWidth(62),
+            new TextTexture(Component.translatable("gui.neoecoae.crafting.clear_coolant").getString()).setColor(BUTTON_TEXT_COLOR).setWidth(62),
             data -> {
                 if (!data.isRemote) {
                     be.clearCoolant();
@@ -164,8 +168,8 @@ public final class LDLib1MachineUIs {
             }
         ));
 
-        ui.widget(label(8, 150, Component.translatable("container.inventory"), 0xFFFFFFFF));
-        addPlayerInventorySlots(ui, player, 8, 164);
+        ui.widget(label(8, 162, Component.translatable("container.inventory"), TITLE_COLOR));
+        addPlayerInventorySlots(ui, player, 8, 176);
         return ui;
     }
 

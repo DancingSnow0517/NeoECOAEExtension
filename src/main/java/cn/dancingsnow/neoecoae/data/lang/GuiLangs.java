@@ -9,6 +9,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.enabled", "Enabled");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.disabled", "Disabled");
+        provider.add("gui.neoecoae.migration_ui.no_ldlib1_ui", "No LDLib1 UI is implemented for this machine");
         provider.add("gui.neoecoae.multiblock.builder", "Structure Builder");
         provider.add("gui.neoecoae.multiblock.close_builder", "Close builder");
         provider.add("gui.neoecoae.multiblock.decrease_length", "Decrease length");
@@ -56,6 +57,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.parallel_core_count", "Parallel Cores: %d");
         provider.add("gui.neoecoae.crafting.worker_count", "Worker Cores: %d");
         provider.add("gui.neoecoae.crafting.working_threads", "Working Threads: %d / %d (%d%%)");
+        provider.add("gui.neoecoae.crafting.coolant_amount", "Coolant: %s / %s");
         provider.add("gui.neoecoae.crafting.total_parallelism", "Total Parallelism: %d");
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %d (%d%%)");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy Usage: 搂b%s AE");

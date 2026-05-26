@@ -48,6 +48,7 @@ import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -120,7 +121,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
-    implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
+    implements ISyncPersistRPCBlockEntity, IUIHolder, IGridTickable, IUpgradeableObject, IConfigurableObject {
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
     private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
 
@@ -681,6 +682,21 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     @Override
+    public boolean isInvalid() {
+        return isRemoved();
+    }
+
+    @Override
+    public boolean isRemote() {
+        return level != null && level.isClientSide();
+    }
+
+    @Override
+    public void markAsDirty() {
+        setChanged();
+    }
+
+    @Override
     public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
         if (cap == ForgeCapabilities.ITEM_HANDLER) {
             return itemHandlerCap.cast();
@@ -698,6 +714,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         fluidHandlerCap.invalidate();
     }
 
+    @Deprecated(forRemoval = true)
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
             .paddingAll(4)
