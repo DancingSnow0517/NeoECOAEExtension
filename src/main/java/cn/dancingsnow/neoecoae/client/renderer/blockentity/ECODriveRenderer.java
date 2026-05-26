@@ -18,10 +18,19 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec2;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.joml.Matrix4f;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity>, IFixedBlockEntityRenderer<ECODriveBlockEntity> {
     private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
+    private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
+    private static final Set<ResourceLocation> LOGGED_CELL_ITEMS = ConcurrentHashMap.newKeySet();
 
     public ECODriveRenderer() {
     }
@@ -93,6 +102,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         poseStack.translate(-0.5, -0.5, -0.5);
         poseStack.translate(2 / 16f, 2 / 16f, 0 / 16f);
         ResourceLocation modelLocation = ECOCellModels.getModelLocation(cellStack.getItem());
+        logCellModel(blockEntity, cellStack, modelLocation);
         tessellateModel(
             blockEntity,
             poseStack,
@@ -102,6 +112,23 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
             packedOverlay
         );
         poseStack.popPose();
+    }
+
+    private static void logCellModel(ECODriveBlockEntity blockEntity, ItemStack cellStack, ResourceLocation modelLocation) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(cellStack.getItem());
+        if (itemId != null && LOGGED_CELL_ITEMS.add(itemId)) {
+            LOGGER.info(
+                "ECODrive BER cell model: pos={}, item={}, model={}, clientSide={}, visualCellStackNonEmpty={}",
+                blockEntity.getBlockPos(),
+                itemId,
+                modelLocation,
+                blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide(),
+                !cellStack.isEmpty()
+            );
+        }
     }
 
     private static float yRotForFacing(Direction facing) {

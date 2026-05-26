@@ -1,0 +1,22 @@
+﻿{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:crafting_parallel_core_l4"
+    },
+    "B": {
+      "item": "neoecoae:superconducting_processor"
+    }
+  },
+  "pattern": [
+    "AAA",
+    "ABA",
+    "AAA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:crafting_parallel_core_l6",
+    "item": "neoecoae:crafting_parallel_core_l6"
+  }
+}

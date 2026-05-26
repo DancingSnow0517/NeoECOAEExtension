@@ -15,6 +15,13 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ECOComputationDriveRenderer
     implements
@@ -22,6 +29,8 @@ public class ECOComputationDriveRenderer
     BlockEntityRenderer<ECOComputationDriveBlockEntity> {
 
     private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
+    private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
+    private static final Set<String> LOGGED_MODELS = ConcurrentHashMap.newKeySet();
 
 
     public ECOComputationDriveRenderer() {
@@ -50,12 +59,14 @@ public class ECOComputationDriveRenderer
         boolean formed = blockEntity.isFormed();
         boolean shouldCellWork = false;
         IECOTier cableTier = blockEntity.getTier();
+        ResourceLocation normalCellModel = null;
+        ResourceLocation formedCellModel = null;
         if (itemStack != null && !itemStack.isEmpty() && itemStack.getItem() instanceof ECOComputationCellItem item) {
             IECOTier itemTier = item.getTier();
             shouldCellWork = formed && blockEntity.getTier() != null && itemTier.compareTo(blockEntity.getTier()) <= 0;
-            ResourceLocation cellModel = shouldCellWork
-                ? ECOComputationModels.getFormedModel(itemStack.getItem())
-                : ECOComputationModels.getNormalModel(itemStack.getItem());
+            normalCellModel = ECOComputationModels.getNormalModel(itemStack.getItem());
+            formedCellModel = ECOComputationModels.getFormedModel(itemStack.getItem());
+            ResourceLocation cellModel = shouldCellWork ? formedCellModel : normalCellModel;
             if (shouldCellWork) {
                 cableTier = itemTier;
             }
@@ -115,6 +126,7 @@ public class ECOComputationDriveRenderer
                 poseStack.mulPose(Axis.ZP.rotationDegrees(180));
             }
         }
+        logComputationModels(blockEntity, itemStack, normalCellModel, formedCellModel, cableModel, formed, blockEntity.isLowerDrive(), cableTier);
         if (cableModel == null) {
             poseStack.popPose();
             return;
@@ -138,6 +150,37 @@ public class ECOComputationDriveRenderer
 //            packedOverlay
 //        );
         poseStack.popPose();
+    }
+
+    private static void logComputationModels(
+        ECOComputationDriveBlockEntity blockEntity,
+        ItemStack itemStack,
+        ResourceLocation normalCellModel,
+        ResourceLocation formedCellModel,
+        ResourceLocation cableModel,
+        boolean formed,
+        boolean lowerDrive,
+        IECOTier tier
+    ) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        ResourceLocation itemId = itemStack == null || itemStack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(itemStack.getItem());
+        String key = itemId + "|" + normalCellModel + "|" + formedCellModel + "|" + cableModel + "|" + formed + "|" + lowerDrive + "|" + tier;
+        if (LOGGED_MODELS.add(key)) {
+            LOGGER.info(
+                "ECOComputationDrive BER model: pos={}, item={}, normalModel={}, formedModel={}, cableModel={}, formed={}, lowerDrive={}, tier={}, clientSide={}",
+                blockEntity.getBlockPos(),
+                itemId,
+                normalCellModel,
+                formedCellModel,
+                cableModel,
+                formed,
+                lowerDrive,
+                tier,
+                blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide()
+            );
+        }
     }
 
     @Override

@@ -1,0 +1,20 @@
+﻿{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "bottom": {
+      "item": "ae2:printed_silicon"
+    },
+    "middle": {
+      "item": "neoecoae:crystal_matrix"
+    },
+    "top": {
+      "item": "neoecoae:superconducting_processor_print"
+    }
+  },
+  "mode": "press",
+  "result": {
+    "count": 1,
+    "id": "neoecoae:superconducting_processor",
+    "item": "neoecoae:superconducting_processor"
+  }
+}

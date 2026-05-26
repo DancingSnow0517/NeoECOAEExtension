@@ -110,6 +110,7 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
@@ -122,12 +123,14 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
     implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, IGridTickable, IUpgradeableObject, IConfigurableObject {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static boolean loggedRecipeCounts = false;
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
     private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
 
@@ -408,6 +411,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     private @Nullable IntegratedWorkingStationRecipe findRecipe(Level level) {
+        logRecipeCounts(level);
         List<ItemStack> inputs = new ArrayList<>();
         for (var x = 0; x < this.inputInv.size(); x++) {
             inputs.add(this.inputInv.getStackInSlot(x));
@@ -419,6 +423,18 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         ).orElse(null);
     }
 
+    private static void logRecipeCounts(Level level) {
+        if (FMLEnvironment.production || loggedRecipeCounts) {
+            return;
+        }
+        loggedRecipeCounts = true;
+        LOGGER.info(
+            "NeoECOAE recipe counts: integrated_working_station={}, cooling={}",
+            level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get()).size(),
+            level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get()).size()
+        );
+    }
+
     @Override
     public TickingRequest getTickingRequest(IGridNode iGridNode) {
         return new TickingRequest(1, 20, !hasAutoExportWork() && !this.hasCraftWork(), false);
@@ -427,14 +443,16 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     @Override
     public TickRateModulation tickingRequest(IGridNode iGridNode, int ticksSinceLastCall) {
         if (this.dirty) {
-            // Check if running recipe is still valid
-            if (level != null) {
-                var recipe = findRecipe(level);
-                if (recipe == null) {
-                    this.setProcessingTime(0);
-                    this.setWorking(false);
-                    this.cachedTask = null;
-                }
+            IntegratedWorkingStationRecipe newTask = level == null ? null : findRecipe(level);
+            if (!Objects.equals(
+                cachedTask == null ? null : cachedTask.getId(),
+                newTask == null ? null : newTask.getId()
+            )) {
+                this.setProcessingTime(0);
+            }
+            this.cachedTask = newTask;
+            if (this.cachedTask == null) {
+                this.setWorking(false);
             }
             this.markForUpdate();
             this.dirty = false;

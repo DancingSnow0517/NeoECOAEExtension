@@ -1,0 +1,22 @@
+﻿{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "ae2:crafting_accelerator"
+    },
+    "B": {
+      "item": "neoecoae:crafting_casing"
+    }
+  },
+  "pattern": [
+    "AAA",
+    "ABA",
+    "AAA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "neoecoae:crafting_parallel_core_l4",
+    "item": "neoecoae:crafting_parallel_core_l4"
+  }
+}
