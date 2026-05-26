@@ -50,7 +50,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 break;
             }
         }
-        if (controller == null) return false;
+        if (controller == null) {
+            logVerifyFailure(level, min, max, "controller", min, "ECOStorageSystemBlockEntity in allPossibleController(min,max)", null);
+            return false;
+        }
         IECOTier tier = controller.getTier();
         BlockState controllerState = controller.getBlockState();
         IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
@@ -60,14 +63,26 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         Direction down = top.getOpposite();
         Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
         Direction right = left.getOpposite();
+        logVerifyContext(level, min, max, controllerPos, controllerState, front, back, left, right, top, down);
 
-        if (!validateCasing(level, controllerPos, top, down, left)) return false;
-        if (!validateCasing(level, controllerPos, top, down, back)) return false;
-        if (!validateInterface(level, controllerPos.relative(left).relative(back), top, down)) return false;
+        if (!validateCasing(level, controllerPos, top, down, left)) {
+            logCasingColumn(level, min, max, "controller left casing", controllerPos.relative(left), top, down);
+            return false;
+        }
+        if (!validateCasing(level, controllerPos, top, down, back)) {
+            logCasingColumn(level, min, max, "controller back casing", controllerPos.relative(back), top, down);
+            return false;
+        }
+        if (!validateInterface(level, controllerPos.relative(left).relative(back), top, down)) {
+            logInterfaceStack(level, min, max, "interface stack", controllerPos.relative(left).relative(back), top, down, "STORAGE_INTERFACE", "STORAGE_CASING");
+            return false;
+        }
         if (!validateBlock(level, controllerPos.relative(top), BlockState::is, NEBlocks.STORAGE_CASING.get())) {
+            logVerifyFailure(level, min, max, "controller top casing", controllerPos.relative(top), "STORAGE_CASING", null);
             return false;
         }
         if (!validateBlock(level, controllerPos.relative(down), BlockState::is, NEBlocks.STORAGE_CASING.get())) {
+            logVerifyFailure(level, min, max, "controller down casing", controllerPos.relative(down), "STORAGE_CASING", null);
             return false;
         }
         BlockPos storageBlocksStart = controllerPos.relative(right).relative(top);
@@ -86,6 +101,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             state -> state.is(NEBlocks.ECO_DRIVE.get())
                 && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == front
         )) {
+            logBlockVolumeFailure(level, min, max, "storage drive rectangle", storageBlocksStart, storageBlocksEnd, "ECO_DRIVE facing " + front, front);
             return false;
         }
         BlockPos ventStart = controllerPos.relative(right).relative(back);
@@ -97,6 +113,8 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 && it.getValue(ECOStorageVentBlock.FACING) == back
         );
         if (ventEndResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "storage vent line", ventStart, "STORAGE_VENT facing " + back, back);
+            logLineProbe(level, min, max, "storage vent line", ventStart, right, 8);
             return false;
         }
         BlockPos ventEnd = ventEndResult.getOrThrow(false, ignored -> {});
@@ -111,17 +129,23 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
         if (upperEnergyCellResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "upper energy cell line", upperEnergyCellStart, "ECOEnergyCellBlock facing " + back + " tier supported by " + tier, back);
+            logLineProbe(level, min, max, "upper energy cell line", upperEnergyCellStart, right, 8);
             return false;
         }
         BlockPos upperEnergyCellEnd = upperEnergyCellResult.getOrThrow(false, ignored -> {});
         if (upperEnergyCellEnd.equals(upperEnergyCellStart)) {
-            return validateBlock(
+            boolean validSingleUpperCell = validateBlock(
                 level,
                 upperEnergyCellStart,
                 state -> state.getBlock() instanceof ECOEnergyCellBlock cell
                     && tier.supportsComponentTier(cell.getBlockEntity(level, upperEnergyCellEnd).getTier())
                     && state.getValue(ECOEnergyCellBlock.FACING) == back
             );
+            if (!validSingleUpperCell) {
+                logVerifyFailure(level, min, max, "upper energy cell single", upperEnergyCellStart, "ECOEnergyCellBlock facing " + back + " tier supported by " + tier, back);
+            }
+            return validSingleUpperCell;
         }
         BlockPos lowerEnergyCellStart = controllerPos.relative(back).relative(down).relative(right);
         DataResult<BlockPos> lowerEnergyCellResult = validateBlockLine(
@@ -133,6 +157,8 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                 && state.getValue(ECOEnergyCellBlock.FACING) == back
         );
         if (lowerEnergyCellResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "lower energy cell line", lowerEnergyCellStart, "ECOEnergyCellBlock facing " + back + " tier supported by " + tier, back);
+            logLineProbe(level, min, max, "lower energy cell line", lowerEnergyCellStart, right, 8);
             return false;
         }
         BlockPos lowerEnergyCellEnd = lowerEnergyCellResult.getOrThrow(false, ignored -> {});
@@ -147,9 +173,18 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             tailCasing.relative(down)
         );
         if (!ensureSameSurface(tailCasingPoses)) {
+            for (BlockPos tailCasingPos : tailCasingPoses) {
+                logVerifyFailure(level, min, max, "same surface tail casings", tailCasingPos, "same x, y, or z surface: " + tailCasingPoses, null);
+            }
             return false;
         }
-        return validateBlocks(level, tailCasingPoses, BlockState::is, NEBlocks.STORAGE_CASING.get());
+        for (BlockPos tailCasingPos : tailCasingPoses) {
+            if (!validateBlock(level, tailCasingPos, BlockState::is, NEBlocks.STORAGE_CASING.get())) {
+                logVerifyFailure(level, min, max, "tail casing", tailCasingPos, "STORAGE_CASING", null);
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -167,5 +202,47 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
 
     private boolean validateInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down) {
         return validateInterface(level, interfacePos, top, down, NEBlocks.STORAGE_INTERFACE, NEBlocks.STORAGE_CASING);
+    }
+
+    private void logCasingColumn(ServerLevel level, BlockPos min, BlockPos max, String step, BlockPos centerPos, Direction top, Direction down) {
+        logVerifyFailure(level, min, max, step + " center", centerPos, "STORAGE_CASING column at center/top/down", null);
+        logVerifyFailure(level, min, max, step + " top", centerPos.relative(top), "STORAGE_CASING column at center/top/down", null);
+        logVerifyFailure(level, min, max, step + " down", centerPos.relative(down), "STORAGE_CASING column at center/top/down", null);
+    }
+
+    private void logInterfaceStack(
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        String step,
+        BlockPos interfacePos,
+        Direction top,
+        Direction down,
+        String interfaceExpected,
+        String casingExpected
+    ) {
+        logVerifyFailure(level, min, max, step + " interface", interfacePos, interfaceExpected, null);
+        logVerifyFailure(level, min, max, step + " top", interfacePos.relative(top), casingExpected, null);
+        logVerifyFailure(level, min, max, step + " down", interfacePos.relative(down), casingExpected, null);
+    }
+
+    private void logBlockVolumeFailure(
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        String step,
+        BlockPos from,
+        BlockPos to,
+        String expected,
+        Direction expectedFacing
+    ) {
+        for (BlockPos blockPos : BlockPos.betweenClosed(from, to)) {
+            BlockState state = level.getBlockState(blockPos);
+            if (!state.is(NEBlocks.ECO_DRIVE.get()) || !state.hasProperty(BlockStateProperties.HORIZONTAL_FACING) || state.getValue(BlockStateProperties.HORIZONTAL_FACING) != expectedFacing) {
+                logVerifyFailure(level, min, max, step, blockPos, expected, expectedFacing);
+                return;
+            }
+        }
+        logVerifyFailure(level, min, max, step, from, expected, expectedFacing);
     }
 }

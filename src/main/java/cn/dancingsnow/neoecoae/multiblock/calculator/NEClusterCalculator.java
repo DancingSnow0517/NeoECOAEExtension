@@ -14,8 +14,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.registries.ForgeRegistries;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -28,6 +30,9 @@ import java.util.function.Predicate;
 public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_CLUSTER_UPDATES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_VERIFY_FAILURES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_VERIFY_CONTEXTS = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_LINE_PROBES = ConcurrentHashMap.newKeySet();
 
     public NEClusterCalculator(NEBlockEntity<C, ?> t) {
         super(t);
@@ -114,14 +119,180 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         int sizeY = max.getY() - min.getY() + 1;
         int sizeZ = max.getZ() - min.getZ() + 1;
 
+        boolean valid;
         if (sizeX > sizeZ) {
-            return sizeX <= maxLength() && sizeY == 3 && sizeZ == 2;
+            valid = sizeX <= maxLength() && sizeY == 3 && sizeZ == 2;
         } else {
-            return sizeZ <= maxLength() && sizeY == 3 && sizeX == 2;
+            valid = sizeZ <= maxLength() && sizeY == 3 && sizeX == 2;
         }
+        if (!valid && !FMLEnvironment.production) {
+            String key = getClass().getName() + "|scale|" + min + "|" + max + "|" + sizeX + "|" + sizeY + "|" + sizeZ;
+            if (LOGGED_VERIFY_FAILURES.add(key)) {
+                LOGGER.info(
+                    "NE multiblock scale failed: calculator={}, target={}, bounds={}..{}, sizeX={}, sizeY={}, sizeZ={}, maxLength={}, expected={}",
+                    getClass().getSimpleName(),
+                    target.getBlockPos(),
+                    min,
+                    max,
+                    sizeX,
+                    sizeY,
+                    sizeZ,
+                    maxLength(),
+                    "if sizeX > sizeZ: sizeX <= maxLength && sizeY == 3 && sizeZ == 2; else: sizeZ <= maxLength && sizeY == 3 && sizeX == 2"
+                );
+            }
+        }
+        return valid;
     }
 
     protected abstract int maxLength();
+
+    protected void logVerifyFailure(
+        ServerLevel level,
+        String step,
+        BlockPos pos,
+        String expected,
+        @Nullable Direction expectedFacing
+    ) {
+        logVerifyFailure(level, null, null, step, pos, expected, expectedFacing);
+    }
+
+    protected void logVerifyFailure(
+        ServerLevel level,
+        @Nullable BlockPos min,
+        @Nullable BlockPos max,
+        String step,
+        BlockPos pos,
+        String expected,
+        @Nullable Direction expectedFacing
+    ) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        BlockState actualState = level.getBlockState(pos);
+        Direction actualFacing = actualState.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
+            ? actualState.getValue(BlockStateProperties.HORIZONTAL_FACING)
+            : null;
+        BlockEntity actualBlockEntity = level.getBlockEntity(pos);
+        String key = getClass().getName() + "|" + step + "|" + pos + "|" + actualState;
+        if (!LOGGED_VERIFY_FAILURES.add(key)) {
+            return;
+        }
+        LOGGER.info(
+            "NE multiblock verify failed: calculator={}, target={}, bounds={}..{}, step={}, pos={}, expected={}, expectedFacing={}, actualBlock={}, actualState={}, actualFacing={}, actualBE={}",
+            getClass().getSimpleName(),
+            target.getBlockPos(),
+            min,
+            max,
+            step,
+            pos,
+            expected,
+            expectedFacing,
+            ForgeRegistries.BLOCKS.getKey(actualState.getBlock()),
+            actualState,
+            actualFacing,
+            actualBlockEntity == null ? null : actualBlockEntity.getClass().getName()
+        );
+    }
+
+    protected void logVerifyContext(
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        BlockPos controllerPos,
+        BlockState controllerState,
+        Direction front,
+        Direction back,
+        Direction left,
+        Direction right,
+        Direction top,
+        Direction down
+    ) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        Direction controllerFacing = controllerState.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
+            ? controllerState.getValue(BlockStateProperties.HORIZONTAL_FACING)
+            : null;
+        String key = getClass().getName() + "|context|" + min + "|" + max + "|" + controllerPos + "|" + controllerState;
+        if (!LOGGED_VERIFY_CONTEXTS.add(key)) {
+            return;
+        }
+        LOGGER.info(
+            "NE multiblock verify context: calculator={}, target={}, bounds={}..{}, controllerPos={}, controllerState={}, controllerFacing={}, front={}, back={}, left={}, right={}, top={}, down={}",
+            getClass().getSimpleName(),
+            target.getBlockPos(),
+            min,
+            max,
+            controllerPos,
+            controllerState,
+            controllerFacing,
+            front,
+            back,
+            left,
+            right,
+            top,
+            down
+        );
+    }
+
+    protected void logLineProbe(
+        ServerLevel level,
+        String step,
+        BlockPos start,
+        Direction direction,
+        int maxSamples
+    ) {
+        logLineProbe(level, null, null, step, start, direction, maxSamples);
+    }
+
+    protected void logLineProbe(
+        ServerLevel level,
+        @Nullable BlockPos min,
+        @Nullable BlockPos max,
+        String step,
+        BlockPos start,
+        Direction direction,
+        int maxSamples
+    ) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String key = getClass().getName() + "|" + step + "|" + start + "|" + direction;
+        if (!LOGGED_LINE_PROBES.add(key)) {
+            return;
+        }
+        StringBuilder samples = new StringBuilder();
+        int limit = Math.min(maxSamples, 8);
+        for (int i = 0; i < limit; i++) {
+            BlockPos pos = start.relative(direction, i);
+            BlockState state = level.getBlockState(pos);
+            Direction facing = state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
+                ? state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                : null;
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (samples.length() > 0) {
+                samples.append("; ");
+            }
+            samples.append('#').append(i)
+                .append(" pos=").append(pos)
+                .append(" block=").append(ForgeRegistries.BLOCKS.getKey(state.getBlock()))
+                .append(" state=").append(state)
+                .append(" facing=").append(facing)
+                .append(" be=").append(blockEntity == null ? null : blockEntity.getClass().getName());
+        }
+        LOGGER.info(
+            "NE multiblock line probe: calculator={}, target={}, bounds={}..{}, step={}, start={}, direction={}, samples=[{}]",
+            getClass().getSimpleName(),
+            target.getBlockPos(),
+            min,
+            max,
+            step,
+            start,
+            direction,
+            samples
+        );
+    }
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {

@@ -53,7 +53,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
                 break;
             }
         }
-        if (controller == null) return false;
+        if (controller == null) {
+            logVerifyFailure(level, min, max, "controller", min, "ECOComputationSystemBlockEntity in allPossibleController(min,max)", null);
+            return false;
+        }
         IECOTier tier = controller.getTier();
         BlockState controllerState = controller.getBlockState();
         IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
@@ -63,10 +66,23 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction down = top.getOpposite();
         Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
         Direction right = left.getOpposite();
-        if (!validateCasing(level, controllerPos, top, down, left)) return false;
-        if (!validateCasing(level, controllerPos, top, down, right)) return false;
-        if (!validateCasing(level, controllerPos, top, down, back)) return false;
-        if (!validateCasing(level, controllerPos.relative(back).relative(right), top, down)) return false;
+        logVerifyContext(level, min, max, controllerPos, controllerState, front, back, left, right, top, down);
+        if (!validateCasing(level, controllerPos, top, down, left)) {
+            logCasingColumn(level, min, max, "controller left casing", controllerPos.relative(left), top, down);
+            return false;
+        }
+        if (!validateCasing(level, controllerPos, top, down, right)) {
+            logCasingColumn(level, min, max, "controller right casing", controllerPos.relative(right), top, down);
+            return false;
+        }
+        if (!validateCasing(level, controllerPos, top, down, back)) {
+            logCasingColumn(level, min, max, "controller back casing", controllerPos.relative(back), top, down);
+            return false;
+        }
+        if (!validateCasing(level, controllerPos.relative(back).relative(right), top, down)) {
+            logCasingColumn(level, min, max, "controller back right casing", controllerPos.relative(back).relative(right), top, down);
+            return false;
+        }
         BlockPos interfacePos = controllerPos.relative(back).relative(left);
         if (!validateInterface(
             level,
@@ -75,7 +91,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             down,
             NEBlocks.COMPUTATION_INTERFACE,
             NEBlocks.COMPUTATION_CASING
-        )) return false;
+        )) {
+            logInterfaceStack(level, min, max, "interface stack", interfacePos, top, down, "COMPUTATION_INTERFACE", "COMPUTATION_CASING");
+            return false;
+        }
         BlockPos connectorStart = controllerPos.relative(right).relative(right);
         DataResult<BlockPos> connectorEndResult = validateBlockLine(
             level,
@@ -87,6 +106,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             )
         );
         if (connectorEndResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "transmitter line", connectorStart, "COMPUTATION_TRANSMITTER facing " + front, front);
+            logLineProbe(level, min, max, "transmitter line", connectorStart, right, 8);
             return false;
         }
         BlockPos connectorEnd = connectorEndResult.getOrThrow(false, ignored -> {});
@@ -99,6 +120,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             matchingThreadingCore(level, tier, back)
         );
         if (threadingCoreEndResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "threading core line", threadingCoreStart, "ECOComputationThreadingCore facing " + back + " tier supported by " + tier, back);
+            logLineProbe(level, min, max, "threading core line", threadingCoreStart, right, 8);
             return false;
         }
         BlockPos threadingCoreEnd = threadingCoreEndResult.getOrThrow(false, ignored -> {});
@@ -111,6 +134,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             matchingParallelCore(level, tier, back)
         );
         if (upperParallelCoreEndResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "upper parallel core line", upperParallelCoreStart, "ECOComputationParallelCore facing " + back + " tier supported by " + tier, back);
+            logLineProbe(level, min, max, "upper parallel core line", upperParallelCoreStart, right, 8);
             return false;
         }
         BlockPos upperParallelCoreEnd = upperParallelCoreEndResult.getOrThrow(false, ignored -> {});
@@ -123,6 +148,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             matchingParallelCore(level, tier, back)
         );
         if (lowerParallelCoreEndResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "lower parallel core line", lowerParallelCoreStart, "ECOComputationParallelCore facing " + back + " tier supported by " + tier, back);
+            logLineProbe(level, min, max, "lower parallel core line", lowerParallelCoreStart, right, 8);
             return false;
         }
         BlockPos lowerParallelCoreEnd = lowerParallelCoreEndResult.getOrThrow(false, ignored -> {});
@@ -135,6 +162,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             matchingStateFacing(NEBlocks.COMPUTATION_DRIVE, front)
         );
         if (upperDriveEndResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "upper computation drive line", upperDriveStart, "COMPUTATION_DRIVE facing " + front, front);
+            logLineProbe(level, min, max, "upper computation drive line", upperDriveStart, right, 8);
             return false;
         }
         BlockPos upperDriveEnd = upperDriveEndResult.getOrThrow(false, ignored -> {});
@@ -147,6 +176,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             matchingStateFacing(NEBlocks.COMPUTATION_DRIVE, front)
         );
         if (lowerDriveEndResult.error().isPresent()) {
+            logVerifyFailure(level, min, max, "lower computation drive line", lowerDriveStart, "COMPUTATION_DRIVE facing " + front, front);
+            logLineProbe(level, min, max, "lower computation drive line", lowerDriveStart, right, 8);
             return false;
         }
         BlockPos lowerDriveEnd = lowerDriveEndResult.getOrThrow(false, ignored -> {});
@@ -161,6 +192,9 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         );
 
         if (!ensureSameSurface(tails)) {
+            for (BlockPos tail : tails) {
+                logVerifyFailure(level, min, max, "same surface tails", tail, "same x, y, or z surface: " + tails, null);
+            }
             return false;
         }
         List<BlockPos> tailCasings = List.of(
@@ -177,10 +211,17 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             matchingCoolingController(level, tier, right),
             coolerPos
         )) {
+            logVerifyFailure(level, min, max, "cooling controller", coolerPos, "ECOComputationCoolingController facing " + right + " tier supported by " + tier, right);
             return false;
         }
 
-        return validateBlocks(level, tailCasings, BlockState::is, NEBlocks.COMPUTATION_CASING.get());
+        for (BlockPos tailCasing : tailCasings) {
+            if (!validateBlock(level, tailCasing, BlockState::is, NEBlocks.COMPUTATION_CASING.get())) {
+                logVerifyFailure(level, min, max, "tail casing", tailCasing, "COMPUTATION_CASING", null);
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -194,6 +235,28 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
 
     private boolean validateCasing(ServerLevel level, BlockPos centerPos, Direction top, Direction down) {
         return validateCasing(level, centerPos, top, down, NEBlocks.COMPUTATION_CASING);
+    }
+
+    private void logCasingColumn(ServerLevel level, BlockPos min, BlockPos max, String step, BlockPos centerPos, Direction top, Direction down) {
+        logVerifyFailure(level, min, max, step + " center", centerPos, "COMPUTATION_CASING column at center/top/down", null);
+        logVerifyFailure(level, min, max, step + " top", centerPos.relative(top), "COMPUTATION_CASING column at center/top/down", null);
+        logVerifyFailure(level, min, max, step + " down", centerPos.relative(down), "COMPUTATION_CASING column at center/top/down", null);
+    }
+
+    private void logInterfaceStack(
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        String step,
+        BlockPos interfacePos,
+        Direction top,
+        Direction down,
+        String interfaceExpected,
+        String casingExpected
+    ) {
+        logVerifyFailure(level, min, max, step + " interface", interfacePos, interfaceExpected, null);
+        logVerifyFailure(level, min, max, step + " top", interfacePos.relative(top), casingExpected, null);
+        logVerifyFailure(level, min, max, step + " down", interfacePos.relative(down), casingExpected, null);
     }
 
     private BiPredicate<BlockState, BlockPos> matchingParallelCore(

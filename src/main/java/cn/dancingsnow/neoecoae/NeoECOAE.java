@@ -78,6 +78,7 @@ public class NeoECOAE {
         integrationManager.compileContent();
         integrationManager.loadAllIntegrations();
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
+        modBus.addListener(NEConfig::onLoad);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
 
         modBus.addListener(NeoECOAE::initUpgrades);

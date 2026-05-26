@@ -52,9 +52,9 @@ public class NEConfig {
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
-    public static int craftingSystemMaxLength;
-    public static int computationSystemMaxLength;
-    public static int storageSystemMaxLength;
+    public static int craftingSystemMaxLength = 15;
+    public static int computationSystemMaxLength = 15;
+    public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
 
     @SubscribeEvent
