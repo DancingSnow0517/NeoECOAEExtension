@@ -40,6 +40,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
 import appeng.util.inv.filter.AEItemFilters;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
@@ -48,6 +49,7 @@ import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
@@ -92,6 +94,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -110,6 +113,8 @@ import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -121,7 +126,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
-    implements ISyncPersistRPCBlockEntity, IUIHolder, IGridTickable, IUpgradeableObject, IConfigurableObject {
+    implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, IGridTickable, IUpgradeableObject, IConfigurableObject {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
     private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
 
@@ -681,19 +687,28 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         return LDLib1MachineUIs.createIntegratedWorkingStationUI(this, player);
     }
 
-    @Override
-    public boolean isInvalid() {
-        return isRemoved();
-    }
-
-    @Override
-    public boolean isRemote() {
-        return level != null && level.isClientSide();
-    }
-
-    @Override
-    public void markAsDirty() {
-        setChanged();
+    public boolean openMenu(ServerPlayer player) {
+        try {
+            boolean opened = BlockEntityUIFactory.INSTANCE.openUI(this, player);
+            if (!opened) {
+                LOGGER.warn(
+                    "LDLib1 openUI returned false at {} for {} (BlockEntityUI={})",
+                    worldPosition,
+                    getClass().getName(),
+                    this instanceof IUIHolder.BlockEntityUI
+                );
+            }
+            return opened;
+        } catch (RuntimeException e) {
+            LOGGER.warn(
+                "LDLib1 createUI/openUI threw at {} for {} (BlockEntityUI={})",
+                worldPosition,
+                getClass().getName(),
+                this instanceof IUIHolder.BlockEntityUI,
+                e
+            );
+            return false;
+        }
     }
 
     @Override

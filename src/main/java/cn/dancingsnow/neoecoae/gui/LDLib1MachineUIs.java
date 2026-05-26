@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.gui;
 
-import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
@@ -25,13 +24,16 @@ public final class LDLib1MachineUIs {
 
     public static ModularUI createIntegratedWorkingStationUI(ECOIntegratedWorkingStationBlockEntity be, Player player) {
         int width = 198;
-        int height = 214;
+        int height = 222;
         var ui = new ModularUI(width, height, be, player).background(panel());
 
         ui.widget(label(8, 8, Component.translatable("block.neoecoae.integrated_working_station"), TITLE_COLOR));
-        addInventory(ui, be.getInput().toContainer(), 9, 8, 28, 3, true, true);
-        addInventory(ui, be.getOutput().toContainer(), 1, 80, 46, 1, false, true);
-        addInventory(ui, be.getUpgrades().toContainer(), 4, 116, 28, 1, true, true);
+        ui.widget(label(8, 24, Component.literal("Input"), STATUS_COLOR));
+        addInventory(ui, be.getInput().toContainer(), 9, 8, 38, 3, true, true);
+        ui.widget(label(72, 24, Component.literal("Output"), STATUS_COLOR));
+        addInventory(ui, be.getOutput().toContainer(), 1, 72, 56, 1, false, true);
+        ui.widget(label(104, 24, Component.literal("Upgrades"), STATUS_COLOR));
+        addInventory(ui, be.getUpgrades().toContainer(), 4, 104, 38, 1, true, true);
 
         ui.widget(label(8, 116, Component.translatable("container.inventory"), TITLE_COLOR));
         addPlayerInventorySlots(ui, player, 8, 130);
@@ -40,23 +42,14 @@ public final class LDLib1MachineUIs {
 
     public static ModularUI createCraftingControllerUI(ECOCraftingSystemBlockEntity be, Player player) {
         int width = 198;
-        int height = 214;
+        int height = 222;
         var ui = new ModularUI(width, height, be, player).background(panel());
 
         ui.widget(label(8, 8, be.getBlockState().getBlock().getName(), TITLE_COLOR));
-        ui.widget(dynamicLabel(8, 26, () -> "Overclock: %d / %d".formatted(be.getOverlockTimes(), be.getEffectiveOverclockTimes()), STATUS_COLOR));
-        ui.widget(dynamicLabel(8, 38, () -> boolLine("gui.neoecoae.crafting.enable_active_cooling", be.isActiveCooling()), STATUS_COLOR));
-        ui.widget(dynamicLabel(8, 50, () -> Component.translatable(
-            "gui.neoecoae.crafting.coolant_amount",
-            Tooltips.ofNumber(be.getCoolant()),
-            Tooltips.ofNumber(ECOCraftingSystemBlockEntity.MAX_COOLANT)
-        ).getString(), STATUS_COLOR));
-        ui.widget(dynamicLabel(8, 62, () -> Component.translatable(
-            "gui.neoecoae.crafting.working_threads",
-            be.getRunningThreadCount(),
-            be.getAvailableThreads(),
-            be.getAvailableThreads() <= 0 ? 0 : (int) (be.getRunningThreadCount() * 100.0f / be.getAvailableThreads())
-        ).getString(), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 28, () -> "Overclock: " + enabledText(be.isOverclocked()), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 40, () -> "Active Cooling: " + enabledText(be.isActiveCooling()), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 52, () -> "Threads: %d / %d".formatted(be.getRunningThreadCount(), be.getAvailableThreads()), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 64, () -> "Status: " + be.getPreviewStatusComponent().getString(), STATUS_COLOR));
 
         ui.widget(new ButtonWidget(
             8,
@@ -100,11 +93,8 @@ public final class LDLib1MachineUIs {
         return ui;
     }
 
-    private static String boolLine(String key, boolean value) {
-        return Component.translatable(key).getString() + Component.translatable(value
-            ? "gui.neoecoae.integrated_working_station.allow_outputs.enabled"
-            : "gui.neoecoae.integrated_working_station.allow_outputs.disabled"
-        ).getString();
+    private static String enabledText(boolean value) {
+        return value ? "Enabled" : "Disabled";
     }
 
     private static LabelWidget label(int x, int y, Component component, int color) {

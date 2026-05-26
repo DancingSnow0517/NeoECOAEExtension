@@ -27,7 +27,7 @@ import static cn.dancingsnow.neoecoae.util.ThreadLocalRandomHelper.getRandom;
 
 public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     Logger MODEL_LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
-    Set<ResourceLocation> WARNED_MISSING_MODELS = ConcurrentHashMap.newKeySet();
+    Set<String> WARNED_MISSING_MODELS = ConcurrentHashMap.newKeySet();
 
     void renderFixed(T blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay);
 
@@ -170,7 +170,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
 
     private static BakedModel getBakedModelOrNull(Minecraft mc, ResourceLocation model, BlockEntity owner) {
         if (model == null) {
-            warnMissingModel(null, owner);
+            warnNullModel(owner);
             return null;
         }
         BakedModel bakedModel = mc.getModelManager().getModel(model);
@@ -181,14 +181,25 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         return bakedModel;
     }
 
+    private static void warnNullModel(BlockEntity owner) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String ownerName = owner == null ? "unknown block entity" : owner.getType().toString();
+        String key = "null:" + ownerName;
+        if (WARNED_MISSING_MODELS.add(key)) {
+            MODEL_LOGGER.warn("Missing BER model location for {}", ownerName);
+        }
+    }
+
     private static void warnMissingModel(ResourceLocation model, BlockEntity owner) {
         if (FMLEnvironment.production) {
             return;
         }
-        ResourceLocation key = model == null ? new ResourceLocation("neoecoae", "__null_model__") : model;
+        String key = "missing:" + model;
         if (WARNED_MISSING_MODELS.add(key)) {
             MODEL_LOGGER.warn(
-                "Missing BER baked model {} for {}",
+                "BER model resolved to missing model: {} for {}",
                 model,
                 owner == null ? "unknown block entity" : owner.getType()
             );

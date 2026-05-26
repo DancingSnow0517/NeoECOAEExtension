@@ -6,6 +6,7 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.core.localization.Tooltips;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -18,6 +19,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
@@ -57,12 +59,15 @@ import net.minecraftforge.fluids.capability.templates.FluidTank;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IUIHolder, IGridTickable {
+    implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, IGridTickable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
@@ -877,18 +882,27 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return LDLib1MachineUIs.createCraftingControllerUI(this, player);
     }
 
-    @Override
-    public boolean isInvalid() {
-        return isRemoved();
-    }
-
-    @Override
-    public boolean isRemote() {
-        return level != null && level.isClientSide();
-    }
-
-    @Override
-    public void markAsDirty() {
-        setChanged();
+    public boolean openMenu(ServerPlayer player) {
+        try {
+            boolean opened = BlockEntityUIFactory.INSTANCE.openUI(this, player);
+            if (!opened) {
+                LOGGER.warn(
+                    "LDLib1 openUI returned false at {} for {} (BlockEntityUI={})",
+                    worldPosition,
+                    getClass().getName(),
+                    this instanceof IUIHolder.BlockEntityUI
+                );
+            }
+            return opened;
+        } catch (RuntimeException e) {
+            LOGGER.warn(
+                "LDLib1 createUI/openUI threw at {} for {} (BlockEntityUI={})",
+                worldPosition,
+                getClass().getName(),
+                this instanceof IUIHolder.BlockEntityUI,
+                e
+            );
+            return false;
+        }
     }
 }
