@@ -11,6 +11,7 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -19,18 +20,23 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import java.util.List;
 
 public class ECOComputationDriveBlockEntity
     extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity> implements ISyncPersistRPCBlockEntity, ICellHost {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -75,11 +81,23 @@ public class ECOComputationDriveBlockEntity
 
     public void setCellStack(@Nullable ItemStack cellStack) {
         this.cellStack = normalizeCellStack(cellStack);
-        if (getLevel() != null) {
-            getLevel().setBlockAndUpdate(
-                getBlockPos(),
-                getBlockState().setValue(ECOComputationDrive.HAS_CELL, this.cellStack != null)
-            );
+        if (getLevel() != null && getBlockState().hasProperty(ECOComputationDrive.HAS_CELL)) {
+            boolean oldHasCell = getBlockState().getValue(ECOComputationDrive.HAS_CELL);
+            boolean newHasCell = this.cellStack != null;
+            BlockState newState = getBlockState().setValue(ECOComputationDrive.HAS_CELL, newHasCell);
+            if (!FMLEnvironment.production) {
+                LOGGER.info(
+                    "ECOComputationDrive setCellStack: pos={}, oldHasCell={}, newHasCell={}, cellItem={}, resultingState={}",
+                    getBlockPos(),
+                    oldHasCell,
+                    newHasCell,
+                    this.cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(this.cellStack.getItem()),
+                    newState
+                );
+            }
+            if (oldHasCell != newHasCell) {
+                getLevel().setBlockAndUpdate(getBlockPos(), newState);
+            }
         }
         if (this.cluster != null) {
             this.cluster.recalculateRemainingStorage();
@@ -112,14 +130,21 @@ public class ECOComputationDriveBlockEntity
 
     @Override
     public void setFormed(boolean formed) {
+        this.formed = formed;
         this.formedState = formed;
+        syncFormedBlockState(formed, "setFormed");
         setChanged();
     }
 
     @Override
     public void updateState(boolean updateExposed) {
-        super.updateState(updateExposed);
-        formedState = cluster != null;
+        boolean newFormed = cluster != null;
+        this.formed = newFormed;
+        this.formedState = newFormed;
+        syncFormedBlockState(newFormed, "updateState");
+        if (updateExposed) {
+            onGridConnectableSidesChanged();
+        }
         if (cluster != null) {
             ECOComputationSystemBlockEntity controller = cluster.getController();
             if (controller != null) {
@@ -139,6 +164,9 @@ public class ECOComputationDriveBlockEntity
     public void disconnect(boolean update) {
         super.disconnect(update);
         isLowerDrive = false;
+        this.formed = false;
+        this.formedState = false;
+        syncFormedBlockState(false, "disconnect");
         setChanged();
     }
 
@@ -198,6 +226,29 @@ public class ECOComputationDriveBlockEntity
             return null;
         }
         return stack.copyWithCount(1);
+    }
+
+    private void syncFormedBlockState(boolean newFormed, String source) {
+        if (level == null || notLoaded() || isRemoved() || !getBlockState().hasProperty(ECOComputationDrive.FORMED)) {
+            return;
+        }
+        boolean oldFormed = getBlockState().getValue(ECOComputationDrive.FORMED);
+        BlockState newState = getBlockState().setValue(ECOComputationDrive.FORMED, newFormed);
+        if (!FMLEnvironment.production && oldFormed != newFormed) {
+            LOGGER.info(
+                "ECOComputationDrive formed state update: source={}, pos={}, oldBlockFormed={}, newBlockFormed={}, formedState={}, hasCluster={}, resultingState={}",
+                source,
+                getBlockPos(),
+                oldFormed,
+                newFormed,
+                formedState,
+                cluster != null,
+                newState
+            );
+        }
+        if (oldFormed != newFormed) {
+            level.setBlock(getBlockPos(), newState, Block.UPDATE_ALL_IMMEDIATE);
+        }
     }
 
     @Override

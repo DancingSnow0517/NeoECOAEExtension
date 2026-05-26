@@ -15,6 +15,7 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -24,16 +25,20 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import java.util.List;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
     implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -67,8 +72,23 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
         this.cellStack = normalizeCellStack(cellStack);
-        if (getLevel() != null) {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, this.cellStack != null));
+        if (getLevel() != null && getBlockState().hasProperty(ECODriveBlock.HAS_CELL)) {
+            boolean oldHasCell = getBlockState().getValue(ECODriveBlock.HAS_CELL);
+            boolean newHasCell = this.cellStack != null;
+            BlockState newState = getBlockState().setValue(ECODriveBlock.HAS_CELL, newHasCell);
+            if (!FMLEnvironment.production) {
+                LOGGER.info(
+                    "ECODrive setCellStack: pos={}, oldHasCell={}, newHasCell={}, cellItem={}, resultingState={}",
+                    getBlockPos(),
+                    oldHasCell,
+                    newHasCell,
+                    this.cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(this.cellStack.getItem()),
+                    newState
+                );
+            }
+            if (oldHasCell != newHasCell) {
+                getLevel().setBlockAndUpdate(getBlockPos(), newState);
+            }
         }
         updateState();
         markForUpdate();
