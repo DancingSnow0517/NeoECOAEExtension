@@ -13,8 +13,8 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.slf4j.Logger;
@@ -28,9 +28,9 @@ public class ECOComputationDriveRenderer
     IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity>,
     BlockEntityRenderer<ECOComputationDriveBlockEntity> {
 
-    private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
     private static final Set<String> LOGGED_MODELS = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_MISSING_CELL_MAPPINGS = ConcurrentHashMap.newKeySet();
 
 
     public ECOComputationDriveRenderer() {
@@ -51,135 +51,183 @@ public class ECOComputationDriveRenderer
         int packedOverlay
     ) {
         ItemStack itemStack = blockEntity.getCellStack();
-        Direction facing = blockEntity.getBlockState().getValue(ECOComputationDrive.FACING);
-        poseStack.pushPose();
-
-        poseStack.translate(0.5, 0.5, 0.5);
-        poseStack.mulPose(Axis.YP.rotationDegrees(yRotForFacing(facing)));
+        BlockState blockState = blockEntity.getBlockState();
+        Direction facing = blockState.getValue(ECOComputationDrive.FACING);
         boolean formed = blockEntity.isFormed();
-        boolean shouldCellWork = false;
-        IECOTier cableTier = blockEntity.getTier();
+        IECOTier driveTier = blockEntity.getTier();
+        ComputationRenderModels models = selectModels(blockEntity, itemStack, formed, driveTier);
+
+        logComputationModels(blockEntity, itemStack, models, facing, formed, driveTier);
+
+        poseStack.pushPose();
+        applyFacing(poseStack, facing);
+
+        renderComputationCell(blockEntity, poseStack, bufferSource, models.selectedCellModel(), packedLight, packedOverlay);
+        if (formed) {
+            renderComputationCable(blockEntity, poseStack, bufferSource, models, packedLight, packedOverlay);
+        }
+
+        poseStack.popPose();
+    }
+
+    private static ComputationRenderModels selectModels(
+        ECOComputationDriveBlockEntity blockEntity,
+        ItemStack itemStack,
+        boolean formed,
+        IECOTier driveTier
+    ) {
         ResourceLocation normalCellModel = null;
         ResourceLocation formedCellModel = null;
-        if (itemStack != null && !itemStack.isEmpty() && itemStack.getItem() instanceof ECOComputationCellItem item) {
-            IECOTier itemTier = item.getTier();
-            shouldCellWork = formed && blockEntity.getTier() != null && itemTier.compareTo(blockEntity.getTier()) <= 0;
+        ResourceLocation selectedCellModel = null;
+        ResourceLocation cableModel = null;
+        IECOTier itemTier = null;
+        IECOTier cableTier = driveTier;
+        boolean shouldCellWork = false;
+        boolean hasComputationCell = itemStack != null
+            && !itemStack.isEmpty()
+            && itemStack.getItem() instanceof ECOComputationCellItem;
+
+        if (hasComputationCell) {
+            ECOComputationCellItem item = (ECOComputationCellItem) itemStack.getItem();
+            itemTier = item.getTier();
+            shouldCellWork = formed && driveTier != null && itemTier.compareTo(driveTier) <= 0;
             normalCellModel = ECOComputationModels.getNormalModel(itemStack.getItem());
             formedCellModel = ECOComputationModels.getFormedModel(itemStack.getItem());
-            ResourceLocation cellModel = shouldCellWork ? formedCellModel : normalCellModel;
+            selectedCellModel = shouldCellWork ? formedCellModel : normalCellModel;
+            if (selectedCellModel == null && shouldCellWork) {
+                selectedCellModel = normalCellModel;
+            }
             if (shouldCellWork) {
                 cableTier = itemTier;
             }
-            if (cellModel != null) {
-                poseStack.pushPose();
-                poseStack.translate(0, 0, -0.25);
-                tessellateModel(
-                    blockEntity,
-                    poseStack,
-                    bufferSource,
-                    cellModel,
-                    packedLight,
-                    packedOverlay
-                );
-                poseStack.popPose();
-            }
-//            tessellateModelWithAO(
-//                blockEntity.getLevel(),
-//                cellModel,
-//                blockEntity.getBlockState(),
-//                blockEntity.getBlockPos(),
-//                poseStack,
-//                bufferSource,
-//                RNG.get(),
-//                packedOverlay
-//            );
         }
-        ResourceLocation cableModel = null;
-        boolean connected = false;
+
         if (formed) {
-            if (itemStack != null) {
-                if (shouldCellWork) {
-                    poseStack.translate(0, 0, -0.6);
-                    cableModel = ECOComputationModels.getCableConnectedModel(cableTier);
-                    connected = true;
-                } else {
-                    if (blockEntity.isLowerDrive()) {
-                        poseStack.translate(0, 0.688, -0.55);
-                    } else {
-                        poseStack.translate(0, -0.688, -0.55);
-                    }
-                    cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
-                }
-            } else {
-                if (blockEntity.isLowerDrive()) {
-                    poseStack.translate(0, 0.688, -0.55);
-                } else {
-                    poseStack.translate(0, -0.688, -0.55);
-                }
-                cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
-            }
+            cableModel = shouldCellWork
+                ? ECOComputationModels.getCableConnectedModel(cableTier)
+                : ECOComputationModels.getCableDisconnectedModel(cableTier);
         }
-        if (blockEntity.isLowerDrive()) {
+
+        return new ComputationRenderModels(
+            normalCellModel,
+            formedCellModel,
+            selectedCellModel,
+            cableModel,
+            itemTier,
+            driveTier,
+            shouldCellWork,
+            blockEntity.isLowerDrive()
+        );
+    }
+
+    private void renderComputationCell(
+        ECOComputationDriveBlockEntity blockEntity,
+        PoseStack poseStack,
+        MultiBufferSource bufferSource,
+        ResourceLocation cellModel,
+        int packedLight,
+        int packedOverlay
+    ) {
+        if (cellModel == null) {
+            return;
+        }
+        poseStack.pushPose();
+        poseStack.translate(0, 0, -0.25);
+        tessellateModel(blockEntity, poseStack, bufferSource, cellModel, packedLight, packedOverlay);
+        poseStack.popPose();
+    }
+
+    private void renderComputationCable(
+        ECOComputationDriveBlockEntity blockEntity,
+        PoseStack poseStack,
+        MultiBufferSource bufferSource,
+        ComputationRenderModels models,
+        int packedLight,
+        int packedOverlay
+    ) {
+        if (models.cableModel() == null) {
+            return;
+        }
+        poseStack.pushPose();
+        if (models.shouldCellWork()) {
+            poseStack.translate(0, 0, -0.6);
+        } else if (models.lowerDrive()) {
+            poseStack.translate(0, 0.688, -0.55);
+        } else {
+            poseStack.translate(0, -0.688, -0.55);
+        }
+
+        if (models.lowerDrive()) {
             poseStack.mulPose(Axis.ZP.rotationDegrees(180));
             poseStack.scale(-1, -1, 1);
-            if (connected) {
+            if (models.shouldCellWork()) {
                 poseStack.mulPose(Axis.ZP.rotationDegrees(180));
             }
         }
-        logComputationModels(blockEntity, itemStack, normalCellModel, formedCellModel, cableModel, formed, blockEntity.isLowerDrive(), cableTier);
-        if (cableModel == null) {
-            poseStack.popPose();
-            return;
-        }
-        tessellateModel(
-            blockEntity,
-            poseStack,
-            bufferSource,
-            cableModel,
-            packedLight,
-            packedOverlay
-        );
-//        tessellateModelWithAO(
-//            blockEntity.getLevel(),
-//            cableModel,
-//            blockEntity.getBlockState(),
-//            blockEntity.getBlockPos(),
-//            poseStack,
-//            bufferSource,
-//            RNG.get(),
-//            packedOverlay
-//        );
+
+        tessellateModel(blockEntity, poseStack, bufferSource, models.cableModel(), packedLight, packedOverlay);
         poseStack.popPose();
     }
 
     private static void logComputationModels(
         ECOComputationDriveBlockEntity blockEntity,
         ItemStack itemStack,
-        ResourceLocation normalCellModel,
-        ResourceLocation formedCellModel,
-        ResourceLocation cableModel,
+        ComputationRenderModels models,
+        Direction facing,
         boolean formed,
-        boolean lowerDrive,
-        IECOTier tier
+        IECOTier driveTier
     ) {
         if (FMLEnvironment.production) {
             return;
         }
         ResourceLocation itemId = itemStack == null || itemStack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(itemStack.getItem());
-        String key = itemId + "|" + normalCellModel + "|" + formedCellModel + "|" + cableModel + "|" + formed + "|" + lowerDrive + "|" + tier;
+        BlockState blockState = blockEntity.getBlockState();
+        boolean blockstateFormed = blockState.hasProperty(ECOComputationDrive.FORMED) && blockState.getValue(ECOComputationDrive.FORMED);
+        boolean blockstateHasCell = blockState.hasProperty(ECOComputationDrive.HAS_CELL) && blockState.getValue(ECOComputationDrive.HAS_CELL);
+        String key = blockEntity.getBlockPos()
+            + "|" + facing
+            + "|" + blockstateFormed
+            + "|" + formed
+            + "|" + blockstateHasCell
+            + "|" + itemId
+            + "|" + models.itemTier()
+            + "|" + driveTier
+            + "|" + models.shouldCellWork()
+            + "|" + models.normalCellModel()
+            + "|" + models.formedCellModel()
+            + "|" + models.selectedCellModel()
+            + "|" + models.cableModel()
+            + "|" + models.lowerDrive();
         if (LOGGED_MODELS.add(key)) {
             LOGGER.info(
-                "ECOComputationDrive BER model: pos={}, item={}, normalModel={}, formedModel={}, cableModel={}, formed={}, lowerDrive={}, tier={}, clientSide={}",
+                "ECOComputationDrive BER model: pos={}, facing={}, blockstateFormed={}, blockEntityFormed={}, blockstateHasCell={}, item={}, itemTier={}, driveTier={}, shouldCellWork={}, normalModel={}, formedModel={}, selectedCellModel={}, cableModel={}, lowerDrive={}, clientSide={}",
                 blockEntity.getBlockPos(),
-                itemId,
-                normalCellModel,
-                formedCellModel,
-                cableModel,
+                facing,
+                blockstateFormed,
                 formed,
-                lowerDrive,
-                tier,
+                blockstateHasCell,
+                itemId,
+                models.itemTier(),
+                driveTier,
+                models.shouldCellWork(),
+                models.normalCellModel(),
+                models.formedCellModel(),
+                models.selectedCellModel(),
+                models.cableModel(),
+                models.lowerDrive(),
                 blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide()
             );
+        }
+        if (itemId != null && models.selectedCellModel() == null) {
+            String missingKey = itemId + "|" + formed + "|" + driveTier;
+            if (LOGGED_MISSING_CELL_MAPPINGS.add(missingKey)) {
+                LOGGER.warn(
+                    "Missing computation cell model mapping: item={}, formed={}, tier={}",
+                    itemId,
+                    formed,
+                    driveTier
+                );
+            }
         }
     }
 
@@ -196,5 +244,22 @@ public class ECOComputationDriveRenderer
             case WEST -> 270f;
             default -> 0f;
         };
+    }
+
+    private static void applyFacing(PoseStack poseStack, Direction facing) {
+        poseStack.translate(0.5, 0.5, 0.5);
+        poseStack.mulPose(Axis.YP.rotationDegrees(yRotForFacing(facing)));
+    }
+
+    private record ComputationRenderModels(
+        ResourceLocation normalCellModel,
+        ResourceLocation formedCellModel,
+        ResourceLocation selectedCellModel,
+        ResourceLocation cableModel,
+        IECOTier itemTier,
+        IECOTier driveTier,
+        boolean shouldCellWork,
+        boolean lowerDrive
+    ) {
     }
 }
