@@ -4,13 +4,8 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
-import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -21,7 +16,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> implements BlockUIMenuType.BlockUI {
+public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
@@ -40,22 +35,7 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
 
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
-        if (level.isClientSide) {
-            return InteractionResult.SUCCESS;
-        }
-        if (player instanceof ServerPlayer serverPlayer
-            && level.getBlockEntity(pos) instanceof IUIHolder.BlockEntityUI holder) {
-            return BlockEntityUIFactory.INSTANCE.openUI(holder.self(), serverPlayer) ? InteractionResult.CONSUME : InteractionResult.PASS;
-        }
         return InteractionResult.PASS;
-    }
-
-    @Override
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        if (holder.player.level().getBlockEntity(holder.pos) instanceof ECOStorageSystemBlockEntity be) {
-            return be.createUI(holder);
-        }
-        return null;
     }
 }
 

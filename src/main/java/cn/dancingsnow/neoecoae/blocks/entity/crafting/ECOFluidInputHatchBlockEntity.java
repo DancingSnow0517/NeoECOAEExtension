@@ -46,6 +46,7 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
         }
     }
 
+    @Deprecated(forRemoval = true)
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         return CraftingUIHelper.createFluidHatchUI(holder, tank, "block.neoecoae.input_hatch", true, true);
     }

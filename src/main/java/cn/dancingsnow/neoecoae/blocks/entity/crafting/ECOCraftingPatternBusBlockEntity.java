@@ -209,6 +209,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             .forEach(drops::add);
     }
 
+    @Deprecated(forRemoval = true)
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
             .paddingAll(4)

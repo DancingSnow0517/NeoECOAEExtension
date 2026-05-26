@@ -2,13 +2,8 @@ package cn.dancingsnow.neoecoae.blocks.crafting;
 
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
-import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -21,20 +16,13 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEntity> implements BlockUIMenuType.BlockUI {
+public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEntity> {
     public ECOFluidInputHatchBlock(Properties properties) {
         super(properties);
     }
 
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
-        if (level.isClientSide) {
-            return InteractionResult.SUCCESS;
-        }
-        if (player instanceof ServerPlayer serverPlayer
-            && level.getBlockEntity(pos) instanceof IUIHolder.BlockEntityUI holder) {
-            return BlockEntityUIFactory.INSTANCE.openUI(holder.self(), serverPlayer) ? InteractionResult.CONSUME : InteractionResult.PASS;
-        }
         return InteractionResult.PASS;
     }
 
@@ -66,11 +54,4 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
         return state.getValue(FORMED);
     }
 
-    @Override
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        if (holder.player.level().getBlockEntity(holder.pos) instanceof ECOFluidInputHatchBlockEntity be) {
-            return be.createUI(holder);
-        }
-        return null;
-    }
 }

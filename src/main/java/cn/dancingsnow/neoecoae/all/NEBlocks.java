@@ -622,11 +622,12 @@ public class NEBlocks {
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, provider) -> {
+            ModelFile modelFile = provider.models().getExistingFile(provider.modLoc("block/eco_drive_empty"));
             provider.getVariantBuilder(ctx.get())
-                .forAllStatesExcept(state -> ConfiguredModel.builder()
-                    .modelFile(new ModelFile.UncheckedModelFile(provider.modLoc("block/builtin/eco_drive")))
+                .forAllStates(state -> ConfiguredModel.builder()
+                    .modelFile(modelFile)
                     .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
-                    .build(), ECODriveBlock.FORMED, ECODriveBlock.HAS_CELL);
+                    .build());
         })
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -835,15 +836,11 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate((ctx, prov) -> {
             ModelFile modelFileEmpty = prov.models().getExistingFile(prov.modLoc("block/computation_drive_empty"));
-            ModelFile modelFileFull = prov.models().getExistingFile(prov.modLoc("block/computation_drive_full"));
             prov.getVariantBuilder(ctx.get())
-                .forAllStates(s -> {
-                    Boolean formed = s.getValue(ECOComputationDrive.FORMED);
-                    return ConfiguredModel.builder()
+                .forAllStates(s -> ConfiguredModel.builder()
                         .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
-                        .modelFile(formed ? modelFileFull : modelFileEmpty)
-                        .build();
-                });
+                        .modelFile(modelFileEmpty)
+                        .build());
         })
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())

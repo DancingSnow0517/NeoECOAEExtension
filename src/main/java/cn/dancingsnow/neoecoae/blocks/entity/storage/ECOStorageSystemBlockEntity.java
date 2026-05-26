@@ -250,6 +250,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
     }
 
+    @Deprecated(forRemoval = true)
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         resetStorageInfosIfNeeded();
         UIElement root = new UIElement().layout(layout -> layout

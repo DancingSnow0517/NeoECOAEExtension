@@ -178,6 +178,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
     }
 
+    @Deprecated(forRemoval = true)
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
             .paddingAll( 4)
