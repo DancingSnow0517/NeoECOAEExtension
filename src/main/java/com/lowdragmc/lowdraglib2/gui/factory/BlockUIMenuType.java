@@ -21,6 +21,9 @@ public class BlockUIMenuType {
         }
     }
 
+    /**
+     * LDLib2 compatibility shim for legacy machine UIs that have not been ported to LDLib1 yet.
+     */
     public static boolean openUI(ServerPlayer player, BlockPos pos) {
         BlockEntity blockEntity = player.level().getBlockEntity(pos);
         if (blockEntity instanceof com.lowdragmc.lowdraglib.gui.modular.IUIHolder) {

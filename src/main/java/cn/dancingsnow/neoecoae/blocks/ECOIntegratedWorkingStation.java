@@ -4,7 +4,8 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -95,11 +96,19 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
 
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
-        if (player instanceof ServerPlayer serverPlayer) {
-            BlockUIMenuType.openUI(serverPlayer, pos);
-            return InteractionResult.CONSUME;
+        if (level.isClientSide) {
+            return InteractionResult.SUCCESS;
         }
-        return InteractionResult.SUCCESS;
+
+        if (player instanceof ServerPlayer serverPlayer) {
+            var be = level.getBlockEntity(pos);
+            if (be instanceof IUIHolder) {
+                boolean opened = BlockEntityUIFactory.INSTANCE.openUI(be, serverPlayer);
+                return opened ? InteractionResult.CONSUME : InteractionResult.PASS;
+            }
+        }
+
+        return InteractionResult.PASS;
     }
 
     @Override
