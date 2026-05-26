@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.gui.AETextures;
+import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
@@ -30,6 +31,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -55,7 +57,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import java.util.List;
 import java.util.UUID;
 
-public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity,  IGridTickable {
+public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, IGridTickable {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -250,6 +252,44 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
     }
 
+    public long getStoredEnergy() {
+        return storedEnergy;
+    }
+
+    public boolean isFormed() {
+        return formed;
+    }
+
+    public long getMaxEnergy() {
+        return maxEnergy;
+    }
+
+    public long getTotalUsedBytes() {
+        return sum(usedBytes);
+    }
+
+    public long getTotalBytes() {
+        return sum(totalBytes);
+    }
+
+    public long getTotalUsedTypes() {
+        return sum(usedTypes);
+    }
+
+    public long getTotalTypes() {
+        return sum(totalTypes);
+    }
+
+    public Component getPreviewStatusComponent() {
+        return buildPreviewStatusComponent();
+    }
+
+    @Override
+    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
+        resetStorageInfosIfNeeded();
+        return LDLib1MachineUIs.createStorageSystemUI(this, player);
+    }
+
     @Deprecated(forRemoval = true)
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         resetStorageInfosIfNeeded();
@@ -346,6 +386,17 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return 0;
         }
         return array[index];
+    }
+
+    private static long sum(long[] values) {
+        if (values == null) {
+            return 0;
+        }
+        long result = 0;
+        for (long value : values) {
+            result += value;
+        }
+        return result;
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {

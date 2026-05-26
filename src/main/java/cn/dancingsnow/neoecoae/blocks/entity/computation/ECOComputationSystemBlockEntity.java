@@ -5,6 +5,7 @@ import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.AETextures;
+import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
@@ -26,6 +27,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -49,7 +51,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.List;
 import java.util.UUID;
 
-public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity> implements ISyncPersistRPCBlockEntity {
+public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -176,6 +178,39 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 syncPreview(remainingBlocks, 1, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.build_interrupted");
             }
         }
+    }
+
+    public int getUsedThread() {
+        return usedThread;
+    }
+
+    public boolean isFormed() {
+        return formed;
+    }
+
+    public int getTotalThread() {
+        return totalThread;
+    }
+
+    public int getParallelCount() {
+        return parallelCount;
+    }
+
+    public long getAvailableBytes() {
+        return availableBytes;
+    }
+
+    public long getTotalBytes() {
+        return totalBytes;
+    }
+
+    public Component getPreviewStatusComponent() {
+        return buildPreviewStatusComponent();
+    }
+
+    @Override
+    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
+        return LDLib1MachineUIs.createComputationSystemUI(this, player);
     }
 
     @Deprecated(forRemoval = true)

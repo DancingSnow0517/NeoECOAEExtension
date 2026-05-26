@@ -1,7 +1,13 @@
 package cn.dancingsnow.neoecoae.gui;
 
+import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
@@ -9,9 +15,12 @@ import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
+import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
+import com.lowdragmc.lowdraglib.side.fluid.forge.FluidTransferWrapper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 
 public final class LDLib1MachineUIs {
     private static final ResourceTexture SLOT = texture("textures/gui/slot.png");
@@ -90,6 +99,90 @@ public final class LDLib1MachineUIs {
 
         ui.widget(label(8, 116, Component.translatable("container.inventory"), TITLE_COLOR));
         addPlayerInventorySlots(ui, player, 8, 130);
+        return ui;
+    }
+
+    public static ModularUI createCraftingPatternBusUI(ECOCraftingPatternBusBlockEntity be, Player player) {
+        int width = 198;
+        int height = 222;
+        var ui = new ModularUI(width, height, be, player).background(panel());
+
+        ui.widget(label(8, 8, Component.translatable("block.neoecoae.crafting_pattern_bus"), TITLE_COLOR));
+        ui.widget(label(8, 24, Component.literal("Patterns 1-36"), STATUS_COLOR));
+        addInventory(ui, be.getTerminalPatternInventory().toContainer(), 36, 8, 38, 9, true, true);
+
+        ui.widget(label(8, 116, Component.translatable("container.inventory"), TITLE_COLOR));
+        addPlayerInventorySlots(ui, player, 8, 130);
+        return ui;
+    }
+
+    public static ModularUI createFluidHatchUI(ECOFluidInputHatchBlockEntity be, Player player, String titleKey) {
+        return createFluidHatchUI(be, player, titleKey, be.tank);
+    }
+
+    public static ModularUI createFluidHatchUI(ECOFluidOutputHatchBlockEntity be, Player player, String titleKey) {
+        return createFluidHatchUI(be, player, titleKey, be.tank);
+    }
+
+    private static ModularUI createFluidHatchUI(com.lowdragmc.lowdraglib.gui.modular.IUIHolder holder, Player player, String titleKey, FluidTank tank) {
+        int width = 198;
+        int height = 222;
+        var ui = new ModularUI(width, height, holder, player).background(panel());
+
+        ui.widget(label(8, 8, Component.translatable(titleKey), TITLE_COLOR));
+        ui.widget(new TankWidget(new FluidTransferWrapper(tank), 0, 8, 30, 18, 54, true, true)
+            .setShowAmount(true)
+            .setBackground(SLOT));
+        ui.widget(dynamicLabel(34, 32, () -> "Fluid: " + tank.getFluid().getDisplayName().getString(), STATUS_COLOR));
+        ui.widget(dynamicLabel(34, 44, () -> "Amount: %s / %s".formatted(
+            Tooltips.ofNumber(tank.getFluidAmount()).getString(),
+            Tooltips.ofNumber(tank.getCapacity()).getString()
+        ), STATUS_COLOR));
+
+        ui.widget(label(8, 116, Component.translatable("container.inventory"), TITLE_COLOR));
+        addPlayerInventorySlots(ui, player, 8, 130);
+        return ui;
+    }
+
+    public static ModularUI createComputationSystemUI(ECOComputationSystemBlockEntity be, Player player) {
+        int width = 198;
+        int height = 118;
+        var ui = new ModularUI(width, height, be, player).background(panel());
+
+        ui.widget(label(8, 8, be.getBlockState().getBlock().getName(), TITLE_COLOR));
+        ui.widget(dynamicLabel(8, 28, () -> "Formed: " + enabledText(be.isFormed()), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 40, () -> "Tier: " + be.getTier(), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 52, () -> "Threads: %d / %d".formatted(be.getUsedThread(), be.getTotalThread()), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 64, () -> "Parallel: " + be.getParallelCount(), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 76, () -> "Bytes: %s / %s".formatted(
+            Tooltips.ofBytes(be.getAvailableBytes()).getString(),
+            Tooltips.ofBytes(be.getTotalBytes()).getString()
+        ), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 88, () -> "Status: " + be.getPreviewStatusComponent().getString(), STATUS_COLOR));
+        return ui;
+    }
+
+    public static ModularUI createStorageSystemUI(ECOStorageSystemBlockEntity be, Player player) {
+        int width = 198;
+        int height = 130;
+        var ui = new ModularUI(width, height, be, player).background(panel());
+
+        ui.widget(label(8, 8, be.getBlockState().getBlock().getName(), TITLE_COLOR));
+        ui.widget(dynamicLabel(8, 28, () -> "Formed: " + enabledText(be.isFormed()), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 40, () -> "Tier: " + be.getTier(), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 52, () -> "Types: %s / %s".formatted(
+            Tooltips.ofNumber(be.getTotalUsedTypes()).getString(),
+            Tooltips.ofNumber(be.getTotalTypes()).getString()
+        ), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 64, () -> "Bytes: %s / %s".formatted(
+            Tooltips.ofBytes(be.getTotalUsedBytes()).getString(),
+            Tooltips.ofBytes(be.getTotalBytes()).getString()
+        ), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 76, () -> "Energy: %s / %s".formatted(
+            Tooltips.ofNumber(be.getStoredEnergy()).getString(),
+            Tooltips.ofNumber(be.getMaxEnergy()).getString()
+        ), STATUS_COLOR));
+        ui.widget(dynamicLabel(8, 88, () -> "Status: " + be.getPreviewStatusComponent().getString(), STATUS_COLOR));
         return ui;
     }
 

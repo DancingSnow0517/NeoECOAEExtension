@@ -15,29 +15,19 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
-import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.FlexDirection;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -54,7 +44,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
+    implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -209,34 +199,14 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             .forEach(drops::add);
     }
 
+    @Override
+    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
+        return LDLib1MachineUIs.createCraftingPatternBusUI(this, player);
+    }
+
     @Deprecated(forRemoval = true)
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
-        root.addChild(new TextElement()
-            .setText(Component.translatable("block.neoecoae.crafting_pattern_bus"))
-            .textStyle(textStyle -> textStyle
-                .textWrap(TextWrap.HOVER_ROLL)
-                .adaptiveHeight(true)));
-
-        UIElement patternInv = new UIElement().addClass("panel_border");
-        for (int row = 0; row < COL_SIZE; row++) {
-            UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
-            for (int col = 0; col < ROW_SIZE; col++) {
-                int slotIndex = row * ROW_SIZE + col;
-                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(itemHandler, slotIndex))
-                    .slotStyle(slotStyle -> slotStyle.slotOverlay(NETextures.PATTERN_OVERLAY));
-                rowInv.addChild(slot);
-            }
-            patternInv.addChild(rowInv);
-        }
-        root.addChild(patternInv);
-        root.addChild(new InventorySlots().layout(layout -> layout.marginTop(5)));
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        return null;
     }
 
     @Override
