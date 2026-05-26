@@ -106,9 +106,22 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             recalculateRemainingStorage();
             this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
+            LOGGER.info(
+                "NE computation cluster formed: formed=true, controller={}, accelerators={}, maxThreads={}, availableStorage={}",
+                controller != null ? controller.getBlockPos() : null,
+                accelerators,
+                maxThreads,
+                availableStorage
+            );
         } else {
             accelerators = 0;
             availableStorage = 0;
+            maxThreads = 0;
+            fakeCpu = null;
+            LOGGER.info(
+                "NE computation cluster unformed: controller={}",
+                controller != null ? controller.getBlockPos() : null
+            );
         }
         updateGridForChangedCpu(this);
     }
@@ -197,10 +210,21 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 this.killCpu(plan, false, false);
             }
             recalculateRemainingStorage();
+            return;
         }
         if (controller != null) {
             controller.updateInfos();
         }
+        LOGGER.info(
+            "NE computation storage recalculated: controller={}, oldAvailable={}, newAvailable={}, totalStorage={}, activeJobs={}, upperDrives={}, lowerDrives={}",
+            controller != null ? controller.getBlockPos() : null,
+            oldAvailableStorage,
+            this.availableStorage,
+            totalStorage,
+            this.activeCpus.size(),
+            upperDrives.size(),
+            lowerDrives.size()
+        );
         if (oldAvailableStorage != this.availableStorage) {
             updateGridForChangedCpu(this);
         }
@@ -272,21 +296,28 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
         for (var r : this.blockEntities) {
             IGridNode n = r.getActionableNode();
-            if (n != null && !posted) {
+            if (n != null && n.getGrid() != null && !posted) {
                 n.getGrid().postEvent(new GridCraftingCpuChange(n));
-                LOGGER.info(
-                    "NE computation CPU grid change posted: controller={}, nodeOwner={}, availableStorage={}, accelerators={}, maxThreads={}",
-                    controller == null ? null : controller.getBlockPos(),
-                    r.getBlockPos(),
-                    availableStorage,
-                    accelerators,
-                    maxThreads
-                );
                 posted = true;
+                LOGGER.info(
+                    "NE computation CPU changed: controller={}, blockEntities={}, firstNodeOwner={}, nodeActive={}, gridNotNull={}, availableStorage={}, maxThreads={}, accelerators={}, fakeCpuNotNull={}, fakeCpuAvailableStorage={}, postedGridCraftingCpuChange={}",
+                    controller != null ? controller.getBlockPos() : null,
+                    blockEntities.size(),
+                    r.getBlockPos(),
+                    n.isActive(),
+                    n.getGrid() != null,
+                    availableStorage,
+                    maxThreads,
+                    accelerators,
+                    fakeCpu != null,
+                    fakeCpu != null ? fakeCpu.getAvailableStorage() : -1,
+                    posted
+                );
             }
-
-            r.updateCluster(cluster);
         }
 
+        if (controller != null) {
+            controller.updateInfos();
+        }
     }
 }

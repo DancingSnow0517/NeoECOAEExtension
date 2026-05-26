@@ -59,22 +59,37 @@ public abstract class CraftingServiceMixin120 {
 
     @Inject(method = "addNode", at = @At("TAIL"))
     private void neoecoae$onAddNode(IGridNode gridNode, net.minecraft.nbt.CompoundTag savedData, CallbackInfo ci) {
+        NEOECOAE_LOGGER.info("NE mixin addNode CALLED: owner={}", gridNode.getOwner() != null ? gridNode.getOwner().getClass().getSimpleName() : "null");
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
-            && blockEntity.getCluster() instanceof NEComputationCluster) {
+            && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
             this.updateList = true;
+            NEOECOAE_LOGGER.info(
+                "NE computation node added to AE grid: nodeOwner={}, clusterController={}, formed={}, active={}",
+                blockEntity.getBlockPos(),
+                cluster.getController() != null ? cluster.getController().getBlockPos() : null,
+                cluster.getController() != null && cluster.getController().isFormed(),
+                cluster.isActive()
+            );
         }
     }
 
     @Inject(method = "removeNode", at = @At("TAIL"))
     private void neoecoae$onRemoveNode(IGridNode gridNode, CallbackInfo ci) {
+        NEOECOAE_LOGGER.info("NE mixin removeNode CALLED: owner={}", gridNode.getOwner() != null ? gridNode.getOwner().getClass().getSimpleName() : "null");
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
-            && blockEntity.getCluster() instanceof NEComputationCluster) {
+            && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
             this.updateList = true;
+            NEOECOAE_LOGGER.info(
+                "NE computation node removed from AE grid: nodeOwner={}, clusterController={}",
+                blockEntity.getBlockPos(),
+                cluster.getController() != null ? cluster.getController().getBlockPos() : null
+            );
         }
     }
 
     @Inject(method = "onServerEndTick", at = @At("HEAD"))
     private void neoecoae$tickComputationCpus(CallbackInfo ci) {
+        NEOECOAE_LOGGER.debug("NE mixin onServerEndTick CALLED");
         for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
             for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
                 cpu.getLogic().tickCraftingLogic(this.energyGrid, (CraftingService) (Object) this);
@@ -85,16 +100,32 @@ public abstract class CraftingServiceMixin120 {
 
     @Inject(method = "getCpus", at = @At("RETURN"), cancellable = true)
     private void neoecoae$getCpus(CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir) {
+        NEOECOAE_LOGGER.info("NE mixin getCpus CALLED: nativeCpuCount={}", cir.getReturnValue().size());
         ImmutableSet.Builder<ICraftingCPU> cpus = ImmutableSet.builder();
         cpus.addAll(cir.getReturnValue());
-        for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
+        int nativeCount = cir.getReturnValue().size();
+        List<NEComputationCluster> clusters = neoecoae$getComputationClusters();
+        int activeCpuCount = 0;
+        int fakeCpuCount = 0;
+        for (NEComputationCluster cluster : clusters) {
             List<ECOCraftingCPU> activeCpus = cluster.getActiveCPUs();
             cpus.addAll(activeCpus);
+            activeCpuCount += activeCpus.size();
             if (cluster.isActive() && activeCpus.size() < cluster.getMaxThreads()) {
                 cpus.add(cluster.getFakeCPU());
+                fakeCpuCount++;
             }
         }
-        cir.setReturnValue(cpus.build());
+        ImmutableSet<ICraftingCPU> result = cpus.build();
+        NEOECOAE_LOGGER.info(
+            "NE computation CPU list built: nativeCPUs={}, NEClusters={}, NEActiveCPUs={}, NEFakeCPUs={}, totalCPUs={}",
+            nativeCount,
+            clusters.size(),
+            activeCpuCount,
+            fakeCpuCount,
+            result.size()
+        );
+        cir.setReturnValue(result);
     }
 
     @Inject(method = "submitJob", at = @At("HEAD"), cancellable = true)
@@ -106,6 +137,7 @@ public abstract class CraftingServiceMixin120 {
         IActionSource src,
         CallbackInfoReturnable<ICraftingSubmitResult> cir
     ) {
+        NEOECOAE_LOGGER.info("NE mixin submitJob CALLED: targetIsECOCpu={}", target instanceof ECOCraftingCPU);
         if (target instanceof ECOCraftingCPU ecoCpu) {
             NEOECOAE_LOGGER.info("NE computation CPU submit targeted: storage={}, coprocessors={}", ecoCpu.getAvailableStorage(), ecoCpu.getCoProcessors());
             cir.setReturnValue(ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine));
@@ -119,7 +151,11 @@ public abstract class CraftingServiceMixin120 {
                 NEOECOAE_LOGGER.info("NE computation CPU submit auto-selected: storage={}, coprocessors={}", cluster.getAvailableStorage(), cluster.getCPUAccelerators());
                 this.updateList = true;
                 cir.setReturnValue(result);
+            } else {
+                NEOECOAE_LOGGER.info("NE computation CPU submit failed: result={}", result);
             }
+        } else {
+            NEOECOAE_LOGGER.debug("NE computation CPU submit: no suitable cluster found for job bytes={}", job.bytes());
         }
     }
 
@@ -168,6 +204,15 @@ public abstract class CraftingServiceMixin120 {
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null && blockEntity.isFormed()) {
                 clusters.add(cluster);
+                NEOECOAE_LOGGER.info(
+                    "NE computation cluster discovered in grid: controller={}, formed={}, active={}, availableStorage={}, maxThreads={}, accelerators={}",
+                    blockEntity.getBlockPos(),
+                    blockEntity.isFormed(),
+                    cluster.isActive(),
+                    cluster.getAvailableStorage(),
+                    cluster.getMaxThreads(),
+                    cluster.getCPUAccelerators()
+                );
             }
         }
         return clusters;

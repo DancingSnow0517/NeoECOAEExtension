@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import appeng.client.gui.Icon;
 import appeng.core.localization.Tooltips;
+import appeng.api.networking.IGridNodeListener;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.AETextures;
@@ -104,6 +105,14 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         super.updateState(updateExposed);
         if (updateExposed) {
             updateInfos();
+        }
+    }
+
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
+        if (reason != IGridNodeListener.State.GRID_BOOT && cluster != null && getMainNode().isActive()) {
+            cluster.updateGridForChangedCpu(cluster);
         }
     }
 
