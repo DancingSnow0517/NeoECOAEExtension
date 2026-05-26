@@ -1,9 +1,11 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "cn.dancingsnow.neoecoae.mixins",
+  "package": "cn.dancingsnow.neoecoae.forge.mixin",
   "compatibilityLevel": "JAVA_17",
-  "mixins": [],
+  "mixins": [
+    "CraftingServiceMixin120"
+  ],
   "client": [],
   "server": [],
   "injectors": {

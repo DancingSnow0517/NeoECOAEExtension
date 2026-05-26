@@ -38,6 +38,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     implements IExternalPowerSink, IGridTickable, ISyncPersistRPCBlockEntity {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_POWER_CHANGES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_ENERGY_TICKS = ConcurrentHashMap.newKeySet();
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -134,6 +135,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
             neighborChangePending = true;
             getMainNode().ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
         }
+        logEnergyTick("onEnergyChanged");
     }
 
     @Override
@@ -185,6 +187,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        logEnergyTick("tickingRequest:" + ticksSinceLastCall);
         if (Platform.areBlockEntitiesTicking(getLevel(), getBlockPos())) {
             if (neighborChangePending) {
                 neighborChangePending = false;
@@ -207,6 +210,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         }
 
         int storageLevel = getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
+        logEnergyTick("updateStateForPowerLevel:" + storageLevel);
 
         if (this.currentDisplayLevel != storageLevel) {
             BlockState oldState = this.level.getBlockState(this.worldPosition);
@@ -259,6 +263,35 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
                 getPowerFlow(),
                 before,
                 after
+            );
+        }
+    }
+
+    private void logEnergyTick(String source) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String key = source
+            + "|" + getBlockPos()
+            + "|" + formed
+            + "|" + getPowerFlow()
+            + "|" + neighborChangePending
+            + "|" + currentDisplayLevel
+            + "|" + (long) energyStored.getAmount();
+        if (LOGGED_ENERGY_TICKS.add(key)) {
+            LOGGER.info(
+                "ECOEnergyCell energy tick: source={}, pos={}, tier={}, formed={}, flow={}, neighborChangePending={}, power={}/{}, displayLevel={}, nodeOnline={}, nodeActive={}",
+                source,
+                getBlockPos(),
+                tier,
+                formed,
+                getPowerFlow(),
+                neighborChangePending,
+                energyStored.getAmount(),
+                energyStored.getMaximum(),
+                currentDisplayLevel,
+                getMainNode().isOnline(),
+                getMainNode().isActive()
             );
         }
     }

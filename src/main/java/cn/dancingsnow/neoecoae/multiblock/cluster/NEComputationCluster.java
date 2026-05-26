@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelC
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -25,6 +26,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 public class NEComputationCluster extends NECluster<NEComputationCluster> {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Getter
     private final List<ECOComputationDriveBlockEntity> upperDrives = new ArrayList<>();
@@ -107,6 +110,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             accelerators = 0;
             availableStorage = 0;
         }
+        updateGridForChangedCpu(this);
     }
 
     private long collectStorage(List<ECOComputationDriveBlockEntity> driveBlockEntities) {
@@ -178,6 +182,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public void recalculateRemainingStorage() {
+        long oldAvailableStorage = this.availableStorage;
         long totalStorage = collectStorage(upperDrives) + collectStorage(lowerDrives);
 
         long usedStorage = 0L;
@@ -195,6 +200,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
         if (controller != null) {
             controller.updateInfos();
+        }
+        if (oldAvailableStorage != this.availableStorage) {
+            updateGridForChangedCpu(this);
         }
     }
 
@@ -259,13 +267,21 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
-    private void updateGridForChangedCpu(NEComputationCluster cluster) {
+    public void updateGridForChangedCpu(NEComputationCluster cluster) {
         boolean posted = false;
 
         for (var r : this.blockEntities) {
             IGridNode n = r.getActionableNode();
             if (n != null && !posted) {
                 n.getGrid().postEvent(new GridCraftingCpuChange(n));
+                LOGGER.info(
+                    "NE computation CPU grid change posted: controller={}, nodeOwner={}, availableStorage={}, accelerators={}, maxThreads={}",
+                    controller == null ? null : controller.getBlockPos(),
+                    r.getBlockPos(),
+                    availableStorage,
+                    accelerators,
+                    maxThreads
+                );
                 posted = true;
             }
 

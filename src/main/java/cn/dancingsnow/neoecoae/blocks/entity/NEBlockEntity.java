@@ -40,6 +40,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_FORMED_UPDATES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_REBUILDS = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_GRID_STATES = ConcurrentHashMap.newKeySet();
 
     @Setter
     @Getter
@@ -63,6 +64,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     public void onReady() {
         super.onReady();
         onGridConnectableSidesChanged();
+        logGridState("onReady", true);
         if (level instanceof ServerLevel serverLevel) {
             logRebuild("onReady");
             calculator.calculateMultiblock(serverLevel, worldPosition);
@@ -92,6 +94,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        logGridState("onMainNodeStateChanged:" + reason, false);
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.updateState(false);
         }
@@ -119,6 +122,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (this.level == null || this.isRemoved()) {
             return;
         }
+        logGridState("updateState", updateExposed);
         BlockState oldState = level.getBlockState(worldPosition);
         BlockState newState = oldState;
         if (newState.hasProperty(NEBlock.FORMED)) {
@@ -182,6 +186,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     public void updateCluster(@Nullable C cluster) {
         this.cluster = cluster;
         formed = cluster != null;
+        logGridState("updateCluster", true);
         updateState(true);
     }
 
@@ -221,6 +226,45 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
                 level == null ? null : ForgeRegistries.BLOCKS.getKey(level.getBlockState(worldPosition).getBlock()),
                 cluster != null,
                 formed
+            );
+        }
+    }
+
+    private void logGridState(String source, boolean updateExposed) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        IGridNode gridNode = getGridNode();
+        BlockState state = level == null ? getBlockState() : level.getBlockState(worldPosition);
+        boolean blockstateFormed = state.hasProperty(NEBlock.FORMED) && state.getValue(NEBlock.FORMED);
+        Set<Direction> connectableSides = level == null
+            ? Set.of()
+            : getGridConnectableSides(getOrientation());
+        String key = getClass().getName()
+            + "|" + worldPosition
+            + "|" + source
+            + "|" + formed
+            + "|" + (cluster != null)
+            + "|" + (gridNode != null)
+            + "|" + getMainNode().isOnline()
+            + "|" + getMainNode().isActive()
+            + "|" + connectableSides
+            + "|" + updateExposed
+            + "|" + blockstateFormed;
+        if (LOGGED_GRID_STATES.add(key)) {
+            LOGGER.info(
+                "NE grid state: source={}, be={}, pos={}, formed={}, hasCluster={}, gridNode={}, mainOnline={}, mainActive={}, connectableSides={}, updateExposed={}, blockstateFormed={}",
+                source,
+                getClass().getSimpleName(),
+                worldPosition,
+                formed,
+                cluster != null,
+                gridNode != null,
+                getMainNode().isOnline(),
+                getMainNode().isActive(),
+                connectableSides,
+                updateExposed,
+                blockstateFormed
             );
         }
     }

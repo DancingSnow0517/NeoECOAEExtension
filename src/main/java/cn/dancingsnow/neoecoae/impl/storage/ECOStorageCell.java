@@ -24,6 +24,8 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import lombok.Getter;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -158,7 +160,18 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     private List<GenericStack> getStoredStacks() {
-        return List.of();
+        if (!cellStack.hasTag() || !cellStack.getTag().contains("eco_cell_contents", Tag.TAG_LIST)) {
+            return List.of();
+        }
+        ListTag list = cellStack.getTag().getList("eco_cell_contents", Tag.TAG_COMPOUND);
+        List<GenericStack> stacks = new ArrayList<>(list.size());
+        for (int i = 0; i < list.size(); i++) {
+            GenericStack stack = GenericStack.readTag(list.getCompound(i));
+            if (stack != null && stack.amount() > 0) {
+                stacks.add(stack);
+            }
+        }
+        return stacks;
     }
 
     protected Object2LongMap<AEKey> getCellItems() {
@@ -200,8 +213,11 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
 
-        // 1.20.1 has no item data components. Persisted cell contents will be
-        // restored through NBT in a later pass.
+        ListTag list = new ListTag();
+        for (GenericStack stack : stacks) {
+            list.add(GenericStack.writeTag(stack));
+        }
+        cellStack.getOrCreateTag().put("eco_cell_contents", list);
 
         this.storedItems = (short) this.storedAmounts.size();
 
@@ -217,10 +233,9 @@ public class ECOStorageCell implements IECOStorageCell {
         }
 
         this.isPersisted = false;
+        this.persist();
         if (this.container != null) {
             this.container.saveChanges();
-        } else {
-            this.persist();
         }
     }
 

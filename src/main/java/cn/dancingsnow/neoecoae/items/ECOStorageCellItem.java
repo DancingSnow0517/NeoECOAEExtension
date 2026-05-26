@@ -165,8 +165,13 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Nullable
     public static ECOStorageCell getCellInventory(ItemStack stack) {
+        return getCellInventory(stack, null);
+    }
+
+    @Nullable
+    public static ECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
         if (stack.getItem() instanceof ECOStorageCellItem) {
-            return new ECOStorageCell(stack, null);
+            return new ECOStorageCell(stack, host);
         }
         return null;
     }
@@ -256,7 +261,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
         @Override
         public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
-            return ECOStorageCellItem.getCellInventory(is);
+            return ECOStorageCellItem.getCellInventory(is, host);
         }
     }
 }

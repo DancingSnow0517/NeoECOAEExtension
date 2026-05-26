@@ -22,6 +22,7 @@ import org.jetbrains.annotations.Nullable;
 public class ECOCraftingCPU implements ICraftingCPU {
 
     private long fakeStorage = 0;
+    @Getter
     private final NEComputationCluster cluster;
     @Getter
     private ICraftingPlan plan;

@@ -43,6 +43,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_UPDATE_TAGS = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_STORAGE_UPDATES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_MOUNT_ATTEMPTS = ConcurrentHashMap.newKeySet();
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -94,7 +96,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 getLevel().setBlockAndUpdate(getBlockPos(), newState);
             }
         }
-        updateState();
+        updateStorageProviderState("setCellStack");
         markForUpdate();
         setChanged();
     }
@@ -104,7 +106,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         return ECOStorageCells.isCellHandled(stack);
     }
 
-    private void updateState() {
+    @Override
+    public void updateState(boolean updateExposed) {
+        super.updateState(updateExposed);
+        updateStorageProviderState("updateState");
+    }
+
+    private void updateStorageProviderState(String source) {
         double power = 256;
         if (cluster != null && cluster.getController() != null) {
             IECOTier mainTier = cluster.getController().getTier();
@@ -115,6 +123,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         }
         getMainNode().setIdlePowerUsage(power);
         IStorageProvider.requestUpdate(getMainNode());
+        logStorageProviderUpdate(source, power);
     }
 
     public void scheduleRenderUpdate() {
@@ -132,37 +141,49 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Nullable
     public IECOStorageCell getCellInventory() {
         if (cellStack != null) {
-            return ECOStorageCells.getCellInventory(cellStack, null);
+            return ECOStorageCells.getCellInventory(cellStack, this::saveChanges);
         }
         return null;
     }
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
+        boolean hasCluster = cluster != null;
+        boolean hasController = hasCluster && cluster.getController() != null;
+        IECOTier mainTier = hasController ? cluster.getController().getTier() : null;
+        IECOStorageCell cellInventory = getCellInventory();
+        IECOTier cellTier = cellInventory == null ? null : cellInventory.getTier();
+        boolean tierSupported = mainTier != null && cellTier != null && mainTier.compareTo(cellTier) >= 0;
+        boolean willMount = hasController && cellInventory != null && tierSupported;
+        logMountAttempt(hasCluster, hasController, mainTier, cellInventory, cellTier, tierSupported, willMount);
         if (cluster != null && cluster.getController() != null) {
-            IECOTier mainTier = cluster.getController().getTier();
-            IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 storageMounts.mount(cellInventory);
                 mounted = true;
                 setChanged();
+                markForUpdate();
+                logMountResult(true);
                 return;
             }
         }
         mounted = false;
         setChanged();
+        markForUpdate();
+        logMountResult(false);
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        updateState();
+        updateStorageProviderState("onReady");
     }
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
         online = getMainNode().isOnline();
+        updateStorageProviderState("onMainNodeStateChanged:" + reason);
+        markForUpdate();
         setChanged();
     }
 
@@ -269,6 +290,88 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             return null;
         }
         return stack.copyWithCount(1);
+    }
+
+    private void logStorageProviderUpdate(String source, double power) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String key = source
+            + "|" + getBlockPos()
+            + "|" + (cluster != null)
+            + "|" + (cluster != null && cluster.getController() != null)
+            + "|" + (cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(cellStack.getItem()))
+            + "|" + getMainNode().isOnline()
+            + "|" + getMainNode().isActive()
+            + "|" + power;
+        if (LOGGED_STORAGE_UPDATES.add(key)) {
+            LOGGER.info(
+                "ECODrive storage provider update: source={}, pos={}, hasCluster={}, hasController={}, cellItem={}, idlePower={}, nodeOnline={}, nodeActive={}",
+                source,
+                getBlockPos(),
+                cluster != null,
+                cluster != null && cluster.getController() != null,
+                cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(cellStack.getItem()),
+                power,
+                getMainNode().isOnline(),
+                getMainNode().isActive()
+            );
+        }
+    }
+
+    private void logMountAttempt(
+        boolean hasCluster,
+        boolean hasController,
+        @Nullable IECOTier mainTier,
+        @Nullable IECOStorageCell cellInventory,
+        @Nullable IECOTier cellTier,
+        boolean tierSupported,
+        boolean willMount
+    ) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String key = getBlockPos()
+            + "|" + hasCluster
+            + "|" + hasController
+            + "|" + mainTier
+            + "|" + (cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(cellStack.getItem()))
+            + "|" + (cellInventory != null)
+            + "|" + cellTier
+            + "|" + tierSupported
+            + "|" + willMount
+            + "|" + getMainNode().isOnline()
+            + "|" + getMainNode().isActive();
+        if (LOGGED_MOUNT_ATTEMPTS.add(key)) {
+            LOGGER.info(
+                "ECODrive mountInventories: pos={}, hasCluster={}, hasController={}, controllerTier={}, cellItem={}, cellInventory={}, cellTier={}, tierSupported={}, willMount={}, nodeOnline={}, nodeActive={}",
+                getBlockPos(),
+                hasCluster,
+                hasController,
+                mainTier,
+                cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(cellStack.getItem()),
+                cellInventory != null,
+                cellTier,
+                tierSupported,
+                willMount,
+                getMainNode().isOnline(),
+                getMainNode().isActive()
+            );
+        }
+    }
+
+    private void logMountResult(boolean mounted) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        LOGGER.info(
+            "ECODrive mountInventories result: pos={}, mounted={}, online={}, nodeOnline={}, nodeActive={}",
+            getBlockPos(),
+            mounted,
+            online,
+            getMainNode().isOnline(),
+            getMainNode().isActive()
+        );
     }
 
     @Override
