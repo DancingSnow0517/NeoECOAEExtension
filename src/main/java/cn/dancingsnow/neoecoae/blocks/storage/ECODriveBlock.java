@@ -54,13 +54,21 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
                 if (level.isClientSide) return InteractionResult.SUCCESS;
-                ItemStack cellStack = be.getCellStack();
+                ItemStack cellStack = be.getCellStack().copyWithCount(1);
                 be.setCellStack(null);
-                player.setItemInHand(InteractionHand.MAIN_HAND, cellStack);
+                giveCellToPlayer(player, hand, cellStack);
                 return InteractionResult.sidedSuccess(level.isClientSide());
             }
         }
         return InteractionResult.PASS;
+    }
+
+    private static void giveCellToPlayer(Player player, InteractionHand hand, ItemStack cellStack) {
+        if (player.getItemInHand(hand).isEmpty()) {
+            player.setItemInHand(hand, cellStack);
+        } else if (!player.getInventory().add(cellStack)) {
+            player.drop(cellStack, false);
+        }
     }
 
     @Override

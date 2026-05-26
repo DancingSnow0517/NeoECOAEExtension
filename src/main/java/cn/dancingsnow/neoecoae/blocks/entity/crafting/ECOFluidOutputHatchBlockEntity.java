@@ -9,10 +9,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
+import org.jetbrains.annotations.Nullable;
 
 public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidOutputHatchBlockEntity> {
 
@@ -23,6 +26,7 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
             markForUpdate();
         }
     };
+    private final LazyOptional<IFluidHandler> fluidHandlerCap = LazyOptional.of(() -> tank);
 
     public ECOFluidOutputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -58,4 +62,17 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
         return CraftingUIHelper.createFluidHatchUI(holder, tank, "block.neoecoae.output_hatch", false, true);
     }
 
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
+        if (cap == ForgeCapabilities.FLUID_HANDLER) {
+            return fluidHandlerCap.cast();
+        }
+        return super.getCapability(cap, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        fluidHandlerCap.invalidate();
+    }
 }

@@ -15,7 +15,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
-import org.joml.Quaternionf;
 
 public class ECOComputationDriveRenderer
     implements
@@ -44,13 +43,10 @@ public class ECOComputationDriveRenderer
     ) {
         ItemStack itemStack = blockEntity.getCellStack();
         Direction facing = blockEntity.getBlockState().getValue(ECOComputationDrive.FACING);
-        int rotateDegrees = ((int) facing.toYRot() + 180) % 360;
-        Quaternionf facingRot = Axis.YN.rotationDegrees(rotateDegrees);
         poseStack.pushPose();
 
         poseStack.translate(0.5, 0.5, 0.5);
-        poseStack.translate(0.25 * facing.getStepX(), 0, 0.25 * facing.getStepZ());
-        poseStack.mulPose(facingRot);
+        poseStack.mulPose(Axis.YP.rotationDegrees(yRotForFacing(facing)));
         boolean formed = blockEntity.isFormed();
         boolean shouldCellWork = false;
         IECOTier cableTier = blockEntity.getTier();
@@ -63,13 +59,19 @@ public class ECOComputationDriveRenderer
             if (shouldCellWork) {
                 cableTier = itemTier;
             }
-            tessellateModel(
-                poseStack,
-                bufferSource,
-                cellModel,
-                packedLight,
-                packedOverlay
-            );
+            if (cellModel != null) {
+                poseStack.pushPose();
+                poseStack.translate(0, 0, -0.25);
+                tessellateModel(
+                    blockEntity,
+                    poseStack,
+                    bufferSource,
+                    cellModel,
+                    packedLight,
+                    packedOverlay
+                );
+                poseStack.popPose();
+            }
 //            tessellateModelWithAO(
 //                blockEntity.getLevel(),
 //                cellModel,
@@ -86,22 +88,22 @@ public class ECOComputationDriveRenderer
         if (formed) {
             if (itemStack != null) {
                 if (shouldCellWork) {
-                    poseStack.translate(0, 0, -0.35);
+                    poseStack.translate(0, 0, -0.6);
                     cableModel = ECOComputationModels.getCableConnectedModel(cableTier);
                     connected = true;
                 } else {
                     if (blockEntity.isLowerDrive()) {
-                        poseStack.translate(0, 0.688, -0.3);
+                        poseStack.translate(0, 0.688, -0.55);
                     } else {
-                        poseStack.translate(0, -0.688, -0.3);
+                        poseStack.translate(0, -0.688, -0.55);
                     }
                     cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
                 }
             } else {
                 if (blockEntity.isLowerDrive()) {
-                    poseStack.translate(0, 0.688, -0.3);
+                    poseStack.translate(0, 0.688, -0.55);
                 } else {
-                    poseStack.translate(0, -0.688, -0.3);
+                    poseStack.translate(0, -0.688, -0.55);
                 }
                 cableModel = ECOComputationModels.getCableDisconnectedModel(cableTier);
             }
@@ -118,6 +120,7 @@ public class ECOComputationDriveRenderer
             return;
         }
         tessellateModel(
+            blockEntity,
             poseStack,
             bufferSource,
             cableModel,
@@ -140,5 +143,15 @@ public class ECOComputationDriveRenderer
     @Override
     public void render(ECOComputationDriveBlockEntity driveBlockEntity, float v, PoseStack poseStack, MultiBufferSource multiBufferSource, int i, int i1) {
         renderFixed(driveBlockEntity, v, poseStack, multiBufferSource, i, i1);
+    }
+
+    private static float yRotForFacing(Direction facing) {
+        return switch (facing) {
+            case NORTH -> 0f;
+            case EAST -> 90f;
+            case SOUTH -> 180f;
+            case WEST -> 270f;
+            default -> 0f;
+        };
     }
 }

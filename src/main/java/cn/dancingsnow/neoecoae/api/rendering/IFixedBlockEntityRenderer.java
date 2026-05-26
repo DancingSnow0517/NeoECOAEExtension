@@ -15,12 +15,20 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static cn.dancingsnow.neoecoae.util.ThreadLocalRandomHelper.getRandom;
 
 public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
+    Logger MODEL_LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
+    Set<ResourceLocation> WARNED_MISSING_MODELS = ConcurrentHashMap.newKeySet();
+
     void renderFixed(T blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay);
 
     default void tessellateModelWithAO(
@@ -59,8 +67,10 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     ) {
         Minecraft mc = Minecraft.getInstance();
         ModelBlockRenderer modelRenderer = mc.getBlockRenderer().getModelRenderer();
-        BakedModel bakedModel = mc.getModelManager()
-            .getModel(model);
+        BakedModel bakedModel = getBakedModelOrNull(mc, model, null);
+        if (bakedModel == null) {
+            return;
+        }
         VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
         modelRenderer.tesselateWithAO(
             level,
@@ -83,7 +93,19 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         int packedLight,
         int packedOverlay
     ) {
+        tessellateModel(null, poseStack, bufferSource, model, packedLight, packedOverlay);
+    }
+
+    default void tessellateModel(
+        BlockEntity owner,
+        PoseStack poseStack,
+        MultiBufferSource bufferSource,
+        ResourceLocation model,
+        int packedLight,
+        int packedOverlay
+    ) {
         tessellateModel(
+            owner,
             poseStack,
             bufferSource,
             model,
@@ -101,9 +123,23 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         int packedOverlay,
         RenderType renderType
     ) {
+        tessellateModel(null, poseStack, bufferSource, model, packedLight, packedOverlay, renderType);
+    }
+
+    default void tessellateModel(
+        BlockEntity owner,
+        PoseStack poseStack,
+        MultiBufferSource bufferSource,
+        ResourceLocation model,
+        int packedLight,
+        int packedOverlay,
+        RenderType renderType
+    ) {
         Minecraft mc = Minecraft.getInstance();
-        BakedModel bakedModel = mc.getModelManager()
-            .getModel(model);
+        BakedModel bakedModel = getBakedModelOrNull(mc, model, owner);
+        if (bakedModel == null) {
+            return;
+        }
         for (Direction value : Direction.values()) {
             List<BakedQuad> quads = bakedModel.getQuads(
                 null,
@@ -130,6 +166,33 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
             packedLight,
             packedOverlay
         );
+    }
+
+    private static BakedModel getBakedModelOrNull(Minecraft mc, ResourceLocation model, BlockEntity owner) {
+        if (model == null) {
+            warnMissingModel(null, owner);
+            return null;
+        }
+        BakedModel bakedModel = mc.getModelManager().getModel(model);
+        if (bakedModel == mc.getModelManager().getMissingModel()) {
+            warnMissingModel(model, owner);
+            return null;
+        }
+        return bakedModel;
+    }
+
+    private static void warnMissingModel(ResourceLocation model, BlockEntity owner) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        ResourceLocation key = model == null ? new ResourceLocation("neoecoae", "__null_model__") : model;
+        if (WARNED_MISSING_MODELS.add(key)) {
+            MODEL_LOGGER.warn(
+                "Missing BER baked model {} for {}",
+                model,
+                owner == null ? "unknown block entity" : owner.getType()
+            );
+        }
     }
 
     default void renderQuadsWithoutAO(

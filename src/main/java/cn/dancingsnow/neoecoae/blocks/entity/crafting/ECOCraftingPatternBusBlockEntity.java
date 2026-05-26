@@ -35,6 +35,7 @@ import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -42,6 +43,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,6 +67,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final AppEngInternalInventory inventory;
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;
+    private final LazyOptional<IItemHandlerModifiable> itemHandlerCap;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -154,6 +159,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         this.inventory = new AppEngInternalInventory(this, ROW_SIZE * COL_SIZE);
         this.inventory.setFilter(new AEEncodedPatternFilter());
         this.itemHandler = (IItemHandlerModifiable) inventory.toItemHandler();
+        this.itemHandlerCap = LazyOptional.of(() -> this.itemHandler);
         this.getMainNode().addService(ICraftingProvider.class, this)
             .addService(IECOPatternStorage.class, this);
     }
@@ -230,5 +236,19 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         root.addChild(patternInv);
         root.addChild(new InventorySlots().layout(layout -> layout.marginTop(5)));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
+        if (cap == ForgeCapabilities.ITEM_HANDLER) {
+            return itemHandlerCap.cast();
+        }
+        return super.getCapability(cap, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        itemHandlerCap.invalidate();
     }
 }

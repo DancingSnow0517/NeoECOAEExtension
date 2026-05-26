@@ -17,7 +17,7 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack getStackInSlot(int slot) {
-        return host.getCellStack() != null ? host.getCellStack() : ItemStack.EMPTY;
+        return host.getCellStack() != null ? host.getCellStack().copyWithCount(1) : ItemStack.EMPTY;
     }
 
     @Override

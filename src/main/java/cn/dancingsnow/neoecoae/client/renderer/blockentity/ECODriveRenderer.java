@@ -19,7 +19,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec2;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 
 public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity>, IFixedBlockEntityRenderer<ECODriveBlockEntity> {
     private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
@@ -87,35 +86,15 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
     ) {
         ItemStack cellStack = blockEntity.getCellStack();
         if (cellStack == null || cellStack.isEmpty()) return;
-        Direction blockFacing = blockEntity.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
-        Quaternionf rotation = Axis.YP.rotationDegrees(-blockFacing.toYRot() + 180);
+        Direction facing = blockEntity.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
         poseStack.pushPose();
-
-        switch (blockFacing) {
-            case NORTH -> poseStack.translate(
-                2 / 16f,
-                2 / 16f,
-                0 / 16f
-            );
-            case SOUTH -> poseStack.translate(
-                14 / 16f,
-                2 / 16f,
-                16 / 16f
-            );
-            case WEST -> poseStack.translate(
-                0 / 16f,
-                2 / 16f,
-                14 / 16f
-            );
-            case EAST -> poseStack.translate(
-                16 / 16f,
-                2 / 16f,
-                2 / 16f
-            );
-        }
-        poseStack.mulPose(rotation);
+        poseStack.translate(0.5, 0.5, 0.5);
+        poseStack.mulPose(Axis.YP.rotationDegrees(yRotForFacing(facing)));
+        poseStack.translate(-0.5, -0.5, -0.5);
+        poseStack.translate(2 / 16f, 2 / 16f, 0 / 16f);
         ResourceLocation modelLocation = ECOCellModels.getModelLocation(cellStack.getItem());
         tessellateModel(
+            blockEntity,
             poseStack,
             bufferSource,
             modelLocation,
@@ -123,5 +102,15 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
             packedOverlay
         );
         poseStack.popPose();
+    }
+
+    private static float yRotForFacing(Direction facing) {
+        return switch (facing) {
+            case NORTH -> 0f;
+            case EAST -> 90f;
+            case SOUTH -> 180f;
+            case WEST -> 270f;
+            default -> 0f;
+        };
     }
 }

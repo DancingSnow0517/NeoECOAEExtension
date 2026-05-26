@@ -44,6 +44,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.gui.AETextures;
+import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -99,9 +100,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
@@ -137,6 +142,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     private final FilteredInternalInventory inputExposed = new FilteredInternalInventory(this.inputInv, AEItemFilters.INSERT_ONLY);
     private final FilteredInternalInventory outputExposed = new FilteredInternalInventory(this.outputInv, AEItemFilters.EXTRACT_ONLY);
     private final InternalInventory invExposed = new CombinedInternalInventory(this.inputExposed, this.outputExposed);
+    private final IItemHandler exposedItemHandler = (IItemHandler) this.invExposed.toItemHandler();
 
     private final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
@@ -195,6 +201,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             return outputTank.drain(maxDrain, action);
         }
     };
+    private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> exposedItemHandler);
+    private final LazyOptional<IFluidHandler> fluidHandlerCap = LazyOptional.of(() -> fluidCombined);
 
 
     @Getter
@@ -304,6 +312,23 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public InternalInventory getOutput() {
         return this.outputInv;
+    }
+
+    public FluidTank getInputTank() {
+        return inputTank;
+    }
+
+    public FluidTank getOutputTank() {
+        return outputTank;
+    }
+
+    public boolean isAutoExportEnabled() {
+        return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
+    }
+
+    public void toggleAutoExport() {
+        shouldAutoExport = !isAutoExportEnabled();
+        configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
     }
 
     @Nullable
@@ -648,6 +673,29 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public void clearFluidOut() {
         this.outputTank.setFluid(FluidStack.EMPTY);
+    }
+
+    @Override
+    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
+        return LDLib1MachineUIs.createIntegratedWorkingStationUI(this, player);
+    }
+
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
+        if (cap == ForgeCapabilities.ITEM_HANDLER) {
+            return itemHandlerCap.cast();
+        }
+        if (cap == ForgeCapabilities.FLUID_HANDLER) {
+            return fluidHandlerCap.cast();
+        }
+        return super.getCapability(cap, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        itemHandlerCap.invalidate();
+        fluidHandlerCap.invalidate();
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {

@@ -16,6 +16,8 @@ out
 # gradle
 build
 .gradle
+.gradle-port-cache/
+.gradle-native/
 
 # other
 eclipse

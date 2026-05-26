@@ -178,16 +178,20 @@ sourceSets.main.resources {
     srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources'
 }
 
+def forge120JavaExcludes = [
+        'cn/dancingsnow/neoecoae/integration/**',
+        'cn/dancingsnow/neoecoae/mixins/**',
+        'cn/dancingsnow/neoecoae/client/model/**',
+        'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java',
+        'cn/dancingsnow/neoecoae/client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java',
+        'cn/dancingsnow/neoecoae/data/**',
+        'cn/dancingsnow/neoecoae/recipe/*Builder.java',
+        'cn/dancingsnow/neoecoae/all/NEDataComponents.java',
+        'cn/dancingsnow/neoecoae/api/components/**'
+]
+
 sourceSets.main.java {
-    exclude 'cn/dancingsnow/neoecoae/integration/**'
-    exclude 'cn/dancingsnow/neoecoae/mixins/**'
-    exclude 'cn/dancingsnow/neoecoae/client/model/**'
-    exclude 'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java'
-    exclude 'cn/dancingsnow/neoecoae/client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java'
-    exclude 'cn/dancingsnow/neoecoae/data/**'
-    exclude 'cn/dancingsnow/neoecoae/recipe/*Builder.java'
-    exclude 'cn/dancingsnow/neoecoae/all/NEDataComponents.java'
-    exclude 'cn/dancingsnow/neoecoae/api/components/**'
+    exclude forge120JavaExcludes
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
@@ -264,8 +268,7 @@ idea {
 }
 
 tasks.register('sourcesJar', Jar) {
-    dependsOn delombok
-    from delombok.outputs.files
+    from sourceSets.main.java
     archiveClassifier = "sources"
 }
 

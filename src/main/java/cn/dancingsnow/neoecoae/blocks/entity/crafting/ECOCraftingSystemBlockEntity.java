@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.AETextures;
+import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -220,7 +221,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private void updateCount() {
         if (cluster != null) {
             parallelCount = cluster.getParallelCores().size();
-            patternBusCount = cluster.getParallelCores().size();
+            patternBusCount = cluster.getPatternBuses().size();
             workerCount = cluster.getWorkers().size();
         } else {
             parallelCount = 0;
@@ -230,7 +231,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateOverlockTimes() {
-        int overflow = threadCount - threadCountPerWorker * workerCount;
+        int overflow = getOverflowThreads();
+        if (overflow <= 0 || threadCount <= 0) {
+            overlockTimes = 0;
+            return;
+        }
         float radio = (float) threadCount / overflow;
         overlockTimes = net.minecraft.util.Mth.clamp(Math.round(radio / 0.05f), 0, 9);
     }
@@ -285,12 +290,28 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return totalThread > 0 ? getOverflowThreads() / totalThread : 0.0;
     }
 
-    private int getOverflowThreads() {
-        return Math.min(0, threadCount - getAvailableThreads());
+    public int getOverflowThreads() {
+        return Math.max(0, threadCount - getAvailableThreads());
     }
 
-    private int getAvailableThreads() {
+    public int getAvailableThreads() {
         return threadCountPerWorker * workerCount;
+    }
+
+    public int getPatternBusCount() {
+        return patternBusCount;
+    }
+
+    public int getParallelCount() {
+        return parallelCount;
+    }
+
+    public int getWorkerCount() {
+        return workerCount;
+    }
+
+    public Component getPreviewStatusComponent() {
+        return buildPreviewStatusComponent();
     }
 
     private long getMaxEnergyUsage() {
@@ -696,7 +717,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
-    private void previewStructure(Player player) {
+    public void previewStructure(Player player) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -723,7 +744,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), statusKey);
     }
 
-    private void autoBuild(Player player) {
+    public void autoBuild(Player player) {
         if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
@@ -842,6 +863,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private static void buildPanelTextStyle(TextElement.TextStyle style) {
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+    }
+
+    @Override
+    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
+        return LDLib1MachineUIs.createCraftingControllerUI(this, player);
     }
 }
 
