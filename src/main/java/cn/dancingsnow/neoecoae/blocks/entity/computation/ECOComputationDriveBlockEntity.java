@@ -17,6 +17,7 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -33,10 +34,13 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ECOComputationDriveBlockEntity
     extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity> implements ISyncPersistRPCBlockEntity, ICellHost {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Set<String> LOGGED_UPDATE_TAGS = ConcurrentHashMap.newKeySet();
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -188,6 +192,27 @@ public class ECOComputationDriveBlockEntity
     }
 
     @Override
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag();
+        saveDriveVisualState(tag);
+        logVisualSync("saveUpdateTag", tag);
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        loadDriveVisualState(tag);
+        logVisualSync("handleUpdateTag", tag);
+    }
+
+    @Nullable
+    @Override
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    @Override
     protected void saveVisualState(CompoundTag data) {
         super.saveVisualState(data);
         saveDriveVisualState(data);
@@ -219,6 +244,32 @@ public class ECOComputationDriveBlockEntity
         this.formedState = data.getBoolean("formedState");
         this.isLowerDrive = data.getBoolean("isLowerDrive");
         this.ownerBlockPos = data.contains("ownerBlockPos") ? BlockPos.of(data.getLong("ownerBlockPos")) : null;
+    }
+
+    private void logVisualSync(String source, CompoundTag data) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String cellItem = cellStack == null
+            ? "empty"
+            : String.valueOf(ForgeRegistries.ITEMS.getKey(cellStack.getItem()));
+        String key = source
+            + "|" + getBlockPos()
+            + "|" + cellItem
+            + "|" + data.contains("cellStack")
+            + "|" + (level != null && level.isClientSide());
+        if (LOGGED_UPDATE_TAGS.add(key)) {
+            LOGGER.info(
+                "ECOComputationDrive visual sync {}: pos={}, cellItem={}, tagHasCellStack={}, formedState={}, lowerDrive={}, clientSide={}",
+                source,
+                getBlockPos(),
+                cellItem,
+                data.contains("cellStack"),
+                formedState,
+                isLowerDrive,
+                level != null && level.isClientSide()
+            );
+        }
     }
 
     private static @Nullable ItemStack normalizeCellStack(@Nullable ItemStack stack) {

@@ -98,7 +98,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         Direction facing = blockEntity.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
         poseStack.pushPose();
         poseStack.translate(0.5, 0.5, 0.5);
-        poseStack.mulPose(Axis.YP.rotationDegrees(yRotForFacing(facing)));
+        poseStack.mulPose(Axis.YN.rotationDegrees(yRotForFacing(facing)));
         poseStack.translate(-0.5, -0.5, -0.5);
         poseStack.translate(2 / 16f, 2 / 16f, 0 / 16f);
         ResourceLocation modelLocation = ECOCellModels.getModelLocation(cellStack.getItem());

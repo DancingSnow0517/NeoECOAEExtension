@@ -29,6 +29,7 @@ public class ECOComputationDriveRenderer
     BlockEntityRenderer<ECOComputationDriveBlockEntity> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
+    private static final Set<String> LOGGED_RENDER_ENTRIES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MODELS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MISSING_CELL_MAPPINGS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_RENDERED_CELL_MODELS = ConcurrentHashMap.newKeySet();
@@ -58,10 +59,11 @@ public class ECOComputationDriveRenderer
         IECOTier driveTier = blockEntity.getTier();
         ComputationRenderModels models = selectModels(blockEntity, itemStack, formed, driveTier);
 
+        logRenderEntry(blockEntity, itemStack, facing, formed);
         logComputationModels(blockEntity, itemStack, models, facing, formed, driveTier);
 
         poseStack.pushPose();
-        applyCenteredFacing(poseStack, facing);
+        applyOriginalComputationTransform(poseStack, facing);
 
         renderComputationCell(blockEntity, poseStack, bufferSource, models, facing, formed, packedLight, packedOverlay);
         if (formed) {
@@ -154,11 +156,11 @@ public class ECOComputationDriveRenderer
         }
         poseStack.pushPose();
         if (models.shouldCellWork()) {
-            poseStack.translate(0, 0, -0.6);
+            poseStack.translate(0, 0, -0.35);
         } else if (models.lowerDrive()) {
-            poseStack.translate(0, 0.688, -0.55);
+            poseStack.translate(0, 0.688, -0.3);
         } else {
-            poseStack.translate(0, -0.688, -0.55);
+            poseStack.translate(0, -0.688, -0.3);
         }
 
         if (models.lowerDrive()) {
@@ -171,6 +173,41 @@ public class ECOComputationDriveRenderer
 
         tessellateModel(blockEntity, poseStack, bufferSource, models.cableModel(), packedLight, packedOverlay);
         poseStack.popPose();
+    }
+
+    private static void logRenderEntry(
+        ECOComputationDriveBlockEntity blockEntity,
+        ItemStack itemStack,
+        Direction facing,
+        boolean formed
+    ) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        BlockState blockState = blockEntity.getBlockState();
+        boolean blockstateFormed = blockState.hasProperty(ECOComputationDrive.FORMED) && blockState.getValue(ECOComputationDrive.FORMED);
+        boolean blockstateHasCell = blockState.hasProperty(ECOComputationDrive.HAS_CELL) && blockState.getValue(ECOComputationDrive.HAS_CELL);
+        ResourceLocation itemId = itemStack == null || itemStack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(itemStack.getItem());
+        boolean clientSide = blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide();
+        String key = blockEntity.getBlockPos()
+            + "|" + facing
+            + "|" + blockstateFormed
+            + "|" + blockstateHasCell
+            + "|" + formed
+            + "|" + itemId
+            + "|" + clientSide;
+        if (LOGGED_RENDER_ENTRIES.add(key)) {
+            LOGGER.info(
+                "ECOComputationDriveRenderer#renderFixed: pos={}, facing={}, blockstateFormed={}, blockstateHasCell={}, blockEntityFormed={}, item={}, clientSide={}",
+                blockEntity.getBlockPos(),
+                facing,
+                blockstateFormed,
+                blockstateHasCell,
+                formed,
+                itemId,
+                clientSide
+            );
+        }
     }
 
     private static void logComputationModels(
@@ -254,7 +291,7 @@ public class ECOComputationDriveRenderer
             + "|" + models.shouldCellWork();
         if (LOGGED_RENDERED_CELL_MODELS.add(key)) {
             LOGGER.info(
-                "Rendering computation cell model {} at centered transform: pos={}, facing={}, formed={}, itemTier={}, driveTier={}, shouldCellWork={}, clientSide={}",
+                "Rendering computation cell model {} at original computation transform: pos={}, facing={}, formed={}, itemTier={}, driveTier={}, shouldCellWork={}, clientSide={}",
                 selectedCellModel,
                 blockEntity.getBlockPos(),
                 facing,
@@ -282,9 +319,11 @@ public class ECOComputationDriveRenderer
         };
     }
 
-    private static void applyCenteredFacing(PoseStack poseStack, Direction facing) {
+    private static void applyOriginalComputationTransform(PoseStack poseStack, Direction facing) {
+        int rotateDegrees = ((int) facing.toYRot() + 180) % 360;
         poseStack.translate(0.5, 0.5, 0.5);
-        poseStack.mulPose(Axis.YP.rotationDegrees(yRotForFacing(facing)));
+        poseStack.translate(0.25 * facing.getStepX(), 0, 0.25 * facing.getStepZ());
+        poseStack.mulPose(Axis.YN.rotationDegrees(rotateDegrees));
     }
 
     private record ComputationRenderModels(

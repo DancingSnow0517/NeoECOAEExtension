@@ -28,6 +28,7 @@ import static cn.dancingsnow.neoecoae.util.ThreadLocalRandomHelper.getRandom;
 public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     Logger MODEL_LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
     Set<String> WARNED_MISSING_MODELS = ConcurrentHashMap.newKeySet();
+    Set<String> LOGGED_MODEL_QUAD_COUNTS = ConcurrentHashMap.newKeySet();
 
     void renderFixed(T blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay);
 
@@ -140,15 +141,18 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         if (bakedModel == null) {
             return;
         }
+        VertexConsumer buffer = bufferSource.getBuffer(renderType);
+        int directionalQuadCount = 0;
         for (Direction value : Direction.values()) {
             List<BakedQuad> quads = bakedModel.getQuads(
                 null,
                 value,
                 getRandom()
             );
+            directionalQuadCount += quads.size();
             renderQuadsWithoutAO(
                 poseStack,
-                bufferSource.getBuffer(renderType),
+                buffer,
                 quads,
                 packedLight,
                 packedOverlay
@@ -159,9 +163,11 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
             null,
             getRandom()
         );
+        int unculledQuadCount = quads.size();
+        logQuadCounts(model, owner, directionalQuadCount, unculledQuadCount);
         renderQuadsWithoutAO(
             poseStack,
-            bufferSource.getBuffer(renderType),
+            buffer,
             quads,
             packedLight,
             packedOverlay
@@ -201,6 +207,22 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
             MODEL_LOGGER.warn(
                 "BER model resolved to missing model: {} for {}",
                 model,
+                owner == null ? "unknown block entity" : owner.getType()
+            );
+        }
+    }
+
+    private static void logQuadCounts(ResourceLocation model, BlockEntity owner, int directionalQuadCount, int unculledQuadCount) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String key = "quads:" + model + ":" + directionalQuadCount + ":" + unculledQuadCount;
+        if (LOGGED_MODEL_QUAD_COUNTS.add(key)) {
+            MODEL_LOGGER.info(
+                "BER baked model quads: model={}, directionalQuads={}, unculledQuads={}, owner={}",
+                model,
+                directionalQuadCount,
+                unculledQuadCount,
                 owner == null ? "unknown block entity" : owner.getType()
             );
         }
