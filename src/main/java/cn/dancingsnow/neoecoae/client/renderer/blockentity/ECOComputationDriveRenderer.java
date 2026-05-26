@@ -32,6 +32,7 @@ public class ECOComputationDriveRenderer
     private static final Set<String> LOGGED_RENDER_ENTRIES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MODELS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MISSING_CELL_MAPPINGS = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_MISSING_CABLE_MAPPINGS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_RENDERED_CELL_MODELS = ConcurrentHashMap.newKeySet();
 
 
@@ -106,6 +107,9 @@ public class ECOComputationDriveRenderer
         }
 
         if (formed) {
+            if (cableTier == null && itemTier != null) {
+                cableTier = itemTier;
+            }
             cableModel = shouldCellWork
                 ? ECOComputationModels.getCableConnectedModel(cableTier)
                 : ECOComputationModels.getCableDisconnectedModel(cableTier);
@@ -152,6 +156,7 @@ public class ECOComputationDriveRenderer
         int packedOverlay
     ) {
         if (models.cableModel() == null) {
+            logMissingCableModel(blockEntity, models);
             return;
         }
         poseStack.pushPose();
@@ -206,6 +211,31 @@ public class ECOComputationDriveRenderer
                 formed,
                 itemId,
                 clientSide
+            );
+        }
+    }
+
+    private static void logMissingCableModel(
+        ECOComputationDriveBlockEntity blockEntity,
+        ComputationRenderModels models
+    ) {
+        if (FMLEnvironment.production || !blockEntity.isFormed()) {
+            return;
+        }
+        String key = blockEntity.getBlockPos()
+            + "|" + models.itemTier()
+            + "|" + models.driveTier()
+            + "|" + models.shouldCellWork()
+            + "|" + models.lowerDrive();
+        if (LOGGED_MISSING_CABLE_MAPPINGS.add(key)) {
+            LOGGER.warn(
+                "Missing computation cable model mapping: pos={}, itemTier={}, driveTier={}, shouldCellWork={}, lowerDrive={}, clientSide={}",
+                blockEntity.getBlockPos(),
+                models.itemTier(),
+                models.driveTier(),
+                models.shouldCellWork(),
+                models.lowerDrive(),
+                blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide()
             );
         }
     }

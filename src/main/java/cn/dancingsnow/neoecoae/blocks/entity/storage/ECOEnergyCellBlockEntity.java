@@ -19,6 +19,7 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import com.lowdragmc.lowdraglib2.syncdata.storage.IManagedStorage;
+import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -27,9 +28,17 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkStatus;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import org.slf4j.Logger;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
     implements IExternalPowerSink, IGridTickable, ISyncPersistRPCBlockEntity {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Set<String> LOGGED_POWER_CHANGES = ConcurrentHashMap.newKeySet();
+
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -65,19 +74,23 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
     @Override
     public final double injectAEPower(double amt, Actionable mode) {
+        double before = this.energyStored.getAmount();
         var inserted = this.energyStored.insert(amt, mode == appeng.api.config.Actionable.MODULATE);
         if (mode == Actionable.MODULATE && inserted > 0) {
             this.onEnergyChanged();
         }
+        logPowerChange("injectAEPower", amt, inserted, mode, before, this.energyStored.getAmount());
         return amt - inserted;
     }
 
     @Override
     public final double extractAEPower(double amt, Actionable mode, PowerMultiplier pm) {
+        double before = this.energyStored.getAmount();
         double extracted = pm.divide(this.extractAEPower(pm.multiply(amt), mode));
         if (mode == Actionable.MODULATE && extracted > 0) {
             this.onEnergyChanged();
         }
+        logPowerChange("extractAEPower", amt, extracted, mode, before, this.energyStored.getAmount());
         return extracted;
     }
 
@@ -196,10 +209,56 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         int storageLevel = getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
 
         if (this.currentDisplayLevel != storageLevel) {
+            BlockState oldState = this.level.getBlockState(this.worldPosition);
+            BlockState newState = oldState.setValue(ECOEnergyCellBlock.LEVEL, storageLevel);
+            logDisplayLevelUpdate(oldState, newState, storageLevel);
             this.currentDisplayLevel = (byte) storageLevel;
-            this.level.setBlockAndUpdate(
-                this.worldPosition,
-                this.level.getBlockState(this.worldPosition).setValue(ECOEnergyCellBlock.LEVEL, storageLevel)
+            this.level.setBlockAndUpdate(this.worldPosition, newState);
+        }
+    }
+
+    private void logDisplayLevelUpdate(BlockState oldState, BlockState newState, int newDisplayLevel) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        LOGGER.info(
+            "ECOEnergyCell display level update: pos={}, tier={}, formed={}, power={}/{}, oldLevel={}, newLevel={}, oldState={}, newState={}",
+            getBlockPos(),
+            tier,
+            formed,
+            energyStored.getAmount(),
+            energyStored.getMaximum(),
+            currentDisplayLevel,
+            newDisplayLevel,
+            oldState,
+            newState
+        );
+    }
+
+    private void logPowerChange(String source, double requested, double moved, Actionable mode, double before, double after) {
+        if (FMLEnvironment.production || requested <= 0) {
+            return;
+        }
+        String key = source
+            + "|" + getBlockPos()
+            + "|" + mode
+            + "|" + formed
+            + "|" + getPowerFlow()
+            + "|" + (long) before
+            + "|" + (long) after;
+        if (LOGGED_POWER_CHANGES.add(key)) {
+            LOGGER.info(
+                "ECOEnergyCell power change: source={}, pos={}, tier={}, requested={}, moved={}, mode={}, formed={}, flow={}, energyBefore={}, energyAfter={}",
+                source,
+                getBlockPos(),
+                tier,
+                requested,
+                moved,
+                mode,
+                formed,
+                getPowerFlow(),
+                before,
+                after
             );
         }
     }

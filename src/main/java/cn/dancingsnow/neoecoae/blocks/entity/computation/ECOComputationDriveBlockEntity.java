@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
@@ -57,7 +58,6 @@ public class ECOComputationDriveBlockEntity
     private boolean formedState;
 
     @Getter
-    @Setter
     @DescSynced
     @RequireRerender
     private boolean isLowerDrive = false;
@@ -132,6 +132,14 @@ public class ECOComputationDriveBlockEntity
         return formedState;
     }
 
+    public void setLowerDrive(boolean lowerDrive) {
+        if (this.isLowerDrive != lowerDrive) {
+            this.isLowerDrive = lowerDrive;
+            markForUpdate();
+            setChanged();
+        }
+    }
+
     @Override
     public void setFormed(boolean formed) {
         this.formed = formed;
@@ -162,6 +170,8 @@ public class ECOComputationDriveBlockEntity
             tier = null;
             ownerBlockPos = null;
         }
+        markForUpdate();
+        setChanged();
     }
 
     @Override
@@ -233,6 +243,9 @@ public class ECOComputationDriveBlockEntity
         if (ownerBlockPos != null) {
             data.putLong("ownerBlockPos", ownerBlockPos.asLong());
         }
+        if (tier != null) {
+            data.putInt("tier", tier.getTier());
+        }
     }
 
     private void loadDriveVisualState(CompoundTag data) {
@@ -244,6 +257,7 @@ public class ECOComputationDriveBlockEntity
         this.formedState = data.getBoolean("formedState");
         this.isLowerDrive = data.getBoolean("isLowerDrive");
         this.ownerBlockPos = data.contains("ownerBlockPos") ? BlockPos.of(data.getLong("ownerBlockPos")) : null;
+        this.tier = data.contains("tier") ? tierFromId(data.getInt("tier")) : null;
     }
 
     private void logVisualSync(String source, CompoundTag data) {
@@ -260,16 +274,26 @@ public class ECOComputationDriveBlockEntity
             + "|" + (level != null && level.isClientSide());
         if (LOGGED_UPDATE_TAGS.add(key)) {
             LOGGER.info(
-                "ECOComputationDrive visual sync {}: pos={}, cellItem={}, tagHasCellStack={}, formedState={}, lowerDrive={}, clientSide={}",
+                "ECOComputationDrive visual sync {}: pos={}, cellItem={}, tagHasCellStack={}, formedState={}, lowerDrive={}, tier={}, clientSide={}",
                 source,
                 getBlockPos(),
                 cellItem,
                 data.contains("cellStack"),
                 formedState,
                 isLowerDrive,
+                tier,
                 level != null && level.isClientSide()
             );
         }
+    }
+
+    private static @Nullable IECOTier tierFromId(int tier) {
+        return switch (tier) {
+            case 1 -> ECOTier.L4;
+            case 2 -> ECOTier.L6;
+            case 3 -> ECOTier.L9;
+            default -> null;
+        };
     }
 
     private static @Nullable ItemStack normalizeCellStack(@Nullable ItemStack stack) {
