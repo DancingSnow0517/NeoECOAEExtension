@@ -132,12 +132,23 @@ public record IntegratedWorkingStationRecipe(
             if (json.has("inputItems")) {
                 JsonArray array = json.getAsJsonArray("inputItems");
                 for (int i = 0; i < array.size(); i++) {
-                    inputItems.add(SizedIngredient.fromJson(array.get(i)));
+                    try {
+                        inputItems.add(SizedIngredient.fromJson(array.get(i)));
+                    } catch (JsonParseException e) {
+                        throw new JsonParseException("Recipe " + id + " inputItems[" + i + "] " + e.getMessage(), e);
+                    }
                 }
             }
-            SizedFluidIngredient inputFluid = json.has("inputFluid")
-                ? SizedFluidIngredient.fromJson(json.get("inputFluid"))
-                : new SizedFluidIngredient(FluidIngredient.empty(), 0);
+
+            SizedFluidIngredient inputFluid;
+            try {
+                inputFluid = json.has("inputFluid")
+                    ? SizedFluidIngredient.fromJson(json.get("inputFluid"))
+                    : new SizedFluidIngredient(FluidIngredient.empty(), 0);
+            } catch (JsonParseException e) {
+                throw new JsonParseException("Recipe " + id + " inputFluid " + e.getMessage(), e);
+            }
+
             ItemStack itemOutput = json.has("itemOutput")
                 ? readItemStack(id, json.getAsJsonObject("itemOutput"))
                 : ItemStack.EMPTY;

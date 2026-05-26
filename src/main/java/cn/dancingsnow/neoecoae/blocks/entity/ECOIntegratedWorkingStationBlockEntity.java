@@ -428,11 +428,19 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             return;
         }
         loggedRecipeCounts = true;
+
+        int integratedCount = level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get()).size();
+        int coolingCount = level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get()).size();
+
         LOGGER.info(
             "NeoECOAE recipe counts: integrated_working_station={}, cooling={}",
-            level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get()).size(),
-            level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get()).size()
+            integratedCount,
+            coolingCount
         );
+
+        if (integratedCount == 0) {
+            LOGGER.warn("Integrated Working Station recipes are not loaded. Check data/neoecoae/recipes path.");
+        }
     }
 
     @Override

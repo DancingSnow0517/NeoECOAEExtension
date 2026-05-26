@@ -72,7 +72,12 @@ public record CoolingRecipe(
     public static class Serializer implements RecipeSerializer<CoolingRecipe> {
         @Override
         public CoolingRecipe fromJson(ResourceLocation id, JsonObject json) {
-            SizedFluidIngredient input = SizedFluidIngredient.fromJson(json.get("input"));
+            SizedFluidIngredient input;
+            try {
+                input = SizedFluidIngredient.fromJson(json.get("input"));
+            } catch (JsonParseException e) {
+                throw new JsonParseException("Recipe " + id + " input " + e.getMessage(), e);
+            }
             FluidStack output = json.has("output")
                 ? readFluidStack(id, json.getAsJsonObject("output"))
                 : FluidStack.EMPTY;

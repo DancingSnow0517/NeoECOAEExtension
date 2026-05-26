@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.compat.crafting;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -11,18 +12,41 @@ public record SizedIngredient(Ingredient ingredient, int count) {
         if (json == null || json.isJsonNull()) {
             return new SizedIngredient(Ingredient.EMPTY, 0);
         }
-        int count = 1;
-        JsonElement ingredientJson = json;
-        if (json.isJsonObject()) {
-            JsonObject object = json.getAsJsonObject();
-            if (object.has("count")) {
-                count = object.get("count").getAsInt();
-            }
-            if (object.has("ingredient")) {
-                ingredientJson = object.get("ingredient");
-            }
+
+        JsonObject object = json.isJsonObject() ? json.getAsJsonObject() : null;
+        int count = object != null && object.has("count") ? object.get("count").getAsInt() : 1;
+        JsonElement ingredientJson = object != null && object.has("ingredient") ? object.get("ingredient") : json;
+        ingredientJson = normalizeIngredientJson(ingredientJson);
+
+        if (!ingredientJson.isJsonObject()) {
+            throw new JsonParseException("Sized ingredient must contain 'item', 'id', 'tag', or 'ingredient'");
         }
-        return new SizedIngredient(Ingredient.fromJson(ingredientJson), count);
+
+        JsonObject ingredientObject = ingredientJson.getAsJsonObject();
+        if (!ingredientObject.has("item") && !ingredientObject.has("tag") && !ingredientObject.has("id")) {
+            throw new JsonParseException("Sized ingredient must contain 'item', 'id', or 'tag'");
+        }
+
+        return new SizedIngredient(Ingredient.fromJson(ingredientObject), count);
+    }
+
+    private static JsonElement normalizeIngredientJson(JsonElement json) {
+        if (json == null || json.isJsonNull() || !json.isJsonObject()) {
+            return json;
+        }
+
+        JsonObject object = json.getAsJsonObject();
+        if (object.has("ingredient")) {
+            return normalizeIngredientJson(object.get("ingredient"));
+        }
+
+        if (object.has("id") && !object.has("item") && !object.has("tag")) {
+            JsonObject normalized = new JsonObject();
+            normalized.addProperty("item", object.get("id").getAsString());
+            return normalized;
+        }
+
+        return object;
     }
 
     public JsonElement toJson() {

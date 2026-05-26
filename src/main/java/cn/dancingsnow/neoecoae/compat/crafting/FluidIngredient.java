@@ -39,13 +39,19 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
         if (json == null || json.isJsonNull()) {
             return empty();
         }
+        if (!json.isJsonObject()) {
+            throw new JsonParseException("Fluid ingredient must be an object");
+        }
         JsonObject object = json.getAsJsonObject();
+        if (object.has("ingredient")) {
+            return fromJson(object.get("ingredient"));
+        }
         if (object.has("tag")) {
             return new FluidIngredient(null, TagKey.create(Registries.FLUID, new ResourceLocation(object.get("tag").getAsString())));
         }
         String field = object.has("fluid") ? "fluid" : object.has("id") ? "id" : null;
         if (field == null) {
-            return empty();
+            throw new JsonParseException("Fluid ingredient must contain 'fluid', 'id', or 'tag'");
         }
         ResourceLocation id = new ResourceLocation(object.get(field).getAsString());
         Fluid fluid = ForgeRegistries.FLUIDS.getValue(id);
