@@ -25,6 +25,18 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
+    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (level.isClientSide || oldState.getBlock() == state.getBlock()) {
+            return;
+        }
+        final T be = this.getBlockEntity(level, pos);
+        if (be != null) {
+            be.rebuildMultiblock();
+        }
+    }
+
+    @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (newState.getBlock() == state.getBlock()) {
             return; // Just a block state change

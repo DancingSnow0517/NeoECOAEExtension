@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
+import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -21,17 +22,24 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
     extends AENetworkBlockEntity implements IAEMultiBlock<C> {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Set<String> LOGGED_FORMED_UPDATES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> LOGGED_REBUILDS = ConcurrentHashMap.newKeySet();
 
     @Setter
     @Getter
@@ -56,19 +64,28 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         super.onReady();
         onGridConnectableSidesChanged();
         if (level instanceof ServerLevel serverLevel) {
+            logRebuild("onReady");
             calculator.calculateMultiblock(serverLevel, worldPosition);
+            serverLevel.getServer().executeIfPossible(() -> {
+                if (level instanceof ServerLevel delayedLevel && !isRemoved()) {
+                    logRebuild("onReadyDelayed");
+                    calculator.calculateMultiblock(delayedLevel, worldPosition);
+                }
+            });
         }
         getMainNode().setIdlePowerUsage(16);
     }
 
     public void updateMultiBlock(BlockPos changedPos) {
         if (level instanceof ServerLevel serverLevel) {
+            logRebuild("neighborChanged:" + changedPos);
             calculator.updateMultiblockAfterNeighborUpdate(serverLevel, worldPosition, changedPos);
         }
     }
 
     public void rebuildMultiblock() {
         if (level instanceof ServerLevel serverLevel) {
+            logRebuild("rebuildMultiblock");
             calculator.calculateMultiblock(serverLevel, worldPosition);
         }
     }
@@ -99,18 +116,39 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @MustBeInvokedByOverriders
     public void updateState(boolean updateExposed) {
-        if (this.level == null || this.notLoaded() || this.isRemoved()) {
+        if (this.level == null || this.isRemoved()) {
             return;
         }
-        BlockState newState = level.getBlockState(worldPosition);
+        BlockState oldState = level.getBlockState(worldPosition);
+        BlockState newState = oldState;
         if (newState.hasProperty(NEBlock.FORMED)) {
+            boolean oldFormed = newState.getValue(NEBlock.FORMED);
             newState = newState.setValue(NEBlock.FORMED, formed);
+            if (!FMLEnvironment.production && oldFormed != formed) {
+                String logKey = getClass().getName() + "|" + worldPosition + "|" + oldFormed + ">" + formed;
+                if (LOGGED_FORMED_UPDATES.add(logKey)) {
+                    LOGGER.info(
+                        "NE multiblock formed update: be={}, pos={}, block={}, oldFormed={}, newFormed={}, hasCluster={}, updateExposed={}, oldState={}, newState={}",
+                        getClass().getSimpleName(),
+                        worldPosition,
+                        ForgeRegistries.BLOCKS.getKey(oldState.getBlock()),
+                        oldFormed,
+                        formed,
+                        cluster != null,
+                        updateExposed,
+                        oldState,
+                        newState
+                    );
+                }
+            }
         }
-        level.setBlock(
-            worldPosition,
-            newState,
-            Block.UPDATE_ALL_IMMEDIATE
-        );
+        if (!oldState.equals(newState)) {
+            level.setBlock(
+                worldPosition,
+                newState,
+                Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS
+            );
+        }
         if (updateExposed) {
             onGridConnectableSidesChanged();
         }
@@ -166,6 +204,24 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     public void breakCluster() {
         if (this.cluster != null) {
             cluster.destroy();
+        }
+    }
+
+    private void logRebuild(String source) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String key = getClass().getName() + "|" + worldPosition + "|" + source;
+        if (LOGGED_REBUILDS.add(key)) {
+            LOGGER.info(
+                "NE multiblock rebuild requested: source={}, be={}, pos={}, block={}, hasCluster={}, formed={}",
+                source,
+                getClass().getSimpleName(),
+                worldPosition,
+                level == null ? null : ForgeRegistries.BLOCKS.getKey(level.getBlockState(worldPosition).getBlock()),
+                cluster != null,
+                formed
+            );
         }
     }
 }

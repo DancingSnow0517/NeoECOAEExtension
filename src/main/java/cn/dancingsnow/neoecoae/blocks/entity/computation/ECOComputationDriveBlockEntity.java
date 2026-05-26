@@ -280,7 +280,7 @@ public class ECOComputationDriveBlockEntity
     }
 
     private void syncFormedBlockState(boolean newFormed, String source) {
-        if (level == null || notLoaded() || isRemoved() || !getBlockState().hasProperty(ECOComputationDrive.FORMED)) {
+        if (level == null || isRemoved() || !getBlockState().hasProperty(ECOComputationDrive.FORMED)) {
             return;
         }
         boolean oldFormed = getBlockState().getValue(ECOComputationDrive.FORMED);
@@ -298,7 +298,7 @@ public class ECOComputationDriveBlockEntity
             );
         }
         if (oldFormed != newFormed) {
-            level.setBlock(getBlockPos(), newState, Block.UPDATE_ALL_IMMEDIATE);
+            level.setBlock(getBlockPos(), newState, Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS);
         }
     }
 

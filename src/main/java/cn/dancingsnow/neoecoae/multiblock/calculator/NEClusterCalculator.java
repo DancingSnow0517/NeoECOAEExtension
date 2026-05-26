@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.multiblock.calculator;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import com.mojang.logging.LogUtils;
 import com.mojang.serialization.DataResult;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.core.BlockPos;
@@ -11,32 +12,100 @@ import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.slf4j.Logger;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 @SuppressWarnings("BooleanMethodIsAlwaysInverted")
 public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Set<String> LOGGED_CLUSTER_UPDATES = ConcurrentHashMap.newKeySet();
 
     public NEClusterCalculator(NEBlockEntity<C, ?> t) {
         super(t);
     }
 
+    @Override
+    public void calculateMultiblock(ServerLevel level, BlockPos pos) {
+        logClusterUpdate("calculate", level, pos, pos, null, null);
+        super.calculateMultiblock(level, pos);
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {
+        int memberCount = 0;
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
-            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) level.getBlockEntity(blockPos);
-            if (blockEntity == null) {
+            BlockEntity rawBlockEntity = level.getBlockEntity(blockPos);
+            if (!isValidBlockEntity(rawBlockEntity)) {
+                logClusterUpdate(
+                    "invalid member",
+                    level,
+                    min,
+                    max,
+                    blockPos,
+                    rawBlockEntity
+                );
                 this.disconnect();
                 return;
             }
+            @SuppressWarnings("unchecked")
+            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) rawBlockEntity;
             c.addBlockEntity(blockEntity);
+            memberCount++;
         }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
+        logClusterUpdate("formed", level, min, max, null, null, memberCount);
         c.updateFormed(true);
+    }
+
+    private void logClusterUpdate(
+        String reason,
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        BlockPos problemPos,
+        BlockEntity problemBlockEntity
+    ) {
+        logClusterUpdate(reason, level, min, max, problemPos, problemBlockEntity, -1);
+    }
+
+    private void logClusterUpdate(
+        String reason,
+        ServerLevel level,
+        BlockPos min,
+        BlockPos max,
+        BlockPos problemPos,
+        BlockEntity problemBlockEntity,
+        int memberCount
+    ) {
+        if (FMLEnvironment.production) {
+            return;
+        }
+        String key = getClass().getName() + "|" + reason + "|" + min + "|" + max + "|" + problemPos;
+        if (!LOGGED_CLUSTER_UPDATES.add(key)) {
+            return;
+        }
+        LOGGER.info(
+            "NE multiblock cluster update: calculator={}, reason={}, target={}, bounds={}..{}, members={}, problemPos={}, problemBlock={}, problemBlockEntity={}",
+            getClass().getSimpleName(),
+            reason,
+            target.getBlockPos(),
+            min,
+            max,
+            memberCount,
+            problemPos,
+            problemPos == null ? null : ForgeRegistries.BLOCKS.getKey(level.getBlockState(problemPos).getBlock()),
+            problemBlockEntity == null ? null : problemBlockEntity.getClass().getName()
+        );
     }
 
     @Override
