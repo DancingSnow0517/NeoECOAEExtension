@@ -26,6 +26,7 @@ import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -197,6 +198,18 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             .mapToObj(inventory::getStackInSlot)
             .filter(s -> !s.isEmpty())
             .forEach(drops::add);
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        inventory.writeToNBT(data, "patternInventory");
+    }
+
+    @Override
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        inventory.readFromNBT(data, "patternInventory");
     }
 
     @Override

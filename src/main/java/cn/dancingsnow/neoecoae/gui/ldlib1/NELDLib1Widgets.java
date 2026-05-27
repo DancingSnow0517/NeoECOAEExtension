@@ -99,6 +99,17 @@ public final class NELDLib1Widgets {
         return machineSlot(container, slot, x, y, false, true);
     }
 
+    /**
+     * Create a Pattern Bus slot widget that shows {@link NELDLib1Textures#PATTERN_OVERLAY}
+     * only when the slot is empty. The overlay is drawn in the background layer so
+     * real ItemStack icons are never covered.
+     */
+    public static SlotWidget patternSlot(Container container, int slot, int x, int y, boolean canPut, boolean canTake) {
+        return new PatternSlotWidget(container, slot, x, y, canPut, canTake)
+            .setEmptyOverlay(NELDLib1Textures.PATTERN_OVERLAY)
+            .setBackgroundTexture(NELDLib1Textures.SLOT);
+    }
+
     public static void addInventoryGrid(
         ModularUI ui,
         Container container,

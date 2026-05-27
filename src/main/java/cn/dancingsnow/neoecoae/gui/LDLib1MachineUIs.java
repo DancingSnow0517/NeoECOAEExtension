@@ -369,12 +369,12 @@ public final class LDLib1MachineUIs {
         for (int slot = 0; slot < visibleSlots; slot++) {
             int col = slot % PatternBusSpec.PATTERN_GRID_COLS;
             int row = slot / PatternBusSpec.PATTERN_GRID_COLS;
-            ui.widget(NELDLib1Widgets.machineSlot(
+            ui.widget(NELDLib1Widgets.patternSlot(
                 patternInventory, slot,
                 PatternBusSpec.PATTERN_GRID_X + col * NELDLib1Layout.SLOT,
                 PatternBusSpec.PATTERN_GRID_Y + row * NELDLib1Layout.SLOT,
                 true, true
-            ).setOverlay(NELDLib1Textures.PATTERN_OVERLAY));
+            ));
         }
 
         // Player inventory
