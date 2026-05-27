@@ -18,31 +18,10 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
-import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -55,8 +34,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
-import dev.vfyjxf.taffy.style.TaffyDisplay;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -496,244 +473,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-
-    @Deprecated(forRemoval = true)
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
-        UIElement buildWindow = buildPanel(holder);
-
-        ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
-        textPanel.addScrollViewChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
-
-        textPanel.addScrollViewChildren(
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.pattern_bus_count", patternBusCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.parallel_core_count", parallelCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.worker_count", workerCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-                .layout(layout -> layout.marginBottom(10))
-        );
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable(
-                "gui.neoecoae.crafting.working_threads",
-                runningThreadCount,
-                getAvailableThreads(),
-                getAvailableThreads() <= 0 ? 0 : (int) ((float) runningThreadCount / getAvailableThreads() * 100)
-            )))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.total_parallelism", threadCount)))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.total_parallelism.overflow", getOverflowThreads(), (int) (getOverflowThreadsPercentage() * 100))))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.max_energy_usage", Tooltips.ofNumber(getMaxEnergyUsage()))))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(this::buildOverclockStatusComponent))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER))
-            .addChildren(
-                new TextElement()
-                    .setText(Component.translatable("gui.neoecoae.crafting.enable_overlock"))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Switch()
-                    .bind(DataBindingBuilder.bool(() -> overclocked, b -> overclocked = b).build()))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
-                e.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.crafting.overclocked.tooltip")),
-                    null,
-                    null,
-                    null
-                );
-            }));
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER))
-            .addChildren(
-                new TextElement()
-                    .setText(Component.translatable("gui.neoecoae.crafting.enable_active_cooling"))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Switch()
-                    .bind(DataBindingBuilder.bool(() -> activeCooling, b -> activeCooling = b).build()))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
-                e.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip")),
-                    null,
-                    null,
-                    null
-                );
-            }));
-
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4))
-            .addChildren(
-                new Label()
-                    .bindDataSource(SupplierDataSource.of(this::buildCoolantSupportComponent))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Button()
-                    .setText("gui.neoecoae.crafting.clear_coolant", true)
-                    .setOnServerClick(event -> clearCoolant())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.crafting.clear_coolant.tooltip")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(42).height(16))));
-
-        textPanel.layout(layout -> layout.height(160).width(220));
-
-        UIElement buildButtonPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        buildButtonPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.CRAFT_HAMMER))
-            .setOnClick(event -> buildWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.multiblock.builder")),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> {
-                layout.width(18);
-                layout.height(20);
-            }));
-
-        root.addChild(textPanel);
-        root.addChild(buildButtonPanel);
-        root.addChild(buildWindow);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
-    }
-
-    private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement window = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(6);
-            layout.display(TaffyDisplay.NONE);
-            layout.paddingAll(4);
-            layout.gapAll(2);
-            layout.width(160);
-        }).addClass("panel_bg");
-
-        UIElement titleBar = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.SPACE_BETWEEN);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(2);
-        });
-        titleBar.addChild(new TextElement()
-            .setText(Component.translatable("gui.neoecoae.multiblock.builder"))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        titleBar.addChild(new Button()
-            .setText("X")
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> layout.width(16).height(16)));
-        WindowDragHelper.setDragMove(titleBar, window, null, null);
-        window.addChild(titleBar);
-
-        window.addChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(2))
-            .addChildren(
-                new Button()
-                    .setText("-")
-                    .setOnServerClick(event -> decreaseBuildLength())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.decrease_length")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18)),
-                new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.length", selectedBuildLength)))
-                    .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle),
-                new Button()
-                    .setText("+")
-                    .setOnServerClick(event -> increaseBuildLength())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.increase_length")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18))
-            ));
-
-        window.addChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4))
-            .addChildren(
-                new Button()
-                    .setText("gui.neoecoae.multiblock.preview", true)
-                    .setOnServerClick(event -> previewStructure(holder.player))
-                    .layout(layout -> layout.width(48).height(18)),
-                new Button()
-                    .setText("gui.neoecoae.multiblock.build", true)
-                    .setOnServerClick(event -> autoBuild(holder.player))
-                    .layout(layout -> layout.width(48).height(18))
-            ));
-
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.reused", previewReusedBlocks)))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.missing", previewMissingBlocks)))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.conflicts", previewConflictBlocks)))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.required_items", previewRequiredItems)))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(this::buildPreviewStatusComponent))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-
-        return window;
-    }
-
     public void increaseBuildLength() {
         if (buildInProgress) {
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
@@ -892,13 +631,4 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return recipe == null ? -1 : recipe.maxOverclock();
     }
 
-    private static void textStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xadb0c4).textShadow(false);
-    }
-
-    private static void buildPanelTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
-    }
-
-    // ── Client sync for Controller UI (LDLib2 sync bridge) ──
 }
