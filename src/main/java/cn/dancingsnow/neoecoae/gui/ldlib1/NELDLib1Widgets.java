@@ -40,6 +40,13 @@ public final class NELDLib1Widgets {
         return label(x, y, component, TITLE_COLOR);
     }
 
+    /**
+     * Light-colored title — use on dark panel backgrounds (e.g. terminal status window).
+     */
+    public static LabelWidget titleLight(int x, int y, Component component) {
+        return label(x, y, component, STATUS_COLOR_LIGHT_TEXT);
+    }
+
     public static LabelWidget label(int x, int y, Component component) {
         return label(x, y, component, LABEL_COLOR);
     }

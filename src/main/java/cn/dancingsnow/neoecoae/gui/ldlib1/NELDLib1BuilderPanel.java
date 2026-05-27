@@ -2,12 +2,14 @@ package cn.dancingsnow.neoecoae.gui.ldlib1;
 
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.util.ClickData;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -26,6 +28,7 @@ public final class NELDLib1BuilderPanel {
      * Add a floating builder panel using the default light background and
      * spec-driven compact layout.
      *
+     * @param onClose called when the close button (✕) is clicked; typically hides builder widgets
      * @return list of builder widgets so the caller can toggle visibility
      */
     public static List<Widget> addFloat(
@@ -35,15 +38,17 @@ public final class NELDLib1BuilderPanel {
         int x,
         int y,
         int width,
-        int height
+        int height,
+        Consumer<ClickData> onClose
     ) {
         return addFloat(ui, player, adapter, x, y, width, height,
-            NELDLib1Textures.CRAFTING_BACKGROUND_LIGHT);
+            NELDLib1Textures.CRAFTING_BACKGROUND_LIGHT, onClose);
     }
 
     /**
-     * Add a floating builder panel with a custom background texture.
+     * Add a floating builder panel with a custom background texture and close callback.
      *
+     * @param onClose called when the close button (✕) is clicked
      * @return list of builder widgets for optional visibility toggling
      */
     public static List<Widget> addFloat(
@@ -54,7 +59,8 @@ public final class NELDLib1BuilderPanel {
         int y,
         int width,
         int height,
-        IGuiTexture background
+        IGuiTexture background,
+        Consumer<ClickData> onClose
     ) {
         List<Widget> widgets = new ArrayList<>();
 
@@ -79,7 +85,7 @@ public final class NELDLib1BuilderPanel {
         var closeBtn = NELDLib1Widgets.squareButton(
             closeX, closeY, NELDLib1UiSpecs.BuilderPanelSpec.CLOSE_BTN_SIZE,
             Component.literal("\u2715"), // ✕
-            data -> { /* decorative — toggle handled by hammer button in main UI */ }
+            onClose != null ? onClose : data -> {}
         );
         ui.widget(closeBtn);
         widgets.add(closeBtn);

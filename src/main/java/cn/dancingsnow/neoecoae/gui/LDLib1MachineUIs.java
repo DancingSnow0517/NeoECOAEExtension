@@ -18,9 +18,14 @@ import cn.dancingsnow.neoecoae.gui.ldlib1.MultiblockBuildUiAdapter;
 import cn.dancingsnow.neoecoae.util.NETextFormat;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import com.lowdragmc.lowdraglib.gui.util.ClickData;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
+
+import java.util.List;
+import java.util.function.Consumer;
 
 import static cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1UiSpecs.IntegratedWorkingStationSpec;
 import static cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1UiSpecs.StorageControllerSpec;
@@ -131,32 +136,51 @@ public final class LDLib1MachineUIs {
     // Storage Controller — LDLib2-style three-zone layout
     // =========================================================================
     public static ModularUI createStorageSystemUI(ECOStorageSystemBlockEntity be, Player player) {
+        // Transparent root — no .background() so game world shows through between blocks
         var ui = new ModularUI(
             StorageControllerSpec.WIDTH, StorageControllerSpec.HEIGHT,
             be, player
-        ).background(NELDLib1Textures.BACKGROUND);
+        );
 
-        // ═══ Left tool button bar ═══
-        // Hammer button — toggles builder float visibility
-        boolean[] showBuilder = { true }; // mutable toggle state
+        // ═══ Builder floating window (created first, toggled by hammer/close) ═══
+        // Mutable holder so lambdas can reference the widget list after it's populated
+        @SuppressWarnings("unchecked")
+        List<Widget>[] builderWidgetsHolder = new List[1];
+        boolean[] builderVisible = { true };
 
+        Consumer<ClickData> hideBuilderAction = data -> {
+            builderVisible[0] = false;
+            for (var w : builderWidgetsHolder[0]) {
+                w.setVisible(false).setActive(false);
+            }
+        };
+
+        Runnable toggleBuilder = () -> {
+            builderVisible[0] = !builderVisible[0];
+            for (var w : builderWidgetsHolder[0]) {
+                w.setVisible(builderVisible[0]).setActive(builderVisible[0]);
+            }
+        };
+
+        builderWidgetsHolder[0] = NELDLib1BuilderPanel.addFloat(
+            ui, player, storageAdapter(be),
+            StorageControllerSpec.BUILDER_FLOAT_X, StorageControllerSpec.BUILDER_FLOAT_Y,
+            StorageControllerSpec.BUILDER_FLOAT_W, StorageControllerSpec.BUILDER_FLOAT_H,
+            hideBuilderAction
+        );
+
+        // ═══ Left tool button bar (independent element on transparent root) ═══
         var hammerBtn = NELDLib1Widgets.squareButton(
             StorageControllerSpec.HAMMER_BTN_X,
             StorageControllerSpec.HAMMER_BTN_Y,
             StorageControllerSpec.HAMMER_BTN_SIZE,
             Component.literal("\uD83D\uDD28"), // 🔨
-            data -> {
-                showBuilder[0] = !showBuilder[0];
-                // Re-open UI to apply visibility change (方案A: refresh-based toggle)
-                if (data.isRemote) {
-                    // Client-side: close & reopen is handled by vanilla
-                }
-            }
+            data -> toggleBuilder.run()
         );
         ui.widget(hammerBtn);
 
         // ═══ Main status window (terminal-style dark panel) ═══
-        // Outer frame
+        // Outer frame — independent image widget, not a root background
         ui.widget(NELDLib1Widgets.image(
             StorageControllerSpec.MAIN_FRAME_X, StorageControllerSpec.MAIN_FRAME_Y,
             StorageControllerSpec.MAIN_FRAME_W, StorageControllerSpec.MAIN_FRAME_H,
@@ -170,14 +194,14 @@ public final class LDLib1MachineUIs {
             NELDLib1Textures.CRAFTING_BACKGROUND_DARK
         ));
 
-        // Decorative scrollbar track (right edge)
+        // Decorative scrollbar track (right edge of dark panel)
         ui.widget(NELDLib1Widgets.scrollbarTrack(
             StorageControllerSpec.SCROLLBAR_X, StorageControllerSpec.SCROLLBAR_Y,
             StorageControllerSpec.SCROLLBAR_W, StorageControllerSpec.SCROLLBAR_H
         ));
 
-        // Short title inside main panel
-        ui.widget(NELDLib1Widgets.title(
+        // Short title — LIGHT text on dark panel background
+        ui.widget(NELDLib1Widgets.titleLight(
             StorageControllerSpec.TITLE_X, StorageControllerSpec.TITLE_Y,
             shortTitle("gui.neoecoae.ui.storage_system.short", be.getTier())
         ));
@@ -211,15 +235,6 @@ public final class LDLib1MachineUIs {
         ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
             () -> formatLine("gui.neoecoae.common.status", be.getPreviewStatusComponent().getString())));
 
-        // ═══ Builder floating window ═══
-        // Always visible (方案C); hammer button currently decorative.
-        // When LDLib1 widget visibility API is confirmed, toggle with showBuilder[0].
-        NELDLib1BuilderPanel.addFloat(
-            ui, player, storageAdapter(be),
-            StorageControllerSpec.BUILDER_FLOAT_X, StorageControllerSpec.BUILDER_FLOAT_Y,
-            StorageControllerSpec.BUILDER_FLOAT_W, StorageControllerSpec.BUILDER_FLOAT_H
-        );
-
         return ui;
     }
 
@@ -227,23 +242,45 @@ public final class LDLib1MachineUIs {
     // Computation Controller — LDLib2-style three-zone layout
     // =========================================================================
     public static ModularUI createComputationSystemUI(ECOComputationSystemBlockEntity be, Player player) {
+        // Transparent root — no .background() so game world shows through between blocks
         var ui = new ModularUI(
             ComputationControllerSpec.WIDTH, ComputationControllerSpec.HEIGHT,
             be, player
-        ).background(NELDLib1Textures.BACKGROUND);
+        );
 
-        // ═══ Left tool button bar ═══
-        // Hammer button — toggles builder float visibility
-        boolean[] showBuilder = { true };
+        // ═══ Builder floating window (created first, toggled by hammer/close) ═══
+        @SuppressWarnings("unchecked")
+        List<Widget>[] builderWidgetsHolder = new List[1];
+        boolean[] builderVisible = { true };
 
+        Consumer<ClickData> hideBuilderAction = data -> {
+            builderVisible[0] = false;
+            for (var w : builderWidgetsHolder[0]) {
+                w.setVisible(false).setActive(false);
+            }
+        };
+
+        Runnable toggleBuilder = () -> {
+            builderVisible[0] = !builderVisible[0];
+            for (var w : builderWidgetsHolder[0]) {
+                w.setVisible(builderVisible[0]).setActive(builderVisible[0]);
+            }
+        };
+
+        builderWidgetsHolder[0] = NELDLib1BuilderPanel.addFloat(
+            ui, player, computationAdapter(be),
+            ComputationControllerSpec.BUILDER_FLOAT_X, ComputationControllerSpec.BUILDER_FLOAT_Y,
+            ComputationControllerSpec.BUILDER_FLOAT_W, ComputationControllerSpec.BUILDER_FLOAT_H,
+            hideBuilderAction
+        );
+
+        // ═══ Left tool button bar (independent element on transparent root) ═══
         var hammerBtn = NELDLib1Widgets.squareButton(
             ComputationControllerSpec.HAMMER_BTN_X,
             ComputationControllerSpec.HAMMER_BTN_Y,
             ComputationControllerSpec.HAMMER_BTN_SIZE,
             Component.literal("\uD83D\uDD28"), // 🔨
-            data -> {
-                showBuilder[0] = !showBuilder[0];
-            }
+            data -> toggleBuilder.run()
         );
         ui.widget(hammerBtn);
 
@@ -262,14 +299,14 @@ public final class LDLib1MachineUIs {
             NELDLib1Textures.CRAFTING_BACKGROUND_DARK
         ));
 
-        // Decorative scrollbar track (right edge)
+        // Decorative scrollbar track
         ui.widget(NELDLib1Widgets.scrollbarTrack(
             ComputationControllerSpec.SCROLLBAR_X, ComputationControllerSpec.SCROLLBAR_Y,
             ComputationControllerSpec.SCROLLBAR_W, ComputationControllerSpec.SCROLLBAR_H
         ));
 
-        // Short title inside main panel
-        ui.widget(NELDLib1Widgets.title(
+        // Short title — LIGHT text on dark panel background
+        ui.widget(NELDLib1Widgets.titleLight(
             ComputationControllerSpec.TITLE_X, ComputationControllerSpec.TITLE_Y,
             shortTitle("gui.neoecoae.ui.computation_system.short", be.getTier())
         ));
@@ -299,13 +336,6 @@ public final class LDLib1MachineUIs {
         rowY += sp;
         ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
             () -> formatLine("gui.neoecoae.common.status", be.getPreviewStatusComponent().getString())));
-
-        // ═══ Builder floating window ═══
-        NELDLib1BuilderPanel.addFloat(
-            ui, player, computationAdapter(be),
-            ComputationControllerSpec.BUILDER_FLOAT_X, ComputationControllerSpec.BUILDER_FLOAT_Y,
-            ComputationControllerSpec.BUILDER_FLOAT_W, ComputationControllerSpec.BUILDER_FLOAT_H
-        );
 
         return ui;
     }
