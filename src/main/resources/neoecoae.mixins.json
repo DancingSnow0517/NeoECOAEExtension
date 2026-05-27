@@ -6,7 +6,8 @@
   "mixins": [
     "CraftingServiceMixin120",
     "CraftingStatusMenuMixin120",
-    "CraftingCpuListEntryMixin120"
+    "CraftingCpuListEntryMixin120",
+    "CraftingCPUMenuMixin120"
   ],
   "client": [
     "CPUSelectionListMixin120"
