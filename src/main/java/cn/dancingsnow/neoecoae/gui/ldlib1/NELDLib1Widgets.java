@@ -179,4 +179,25 @@ public final class NELDLib1Widgets {
     public static ImageWidget image(int x, int y, int width, int height, Supplier<IGuiTexture> texture) {
         return new ImageWidget(x, y, width, height, texture);
     }
+
+    /**
+     * Decorative scrollbar track — a narrow dark strip on the right edge of
+     * a terminal-style status panel. No real scrolling; purely visual.
+     */
+    public static ImageWidget scrollbarTrack(int x, int y, int width, int height) {
+        return image(x, y, width, height, NELDLib1Textures.SCROLLBAR_TRACK);
+    }
+
+    /**
+     * Small square button (e.g. hammer / close) without text, using the
+     * default button texture and a label drawn on top.
+     */
+    public static ButtonWidget squareButton(int x, int y, int size, Component label, Consumer<ClickData> action) {
+        TextTexture texture = NELDLib1Textures
+            .text(() -> label.getString(), BUTTON_TEXT_COLOR, size)
+            .setBackgroundTexture(NELDLib1Textures.BUTTON);
+        return new ButtonWidget(x, y, size, size, texture, action)
+            .setHoverTexture(NELDLib1Textures.BUTTON_HOVER)
+            .setClickedTexture(NELDLib1Textures.BUTTON_HIGHLIGHTED);
+    }
 }

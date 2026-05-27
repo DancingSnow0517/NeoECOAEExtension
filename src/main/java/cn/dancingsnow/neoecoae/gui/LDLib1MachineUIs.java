@@ -128,7 +128,7 @@ public final class LDLib1MachineUIs {
     }
 
     // =========================================================================
-    // Storage Controller
+    // Storage Controller — LDLib2-style three-zone layout
     // =========================================================================
     public static ModularUI createStorageSystemUI(ECOStorageSystemBlockEntity be, Player player) {
         var ui = new ModularUI(
@@ -136,24 +136,57 @@ public final class LDLib1MachineUIs {
             be, player
         ).background(NELDLib1Textures.BACKGROUND);
 
-        // Short title to avoid truncation
-        ui.widget(NELDLib1Widgets.title(
-            StorageControllerSpec.TITLE_X, StorageControllerSpec.TITLE_Y,
-            shortTitle("gui.neoecoae.ui.storage_subsystem.short", be.getTier())
+        // ═══ Left tool button bar ═══
+        // Hammer button — toggles builder float visibility
+        boolean[] showBuilder = { true }; // mutable toggle state
+
+        var hammerBtn = NELDLib1Widgets.squareButton(
+            StorageControllerSpec.HAMMER_BTN_X,
+            StorageControllerSpec.HAMMER_BTN_Y,
+            StorageControllerSpec.HAMMER_BTN_SIZE,
+            Component.literal("\uD83D\uDD28"), // 🔨
+            data -> {
+                showBuilder[0] = !showBuilder[0];
+                // Re-open UI to apply visibility change (方案A: refresh-based toggle)
+                if (data.isRemote) {
+                    // Client-side: close & reopen is handled by vanilla
+                }
+            }
+        );
+        ui.widget(hammerBtn);
+
+        // ═══ Main status window (terminal-style dark panel) ═══
+        // Outer frame
+        ui.widget(NELDLib1Widgets.image(
+            StorageControllerSpec.MAIN_FRAME_X, StorageControllerSpec.MAIN_FRAME_Y,
+            StorageControllerSpec.MAIN_FRAME_W, StorageControllerSpec.MAIN_FRAME_H,
+            NELDLib1Textures.BACKGROUND
         ));
 
-        // Status panel background (DARK)
+        // Inner dark content area
         ui.widget(NELDLib1Widgets.image(
-            StorageControllerSpec.STATUS_PANEL_X, StorageControllerSpec.STATUS_PANEL_Y,
-            StorageControllerSpec.STATUS_PANEL_W, StorageControllerSpec.STATUS_PANEL_H,
+            StorageControllerSpec.MAIN_PANEL_X, StorageControllerSpec.MAIN_PANEL_Y,
+            StorageControllerSpec.MAIN_PANEL_W, StorageControllerSpec.MAIN_PANEL_H,
             NELDLib1Textures.CRAFTING_BACKGROUND_DARK
         ));
 
+        // Decorative scrollbar track (right edge)
+        ui.widget(NELDLib1Widgets.scrollbarTrack(
+            StorageControllerSpec.SCROLLBAR_X, StorageControllerSpec.SCROLLBAR_Y,
+            StorageControllerSpec.SCROLLBAR_W, StorageControllerSpec.SCROLLBAR_H
+        ));
+
+        // Short title inside main panel
+        ui.widget(NELDLib1Widgets.title(
+            StorageControllerSpec.TITLE_X, StorageControllerSpec.TITLE_Y,
+            shortTitle("gui.neoecoae.ui.storage_system.short", be.getTier())
+        ));
+
+        // Status rows — LIGHT text on dark background
         int rowY = StorageControllerSpec.STATUS_ROW_START_Y;
         int sx = StorageControllerSpec.STATUS_ROW_START_X;
         int sp = StorageControllerSpec.STATUS_ROW_SPACING;
 
-        // LIGHT text on dark background
         ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
             () -> formatLine("gui.neoecoae.common.formed", enabledText(be.isFormed()))));
         rowY += sp;
@@ -178,17 +211,20 @@ public final class LDLib1MachineUIs {
         ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
             () -> formatLine("gui.neoecoae.common.status", be.getPreviewStatusComponent().getString())));
 
-        NELDLib1BuilderPanel.add(
+        // ═══ Builder floating window ═══
+        // Always visible (方案C); hammer button currently decorative.
+        // When LDLib1 widget visibility API is confirmed, toggle with showBuilder[0].
+        NELDLib1BuilderPanel.addFloat(
             ui, player, storageAdapter(be),
-            StorageControllerSpec.BUILDER_PANEL_X, StorageControllerSpec.BUILDER_PANEL_Y,
-            StorageControllerSpec.BUILDER_PANEL_W, StorageControllerSpec.BUILDER_PANEL_H
+            StorageControllerSpec.BUILDER_FLOAT_X, StorageControllerSpec.BUILDER_FLOAT_Y,
+            StorageControllerSpec.BUILDER_FLOAT_W, StorageControllerSpec.BUILDER_FLOAT_H
         );
 
         return ui;
     }
 
     // =========================================================================
-    // Computation Controller
+    // Computation Controller — LDLib2-style three-zone layout
     // =========================================================================
     public static ModularUI createComputationSystemUI(ECOComputationSystemBlockEntity be, Player player) {
         var ui = new ModularUI(
@@ -196,24 +232,53 @@ public final class LDLib1MachineUIs {
             be, player
         ).background(NELDLib1Textures.BACKGROUND);
 
-        // Short title
-        ui.widget(NELDLib1Widgets.title(
-            ComputationControllerSpec.TITLE_X, ComputationControllerSpec.TITLE_Y,
-            shortTitle("gui.neoecoae.ui.computation_subsystem.short", be.getTier())
+        // ═══ Left tool button bar ═══
+        // Hammer button — toggles builder float visibility
+        boolean[] showBuilder = { true };
+
+        var hammerBtn = NELDLib1Widgets.squareButton(
+            ComputationControllerSpec.HAMMER_BTN_X,
+            ComputationControllerSpec.HAMMER_BTN_Y,
+            ComputationControllerSpec.HAMMER_BTN_SIZE,
+            Component.literal("\uD83D\uDD28"), // 🔨
+            data -> {
+                showBuilder[0] = !showBuilder[0];
+            }
+        );
+        ui.widget(hammerBtn);
+
+        // ═══ Main status window (terminal-style dark panel) ═══
+        // Outer frame
+        ui.widget(NELDLib1Widgets.image(
+            ComputationControllerSpec.MAIN_FRAME_X, ComputationControllerSpec.MAIN_FRAME_Y,
+            ComputationControllerSpec.MAIN_FRAME_W, ComputationControllerSpec.MAIN_FRAME_H,
+            NELDLib1Textures.BACKGROUND
         ));
 
-        // Status panel background (DARK)
+        // Inner dark content area
         ui.widget(NELDLib1Widgets.image(
-            ComputationControllerSpec.STATUS_PANEL_X, ComputationControllerSpec.STATUS_PANEL_Y,
-            ComputationControllerSpec.STATUS_PANEL_W, ComputationControllerSpec.STATUS_PANEL_H,
+            ComputationControllerSpec.MAIN_PANEL_X, ComputationControllerSpec.MAIN_PANEL_Y,
+            ComputationControllerSpec.MAIN_PANEL_W, ComputationControllerSpec.MAIN_PANEL_H,
             NELDLib1Textures.CRAFTING_BACKGROUND_DARK
         ));
 
+        // Decorative scrollbar track (right edge)
+        ui.widget(NELDLib1Widgets.scrollbarTrack(
+            ComputationControllerSpec.SCROLLBAR_X, ComputationControllerSpec.SCROLLBAR_Y,
+            ComputationControllerSpec.SCROLLBAR_W, ComputationControllerSpec.SCROLLBAR_H
+        ));
+
+        // Short title inside main panel
+        ui.widget(NELDLib1Widgets.title(
+            ComputationControllerSpec.TITLE_X, ComputationControllerSpec.TITLE_Y,
+            shortTitle("gui.neoecoae.ui.computation_system.short", be.getTier())
+        ));
+
+        // Status rows — LIGHT text on dark background
         int rowY = ComputationControllerSpec.STATUS_ROW_START_Y;
         int sx = ComputationControllerSpec.STATUS_ROW_START_X;
         int sp = ComputationControllerSpec.STATUS_ROW_SPACING;
 
-        // LIGHT text on dark background
         ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
             () -> formatLine("gui.neoecoae.common.formed", enabledText(be.isFormed()))));
         rowY += sp;
@@ -235,10 +300,11 @@ public final class LDLib1MachineUIs {
         ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
             () -> formatLine("gui.neoecoae.common.status", be.getPreviewStatusComponent().getString())));
 
-        NELDLib1BuilderPanel.add(
+        // ═══ Builder floating window ═══
+        NELDLib1BuilderPanel.addFloat(
             ui, player, computationAdapter(be),
-            ComputationControllerSpec.BUILDER_PANEL_X, ComputationControllerSpec.BUILDER_PANEL_Y,
-            ComputationControllerSpec.BUILDER_PANEL_W, ComputationControllerSpec.BUILDER_PANEL_H
+            ComputationControllerSpec.BUILDER_FLOAT_X, ComputationControllerSpec.BUILDER_FLOAT_Y,
+            ComputationControllerSpec.BUILDER_FLOAT_W, ComputationControllerSpec.BUILDER_FLOAT_H
         );
 
         return ui;
@@ -500,8 +566,8 @@ public final class LDLib1MachineUIs {
 
     /**
      * Build a short controller title using a translatable key with a tier format arg.
-     * Example: shortTitle("gui.neoecoae.ui.storage_subsystem.short", be.getTier())
-     * produces "ECO - L4 Storage Subsystem" (en) / "ECO - L4 存储子系统" (zh_cn).
+     * Example: shortTitle("gui.neoecoae.ui.storage_system.short", be.getTier())
+     * produces "ECO - L9 Storage System" (en) / "ECO - L9 存储系统" (zh_cn).
      */
     private static Component shortTitle(String key, IECOTier tier) {
         return Component.translatable(key, tier.toString());

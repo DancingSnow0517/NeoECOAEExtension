@@ -26,10 +26,17 @@ public class GuiLangs {
         provider.add("gui.neoecoae.common.active_cooling", "Active Cooling");
         provider.add("gui.neoecoae.common.input_fluid", "In Fluid");
         provider.add("gui.neoecoae.common.output_fluid", "Out Fluid");
+        provider.add("gui.neoecoae.common.multiblock_builder", "Multiblock Builder");
+        provider.add("gui.neoecoae.common.show_builder", "Show Builder");
+        provider.add("gui.neoecoae.common.hide_builder", "Hide Builder");
+        provider.add("gui.neoecoae.common.close", "Close");
         provider.add("gui.neoecoae.pattern_bus.patterns", "Patterns");
         provider.add("gui.neoecoae.pattern_bus.patterns_page", "Patterns %d - %d");
 
-        // short controller titles
+        // short controller titles (LDLib2-style three-zone layout)
+        provider.add("gui.neoecoae.ui.storage_system.short", "ECO - %s Storage System");
+        provider.add("gui.neoecoae.ui.computation_system.short", "ECO - %s Computation System");
+        // legacy keys kept for backward compatibility
         provider.add("gui.neoecoae.ui.storage_subsystem.short", "ECO - %s Storage Subsystem");
         provider.add("gui.neoecoae.ui.computation_subsystem.short", "ECO - %s Computation Subsystem");
         provider.add("gui.neoecoae.ui.crafting_controller.short", "ECO - %s Crafting Controller");

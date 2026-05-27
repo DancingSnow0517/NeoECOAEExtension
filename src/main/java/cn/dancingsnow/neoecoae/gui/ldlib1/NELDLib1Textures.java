@@ -39,6 +39,10 @@ public final class NELDLib1Textures {
         border("textures/gui/crafting/background_dark.png", 32, 32, 6, 6);
     public static final ResourceBorderTexture CRAFTING_BACKGROUND_LIGHT =
         border("textures/gui/crafting/background_light.png", 32, 32, 6, 6);
+    /** Narrow dark strip used as a decorative scrollbar track on the right edge of terminal panels. */
+    public static final ResourceBorderTexture SCROLLBAR_TRACK =
+        border("textures/gui/crafting/background_dark.png", 32, 32, 0, 0);
+
     public static final ResourceTexture CRAFTING_STATUS_BACKGROUND = texture("textures/gui/crafting/status_background.png");
     public static final ResourceTexture CRAFTING_UNAVAILABLE_STATUS = texture("textures/gui/crafting/unavailable_status.png");
     public static final ResourceTexture CRAFTING_F0 = texture("textures/gui/crafting/f0.png");
