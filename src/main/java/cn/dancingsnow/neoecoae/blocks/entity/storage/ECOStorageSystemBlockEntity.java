@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
+import cn.dancingsnow.neoecoae.network.NEStorageUiState;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -157,8 +158,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         _synTotalBytes = 0;
     }
 
+    /**
+     * Core stats recalculation from cluster drives and energy cells.
+     * Updates _syn* scalars and per-type arrays but does NOT mark dirty
+     * or sync to client. Safe to call on server only.
+     */
     @SuppressWarnings("UnstableApiUsage")
-    private void updateInfos() {
+    private void recalculateStorageStats() {
         if (cluster != null) {
             storedEnergy = 0;
             maxEnergy = 0;
@@ -205,13 +211,36 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             _synTotalTypes = aggTotalTypes;
             _synUsedBytes = aggUsedBytes;
             _synTotalBytes = aggTotalBytes;
-
-            setChanged();
         } else {
             resetStorageInfos();
-            setChanged();
         }
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    private void updateInfos() {
+        recalculateStorageStats();
+        setChanged();
         syncUiToClient();
+    }
+
+    /**
+     * Creates a snapshot of current storage stats for S2C UI sync.
+     * Recalculates stats on the server before building the state.
+     */
+    public NEStorageUiState createStorageUiState() {
+        if (level != null && !level.isClientSide) {
+            recalculateStorageStats();
+        }
+        return new NEStorageUiState(
+            worldPosition,
+            _synUsedTypes,
+            _synTotalTypes,
+            _synUsedBytes,
+            _synTotalBytes,
+            storedEnergy,
+            maxEnergy,
+            formed
+        );
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
