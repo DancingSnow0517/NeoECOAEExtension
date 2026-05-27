@@ -41,12 +41,6 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
                 be.getTotalUsedBytes(), be.getTotalBytes(),
                 be.getStoredEnergy(), be.getMaxEnergy(),
                 be.isFormed());
-            // Raw array dump for debugging
-            System.out.println("[NeoECOAE DEBUG] Storage totalTypes=" + be.getTotalTypes() +
-                " totalBytes=" + be.getTotalBytes() +
-                " storedEnergy=" + be.getStoredEnergy() +
-                " maxEnergy=" + be.getMaxEnergy() +
-                " formed=" + be.isFormed());
         } else {
             LOG.info("[NeoECOAE] Storage UI opened — client BE not found at {}", menu.getMachinePos());
         }
