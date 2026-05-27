@@ -15,6 +15,7 @@ import java.lang.reflect.Modifier;
 
 @SuppressWarnings("unused")
 public class NETextures {
+    // Legacy LDLib2 compatibility texture registry. Formal Forge 1.20.1 UIs use LDLib1 wrappers in NELDLib1Textures.
     public static final IGuiTexture BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(2, 2, 2, 4);

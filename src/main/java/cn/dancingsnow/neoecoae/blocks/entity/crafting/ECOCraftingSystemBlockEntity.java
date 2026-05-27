@@ -320,6 +320,30 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return buildPreviewStatusComponent();
     }
 
+    public int getSelectedBuildLength() {
+        return selectedBuildLength;
+    }
+
+    public int getPreviewMissingBlocks() {
+        return previewMissingBlocks;
+    }
+
+    public int getPreviewConflictBlocks() {
+        return previewConflictBlocks;
+    }
+
+    public int getPreviewReusedBlocks() {
+        return previewReusedBlocks;
+    }
+
+    public int getPreviewRequiredItems() {
+        return previewRequiredItems;
+    }
+
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
+
     private long getMaxEnergyUsage() {
         if (overclocked && !activeCooling) {
             return getAvailableThreads() * tier.getOverclockedCrafterPowerMultiply() * 100L;
@@ -711,7 +735,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return window;
     }
 
-    private void increaseBuildLength() {
+    public void increaseBuildLength() {
         if (buildInProgress) {
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
@@ -720,7 +744,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
-    private void decreaseBuildLength() {
+    public void decreaseBuildLength() {
         if (buildInProgress) {
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;

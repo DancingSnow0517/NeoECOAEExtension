@@ -217,6 +217,30 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return buildPreviewStatusComponent();
     }
 
+    public int getSelectedBuildLength() {
+        return selectedBuildLength;
+    }
+
+    public int getPreviewMissingBlocks() {
+        return previewMissingBlocks;
+    }
+
+    public int getPreviewConflictBlocks() {
+        return previewConflictBlocks;
+    }
+
+    public int getPreviewReusedBlocks() {
+        return previewReusedBlocks;
+    }
+
+    public int getPreviewRequiredItems() {
+        return previewRequiredItems;
+    }
+
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
+
     @Override
     public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
         return LDLib1MachineUIs.createComputationSystemUI(this, player);
@@ -381,7 +405,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return window;
     }
 
-    private void increaseBuildLength() {
+    public void increaseBuildLength() {
         if (buildInProgress) {
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
@@ -390,7 +414,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
-    private void decreaseBuildLength() {
+    public void decreaseBuildLength() {
         if (buildInProgress) {
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
@@ -399,7 +423,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
-    private void previewStructure(Player player) {
+    public void previewStructure(Player player) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -440,7 +464,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         );
     }
 
-    private void autoBuild(Player player) {
+    public void autoBuild(Player player) {
         if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }

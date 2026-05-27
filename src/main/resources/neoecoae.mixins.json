@@ -4,9 +4,13 @@
   "package": "cn.dancingsnow.neoecoae.forge.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "CraftingServiceMixin120"
+    "CraftingServiceMixin120",
+    "CraftingStatusMenuMixin120",
+    "CraftingCpuListEntryMixin120"
   ],
-  "client": [],
+  "client": [
+    "CPUSelectionListMixin120"
+  ],
   "server": [],
   "injectors": {
     "defaultRequire": 1

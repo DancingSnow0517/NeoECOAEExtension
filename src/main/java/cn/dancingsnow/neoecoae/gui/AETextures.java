@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class AETextures {
+    // Legacy LDLib2 icon wrapper used by deprecated compatibility UI paths.
     private static final Map<Icon, IGuiTexture> cache = new HashMap<>();
 
     public static IGuiTexture icon(Icon icon) {

@@ -284,6 +284,30 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return buildPreviewStatusComponent();
     }
 
+    public int getSelectedBuildLength() {
+        return selectedBuildLength;
+    }
+
+    public int getPreviewMissingBlocks() {
+        return previewMissingBlocks;
+    }
+
+    public int getPreviewConflictBlocks() {
+        return previewConflictBlocks;
+    }
+
+    public int getPreviewReusedBlocks() {
+        return previewReusedBlocks;
+    }
+
+    public int getPreviewRequiredItems() {
+        return previewRequiredItems;
+    }
+
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
+
     @Override
     public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
         resetStorageInfosIfNeeded();
@@ -498,7 +522,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return window;
     }
 
-    private void increaseBuildLength() {
+    public void increaseBuildLength() {
         if (buildInProgress) {
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
@@ -507,7 +531,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
-    private void decreaseBuildLength() {
+    public void decreaseBuildLength() {
         if (buildInProgress) {
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
@@ -516,7 +540,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
-    private void previewStructure(Player player) {
+    public void previewStructure(Player player) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -543,7 +567,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), statusKey);
     }
 
-    private void autoBuild(Player player) {
+    public void autoBuild(Player player) {
         if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
