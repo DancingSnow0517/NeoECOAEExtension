@@ -1,9 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -30,7 +32,6 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     @Override
     protected void init() {
         super.init();
-        // One-time dump of client-side BE state for verification
         ECOStorageSystemBlockEntity be = getStorageBE();
         if (be != null) {
             LOG.info("[NeoECOAE] Storage UI opened — client BE at {}:" +
@@ -40,6 +41,12 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
                 be.getTotalUsedBytes(), be.getTotalBytes(),
                 be.getStoredEnergy(), be.getMaxEnergy(),
                 be.isFormed());
+            // Raw array dump for debugging
+            System.out.println("[NeoECOAE DEBUG] Storage totalTypes=" + be.getTotalTypes() +
+                " totalBytes=" + be.getTotalBytes() +
+                " storedEnergy=" + be.getStoredEnergy() +
+                " maxEnergy=" + be.getMaxEnergy() +
+                " formed=" + be.isFormed());
         } else {
             LOG.info("[NeoECOAE] Storage UI opened — client BE not found at {}", menu.getMachinePos());
         }

@@ -17,6 +17,7 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IGridTickable {
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -151,6 +153,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @SuppressWarnings("UnstableApiUsage")
     private void updateInfos() {
+        int driveCount = 0;
+        int cellCount = 0;
         if (cluster != null) {
             storedEnergy = 0;
             maxEnergy = 0;
@@ -165,8 +169,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             usedBytes = new long[typeCount];
             totalBytes = new long[typeCount];
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                driveCount++;
                 IECOStorageCell inv = drive.getCellInventory();
                 if (inv != null) {
+                    cellCount++;
                     ECOCellType cellType = inv.getCellType();
                     int id = NERegistries.CELL_TYPE.getId(cellType);
                     if (id < 0 || id >= typeCount) {
@@ -178,6 +184,27 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     totalBytes[id] += inv.getTotalBytes();
                 }
             }
+            // Diagnostic: log once per value change, or on first call after formed
+            long tu = sum(usedTypes), tt = sum(totalTypes), bu = sum(usedBytes), bt = sum(totalBytes);
+            _synUsedTypes = tu;
+            _synTotalTypes = tt;
+            _synUsedBytes = bu;
+            _synTotalBytes = bt;
+            if (!_loggedUpdateOnce || tu != _lastLoggedUsedTypes || tt != _lastLoggedTotalTypes
+                || bu != _lastLoggedUsedBytes || bt != _lastLoggedTotalBytes) {
+                _loggedUpdateOnce = true;
+                _lastLoggedUsedTypes = tu;
+                _lastLoggedTotalTypes = tt;
+                _lastLoggedUsedBytes = bu;
+                _lastLoggedTotalBytes = bt;
+                // Use both loggers to ensure visibility
+                String msg = "[NeoECOAE] Storage updateInfos @ " + worldPosition + ": cluster=" + (cluster != null) +
+                    " drives=" + driveCount + " cells=" + cellCount +
+                    " types=" + tu + "/" + tt + " bytes=" + bu + "/" + bt +
+                    " energy=" + storedEnergy + "/" + maxEnergy + " formed=" + formed;
+                LOGGER.info(msg);
+                System.out.println(msg);
+            }
             setChanged();
         } else {
             resetStorageInfos();
@@ -186,6 +213,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         // Sync UI display fields to client
         syncUiToClient();
     }
+
+    // Diagnostic: track last logged values to avoid log spam
+    private transient long _lastLoggedUsedTypes = -1;
+    private transient long _lastLoggedTotalTypes = -1;
+    private transient long _lastLoggedUsedBytes = -1;
+    private transient long _lastLoggedTotalBytes = -1;
+    private transient boolean _loggedUpdateOnce;
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
@@ -243,20 +277,34 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return maxEnergy;
     }
 
+    // Scalar synced fields — written directly to avoid long[] array sync issues on client
+    @DescSynced
+    private long _synUsedTypes;
+    @DescSynced
+    private long _synTotalTypes;
+    @DescSynced
+    private long _synUsedBytes;
+    @DescSynced
+    private long _synTotalBytes;
+
     public long getTotalUsedBytes() {
-        return sum(usedBytes);
+        long s = sum(usedBytes);
+        return s != 0 ? s : _synUsedBytes;
     }
 
     public long getTotalBytes() {
-        return sum(totalBytes);
+        long s = sum(totalBytes);
+        return s != 0 ? s : _synTotalBytes;
     }
 
     public long getTotalUsedTypes() {
-        return sum(usedTypes);
+        long s = sum(usedTypes);
+        return s != 0 ? s : _synUsedTypes;
     }
 
     public long getTotalTypes() {
-        return sum(totalTypes);
+        long s = sum(totalTypes);
+        return s != 0 ? s : _synTotalTypes;
     }
 
     public Component getPreviewStatusComponent() {
@@ -462,6 +510,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         tag.putLong("neo_storedEnergy", storedEnergy);
         tag.putLong("neo_maxEnergy", maxEnergy);
         tag.putBoolean("neo_formed", formed);
+        // Scalars (reliable) — used as primary read path by Screen getters
+        tag.putLong("neo_usedTypes_s", _synUsedTypes);
+        tag.putLong("neo_totalTypes_s", _synTotalTypes);
+        tag.putLong("neo_usedBytes_s", _synUsedBytes);
+        tag.putLong("neo_totalBytes_s", _synTotalBytes);
+        // Arrays (fallback) — kept for compatibility
         if (usedTypes != null) tag.putLongArray("neo_usedTypes", usedTypes);
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
@@ -472,6 +526,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (tag.contains("neo_storedEnergy")) storedEnergy = tag.getLong("neo_storedEnergy");
         if (tag.contains("neo_maxEnergy")) maxEnergy = tag.getLong("neo_maxEnergy");
         if (tag.contains("neo_formed")) formed = tag.getBoolean("neo_formed");
+        // Scalars — reliable scalar sync
+        if (tag.contains("neo_usedTypes_s")) _synUsedTypes = tag.getLong("neo_usedTypes_s");
+        if (tag.contains("neo_totalTypes_s")) _synTotalTypes = tag.getLong("neo_totalTypes_s");
+        if (tag.contains("neo_usedBytes_s")) _synUsedBytes = tag.getLong("neo_usedBytes_s");
+        if (tag.contains("neo_totalBytes_s")) _synTotalBytes = tag.getLong("neo_totalBytes_s");
+        // Arrays — fallback
         if (tag.contains("neo_usedTypes")) usedTypes = tag.getLongArray("neo_usedTypes");
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");
