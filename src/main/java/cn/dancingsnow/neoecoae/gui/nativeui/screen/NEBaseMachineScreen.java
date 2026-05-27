@@ -93,5 +93,13 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
             Component.literal(NENativeUiConstants.ACTIVE_TEXT),
             NENativeUiConstants.TITLE_X, NENativeUiConstants.ACTIVE_Y,
             NENativeUiConstants.ACTIVE_TEXT_COLOR);
+        renderAdditionalLabels(guiGraphics, mouseX, mouseY);
+    }
+
+    /**
+     * Hook for subclasses to draw machine-specific status lines
+     * below the common labels. Default is no-op.
+     */
+    protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
     }
 }
