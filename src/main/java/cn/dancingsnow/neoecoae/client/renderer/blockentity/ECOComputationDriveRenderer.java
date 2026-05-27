@@ -186,33 +186,7 @@ public class ECOComputationDriveRenderer
         Direction facing,
         boolean formed
     ) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        BlockState blockState = blockEntity.getBlockState();
-        boolean blockstateFormed = blockState.hasProperty(ECOComputationDrive.FORMED) && blockState.getValue(ECOComputationDrive.FORMED);
-        boolean blockstateHasCell = blockState.hasProperty(ECOComputationDrive.HAS_CELL) && blockState.getValue(ECOComputationDrive.HAS_CELL);
-        ResourceLocation itemId = itemStack == null || itemStack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(itemStack.getItem());
-        boolean clientSide = blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide();
-        String key = blockEntity.getBlockPos()
-            + "|" + facing
-            + "|" + blockstateFormed
-            + "|" + blockstateHasCell
-            + "|" + formed
-            + "|" + itemId
-            + "|" + clientSide;
-        if (LOGGED_RENDER_ENTRIES.add(key)) {
-            LOGGER.info(
-                "ECOComputationDriveRenderer#renderFixed: pos={}, facing={}, blockstateFormed={}, blockstateHasCell={}, blockEntityFormed={}, item={}, clientSide={}",
-                blockEntity.getBlockPos(),
-                facing,
-                blockstateFormed,
-                blockstateHasCell,
-                formed,
-                itemId,
-                clientSide
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     private static void logMissingCableModel(
@@ -248,47 +222,8 @@ public class ECOComputationDriveRenderer
         boolean formed,
         IECOTier driveTier
     ) {
-        if (FMLEnvironment.production) {
-            return;
-        }
+        // Check for missing model mappings (real issue, keep as warn)
         ResourceLocation itemId = itemStack == null || itemStack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(itemStack.getItem());
-        BlockState blockState = blockEntity.getBlockState();
-        boolean blockstateFormed = blockState.hasProperty(ECOComputationDrive.FORMED) && blockState.getValue(ECOComputationDrive.FORMED);
-        boolean blockstateHasCell = blockState.hasProperty(ECOComputationDrive.HAS_CELL) && blockState.getValue(ECOComputationDrive.HAS_CELL);
-        String key = blockEntity.getBlockPos()
-            + "|" + facing
-            + "|" + blockstateFormed
-            + "|" + formed
-            + "|" + blockstateHasCell
-            + "|" + itemId
-            + "|" + models.itemTier()
-            + "|" + driveTier
-            + "|" + models.shouldCellWork()
-            + "|" + models.normalCellModel()
-            + "|" + models.formedCellModel()
-            + "|" + models.selectedCellModel()
-            + "|" + models.cableModel()
-            + "|" + models.lowerDrive();
-        if (LOGGED_MODELS.add(key)) {
-            LOGGER.info(
-                "ECOComputationDrive BER model: pos={}, facing={}, blockstateFormed={}, blockEntityFormed={}, blockstateHasCell={}, item={}, itemTier={}, driveTier={}, shouldCellWork={}, normalModel={}, formedModel={}, selectedCellModel={}, cableModel={}, lowerDrive={}, clientSide={}",
-                blockEntity.getBlockPos(),
-                facing,
-                blockstateFormed,
-                formed,
-                blockstateHasCell,
-                itemId,
-                models.itemTier(),
-                driveTier,
-                models.shouldCellWork(),
-                models.normalCellModel(),
-                models.formedCellModel(),
-                models.selectedCellModel(),
-                models.cableModel(),
-                models.lowerDrive(),
-                blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide()
-            );
-        }
         if (itemId != null && models.selectedCellModel() == null) {
             String missingKey = itemId + "|" + formed + "|" + driveTier;
             if (LOGGED_MISSING_CELL_MAPPINGS.add(missingKey)) {
@@ -309,29 +244,7 @@ public class ECOComputationDriveRenderer
         Direction facing,
         boolean formed
     ) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        String key = blockEntity.getBlockPos()
-            + "|" + facing
-            + "|" + formed
-            + "|" + selectedCellModel
-            + "|" + models.itemTier()
-            + "|" + models.driveTier()
-            + "|" + models.shouldCellWork();
-        if (LOGGED_RENDERED_CELL_MODELS.add(key)) {
-            LOGGER.info(
-                "Rendering computation cell model {} at original computation transform: pos={}, facing={}, formed={}, itemTier={}, driveTier={}, shouldCellWork={}, clientSide={}",
-                selectedCellModel,
-                blockEntity.getBlockPos(),
-                facing,
-                formed,
-                models.itemTier(),
-                models.driveTier(),
-                models.shouldCellWork(),
-                blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide()
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     @Override

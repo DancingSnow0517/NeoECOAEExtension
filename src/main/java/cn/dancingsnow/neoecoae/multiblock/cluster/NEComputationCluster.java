@@ -106,7 +106,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             recalculateRemainingStorage();
             this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
-            LOGGER.info(
+            LOGGER.debug(
                 "NE computation cluster formed: formed=true, controller={}, accelerators={}, maxThreads={}, availableStorage={}",
                 controller != null ? controller.getBlockPos() : null,
                 accelerators,
@@ -118,7 +118,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             availableStorage = 0;
             maxThreads = 0;
             fakeCpu = null;
-            LOGGER.info(
+            LOGGER.debug(
                 "NE computation cluster unformed: controller={}",
                 controller != null ? controller.getBlockPos() : null
             );
@@ -215,16 +215,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (controller != null) {
             controller.updateInfos();
         }
-        LOGGER.info(
-            "NE computation storage recalculated: controller={}, oldAvailable={}, newAvailable={}, totalStorage={}, activeJobs={}, upperDrives={}, lowerDrives={}",
-            controller != null ? controller.getBlockPos() : null,
-            oldAvailableStorage,
-            this.availableStorage,
-            totalStorage,
-            this.activeCpus.size(),
-            upperDrives.size(),
-            lowerDrives.size()
-        );
         if (oldAvailableStorage != this.availableStorage) {
             updateGridForChangedCpu(this);
         }
@@ -299,20 +289,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             if (n != null && n.getGrid() != null && !posted) {
                 n.getGrid().postEvent(new GridCraftingCpuChange(n));
                 posted = true;
-                LOGGER.info(
-                    "NE computation CPU changed: controller={}, blockEntities={}, firstNodeOwner={}, nodeActive={}, gridNotNull={}, availableStorage={}, maxThreads={}, accelerators={}, fakeCpuNotNull={}, fakeCpuAvailableStorage={}, postedGridCraftingCpuChange={}",
-                    controller != null ? controller.getBlockPos() : null,
-                    blockEntities.size(),
-                    r.getBlockPos(),
-                    n.isActive(),
-                    n.getGrid() != null,
-                    availableStorage,
-                    maxThreads,
-                    accelerators,
-                    fakeCpu != null,
-                    fakeCpu != null ? fakeCpu.getAvailableStorage() : -1,
-                    posted
-                );
             }
         }
 

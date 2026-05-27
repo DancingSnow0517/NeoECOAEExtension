@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -66,7 +65,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, IGridTickable {
+    implements ISyncPersistRPCBlockEntity, IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
@@ -901,32 +900,5 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
     }
 
-    @Override
-    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
-        return LDLib1MachineUIs.createCraftingControllerUI(this, player);
-    }
-
-    public boolean openMenu(ServerPlayer player) {
-        try {
-            boolean opened = BlockEntityUIFactory.INSTANCE.openUI(this, player);
-            if (!opened) {
-                LOGGER.warn(
-                    "LDLib1 openUI returned false at {} for {} (BlockEntityUI={})",
-                    worldPosition,
-                    getClass().getName(),
-                    this instanceof IUIHolder.BlockEntityUI
-                );
-            }
-            return opened;
-        } catch (RuntimeException e) {
-            LOGGER.warn(
-                "LDLib1 createUI/openUI threw at {} for {} (BlockEntityUI={})",
-                worldPosition,
-                getClass().getName(),
-                this instanceof IUIHolder.BlockEntityUI,
-                e
-            );
-            return false;
-        }
-    }
+    // ── Client sync for Controller UI (LDLib2 sync bridge) ──
 }

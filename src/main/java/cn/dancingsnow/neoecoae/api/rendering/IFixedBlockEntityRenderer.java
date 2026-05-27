@@ -213,19 +213,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     }
 
     private static void logQuadCounts(ResourceLocation model, BlockEntity owner, int directionalQuadCount, int unculledQuadCount) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        String key = "quads:" + model + ":" + directionalQuadCount + ":" + unculledQuadCount;
-        if (LOGGED_MODEL_QUAD_COUNTS.add(key)) {
-            MODEL_LOGGER.info(
-                "BER baked model quads: model={}, directionalQuads={}, unculledQuads={}, owner={}",
-                model,
-                directionalQuadCount,
-                unculledQuadCount,
-                owner == null ? "unknown block entity" : owner.getType()
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     default void renderQuadsWithoutAO(

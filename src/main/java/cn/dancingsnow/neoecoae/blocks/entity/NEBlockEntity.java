@@ -126,25 +126,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         BlockState oldState = level.getBlockState(worldPosition);
         BlockState newState = oldState;
         if (newState.hasProperty(NEBlock.FORMED)) {
-            boolean oldFormed = newState.getValue(NEBlock.FORMED);
             newState = newState.setValue(NEBlock.FORMED, formed);
-            if (!FMLEnvironment.production && oldFormed != formed) {
-                String logKey = getClass().getName() + "|" + worldPosition + "|" + oldFormed + ">" + formed;
-                if (LOGGED_FORMED_UPDATES.add(logKey)) {
-                    LOGGER.info(
-                        "NE multiblock formed update: be={}, pos={}, block={}, oldFormed={}, newFormed={}, hasCluster={}, updateExposed={}, oldState={}, newState={}",
-                        getClass().getSimpleName(),
-                        worldPosition,
-                        ForgeRegistries.BLOCKS.getKey(oldState.getBlock()),
-                        oldFormed,
-                        formed,
-                        cluster != null,
-                        updateExposed,
-                        oldState,
-                        newState
-                    );
-                }
-            }
         }
         if (!oldState.equals(newState)) {
             level.setBlock(
@@ -213,59 +195,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     }
 
     private void logRebuild(String source) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        String key = getClass().getName() + "|" + worldPosition + "|" + source;
-        if (LOGGED_REBUILDS.add(key)) {
-            LOGGER.info(
-                "NE multiblock rebuild requested: source={}, be={}, pos={}, block={}, hasCluster={}, formed={}",
-                source,
-                getClass().getSimpleName(),
-                worldPosition,
-                level == null ? null : ForgeRegistries.BLOCKS.getKey(level.getBlockState(worldPosition).getBlock()),
-                cluster != null,
-                formed
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     private void logGridState(String source, boolean updateExposed) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        IGridNode gridNode = getGridNode();
-        BlockState state = level == null ? getBlockState() : level.getBlockState(worldPosition);
-        boolean blockstateFormed = state.hasProperty(NEBlock.FORMED) && state.getValue(NEBlock.FORMED);
-        Set<Direction> connectableSides = level == null
-            ? Set.of()
-            : getGridConnectableSides(getOrientation());
-        String key = getClass().getName()
-            + "|" + worldPosition
-            + "|" + source
-            + "|" + formed
-            + "|" + (cluster != null)
-            + "|" + (gridNode != null)
-            + "|" + getMainNode().isOnline()
-            + "|" + getMainNode().isActive()
-            + "|" + connectableSides
-            + "|" + updateExposed
-            + "|" + blockstateFormed;
-        if (LOGGED_GRID_STATES.add(key)) {
-            LOGGER.info(
-                "NE grid state: source={}, be={}, pos={}, formed={}, hasCluster={}, gridNode={}, mainOnline={}, mainActive={}, connectableSides={}, updateExposed={}, blockstateFormed={}",
-                source,
-                getClass().getSimpleName(),
-                worldPosition,
-                formed,
-                cluster != null,
-                gridNode != null,
-                getMainNode().isOnline(),
-                getMainNode().isActive(),
-                connectableSides,
-                updateExposed,
-                blockstateFormed
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 }

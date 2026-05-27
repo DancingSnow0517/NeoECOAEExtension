@@ -82,16 +82,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             boolean oldHasCell = getBlockState().getValue(ECODriveBlock.HAS_CELL);
             boolean newHasCell = this.cellStack != null;
             BlockState newState = getBlockState().setValue(ECODriveBlock.HAS_CELL, newHasCell);
-            if (!FMLEnvironment.production) {
-                LOGGER.info(
-                    "ECODrive setCellStack: pos={}, oldHasCell={}, newHasCell={}, cellItem={}, resultingState={}",
-                    getBlockPos(),
-                    oldHasCell,
-                    newHasCell,
-                    this.cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(this.cellStack.getItem()),
-                    newState
-                );
-            }
             if (oldHasCell != newHasCell) {
                 getLevel().setBlockAndUpdate(getBlockPos(), newState);
             }
@@ -260,29 +250,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     private void logVisualSync(String source, CompoundTag data) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        String cellItem = cellStack == null
-            ? "empty"
-            : String.valueOf(ForgeRegistries.ITEMS.getKey(cellStack.getItem()));
-        String key = source
-            + "|" + getBlockPos()
-            + "|" + cellItem
-            + "|" + data.contains("cellStack")
-            + "|" + (level != null && level.isClientSide());
-        if (LOGGED_UPDATE_TAGS.add(key)) {
-            LOGGER.info(
-                "ECODrive visual sync {}: pos={}, cellItem={}, tagHasCellStack={}, mounted={}, online={}, clientSide={}",
-                source,
-                getBlockPos(),
-                cellItem,
-                data.contains("cellStack"),
-                mounted,
-                online,
-                level != null && level.isClientSide()
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     private static @Nullable ItemStack normalizeCellStack(@Nullable ItemStack stack) {
@@ -293,30 +261,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     private void logStorageProviderUpdate(String source, double power) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        String key = source
-            + "|" + getBlockPos()
-            + "|" + (cluster != null)
-            + "|" + (cluster != null && cluster.getController() != null)
-            + "|" + (cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(cellStack.getItem()))
-            + "|" + getMainNode().isOnline()
-            + "|" + getMainNode().isActive()
-            + "|" + power;
-        if (LOGGED_STORAGE_UPDATES.add(key)) {
-            LOGGER.info(
-                "ECODrive storage provider update: source={}, pos={}, hasCluster={}, hasController={}, cellItem={}, idlePower={}, nodeOnline={}, nodeActive={}",
-                source,
-                getBlockPos(),
-                cluster != null,
-                cluster != null && cluster.getController() != null,
-                cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(cellStack.getItem()),
-                power,
-                getMainNode().isOnline(),
-                getMainNode().isActive()
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     private void logMountAttempt(
@@ -328,50 +273,11 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         boolean tierSupported,
         boolean willMount
     ) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        String key = getBlockPos()
-            + "|" + hasCluster
-            + "|" + hasController
-            + "|" + mainTier
-            + "|" + (cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(cellStack.getItem()))
-            + "|" + (cellInventory != null)
-            + "|" + cellTier
-            + "|" + tierSupported
-            + "|" + willMount
-            + "|" + getMainNode().isOnline()
-            + "|" + getMainNode().isActive();
-        if (LOGGED_MOUNT_ATTEMPTS.add(key)) {
-            LOGGER.info(
-                "ECODrive mountInventories: pos={}, hasCluster={}, hasController={}, controllerTier={}, cellItem={}, cellInventory={}, cellTier={}, tierSupported={}, willMount={}, nodeOnline={}, nodeActive={}",
-                getBlockPos(),
-                hasCluster,
-                hasController,
-                mainTier,
-                cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(cellStack.getItem()),
-                cellInventory != null,
-                cellTier,
-                tierSupported,
-                willMount,
-                getMainNode().isOnline(),
-                getMainNode().isActive()
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     private void logMountResult(boolean mounted) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        LOGGER.info(
-            "ECODrive mountInventories result: pos={}, mounted={}, online={}, nodeOnline={}, nodeActive={}",
-            getBlockPos(),
-            mounted,
-            online,
-            getMainNode().isOnline(),
-            getMainNode().isActive()
-        );
+        // No-op: verbose debug logging removed.
     }
 
     @Override

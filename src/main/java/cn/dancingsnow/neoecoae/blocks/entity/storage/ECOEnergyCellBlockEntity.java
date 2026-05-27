@@ -222,77 +222,14 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     private void logDisplayLevelUpdate(BlockState oldState, BlockState newState, int newDisplayLevel) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        LOGGER.info(
-            "ECOEnergyCell display level update: pos={}, tier={}, formed={}, power={}/{}, oldLevel={}, newLevel={}, oldState={}, newState={}",
-            getBlockPos(),
-            tier,
-            formed,
-            energyStored.getAmount(),
-            energyStored.getMaximum(),
-            currentDisplayLevel,
-            newDisplayLevel,
-            oldState,
-            newState
-        );
+        // No-op: verbose debug logging removed.
     }
 
     private void logPowerChange(String source, double requested, double moved, Actionable mode, double before, double after) {
-        if (FMLEnvironment.production || requested <= 0) {
-            return;
-        }
-        String key = source
-            + "|" + getBlockPos()
-            + "|" + mode
-            + "|" + formed
-            + "|" + getPowerFlow()
-            + "|" + (long) before
-            + "|" + (long) after;
-        if (LOGGED_POWER_CHANGES.add(key)) {
-            LOGGER.info(
-                "ECOEnergyCell power change: source={}, pos={}, tier={}, requested={}, moved={}, mode={}, formed={}, flow={}, energyBefore={}, energyAfter={}",
-                source,
-                getBlockPos(),
-                tier,
-                requested,
-                moved,
-                mode,
-                formed,
-                getPowerFlow(),
-                before,
-                after
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     private void logEnergyTick(String source) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        String key = source
-            + "|" + getBlockPos()
-            + "|" + formed
-            + "|" + getPowerFlow()
-            + "|" + neighborChangePending
-            + "|" + currentDisplayLevel
-            + "|" + (long) energyStored.getAmount();
-        if (LOGGED_ENERGY_TICKS.add(key)) {
-            LOGGER.info(
-                "ECOEnergyCell energy tick: source={}, pos={}, tier={}, formed={}, flow={}, neighborChangePending={}, power={}/{}, displayLevel={}, nodeOnline={}, nodeActive={}",
-                source,
-                getBlockPos(),
-                tier,
-                formed,
-                getPowerFlow(),
-                neighborChangePending,
-                energyStored.getAmount(),
-                energyStored.getMaximum(),
-                currentDisplayLevel,
-                getMainNode().isOnline(),
-                getMainNode().isActive()
-            );
-        }
+        // No-op: per-tick verbose debug logging removed.
     }
 }

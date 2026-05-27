@@ -15,10 +15,6 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
-import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -45,7 +41,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
+    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -210,16 +206,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
         inventory.readFromNBT(data, "patternInventory");
-    }
-
-    @Override
-    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
-        return LDLib1MachineUIs.createCraftingPatternBusUI(this, player);
-    }
-
-    @Deprecated(forRemoval = true)
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        return null;
     }
 
     @Override

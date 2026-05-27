@@ -45,7 +45,6 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -128,7 +127,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
-    implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, IGridTickable, IUpgradeableObject, IConfigurableObject {
+    implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static boolean loggedRecipeCounts = false;
     private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
@@ -706,35 +705,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public void clearFluidOut() {
         this.outputTank.setFluid(FluidStack.EMPTY);
-    }
-
-    @Override
-    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
-        return LDLib1MachineUIs.createIntegratedWorkingStationUI(this, player);
-    }
-
-    public boolean openMenu(ServerPlayer player) {
-        try {
-            boolean opened = BlockEntityUIFactory.INSTANCE.openUI(this, player);
-            if (!opened) {
-                LOGGER.warn(
-                    "LDLib1 openUI returned false at {} for {} (BlockEntityUI={})",
-                    worldPosition,
-                    getClass().getName(),
-                    this instanceof IUIHolder.BlockEntityUI
-                );
-            }
-            return opened;
-        } catch (RuntimeException e) {
-            LOGGER.warn(
-                "LDLib1 createUI/openUI threw at {} for {} (BlockEntityUI={})",
-                worldPosition,
-                getClass().getName(),
-                this instanceof IUIHolder.BlockEntityUI,
-                e
-            );
-            return false;
-        }
     }
 
     @Override

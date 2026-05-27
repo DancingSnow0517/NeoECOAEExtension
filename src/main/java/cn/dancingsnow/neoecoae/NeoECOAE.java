@@ -17,8 +17,7 @@ import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
-import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.config.NEConfig;import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import lombok.Getter;
@@ -71,6 +70,10 @@ public class NeoECOAE {
         NEEcoTiers.register();
         NECellTypes.register();
         NERecipeTypes.register(modBus);
+
+        // Native UI menu types
+        NENativeMenus.MENUS.register(modBus);
+
         // Data components are a 1.20.5+ API. The 1.20.1 port will restore this
         // behavior through item NBT or Forge capabilities later.
 

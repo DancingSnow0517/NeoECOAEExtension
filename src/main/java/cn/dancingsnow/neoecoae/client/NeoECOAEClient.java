@@ -7,6 +7,14 @@ import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
+import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEComputationControllerScreen;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NECraftingControllerScreen;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NECraftingPatternBusScreen;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEFluidHatchScreen;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEIntegratedWorkingStationScreen;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStorageControllerScreen;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -27,6 +35,14 @@ public class NeoECOAEClient {
     public static void onClientSetup(FMLClientSetupEvent event) {
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
         ECOComputationModels.runDeferredRegistration();
+
+        // Register native UI screens
+        MenuScreens.register(NENativeMenus.STORAGE_CONTROLLER.get(), NEStorageControllerScreen::new);
+        MenuScreens.register(NENativeMenus.COMPUTATION_CONTROLLER.get(), NEComputationControllerScreen::new);
+        MenuScreens.register(NENativeMenus.CRAFTING_CONTROLLER.get(), NECraftingControllerScreen::new);
+        MenuScreens.register(NENativeMenus.INTEGRATED_WORKING_STATION.get(), NEIntegratedWorkingStationScreen::new);
+        MenuScreens.register(NENativeMenus.CRAFTING_PATTERN_BUS.get(), NECraftingPatternBusScreen::new);
+        MenuScreens.register(NENativeMenus.FLUID_HATCH.get(), NEFluidHatchScreen::new);
     }
 
     @SubscribeEvent

@@ -111,7 +111,6 @@ public class NETextures {
                     String name = pathPrefix + field.getName();
                     provider.addResource(name, texture);
                     BuiltinPath path = new BuiltinPath("ui-eco:" + name);
-                    System.out.println("Registering builtin texture: " + path);
                     IGuiTexture builtinTexture = new UIResourceTexture(path);
                     field.set(null, builtinTexture);
                 } catch (Exception ignore) {}

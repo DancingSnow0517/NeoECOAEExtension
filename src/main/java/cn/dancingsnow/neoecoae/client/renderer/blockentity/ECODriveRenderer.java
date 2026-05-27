@@ -115,20 +115,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
     }
 
     private static void logCellModel(ECODriveBlockEntity blockEntity, ItemStack cellStack, ResourceLocation modelLocation) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(cellStack.getItem());
-        if (itemId != null && LOGGED_CELL_ITEMS.add(itemId)) {
-            LOGGER.info(
-                "ECODrive BER cell model: pos={}, item={}, model={}, clientSide={}, visualCellStackNonEmpty={}",
-                blockEntity.getBlockPos(),
-                itemId,
-                modelLocation,
-                blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide(),
-                !cellStack.isEmpty()
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     private static float yRotForFacing(Direction facing) {

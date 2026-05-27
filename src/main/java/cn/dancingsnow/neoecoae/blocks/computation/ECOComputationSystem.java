@@ -4,19 +4,21 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEComputationControllerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.network.NetworkHooks;
 
 public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntity> {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -35,15 +37,22 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
+                                  InteractionHand hand, BlockHitResult hitResult) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
-        if (player instanceof ServerPlayer serverPlayer
-            && level.getBlockEntity(pos) instanceof IUIHolder.BlockEntityUI holder) {
-            return BlockEntityUIFactory.INSTANCE.openUI(holder.self(), serverPlayer)
-                ? InteractionResult.CONSUME
-                : InteractionResult.PASS;
+        if (player instanceof ServerPlayer serverPlayer) {
+            // Phase 2: Native UI for Computation Controller
+            Component title = state.getBlock().getName();
+            NetworkHooks.openScreen(serverPlayer,
+                new SimpleMenuProvider(
+                    (windowId, inv, p) -> new NEComputationControllerMenu(windowId, inv, pos),
+                    title
+                ),
+                buf -> buf.writeBlockPos(pos)
+            );
+            return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
     }

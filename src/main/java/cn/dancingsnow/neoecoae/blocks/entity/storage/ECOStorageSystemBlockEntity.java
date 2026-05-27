@@ -12,35 +12,11 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.LDLib1MachineUIs;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyDisplay;
-import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -58,7 +34,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import java.util.List;
 import java.util.UUID;
 
-public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IUIHolder.BlockEntityUI, IGridTickable {
+public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IGridTickable {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -311,108 +287,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return buildInProgress;
     }
 
-    @Override
-    public com.lowdragmc.lowdraglib.gui.modular.ModularUI createUI(Player player) {
-        resetStorageInfosIfNeeded();
-        return LDLib1MachineUIs.createStorageSystemUI(this, player);
-    }
-
-    @Deprecated(forRemoval = true)
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        resetStorageInfosIfNeeded();
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
-        UIElement buildWindow = buildPanel(holder);
-
-        ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
-        textPanel.addScrollViewChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOStorageSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
-        NERegistries.CELL_TYPE.stream()
-            .forEachOrdered(cellType -> {
-                int id = NERegistries.CELL_TYPE.getId(cellType);
-                textPanel.addScrollViewChild(new Label()
-                    .setText(cellType.desc())
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
-                textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.typesUsed(getArrayValue(usedTypes, id), getArrayValue(totalTypes, id))))
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
-                textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.bytesUsed(getArrayValue(usedBytes, id), getArrayValue(totalBytes, id))))
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
-            });
-
-        textPanel.addScrollViewChild(new Label().setText("").textStyle(ECOStorageSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .setText(Component.translatable("gui.neoecoae.storage.energy"))
-            .textStyle(ECOStorageSystemBlockEntity::textStyle));
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable(
-                "gui.neoecoae.storage.energy_status",
-                Tooltips.ofNumber(storedEnergy),
-                Tooltips.ofNumber(maxEnergy),
-                maxEnergy > 0 ? (int) ((double) storedEnergy / maxEnergy * 100) : 0
-            )))
-            .textStyle(ECOStorageSystemBlockEntity::textStyle));
-
-        textPanel.layout(layout -> layout.height(160).width(220));
-
-        UIElement buildButtonPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        buildButtonPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.CRAFT_HAMMER))
-            .setOnClick(event -> buildWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.multiblock.builder")),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> {
-                layout.width(18);
-                layout.height(20);
-            }));
-
-        root.addChild(textPanel);
-        root.addChild(buildButtonPanel);
-        root.addChild(buildWindow);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
-    }
-
-    private void resetStorageInfosIfNeeded() {
-        int typeCount = getCellTypeCount();
-        if (usedTypes == null || totalTypes == null || usedBytes == null || totalBytes == null) {
-            resetStorageInfos();
-            return;
-        }
-        if (usedTypes.length != typeCount || totalTypes.length != typeCount || usedBytes.length != typeCount || totalBytes.length != typeCount) {
-            resetStorageInfos();
-        }
-    }
-
     private int getCellTypeCount() {
         return Math.max(NERegistries.CELL_TYPE.size(), 1);
-    }
-
-    private static long getArrayValue(long[] array, int index) {
-        if (array == null || index < 0 || index >= array.length) {
-            return 0;
-        }
-        return array[index];
     }
 
     private static long sum(long[] values) {
@@ -424,105 +300,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             result += value;
         }
         return result;
-    }
-
-    private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement window = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(6);
-            layout.display(TaffyDisplay.NONE);
-            layout.paddingAll(4);
-            layout.gapAll(2);
-            layout.width(160);
-        }).addClass("panel_bg");
-
-        UIElement titleBar = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.SPACE_BETWEEN);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(2);
-        });
-        titleBar.addChild(new TextElement()
-            .setText(Component.translatable("gui.neoecoae.multiblock.builder"))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        titleBar.addChild(new Button()
-            .setText("X")
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> layout.width(16).height(16)));
-        WindowDragHelper.setDragMove(titleBar, window, null, null);
-        window.addChild(titleBar);
-
-        window.addChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(2))
-            .addChildren(
-                new Button()
-                    .setText("-")
-                    .setOnServerClick(event -> decreaseBuildLength())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.decrease_length")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18)),
-                new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.length", selectedBuildLength)))
-                    .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle),
-                new Button()
-                    .setText("+")
-                    .setOnServerClick(event -> increaseBuildLength())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.increase_length")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18))
-            ));
-
-        window.addChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4))
-            .addChildren(
-                new Button()
-                    .setText("gui.neoecoae.multiblock.preview", true)
-                    .setOnServerClick(event -> previewStructure(holder.player))
-                    .layout(layout -> layout.width(48).height(18)),
-                new Button()
-                    .setText("gui.neoecoae.multiblock.build", true)
-                    .setOnServerClick(event -> autoBuild(holder.player))
-                    .layout(layout -> layout.width(48).height(18))
-            ));
-
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.reused", previewReusedBlocks)))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.missing", previewMissingBlocks)))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.conflicts", previewConflictBlocks)))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.required_items", previewRequiredItems)))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(this::buildPreviewStatusComponent))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-
-        return window;
     }
 
     public void increaseBuildLength() {
@@ -659,13 +436,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return Component.translatable(previewStatusKey);
     }
 
-    private static void textStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xadb0c4).textShadow(false);
-    }
-
-    private static void buildPanelTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
-    }
 
     // ── Client sync for Controller UI (LDLib1 ModularUI data bridge) ──
 

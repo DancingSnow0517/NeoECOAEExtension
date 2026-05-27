@@ -89,16 +89,6 @@ public class ECOComputationDriveBlockEntity
             boolean oldHasCell = getBlockState().getValue(ECOComputationDrive.HAS_CELL);
             boolean newHasCell = this.cellStack != null;
             BlockState newState = getBlockState().setValue(ECOComputationDrive.HAS_CELL, newHasCell);
-            if (!FMLEnvironment.production) {
-                LOGGER.info(
-                    "ECOComputationDrive setCellStack: pos={}, oldHasCell={}, newHasCell={}, cellItem={}, resultingState={}",
-                    getBlockPos(),
-                    oldHasCell,
-                    newHasCell,
-                    this.cellStack == null ? "empty" : ForgeRegistries.ITEMS.getKey(this.cellStack.getItem()),
-                    newState
-                );
-            }
             if (oldHasCell != newHasCell) {
                 getLevel().setBlockAndUpdate(getBlockPos(), newState);
             }
@@ -261,30 +251,7 @@ public class ECOComputationDriveBlockEntity
     }
 
     private void logVisualSync(String source, CompoundTag data) {
-        if (FMLEnvironment.production) {
-            return;
-        }
-        String cellItem = cellStack == null
-            ? "empty"
-            : String.valueOf(ForgeRegistries.ITEMS.getKey(cellStack.getItem()));
-        String key = source
-            + "|" + getBlockPos()
-            + "|" + cellItem
-            + "|" + data.contains("cellStack")
-            + "|" + (level != null && level.isClientSide());
-        if (LOGGED_UPDATE_TAGS.add(key)) {
-            LOGGER.info(
-                "ECOComputationDrive visual sync {}: pos={}, cellItem={}, tagHasCellStack={}, formedState={}, lowerDrive={}, tier={}, clientSide={}",
-                source,
-                getBlockPos(),
-                cellItem,
-                data.contains("cellStack"),
-                formedState,
-                isLowerDrive,
-                tier,
-                level != null && level.isClientSide()
-            );
-        }
+        // No-op: verbose debug logging removed.
     }
 
     private static @Nullable IECOTier tierFromId(int tier) {
@@ -309,18 +276,6 @@ public class ECOComputationDriveBlockEntity
         }
         boolean oldFormed = getBlockState().getValue(ECOComputationDrive.FORMED);
         BlockState newState = getBlockState().setValue(ECOComputationDrive.FORMED, newFormed);
-        if (!FMLEnvironment.production && oldFormed != newFormed) {
-            LOGGER.info(
-                "ECOComputationDrive formed state update: source={}, pos={}, oldBlockFormed={}, newBlockFormed={}, formedState={}, hasCluster={}, resultingState={}",
-                source,
-                getBlockPos(),
-                oldFormed,
-                newFormed,
-                formedState,
-                cluster != null,
-                newState
-            );
-        }
         if (oldFormed != newFormed) {
             level.setBlock(getBlockPos(), newState, Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS);
         }
