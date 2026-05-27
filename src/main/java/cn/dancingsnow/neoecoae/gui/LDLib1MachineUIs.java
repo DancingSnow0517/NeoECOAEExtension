@@ -15,17 +15,15 @@ import cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1Textures;
 import cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1UiSpecs;
 import cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1Widgets;
 import cn.dancingsnow.neoecoae.gui.ldlib1.MultiblockBuildUiAdapter;
+import cn.dancingsnow.neoecoae.gui.ldlib1.window.NEBuilderWindow;
+import cn.dancingsnow.neoecoae.gui.ldlib1.window.NETerminalPanel;
+import cn.dancingsnow.neoecoae.gui.ldlib1.window.NEToolBar;
 import cn.dancingsnow.neoecoae.util.NETextFormat;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
-import com.lowdragmc.lowdraglib.gui.util.ClickData;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
-
-import java.util.List;
-import java.util.function.Consumer;
 
 import static cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1UiSpecs.IntegratedWorkingStationSpec;
 import static cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1UiSpecs.StorageControllerSpec;
@@ -133,209 +131,129 @@ public final class LDLib1MachineUIs {
     }
 
     // =========================================================================
-    // Storage Controller — LDLib2-style three-zone layout
+    // Storage Controller — using window toolkit components
     // =========================================================================
     public static ModularUI createStorageSystemUI(ECOStorageSystemBlockEntity be, Player player) {
-        // Transparent root — no .background() so game world shows through between blocks
         var ui = new ModularUI(
             StorageControllerSpec.WIDTH, StorageControllerSpec.HEIGHT,
             be, player
-        );
+        ); // transparent root — no .background()
 
-        // ═══ Builder floating window (created first, toggled by hammer/close) ═══
-        // Mutable holder so lambdas can reference the widget list after it's populated
-        @SuppressWarnings("unchecked")
-        List<Widget>[] builderWidgetsHolder = new List[1];
-        boolean[] builderVisible = { true };
-
-        Consumer<ClickData> hideBuilderAction = data -> {
-            builderVisible[0] = false;
-            for (var w : builderWidgetsHolder[0]) {
-                w.setVisible(false).setActive(false);
-            }
-        };
-
-        Runnable toggleBuilder = () -> {
-            builderVisible[0] = !builderVisible[0];
-            for (var w : builderWidgetsHolder[0]) {
-                w.setVisible(builderVisible[0]).setActive(builderVisible[0]);
-            }
-        };
-
-        builderWidgetsHolder[0] = NELDLib1BuilderPanel.addFloat(
-            ui, player, storageAdapter(be),
+        // ── 1. Builder floating window (hidden by default, added LAST to float on top) ──
+        NEBuilderWindow[] builderHolder = new NEBuilderWindow[1];
+        builderHolder[0] = new NEBuilderWindow(
             StorageControllerSpec.BUILDER_FLOAT_X, StorageControllerSpec.BUILDER_FLOAT_Y,
-            StorageControllerSpec.BUILDER_FLOAT_W, StorageControllerSpec.BUILDER_FLOAT_H,
-            hideBuilderAction
+            storageAdapter(be), player,
+            () -> builderHolder[0].hide()
         );
+        var builderWindow = builderHolder[0];
+        builderWindow.hide();
+        // Allow dragging within the root UI bounds
+        builderWindow.setDragBounds(0, 0,
+            StorageControllerSpec.WIDTH - StorageControllerSpec.BUILDER_FLOAT_W,
+            StorageControllerSpec.HEIGHT - StorageControllerSpec.BUILDER_FLOAT_H);
 
-        // ═══ Left tool button bar (independent element on transparent root) ═══
-        var hammerBtn = NELDLib1Widgets.squareButton(
-            StorageControllerSpec.HAMMER_BTN_X,
-            StorageControllerSpec.HAMMER_BTN_Y,
-            StorageControllerSpec.HAMMER_BTN_SIZE,
-            Component.literal("\uD83D\uDD28"), // 🔨
-            data -> toggleBuilder.run()
+        // ── 2. Left tool bar ──
+        var toolBar = new NEToolBar(
+            StorageControllerSpec.HAMMER_BTN_X, StorageControllerSpec.HAMMER_BTN_Y,
+            20, 2
         );
-        ui.widget(hammerBtn);
+        // Hammer icon rendered as text symbol; tooltip shows "Builder"
+        toolBar.addButton("\u2692", // ⚒ hammer-and-pick symbol
+            Component.translatable("gui.neoecoae.common.show_builder"),
+            data -> builderWindow.toggle());
 
-        // ═══ Main status window (terminal-style dark panel) ═══
-        // Outer frame — independent image widget, not a root background
-        ui.widget(NELDLib1Widgets.image(
+        // ── 3. Main status terminal panel ──
+        var terminal = new NETerminalPanel(
             StorageControllerSpec.MAIN_FRAME_X, StorageControllerSpec.MAIN_FRAME_Y,
             StorageControllerSpec.MAIN_FRAME_W, StorageControllerSpec.MAIN_FRAME_H,
-            NELDLib1Textures.BACKGROUND
-        ));
-
-        // Inner dark content area
-        ui.widget(NELDLib1Widgets.image(
-            StorageControllerSpec.MAIN_PANEL_X, StorageControllerSpec.MAIN_PANEL_Y,
-            StorageControllerSpec.MAIN_PANEL_W, StorageControllerSpec.MAIN_PANEL_H,
-            NELDLib1Textures.CRAFTING_BACKGROUND_DARK
-        ));
-
-        // Decorative scrollbar track (right edge of dark panel)
-        ui.widget(NELDLib1Widgets.scrollbarTrack(
-            StorageControllerSpec.SCROLLBAR_X, StorageControllerSpec.SCROLLBAR_Y,
-            StorageControllerSpec.SCROLLBAR_W, StorageControllerSpec.SCROLLBAR_H
-        ));
-
-        // Short title — LIGHT text on dark panel background
-        ui.widget(NELDLib1Widgets.titleLight(
-            StorageControllerSpec.TITLE_X, StorageControllerSpec.TITLE_Y,
-            shortTitle("gui.neoecoae.ui.storage_system.short", be.getTier())
-        ));
-
-        // Status rows — LIGHT text on dark background
-        int rowY = StorageControllerSpec.STATUS_ROW_START_Y;
-        int sx = StorageControllerSpec.STATUS_ROW_START_X;
-        int sp = StorageControllerSpec.STATUS_ROW_SPACING;
-
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.formed", enabledText(be.isFormed()))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.tier", String.valueOf(be.getTier()))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.types", "%s / %s".formatted(
+            shortTitle("gui.neoecoae.ui.storage_system.short", be.getTier()),
+            11
+        );
+        terminal.addStatusLine("gui.neoecoae.common.formed",
+            () -> enabledText(be.isFormed()));
+        terminal.addStatusLine("gui.neoecoae.common.tier",
+            () -> String.valueOf(be.getTier()));
+        terminal.addStatusLine("gui.neoecoae.common.types",
+            () -> "%s / %s".formatted(
                 Tooltips.ofNumber(be.getTotalUsedTypes()).getString(),
-                Tooltips.ofNumber(be.getTotalTypes()).getString()))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.bytes", "%s / %s".formatted(
+                Tooltips.ofNumber(be.getTotalTypes()).getString()));
+        terminal.addStatusLine("gui.neoecoae.common.bytes",
+            () -> "%s / %s".formatted(
                 NETextFormat.formatBytes(be.getTotalUsedBytes()),
-                NETextFormat.formatBytes(be.getTotalBytes())))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.energy", "%s / %s".formatted(
+                NETextFormat.formatBytes(be.getTotalBytes())));
+        terminal.addStatusLine("gui.neoecoae.common.energy",
+            () -> "%s / %s".formatted(
                 Tooltips.ofNumber(be.getStoredEnergy()).getString(),
-                Tooltips.ofNumber(be.getMaxEnergy()).getString()))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.status", be.getPreviewStatusComponent().getString())));
+                Tooltips.ofNumber(be.getMaxEnergy()).getString()));
+        terminal.addStatusLine("gui.neoecoae.common.status",
+            () -> be.getPreviewStatusComponent().getString());
+
+        // ── Add in order: toolbar → terminal → builder (builder on top!) ──
+        ui.widget(toolBar);
+        ui.widget(terminal);
+        ui.widget(builderWindow);
 
         return ui;
     }
 
     // =========================================================================
-    // Computation Controller — LDLib2-style three-zone layout
+    // Computation Controller — using window toolkit components
     // =========================================================================
     public static ModularUI createComputationSystemUI(ECOComputationSystemBlockEntity be, Player player) {
-        // Transparent root — no .background() so game world shows through between blocks
         var ui = new ModularUI(
             ComputationControllerSpec.WIDTH, ComputationControllerSpec.HEIGHT,
             be, player
-        );
+        ); // transparent root — no .background()
 
-        // ═══ Builder floating window (created first, toggled by hammer/close) ═══
-        @SuppressWarnings("unchecked")
-        List<Widget>[] builderWidgetsHolder = new List[1];
-        boolean[] builderVisible = { true };
-
-        Consumer<ClickData> hideBuilderAction = data -> {
-            builderVisible[0] = false;
-            for (var w : builderWidgetsHolder[0]) {
-                w.setVisible(false).setActive(false);
-            }
-        };
-
-        Runnable toggleBuilder = () -> {
-            builderVisible[0] = !builderVisible[0];
-            for (var w : builderWidgetsHolder[0]) {
-                w.setVisible(builderVisible[0]).setActive(builderVisible[0]);
-            }
-        };
-
-        builderWidgetsHolder[0] = NELDLib1BuilderPanel.addFloat(
-            ui, player, computationAdapter(be),
+        // ── 1. Builder floating window (hidden by default, added LAST to float on top) ──
+        NEBuilderWindow[] builderHolder = new NEBuilderWindow[1];
+        builderHolder[0] = new NEBuilderWindow(
             ComputationControllerSpec.BUILDER_FLOAT_X, ComputationControllerSpec.BUILDER_FLOAT_Y,
-            ComputationControllerSpec.BUILDER_FLOAT_W, ComputationControllerSpec.BUILDER_FLOAT_H,
-            hideBuilderAction
+            computationAdapter(be), player,
+            () -> builderHolder[0].hide()
         );
+        var builderWindow = builderHolder[0];
+        builderWindow.hide();
+        builderWindow.setDragBounds(0, 0,
+            ComputationControllerSpec.WIDTH - ComputationControllerSpec.BUILDER_FLOAT_W,
+            ComputationControllerSpec.HEIGHT - ComputationControllerSpec.BUILDER_FLOAT_H);
 
-        // ═══ Left tool button bar (independent element on transparent root) ═══
-        var hammerBtn = NELDLib1Widgets.squareButton(
-            ComputationControllerSpec.HAMMER_BTN_X,
-            ComputationControllerSpec.HAMMER_BTN_Y,
-            ComputationControllerSpec.HAMMER_BTN_SIZE,
-            Component.literal("\uD83D\uDD28"), // 🔨
-            data -> toggleBuilder.run()
+        // ── 2. Left tool bar ──
+        var toolBar = new NEToolBar(
+            ComputationControllerSpec.HAMMER_BTN_X, ComputationControllerSpec.HAMMER_BTN_Y,
+            20, 2
         );
-        ui.widget(hammerBtn);
+        toolBar.addButton("\u2692", // ⚒ hammer-and-pick symbol
+            Component.translatable("gui.neoecoae.common.show_builder"),
+            data -> builderWindow.toggle());
 
-        // ═══ Main status window (terminal-style dark panel) ═══
-        // Outer frame
-        ui.widget(NELDLib1Widgets.image(
+        // ── 3. Main status terminal panel ──
+        var terminal = new NETerminalPanel(
             ComputationControllerSpec.MAIN_FRAME_X, ComputationControllerSpec.MAIN_FRAME_Y,
             ComputationControllerSpec.MAIN_FRAME_W, ComputationControllerSpec.MAIN_FRAME_H,
-            NELDLib1Textures.BACKGROUND
-        ));
-
-        // Inner dark content area
-        ui.widget(NELDLib1Widgets.image(
-            ComputationControllerSpec.MAIN_PANEL_X, ComputationControllerSpec.MAIN_PANEL_Y,
-            ComputationControllerSpec.MAIN_PANEL_W, ComputationControllerSpec.MAIN_PANEL_H,
-            NELDLib1Textures.CRAFTING_BACKGROUND_DARK
-        ));
-
-        // Decorative scrollbar track
-        ui.widget(NELDLib1Widgets.scrollbarTrack(
-            ComputationControllerSpec.SCROLLBAR_X, ComputationControllerSpec.SCROLLBAR_Y,
-            ComputationControllerSpec.SCROLLBAR_W, ComputationControllerSpec.SCROLLBAR_H
-        ));
-
-        // Short title — LIGHT text on dark panel background
-        ui.widget(NELDLib1Widgets.titleLight(
-            ComputationControllerSpec.TITLE_X, ComputationControllerSpec.TITLE_Y,
-            shortTitle("gui.neoecoae.ui.computation_system.short", be.getTier())
-        ));
-
-        // Status rows — LIGHT text on dark background
-        int rowY = ComputationControllerSpec.STATUS_ROW_START_Y;
-        int sx = ComputationControllerSpec.STATUS_ROW_START_X;
-        int sp = ComputationControllerSpec.STATUS_ROW_SPACING;
-
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.formed", enabledText(be.isFormed()))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.tier", String.valueOf(be.getTier()))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.threads", "%d / %d".formatted(
-                be.getUsedThread(), be.getTotalThread()))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.parallel", String.valueOf(be.getParallelCount()))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.bytes", "%s / %s".formatted(
+            shortTitle("gui.neoecoae.ui.computation_system.short", be.getTier()),
+            11
+        );
+        terminal.addStatusLine("gui.neoecoae.common.formed",
+            () -> enabledText(be.isFormed()));
+        terminal.addStatusLine("gui.neoecoae.common.tier",
+            () -> String.valueOf(be.getTier()));
+        terminal.addStatusLine("gui.neoecoae.common.threads",
+            () -> "%d / %d".formatted(be.getUsedThread(), be.getTotalThread()));
+        terminal.addStatusLine("gui.neoecoae.common.parallel",
+            () -> String.valueOf(be.getParallelCount()));
+        terminal.addStatusLine("gui.neoecoae.common.bytes",
+            () -> "%s / %s".formatted(
                 NETextFormat.formatBytes(be.getAvailableBytes()),
-                NETextFormat.formatBytes(be.getTotalBytes())))));
-        rowY += sp;
-        ui.widget(NELDLib1Widgets.dynamicLabelLight(sx, rowY,
-            () -> formatLine("gui.neoecoae.common.status", be.getPreviewStatusComponent().getString())));
+                NETextFormat.formatBytes(be.getTotalBytes())));
+        terminal.addStatusLine("gui.neoecoae.common.status",
+            () -> be.getPreviewStatusComponent().getString());
+
+        // ── Add in order: toolbar → terminal → builder (builder on top!) ──
+        ui.widget(toolBar);
+        ui.widget(terminal);
+        ui.widget(builderWindow);
 
         return ui;
     }

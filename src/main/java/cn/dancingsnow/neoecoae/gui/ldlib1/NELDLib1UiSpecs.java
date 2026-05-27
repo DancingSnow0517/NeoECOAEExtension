@@ -59,92 +59,50 @@ public final class NELDLib1UiSpecs {
     // Storage Controller — LDLib2-style three-zone layout
     // =========================================================================
     public static final class StorageControllerSpec {
-        public static final int WIDTH = 460;
-        public static final int HEIGHT = 190;
+        public static final int WIDTH = 445;
+        public static final int HEIGHT = 180;
 
-        // ── Left tool button bar (independent, transparent root) ──
+        // ── Left tool button bar ──
         public static final int HAMMER_BTN_X = 6;
-        public static final int HAMMER_BTN_Y = 28;
-        public static final int HAMMER_BTN_SIZE = 18;
+        public static final int HAMMER_BTN_Y = 20;
+        public static final int HAMMER_BTN_SIZE = 20;
 
         // ── Main status window (terminal-style dark panel) ──
-        // Outer frame using BACKGROUND texture
-        public static final int MAIN_FRAME_X = 28;
-        public static final int MAIN_FRAME_Y = 4;
-        public static final int MAIN_FRAME_W = 268;
-        public static final int MAIN_FRAME_H = 178;
-        // Inner dark content area
-        public static final int MAIN_PANEL_X = 32;
-        public static final int MAIN_PANEL_Y = 8;
-        public static final int MAIN_PANEL_W = 260;
-        public static final int MAIN_PANEL_H = 170;
+        public static final int MAIN_FRAME_X = 30;
+        public static final int MAIN_FRAME_Y = 6;
+        public static final int MAIN_FRAME_W = 238;
+        public static final int MAIN_FRAME_H = 158;
 
-        // Title inside the main panel
-        public static final int TITLE_X = 40;
-        public static final int TITLE_Y = 12;
-
-        // Status text rows inside the main panel
-        public static final int STATUS_ROW_START_X = 40;
-        public static final int STATUS_ROW_START_Y = 30;
-        public static final int STATUS_ROW_SPACING = 13;
-
-        // Scrollbar decoration (right edge of main panel)
-        public static final int SCROLLBAR_X = 284;
-        public static final int SCROLLBAR_Y = 12;
-        public static final int SCROLLBAR_W = 4;
-        public static final int SCROLLBAR_H = 162;
-
-        // ── Builder floating window ──
-        public static final int BUILDER_FLOAT_X = 300;
-        public static final int BUILDER_FLOAT_Y = 16;
-        public static final int BUILDER_FLOAT_W = 152;
-        public static final int BUILDER_FLOAT_H = 148;
+        // ── Builder floating window (positioned to the right of main window) ──
+        public static final int BUILDER_FLOAT_X = 272;
+        public static final int BUILDER_FLOAT_Y = 40;
+        public static final int BUILDER_FLOAT_W = 160;
+        public static final int BUILDER_FLOAT_H = 118;
     }
 
     // =========================================================================
     // Computation Controller — LDLib2-style three-zone layout
     // =========================================================================
     public static final class ComputationControllerSpec {
-        public static final int WIDTH = 460;
-        public static final int HEIGHT = 190;
+        public static final int WIDTH = 445;
+        public static final int HEIGHT = 180;
 
-        // ── Left tool button bar (independent, transparent root) ──
+        // ── Left tool button bar ──
         public static final int HAMMER_BTN_X = 6;
-        public static final int HAMMER_BTN_Y = 28;
-        public static final int HAMMER_BTN_SIZE = 18;
+        public static final int HAMMER_BTN_Y = 20;
+        public static final int HAMMER_BTN_SIZE = 20;
 
         // ── Main status window (terminal-style dark panel) ──
-        // Outer frame using BACKGROUND texture
-        public static final int MAIN_FRAME_X = 28;
-        public static final int MAIN_FRAME_Y = 4;
-        public static final int MAIN_FRAME_W = 268;
-        public static final int MAIN_FRAME_H = 178;
-        // Inner dark content area
-        public static final int MAIN_PANEL_X = 32;
-        public static final int MAIN_PANEL_Y = 8;
-        public static final int MAIN_PANEL_W = 260;
-        public static final int MAIN_PANEL_H = 170;
+        public static final int MAIN_FRAME_X = 30;
+        public static final int MAIN_FRAME_Y = 6;
+        public static final int MAIN_FRAME_W = 238;
+        public static final int MAIN_FRAME_H = 158;
 
-        // Title inside the main panel
-        public static final int TITLE_X = 40;
-        public static final int TITLE_Y = 12;
-
-        // Status text rows inside the main panel
-        public static final int STATUS_ROW_START_X = 40;
-        public static final int STATUS_ROW_START_Y = 30;
-        public static final int STATUS_ROW_SPACING = 13;
-
-        // Scrollbar decoration (right edge of main panel)
-        public static final int SCROLLBAR_X = 284;
-        public static final int SCROLLBAR_Y = 12;
-        public static final int SCROLLBAR_W = 4;
-        public static final int SCROLLBAR_H = 162;
-
-        // ── Builder floating window ──
-        public static final int BUILDER_FLOAT_X = 300;
-        public static final int BUILDER_FLOAT_Y = 16;
-        public static final int BUILDER_FLOAT_W = 152;
-        public static final int BUILDER_FLOAT_H = 148;
+        // ── Builder floating window (positioned to the right of main window) ──
+        public static final int BUILDER_FLOAT_X = 272;
+        public static final int BUILDER_FLOAT_Y = 40;
+        public static final int BUILDER_FLOAT_W = 160;
+        public static final int BUILDER_FLOAT_H = 118;
     }
 
     // =========================================================================
@@ -292,32 +250,32 @@ public final class NELDLib1UiSpecs {
         // ── New floating layout constants (used by addFloat()) ──
         // Title (top-left of float window)
         public static final int FLOAT_TITLE_X = 6;
-        public static final int FLOAT_TITLE_Y = 5;
+        public static final int FLOAT_TITLE_Y = 4;
         // Close / hammer button (top-right of float window)
-        public static final int CLOSE_BTN_X_OFFSET = -16;
-        public static final int CLOSE_BTN_Y = 4;
-        public static final int CLOSE_BTN_SIZE = 12;
+        public static final int CLOSE_BTN_X_OFFSET = -14;
+        public static final int CLOSE_BTN_Y = 3;
+        public static final int CLOSE_BTN_SIZE = 10;
         // Length controls
-        public static final int FLOAT_LENGTH_ROW_Y = 22;
+        public static final int FLOAT_LENGTH_ROW_Y = 18;
         public static final int FLOAT_LENGTH_DEC_X = 6;
         public static final int FLOAT_LENGTH_LABEL_X = 26;
-        public static final int FLOAT_LENGTH_LABEL_Y_OFF = 3;
+        public static final int FLOAT_LENGTH_LABEL_Y_OFF = 2;
         public static final int FLOAT_LENGTH_INC_X = 86;
         public static final int FLOAT_LENGTH_BUTTON_W = 16;
         public static final int FLOAT_LENGTH_BUTTON_H = 14;
         // Preview / Build buttons
-        public static final int FLOAT_BTN_ROW_Y = 42;
+        public static final int FLOAT_BTN_ROW_Y = 36;
         public static final int FLOAT_PREVIEW_BTN_X = 6;
         public static final int FLOAT_BUILD_BTN_X = 54;
         public static final int FLOAT_BTN_W = 44;
         public static final int FLOAT_BTN_H = 14;
         // Stats: compact rows
-        public static final int FLOAT_STATS_START_Y = 62;
-        public static final int FLOAT_STATS_ROW_SPACING = 11;
+        public static final int FLOAT_STATS_START_Y = 54;
+        public static final int FLOAT_STATS_ROW_SPACING = 10;
         public static final int FLOAT_STATS_X = 6;
         // Status text at bottom
         public static final int FLOAT_STATUS_TEXT_X = 6;
-        public static final int FLOAT_STATUS_TEXT_Y_OFFSET = -14;
+        public static final int FLOAT_STATUS_TEXT_Y_OFFSET = -12;
     }
 
     // =========================================================================
