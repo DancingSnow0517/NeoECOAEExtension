@@ -461,6 +461,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private void writeUiSyncTag(CompoundTag tag) {
         tag.putLong("neo_storedEnergy", storedEnergy);
         tag.putLong("neo_maxEnergy", maxEnergy);
+        tag.putBoolean("neo_formed", formed);
         if (usedTypes != null) tag.putLongArray("neo_usedTypes", usedTypes);
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
@@ -470,6 +471,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private void readUiSyncTag(CompoundTag tag) {
         if (tag.contains("neo_storedEnergy")) storedEnergy = tag.getLong("neo_storedEnergy");
         if (tag.contains("neo_maxEnergy")) maxEnergy = tag.getLong("neo_maxEnergy");
+        if (tag.contains("neo_formed")) formed = tag.getBoolean("neo_formed");
         if (tag.contains("neo_usedTypes")) usedTypes = tag.getLongArray("neo_usedTypes");
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");

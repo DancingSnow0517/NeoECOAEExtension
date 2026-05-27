@@ -44,16 +44,18 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
     @Override
     protected void init() {
         super.init();
-        addRenderableWidget(Button.builder(
-            Component.literal(NENativeUiConstants.TEST_BUTTON_TEXT),
-            btn -> LOG.info(getTestLogMessage())
-        ).pos(
-            leftPos + NENativeUiConstants.BUTTON_X_OFFSET,
-            topPos + NENativeUiConstants.BUTTON_Y_OFFSET
-        ).size(
-            NENativeUiConstants.BUTTON_WIDTH,
-            NENativeUiConstants.BUTTON_HEIGHT
-        ).build());
+        if (config.showTestButton()) {
+            addRenderableWidget(Button.builder(
+                Component.literal(NENativeUiConstants.TEST_BUTTON_TEXT),
+                btn -> LOG.info(getTestLogMessage())
+            ).pos(
+                leftPos + NENativeUiConstants.BUTTON_X_OFFSET,
+                topPos + NENativeUiConstants.BUTTON_Y_OFFSET
+            ).size(
+                NENativeUiConstants.BUTTON_WIDTH,
+                NENativeUiConstants.BUTTON_HEIGHT
+            ).build());
+        }
     }
 
     /**

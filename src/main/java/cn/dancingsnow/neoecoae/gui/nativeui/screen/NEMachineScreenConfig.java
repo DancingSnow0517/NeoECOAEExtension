@@ -5,31 +5,32 @@ import net.minecraft.network.chat.Component;
 /**
  * Per-machine configuration for a native ECO Screen.
  * <p>
- * Each constant provides the log identifier used by the test button.
- * Concrete Screen classes pass their config to {@link NEBaseMachineScreen}.
+ * Each constant provides the log identifier and whether a Test button
+ * should be shown.
  * </p>
  */
-public record NEMachineScreenConfig(String testLogName) {
+public record NEMachineScreenConfig(String testLogName, boolean showTestButton) {
 
     // ── Pre-defined configs ──
 
+    /** Storage Controller — real status display, no Test button. */
     public static final NEMachineScreenConfig STORAGE_CONTROLLER =
-        new NEMachineScreenConfig("Storage");
+        new NEMachineScreenConfig("Storage", false);
 
     public static final NEMachineScreenConfig COMPUTATION_CONTROLLER =
-        new NEMachineScreenConfig("Computation");
+        new NEMachineScreenConfig("Computation", true);
 
     public static final NEMachineScreenConfig CRAFTING_CONTROLLER =
-        new NEMachineScreenConfig("Crafting");
+        new NEMachineScreenConfig("Crafting", true);
 
     public static final NEMachineScreenConfig INTEGRATED_WORKING_STATION =
-        new NEMachineScreenConfig("IWS");
+        new NEMachineScreenConfig("IWS", true);
 
     public static final NEMachineScreenConfig CRAFTING_PATTERN_BUS =
-        new NEMachineScreenConfig("Pattern Bus");
+        new NEMachineScreenConfig("Pattern Bus", true);
 
     public static final NEMachineScreenConfig FLUID_HATCH =
-        new NEMachineScreenConfig("Fluid Hatch");
+        new NEMachineScreenConfig("Fluid Hatch", true);
 
     // ── Log helpers ──
 

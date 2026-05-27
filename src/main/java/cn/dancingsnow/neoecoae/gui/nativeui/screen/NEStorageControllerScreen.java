@@ -23,6 +23,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     public NEStorageControllerScreen(NEStorageControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.STORAGE_CONTROLLER);
+        this.imageWidth = 280;
         this.imageHeight = 150;
     }
 
