@@ -149,6 +149,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         totalBytes = new long[typeCount];
         storedEnergy = 0;
         maxEnergy = 0;
+        _synUsedTypes = 0;
+        _synTotalTypes = 0;
+        _synUsedBytes = 0;
+        _synTotalBytes = 0;
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -275,23 +279,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private long _synTotalBytes;
 
     public long getTotalUsedBytes() {
-        long s = sum(usedBytes);
-        return s != 0 ? s : _synUsedBytes;
+        return _synUsedBytes;
     }
 
     public long getTotalBytes() {
-        long s = sum(totalBytes);
-        return s != 0 ? s : _synTotalBytes;
+        return _synTotalBytes;
     }
 
     public long getTotalUsedTypes() {
-        long s = sum(usedTypes);
-        return s != 0 ? s : _synUsedTypes;
+        return _synUsedTypes;
     }
 
     public long getTotalTypes() {
-        long s = sum(totalTypes);
-        return s != 0 ? s : _synTotalTypes;
+        return _synTotalTypes;
     }
 
     public Component getPreviewStatusComponent() {
@@ -320,6 +320,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     public boolean isBuildInProgress() {
         return buildInProgress;
+    }
+
+    /**
+     * Called by Drive block entities to notify the controller that storage
+     * stats should be recalculated (cell inserted, removed, or content changed).
+     */
+    public void refreshStorageStats() {
+        updateInfos();
     }
 
     private int getCellTypeCount() {

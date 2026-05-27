@@ -89,6 +89,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         updateStorageProviderState("setCellStack");
         markForUpdate();
         setChanged();
+        notifyControllerRefresh();
     }
 
     @Override
@@ -153,6 +154,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 setChanged();
                 markForUpdate();
                 logMountResult(true);
+                notifyControllerRefresh();
                 return;
             }
         }
@@ -160,6 +162,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         setChanged();
         markForUpdate();
         logMountResult(false);
+        notifyControllerRefresh();
     }
 
     @Override
@@ -183,6 +186,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 setChanged();
                 markForUpdate();
             });
+            notifyControllerRefresh();
         }
     }
 
@@ -278,6 +282,17 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     private void logMountResult(boolean mounted) {
         // No-op: verbose debug logging removed.
+    }
+
+    /**
+     * Notifies the storage controller (if formed) that storage stats should be
+     * recalculated after a cell change. Safe to call on either side; only
+     * executes on the server.
+     */
+    private void notifyControllerRefresh() {
+        if (level == null || level.isClientSide) return;
+        if (cluster == null || cluster.getController() == null) return;
+        cluster.getController().refreshStorageStats();
     }
 
     @Override
