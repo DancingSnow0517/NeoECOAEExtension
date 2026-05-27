@@ -292,7 +292,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private void notifyControllerRefresh() {
         if (level == null || level.isClientSide) return;
         if (cluster == null || cluster.getController() == null) return;
-        cluster.getController().refreshStorageStats();
+        cluster.getController().refreshStorageUiState();
     }
 
     @Override

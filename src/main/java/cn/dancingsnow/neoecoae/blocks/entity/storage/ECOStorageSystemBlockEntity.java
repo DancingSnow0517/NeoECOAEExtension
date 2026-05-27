@@ -325,8 +325,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     /**
      * Called by Drive block entities to notify the controller that storage
      * stats should be recalculated (cell inserted, removed, or content changed).
+     * Only executes on the server side.
      */
-    public void refreshStorageStats() {
+    public void refreshStorageUiState() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
         updateInfos();
     }
 
