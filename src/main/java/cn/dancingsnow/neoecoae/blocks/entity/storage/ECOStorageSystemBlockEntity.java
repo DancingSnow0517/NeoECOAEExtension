@@ -153,11 +153,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @SuppressWarnings("UnstableApiUsage")
     private void updateInfos() {
-        System.out.println("[NeoECOAE TRACE] updateInfos called @ " + worldPosition +
-            " side=" + (level == null ? "null" : level.isClientSide ? "CLIENT" : "SERVER") +
-            " cluster=" + (cluster != null));
-        int driveCount = 0;
-        int cellCount = 0;
         if (cluster != null) {
             storedEnergy = 0;
             maxEnergy = 0;
@@ -171,60 +166,47 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             totalTypes = new long[typeCount];
             usedBytes = new long[typeCount];
             totalBytes = new long[typeCount];
+
+            // Aggregate scalars - always populated regardless of registry-id lookup
+            long aggUsedTypes = 0, aggTotalTypes = 0, aggUsedBytes = 0, aggTotalBytes = 0;
+
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
-                driveCount++;
                 IECOStorageCell inv = drive.getCellInventory();
-                if (inv != null) {
-                    cellCount++;
-                    ECOCellType cellType = inv.getCellType();
-                    int id = findCellTypeId(cellType);
-                    if (id < 0 || id >= typeCount) {
-                        LOGGER.info("[NeoECOAE] updateInfos SKIP cell: id={} typeCount={} cellType={}", id, typeCount, cellType);
-                        continue;
-                    }
-                    long st = inv.getStoredItemTypes();
-                    long tt = inv.getTotalItemTypes();
-                    long ub = inv.getUsedBytes();
-                    long tb = inv.getTotalBytes();
-                    // One-time log for first cell found (per controller session)
-                    if (cellCount == 1 && !_loggedCellDetail) {
-                        _loggedCellDetail = true;
-                        LOGGER.info("[NeoECOAE] updateInfos CELL detail @ {}: drivePos={} cellClass={}" +
-                            " cellType={} id={} storedTypes={} totalTypes={} usedBytes={} totalBytes={} tier={}",
-                            worldPosition, drive.getBlockPos(), inv.getClass().getSimpleName(),
-                            cellType, id, st, tt, ub, tb, inv.getTier());
-                    }
+                if (inv == null) continue;
+
+                long st = inv.getStoredItemTypes();
+                long tt = inv.getTotalItemTypes();
+                long ub = inv.getUsedBytes();
+                long tb = inv.getTotalBytes();
+
+                aggUsedTypes += st;
+                aggTotalTypes += tt;
+                aggUsedBytes += ub;
+                aggTotalBytes += tb;
+
+                // Per-cell-type arrays - best-effort, may skip if id lookup fails
+                ECOCellType cellType = inv.getCellType();
+                int id = NERegistries.CELL_TYPE.getId(cellType);
+                if (id >= 0 && id < typeCount) {
                     usedTypes[id] += st;
                     totalTypes[id] += tt;
                     usedBytes[id] += ub;
                     totalBytes[id] += tb;
                 }
             }
-            // Diagnostic: ALWAYS log for debugging
-            long tu = sum(usedTypes), tt = sum(totalTypes), bu = sum(usedBytes), bt = sum(totalBytes);
-            _synUsedTypes = tu;
-            _synTotalTypes = tt;
-            _synUsedBytes = bu;
-            _synTotalBytes = bt;
-            String msg = "[NeoECOAE] updateInfos @ " + worldPosition + " cluster=" + (cluster != null) +
-                " drives=" + driveCount + " cells=" + cellCount +
-                " types=" + tu + "/" + tt + " bytes=" + bu + "/" + bt +
-                " energy=" + storedEnergy + "/" + maxEnergy + " formed=" + formed;
-            LOGGER.info(msg);
-            System.out.println(msg);
-            _loggedUpdateOnce = true;
+
+            _synUsedTypes = aggUsedTypes;
+            _synTotalTypes = aggTotalTypes;
+            _synUsedBytes = aggUsedBytes;
+            _synTotalBytes = aggTotalBytes;
+
             setChanged();
         } else {
             resetStorageInfos();
             setChanged();
         }
-        // Sync UI display fields to client
         syncUiToClient();
     }
-
-    // Diagnostic: track last logged values to avoid log spam
-    private transient boolean _loggedUpdateOnce;
-    private transient boolean _loggedCellDetail;
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
@@ -282,7 +264,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return maxEnergy;
     }
 
-    // Scalar synced fields 鈥?written directly to avoid long[] array sync issues on client
+    // Scalar synced fields 闁?written directly to avoid long[] array sync issues on client
     @DescSynced
     private long _synUsedTypes;
     @DescSynced
@@ -452,17 +434,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return NEMultiBlocks.getStorageSystemDefinition(tier);
     }
 
-    private int findCellTypeId(ECOCellType cellType) {
-        int id = 0;
-        for (ECOCellType entry : NERegistries.CELL_TYPE) {
-            if (entry.equals(cellType)) {
-                return id;
-            }
-            id++;
-        }
-        return -1;
-    }
-
     private int getMinBuildLength() {
         MultiBlockDefinition definition = getBuildDefinition();
         return definition == null ? 1 : definition.getExpandMin();
@@ -501,7 +472,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
 
-    // 鈹€鈹€ Client sync for Controller UI (LDLib1 ModularUI data bridge) 鈹€鈹€
+    // 闁冲厜鍋撻柍鍏夊亾 Client sync for Controller UI (LDLib1 ModularUI data bridge) 闁冲厜鍋撻柍鍏夊亾
 
     @Override
     public CompoundTag getUpdateTag() {
@@ -526,12 +497,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         tag.putLong("neo_storedEnergy", storedEnergy);
         tag.putLong("neo_maxEnergy", maxEnergy);
         tag.putBoolean("neo_formed", formed);
-        // Scalars (reliable) 鈥?used as primary read path by Screen getters
+        // Scalars (reliable) 闁?used as primary read path by Screen getters
         tag.putLong("neo_usedTypes_s", _synUsedTypes);
         tag.putLong("neo_totalTypes_s", _synTotalTypes);
         tag.putLong("neo_usedBytes_s", _synUsedBytes);
         tag.putLong("neo_totalBytes_s", _synTotalBytes);
-        // Arrays (fallback) 鈥?kept for compatibility
+        // Arrays (fallback) 闁?kept for compatibility
         if (usedTypes != null) tag.putLongArray("neo_usedTypes", usedTypes);
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
@@ -542,12 +513,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (tag.contains("neo_storedEnergy")) storedEnergy = tag.getLong("neo_storedEnergy");
         if (tag.contains("neo_maxEnergy")) maxEnergy = tag.getLong("neo_maxEnergy");
         if (tag.contains("neo_formed")) formed = tag.getBoolean("neo_formed");
-        // Scalars 鈥?reliable scalar sync
+        // Scalars 闁?reliable scalar sync
         if (tag.contains("neo_usedTypes_s")) _synUsedTypes = tag.getLong("neo_usedTypes_s");
         if (tag.contains("neo_totalTypes_s")) _synTotalTypes = tag.getLong("neo_totalTypes_s");
         if (tag.contains("neo_usedBytes_s")) _synUsedBytes = tag.getLong("neo_usedBytes_s");
         if (tag.contains("neo_totalBytes_s")) _synTotalBytes = tag.getLong("neo_totalBytes_s");
-        // Arrays 鈥?fallback
+        // Arrays 闁?fallback
         if (tag.contains("neo_usedTypes")) usedTypes = tag.getLongArray("neo_usedTypes");
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");

@@ -32,17 +32,17 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     @Override
     protected void init() {
         super.init();
-        ECOStorageSystemBlockEntity be = getStorageBE();
-        if (be != null) {
-            LOG.info("[NeoECOAE] Storage UI opened — client BE at {}:" +
-                " types={}/{} bytes={}/{} energy={}/{} formed={}",
-                menu.getMachinePos(),
-                be.getTotalUsedTypes(), be.getTotalTypes(),
-                be.getTotalUsedBytes(), be.getTotalBytes(),
-                be.getStoredEnergy(), be.getMaxEnergy(),
-                be.isFormed());
-        } else {
-            LOG.info("[NeoECOAE] Storage UI opened — client BE not found at {}", menu.getMachinePos());
+        if (LOG.isDebugEnabled()) {
+            ECOStorageSystemBlockEntity be = getStorageBE();
+            if (be != null) {
+                LOG.debug("[NeoECOAE] Storage UI opened — client BE at {}:" +
+                    " types={}/{} bytes={}/{} energy={}/{} formed={}",
+                    menu.getMachinePos(),
+                    be.getTotalUsedTypes(), be.getTotalTypes(),
+                    be.getTotalUsedBytes(), be.getTotalBytes(),
+                    be.getStoredEnergy(), be.getMaxEnergy(),
+                    be.isFormed());
+            }
         }
     }
 

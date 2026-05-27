@@ -15,6 +15,7 @@ import appeng.items.storage.StorageCellTooltipComponent;
 import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
+import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
@@ -86,7 +87,26 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public ECOCellType getCellType() {
-        return cellType.get();
+        if (cachedResolvedCellType == null) {
+            cachedResolvedCellType = resolveFromRegistry(cellType.get());
+        }
+        return cachedResolvedCellType;
+    }
+
+    private ECOCellType cachedResolvedCellType;
+
+    /**
+     * Looks up the registered singleton for a cell type from the registry.
+     * This ensures {@code Registry.getId()} works correctly because the
+     * returned instance is the same object held by the registry's internal map.
+     */
+    private static ECOCellType resolveFromRegistry(ECOCellType candidate) {
+        for (ECOCellType entry : NERegistries.CELL_TYPE) {
+            if (entry.desc().equals(candidate.desc())) {
+                return entry;
+            }
+        }
+        return candidate;
     }
 
     @Override
