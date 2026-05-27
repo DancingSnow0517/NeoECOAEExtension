@@ -41,6 +41,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.ui.computation_subsystem.short", "ECO - %s Computation Subsystem");
         provider.add("gui.neoecoae.ui.crafting_controller.short", "ECO - %s Crafting Controller");
 
+        // ===== Temporary minimal UI =====
+        provider.add("gui.neoecoae.ui.rebuilding", "UI rebuilding");
+
         // ECO CPU
         provider.add("gui.neoecoae.cpu.eco", "%s ECO CPU");
         provider.add("gui.neoecoae.cpu.eco_with_storage", "%s ECO CPU (%s)");

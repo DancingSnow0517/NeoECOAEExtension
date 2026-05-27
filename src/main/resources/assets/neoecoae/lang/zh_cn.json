@@ -162,6 +162,7 @@
   "gui.neoecoae.ui.storage_subsystem.short": "ECO - %s \u5b58\u50a8\u5b50\u7cfb\u7edf",
   "gui.neoecoae.ui.computation_subsystem.short": "ECO - %s \u8ba1\u7b97\u5b50\u7cfb\u7edf",
   "gui.neoecoae.ui.crafting_controller.short": "ECO - %s \u5408\u6210\u63a7\u5236\u5668",
+  "gui.neoecoae.ui.rebuilding": "\u754c\u9762\u91cd\u6784\u4e2d",
   "gui.neoecoae.cpu.eco": "%s ECO \u5904\u7406\u5668",
   "gui.neoecoae.cpu.eco_with_storage": "%s ECO \u5904\u7406\u5668\uff08%s\uff09",
   "gui.neoecoae.cpu.storage": "%s \u5b58\u50a8\u5bb9\u91cf",

@@ -162,6 +162,7 @@
   "gui.neoecoae.ui.storage_subsystem.short": "ECO - %s Storage Subsystem",
   "gui.neoecoae.ui.computation_subsystem.short": "ECO - %s Computation Subsystem",
   "gui.neoecoae.ui.crafting_controller.short": "ECO - %s Crafting Controller",
+  "gui.neoecoae.ui.rebuilding": "UI rebuilding",
   "gui.neoecoae.cpu.eco": "%s ECO CPU",
   "gui.neoecoae.cpu.eco_with_storage": "%s ECO CPU (%s)",
   "gui.neoecoae.cpu.storage": "%s Storage",
