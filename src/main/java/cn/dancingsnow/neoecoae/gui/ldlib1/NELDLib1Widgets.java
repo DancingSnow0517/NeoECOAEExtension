@@ -22,9 +22,15 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 public final class NELDLib1Widgets {
+    // Dark-background colors (title text, label text)
     public static final int TITLE_COLOR = 0xFF303040;
     public static final int LABEL_COLOR = 0xFF3F3D52;
-    public static final int STATUS_COLOR = 0xFF303040;
+
+    // Status text colors — use LIGHT_TEXT on dark panel backgrounds
+    public static final int STATUS_COLOR_DARK_TEXT = 0xFF303040;
+    public static final int STATUS_COLOR_LIGHT_TEXT = 0xFFE8E8F0;
+
+    // Button text is always white
     public static final int BUTTON_TEXT_COLOR = 0xFFFFFFFF;
 
     private NELDLib1Widgets() {
@@ -43,7 +49,14 @@ public final class NELDLib1Widgets {
     }
 
     public static LabelWidget dynamicLabel(int x, int y, Supplier<String> text) {
-        return dynamicLabel(x, y, text, STATUS_COLOR);
+        return dynamicLabel(x, y, text, STATUS_COLOR_DARK_TEXT);
+    }
+
+    /**
+     * Create a dynamic label with light text — use on dark panel backgrounds.
+     */
+    public static LabelWidget dynamicLabelLight(int x, int y, Supplier<String> text) {
+        return dynamicLabel(x, y, text, STATUS_COLOR_LIGHT_TEXT);
     }
 
     public static LabelWidget dynamicLabel(int x, int y, Supplier<String> text, int color) {
@@ -51,7 +64,7 @@ public final class NELDLib1Widgets {
     }
 
     public static LabelWidget statusLine(int x, int y, Component label, Supplier<String> value) {
-        return dynamicLabel(x, y, () -> label.getString() + ": " + value.get(), STATUS_COLOR);
+        return dynamicLabel(x, y, () -> label.getString() + ": " + value.get(), STATUS_COLOR_DARK_TEXT);
     }
 
     public static ButtonWidget button(int x, int y, int width, int height, Component text, Consumer<ClickData> action) {

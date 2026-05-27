@@ -4,6 +4,42 @@ import com.tterrag.registrate.providers.RegistrateLangProvider;
 
 public class GuiLangs {
     public static void accept(RegistrateLangProvider provider) {
+        // common UI labels
+        provider.add("gui.neoecoae.common.input", "Input");
+        provider.add("gui.neoecoae.common.output", "Output");
+        provider.add("gui.neoecoae.common.upgrades", "Upgrades");
+        provider.add("gui.neoecoae.common.status", "Status");
+        provider.add("gui.neoecoae.common.enabled", "Enabled");
+        provider.add("gui.neoecoae.common.disabled", "Disabled");
+        provider.add("gui.neoecoae.common.formed", "Formed");
+        provider.add("gui.neoecoae.common.tier", "Tier");
+        provider.add("gui.neoecoae.common.bytes", "Bytes");
+        provider.add("gui.neoecoae.common.energy", "Energy");
+        provider.add("gui.neoecoae.common.threads", "Threads");
+        provider.add("gui.neoecoae.common.parallel", "Parallel");
+        provider.add("gui.neoecoae.common.types", "Types");
+        provider.add("gui.neoecoae.common.progress", "Progress");
+        provider.add("gui.neoecoae.common.fluid", "Fluid");
+        provider.add("gui.neoecoae.common.amount", "Amount");
+        provider.add("gui.neoecoae.common.coolant", "Coolant");
+        provider.add("gui.neoecoae.common.overclock", "Overclock");
+        provider.add("gui.neoecoae.common.active_cooling", "Active Cooling");
+        provider.add("gui.neoecoae.common.input_fluid", "In Fluid");
+        provider.add("gui.neoecoae.common.output_fluid", "Out Fluid");
+        provider.add("gui.neoecoae.pattern_bus.patterns", "Patterns");
+        provider.add("gui.neoecoae.pattern_bus.patterns_page", "Patterns %d - %d");
+
+        // short controller titles
+        provider.add("gui.neoecoae.ui.storage_subsystem.short", "ECO - %s Storage Subsystem");
+        provider.add("gui.neoecoae.ui.computation_subsystem.short", "ECO - %s Computation Subsystem");
+        provider.add("gui.neoecoae.ui.crafting_controller.short", "ECO - %s Crafting Controller");
+
+        // ECO CPU
+        provider.add("gui.neoecoae.cpu.eco", "%s ECO CPU");
+        provider.add("gui.neoecoae.cpu.eco_with_storage", "%s ECO CPU (%s)");
+        provider.add("gui.neoecoae.cpu.storage", "%s Storage");
+        provider.add("gui.neoecoae.cpu.coprocessors", "%s Co-processors");
+
         // integrated working station
         provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");

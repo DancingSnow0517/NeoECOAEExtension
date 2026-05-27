@@ -91,7 +91,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
 
     @Override
     public @Nullable Component getName() {
-        return Component.translatable("gui.neoecoae.cpu.name", tier);
+        return Component.translatable("gui.neoecoae.cpu.eco", tier.toString());
     }
 
     @Override
