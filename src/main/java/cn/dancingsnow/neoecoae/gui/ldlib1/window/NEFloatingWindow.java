@@ -1,32 +1,31 @@
 package cn.dancingsnow.neoecoae.gui.ldlib1.window;
 
 import cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1Textures;
+import cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1Theme;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.util.ClickData;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
+import com.lowdragmc.lowdraglib.gui.widget.ImageWidget;
 import net.minecraft.network.chat.Component;
 
 /**
- * A floating overlay window with a close button in the top-right corner
- * and title-bar drag support.
- *
- * <p>Built on {@link NEWindow}; supports {@link #show()}/{@link #hide()}/{@link #toggle()}
- * via the inherited {@link NEWidgetGroup} visibility system.</p>
+ * A floating overlay window with a visible title bar, close button, and
+ * title-bar drag support. Only the visible title bar area is draggable.
  */
 public class NEFloatingWindow extends NEWindow {
 
-    /** Height of the draggable title bar area (px from top). */
-    protected static final int TITLE_BAR_HEIGHT = 16;
+    /** Height of the visible draggable title bar (px from top). */
+    protected static final int TITLE_BAR_HEIGHT = 14;
 
-    protected ButtonWidget closeButton;
+    protected NEButton closeBtn;
     protected Runnable onClose;
 
-    // Drag state (client-side only, not synced)
+    // Drag state (client-side only)
     protected boolean dragging;
     protected int dragOffsetX;
     protected int dragOffsetY;
 
-    // Clamp bounds (minX, minY, maxX, maxY) — null = no limit
+    // Clamp bounds
     protected Integer dragMinX, dragMinY, dragMaxX, dragMaxY;
 
     public NEFloatingWindow(int x, int y, int width, int height,
@@ -35,6 +34,7 @@ public class NEFloatingWindow extends NEWindow {
                             Runnable onClose) {
         super(x, y, width, height, title, frame, content);
         this.onClose = onClose;
+        buildTitleBar();
         buildCloseButton();
     }
 
@@ -50,7 +50,6 @@ public class NEFloatingWindow extends NEWindow {
         this.onClose = onClose;
     }
 
-    /** Set drag boundary clamping. */
     public void setDragBounds(int minX, int minY, int maxX, int maxY) {
         this.dragMinX = minX;
         this.dragMinY = minY;
@@ -58,53 +57,52 @@ public class NEFloatingWindow extends NEWindow {
         this.dragMaxY = maxY;
     }
 
+    /** Draw a visible title bar background strip so the draggable area is obvious. */
+    protected void buildTitleBar() {
+        // Dark strip at the top as the visible title bar
+        addWidget(new ImageWidget(0, 0, getSizeWidth(), TITLE_BAR_HEIGHT,
+            NELDLib1Textures.SCROLLBAR_TRACK));
+    }
+
     protected void buildCloseButton() {
         int btnSize = 10;
-        int btnX = getSizeWidth() - btnSize - 6;
-        int btnY = 4;
-        closeButton = new ButtonWidget(btnX, btnY, btnSize, btnSize,
-            NELDLib1Textures.text("\u2715", 0xFFFFFFFF, btnSize)
-                .setBackgroundTexture(NELDLib1Textures.BUTTON),
-            (ClickData data) -> {
-                if (onClose != null) onClose.run();
-            })
-            .setHoverTexture(NELDLib1Textures.BUTTON_HOVER);
-        addWidget(closeButton);
+        int btnX = getSizeWidth() - btnSize - 5;
+        int btnY = 2;
+        closeBtn = NEButton.text(btnX, btnY, btnSize, btnSize,
+            "\u2715", NELDLib1Theme.TEXT_TITLE,
+            data -> { if (onClose != null) onClose.run(); });
+        addWidget(closeBtn);
     }
 
     // ── Drag logic ──
 
-    /** Check if local (mx, my) falls within the title bar area. */
+    /** Only the visible title bar strip (top TITLE_BAR_HEIGHT px) is draggable. */
     protected boolean isInTitleBar(double mx, double my) {
-        return my >= 0 && my <= TITLE_BAR_HEIGHT
-            && mx >= 0 && mx <= getSizeWidth();
+        return my >= 0 && my < TITLE_BAR_HEIGHT
+            && mx >= 0 && mx < getSizeWidth();
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!isVisible()) return false;
 
-        // Convert to local coordinates (mouseX/Y are relative to this group)
-        double localX = mouseX;
-        double localY = mouseY;
-
-        // If click is in title bar but NOT on close button, start drag
-        if (button == 0 && isInTitleBar(localX, localY)) {
-            // Check if close button is under the mouse — if so, let it handle the click
-            if (closeButton != null && closeButton.isVisible()
-                && closeButton.isMouseOverElement(
-                    localX - closeButton.getSelfPositionX(),
-                    localY - closeButton.getSelfPositionY())) {
+        // Check if close button is under mouse first
+        if (closeBtn != null && closeBtn.isVisible()) {
+            double cx = mouseX - closeBtn.getSelfPositionX();
+            double cy = mouseY - closeBtn.getSelfPositionY();
+            if (closeBtn.isMouseOverElement(cx, cy)) {
                 return super.mouseClicked(mouseX, mouseY, button);
             }
-            // Start drag
+        }
+
+        // Start drag only in visible title bar area
+        if (button == 0 && isInTitleBar(mouseX, mouseY)) {
             dragging = true;
-            dragOffsetX = (int) localX;
-            dragOffsetY = (int) localY;
+            dragOffsetX = (int) mouseX;
+            dragOffsetY = (int) mouseY;
             return true;
         }
 
-        // Otherwise delegate to children (close button, content buttons, etc.)
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
@@ -112,10 +110,8 @@ public class NEFloatingWindow extends NEWindow {
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                  double dragX, double dragY) {
         if (!dragging || !isVisible()) return false;
-        // Use screen-space drag delta to move window
         int newX = getX() + (int) dragX;
         int newY = getY() + (int) dragY;
-        // Clamp
         if (dragMinX != null) newX = Math.max(dragMinX, Math.min(dragMaxX, newX));
         if (dragMinY != null) newY = Math.max(dragMinY, Math.min(dragMaxY, newY));
         moveTo(newX, newY);

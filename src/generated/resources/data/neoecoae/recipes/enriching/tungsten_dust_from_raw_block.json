@@ -7,8 +7,9 @@
   ],
   "type": "mekanism:enriching",
   "input": {
-    "count": 1,
-    "tag": "c:storage_blocks/raw_tungsten"
+    "ingredient": {
+      "tag": "c:storage_blocks/raw_tungsten"
+    }
   },
   "output": {
     "count": 12,

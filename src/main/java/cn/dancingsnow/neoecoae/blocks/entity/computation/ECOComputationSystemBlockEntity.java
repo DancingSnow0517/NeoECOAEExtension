@@ -40,6 +40,7 @@ import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -143,6 +144,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             totalBytes = 0;
         }
         setChanged();
+        syncUiToClient();
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
@@ -583,5 +585,42 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     private static void buildPanelTextStyle(TextElement.TextStyle style) {
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+    }
+
+    // ── Client sync for Controller UI (LDLib1 ModularUI data bridge) ──
+
+    @Override
+    public CompoundTag getUpdateTag() {
+        var tag = super.getUpdateTag();
+        writeUiSyncTag(tag);
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        readUiSyncTag(tag);
+    }
+
+    private void syncUiToClient() {
+        if (level != null && !level.isClientSide && getBlockPos() != null) {
+            level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    private void writeUiSyncTag(CompoundTag tag) {
+        tag.putInt("neo_usedThread", usedThread);
+        tag.putInt("neo_totalThread", totalThread);
+        tag.putInt("neo_parallelCount", parallelCount);
+        tag.putLong("neo_availableBytes", availableBytes);
+        tag.putLong("neo_totalBytes", totalBytes);
+    }
+
+    private void readUiSyncTag(CompoundTag tag) {
+        if (tag.contains("neo_usedThread")) usedThread = tag.getInt("neo_usedThread");
+        if (tag.contains("neo_totalThread")) totalThread = tag.getInt("neo_totalThread");
+        if (tag.contains("neo_parallelCount")) parallelCount = tag.getInt("neo_parallelCount");
+        if (tag.contains("neo_availableBytes")) availableBytes = tag.getLong("neo_availableBytes");
+        if (tag.contains("neo_totalBytes")) totalBytes = tag.getLong("neo_totalBytes");
     }
 }

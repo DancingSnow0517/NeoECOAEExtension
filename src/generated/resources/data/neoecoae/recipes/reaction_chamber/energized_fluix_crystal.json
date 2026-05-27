@@ -15,13 +15,11 @@
   },
   "input_items": [
     {
-      "amount": 64,
       "ingredient": {
         "tag": "c:dusts/energized_crystal"
       }
     },
     {
-      "amount": 64,
       "ingredient": {
         "tag": "c:gems/fluix"
       }
