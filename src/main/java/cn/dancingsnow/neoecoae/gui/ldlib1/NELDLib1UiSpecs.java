@@ -56,52 +56,49 @@ public final class NELDLib1UiSpecs {
     }
 
     // =========================================================================
-    // Storage Controller — LDLib2-style three-zone layout
+    // Storage Controller — compact LDLib2-style layout
     // =========================================================================
     public static final class StorageControllerSpec {
-        public static final int WIDTH = 445;
-        public static final int HEIGHT = 180;
+        public static final int WIDTH = 260;
+        public static final int HEIGHT = 178;
 
-        // ── Left tool button bar ──
-        public static final int HAMMER_BTN_X = 6;
-        public static final int HAMMER_BTN_Y = 20;
+        // ── Left hammer button ──
+        public static final int HAMMER_BTN_X = 4;
+        public static final int HAMMER_BTN_Y = 30;
         public static final int HAMMER_BTN_SIZE = 20;
 
-        // ── Main status window (terminal-style dark panel) ──
-        public static final int MAIN_FRAME_X = 30;
-        public static final int MAIN_FRAME_Y = 6;
-        public static final int MAIN_FRAME_W = 238;
-        public static final int MAIN_FRAME_H = 158;
+        // ── Main text panel (scroller-like, 220×160) ──
+        public static final int TEXT_PANEL_X = 28;
+        public static final int TEXT_PANEL_Y = 6;
+        public static final int TEXT_PANEL_W = 220;
+        public static final int TEXT_PANEL_H = 160;
 
-        // ── Builder floating window (positioned to the right of main window) ──
-        public static final int BUILDER_FLOAT_X = 272;
-        public static final int BUILDER_FLOAT_Y = 40;
-        public static final int BUILDER_FLOAT_W = 160;
+        // ── Builder floating window (offset 6,6 from text panel top-left) ──
+        public static final int BUILDER_FLOAT_X = 34;
+        public static final int BUILDER_FLOAT_Y = 12;
+        public static final int BUILDER_FLOAT_W = 158;
         public static final int BUILDER_FLOAT_H = 118;
     }
 
     // =========================================================================
-    // Computation Controller — LDLib2-style three-zone layout
+    // Computation Controller — compact LDLib2-style layout
     // =========================================================================
     public static final class ComputationControllerSpec {
-        public static final int WIDTH = 445;
-        public static final int HEIGHT = 180;
+        public static final int WIDTH = 260;
+        public static final int HEIGHT = 178;
 
-        // ── Left tool button bar ──
-        public static final int HAMMER_BTN_X = 6;
-        public static final int HAMMER_BTN_Y = 20;
+        public static final int HAMMER_BTN_X = 4;
+        public static final int HAMMER_BTN_Y = 30;
         public static final int HAMMER_BTN_SIZE = 20;
 
-        // ── Main status window (terminal-style dark panel) ──
-        public static final int MAIN_FRAME_X = 30;
-        public static final int MAIN_FRAME_Y = 6;
-        public static final int MAIN_FRAME_W = 238;
-        public static final int MAIN_FRAME_H = 158;
+        public static final int TEXT_PANEL_X = 28;
+        public static final int TEXT_PANEL_Y = 6;
+        public static final int TEXT_PANEL_W = 220;
+        public static final int TEXT_PANEL_H = 160;
 
-        // ── Builder floating window (positioned to the right of main window) ──
-        public static final int BUILDER_FLOAT_X = 272;
-        public static final int BUILDER_FLOAT_Y = 40;
-        public static final int BUILDER_FLOAT_W = 160;
+        public static final int BUILDER_FLOAT_X = 34;
+        public static final int BUILDER_FLOAT_Y = 12;
+        public static final int BUILDER_FLOAT_W = 158;
         public static final int BUILDER_FLOAT_H = 118;
     }
 

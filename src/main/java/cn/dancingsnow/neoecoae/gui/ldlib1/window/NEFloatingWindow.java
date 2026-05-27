@@ -74,7 +74,7 @@ public class NEFloatingWindow extends NEWindow {
 
     // ── Drag logic ──
 
-    /** Check if (mx, my) relative to this window falls within the title bar. */
+    /** Check if local (mx, my) falls within the title bar area. */
     protected boolean isInTitleBar(double mx, double my) {
         return my >= 0 && my <= TITLE_BAR_HEIGHT
             && mx >= 0 && mx <= getSizeWidth();
@@ -83,23 +83,36 @@ public class NEFloatingWindow extends NEWindow {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!isVisible()) return false;
-        // Let children (close button, etc.) handle first
-        if (super.mouseClicked(mouseX, mouseY, button)) return true;
-        // Start drag if click is in title bar
-        if (button == 0 && isInTitleBar(mouseX, mouseY)) {
+
+        // Convert to local coordinates (mouseX/Y are relative to this group)
+        double localX = mouseX;
+        double localY = mouseY;
+
+        // If click is in title bar but NOT on close button, start drag
+        if (button == 0 && isInTitleBar(localX, localY)) {
+            // Check if close button is under the mouse — if so, let it handle the click
+            if (closeButton != null && closeButton.isVisible()
+                && closeButton.isMouseOverElement(
+                    localX - closeButton.getSelfPositionX(),
+                    localY - closeButton.getSelfPositionY())) {
+                return super.mouseClicked(mouseX, mouseY, button);
+            }
+            // Start drag
             dragging = true;
-            dragOffsetX = (int) mouseX;
-            dragOffsetY = (int) mouseY;
+            dragOffsetX = (int) localX;
+            dragOffsetY = (int) localY;
             return true;
         }
-        return false;
+
+        // Otherwise delegate to children (close button, content buttons, etc.)
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                  double dragX, double dragY) {
         if (!dragging || !isVisible()) return false;
-        // New position = current self position + drag delta
+        // Use screen-space drag delta to move window
         int newX = getX() + (int) dragX;
         int newY = getY() + (int) dragY;
         // Clamp

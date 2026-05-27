@@ -16,7 +16,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1UiSpecs;
 import cn.dancingsnow.neoecoae.gui.ldlib1.NELDLib1Widgets;
 import cn.dancingsnow.neoecoae.gui.ldlib1.MultiblockBuildUiAdapter;
 import cn.dancingsnow.neoecoae.gui.ldlib1.window.NEBuilderWindow;
-import cn.dancingsnow.neoecoae.gui.ldlib1.window.NETerminalPanel;
+import cn.dancingsnow.neoecoae.gui.ldlib1.window.NETextPanel;
 import cn.dancingsnow.neoecoae.gui.ldlib1.window.NEToolBar;
 import cn.dancingsnow.neoecoae.util.NETextFormat;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
@@ -131,15 +131,16 @@ public final class LDLib1MachineUIs {
     }
 
     // =========================================================================
-    // Storage Controller — using window toolkit components
+    // Storage Controller — LDLib2-style compact layout
     // =========================================================================
     public static ModularUI createStorageSystemUI(ECOStorageSystemBlockEntity be, Player player) {
+        logStorageSnapshot(be);
         var ui = new ModularUI(
             StorageControllerSpec.WIDTH, StorageControllerSpec.HEIGHT,
             be, player
         ); // transparent root — no .background()
 
-        // ── 1. Builder floating window (hidden by default, added LAST to float on top) ──
+        // ── 1. Builder (hidden, added LAST to float on top) ──
         NEBuilderWindow[] builderHolder = new NEBuilderWindow[1];
         builderHolder[0] = new NEBuilderWindow(
             StorageControllerSpec.BUILDER_FLOAT_X, StorageControllerSpec.BUILDER_FLOAT_Y,
@@ -148,65 +149,61 @@ public final class LDLib1MachineUIs {
         );
         var builderWindow = builderHolder[0];
         builderWindow.hide();
-        // Allow dragging within the root UI bounds
         builderWindow.setDragBounds(0, 0,
             StorageControllerSpec.WIDTH - StorageControllerSpec.BUILDER_FLOAT_W,
             StorageControllerSpec.HEIGHT - StorageControllerSpec.BUILDER_FLOAT_H);
 
-        // ── 2. Left tool bar ──
+        // ── 2. Left hammer button ──
         var toolBar = new NEToolBar(
-            StorageControllerSpec.HAMMER_BTN_X, StorageControllerSpec.HAMMER_BTN_Y,
-            20, 2
-        );
-        // Hammer icon rendered as text symbol; tooltip shows "Builder"
-        toolBar.addButton("\u2692", // ⚒ hammer-and-pick symbol
+            StorageControllerSpec.HAMMER_BTN_X, StorageControllerSpec.HAMMER_BTN_Y, 20, 2);
+        toolBar.addIconButton(
+            NELDLib1Textures.hammerIcon(),
             Component.translatable("gui.neoecoae.common.show_builder"),
             data -> builderWindow.toggle());
 
-        // ── 3. Main status terminal panel ──
-        var terminal = new NETerminalPanel(
-            StorageControllerSpec.MAIN_FRAME_X, StorageControllerSpec.MAIN_FRAME_Y,
-            StorageControllerSpec.MAIN_FRAME_W, StorageControllerSpec.MAIN_FRAME_H,
+        // ── 3. Main text panel (scroller-like, 220×160) ──
+        var panel = new NETextPanel(
+            StorageControllerSpec.TEXT_PANEL_X, StorageControllerSpec.TEXT_PANEL_Y,
+            StorageControllerSpec.TEXT_PANEL_W, StorageControllerSpec.TEXT_PANEL_H,
             shortTitle("gui.neoecoae.ui.storage_system.short", be.getTier()),
-            11
+            12
         );
-        terminal.addStatusLine("gui.neoecoae.common.formed",
-            () -> enabledText(be.isFormed()));
-        terminal.addStatusLine("gui.neoecoae.common.tier",
-            () -> String.valueOf(be.getTier()));
-        terminal.addStatusLine("gui.neoecoae.common.types",
-            () -> "%s / %s".formatted(
-                Tooltips.ofNumber(be.getTotalUsedTypes()).getString(),
-                Tooltips.ofNumber(be.getTotalTypes()).getString()));
-        terminal.addStatusLine("gui.neoecoae.common.bytes",
-            () -> "%s / %s".formatted(
-                NETextFormat.formatBytes(be.getTotalUsedBytes()),
-                NETextFormat.formatBytes(be.getTotalBytes())));
-        terminal.addStatusLine("gui.neoecoae.common.energy",
-            () -> "%s / %s".formatted(
-                Tooltips.ofNumber(be.getStoredEnergy()).getString(),
-                Tooltips.ofNumber(be.getMaxEnergy()).getString()));
-        terminal.addStatusLine("gui.neoecoae.common.status",
-            () -> be.getPreviewStatusComponent().getString());
+        // LDLib2-style content: types/bytes summary, then energy
+        panel.addLine(() -> Component.translatable("gui.neoecoae.common.types").getString()
+            + ": " + Tooltips.ofNumber(be.getTotalUsedTypes()).getString()
+            + " / " + Tooltips.ofNumber(be.getTotalTypes()).getString());
+        panel.addLine(() -> Component.translatable("gui.neoecoae.common.bytes").getString()
+            + ": " + NETextFormat.formatBytes(be.getTotalUsedBytes())
+            + " / " + NETextFormat.formatBytes(be.getTotalBytes()));
+        panel.addLine(Component.empty());
+        panel.addLine(Component.translatable("gui.neoecoae.storage.energy"));
+        panel.addLine(() -> Component.translatable("gui.neoecoae.storage.energy_status",
+            Tooltips.ofNumber(be.getStoredEnergy()).getString(),
+            Tooltips.ofNumber(be.getMaxEnergy()).getString(),
+            be.getMaxEnergy() > 0
+                ? String.valueOf((int)(be.getStoredEnergy() * 100L / be.getMaxEnergy()))
+                : "0"
+        ).getString());
 
-        // ── Add in order: toolbar → terminal → builder (builder on top!) ──
+        // ── Add in order: toolbar → panel → builder (builder on top) ──
         ui.widget(toolBar);
-        ui.widget(terminal);
+        ui.widget(panel);
         ui.widget(builderWindow);
 
         return ui;
     }
 
     // =========================================================================
-    // Computation Controller — using window toolkit components
+    // Computation Controller — LDLib2-style compact layout
     // =========================================================================
     public static ModularUI createComputationSystemUI(ECOComputationSystemBlockEntity be, Player player) {
+        logComputationSnapshot(be);
         var ui = new ModularUI(
             ComputationControllerSpec.WIDTH, ComputationControllerSpec.HEIGHT,
             be, player
         ); // transparent root — no .background()
 
-        // ── 1. Builder floating window (hidden by default, added LAST to float on top) ──
+        // ── 1. Builder (hidden, added LAST to float on top) ──
         NEBuilderWindow[] builderHolder = new NEBuilderWindow[1];
         builderHolder[0] = new NEBuilderWindow(
             ComputationControllerSpec.BUILDER_FLOAT_X, ComputationControllerSpec.BUILDER_FLOAT_Y,
@@ -219,40 +216,35 @@ public final class LDLib1MachineUIs {
             ComputationControllerSpec.WIDTH - ComputationControllerSpec.BUILDER_FLOAT_W,
             ComputationControllerSpec.HEIGHT - ComputationControllerSpec.BUILDER_FLOAT_H);
 
-        // ── 2. Left tool bar ──
+        // ── 2. Left hammer button ──
         var toolBar = new NEToolBar(
-            ComputationControllerSpec.HAMMER_BTN_X, ComputationControllerSpec.HAMMER_BTN_Y,
-            20, 2
-        );
-        toolBar.addButton("\u2692", // ⚒ hammer-and-pick symbol
+            ComputationControllerSpec.HAMMER_BTN_X, ComputationControllerSpec.HAMMER_BTN_Y, 20, 2);
+        toolBar.addIconButton(
+            NELDLib1Textures.hammerIcon(),
             Component.translatable("gui.neoecoae.common.show_builder"),
             data -> builderWindow.toggle());
 
-        // ── 3. Main status terminal panel ──
-        var terminal = new NETerminalPanel(
-            ComputationControllerSpec.MAIN_FRAME_X, ComputationControllerSpec.MAIN_FRAME_Y,
-            ComputationControllerSpec.MAIN_FRAME_W, ComputationControllerSpec.MAIN_FRAME_H,
+        // ── 3. Main text panel (scroller-like, 220×160) ──
+        var panel = new NETextPanel(
+            ComputationControllerSpec.TEXT_PANEL_X, ComputationControllerSpec.TEXT_PANEL_Y,
+            ComputationControllerSpec.TEXT_PANEL_W, ComputationControllerSpec.TEXT_PANEL_H,
             shortTitle("gui.neoecoae.ui.computation_system.short", be.getTier()),
-            11
+            12
         );
-        terminal.addStatusLine("gui.neoecoae.common.formed",
-            () -> enabledText(be.isFormed()));
-        terminal.addStatusLine("gui.neoecoae.common.tier",
-            () -> String.valueOf(be.getTier()));
-        terminal.addStatusLine("gui.neoecoae.common.threads",
-            () -> "%d / %d".formatted(be.getUsedThread(), be.getTotalThread()));
-        terminal.addStatusLine("gui.neoecoae.common.parallel",
-            () -> String.valueOf(be.getParallelCount()));
-        terminal.addStatusLine("gui.neoecoae.common.bytes",
-            () -> "%s / %s".formatted(
-                NETextFormat.formatBytes(be.getAvailableBytes()),
-                NETextFormat.formatBytes(be.getTotalBytes())));
-        terminal.addStatusLine("gui.neoecoae.common.status",
-            () -> be.getPreviewStatusComponent().getString());
+        // LDLib2-style content: thread info, parallel info, empty line, storage info
+        panel.addLine(() -> Component.translatable("gui.neoecoae.computation.thread_info",
+            String.valueOf(be.getUsedThread()),
+            String.valueOf(be.getTotalThread())).getString());
+        panel.addLine(() -> Component.translatable("gui.neoecoae.computation.parallel_info",
+            String.valueOf(be.getParallelCount())).getString());
+        panel.addLine(Component.empty());
+        panel.addLine(() -> Component.translatable("gui.neoecoae.computation.storage_info",
+            NETextFormat.formatBytes(be.getAvailableBytes()),
+            NETextFormat.formatBytes(be.getTotalBytes())).getString());
 
-        // ── Add in order: toolbar → terminal → builder (builder on top!) ──
+        // ── Add in order: toolbar → panel → builder (builder on top) ──
         ui.widget(toolBar);
-        ui.widget(terminal);
+        ui.widget(panel);
         ui.widget(builderWindow);
 
         return ui;
@@ -529,5 +521,33 @@ public final class LDLib1MachineUIs {
 
     private static String formatLine(String labelKey, String value) {
         return Component.translatable(labelKey).getString() + ": " + value;
+    }
+
+    // =========================================================================
+    // Debug logging (development only, rate-limited)
+    // =========================================================================
+
+    private static final boolean UI_DEBUG_LOG = true;
+
+    /** Log Storage snapshot values when UI opens. */
+    private static void logStorageSnapshot(ECOStorageSystemBlockEntity be) {
+        if (!UI_DEBUG_LOG) return;
+        var LOG = org.slf4j.LoggerFactory.getLogger("NeoECOAE/StorageUI");
+        LOG.info("[StorageUI] clientSide={} totalUsedTypes={} totalTypes={} totalUsedBytes={} totalBytes={} storedEnergy={} maxEnergy={}",
+            be.getLevel().isClientSide(),
+            be.getTotalUsedTypes(), be.getTotalTypes(),
+            be.getTotalUsedBytes(), be.getTotalBytes(),
+            be.getStoredEnergy(), be.getMaxEnergy());
+    }
+
+    /** Log Computation snapshot values when UI opens. */
+    private static void logComputationSnapshot(ECOComputationSystemBlockEntity be) {
+        if (!UI_DEBUG_LOG) return;
+        var LOG = org.slf4j.LoggerFactory.getLogger("NeoECOAE/ComputationUI");
+        LOG.info("[ComputationUI] clientSide={} usedThread={} totalThread={} parallelCount={} availableBytes={} totalBytes={}",
+            be.getLevel().isClientSide(),
+            be.getUsedThread(), be.getTotalThread(),
+            be.getParallelCount(),
+            be.getAvailableBytes(), be.getTotalBytes());
     }
 }

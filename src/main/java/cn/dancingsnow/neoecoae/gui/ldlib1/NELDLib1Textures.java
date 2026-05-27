@@ -43,6 +43,15 @@ public final class NELDLib1Textures {
     public static final ResourceBorderTexture SCROLLBAR_TRACK =
         border("textures/gui/crafting/background_dark.png", 32, 32, 0, 0);
 
+    /**
+     * AE2 CRAFT_HAMMER icon as an LDLib1 texture.
+     * AE2 Icon.CRAFT_HAMMER is at (x=48, y=144) in states.png (256×256), 16×16 px.
+     */
+    public static ResourceTexture hammerIcon() {
+        return new ResourceTexture("ae2:textures/guis/states.png")
+            .getSubTexture(48.0 / 256.0, 144.0 / 256.0, 16.0 / 256.0, 16.0 / 256.0);
+    }
+
     public static final ResourceTexture CRAFTING_STATUS_BACKGROUND = texture("textures/gui/crafting/status_background.png");
     public static final ResourceTexture CRAFTING_UNAVAILABLE_STATUS = texture("textures/gui/crafting/unavailable_status.png");
     public static final ResourceTexture CRAFTING_F0 = texture("textures/gui/crafting/f0.png");
@@ -59,6 +68,16 @@ public final class NELDLib1Textures {
 
     public static TextTexture text(java.util.function.Supplier<String> text, int color, int width) {
         return new TextTexture(text).setColor(color).setWidth(width).setDropShadow(false);
+    }
+
+    /** Text with drop shadow — better readability on textured backgrounds. */
+    public static TextTexture textShadow(java.util.function.Supplier<String> text, int color, int width) {
+        return new TextTexture(text).setColor(color).setWidth(width).setDropShadow(true);
+    }
+
+    /** Static text with drop shadow. */
+    public static TextTexture textShadow(String text, int color, int width) {
+        return new TextTexture(text).setColor(color).setWidth(width).setDropShadow(true);
     }
 
     private static ResourceTexture texture(String path) {

@@ -22,16 +22,22 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 public final class NELDLib1Widgets {
-    // Dark-background colors (title text, label text)
-    public static final int TITLE_COLOR = 0xFF303040;
+    // Legacy color constants — prefer NELDLib1Theme for new code
+    /** @deprecated Use {@link NELDLib1Theme#TEXT_DARK} */
+    @Deprecated
+    public static final int TITLE_COLOR = NELDLib1Theme.TEXT_DARK;
+    /** @deprecated Use {@link NELDLib1Theme#TEXT_DARK} */
+    @Deprecated
     public static final int LABEL_COLOR = 0xFF3F3D52;
-
-    // Status text colors — use LIGHT_TEXT on dark panel backgrounds
-    public static final int STATUS_COLOR_DARK_TEXT = 0xFF303040;
-    public static final int STATUS_COLOR_LIGHT_TEXT = 0xFFE8E8F0;
-
-    // Button text is always white
-    public static final int BUTTON_TEXT_COLOR = 0xFFFFFFFF;
+    /** @deprecated Use {@link NELDLib1Theme#TEXT_TITLE} */
+    @Deprecated
+    public static final int STATUS_COLOR_LIGHT_TEXT = NELDLib1Theme.TEXT_TITLE;
+    /** @deprecated Use {@link NELDLib1Theme#TEXT_DARK} */
+    @Deprecated
+    public static final int STATUS_COLOR_DARK_TEXT = NELDLib1Theme.TEXT_DARK;
+    /** @deprecated Use {@link NELDLib1Theme#BUTTON_TEXT_LIGHT} */
+    @Deprecated
+    public static final int BUTTON_TEXT_COLOR = NELDLib1Theme.BUTTON_TEXT_LIGHT;
 
     private NELDLib1Widgets() {
     }
@@ -79,6 +85,23 @@ public final class NELDLib1Widgets {
             .text(() -> text.getString(), BUTTON_TEXT_COLOR, Math.max(1, width - 4))
             .setBackgroundTexture(NELDLib1Textures.BUTTON);
         return new ButtonWidget(x, y, width, height, texture, action)
+            .setHoverTexture(NELDLib1Textures.BUTTON_HOVER)
+            .setClickedTexture(NELDLib1Textures.BUTTON_HIGHLIGHTED);
+    }
+
+    /** Button with dark text (for light backgrounds) and shadow for readability. */
+    public static ButtonWidget buttonDark(int x, int y, int width, int height, Component text, Consumer<ClickData> action) {
+        TextTexture texture = NELDLib1Textures
+            .textShadow(() -> text.getString(), NELDLib1Theme.BUTTON_TEXT_DARK, Math.max(1, width - 4))
+            .setBackgroundTexture(NELDLib1Textures.BUTTON);
+        return new ButtonWidget(x, y, width, height, texture, action)
+            .setHoverTexture(NELDLib1Textures.BUTTON_HOVER)
+            .setClickedTexture(NELDLib1Textures.BUTTON_HIGHLIGHTED);
+    }
+
+    /** Square icon button using a texture (no text). */
+    public static ButtonWidget iconButton(int x, int y, int size, IGuiTexture icon, Consumer<ClickData> action) {
+        return new ButtonWidget(x, y, size, size, icon, action)
             .setHoverTexture(NELDLib1Textures.BUTTON_HOVER)
             .setClickedTexture(NELDLib1Textures.BUTTON_HIGHLIGHTED);
     }
