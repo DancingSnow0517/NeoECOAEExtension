@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.client.NEClientUiPacketHandlers;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
+import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import net.minecraft.network.chat.Component;
@@ -16,6 +17,7 @@ import net.minecraftforge.network.NetworkHooks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkDirection;
@@ -85,6 +87,16 @@ public final class NENetwork {
             NEStructureTerminalActionPacket::encode,
             NEStructureTerminalActionPacket::decode,
             NEStructureTerminalActionPacket::handle);
+
+        registerS2C(NEStructureTerminalConfigPacket.class,
+            NEStructureTerminalConfigPacket::encode,
+            NEStructureTerminalConfigPacket::decode,
+            NEStructureTerminalConfigPacket::handle);
+
+        registerC2S(NEStructureTerminalConfigActionPacket.class,
+            NEStructureTerminalConfigActionPacket::encode,
+            NEStructureTerminalConfigActionPacket::decode,
+            NEStructureTerminalConfigActionPacket::handle);
     }
 
     /**
@@ -543,6 +555,56 @@ public final class NENetwork {
         }
 
         public static void handle(NEStructureTerminalActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            // Deprecated packet — now handled via StructureTerminalItem.useOn()
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * S2C packet carrying the current build length for the Structure
+     * Terminal config UI.
+     */
+    public record NEStructureTerminalConfigPacket(int buildLength) {
+
+        public static void encode(NEStructureTerminalConfigPacket pkt, FriendlyByteBuf buf) {
+            buf.writeInt(pkt.buildLength());
+        }
+
+        public static NEStructureTerminalConfigPacket decode(FriendlyByteBuf buf) {
+            return new NEStructureTerminalConfigPacket(buf.readInt());
+        }
+
+        public static void handle(NEStructureTerminalConfigPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> NEClientUiPacketHandlers.handleStructureTerminalConfig(pkt)));
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * C2S packet for Structure Terminal config actions (+/-/reset).
+     * Does not carry a BlockPos — the server reads the hand from the
+     * currently open menu.
+     */
+    public record NEStructureTerminalConfigActionPacket(Action action) {
+
+        public enum Action {
+            INCREASE,
+            DECREASE,
+            RESET
+        }
+
+        public static void encode(NEStructureTerminalConfigActionPacket pkt, FriendlyByteBuf buf) {
+            buf.writeEnum(pkt.action());
+        }
+
+        public static NEStructureTerminalConfigActionPacket decode(FriendlyByteBuf buf) {
+            return new NEStructureTerminalConfigActionPacket(buf.readEnum(Action.class));
+        }
+
+        public static void handle(NEStructureTerminalConfigActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
             var sender = ctx.getSender();
             if (sender == null) {
@@ -553,28 +615,24 @@ public final class NENetwork {
                 if (!(sender.containerMenu instanceof NEStructureTerminalMenu menu)) {
                     return;
                 }
-                if (!menu.getMachinePos().equals(pkt.pos())) {
-                    return;
-                }
                 if (!menu.stillValid(sender)) {
                     return;
                 }
-
-                INEMultiblockBuildHost host = menu.getHost(sender);
-                if (host == null) {
+                var stack = menu.getTerminalStack(sender);
+                if (stack == null) {
                     return;
                 }
 
-                switch (pkt.action()) {
-                    case INCREASE_BUILD_LENGTH ->
-                        host.setSelectedBuildLength(host.getSelectedBuildLength() + 1);
-                    case DECREASE_BUILD_LENGTH ->
-                        host.setSelectedBuildLength(host.getSelectedBuildLength() - 1);
-                    case PREVIEW_STRUCTURE -> host.previewStructure(sender);
-                    case AUTO_BUILD -> host.autoBuild(sender);
-                }
+                int current = StructureTerminalItem.getBuildLength(stack);
+                int newLength = switch (pkt.action()) {
+                    case INCREASE -> current + 1;
+                    case DECREASE -> current - 1;
+                    case RESET -> 1;
+                };
+                StructureTerminalItem.setBuildLength(stack, newLength);
 
-                menu.sendStateNow(sender);
+                // Sync back to client
+                menu.syncToClient(sender);
             });
             ctx.setPacketHandled(true);
         }

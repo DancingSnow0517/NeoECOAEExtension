@@ -2,147 +2,97 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
-import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
- * Screen for the Structure Terminal.
+ * Screen for the Structure Terminal configuration UI.
  * <p>
- * Provides buttons for build length selection, structure preview,
- * and auto-build. Displays build status and material information
- * received via S2C state packets.
+ * Displays and allows editing of the build length stored in the
+ * Structure Terminal item's NBT. No machine binding, no preview,
+ * no auto-build — those happen via Shift+right-click on a host.
  * </p>
  */
-public class NEStructureTerminalScreen extends NEBaseMachineScreen<NEStructureTerminalMenu> {
+public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
 
-    private boolean hasState;
-    private NEStructureTerminalUiState uiState;
+    private int displayBuildLength;
 
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
-        super(menu, playerInv, title, NEMachineScreenConfig.STRUCTURE_TERMINAL);
-        this.imageWidth = 340;
-        this.imageHeight = 220;
-        this.uiState = NEStructureTerminalUiState.empty(menu.getMachinePos());
+        super(menu, playerInv, title);
+        this.imageWidth = 220;
+        this.imageHeight = 120;
+        this.displayBuildLength = menu.getBuildLength();
     }
 
-    /** Called from client packet handler to push state to this screen. */
-    public void setStructureTerminalUiState(NEStructureTerminalUiState state) {
-        this.hasState = true;
-        this.uiState = state;
+    /** Called from client packet handler to update the displayed length. */
+    public void setBuildLength(int length) {
+        this.displayBuildLength = length;
     }
 
     @Override
     protected void init() {
         super.init();
 
-        int btnY = topPos + 155;
+        int btnY = topPos + 60;
         int btnH = 20;
+        int centerX = leftPos + imageWidth / 2;
 
         // Build Length -
         addRenderableWidget(Button.builder(Component.literal("-"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalActionPacket(
-                menu.getMachinePos(), NENetwork.NEStructureTerminalActionPacket.Action.DECREASE_BUILD_LENGTH));
-        }).pos(leftPos + 8, btnY).size(20, btnH).build());
+            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE));
+            this.displayBuildLength = Math.max(1, this.displayBuildLength - 1);
+        }).pos(centerX - 30, btnY).size(20, btnH).build());
 
         // Build Length +
         addRenderableWidget(Button.builder(Component.literal("+"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalActionPacket(
-                menu.getMachinePos(), NENetwork.NEStructureTerminalActionPacket.Action.INCREASE_BUILD_LENGTH));
-        }).pos(leftPos + 32, btnY).size(20, btnH).build());
+            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE));
+            this.displayBuildLength = Math.min(64, this.displayBuildLength + 1);
+        }).pos(centerX + 10, btnY).size(20, btnH).build());
 
-        // Preview
-        addRenderableWidget(Button.builder(Component.literal("Preview"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalActionPacket(
-                menu.getMachinePos(), NENetwork.NEStructureTerminalActionPacket.Action.PREVIEW_STRUCTURE));
-        }).pos(leftPos + 60, btnY).size(56, btnH).build());
-
-        // Auto Build
-        addRenderableWidget(Button.builder(Component.literal("Auto Build"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalActionPacket(
-                menu.getMachinePos(), NENetwork.NEStructureTerminalActionPacket.Action.AUTO_BUILD));
-        }).pos(leftPos + 122, btnY).size(60, btnH).build());
+        // Reset to 1
+        addRenderableWidget(Button.builder(Component.literal("Reset"), btn -> {
+            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET));
+            this.displayBuildLength = 1;
+        }).pos(centerX + 40, btnY).size(44, btnH).build());
     }
 
     @Override
-    protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        NEStructureTerminalUiState s = hasState ? this.uiState : this.uiState;
-
-        final int x = NENativeUiConstants.TITLE_X;
-        final int valueColor = 0xFFC0C0D0;
-        final int labelColor = 0xFF8A8AA0;
-        int y = 50;
-
-        // Row 1: Structure name & Formed
-        guiGraphics.drawString(font,
-            Component.literal(s.structureName().isEmpty() ? "Structure Terminal" : s.structureName()),
-            x, y, valueColor);
-        guiGraphics.drawString(font,
-            Component.literal("Formed: " + s.formed()),
-            x + 200, y, valueColor);
-        y += 14;
-
-        // Row 2: Build Length selector
-        guiGraphics.drawString(font,
-            Component.literal("Build Length: " + s.selectedBuildLength()
-                + " [" + s.minBuildLength() + "-" + s.maxBuildLength() + "]"),
-            x, y, valueColor);
-        guiGraphics.drawString(font,
-            Component.literal("Building: " + (s.buildInProgress() ? "Yes" : "No")),
-            x + 200, y, valueColor);
-        y += 14;
-
-        // Row 3: Progress
-        if (s.buildInProgress()) {
-            guiGraphics.drawString(font,
-                Component.literal("Progress: " + s.placedBlocks() + " / " + s.totalBlocks()),
-                x, y, valueColor);
-            y += 14;
-        }
-
-        // Row 4: Status
-        Component statusComponent;
-        try {
-            statusComponent = Component.translatable(s.previewStatusKey(), s.previewStatusArg1(), s.previewStatusArg2());
-        } catch (Exception ignored) {
-            statusComponent = Component.literal(s.previewStatusKey());
-        }
-        guiGraphics.drawString(font,
-            Component.literal("Status: ").append(statusComponent),
-            x, y, labelColor);
-        y += 14;
-
-        // Row 5: Stats
-        guiGraphics.drawString(font,
-            Component.literal("M:" + s.previewMissingBlocks() +
-                " C:" + s.previewConflictBlocks() +
-                " R:" + s.previewReusedBlocks() +
-                " Req:" + s.previewRequiredItems()),
-            x, y, labelColor);
-        y += 14;
-
-        // Row 6+: Materials
-        if (!s.materials().isEmpty()) {
-            guiGraphics.drawString(font, Component.literal("Materials:"), x, y, labelColor);
-            y += 12;
-            int shown = 0;
-            for (var mat : s.materials()) {
-                if (shown >= 5) break;
-                guiGraphics.drawString(font,
-                    Component.literal("  " + mat.item().getHoverName().getString()
-                        + ": " + mat.available() + " / " + mat.required()
-                        + (mat.missing() > 0 ? " (missing " + mat.missing() + ")" : "")),
-                    x, y, labelColor);
-                y += 10;
-                shown++;
-            }
-        }
+    protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
+        guiGraphics.fill(leftPos, topPos,
+            leftPos + imageWidth, topPos + imageHeight,
+            NENativeUiConstants.BG_COLOR);
     }
 
-    public NEStructureTerminalMenu getMenu() {
-        return menu;
+    @Override
+    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        guiGraphics.drawString(font, title,
+            NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
+            NENativeUiConstants.TITLE_COLOR);
+
+        // Build length display
+        guiGraphics.drawString(font,
+            Component.literal("Build Length: " + displayBuildLength),
+            NENativeUiConstants.TITLE_X, 30,
+            0xFFC0C0D0);
+
+        // Hint
+        guiGraphics.drawString(font,
+            Component.literal("Shift+right-click a controller to build"),
+            NENativeUiConstants.TITLE_X, 44,
+            0xFF6A8AAA);
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        renderBackground(guiGraphics);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        renderTooltip(guiGraphics, mouseX, mouseY);
     }
 }

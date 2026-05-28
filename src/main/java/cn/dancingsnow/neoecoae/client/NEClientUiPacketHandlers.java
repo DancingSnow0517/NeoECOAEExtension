@@ -63,15 +63,24 @@ public final class NEClientUiPacketHandlers {
     }
 
     /**
-     * Handles an incoming {@link NENetwork.NEStructureTerminalUiStatePacket}
-     * by pushing the state to the currently open {@link NEStructureTerminalScreen}.
+     * Handles the Structure Terminal config state packet.
      */
-    public static void handleStructureTerminalUiState(NENetwork.NEStructureTerminalUiStatePacket pkt) {
+    public static void handleStructureTerminalConfig(NENetwork.NEStructureTerminalConfigPacket pkt) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof NEStructureTerminalScreen screen) {
-            if (screen.getMenu().getMachinePos().equals(pkt.state().hostPos())) {
-                screen.setStructureTerminalUiState(pkt.state());
-            }
+            screen.setBuildLength(pkt.buildLength());
         }
+    }
+
+    /**
+     * Handles an incoming {@link NENetwork.NEStructureTerminalUiStatePacket}
+     * by pushing the state to the currently open {@link NEStructureTerminalScreen}.
+     *
+     * @deprecated The config UI no longer uses the full host-bound state.
+     */
+    @Deprecated
+    public static void handleStructureTerminalUiState(NENetwork.NEStructureTerminalUiStatePacket pkt) {
+        // No-op: the config UI now uses NEStructureTerminalConfigPacket instead.
+        // Kept for backward compatibility with old host-bound packets.
     }
 }

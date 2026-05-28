@@ -328,5 +328,6 @@
   "gui.neoecoae.multiblock.status.build_complete": "Build complete",
   "gui.neoecoae.multiblock.status.build_failed": "Build failed",
   "gui.neoecoae.multiblock.status.build_interrupted": "Build interrupted",
-  "gui.neoecoae.multiblock.status.builder_unavailable": "Builder unavailable"
+  "gui.neoecoae.multiblock.status.builder_unavailable": "Builder unavailable",
+  "gui.neoecoae.terminal.not_a_host": "This block is not a valid build target"
 }

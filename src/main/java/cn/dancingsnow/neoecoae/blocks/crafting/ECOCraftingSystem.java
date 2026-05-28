@@ -5,6 +5,7 @@ import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
+import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -46,6 +47,10 @@ public class ECOCraftingSystem extends NEBlock<ECOCraftingSystemBlockEntity> {
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                   InteractionHand hand, BlockHitResult hitResult) {
+        // If player is shift-right-clicking with a Structure Terminal, let the item handle it
+        if (player.isShiftKeyDown() && player.getItemInHand(hand).getItem() instanceof StructureTerminalItem) {
+            return InteractionResult.PASS;
+        }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }

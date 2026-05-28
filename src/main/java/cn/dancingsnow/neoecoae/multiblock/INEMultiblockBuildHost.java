@@ -67,28 +67,24 @@ public interface INEMultiblockBuildHost {
     boolean isFormed();
 
     /**
-     * Runs a structure preview and updates internal preview state.
+     * Runs a structure preview using the given build length.
      * This is called server-side only.
      */
+    void previewStructure(ServerPlayer player, int buildLength);
+
+    /**
+     * Executes auto-build using the given build length.
+     * This is called server-side only.
+     */
+    void autoBuild(ServerPlayer player, int buildLength);
+
+    // ── Deprecated (kept for backward compat) ──
+
+    /** @deprecated Use {@link #previewStructure(ServerPlayer, int)}. */
+    @Deprecated
     void previewStructure(ServerPlayer player);
 
-    /**
-     * Executes auto-build: closes the player's current container,
-     * validates materials and conflicts, then starts or instantly
-     * completes the build.
-     * This is called server-side only.
-     */
+    /** @deprecated Use {@link #autoBuild(ServerPlayer, int)}. */
+    @Deprecated
     void autoBuild(ServerPlayer player);
-
-    /**
-     * Creates a UI state snapshot for the structure terminal.
-     * Includes build progress, preview stats, and material info.
-     */
-    NEStructureTerminalUiState createBuildUiState();
-
-    /**
-     * Notifies the host that its UI state should be pushed to the
-     * given player. Used after state-changing operations.
-     */
-    void sendBuildUiState(ServerPlayer player);
 }

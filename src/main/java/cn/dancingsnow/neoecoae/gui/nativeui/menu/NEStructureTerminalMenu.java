@@ -1,57 +1,76 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.menu;
 
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
-import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
-import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
-import cn.dancingsnow.neoecoae.network.NENetwork;
-import net.minecraft.core.BlockPos;
+import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraftforge.network.PacketDistributor;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Menu for the Structure Terminal UI.
+ * Menu for the Structure Terminal configuration UI.
  * <p>
- * Periodically pushes {@link NEStructureTerminalUiState} snapshots
- * to the client via S2C packets. C2S action packets handle
- * build length changes, preview, and auto-build.
+ * This menu is bound to a {@link StructureTerminalItem} in the player's
+ * hand (identified by {@link InteractionHand}), not to a world BlockEntity.
+ * It allows the player to set the build length stored in the item's NBT.
  * </p>
  */
-public class NEStructureTerminalMenu extends NEUiStateMachineMenu<NEStructureTerminalUiState> {
+public class NEStructureTerminalMenu extends AbstractContainerMenu {
 
-    public NEStructureTerminalMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
-        super(NENativeMenus.STRUCTURE_TERMINAL.get(), containerId, playerInv, machinePos);
+    private final InteractionHand hand;
+    private int buildLength;
+
+    public NEStructureTerminalMenu(int containerId, Inventory playerInv, InteractionHand hand) {
+        super(NENativeMenus.STRUCTURE_TERMINAL.get(), containerId);
+        this.hand = hand;
+        this.buildLength = StructureTerminalItem.getBuildLength(playerInv.player.getItemInHand(hand));
     }
 
-    @Override
-    @Nullable
-    protected NEStructureTerminalUiState createState(ServerPlayer player) {
-        BlockEntity be = player.level().getBlockEntity(machinePos);
-        if (be instanceof INEMultiblockBuildHost host) {
-            return host.createBuildUiState();
-        }
-        return null;
+    public InteractionHand getHand() {
+        return hand;
     }
 
-    @Override
-    protected void sendState(ServerPlayer player, NEStructureTerminalUiState state) {
-        NENetwork.CHANNEL.send(
-            PacketDistributor.PLAYER.with(() -> player),
-            new NENetwork.NEStructureTerminalUiStatePacket(state)
-        );
+    public int getBuildLength() {
+        return buildLength;
+    }
+
+    public void setBuildLength(int length) {
+        this.buildLength = length;
     }
 
     /**
-     * Returns the host at the machine position, or null.
+     * Returns the Structure Terminal ItemStack this menu is bound to, or null.
      */
     @Nullable
-    public INEMultiblockBuildHost getHost(ServerPlayer player) {
-        BlockEntity be = player.level().getBlockEntity(machinePos);
-        if (be instanceof INEMultiblockBuildHost host) {
-            return host;
+    public ItemStack getTerminalStack(Player player) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (stack.getItem() instanceof StructureTerminalItem) {
+            return stack;
         }
         return null;
+    }
+
+    @Override
+    public ItemStack quickMoveStack(Player player, int index) {
+        return ItemStack.EMPTY;
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        return player.getItemInHand(hand).getItem() instanceof StructureTerminalItem;
+    }
+
+    /**
+     * Sends the current build length state to the client.
+     */
+    public void syncToClient(ServerPlayer player) {
+        cn.dancingsnow.neoecoae.network.NENetwork.CHANNEL.send(
+            net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
+            new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(buildLength)
+        );
     }
 }

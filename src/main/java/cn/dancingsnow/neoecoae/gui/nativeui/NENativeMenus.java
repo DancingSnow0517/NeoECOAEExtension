@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.registries.DeferredRegister;
@@ -92,14 +93,15 @@ public final class NENativeMenus {
                 }));
 
     /**
-     * Structure Terminal menu for multiblock build operations.
+     * Structure Terminal menu for build length configuration.
+     * Bound to the item in the player's hand, not a BlockEntity.
      */
     public static final RegistryObject<MenuType<NEStructureTerminalMenu>> STRUCTURE_TERMINAL =
         MENUS.register("structure_terminal",
             () -> IForgeMenuType.create(
                 (windowId, inv, data) -> {
-                    BlockPos pos = data.readBlockPos();
-                    return new NEStructureTerminalMenu(windowId, inv, pos);
+                    var hand = data.readEnum(InteractionHand.class);
+                    return new NEStructureTerminalMenu(windowId, inv, hand);
                 }));
 
     private NENativeMenus() {

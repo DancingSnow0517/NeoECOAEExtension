@@ -343,7 +343,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return formed;
     }
 
-    @Override
     public NEStructureTerminalUiState createBuildUiState() {
         MultiBlockDefinition def = getBuildDefinition();
         return new NEStructureTerminalUiState(
@@ -367,13 +366,24 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         );
     }
 
-    @Override
     public void sendBuildUiState(ServerPlayer player) {
         NEStructureTerminalUiState state = createBuildUiState();
         NENetwork.CHANNEL.send(
             net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
             new NENetwork.NEStructureTerminalUiStatePacket(state)
         );
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int buildLength) {
+        setSelectedBuildLength(buildLength);
+        previewStructure(player);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int buildLength) {
+        setSelectedBuildLength(buildLength);
+        autoBuild(player);
     }
 
     public int getPreviewMissingBlocks() {
