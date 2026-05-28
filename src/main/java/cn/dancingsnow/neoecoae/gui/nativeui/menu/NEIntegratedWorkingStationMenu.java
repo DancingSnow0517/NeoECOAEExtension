@@ -32,7 +32,7 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
     public static final int OUTPUT_SLOTS = 1;
     public static final int PLAYER_INV_SLOTS = 36;
 
-    public static final int DATA_COUNT = 7;
+    public static final int DATA_COUNT = 8;
     public static final int DATA_ENERGY = 0;
     public static final int DATA_MAX_ENERGY = 1;
     public static final int DATA_PROGRESS = 2;
@@ -40,6 +40,7 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
     public static final int DATA_REQUIRED_ENERGY = 4;
     public static final int DATA_WORKING = 5;
     public static final int DATA_FLUID_IN_AMOUNT = 6;
+    public static final int DATA_AUTO_EXPORT = 7;
 
     private final ContainerData data;
 
@@ -162,5 +163,9 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
 
     public int getFluidInAmount() {
         return data.get(DATA_FLUID_IN_AMOUNT);
+    }
+
+    public boolean isAutoExportEnabled() {
+        return data.get(DATA_AUTO_EXPORT) != 0;
     }
 }

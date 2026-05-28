@@ -49,6 +49,8 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int BORDER_LIGHT = 0xFF8B8B8B;
     private static final int BAR_BG = 0xFF1E1E2A;
 
+    private NETexturedButton autoExportBtn;
+
     public NEIntegratedWorkingStationScreen(NEIntegratedWorkingStationMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
         this.imageWidth = GUI_WIDTH;
@@ -64,21 +66,28 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         int btnY = topPos + 4;
 
         // Auto-export toggle
-        addRenderableWidget(new NETexturedButton(btnX, btnY, 20, 20,
+        autoExportBtn = new NETexturedButton(btnX, btnY, 20, 20,
             Component.literal("A"),
-            btn -> sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT)));
+            btn -> sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT));
+        addRenderableWidget(autoExportBtn);
         btnY += 22;
 
         // Clear input fluid
-        addRenderableWidget(new NETexturedButton(btnX, btnY, 20, 20,
+        var clearInBtn = new NETexturedButton(btnX, btnY, 20, 20,
             Component.literal("I"),
-            btn -> sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID)));
+            btn -> sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID));
+        clearInBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+            Component.translatable("gui.neoecoae.integrated_working_station.clear_input_fluid")));
+        addRenderableWidget(clearInBtn);
         btnY += 22;
 
         // Clear output fluid
-        addRenderableWidget(new NETexturedButton(btnX, btnY, 20, 20,
+        var clearOutBtn = new NETexturedButton(btnX, btnY, 20, 20,
             Component.literal("O"),
-            btn -> sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID)));
+            btn -> sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID));
+        clearOutBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+            Component.translatable("gui.neoecoae.integrated_working_station.clear_output_fluid")));
+        addRenderableWidget(clearOutBtn);
     }
 
     private void sendAction(NENetwork.IWSAction action) {
@@ -88,6 +97,15 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // Update auto-export button state
+        if (autoExportBtn != null) {
+            boolean on = menu.isAutoExportEnabled();
+            autoExportBtn.setMessage(Component.literal(on ? "A+" : "A-"));
+            autoExportBtn.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                Component.translatable(on
+                    ? "gui.neoecoae.integrated_working_station.auto_export.on"
+                    : "gui.neoecoae.integrated_working_station.auto_export.off")));
+        }
         renderBackground(g);
         super.render(g, mouseX, mouseY, partialTick);
         renderTooltip(g, mouseX, mouseY);
@@ -167,18 +185,10 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         drawShadowed(g, Component.translatable("gui.neoecoae.common.inventory"),
             8, 102, TEXT_HINT_COLOR);
 
-        // Energy text
-        int energy = menu.getEnergy();
+        // Energy text: always show required energy of current recipe
         int requiredEnergy = menu.getRequiredEnergy();
-        Component energyText;
-        if (requiredEnergy > 0) {
-            energyText = Component.translatable("gui.neoecoae.integrated_working_station.energy",
-                formatEnergy(requiredEnergy));
-        } else {
-            energyText = Component.translatable("gui.neoecoae.integrated_working_station.energy",
-                formatEnergy(energy));
-        }
-        drawShadowed(g, energyText, 8, 78, TEXT_COLOR);
+        drawShadowed(g, Component.translatable("gui.neoecoae.integrated_working_station.energy",
+            formatEnergy(requiredEnergy)), 8, 78, TEXT_COLOR);
 
         // Progress percentage
         int progress = menu.getProgress();

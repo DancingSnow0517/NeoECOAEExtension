@@ -72,6 +72,7 @@
   "emi.category.neoecoae.multiblock": "ECO 多方块信息",
   "gui.neoecoae.common.bytes": "字节",
   "gui.neoecoae.common.energy": "能量",
+  "gui.neoecoae.common.inventory": "物品栏",
   "gui.neoecoae.common.no": "否",
   "gui.neoecoae.common.parallel": "并行",
   "gui.neoecoae.common.threads": "线程",
@@ -101,6 +102,10 @@
   "gui.neoecoae.integrated_working_station.allow_outputs": "允许输出面",
   "gui.neoecoae.integrated_working_station.allow_outputs.disabled": "已禁用",
   "gui.neoecoae.integrated_working_station.allow_outputs.enabled": "已启用",
+  "gui.neoecoae.integrated_working_station.auto_export.off": "自动输出：关闭",
+  "gui.neoecoae.integrated_working_station.auto_export.on": "自动输出：开启",
+  "gui.neoecoae.integrated_working_station.clear_input_fluid": "清空输入流体",
+  "gui.neoecoae.integrated_working_station.clear_output_fluid": "清空输出流体",
   "gui.neoecoae.integrated_working_station.energy": "所需能量：%s",
   "gui.neoecoae.machine.accelerators": "加速器：%s",
   "gui.neoecoae.machine.accelerators_label": "加速器",
@@ -301,6 +306,5 @@
   "tooltip.neoecoae.storage_dirve.1": "§7§o可驱动的存储矩阵等级由存储子系统主机决定",
   "tooltip.neoecoae.storage_system": "§7§o存储系统的核心",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "铝合金升级",
-  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑钨合金升级",
-  "gui.neoecoae.common.inventory": "物品栏"
+  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑钨合金升级"
 }

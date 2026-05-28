@@ -85,6 +85,7 @@
   "gui.neoecoae.common.hide_builder": "Hide Builder",
   "gui.neoecoae.common.input": "Input",
   "gui.neoecoae.common.input_fluid": "In Fluid",
+  "gui.neoecoae.common.inventory": "Inventory",
   "gui.neoecoae.common.multiblock_builder": "Multiblock Builder",
   "gui.neoecoae.common.no": "No",
   "gui.neoecoae.common.output": "Output",
@@ -128,6 +129,10 @@
   "gui.neoecoae.integrated_working_station.allow_outputs": "Output Sides",
   "gui.neoecoae.integrated_working_station.allow_outputs.disabled": "Disabled",
   "gui.neoecoae.integrated_working_station.allow_outputs.enabled": "Enabled",
+  "gui.neoecoae.integrated_working_station.auto_export.off": "Auto Export: Off",
+  "gui.neoecoae.integrated_working_station.auto_export.on": "Auto Export: On",
+  "gui.neoecoae.integrated_working_station.clear_input_fluid": "Clear Input Fluid",
+  "gui.neoecoae.integrated_working_station.clear_output_fluid": "Clear Output Fluid",
   "gui.neoecoae.integrated_working_station.energy": "Required Energy: %s",
   "gui.neoecoae.machine.accelerators": "Accelerators: %s",
   "gui.neoecoae.machine.accelerators_label": "Accelerators",
@@ -342,6 +347,5 @@
   "tooltip.neoecoae.storage_dirve.1": "The drivable storage matrix tier depends on the storage subsystem host controller",
   "tooltip.neoecoae.storage_system": "The core of the storage subsystem",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "Aluminum Alloy Upgrade",
-  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade",
-  "gui.neoecoae.common.inventory": "Inventory"
+  "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade"
 }

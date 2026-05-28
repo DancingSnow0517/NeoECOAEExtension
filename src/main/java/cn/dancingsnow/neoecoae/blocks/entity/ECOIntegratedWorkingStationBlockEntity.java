@@ -236,6 +236,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 case 4 -> cachedTask != null ? cachedTask.energy() : 0;
                 case 5 -> working ? 1 : 0;
                 case 6 -> inputTank.getFluidAmount();
+                case 7 -> shouldAutoExport ? 1 : 0;
                 default -> 0;
             };
         }
@@ -247,7 +248,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
         @Override
         public int getCount() {
-            return 7;
+            return 8;
         }
     };
 
