@@ -46,6 +46,15 @@ public final class NENetwork {
             NEStorageUiStatePacket::handle,
             Optional.of(NetworkDirection.PLAY_TO_CLIENT)
         );
+
+        CHANNEL.registerMessage(
+            packetId++,
+            NEComputationUiStatePacket.class,
+            NEComputationUiStatePacket::encode,
+            NEComputationUiStatePacket::decode,
+            NEComputationUiStatePacket::handle,
+            Optional.of(NetworkDirection.PLAY_TO_CLIENT)
+        );
     }
 
     /**
@@ -105,6 +114,52 @@ public final class NENetwork {
             NetworkEvent.Context ctx = ctxSupplier.get();
             ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> NEClientUiPacketHandlers.handleStorageUiState(pkt)));
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * S2C packet carrying a {@link NEComputationUiState} snapshot.
+     * <p>
+     * Encoder/decoder are common-safe. Client-side handling is delegated to
+     * {@link NEClientUiPacketHandlers} via {@link DistExecutor} so that the
+     * dedicated server never loads screen classes.
+     * </p>
+     */
+    public record NEComputationUiStatePacket(NEComputationUiState state) {
+
+        public static void encode(NEComputationUiStatePacket pkt, FriendlyByteBuf buf) {
+            NEComputationUiState s = pkt.state();
+            buf.writeBlockPos(s.pos());
+            buf.writeBoolean(s.formed());
+            buf.writeInt(s.usedThreads());
+            buf.writeInt(s.maxThreads());
+            buf.writeLong(s.availableStorage());
+            buf.writeLong(s.totalStorage());
+            buf.writeInt(s.parallelCount());
+            buf.writeInt(s.accelerators());
+        }
+
+        public static NEComputationUiStatePacket decode(FriendlyByteBuf buf) {
+            BlockPos pos = buf.readBlockPos();
+            boolean formed = buf.readBoolean();
+            int usedThreads = buf.readInt();
+            int maxThreads = buf.readInt();
+            long availableStorage = buf.readLong();
+            long totalStorage = buf.readLong();
+            int parallelCount = buf.readInt();
+            int accelerators = buf.readInt();
+
+            return new NEComputationUiStatePacket(
+                new NEComputationUiState(pos, formed, usedThreads, maxThreads,
+                    availableStorage, totalStorage, parallelCount, accelerators)
+            );
+        }
+
+        public static void handle(NEComputationUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> NEClientUiPacketHandlers.handleComputationUiState(pkt)));
             ctx.setPacketHandled(true);
         }
     }

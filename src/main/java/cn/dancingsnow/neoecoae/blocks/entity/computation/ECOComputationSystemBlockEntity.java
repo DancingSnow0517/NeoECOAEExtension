@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.network.NEComputationUiState;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -197,6 +198,28 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     public long getTotalBytes() {
         return totalBytes;
+    }
+
+    /**
+     * Creates a snapshot of current computation stats for S2C UI sync.
+     * <p>
+     * Accelerators are derived from {@link #getParallelCount()}, matching
+     * the same value since each parallel core's tier contributes accelerator
+     * count. This is a read-only summary; no computation backend logic is
+     * modified.
+     * </p>
+     */
+    public NEComputationUiState createComputationUiState() {
+        return new NEComputationUiState(
+            worldPosition,
+            formed,
+            usedThread,
+            totalThread,
+            availableBytes,
+            totalBytes,
+            parallelCount,
+            parallelCount  // accelerators = parallelCount in current data model
+        );
     }
 
     public Component getPreviewStatusComponent() {

@@ -18,7 +18,7 @@ public record NEMachineScreenConfig(String testLogName, boolean showTestButton) 
         new NEMachineScreenConfig("Storage", false);
 
     public static final NEMachineScreenConfig COMPUTATION_CONTROLLER =
-        new NEMachineScreenConfig("Computation", true);
+        new NEMachineScreenConfig("Computation", false);
 
     public static final NEMachineScreenConfig CRAFTING_CONTROLLER =
         new NEMachineScreenConfig("Crafting", true);

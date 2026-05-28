@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client;
 
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEComputationControllerScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStorageControllerScreen;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.Minecraft;
@@ -27,6 +28,20 @@ public final class NEClientUiPacketHandlers {
         if (mc.screen instanceof NEStorageControllerScreen screen) {
             if (screen.getMenu().getMachinePos().equals(pkt.state().pos())) {
                 screen.setStorageUiState(pkt.state());
+            }
+        }
+    }
+
+    /**
+     * Handles an incoming {@link NENetwork.NEComputationUiStatePacket} by pushing
+     * the state to the currently open {@link NEComputationControllerScreen} when
+     * the machine position matches.
+     */
+    public static void handleComputationUiState(NENetwork.NEComputationUiStatePacket pkt) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof NEComputationControllerScreen screen) {
+            if (screen.getMenu().getMachinePos().equals(pkt.state().pos())) {
+                screen.setComputationUiState(pkt.state());
             }
         }
     }
