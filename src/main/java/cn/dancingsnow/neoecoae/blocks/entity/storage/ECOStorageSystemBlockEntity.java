@@ -515,7 +515,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
 
-    // 闁冲厜鍋撻柍鍏夊亾 Client sync for Controller UI (LDLib1 ModularUI data bridge) 闁冲厜鍋撻柍鍏夊亾
+    // Native UI fallback sync via BE update tags (chunk load / block update).
+    // Primary runtime UI sync uses the NENetwork S2C channel.
 
     @Override
     public CompoundTag getUpdateTag() {
@@ -546,12 +547,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         tag.putLong("neo_storedEnergy", storedEnergy);
         tag.putLong("neo_maxEnergy", maxEnergy);
         tag.putBoolean("neo_formed", formed);
-        // Scalars (reliable) 闁?used as primary read path by Screen getters
+        // Scalar fields — primary read path for BE-tag fallback sync
         tag.putLong("neo_usedTypes_s", _synUsedTypes);
         tag.putLong("neo_totalTypes_s", _synTotalTypes);
         tag.putLong("neo_usedBytes_s", _synUsedBytes);
         tag.putLong("neo_totalBytes_s", _synTotalBytes);
-        // Arrays (fallback) 闁?kept for compatibility
+        // Per-type arrays — kept for future per-cell-type UI
         if (usedTypes != null) tag.putLongArray("neo_usedTypes", usedTypes);
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
@@ -562,12 +563,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (tag.contains("neo_storedEnergy")) storedEnergy = tag.getLong("neo_storedEnergy");
         if (tag.contains("neo_maxEnergy")) maxEnergy = tag.getLong("neo_maxEnergy");
         if (tag.contains("neo_formed")) formed = tag.getBoolean("neo_formed");
-        // Scalars 闁?reliable scalar sync
+        // Scalar fields — primary read path for BE-tag fallback sync
         if (tag.contains("neo_usedTypes_s")) _synUsedTypes = tag.getLong("neo_usedTypes_s");
         if (tag.contains("neo_totalTypes_s")) _synTotalTypes = tag.getLong("neo_totalTypes_s");
         if (tag.contains("neo_usedBytes_s")) _synUsedBytes = tag.getLong("neo_usedBytes_s");
         if (tag.contains("neo_totalBytes_s")) _synTotalBytes = tag.getLong("neo_totalBytes_s");
-        // Arrays 闁?fallback
+        // Per-type arrays — kept for future per-cell-type UI
         if (tag.contains("neo_usedTypes")) usedTypes = tag.getLongArray("neo_usedTypes");
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");

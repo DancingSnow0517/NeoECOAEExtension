@@ -16,13 +16,15 @@ import java.util.Locale;
  * Screen for the ECO Storage Controller with live read-only status.
  * <p>
  * Primary display path: S2C {@link NEStorageUiState} pushed from the server
- * menu tick. Falls back to client BE getters if no state has been received yet.
+ * menu tick. Before the first packet arrives the screen shows a brief fallback
+ * read from the client-side BE (opening-time snapshot, not live).
  * </p>
  */
 public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageControllerMenu> {
 
     private static final NumberFormat NUMBER_FORMAT = NumberFormat.getNumberInstance(Locale.US);
 
+    private boolean hasStorageState;
     private NEStorageUiState storageState;
 
     public NEStorageControllerScreen(NEStorageControllerMenu menu, Inventory playerInv, Component title) {
@@ -32,8 +34,9 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         this.storageState = NEStorageUiState.empty(menu.getMachinePos());
     }
 
-    /** Called from {@link cn.dancingsnow.neoecoae.network.NENetwork} on the client thread. */
+    /** Called from the network thread via {@link cn.dancingsnow.neoecoae.client.NEClientUiPacketHandlers}. */
     public void setStorageUiState(NEStorageUiState state) {
+        this.hasStorageState = true;
         this.storageState = state;
     }
 
@@ -44,10 +47,13 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     @Override
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        NEStorageUiState s = this.storageState;
+        NEStorageUiState s;
 
-        // Fallback: if no S2C state received yet, read from client BE
-        if (s.totalTypes() == 0 && s.totalBytes() == 0 && !s.formed()) {
+        if (hasStorageState) {
+            s = this.storageState;
+        } else {
+            // Opening-time fallback: read client BE once while waiting for the
+            // first S2C packet. Not used for live refresh.
             ECOStorageSystemBlockEntity be = getStorageBE();
             if (be != null) {
                 s = new NEStorageUiState(
@@ -57,6 +63,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
                     be.getStoredEnergy(), be.getMaxEnergy(),
                     be.isFormed()
                 );
+            } else {
+                s = this.storageState;
             }
         }
 

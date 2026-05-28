@@ -9,17 +9,21 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Menu for the ECO Storage Controller.
  * <p>
- * Periodically sends a S2C {@link cn.dancingsnow.neoecoae.network.NEStorageUiState}
- * packet so the screen always shows live server-side stats.
+ * Periodically (every 20 ticks) sends a S2C {@link NEStorageUiState}
+ * packet so the screen shows live server-side stats. Duplicate states
+ * with identical values are suppressed.
  * </p>
  */
 public class NEStorageControllerMenu extends NEBaseMachineMenu {
 
     private int tickCounter;
+    @Nullable
+    private NEStorageUiState lastSentState;
 
     public NEStorageControllerMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
         super(NENativeMenus.STORAGE_CONTROLLER.get(), containerId, playerInv, machinePos);
@@ -40,6 +44,11 @@ public class NEStorageControllerMenu extends NEBaseMachineMenu {
             BlockEntity be = serverPlayer.level().getBlockEntity(machinePos);
             if (be instanceof ECOStorageSystemBlockEntity storage) {
                 NEStorageUiState state = storage.createStorageUiState();
+                // Suppress duplicate sends when nothing changed
+                if (tickCounter != 1 && state.equals(lastSentState)) {
+                    return;
+                }
+                lastSentState = state;
                 NENetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> serverPlayer),
                     new NENetwork.NEStorageUiStatePacket(state)
