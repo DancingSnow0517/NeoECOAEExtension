@@ -17,6 +17,7 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.network.NECraftingUiState;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
@@ -318,6 +319,37 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public boolean isBuildInProgress() {
         return buildInProgress;
+    }
+
+    /**
+     * Creates a snapshot of current crafting stats for S2C UI sync.
+     * <p>
+     * On the server side this reads live cluster data. No business
+     * state is modified — this is a pure read-only snapshot.
+     * </p>
+     */
+    public NECraftingUiState createCraftingUiState() {
+        return new NECraftingUiState(
+            worldPosition,
+            formed,
+            cluster != null && getMainNode().isActive(),
+            getWorkerCount(),
+            getParallelCount(),
+            getPatternBusCount(),
+            getThreadCount(),
+            getRunningThreadCount(),
+            isOverclocked(),
+            isActiveCooling(),
+            getSelectedBuildLength(),
+            isBuildInProgress(),
+            getPreviewMissingBlocks(),
+            getPreviewConflictBlocks(),
+            getPreviewReusedBlocks(),
+            getPreviewRequiredItems(),
+            previewStatusKey,
+            previewStatusArg1,
+            previewStatusArg2
+        );
     }
 
     private long getMaxEnergyUsage() {

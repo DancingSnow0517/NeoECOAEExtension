@@ -276,6 +276,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 }
             }
             typeStates = new ArrayList<>(grouped.values());
+            // Stable ordering: Items first, Fluids second, others by typeId string
+            typeStates.sort(
+                java.util.Comparator
+                    .comparingInt((NEStorageUiTypeState s) -> storageTypeSortPriority(s.typeId()))
+                    .thenComparing(s -> s.typeId().toString())
+            );
         } else {
             typeStates = new ArrayList<>();
         }
@@ -298,6 +304,21 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static ResourceLocation getCellTypeKey(ECOCellType cellType) {
         ResourceLocation id = cellType.id();
         return id != null ? id : ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "unknown");
+    }
+
+    /**
+     * Returns a sort priority for stable UI ordering.
+     * Items (0) always first, Fluids (1) second, other types (100+) sorted
+     * by their full typeId string.
+     */
+    private static int storageTypeSortPriority(ResourceLocation id) {
+        if (id.equals(NeoECOAE.id("items"))) {
+            return 0;
+        }
+        if (id.equals(NeoECOAE.id("fluids"))) {
+            return 1;
+        }
+        return 100;
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {

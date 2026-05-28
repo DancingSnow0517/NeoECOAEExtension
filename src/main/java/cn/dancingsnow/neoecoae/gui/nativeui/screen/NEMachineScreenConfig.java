@@ -21,7 +21,7 @@ public record NEMachineScreenConfig(String testLogName, boolean showTestButton) 
         new NEMachineScreenConfig("Computation", false);
 
     public static final NEMachineScreenConfig CRAFTING_CONTROLLER =
-        new NEMachineScreenConfig("Crafting", true);
+        new NEMachineScreenConfig("Crafting", false);
 
     public static final NEMachineScreenConfig INTEGRATED_WORKING_STATION =
         new NEMachineScreenConfig("IWS", true);

@@ -47,6 +47,11 @@ public final class NENetwork {
             NEComputationUiStatePacket::encode,
             NEComputationUiStatePacket::decode,
             NEComputationUiStatePacket::handle);
+
+        registerS2C(NECraftingUiStatePacket.class,
+            NECraftingUiStatePacket::encode,
+            NECraftingUiStatePacket::decode,
+            NECraftingUiStatePacket::handle);
     }
 
     /**
@@ -172,6 +177,66 @@ public final class NENetwork {
             NetworkEvent.Context ctx = ctxSupplier.get();
             ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> NEClientUiPacketHandlers.handleComputationUiState(pkt)));
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * S2C packet carrying a {@link NECraftingUiState} snapshot.
+     */
+    public record NECraftingUiStatePacket(NECraftingUiState state) {
+
+        public static void encode(NECraftingUiStatePacket pkt, FriendlyByteBuf buf) {
+            NECraftingUiState s = pkt.state();
+            buf.writeBlockPos(s.pos());
+            buf.writeBoolean(s.formed());
+            buf.writeBoolean(s.active());
+            buf.writeInt(s.workerCount());
+            buf.writeInt(s.parallelCount());
+            buf.writeInt(s.patternBusCount());
+            buf.writeInt(s.threadCount());
+            buf.writeInt(s.runningThreadCount());
+            buf.writeBoolean(s.overclocked());
+            buf.writeBoolean(s.activeCooling());
+            buf.writeInt(s.selectedBuildLength());
+            buf.writeBoolean(s.buildInProgress());
+            buf.writeInt(s.previewMissingBlocks());
+            buf.writeInt(s.previewConflictBlocks());
+            buf.writeInt(s.previewReusedBlocks());
+            buf.writeInt(s.previewRequiredItems());
+            buf.writeUtf(s.previewStatusKey(), 256);
+            buf.writeInt(s.previewStatusArg1());
+            buf.writeInt(s.previewStatusArg2());
+        }
+
+        public static NECraftingUiStatePacket decode(FriendlyByteBuf buf) {
+            return new NECraftingUiStatePacket(new NECraftingUiState(
+                buf.readBlockPos(),
+                buf.readBoolean(),
+                buf.readBoolean(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readBoolean(),
+                buf.readBoolean(),
+                buf.readInt(),
+                buf.readBoolean(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readInt(),
+                buf.readUtf(256),
+                buf.readInt(),
+                buf.readInt()
+            ));
+        }
+
+        public static void handle(NECraftingUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> NEClientUiPacketHandlers.handleCraftingUiState(pkt)));
             ctx.setPacketHandled(true);
         }
     }
