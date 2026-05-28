@@ -440,22 +440,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return definition == null ? 1 : definition.getExpandMax();
     }
 
-    private static final int STORAGE_BASE_LENGTH = 3;
-
-    private int displayLengthToRepeatCount(int displayLength) {
-        int total = Mth.clamp(displayLength, STORAGE_BASE_LENGTH + getMinBuildLength(), NEConfig.storageSystemMaxLength);
-        return Mth.clamp(total - STORAGE_BASE_LENGTH, getMinBuildLength(), getMaxBuildLength());
-    }
-
     @Override
     public void previewStructure(ServerPlayer player, int displayLength) {
-        setSelectedBuildLength(displayLengthToRepeatCount(displayLength));
+        setSelectedBuildLength(displayLength);
         previewStructure((Player) player);
     }
 
     @Override
     public void autoBuild(ServerPlayer player, int displayLength) {
-        setSelectedBuildLength(displayLengthToRepeatCount(displayLength));
+        setSelectedBuildLength(displayLength);
         autoBuild((Player) player);
     }
 

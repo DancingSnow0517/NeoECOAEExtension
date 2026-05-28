@@ -39,33 +39,36 @@ import net.minecraftforge.network.NetworkHooks;
 public class StructureTerminalItem extends Item {
 
     public static final String TAG_BUILD_LENGTH = "BuildLength";
-    public static final int DEFAULT_DISPLAY_LENGTH = 1;
-    public static final int MIN_DISPLAY_LENGTH = 1;
+    public static final int DEFAULT_BUILD_LENGTH = 1;
+    public static final int MIN_BUILD_LENGTH = 1;
 
     public StructureTerminalItem(Properties properties) {
         super(properties.stacksTo(1).rarity(Rarity.UNCOMMON));
     }
 
-    // ── Global max display length ──
+    // ── Global max build length (repeat count / variable sections) ──
 
-    public static int getGlobalMaxDisplayLength() {
-        return Math.max(NEConfig.craftingSystemMaxLength,
-            Math.max(NEConfig.computationSystemMaxLength, NEConfig.storageSystemMaxLength));
+    /** Maximum repeat count across all three multiblock systems. */
+    public static int getGlobalMaxBuildLength() {
+        int crafting = Math.max(1, NEConfig.craftingSystemMaxLength - 4);
+        int computation = Math.max(1, NEConfig.computationSystemMaxLength - 4);
+        int storage = Math.max(1, NEConfig.storageSystemMaxLength - 3);
+        return Math.max(storage, Math.max(crafting, computation));
     }
 
-    // ── ItemStack NBT helpers (display length = player-visible total length) ──
+    // ── ItemStack NBT helpers (length = repeat count / variable sections) ──
 
     public static int getBuildLength(ItemStack stack) {
         CompoundTag tag = stack.getTag();
         if (tag == null || !tag.contains(TAG_BUILD_LENGTH)) {
-            return DEFAULT_DISPLAY_LENGTH;
+            return DEFAULT_BUILD_LENGTH;
         }
-        return Mth.clamp(tag.getInt(TAG_BUILD_LENGTH), MIN_DISPLAY_LENGTH, getGlobalMaxDisplayLength());
+        return Mth.clamp(tag.getInt(TAG_BUILD_LENGTH), MIN_BUILD_LENGTH, getGlobalMaxBuildLength());
     }
 
     public static void setBuildLength(ItemStack stack, int length) {
         stack.getOrCreateTag().putInt(TAG_BUILD_LENGTH,
-            Mth.clamp(length, MIN_DISPLAY_LENGTH, getGlobalMaxDisplayLength()));
+            Mth.clamp(length, MIN_BUILD_LENGTH, getGlobalMaxBuildLength()));
     }
 
     // ── Item behaviour ──

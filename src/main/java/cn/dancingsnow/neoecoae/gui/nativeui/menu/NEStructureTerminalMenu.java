@@ -70,9 +70,9 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
      */
     public void syncToClient(ServerPlayer player) {
         ItemStack stack = getTerminalStack(player);
-        int length = stack != null ? StructureTerminalItem.getBuildLength(stack) : StructureTerminalItem.DEFAULT_DISPLAY_LENGTH;
-        int min = StructureTerminalItem.MIN_DISPLAY_LENGTH;
-        int max = StructureTerminalItem.getGlobalMaxDisplayLength();
+        int length = stack != null ? StructureTerminalItem.getBuildLength(stack) : StructureTerminalItem.DEFAULT_BUILD_LENGTH;
+        int min = StructureTerminalItem.MIN_BUILD_LENGTH;
+        int max = StructureTerminalItem.getGlobalMaxBuildLength();
         this.buildLength = length;
         cn.dancingsnow.neoecoae.network.NENetwork.CHANNEL.send(
             net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),

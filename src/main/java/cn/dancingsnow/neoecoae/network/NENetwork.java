@@ -629,7 +629,7 @@ public final class NENetwork {
                 int newLength = switch (pkt.action()) {
                     case INCREASE -> current + 1;
                     case DECREASE -> current - 1;
-                    case RESET -> StructureTerminalItem.DEFAULT_DISPLAY_LENGTH;
+                    case RESET -> StructureTerminalItem.DEFAULT_BUILD_LENGTH;
                 };
                 StructureTerminalItem.setBuildLength(stack, newLength);
 

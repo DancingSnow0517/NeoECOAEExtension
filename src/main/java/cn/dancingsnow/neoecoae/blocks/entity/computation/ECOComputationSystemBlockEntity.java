@@ -276,22 +276,15 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return definition == null ? 1 : definition.getExpandMax();
     }
 
-    private static final int COMPUTATION_BASE_LENGTH = 4;
-
-    private int displayLengthToRepeatCount(int displayLength) {
-        int total = Mth.clamp(displayLength, COMPUTATION_BASE_LENGTH + getMinBuildLength(), NEConfig.computationSystemMaxLength);
-        return Mth.clamp(total - COMPUTATION_BASE_LENGTH, getMinBuildLength(), getMaxBuildLength());
-    }
-
     @Override
     public void previewStructure(ServerPlayer player, int displayLength) {
-        setSelectedBuildLength(displayLengthToRepeatCount(displayLength));
+        setSelectedBuildLength(displayLength);
         previewStructure((Player) player);
     }
 
     @Override
     public void autoBuild(ServerPlayer player, int displayLength) {
-        setSelectedBuildLength(displayLengthToRepeatCount(displayLength));
+        setSelectedBuildLength(displayLength);
         autoBuild((Player) player);
     }
 

@@ -21,7 +21,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     private int displayBuildLength;
     private int minLength = 1;
-    private int maxLength = 15;
+    private int maxLength = 12;
 
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -78,7 +78,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
             NENativeUiConstants.TITLE_COLOR);
 
         guiGraphics.drawString(font,
-            Component.literal("Total Length: " + displayBuildLength
+            Component.literal("Variable Sections: " + displayBuildLength
                 + " [" + minLength + "-" + maxLength + "]"),
             NENativeUiConstants.TITLE_X, 30,
             0xFFC0C0D0);

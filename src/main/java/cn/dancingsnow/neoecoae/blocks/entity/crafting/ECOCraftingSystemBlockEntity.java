@@ -378,21 +378,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public void previewStructure(ServerPlayer player, int buildLength) {
-        setSelectedBuildLength(displayLengthToRepeatCount(buildLength));
+        setSelectedBuildLength(buildLength);
         previewStructure(player);
     }
 
     @Override
     public void autoBuild(ServerPlayer player, int buildLength) {
-        setSelectedBuildLength(displayLengthToRepeatCount(buildLength));
+        setSelectedBuildLength(buildLength);
         autoBuild(player);
-    }
-
-    private static final int CRAFTING_BASE_LENGTH = 4;
-
-    private int displayLengthToRepeatCount(int displayLength) {
-        int total = Mth.clamp(displayLength, CRAFTING_BASE_LENGTH + getMinBuildLength(), NEConfig.craftingSystemMaxLength);
-        return Mth.clamp(total - CRAFTING_BASE_LENGTH, getMinBuildLength(), getMaxBuildLength());
     }
 
     public int getPreviewMissingBlocks() {
