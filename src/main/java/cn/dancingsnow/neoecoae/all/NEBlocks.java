@@ -77,6 +77,7 @@ public class NEBlocks {
         .block("raw_aluminum_block", Block::new)
         .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
+        .loot((tables, block) -> tables.dropSelf(block))
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("AAA")
@@ -95,6 +96,7 @@ public class NEBlocks {
         .block("aluminum_block", Block::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
+        .loot((tables, block) -> tables.dropSelf(block))
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("AAA")

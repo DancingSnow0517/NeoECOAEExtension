@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.util;
 
+import appeng.items.tools.quartz.QuartzWrenchItem;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
@@ -26,6 +27,12 @@ public final class NEInteractionUtil {
 
     public static boolean isHoldingWrench(Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        Item item = stack.getItem();
+        // Check AE2 wrench class directly
+        if (item instanceof QuartzWrenchItem) {
+            return true;
+        }
+        // Also check the Forge wrench tag
         return stack.is(WRENCH_TAG);
     }
 

@@ -25,6 +25,7 @@ public class NEDataGen {
         REGISTRATE.addDataGenerator(ProviderType.LANG, NELangGenerator::accept);
         REGISTRATE.addDataGenerator(ProviderType.RECIPE, NERecipeGenerator::accept);
         REGISTRATE.addDataGenerator(ProviderType.ITEM_TAGS, NETagGenerator::itemTag);
+        REGISTRATE.addDataGenerator(ProviderType.LOOT, prov -> {});
     }
 
     @SubscribeEvent
