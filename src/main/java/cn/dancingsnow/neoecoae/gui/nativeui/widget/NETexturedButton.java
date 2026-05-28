@@ -28,7 +28,7 @@ public class NETexturedButton extends Button {
 
     public NETexturedButton(int x, int y, int width, int height, Component message,
                              OnPress onPress) {
-        this(x, y, width, height, message, onPress, 0xFFE0E0E0, 0xFF606060);
+        this(x, y, width, height, message, onPress, 0xFF20232A, 0xFF808590);
     }
 
     public NETexturedButton(int x, int y, int width, int height, Component message,
@@ -43,7 +43,7 @@ public class NETexturedButton extends Button {
         ResourceLocation tex;
         if (!active) {
             tex = TEX_BUTTON_DISABLED;
-        } else if (isHoveredOrFocused()) {
+        } else if (isHovered()) {
             tex = TEX_BUTTON_HOVER;
         } else {
             tex = TEX_BUTTON;

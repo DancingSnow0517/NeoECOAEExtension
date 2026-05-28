@@ -10,6 +10,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +103,14 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(font, title,
+        String titleText = title.getString();
+        Component displayTitle = title;
+        int maxTitleWidth = imageWidth - 16;
+        if (font.width(titleText) > maxTitleWidth) {
+            String truncated = font.plainSubstrByWidth(titleText, maxTitleWidth - 10) + "…";
+            displayTitle = Component.literal(truncated);
+        }
+        guiGraphics.drawString(font, displayTitle,
             NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
             NENativeUiConstants.TITLE_COLOR);
         guiGraphics.drawString(font,

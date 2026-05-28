@@ -16,14 +16,14 @@ public final class NENativeUiConstants {
     // ── Background ──
     public static final int BG_COLOR = 0xFF2A2A3A;
 
-    // ── Text colors (panel palette) ──
-    public static final int PANEL_TEXT_PRIMARY   = 0xFFE8E8F0;
-    public static final int PANEL_TEXT_SECONDARY = 0xFFC0C0D0;
-    public static final int PANEL_TEXT_MUTED     = 0xFF8A8AA0;
-    public static final int PANEL_TEXT_HINT      = 0xFF6A8AAA;
-    public static final int PANEL_TEXT_SUCCESS   = 0xFF6AFF6A;
-    public static final int PANEL_TEXT_WARNING   = 0xFFFFD36A;
-    public static final int PANEL_TEXT_ERROR     = 0xFFFF6A6A;
+    // ── Text colors (panel palette for light background) ──
+    public static final int PANEL_TEXT_PRIMARY   = 0xFF20232A;
+    public static final int PANEL_TEXT_SECONDARY = 0xFF303846;
+    public static final int PANEL_TEXT_MUTED     = 0xFF5A6070;
+    public static final int PANEL_TEXT_HINT      = 0xFF1F4E79;
+    public static final int PANEL_TEXT_SUCCESS   = 0xFF008A2E;
+    public static final int PANEL_TEXT_WARNING   = 0xFF9A6500;
+    public static final int PANEL_TEXT_ERROR     = 0xFFB00020;
 
     // ── Label colors (aliases for panel palette) ──
     public static final int TITLE_COLOR          = PANEL_TEXT_PRIMARY;
