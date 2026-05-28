@@ -132,6 +132,7 @@ public final class NENetwork {
             NEComputationUiState s = pkt.state();
             buf.writeBlockPos(s.pos());
             buf.writeBoolean(s.formed());
+            buf.writeBoolean(s.active());
             buf.writeInt(s.usedThreads());
             buf.writeInt(s.maxThreads());
             buf.writeLong(s.availableStorage());
@@ -143,6 +144,7 @@ public final class NENetwork {
         public static NEComputationUiStatePacket decode(FriendlyByteBuf buf) {
             BlockPos pos = buf.readBlockPos();
             boolean formed = buf.readBoolean();
+            boolean active = buf.readBoolean();
             int usedThreads = buf.readInt();
             int maxThreads = buf.readInt();
             long availableStorage = buf.readLong();
@@ -151,7 +153,7 @@ public final class NENetwork {
             int accelerators = buf.readInt();
 
             return new NEComputationUiStatePacket(
-                new NEComputationUiState(pos, formed, usedThreads, maxThreads,
+                new NEComputationUiState(pos, formed, active, usedThreads, maxThreads,
                     availableStorage, totalStorage, parallelCount, accelerators)
             );
         }

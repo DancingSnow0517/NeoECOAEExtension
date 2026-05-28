@@ -59,12 +59,13 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
                 s = new NEComputationUiState(
                     menu.getMachinePos(),
                     be.isFormed(),
+                    false,  // active not reliably readable from client BE
                     be.getUsedThread(),
                     be.getTotalThread(),
                     be.getAvailableBytes(),
                     be.getTotalBytes(),
                     be.getParallelCount(),
-                    be.getParallelCount()
+                    be.getAcceleratorCount()
                 );
             } else {
                 s = this.computationState;
@@ -82,6 +83,12 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
             x, y, valueColor);
         y += 14;
 
+        // Active
+        guiGraphics.drawString(font,
+            Component.literal("Active: " + s.active()),
+            x, y, valueColor);
+        y += 14;
+
         // Storage
         guiGraphics.drawString(font,
             Component.literal("Storage: " + fmt(s.availableStorage()) + " / " + fmt(s.totalStorage()) + " bytes"),
@@ -94,9 +101,9 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
             x, y, valueColor);
         y += 14;
 
-        // Parallel
+        // Parallel Cores
         guiGraphics.drawString(font,
-            Component.literal("Parallel: " + s.parallelCount()),
+            Component.literal("Parallel Cores: " + s.parallelCount()),
             x, y, valueColor);
         y += 14;
 

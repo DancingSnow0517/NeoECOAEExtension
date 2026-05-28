@@ -54,6 +54,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private long availableBytes;
     @DescSynced
     private long totalBytes;
+    /** Sum of CPU accelerators from all parallel cores in the cluster. */
+    private int acceleratorCount;
     @Persisted
     @DescSynced
     private int selectedBuildLength = 1;
@@ -102,9 +104,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
     }
 
-    public void updateInfos() {
+    private void recalculateComputationStats() {
         if (cluster != null) {
             availableBytes = cluster.getAvailableStorage();
+
             totalBytes = 0;
             for (ECOComputationDriveBlockEntity drive : cluster.getUpperDrives()) {
                 ItemStack cellStack = drive.getCellStack();
@@ -121,13 +124,20 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
             usedThread = cluster.getActiveCPUs().size();
             totalThread = cluster.getMaxThreads();
-            parallelCount = cluster.getParallelCores().stream().mapToInt(e -> e.getTier().getCPUAccelerators()).sum();
+            parallelCount = cluster.getParallelCores().size();
+            acceleratorCount = cluster.getCPUAccelerators();
         } else {
+            usedThread = 0;
             totalThread = 0;
             parallelCount = 0;
             availableBytes = 0;
             totalBytes = 0;
+            acceleratorCount = 0;
         }
+    }
+
+    public void updateInfos() {
+        recalculateComputationStats();
         setChanged();
         syncUiToClient();
     }
@@ -200,25 +210,32 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return totalBytes;
     }
 
+    public int getAcceleratorCount() {
+        return acceleratorCount;
+    }
+
     /**
      * Creates a snapshot of current computation stats for S2C UI sync.
      * <p>
-     * Accelerators are derived from {@link #getParallelCount()}, matching
-     * the same value since each parallel core's tier contributes accelerator
-     * count. This is a read-only summary; no computation backend logic is
-     * modified.
+     * On the server side this forces a stats recalculation so the packet
+     * always carries live data, not stale cache. On the client (e.g.
+     * fallback rendering) it uses the last-known values.
      * </p>
      */
     public NEComputationUiState createComputationUiState() {
+        if (level != null && !level.isClientSide) {
+            recalculateComputationStats();
+        }
         return new NEComputationUiState(
             worldPosition,
             formed,
+            cluster != null && cluster.isActive(),
             usedThread,
             totalThread,
             availableBytes,
             totalBytes,
             parallelCount,
-            parallelCount  // accelerators = parallelCount in current data model
+            acceleratorCount
         );
     }
 
