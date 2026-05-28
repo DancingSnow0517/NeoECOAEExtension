@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.gui.nativeui.screen.NECraftingPatternBusScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEFluidHatchScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEIntegratedWorkingStationScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStorageControllerScreen;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStructureTerminalScreen;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
@@ -43,6 +44,7 @@ public class NeoECOAEClient {
         MenuScreens.register(NENativeMenus.INTEGRATED_WORKING_STATION.get(), NEIntegratedWorkingStationScreen::new);
         MenuScreens.register(NENativeMenus.CRAFTING_PATTERN_BUS.get(), NECraftingPatternBusScreen::new);
         MenuScreens.register(NENativeMenus.FLUID_HATCH.get(), NEFluidHatchScreen::new);
+        MenuScreens.register(NENativeMenus.STRUCTURE_TERMINAL.get(), NEStructureTerminalScreen::new);
     }
 
     @SubscribeEvent

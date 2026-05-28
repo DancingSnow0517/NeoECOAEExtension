@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.DataIngredient;
@@ -979,6 +980,13 @@ public class NEItems {
             })
             .register();
     }
+
+    public static final ItemEntry<StructureTerminalItem> STRUCTURE_TERMINAL = REGISTRATE
+        .item("structure_terminal", StructureTerminalItem::new)
+        .lang("Structure Terminal")
+        .model((ctx, prov) -> {
+        })
+        .register();
 
     public static void register() {
 

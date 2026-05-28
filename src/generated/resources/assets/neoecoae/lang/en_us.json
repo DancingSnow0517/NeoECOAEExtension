@@ -312,5 +312,21 @@
   "upgrade.neoecoae.aluminum_alloy_upgrade": "Aluminum Alloy Upgrade",
   "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade",
   "gui.neoecoae.migration_ui.no_ldlib1_ui": "No LDLib1 UI is implemented for this machine",
-  "gui.neoecoae.crafting.coolant_amount": "Coolant: %s / %s"
+  "gui.neoecoae.crafting.coolant_amount": "Coolant: %s / %s",
+  "item.neoecoae.structure_terminal": "Structure Terminal",
+  "gui.neoecoae.multiblock.status.idle": "Idle",
+  "gui.neoecoae.multiblock.status.length_updated": "Length updated",
+  "gui.neoecoae.multiblock.status.controller_formed": "Already formed",
+  "gui.neoecoae.multiblock.status.no_definition": "No build definition",
+  "gui.neoecoae.multiblock.status.structure_ready": "Structure complete",
+  "gui.neoecoae.multiblock.status.ready_to_build": "Ready to build",
+  "gui.neoecoae.multiblock.status.not_enough_items": "Not enough materials",
+  "gui.neoecoae.multiblock.status.conflicts_detected": "Conflicts detected",
+  "gui.neoecoae.multiblock.status.build_in_progress": "Build in progress",
+  "gui.neoecoae.multiblock.status.build_already_in_progress": "Build already in progress",
+  "gui.neoecoae.multiblock.status.building": "Building... %s / %s",
+  "gui.neoecoae.multiblock.status.build_complete": "Build complete",
+  "gui.neoecoae.multiblock.status.build_failed": "Build failed",
+  "gui.neoecoae.multiblock.status.build_interrupted": "Build interrupted",
+  "gui.neoecoae.multiblock.status.builder_unavailable": "Builder unavailable"
 }

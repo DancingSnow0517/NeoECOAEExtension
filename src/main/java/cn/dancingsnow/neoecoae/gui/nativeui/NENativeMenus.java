@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingPatternBusMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEFluidHatchMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
@@ -88,6 +89,17 @@ public final class NENativeMenus {
                 (windowId, inv, data) -> {
                     BlockPos pos = data.readBlockPos();
                     return new NEFluidHatchMenu(windowId, inv, pos);
+                }));
+
+    /**
+     * Structure Terminal menu for multiblock build operations.
+     */
+    public static final RegistryObject<MenuType<NEStructureTerminalMenu>> STRUCTURE_TERMINAL =
+        MENUS.register("structure_terminal",
+            () -> IForgeMenuType.create(
+                (windowId, inv, data) -> {
+                    BlockPos pos = data.readBlockPos();
+                    return new NEStructureTerminalMenu(windowId, inv, pos);
                 }));
 
     private NENativeMenus() {

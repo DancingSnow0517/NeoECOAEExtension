@@ -32,6 +32,9 @@ public record NEMachineScreenConfig(String testLogName, boolean showTestButton) 
     public static final NEMachineScreenConfig FLUID_HATCH =
         new NEMachineScreenConfig("Fluid Hatch", true);
 
+    public static final NEMachineScreenConfig STRUCTURE_TERMINAL =
+        new NEMachineScreenConfig("Structure Terminal", false);
+
     // ── Log helpers ──
 
     /**

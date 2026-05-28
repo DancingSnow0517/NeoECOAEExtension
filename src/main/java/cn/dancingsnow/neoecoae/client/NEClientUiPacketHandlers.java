@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEComputationControllerScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NECraftingControllerScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStorageControllerScreen;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStructureTerminalScreen;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.Minecraft;
 
@@ -57,6 +58,19 @@ public final class NEClientUiPacketHandlers {
         if (mc.screen instanceof NECraftingControllerScreen screen) {
             if (screen.getMenu().getMachinePos().equals(pkt.state().pos())) {
                 screen.setCraftingUiState(pkt.state());
+            }
+        }
+    }
+
+    /**
+     * Handles an incoming {@link NENetwork.NEStructureTerminalUiStatePacket}
+     * by pushing the state to the currently open {@link NEStructureTerminalScreen}.
+     */
+    public static void handleStructureTerminalUiState(NENetwork.NEStructureTerminalUiStatePacket pkt) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof NEStructureTerminalScreen screen) {
+            if (screen.getMenu().getMachinePos().equals(pkt.state().hostPos())) {
+                screen.setStructureTerminalUiState(pkt.state());
             }
         }
     }

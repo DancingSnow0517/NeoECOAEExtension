@@ -13,11 +13,14 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.gui.AETextures;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
+import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.network.NECraftingUiState;
+import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
@@ -28,7 +31,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -43,7 +45,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IGridTickable {
+    implements ISyncPersistRPCBlockEntity, IGridTickable, INEMultiblockBuildHost {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
@@ -297,8 +299,81 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return buildPreviewStatusComponent();
     }
 
+    // ── INEMultiblockBuildHost implementation ──
+
+    @Override
+    public BlockPos getHostPos() {
+        return worldPosition;
+    }
+
+    @Override
+    public BlockState getHostBlockState() {
+        return getBlockState();
+    }
+
+    @Override
     public int getSelectedBuildLength() {
         return selectedBuildLength;
+    }
+
+    @Override
+    public void setSelectedBuildLength(int length) {
+        this.selectedBuildLength = net.minecraft.util.Mth.clamp(length, getMinBuildLength(), getMaxBuildLength());
+    }
+
+    @Override
+    public int getMinBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMin();
+    }
+
+    @Override
+    public int getMaxBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMax();
+    }
+
+    @Override
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
+
+    @Override
+    public boolean isFormed() {
+        return formed;
+    }
+
+    @Override
+    public NEStructureTerminalUiState createBuildUiState() {
+        MultiBlockDefinition def = getBuildDefinition();
+        return new NEStructureTerminalUiState(
+            worldPosition,
+            def != null ? def.getName().getString() : "",
+            formed,
+            buildInProgress,
+            selectedBuildLength,
+            getMinBuildLength(),
+            getMaxBuildLength(),
+            previewMissingBlocks,
+            previewConflictBlocks,
+            previewReusedBlocks,
+            previewRequiredItems,
+            buildSession != null ? buildSession.getPlacedBlockCount() : 0,
+            buildSession != null ? buildSession.getTotalBlocks() : 0,
+            previewStatusKey,
+            previewStatusArg1,
+            previewStatusArg2,
+            List.of()
+        );
+    }
+
+    @Override
+    public void sendBuildUiState(ServerPlayer player) {
+        NEStructureTerminalUiState state = createBuildUiState();
+        NENetwork.CHANNEL.send(
+            net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
+            new NENetwork.NEStructureTerminalUiStatePacket(state)
+        );
     }
 
     public int getPreviewMissingBlocks() {
@@ -315,10 +390,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getPreviewRequiredItems() {
         return previewRequiredItems;
-    }
-
-    public boolean isBuildInProgress() {
-        return buildInProgress;
     }
 
     /**
@@ -510,7 +581,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
         }
-        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
+        setSelectedBuildLength(selectedBuildLength + 1);
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
@@ -519,11 +590,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
             return;
         }
-        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
+        setSelectedBuildLength(selectedBuildLength - 1);
         resetPreview("gui.neoecoae.multiblock.status.length_updated");
     }
 
-    public void previewStructure(Player player) {
+    @Override
+    public void previewStructure(ServerPlayer player) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -540,18 +612,18 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        setSelectedBuildLength(selectedBuildLength);
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
-        boolean hasMaterials = player instanceof ServerPlayer serverPlayer
-            && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
+        boolean hasMaterials = MultiBlockPlacementService.hasRequiredItems(player, plan.getRequiredItems());
         String statusKey = plan.getConflictPositions().isEmpty()
             ? (plan.getMissingBlocks().isEmpty() ? "gui.neoecoae.multiblock.status.structure_ready" : (hasMaterials ? "gui.neoecoae.multiblock.status.ready_to_build" : "gui.neoecoae.multiblock.status.not_enough_items"))
             : "gui.neoecoae.multiblock.status.conflicts_detected";
         syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), statusKey);
     }
 
-    public void autoBuild(Player player) {
-        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
+    @Override
+    public void autoBuild(ServerPlayer serverPlayer) {
+        if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
         serverPlayer.closeContainer();
@@ -598,18 +670,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         syncPreview(plan.getMissingBlocks().size(), 0, plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.building", buildSession.getPlacedBlockCount(), buildSession.getTotalBlocks());
     }
 
-    private @Nullable MultiBlockDefinition getBuildDefinition() {
+    @Nullable
+    public MultiBlockDefinition getBuildDefinition() {
         return NEMultiBlocks.getCraftingSystemDefinition(tier);
-    }
-
-    private int getMinBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMin();
-    }
-
-    private int getMaxBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMax();
     }
 
     private void resetPreview(String statusKey) {

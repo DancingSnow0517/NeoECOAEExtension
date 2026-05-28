@@ -4,16 +4,18 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
 import cn.dancingsnow.neoecoae.network.NECraftingUiState;
-import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
- * Screen for the ECO Crafting Controller with live read-only status
- * and basic builder action buttons.
+ * Screen for the ECO Crafting Controller — machine running status only.
+ * <p>
+ * Building operations (preview, auto-build, length selection) have been
+ * migrated to the {@link NEStructureTerminalScreen}, accessed via the
+ * Structure Terminal item.
+ * </p>
  */
 public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingControllerMenu> {
 
@@ -22,8 +24,8 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
     public NECraftingControllerScreen(NECraftingControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.CRAFTING_CONTROLLER);
-        this.imageWidth = 340;
-        this.imageHeight = 220;
+        this.imageWidth = 300;
+        this.imageHeight = 170;
         this.craftingState = NECraftingUiState.empty(menu.getMachinePos());
     }
 
@@ -36,33 +38,6 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     @Override
     protected void init() {
         super.init();
-
-        int btnY = topPos + 155;
-        int btnH = 20;
-
-        // Build Length -
-        addRenderableWidget(Button.builder(Component.literal("-"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(
-                menu.getMachinePos(), NENetwork.NECraftingUiActionPacket.Action.DECREASE_BUILD_LENGTH));
-        }).pos(leftPos + 8, btnY).size(20, btnH).build());
-
-        // Build Length +
-        addRenderableWidget(Button.builder(Component.literal("+"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(
-                menu.getMachinePos(), NENetwork.NECraftingUiActionPacket.Action.INCREASE_BUILD_LENGTH));
-        }).pos(leftPos + 32, btnY).size(20, btnH).build());
-
-        // Preview
-        addRenderableWidget(Button.builder(Component.literal("Preview"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(
-                menu.getMachinePos(), NENetwork.NECraftingUiActionPacket.Action.PREVIEW_STRUCTURE));
-        }).pos(leftPos + 60, btnY).size(56, btnH).build());
-
-        // Auto Build
-        addRenderableWidget(Button.builder(Component.literal("Auto Build"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(
-                menu.getMachinePos(), NENetwork.NECraftingUiActionPacket.Action.AUTO_BUILD));
-        }).pos(leftPos + 122, btnY).size(60, btnH).build());
     }
 
     @Override
@@ -81,7 +56,6 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int labelColor = 0xFF8A8AA0;
         final int valueColor = 0xFFC0C0D0;
         int y = 50;
 
@@ -121,34 +95,10 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
             x + 140, y, valueColor);
         y += 14;
 
-        // Row 5: Build Length
+        // Row 5: Build hint — use the Structure Terminal
         guiGraphics.drawString(font,
-            Component.literal("Build Length: " + s.selectedBuildLength()),
-            x, y, valueColor);
-        guiGraphics.drawString(font,
-            Component.literal("Builder: " + (s.buildInProgress() ? "Running" : "Idle")),
-            x + 140, y, valueColor);
-        y += 14;
-
-        // Row 6: Preview status
-        Component statusComponent;
-        try {
-            statusComponent = Component.translatable(s.previewStatusKey(), s.previewStatusArg1(), s.previewStatusArg2());
-        } catch (Exception ignored) {
-            statusComponent = Component.literal(s.previewStatusKey());
-        }
-        guiGraphics.drawString(font,
-            Component.literal("Preview: ").append(statusComponent),
-            x, y, labelColor);
-        y += 14;
-
-        // Row 7: Missing / Conflicts / Reused / Required
-        guiGraphics.drawString(font,
-            Component.literal("M:" + s.previewMissingBlocks() +
-                " C:" + s.previewConflictBlocks() +
-                " R:" + s.previewReusedBlocks() +
-                " Req:" + s.previewRequiredItems()),
-            x, y, labelColor);
+            Component.literal("Use Structure Terminal to build"),
+            x, y, 0xFF6A8AAA);
     }
 
     private ECOCraftingSystemBlockEntity getCraftingBE() {

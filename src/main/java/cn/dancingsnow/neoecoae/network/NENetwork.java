@@ -1,10 +1,14 @@
 package cn.dancingsnow.neoecoae.network;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.AbstractCraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.client.NEClientUiPacketHandlers;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
+import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
+import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
@@ -18,6 +22,8 @@ import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
+
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,6 +75,16 @@ public final class NENetwork {
             NEOpenCraftingUiPacket::encode,
             NEOpenCraftingUiPacket::decode,
             NEOpenCraftingUiPacket::handle);
+
+        registerS2C(NEStructureTerminalUiStatePacket.class,
+            NEStructureTerminalUiStatePacket::encode,
+            NEStructureTerminalUiStatePacket::decode,
+            NEStructureTerminalUiStatePacket::handle);
+
+        registerC2S(NEStructureTerminalActionPacket.class,
+            NEStructureTerminalActionPacket::encode,
+            NEStructureTerminalActionPacket::decode,
+            NEStructureTerminalActionPacket::handle);
     }
 
     /**
@@ -271,7 +287,13 @@ public final class NENetwork {
 
     /**
      * C2S packet for Crafting Controller action buttons.
+     *
+     * @deprecated Building operations have been migrated to
+     *             {@link NEStructureTerminalActionPacket}.
+     *             This packet is retained only for backward compatibility
+     *             and will be removed in a future phase.
      */
+    @Deprecated
     public record NECraftingUiActionPacket(BlockPos pos, Action action) {
 
         public enum Action {
@@ -309,6 +331,10 @@ public final class NENetwork {
                     return;
                 }
 
+                if (!menu.stillValid(sender)) {
+                    return;
+                }
+
                 switch (pkt.action()) {
                     case INCREASE_BUILD_LENGTH -> be.increaseBuildLength();
                     case DECREASE_BUILD_LENGTH -> be.decreaseBuildLength();
@@ -338,6 +364,41 @@ public final class NENetwork {
             return new NEOpenCraftingUiPacket(buf.readBlockPos());
         }
 
+        /**
+         * Resolves the {@link ECOCraftingSystemBlockEntity} position from a
+         * source block position. Returns {@code null} when the source is not
+         * part of a crafting multiblock or the controller cannot be reliably
+         * located.
+         *
+         * <p>Resolution rules (in order):
+         * <ol>
+         *   <li>If the source BE is itself an {@code ECOCraftingSystemBlockEntity},
+         *       return its position.</li>
+         *   <li>If the source BE is any {@link AbstractCraftingBlockEntity}
+         *       (worker, pattern bus, parallel core, vent, fluid hatch, etc.),
+         *       walk {@code cluster → controller} and return the controller
+         *       position.</li>
+         *   <li>Otherwise return {@code null} — Storage and Computation
+         *       systems have no reliable path to a crafting controller.</li>
+         * </ol>
+         */
+        private static @Nullable BlockPos resolveCraftingControllerPos(ServerPlayer player, BlockPos sourcePos) {
+            var be = player.level().getBlockEntity(sourcePos);
+            if (be instanceof ECOCraftingSystemBlockEntity controller) {
+                return controller.getBlockPos();
+            }
+            if (be instanceof AbstractCraftingBlockEntity<?> craftingBe) {
+                var cluster = craftingBe.getCluster();
+                if (cluster != null) {
+                    var controller = cluster.getController();
+                    if (controller != null) {
+                        return controller.getBlockPos();
+                    }
+                }
+            }
+            return null;
+        }
+
         public static void handle(NEOpenCraftingUiPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
             var sender = ctx.getSender();
@@ -346,21 +407,37 @@ public final class NENetwork {
                 return;
             }
             ctx.enqueueWork(() -> {
+                // 1. Verify the player has the expected menu open
                 if (!(sender.containerMenu instanceof NEBaseMachineMenu menu)) {
                     return;
                 }
+                // 2. Verify the source position matches the open menu
                 if (!menu.getMachinePos().equals(pkt.sourcePos())) {
                     return;
                 }
+                // 3. Verify the player is still within interaction range
                 if (!menu.stillValid(sender)) {
                     return;
                 }
 
-                BlockPos targetPos = pkt.sourcePos();
-                var be = sender.level().getBlockEntity(targetPos);
-                Component title = be != null
-                    ? be.getBlockState().getBlock().getName()
-                    : Component.literal("Crafting Controller");
+                // 4. Resolve the actual crafting controller position
+                BlockPos targetPos = resolveCraftingControllerPos(sender, pkt.sourcePos());
+                if (targetPos == null) {
+                    return;
+                }
+
+                // 5. Double-check the target BE is a crafting controller
+                var targetBe = sender.level().getBlockEntity(targetPos);
+                if (!(targetBe instanceof ECOCraftingSystemBlockEntity)) {
+                    return;
+                }
+
+                // 6. Target must be in the same level as the player
+                if (targetBe.getLevel() != sender.level()) {
+                    return;
+                }
+
+                Component title = targetBe.getBlockState().getBlock().getName();
 
                 NetworkHooks.openScreen(
                     (ServerPlayer) sender,
@@ -370,6 +447,134 @@ public final class NENetwork {
                     ),
                     buf -> buf.writeBlockPos(targetPos)
                 );
+            });
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * S2C packet carrying a {@link NEStructureTerminalUiState} snapshot
+     * for the Structure Terminal UI.
+     */
+    public record NEStructureTerminalUiStatePacket(NEStructureTerminalUiState state) {
+
+        public static void encode(NEStructureTerminalUiStatePacket pkt, FriendlyByteBuf buf) {
+            var s = pkt.state();
+            buf.writeBlockPos(s.hostPos());
+            buf.writeUtf(s.structureName(), 256);
+            buf.writeBoolean(s.formed());
+            buf.writeBoolean(s.buildInProgress());
+            buf.writeInt(s.selectedBuildLength());
+            buf.writeInt(s.minBuildLength());
+            buf.writeInt(s.maxBuildLength());
+            buf.writeInt(s.previewMissingBlocks());
+            buf.writeInt(s.previewConflictBlocks());
+            buf.writeInt(s.previewReusedBlocks());
+            buf.writeInt(s.previewRequiredItems());
+            buf.writeInt(s.placedBlocks());
+            buf.writeInt(s.totalBlocks());
+            buf.writeUtf(s.previewStatusKey(), 256);
+            buf.writeInt(s.previewStatusArg1());
+            buf.writeInt(s.previewStatusArg2());
+            buf.writeVarInt(s.materials().size());
+            for (var mat : s.materials()) {
+                buf.writeItem(mat.item());
+                buf.writeInt(mat.required());
+                buf.writeInt(mat.available());
+            }
+        }
+
+        public static NEStructureTerminalUiStatePacket decode(FriendlyByteBuf buf) {
+            BlockPos hostPos = buf.readBlockPos();
+            String structureName = buf.readUtf(256);
+            boolean formed = buf.readBoolean();
+            boolean buildInProgress = buf.readBoolean();
+            int buildLength = buf.readInt();
+            int minLen = buf.readInt();
+            int maxLen = buf.readInt();
+            int missing = buf.readInt();
+            int conflicts = buf.readInt();
+            int reused = buf.readInt();
+            int required = buf.readInt();
+            int placed = buf.readInt();
+            int total = buf.readInt();
+            String statusKey = buf.readUtf(256);
+            int arg1 = buf.readInt();
+            int arg2 = buf.readInt();
+            int matCount = buf.readVarInt();
+            var mats = new java.util.ArrayList<NEStructureTerminalUiState.BuildMaterialEntry>(matCount);
+            for (int i = 0; i < matCount; i++) {
+                mats.add(new NEStructureTerminalUiState.BuildMaterialEntry(
+                    buf.readItem(), buf.readInt(), buf.readInt()));
+            }
+            return new NEStructureTerminalUiStatePacket(new NEStructureTerminalUiState(
+                hostPos, structureName, formed, buildInProgress, buildLength,
+                minLen, maxLen, missing, conflicts, reused, required,
+                placed, total, statusKey, arg1, arg2, mats));
+        }
+
+        public static void handle(NEStructureTerminalUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> NEClientUiPacketHandlers.handleStructureTerminalUiState(pkt)));
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * C2S packet for Structure Terminal action buttons.
+     */
+    public record NEStructureTerminalActionPacket(BlockPos pos, Action action) {
+
+        public enum Action {
+            INCREASE_BUILD_LENGTH,
+            DECREASE_BUILD_LENGTH,
+            PREVIEW_STRUCTURE,
+            AUTO_BUILD
+        }
+
+        public static void encode(NEStructureTerminalActionPacket pkt, FriendlyByteBuf buf) {
+            buf.writeBlockPos(pkt.pos());
+            buf.writeEnum(pkt.action());
+        }
+
+        public static NEStructureTerminalActionPacket decode(FriendlyByteBuf buf) {
+            return new NEStructureTerminalActionPacket(buf.readBlockPos(), buf.readEnum(Action.class));
+        }
+
+        public static void handle(NEStructureTerminalActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            var sender = ctx.getSender();
+            if (sender == null) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            ctx.enqueueWork(() -> {
+                if (!(sender.containerMenu instanceof NEStructureTerminalMenu menu)) {
+                    return;
+                }
+                if (!menu.getMachinePos().equals(pkt.pos())) {
+                    return;
+                }
+                if (!menu.stillValid(sender)) {
+                    return;
+                }
+
+                INEMultiblockBuildHost host = menu.getHost(sender);
+                if (host == null) {
+                    return;
+                }
+
+                switch (pkt.action()) {
+                    case INCREASE_BUILD_LENGTH ->
+                        host.setSelectedBuildLength(host.getSelectedBuildLength() + 1);
+                    case DECREASE_BUILD_LENGTH ->
+                        host.setSelectedBuildLength(host.getSelectedBuildLength() - 1);
+                    case PREVIEW_STRUCTURE -> host.previewStructure(sender);
+                    case AUTO_BUILD -> host.autoBuild(sender);
+                }
+
+                menu.sendStateNow(sender);
             });
             ctx.setPacketHandled(true);
         }
