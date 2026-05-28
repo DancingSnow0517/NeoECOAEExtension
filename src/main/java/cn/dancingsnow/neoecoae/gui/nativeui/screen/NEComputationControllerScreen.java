@@ -46,11 +46,6 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
     }
 
     @Override
-    protected boolean shouldShowCraftingEntryButton() {
-        return true;
-    }
-
-    @Override
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         NEComputationUiState s;
 
@@ -78,19 +73,20 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int valueColor = NENativeUiConstants.PANEL_TEXT_SECONDARY;
+        final int labelColor = NENativeUiConstants.MACHINE_TEXT_SECONDARY;
+        final int valueColor = NENativeUiConstants.MACHINE_TEXT_VALUE;
         int y = 50;
 
         // Formed
         guiGraphics.drawString(font,
             Component.translatable("gui.neoecoae.machine.formed").append(": ").append(boolText(s.formed())),
-            x, y, valueColor);
+            x, y, labelColor);
         y += 14;
 
         // Active
         guiGraphics.drawString(font,
             Component.translatable("gui.neoecoae.machine.active").append(": ").append(boolText(s.active())),
-            x, y, valueColor);
+            x, y, labelColor);
         y += 14;
 
         // Storage

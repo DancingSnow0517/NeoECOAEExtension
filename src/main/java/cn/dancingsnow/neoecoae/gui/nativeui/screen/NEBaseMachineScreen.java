@@ -5,7 +5,6 @@ import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NETexturedButton;
-import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -28,12 +27,12 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
     extends AbstractContainerScreen<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(NENativeUiConstants.LOGGER_NAME);
-    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/background.png");
-    private static final int TEX_BG_SIZE = 16;
-    private static final int BG_LEFT = 2;
-    private static final int BG_TOP = 2;
-    private static final int BG_RIGHT = 2;
-    private static final int BG_BOTTOM = 4;
+    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/crafting/background_dark.png");
+    private static final int TEX_BG_SIZE = 32;
+    private static final int BG_LEFT = 6;
+    private static final int BG_TOP = 12;
+    private static final int BG_RIGHT = 6;
+    private static final int BG_BOTTOM = 6;
 
     protected final NEMachineScreenConfig config;
 
@@ -65,19 +64,6 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
                 btn -> LOG.info(getTestLogMessage())
             ));
         }
-
-        if (shouldShowCraftingEntryButton()) {
-            addRenderableWidget(new NETexturedButton(
-                leftPos - 28, topPos + 4, 24, 20,
-                Component.translatable("gui.neoecoae.machine.open_crafting"),
-                btn -> NENetwork.CHANNEL.sendToServer(
-                    new NENetwork.NEOpenCraftingUiPacket(menu.getMachinePos()))
-            ));
-        }
-    }
-
-    protected boolean shouldShowCraftingEntryButton() {
-        return false;
     }
 
     protected String getTestLogMessage() {
@@ -112,15 +98,15 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
         }
         guiGraphics.drawString(font, displayTitle,
             NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
-            NENativeUiConstants.TITLE_COLOR);
+            NENativeUiConstants.MACHINE_TEXT_PRIMARY);
         guiGraphics.drawString(font,
             Component.translatable("gui.neoecoae.machine.ui_rebuilding"),
             NENativeUiConstants.TITLE_X, NENativeUiConstants.REBUILDING_Y,
-            NENativeUiConstants.REBUILDING_TEXT_COLOR);
+            NENativeUiConstants.MACHINE_TEXT_MUTED);
         guiGraphics.drawString(font,
             Component.translatable("gui.neoecoae.machine.native_ui_active"),
             NENativeUiConstants.TITLE_X, NENativeUiConstants.ACTIVE_Y,
-            NENativeUiConstants.ACTIVE_TEXT_COLOR);
+            NENativeUiConstants.MACHINE_TEXT_SUCCESS);
         renderAdditionalLabels(guiGraphics, mouseX, mouseY);
     }
 

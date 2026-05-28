@@ -51,11 +51,6 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     @Override
-    protected boolean shouldShowCraftingEntryButton() {
-        return true;
-    }
-
-    @Override
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         NEStorageUiState s;
 
@@ -85,8 +80,9 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int labelColor = NENativeUiConstants.PANEL_TEXT_MUTED;
-        final int valueColor = NENativeUiConstants.PANEL_TEXT_SECONDARY;
+        final int labelColor = NENativeUiConstants.MACHINE_TEXT_MUTED;
+        final int valueColor = NENativeUiConstants.MACHINE_TEXT_VALUE;
+        final int textColor = NENativeUiConstants.MACHINE_TEXT_SECONDARY;
         int y = 50;
 
         // Per-cell-type rows
@@ -100,7 +96,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             for (NEStorageUiTypeState ts : types) {
                 guiGraphics.drawString(font,
                     Component.literal(ts.displayName() + ":"),
-                    x, y, valueColor);
+                    x, y, textColor);
                 y += 12;
                 guiGraphics.drawString(font,
                     Component.translatable("gui.neoecoae.machine.types_value", fmt(ts.usedTypes()), fmt(ts.totalTypes())),
