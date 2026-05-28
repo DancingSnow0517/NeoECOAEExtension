@@ -5,12 +5,16 @@ import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NETexturedButton;
 import cn.dancingsnow.neoecoae.network.NENetwork;
+import appeng.core.definitions.AEItems;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
@@ -25,6 +29,10 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
     private static final ResourceLocation TEX_BG = NeoECOAE.id("textures/gui/background.png");
     private static final ResourceLocation TEX_SLOT = NeoECOAE.id("textures/gui/slot.png");
+    private static final ResourceLocation TEX_INV_BORDER = NeoECOAE.id("textures/gui/inventory_border.png");
+    private static final ResourceLocation TEX_BAR_CONTAINER = NeoECOAE.id("textures/gui/bar_container.png");
+    private static final ResourceLocation TEX_BAR = NeoECOAE.id("textures/gui/bar.png");
+
     private static final int PANEL_W = 168;
     private static final int PANEL_H = 166;
     private static final int GUI_WIDTH = 168;
@@ -54,21 +62,23 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int UPGRADE_FIRST_Y = 3;
     private static final int UPGRADE_SPACING = 18;
 
-    // 1.21.1 IWS text colors (dark on light panel)
+    // Colors (light panel style)
     private static final int TXT_PRIMARY = 0xFF403E53;
     private static final int TXT_VALUE = 0xFF5A49D6;
     private static final int TXT_HINT = 0xFF2F5F8F;
-
-    // Border colors
-    private static final int BORDER_DARK = 0xFF373737;
-    private static final int BAR_BG = 0xFF8B8B8B;
+    private static final int FLUID_EMPTY = 0xFFADB0C4;
+    private static final int FLUID_BORDER = 0xFF403E53;
+    private static final int FLUID_IN_COLOR = 0xFF3A7FD6;
+    private static final int FLUID_OUT_COLOR = 0xFF8E7CFF;
 
     private NETexturedButton autoExportBtn;
+    private final ItemStack ghostSpeedCard;
 
     public NEIntegratedWorkingStationScreen(NEIntegratedWorkingStationMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
         this.imageWidth = GUI_WIDTH;
         this.imageHeight = GUI_HEIGHT;
+        this.ghostSpeedCard = AEItems.SPEED_CARD.stack();
     }
 
     @Override
@@ -154,6 +164,10 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         NENineSliceRenderer.drawPanel(g, TEX_BG, leftPos + UPGRADE_BAR_X, topPos, 20, 74,
             16, 16, 2, 2, 2, 4);
 
+        // Inventory borders
+        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER, leftPos + 2, topPos + 87, 164, 56, 16, 16, 1, 1, 1, 1);
+        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER, leftPos + 2, topPos + 147, 164, 20, 16, 16, 1, 1, 1, 1);
+
         // ── Slot backgrounds ──
         // 3×3 input at (39,14)
         for (int row = 0; row < 3; row++)
@@ -172,76 +186,60 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         for (int col = 0; col < 9; col++)
             drawSlot(g, leftPos + 3 + col * 18, topPos + 148);
 
-        // ── Input fluid bar (18×54 at 3,14) ──
-        int fluidIn = menu.getFluidInAmount();
-        drawBarBorder(g, leftPos + FLUID_IN_X, topPos + FLUID_IN_Y, FLUID_IN_W, FLUID_IN_H);
-        if (fluidIn > 0) {
-            int h = Math.max(1, fluidIn * FLUID_IN_H / 16000);
-            g.fill(leftPos + FLUID_IN_X + 1, topPos + FLUID_IN_Y + FLUID_IN_H - h,
-                leftPos + FLUID_IN_X + FLUID_IN_W - 1, topPos + FLUID_IN_Y + FLUID_IN_H - 1,
-                0xFF3A7FD6);
+        // Ghost speed card in empty upgrade slots
+        for (int i = 0; i < 4; i++) {
+            if (menu.slots.size() > 10 + i && !menu.getSlot(10 + i).hasItem()) {
+                PoseStack ps = g.pose();
+                ps.pushPose();
+                ps.translate(leftPos + UPGRADE_X + 1, topPos + UPGRADE_FIRST_Y + i * UPGRADE_SPACING + 1, 0);
+                RenderSystem.enableBlend();
+                RenderSystem.setShaderColor(1, 1, 1, 0.3f);
+                g.renderItem(ghostSpeedCard, 0, 0);
+                RenderSystem.setShaderColor(1, 1, 1, 1);
+                RenderSystem.disableBlend();
+                ps.popPose();
+            }
         }
 
-        // ── Output fluid bar (18×54 at 147,14) ──
-        int fluidOut = menu.getFluidOutAmount();
-        drawBarBorder(g, leftPos + FLUID_OUT_X, topPos + FLUID_OUT_Y, FLUID_OUT_W, FLUID_OUT_H);
-        if (fluidOut > 0) {
-            int h = Math.max(1, fluidOut * FLUID_OUT_H / 16000);
-            g.fill(leftPos + FLUID_OUT_X + 1, topPos + FLUID_OUT_Y + FLUID_OUT_H - h,
-                leftPos + FLUID_OUT_X + FLUID_OUT_W - 1, topPos + FLUID_OUT_Y + FLUID_OUT_H - 1,
-                0xFF8E7CFF);
-        }
+        // ── Fluid bars ──
+        drawFluidBar(g, leftPos + FLUID_IN_X, topPos + FLUID_IN_Y, menu.getFluidInAmount(), FLUID_IN_COLOR);
+        drawFluidBar(g, leftPos + FLUID_OUT_X, topPos + FLUID_OUT_Y, menu.getFluidOutAmount(), FLUID_OUT_COLOR);
 
-        // ── Progress bar (6×18 at 128,32, bottom-up) ──
-        int progress = menu.getProgress();
-        int maxProgress = menu.getMaxProgress();
-        drawBarBorder(g, leftPos + PROGRESS_X, topPos + PROGRESS_Y, PROGRESS_W, PROGRESS_H);
-        if (maxProgress > 0 && progress > 0) {
-            int h = Math.max(1, progress * (PROGRESS_H - 2) / maxProgress);
-            g.fill(leftPos + PROGRESS_X + 1,
-                topPos + PROGRESS_Y + PROGRESS_H - 1 - h,
-                leftPos + PROGRESS_X + PROGRESS_W - 1,
-                topPos + PROGRESS_Y + PROGRESS_H - 1,
-                0xFF5A49D6);
-        }
+        // ── Progress bar (6×18, bottom-up with textures) ──
+        drawProgressBar(g, leftPos + PROGRESS_X, topPos + PROGRESS_Y, menu.getProgress(), menu.getMaxProgress());
     }
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        // Title at (8,5)
         g.drawString(font, title, 8, 5, TXT_PRIMARY, false);
-
-        // Inventory label at (3,75)
-        g.drawString(font, Component.translatable("gui.neoecoae.common.inventory"),
-            3, 75, TXT_HINT, false);
-
-        // Progress percentage next to bar
-        int progress = menu.getProgress();
-        int maxProgress = menu.getMaxProgress();
-        if (maxProgress > 0) {
-            int pct = progress * 100 / maxProgress;
-            g.drawString(font, Component.literal(pct + "%"),
-                PROGRESS_X, PROGRESS_Y + PROGRESS_H + 2, TXT_VALUE, false);
-        }
+        g.drawString(font, Component.translatable("gui.neoecoae.common.inventory"), 3, 75, TXT_HINT, false);
     }
 
-    // ── IWS-local drawing helpers ──
-
-    private void drawLabelValueUnit(GuiGraphics g, Component label, String valueStr, int x, int y) {
-        g.drawString(font, label, x, y, TXT_PRIMARY, false);
-        int labelW = font.width(label);
-        g.drawString(font, Component.literal(valueStr), x + labelW, y, TXT_VALUE, false);
-    }
+    // ── Drawing helpers ──
 
     private void drawSlot(GuiGraphics g, int x, int y) {
         g.blit(TEX_SLOT, x, y, 0, 0, 18, 18, 18, 18);
     }
 
-    private void drawBarBorder(GuiGraphics g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, BAR_BG);
-        g.fill(x, y, x + w, y + 1, BORDER_DARK);
-        g.fill(x, y + h - 1, x + w, y + h, BORDER_DARK);
-        g.fill(x, y, x + 1, y + h, BORDER_DARK);
-        g.fill(x + w - 1, y, x + w, y + h, BORDER_DARK);
+    private void drawFluidBar(GuiGraphics g, int x, int y, int amount, int color) {
+        g.fill(x, y, x + FLUID_IN_W, y + FLUID_IN_H, FLUID_EMPTY);
+        g.fill(x, y, x + FLUID_IN_W, y + 1, FLUID_BORDER);
+        g.fill(x, y + FLUID_IN_H - 1, x + FLUID_IN_W, y + FLUID_IN_H, FLUID_BORDER);
+        g.fill(x, y, x + 1, y + FLUID_IN_H, FLUID_BORDER);
+        g.fill(x + FLUID_IN_W - 1, y, x + FLUID_IN_W, y + FLUID_IN_H, FLUID_BORDER);
+        if (amount > 0) {
+            int h = Math.max(1, amount * (FLUID_IN_H - 2) / 16000);
+            g.fill(x + 1, y + FLUID_IN_H - 1 - h, x + FLUID_IN_W - 1, y + FLUID_IN_H - 1, color);
+        }
+    }
+
+    private void drawProgressBar(GuiGraphics g, int x, int y, int progress, int max) {
+        RenderSystem.setShaderTexture(0, TEX_BAR_CONTAINER);
+        g.blit(TEX_BAR_CONTAINER, x, y, 0, 0, PROGRESS_W, PROGRESS_H, PROGRESS_W, PROGRESS_H);
+        if (max > 0 && progress > 0) {
+            int h = Math.min(16, Math.max(1, progress * 16 / max));
+            RenderSystem.setShaderTexture(0, TEX_BAR);
+            g.blit(TEX_BAR, x + 1, y + 1 + 16 - h, 0, 16 - h, 4, h, 4, 16);
+        }
     }
 }
