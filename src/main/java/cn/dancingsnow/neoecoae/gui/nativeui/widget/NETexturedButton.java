@@ -25,17 +25,24 @@ public class NETexturedButton extends Button {
 
     private final int textColor;
     private final int disabledTextColor;
+    private final boolean drawShadow;
 
     public NETexturedButton(int x, int y, int width, int height, Component message,
                              OnPress onPress) {
-        this(x, y, width, height, message, onPress, 0xFF20232A, 0xFF808590);
+        this(x, y, width, height, message, onPress, 0xFF20232A, 0xFF808590, false);
     }
 
     public NETexturedButton(int x, int y, int width, int height, Component message,
                              OnPress onPress, int textColor, int disabledTextColor) {
+        this(x, y, width, height, message, onPress, textColor, disabledTextColor, false);
+    }
+
+    public NETexturedButton(int x, int y, int width, int height, Component message,
+                             OnPress onPress, int textColor, int disabledTextColor, boolean drawShadow) {
         super(x, y, width, height, message, onPress, DEFAULT_NARRATION);
         this.textColor = textColor;
         this.disabledTextColor = disabledTextColor;
+        this.drawShadow = drawShadow;
     }
 
     @Override
@@ -55,12 +62,21 @@ public class NETexturedButton extends Button {
             BORDER_LEFT, BORDER_TOP, BORDER_RIGHT, BORDER_BOTTOM);
 
         int color = active ? textColor : disabledTextColor;
-        guiGraphics.drawCenteredString(
-            Minecraft.getInstance().font,
-            getMessage(),
-            getX() + width / 2,
-            getY() + (height - 8) / 2,
-            color
-        );
+        if (drawShadow) {
+            // drawString with shadow — manual center since drawCenteredString lacks shadow
+            Component msg = getMessage();
+            int textW = Minecraft.getInstance().font.width(msg);
+            int textX = getX() + (width - textW) / 2;
+            int textY = getY() + (height - 8) / 2;
+            guiGraphics.drawString(Minecraft.getInstance().font, msg, textX, textY, color, true);
+        } else {
+            guiGraphics.drawCenteredString(
+                Minecraft.getInstance().font,
+                getMessage(),
+                getX() + width / 2,
+                getY() + (height - 8) / 2,
+                color
+            );
+        }
     }
 }

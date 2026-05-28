@@ -70,10 +70,10 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
                 }
             });
 
-            // Upgrade slots (4, right bar) at (172, 3+18*i)
+            // Upgrade slots (4, right bar) — coordinates synced with Screen
             IItemHandler upgradeHandler = be.getUpgradeItemHandler();
             for (int i = 0; i < 4; i++) {
-                addSlot(new SlotItemHandler(upgradeHandler, i, 172, 3 + i * 18) {
+                addSlot(new SlotItemHandler(upgradeHandler, i, 171, 2 + i * 18) {
                     @Override
                     public boolean mayPlace(@NotNull ItemStack stack) {
                         return upgradeHandler.isItemValid(0, stack);
