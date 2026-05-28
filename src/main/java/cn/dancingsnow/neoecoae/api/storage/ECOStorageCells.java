@@ -52,6 +52,9 @@ public class ECOStorageCells {
             return null;
         }
         for (IECOCellHandler handler : handlers) {
+            if (!handler.isCell(stack)) {
+                continue;
+            }
             IECOStorageCell inv = handler.getCellInventory(stack, host);
             if (inv != null) {
                 return inv;

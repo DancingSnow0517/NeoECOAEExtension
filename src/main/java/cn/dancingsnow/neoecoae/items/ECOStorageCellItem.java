@@ -270,6 +270,48 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         return true;
     }
 
+    // ── Cell handlers (registered in ECOStorageCells) ──
+
+    /** Matches only item (non-fluid, non-chemical) storage cells. */
+    public static class ItemCellHandler implements IECOCellHandler {
+
+        public static final ItemCellHandler INSTANCE = new ItemCellHandler();
+
+        @Override
+        public boolean isCell(ItemStack stack) {
+            if (stack.getItem() instanceof ECOStorageCellItem item) {
+                return item.getKeyType() == AEKeyType.items();
+            }
+            return false;
+        }
+
+        @Override
+        public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
+            return ECOStorageCellItem.getCellInventory(is, host);
+        }
+    }
+
+    /** Matches only fluid storage cells. */
+    public static class FluidCellHandler implements IECOCellHandler {
+
+        public static final FluidCellHandler INSTANCE = new FluidCellHandler();
+
+        @Override
+        public boolean isCell(ItemStack stack) {
+            if (stack.getItem() instanceof ECOStorageCellItem item) {
+                return item.getKeyType() == AEKeyType.fluids();
+            }
+            return false;
+        }
+
+        @Override
+        public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
+            return ECOStorageCellItem.getCellInventory(is, host);
+        }
+    }
+
+    /** @deprecated Replaced by {@link ItemCellHandler} and {@link FluidCellHandler}. */
+    @Deprecated
     public static class Handler implements IECOCellHandler {
 
         public static final Handler INSTANCE = new Handler();

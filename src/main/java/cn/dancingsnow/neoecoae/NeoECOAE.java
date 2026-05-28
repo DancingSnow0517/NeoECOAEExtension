@@ -122,7 +122,8 @@ public class NeoECOAE {
 
     private static void initStorageCells(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
-            ECOStorageCells.register(ECOStorageCellItem.Handler.INSTANCE);
+            ECOStorageCells.register(ECOStorageCellItem.ItemCellHandler.INSTANCE);
+            ECOStorageCells.register(ECOStorageCellItem.FluidCellHandler.INSTANCE);
         });
     }
 
