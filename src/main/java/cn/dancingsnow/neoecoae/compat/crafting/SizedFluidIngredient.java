@@ -51,4 +51,9 @@ public record SizedFluidIngredient(FluidIngredient ingredient, int amount) {
         ingredient.toNetwork(buffer);
         buffer.writeVarInt(amount);
     }
+
+    /** Returns FluidStack array for EMI display. */
+    public FluidStack[] getFluids() {
+        return ingredient.getFluids();
+    }
 }

@@ -36,6 +36,9 @@ public record SizedIngredient(Ingredient ingredient, int count) {
         }
 
         JsonObject ingredientObject = ingredientJson.getAsJsonObject();
+        // Remove count/amount keys so vanilla Ingredient.fromJson does not choke
+        if (ingredientObject.has("count")) ingredientObject.remove("count");
+        if (ingredientObject.has("amount")) ingredientObject.remove("amount");
         if (!ingredientObject.has("item") && !ingredientObject.has("tag") && !ingredientObject.has("id")) {
             throw new JsonParseException("Sized ingredient must contain 'item', 'id', or 'tag'");
         }

@@ -102,4 +102,12 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
         buffer.writeByte(2);
         buffer.writeResourceLocation(tag.location());
     }
+
+    /** Returns FluidStack array for EMI display (specific fluid only; tags return empty). */
+    public FluidStack[] getFluids() {
+        if (fluid != null) {
+            return new FluidStack[]{new FluidStack(fluid, 1000)};
+        }
+        return new FluidStack[0];
+    }
 }
