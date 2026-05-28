@@ -237,6 +237,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 case 5 -> working ? 1 : 0;
                 case 6 -> inputTank.getFluidAmount();
                 case 7 -> shouldAutoExport ? 1 : 0;
+                case 8 -> outputTank.getFluidAmount();
                 default -> 0;
             };
         }
@@ -248,7 +249,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
         @Override
         public int getCount() {
-            return 8;
+            return 9;
         }
     };
 
@@ -262,6 +263,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public IItemHandler getOutputItemHandler() {
         return (IItemHandler) outputExposed.toItemHandler();
+    }
+
+    /** Returns the AE2 upgrade inventory as an IItemHandler for slot display. */
+    public IItemHandler getUpgradeItemHandler() {
+        return upgrades.toItemHandler();
     }
 
     // ── State ──
