@@ -14,46 +14,31 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Menu for the ECO Computation Controller with live read-only status.
  * <p>
- * Periodically (every 20 ticks) sends a S2C {@link NEComputationUiState}
- * packet so the screen shows live server-side stats. Duplicate states
- * with identical values are suppressed.
+ * Extends {@link NEUiStateMachineMenu} to periodically push a
+ * {@link NEComputationUiState} snapshot to the client.
  * </p>
  */
-public class NEComputationControllerMenu extends NEBaseMachineMenu {
-
-    private int tickCounter;
-    @Nullable
-    private NEComputationUiState lastSentState;
+public class NEComputationControllerMenu extends NEUiStateMachineMenu<NEComputationUiState> {
 
     public NEComputationControllerMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
         super(NENativeMenus.COMPUTATION_CONTROLLER.get(), containerId, playerInv, machinePos);
     }
 
     @Override
-    public void broadcastChanges() {
-        super.broadcastChanges();
-
-        if (!(player instanceof ServerPlayer serverPlayer)) {
-            return;
+    @Nullable
+    protected NEComputationUiState createState(ServerPlayer player) {
+        BlockEntity be = player.level().getBlockEntity(machinePos);
+        if (be instanceof ECOComputationSystemBlockEntity comp) {
+            return comp.createComputationUiState();
         }
+        return null;
+    }
 
-        tickCounter++;
-
-        // Send immediately on first tick, then every 20 ticks
-        if (tickCounter == 1 || tickCounter % 20 == 0) {
-            BlockEntity be = serverPlayer.level().getBlockEntity(machinePos);
-            if (be instanceof ECOComputationSystemBlockEntity comp) {
-                NEComputationUiState state = comp.createComputationUiState();
-                // Suppress duplicate sends when nothing changed
-                if (tickCounter != 1 && state.equals(lastSentState)) {
-                    return;
-                }
-                lastSentState = state;
-                NENetwork.CHANNEL.send(
-                    PacketDistributor.PLAYER.with(() -> serverPlayer),
-                    new NENetwork.NEComputationUiStatePacket(state)
-                );
-            }
-        }
+    @Override
+    protected void sendState(ServerPlayer player, NEComputationUiState state) {
+        NENetwork.CHANNEL.send(
+            PacketDistributor.PLAYER.with(() -> player),
+            new NENetwork.NEComputationUiStatePacket(state)
+        );
     }
 }

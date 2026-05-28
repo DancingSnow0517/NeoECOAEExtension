@@ -38,21 +38,31 @@ public final class NENetwork {
     private static int packetId = 0;
 
     public static void register() {
-        CHANNEL.registerMessage(
-            packetId++,
-            NEStorageUiStatePacket.class,
+        registerS2C(NEStorageUiStatePacket.class,
             NEStorageUiStatePacket::encode,
             NEStorageUiStatePacket::decode,
-            NEStorageUiStatePacket::handle,
-            Optional.of(NetworkDirection.PLAY_TO_CLIENT)
-        );
+            NEStorageUiStatePacket::handle);
 
-        CHANNEL.registerMessage(
-            packetId++,
-            NEComputationUiStatePacket.class,
+        registerS2C(NEComputationUiStatePacket.class,
             NEComputationUiStatePacket::encode,
             NEComputationUiStatePacket::decode,
-            NEComputationUiStatePacket::handle,
+            NEComputationUiStatePacket::handle);
+    }
+
+    /**
+     * Registers a PLAY_TO_CLIENT packet with an auto-incrementing id.
+     * <p>
+     * Keeps the {@link #register()} method readable as more machine UI
+     * state packets are added in future phases.
+     * </p>
+     */
+    @SuppressWarnings("SameParameterValue")
+    private static <MSG> void registerS2C(Class<MSG> clazz,
+                                           java.util.function.BiConsumer<MSG, FriendlyByteBuf> encoder,
+                                           java.util.function.Function<FriendlyByteBuf, MSG> decoder,
+                                           java.util.function.BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
+        CHANNEL.registerMessage(
+            packetId++, clazz, encoder, decoder, handler,
             Optional.of(NetworkDirection.PLAY_TO_CLIENT)
         );
     }

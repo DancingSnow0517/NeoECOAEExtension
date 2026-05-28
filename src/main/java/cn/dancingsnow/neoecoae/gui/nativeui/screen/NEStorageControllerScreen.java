@@ -34,8 +34,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     public NEStorageControllerScreen(NEStorageControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.STORAGE_CONTROLLER);
-        this.imageWidth = 300;
-        this.imageHeight = 200;
+        this.imageWidth = 320;
+        this.imageHeight = 220;
         this.storageState = NEStorageUiState.empty(menu.getMachinePos());
     }
 
@@ -63,7 +63,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             if (be != null) {
                 // Wrap legacy BE getters into a single "unknown" type row
                 NEStorageUiTypeState fallbackType = new NEStorageUiTypeState(
-                    new ResourceLocation("neoecoae", "legacy"),
+                    ResourceLocation.fromNamespaceAndPath("neoecoae", "legacy"),
                     "Storage",
                     be.getTotalUsedTypes(), be.getTotalTypes(),
                     be.getTotalUsedBytes(), be.getTotalBytes()

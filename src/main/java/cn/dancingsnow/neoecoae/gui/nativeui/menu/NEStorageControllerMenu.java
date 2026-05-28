@@ -12,48 +12,33 @@ import net.minecraftforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Menu for the ECO Storage Controller.
+ * Menu for the ECO Storage Controller with live read-only status.
  * <p>
- * Periodically (every 20 ticks) sends a S2C {@link NEStorageUiState}
- * packet so the screen shows live server-side stats. Duplicate states
- * with identical values are suppressed.
+ * Extends {@link NEUiStateMachineMenu} to periodically push an
+ * {@link NEStorageUiState} snapshot to the client.
  * </p>
  */
-public class NEStorageControllerMenu extends NEBaseMachineMenu {
-
-    private int tickCounter;
-    @Nullable
-    private NEStorageUiState lastSentState;
+public class NEStorageControllerMenu extends NEUiStateMachineMenu<NEStorageUiState> {
 
     public NEStorageControllerMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
         super(NENativeMenus.STORAGE_CONTROLLER.get(), containerId, playerInv, machinePos);
     }
 
     @Override
-    public void broadcastChanges() {
-        super.broadcastChanges();
-
-        if (!(player instanceof ServerPlayer serverPlayer)) {
-            return;
+    @Nullable
+    protected NEStorageUiState createState(ServerPlayer player) {
+        BlockEntity be = player.level().getBlockEntity(machinePos);
+        if (be instanceof ECOStorageSystemBlockEntity storage) {
+            return storage.createStorageUiState();
         }
+        return null;
+    }
 
-        tickCounter++;
-
-        // Send immediately on first tick, then every 20 ticks
-        if (tickCounter == 1 || tickCounter % 20 == 0) {
-            BlockEntity be = serverPlayer.level().getBlockEntity(machinePos);
-            if (be instanceof ECOStorageSystemBlockEntity storage) {
-                NEStorageUiState state = storage.createStorageUiState();
-                // Suppress duplicate sends when nothing changed
-                if (tickCounter != 1 && state.equals(lastSentState)) {
-                    return;
-                }
-                lastSentState = state;
-                NENetwork.CHANNEL.send(
-                    PacketDistributor.PLAYER.with(() -> serverPlayer),
-                    new NENetwork.NEStorageUiStatePacket(state)
-                );
-            }
-        }
+    @Override
+    protected void sendState(ServerPlayer player, NEStorageUiState state) {
+        NENetwork.CHANNEL.send(
+            PacketDistributor.PLAYER.with(() -> player),
+            new NENetwork.NEStorageUiStatePacket(state)
+        );
     }
 }

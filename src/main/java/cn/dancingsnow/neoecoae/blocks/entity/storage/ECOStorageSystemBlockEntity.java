@@ -6,6 +6,7 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.core.localization.Tooltips;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -289,15 +290,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     /**
-     * Resolves the registry key for an ECOCellType.
-     * Returns {@code neoecoae:unknown} when the instance is not a registered
-     * singleton, rather than trying to guess via Component-desc matching.
+     * Returns the stable identity key for a cell type.
+     * Uses the {@code id} field embedded in {@link ECOCellType} directly,
+     * avoiding {@code Registry.getKey()} which is unreliable for custom
+     * Registrate-built registries.
      */
     private static ResourceLocation getCellTypeKey(ECOCellType cellType) {
-        var reg = NERegistries.cellTypeRegistry();
-        if (reg == null) return new ResourceLocation("neoecoae", "unknown");
-        ResourceLocation key = reg.getKey(cellType);
-        return key != null ? key : new ResourceLocation("neoecoae", "unknown");
+        ResourceLocation id = cellType.id();
+        return id != null ? id : ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "unknown");
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
