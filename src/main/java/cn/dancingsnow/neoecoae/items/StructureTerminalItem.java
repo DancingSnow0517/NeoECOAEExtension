@@ -75,10 +75,16 @@ public class StructureTerminalItem extends Item {
 
     /**
      * Right-click in air → open terminal config UI.
+     * Shift + right-click in air → no action (blocked).
      */
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+
+        // Shift + air → do nothing, prevent config UI
+        if (player.isShiftKeyDown()) {
+            return InteractionResultHolder.pass(stack);
+        }
 
         if (level.isClientSide()) {
             return InteractionResultHolder.success(stack);
@@ -125,12 +131,8 @@ public class StructureTerminalItem extends Item {
         // Shift + right-click → try to build
         BlockEntity be = level.getBlockEntity(pos);
         if (!(be instanceof INEMultiblockBuildHost host)) {
-            // Not a host → pass through with a hint
-            if (!level.isClientSide() && player instanceof ServerPlayer sp) {
-                sp.displayClientMessage(
-                    Component.translatable("gui.neoecoae.terminal.not_a_host"), true);
-            }
-            return InteractionResult.PASS;
+            // Not a host → consume to block block's own interaction / UI
+            return InteractionResult.CONSUME;
         }
 
         if (level.isClientSide()) {

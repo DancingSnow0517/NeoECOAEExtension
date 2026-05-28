@@ -80,45 +80,45 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int labelColor = NENativeUiConstants.MACHINE_TEXT_MUTED;
-        final int valueColor = NENativeUiConstants.MACHINE_TEXT_VALUE;
-        final int textColor = NENativeUiConstants.MACHINE_TEXT_SECONDARY;
-        int y = 50;
+        int y = 30;
 
         // Per-cell-type rows
         List<NEStorageUiTypeState> types = s.typeStates();
         if (types.isEmpty()) {
-            guiGraphics.drawString(font,
+            drawText(guiGraphics,
                 Component.translatable("gui.neoecoae.machine.no_storage_cells"),
-                x, y, labelColor);
+                x, y, NENativeUiConstants.MACHINE_TEXT_SECONDARY);
             y += 14;
         } else {
+            Component typesLabel = Component.translatable("gui.neoecoae.common.types");
+            Component bytesLabel = Component.translatable("gui.neoecoae.common.bytes");
+            Component bytesUnit = Component.translatable("gui.neoecoae.machine.bytes_unit");
             for (NEStorageUiTypeState ts : types) {
-                guiGraphics.drawString(font,
-                    Component.literal(ts.displayName() + ":"),
-                    x, y, textColor);
+                // Header: type name (light gray)
+                drawText(guiGraphics, Component.literal(ts.displayName() + ":"),
+                    x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
                 y += 12;
-                guiGraphics.drawString(font,
-                    Component.translatable("gui.neoecoae.machine.types_value", fmt(ts.usedTypes()), fmt(ts.totalTypes())),
-                    x + 4, y, valueColor);
+                // Types: 0 / 1890
+                drawLabelNumberPair(guiGraphics, typesLabel,
+                    ts.usedTypes(), ts.totalTypes(), x + 4, y);
                 y += 11;
-                guiGraphics.drawString(font,
-                    Component.translatable("gui.neoecoae.machine.bytes_value", fmt(ts.usedBytes()), fmt(ts.totalBytes())),
-                    x + 4, y, valueColor);
+                // Bytes: 0 / 1070663296 bytes
+                drawLabelNumberPairUnit(guiGraphics, bytesLabel,
+                    ts.usedBytes(), ts.totalBytes(), bytesUnit, x + 4, y);
                 y += 13;
             }
         }
 
         // Energy
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.energy_value", fmt(s.storedEnergy()), fmt(s.maxEnergy())),
-            x, y, valueColor);
+        drawLabelNumberPair(guiGraphics,
+            Component.translatable("gui.neoecoae.common.energy"),
+            s.storedEnergy(), s.maxEnergy(), x, y);
         y += 14;
 
         // Formed
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.formed").append(": ").append(boolText(s.formed())),
-            x, y, labelColor);
+        drawLabelBoolean(guiGraphics,
+            Component.translatable("gui.neoecoae.machine.formed"),
+            s.formed(), x, y);
     }
 
     private ECOStorageSystemBlockEntity getStorageBE() {

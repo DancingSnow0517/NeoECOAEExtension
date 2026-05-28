@@ -56,50 +56,31 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int valueColor = NENativeUiConstants.MACHINE_TEXT_VALUE;
-        final int labelColor = NENativeUiConstants.MACHINE_TEXT_SECONDARY;
-        int y = 50;
+        int y = 30;
 
         // Row 1: Formed / Active
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.formed").append(": ").append(boolText(s.formed())),
-            x, y, labelColor);
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.active").append(": ").append(boolText(s.active())),
-            x + 140, y, labelColor);
+        drawLabelBoolean(guiGraphics, Component.translatable("gui.neoecoae.machine.formed"), s.formed(), x, y);
+        drawLabelBoolean(guiGraphics, Component.translatable("gui.neoecoae.machine.active"), s.active(), x + 140, y);
         y += 14;
 
-        // Row 2: Workers / Parallel / Buses
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.workers", s.workerCount()),
-            x, y, valueColor);
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.parallel", s.parallelCount()),
-            x + 100, y, valueColor);
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.patterns", s.patternBusCount()),
-            x + 200, y, valueColor);
+        // Row 2: Workers / Parallel / Patterns
+        drawLabelNumber(guiGraphics, Component.translatable("gui.neoecoae.machine.workers_label"), s.workerCount(), x, y);
+        drawLabelNumber(guiGraphics, Component.translatable("gui.neoecoae.machine.parallel_label"), s.parallelCount(), x + 100, y);
+        drawLabelNumber(guiGraphics, Component.translatable("gui.neoecoae.machine.patterns_label"), s.patternBusCount(), x + 200, y);
         y += 14;
 
         // Row 3: Threads
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.threads_value", s.runningThreadCount(), s.threadCount()),
-            x, y, valueColor);
+        drawLabelNumberPair(guiGraphics, Component.translatable("gui.neoecoae.machine.threads_label"),
+            s.runningThreadCount(), s.threadCount(), x, y);
         y += 14;
 
         // Row 4: Overclocked / Active Cooling
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.overclocked").append(": ").append(boolText(s.overclocked())),
-            x, y, labelColor);
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.active_cooling").append(": ").append(boolText(s.activeCooling())),
-            x + 140, y, labelColor);
+        drawLabelBoolean(guiGraphics, Component.translatable("gui.neoecoae.machine.overclocked"), s.overclocked(), x, y);
+        drawLabelBoolean(guiGraphics, Component.translatable("gui.neoecoae.machine.active_cooling"), s.activeCooling(), x + 140, y);
         y += 14;
 
         // Row 5: Build hint
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.use_structure_terminal"),
-            x, y, NENativeUiConstants.MACHINE_TEXT_HINT);
+        drawHint(guiGraphics, Component.translatable("gui.neoecoae.machine.use_structure_terminal"), x, y);
     }
 
     private ECOCraftingSystemBlockEntity getCraftingBE() {

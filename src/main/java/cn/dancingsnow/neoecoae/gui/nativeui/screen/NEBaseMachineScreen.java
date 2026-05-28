@@ -99,15 +99,66 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
         guiGraphics.drawString(font, displayTitle,
             NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
             NENativeUiConstants.MACHINE_TEXT_PRIMARY);
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.ui_rebuilding"),
-            NENativeUiConstants.TITLE_X, NENativeUiConstants.REBUILDING_Y,
-            NENativeUiConstants.MACHINE_TEXT_MUTED);
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.native_ui_active"),
-            NENativeUiConstants.TITLE_X, NENativeUiConstants.ACTIVE_Y,
-            NENativeUiConstants.MACHINE_TEXT_SUCCESS);
         renderAdditionalLabels(guiGraphics, mouseX, mouseY);
+    }
+
+    // ── Label-value drawing helpers ──
+
+    /** Draw a plain Component at (x, y) with a specific color. */
+    protected void drawText(GuiGraphics g, Component text, int x, int y, int color) {
+        g.drawString(font, text, x, y, color);
+    }
+
+    /** Draw "label: value" — label in light-gray, number value in blue-violet. */
+    protected void drawLabelNumber(GuiGraphics g, Component label, long value, int x, int y) {
+        Component labelColon = label.copy().append(": ");
+        g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        int labelWidth = font.width(labelColon);
+        g.drawString(font, Component.literal(formatNumber(value)),
+            x + labelWidth, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
+    }
+
+    /** Draw "label: current / max" — both numbers in blue-violet. */
+    protected void drawLabelNumberPair(GuiGraphics g, Component label, long current, long max, int x, int y) {
+        Component labelColon = label.copy().append(": ");
+        g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        int labelWidth = font.width(labelColon);
+        String cur = formatNumber(current);
+        String m = formatNumber(max);
+        Component pair = Component.literal(cur + " / " + m);
+        g.drawString(font, pair, x + labelWidth, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
+    }
+
+    /** Draw "label: current / max unit" — numbers in blue-violet, unit in light-gray. */
+    protected void drawLabelNumberPairUnit(GuiGraphics g, Component label, long current, long max,
+                                           Component unit, int x, int y) {
+        Component labelColon = label.copy().append(": ");
+        g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        int labelWidth = font.width(labelColon);
+        String pairStr = formatNumber(current) + " / " + formatNumber(max) + " ";
+        g.drawString(font, Component.literal(pairStr), x + labelWidth, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
+        int pairWidth = font.width(pairStr);
+        g.drawString(font, unit, x + labelWidth + pairWidth, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+    }
+
+    /** Draw "label: yes/no" — label in light-gray, boolean in green/red. */
+    protected void drawLabelBoolean(GuiGraphics g, Component label, boolean value, int x, int y) {
+        Component labelColon = label.copy().append(": ");
+        g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        int labelWidth = font.width(labelColon);
+        Component boolText = Component.translatable(value ? "gui.neoecoae.common.yes" : "gui.neoecoae.common.no");
+        g.drawString(font, boolText, x + labelWidth, y,
+            value ? NENativeUiConstants.MACHINE_TEXT_SUCCESS : NENativeUiConstants.MACHINE_TEXT_ERROR);
+    }
+
+    /** Draw a hint line in blue. */
+    protected void drawHint(GuiGraphics g, Component hint, int x, int y) {
+        g.drawString(font, hint, x, y, NENativeUiConstants.MACHINE_TEXT_HINT);
+    }
+
+    /** Format long with commas. */
+    protected static String formatNumber(long value) {
+        return java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(value);
     }
 
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {

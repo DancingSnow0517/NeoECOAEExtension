@@ -4,10 +4,23 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.ItemLike;
 
 public record SizedIngredient(Ingredient ingredient, int count) {
+    /** Create a SizedIngredient from an ItemLike. */
+    public static SizedIngredient of(ItemLike itemLike, int count) {
+        return new SizedIngredient(Ingredient.of(itemLike), count);
+    }
+
+    /** Create a SizedIngredient from a tag. */
+    public static SizedIngredient of(TagKey<Item> tag, int count) {
+        return new SizedIngredient(Ingredient.of(tag), count);
+    }
+
     public static SizedIngredient fromJson(JsonElement json) {
         if (json == null || json.isJsonNull()) {
             return new SizedIngredient(Ingredient.EMPTY, 0);

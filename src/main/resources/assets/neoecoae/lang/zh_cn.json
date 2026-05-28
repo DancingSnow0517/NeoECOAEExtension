@@ -289,4 +289,14 @@
   "gui.neoecoae.terminal.not_a_host": "此方块不是有效的搭建目标",
   "gui.neoecoae.migration_ui.no_ldlib1_ui": "此机器尚未实现 LDLib1 界面",
   "gui.neoecoae.crafting.coolant_amount": "冷却液：%s / %s"
+  "gui.neoecoae.machine.workers_label": "工作器",
+  "gui.neoecoae.machine.bytes_unit": "字节",
+  "gui.neoecoae.machine.parallel_cores_label": "并行核心",
+  "gui.neoecoae.machine.accelerators_label": "加速器"
+  "gui.neoecoae.common.threads": "线程",
+  "gui.neoecoae.common.bytes": "字节",
+  "gui.neoecoae.common.types": "类型",
+  "gui.neoecoae.common.energy": "能量",
+  "gui.neoecoae.common.parallel": "并行",
+  "gui.neoecoae.machine.storage": "存储"
 }

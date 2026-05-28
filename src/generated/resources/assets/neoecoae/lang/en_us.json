@@ -1,4 +1,4 @@
-{
+﻿{
   "block.neoecoae.aluminum_alloy_block": "Aluminum Alloy Block",
   "block.neoecoae.aluminum_alloy_casing": "Aluminum Alloy Casing",
   "block.neoecoae.aluminum_block": "Aluminum Block",
@@ -360,4 +360,8 @@
   "gui.neoecoae.machine.active_cooling": "Active Cooling",
   "gui.neoecoae.machine.use_structure_terminal": "Use Structure Terminal to build",
   "gui.neoecoae.machine.storage_bytes": "Storage: %s / %s bytes"
+  "gui.neoecoae.machine.workers_label": "Workers",
+  "gui.neoecoae.machine.bytes_unit": "bytes",
+  "gui.neoecoae.machine.parallel_cores_label": "Parallel Cores",
+  "gui.neoecoae.machine.accelerators_label": "Accelerators"
 }

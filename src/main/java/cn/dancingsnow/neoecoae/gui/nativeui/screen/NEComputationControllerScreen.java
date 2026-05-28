@@ -73,44 +73,43 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int labelColor = NENativeUiConstants.MACHINE_TEXT_SECONDARY;
-        final int valueColor = NENativeUiConstants.MACHINE_TEXT_VALUE;
-        int y = 50;
+        int y = 30;
 
         // Formed
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.formed").append(": ").append(boolText(s.formed())),
-            x, y, labelColor);
+        drawLabelBoolean(guiGraphics,
+            Component.translatable("gui.neoecoae.machine.formed"),
+            s.formed(), x, y);
         y += 14;
 
         // Active
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.active").append(": ").append(boolText(s.active())),
-            x, y, labelColor);
+        drawLabelBoolean(guiGraphics,
+            Component.translatable("gui.neoecoae.machine.active"),
+            s.active(), x, y);
         y += 14;
 
         // Storage
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.storage_bytes", fmt(s.availableStorage()), fmt(s.totalStorage())),
-            x, y, valueColor);
+        drawLabelNumberPairUnit(guiGraphics,
+            Component.translatable("gui.neoecoae.machine.storage"),
+            s.availableStorage(), s.totalStorage(),
+            Component.translatable("gui.neoecoae.machine.bytes_unit"), x, y);
         y += 14;
 
         // Threads
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.threads_value", s.usedThreads(), s.maxThreads()),
-            x, y, valueColor);
+        drawLabelNumberPair(guiGraphics,
+            Component.translatable("gui.neoecoae.common.threads"),
+            s.usedThreads(), s.maxThreads(), x, y);
         y += 14;
 
         // Parallel Cores
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.parallel_cores", s.parallelCount()),
-            x, y, valueColor);
+        drawLabelNumber(guiGraphics,
+            Component.translatable("gui.neoecoae.machine.parallel_cores_label"),
+            s.parallelCount(), x, y);
         y += 14;
 
         // Accelerators
-        guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.machine.accelerators", s.accelerators()),
-            x, y, valueColor);
+        drawLabelNumber(guiGraphics,
+            Component.translatable("gui.neoecoae.machine.accelerators_label"),
+            s.accelerators(), x, y);
     }
 
     private ECOComputationSystemBlockEntity getComputationBE() {
