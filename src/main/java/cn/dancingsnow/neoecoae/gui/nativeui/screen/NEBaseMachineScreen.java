@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
+import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -56,6 +57,23 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
                 NENativeUiConstants.BUTTON_HEIGHT
             ).build());
         }
+
+        if (shouldShowCraftingEntryButton()) {
+            addRenderableWidget(Button.builder(
+                Component.literal("Craft"),
+                btn -> NENetwork.CHANNEL.sendToServer(
+                    new NENetwork.NEOpenCraftingUiPacket(menu.getMachinePos()))
+            ).pos(leftPos - 28, topPos + 4).size(24, 20).build());
+        }
+    }
+
+    /**
+     * Whether a side button linking to the Crafting Controller UI should
+     * appear on this screen. Default is {@code false}. Override in
+     * Storage and Computation screens to show the entry point.
+     */
+    protected boolean shouldShowCraftingEntryButton() {
+        return false;
     }
 
     /**

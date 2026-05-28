@@ -75,4 +75,17 @@ public abstract class NEUiStateMachineMenu<S> extends NEBaseMachineMenu {
             sendState(serverPlayer, state);
         }
     }
+
+    /**
+     * Immediately creates and sends the current UI state to the given player,
+     * bypassing the interval timer and duplicate suppression. Useful after a
+     * C2S action that modifies the machine state and needs instant UI feedback.
+     */
+    public void sendStateNow(ServerPlayer player) {
+        S state = createState(player);
+        if (state != null) {
+            lastSentState = state;
+            sendState(player, state);
+        }
+    }
 }

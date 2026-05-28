@@ -1,7 +1,14 @@
 package cn.dancingsnow.neoecoae.network;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.client.NEClientUiPacketHandlers;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraftforge.network.NetworkHooks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -52,6 +59,16 @@ public final class NENetwork {
             NECraftingUiStatePacket::encode,
             NECraftingUiStatePacket::decode,
             NECraftingUiStatePacket::handle);
+
+        registerC2S(NECraftingUiActionPacket.class,
+            NECraftingUiActionPacket::encode,
+            NECraftingUiActionPacket::decode,
+            NECraftingUiActionPacket::handle);
+
+        registerC2S(NEOpenCraftingUiPacket.class,
+            NEOpenCraftingUiPacket::encode,
+            NEOpenCraftingUiPacket::decode,
+            NEOpenCraftingUiPacket::handle);
     }
 
     /**
@@ -69,6 +86,17 @@ public final class NENetwork {
         CHANNEL.registerMessage(
             packetId++, clazz, encoder, decoder, handler,
             Optional.of(NetworkDirection.PLAY_TO_CLIENT)
+        );
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private static <MSG> void registerC2S(Class<MSG> clazz,
+                                           java.util.function.BiConsumer<MSG, FriendlyByteBuf> encoder,
+                                           java.util.function.Function<FriendlyByteBuf, MSG> decoder,
+                                           java.util.function.BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
+        CHANNEL.registerMessage(
+            packetId++, clazz, encoder, decoder, handler,
+            Optional.of(NetworkDirection.PLAY_TO_SERVER)
         );
     }
 
@@ -237,6 +265,112 @@ public final class NENetwork {
             NetworkEvent.Context ctx = ctxSupplier.get();
             ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> NEClientUiPacketHandlers.handleCraftingUiState(pkt)));
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * C2S packet for Crafting Controller action buttons.
+     */
+    public record NECraftingUiActionPacket(BlockPos pos, Action action) {
+
+        public enum Action {
+            INCREASE_BUILD_LENGTH,
+            DECREASE_BUILD_LENGTH,
+            PREVIEW_STRUCTURE,
+            AUTO_BUILD
+        }
+
+        public static void encode(NECraftingUiActionPacket pkt, FriendlyByteBuf buf) {
+            buf.writeBlockPos(pkt.pos());
+            buf.writeEnum(pkt.action());
+        }
+
+        public static NECraftingUiActionPacket decode(FriendlyByteBuf buf) {
+            return new NECraftingUiActionPacket(buf.readBlockPos(), buf.readEnum(Action.class));
+        }
+
+        public static void handle(NECraftingUiActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            var sender = ctx.getSender();
+            if (sender == null) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            ctx.enqueueWork(() -> {
+                // Server-side safety checks
+                if (!(sender.level().getBlockEntity(pkt.pos()) instanceof ECOCraftingSystemBlockEntity be)) {
+                    return;
+                }
+                if (!(sender.containerMenu instanceof NECraftingControllerMenu menu)) {
+                    return;
+                }
+                if (!menu.getMachinePos().equals(pkt.pos())) {
+                    return;
+                }
+
+                switch (pkt.action()) {
+                    case INCREASE_BUILD_LENGTH -> be.increaseBuildLength();
+                    case DECREASE_BUILD_LENGTH -> be.decreaseBuildLength();
+                    case PREVIEW_STRUCTURE -> be.previewStructure(sender);
+                    case AUTO_BUILD -> be.autoBuild(sender);
+                }
+
+                // Immediately push updated state to the client
+                menu.sendStateNow(sender);
+            });
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * C2S packet requesting to open the Crafting Controller UI from another
+     * machine screen. The server resolves the target crafting controller
+     * from the source machine position and opens the native crafting menu.
+     */
+    public record NEOpenCraftingUiPacket(BlockPos sourcePos) {
+
+        public static void encode(NEOpenCraftingUiPacket pkt, FriendlyByteBuf buf) {
+            buf.writeBlockPos(pkt.sourcePos());
+        }
+
+        public static NEOpenCraftingUiPacket decode(FriendlyByteBuf buf) {
+            return new NEOpenCraftingUiPacket(buf.readBlockPos());
+        }
+
+        public static void handle(NEOpenCraftingUiPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            var sender = ctx.getSender();
+            if (sender == null) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            ctx.enqueueWork(() -> {
+                if (!(sender.containerMenu instanceof NEBaseMachineMenu menu)) {
+                    return;
+                }
+                if (!menu.getMachinePos().equals(pkt.sourcePos())) {
+                    return;
+                }
+                if (!menu.stillValid(sender)) {
+                    return;
+                }
+
+                BlockPos targetPos = pkt.sourcePos();
+                var be = sender.level().getBlockEntity(targetPos);
+                Component title = be != null
+                    ? be.getBlockState().getBlock().getName()
+                    : Component.literal("Crafting Controller");
+
+                NetworkHooks.openScreen(
+                    (ServerPlayer) sender,
+                    new SimpleMenuProvider(
+                        (windowId, inv, p) -> new NECraftingControllerMenu(windowId, inv, targetPos),
+                        title
+                    ),
+                    buf -> buf.writeBlockPos(targetPos)
+                );
+            });
             ctx.setPacketHandled(true);
         }
     }

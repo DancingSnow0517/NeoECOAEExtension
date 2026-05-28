@@ -4,18 +4,16 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
 import cn.dancingsnow.neoecoae.network.NECraftingUiState;
+import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
- * Screen for the ECO Crafting Controller with live read-only status.
- * <p>
- * Primary display path: S2C {@link NECraftingUiState} pushed from the server
- * menu tick. Before the first packet arrives the screen shows a brief fallback
- * read from the client-side BE (opening-time snapshot, not live).
- * </p>
+ * Screen for the ECO Crafting Controller with live read-only status
+ * and basic builder action buttons.
  */
 public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingControllerMenu> {
 
@@ -24,8 +22,8 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
     public NECraftingControllerScreen(NECraftingControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.CRAFTING_CONTROLLER);
-        this.imageWidth = 320;
-        this.imageHeight = 190;
+        this.imageWidth = 340;
+        this.imageHeight = 220;
         this.craftingState = NECraftingUiState.empty(menu.getMachinePos());
     }
 
@@ -33,6 +31,38 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     public void setCraftingUiState(NECraftingUiState state) {
         this.hasCraftingState = true;
         this.craftingState = state;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+
+        int btnY = topPos + 155;
+        int btnH = 20;
+
+        // Build Length -
+        addRenderableWidget(Button.builder(Component.literal("-"), btn -> {
+            NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(
+                menu.getMachinePos(), NENetwork.NECraftingUiActionPacket.Action.DECREASE_BUILD_LENGTH));
+        }).pos(leftPos + 8, btnY).size(20, btnH).build());
+
+        // Build Length +
+        addRenderableWidget(Button.builder(Component.literal("+"), btn -> {
+            NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(
+                menu.getMachinePos(), NENetwork.NECraftingUiActionPacket.Action.INCREASE_BUILD_LENGTH));
+        }).pos(leftPos + 32, btnY).size(20, btnH).build());
+
+        // Preview
+        addRenderableWidget(Button.builder(Component.literal("Preview"), btn -> {
+            NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(
+                menu.getMachinePos(), NENetwork.NECraftingUiActionPacket.Action.PREVIEW_STRUCTURE));
+        }).pos(leftPos + 60, btnY).size(56, btnH).build());
+
+        // Auto Build
+        addRenderableWidget(Button.builder(Component.literal("Auto Build"), btn -> {
+            NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(
+                menu.getMachinePos(), NENetwork.NECraftingUiActionPacket.Action.AUTO_BUILD));
+        }).pos(leftPos + 122, btnY).size(60, btnH).build());
     }
 
     @Override

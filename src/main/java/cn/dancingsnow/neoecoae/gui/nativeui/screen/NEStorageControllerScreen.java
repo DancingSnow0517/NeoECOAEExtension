@@ -51,6 +51,11 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     @Override
+    protected boolean shouldShowCraftingEntryButton() {
+        return true;
+    }
+
+    @Override
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         NEStorageUiState s;
 

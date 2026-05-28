@@ -46,6 +46,11 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
     }
 
     @Override
+    protected boolean shouldShowCraftingEntryButton() {
+        return true;
+    }
+
+    @Override
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         NEComputationUiState s;
 
