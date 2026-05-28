@@ -1,11 +1,13 @@
 package cn.dancingsnow.neoecoae.network;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.AbstractCraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.client.NEClientUiPacketHandlers;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
@@ -97,6 +99,11 @@ public final class NENetwork {
             NEStructureTerminalConfigActionPacket::encode,
             NEStructureTerminalConfigActionPacket::decode,
             NEStructureTerminalConfigActionPacket::handle);
+
+        registerC2S(NEIntegratedWorkingStationActionPacket.class,
+            NEIntegratedWorkingStationActionPacket::encode,
+            NEIntegratedWorkingStationActionPacket::decode,
+            NEIntegratedWorkingStationActionPacket::handle);
     }
 
     /**
@@ -635,6 +642,57 @@ public final class NENetwork {
 
                 // Sync fresh value from NBT (not cached value) to client
                 menu.syncToClient(sender);
+            });
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    // ── IWS (Integrated Working Station) action packet ──
+
+    public enum IWSAction {
+        TOGGLE_AUTO_EXPORT,
+        CLEAR_INPUT_FLUID,
+        CLEAR_OUTPUT_FLUID
+    }
+
+    public record NEIntegratedWorkingStationActionPacket(BlockPos pos, IWSAction action) {
+
+        public static void encode(NEIntegratedWorkingStationActionPacket pkt, FriendlyByteBuf buf) {
+            buf.writeBlockPos(pkt.pos());
+            buf.writeEnum(pkt.action());
+        }
+
+        public static NEIntegratedWorkingStationActionPacket decode(FriendlyByteBuf buf) {
+            return new NEIntegratedWorkingStationActionPacket(buf.readBlockPos(), buf.readEnum(IWSAction.class));
+        }
+
+        public static void handle(NEIntegratedWorkingStationActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            var sender = ctx.getSender();
+            if (sender == null) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            ctx.enqueueWork(() -> {
+                if (!(sender.containerMenu instanceof NEIntegratedWorkingStationMenu menu)) {
+                    return;
+                }
+                if (!menu.getMachinePos().equals(pkt.pos())) {
+                    return;
+                }
+                if (!menu.stillValid(sender)) {
+                    return;
+                }
+                var be = sender.level().getBlockEntity(pkt.pos());
+                if (!(be instanceof ECOIntegratedWorkingStationBlockEntity iws)) {
+                    return;
+                }
+                switch (pkt.action()) {
+                    case TOGGLE_AUTO_EXPORT -> iws.toggleAutoExport();
+                    case CLEAR_INPUT_FLUID -> iws.clearFluid();
+                    case CLEAR_OUTPUT_FLUID -> iws.clearFluidOut();
+                }
+                iws.setChanged();
             });
             ctx.setPacketHandled(true);
         }
