@@ -118,37 +118,52 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
             x + labelWidth, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
     }
 
-    /** Draw "label: current / max" — both numbers in blue-violet. */
+    /** Draw "label: current / max" — numbers in blue-violet, slash in light-gray. */
     protected void drawLabelNumberPair(GuiGraphics g, Component label, long current, long max, int x, int y) {
         Component labelColon = label.copy().append(": ");
         g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
-        int labelWidth = font.width(labelColon);
-        String cur = formatNumber(current);
-        String m = formatNumber(max);
-        Component pair = Component.literal(cur + " / " + m);
-        g.drawString(font, pair, x + labelWidth, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
+        int curX = x + font.width(labelColon);
+        // current (blue-violet)
+        String curStr = formatNumber(current);
+        g.drawString(font, Component.literal(curStr), curX, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
+        int slashX = curX + font.width(curStr);
+        // " / " (light-gray)
+        g.drawString(font, Component.literal(" / "), slashX, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        int maxX = slashX + font.width(" / ");
+        // max (blue-violet)
+        g.drawString(font, Component.literal(formatNumber(max)), maxX, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
     }
 
-    /** Draw "label: current / max unit" — numbers in blue-violet, unit in light-gray. */
+    /** Draw "label: current / max unit" — numbers blue-violet, slash/space/unit light-gray. */
     protected void drawLabelNumberPairUnit(GuiGraphics g, Component label, long current, long max,
                                            Component unit, int x, int y) {
         Component labelColon = label.copy().append(": ");
         g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
-        int labelWidth = font.width(labelColon);
-        String pairStr = formatNumber(current) + " / " + formatNumber(max) + " ";
-        g.drawString(font, Component.literal(pairStr), x + labelWidth, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
-        int pairWidth = font.width(pairStr);
-        g.drawString(font, unit, x + labelWidth + pairWidth, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        int curX = x + font.width(labelColon);
+        // current (blue-violet)
+        String curStr = formatNumber(current);
+        g.drawString(font, Component.literal(curStr), curX, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
+        int slashX = curX + font.width(curStr);
+        // " / " (light-gray)
+        g.drawString(font, Component.literal(" / "), slashX, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        int maxX = slashX + font.width(" / ");
+        // max (blue-violet)
+        String maxStr = formatNumber(max);
+        g.drawString(font, Component.literal(maxStr), maxX, y, NENativeUiConstants.MACHINE_TEXT_VALUE);
+        int unitX = maxX + font.width(maxStr);
+        // " unit" (light-gray)
+        Component spacedUnit = Component.literal(" ").append(unit);
+        g.drawString(font, spacedUnit, unitX, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
     }
 
-    /** Draw "label: yes/no" — label in light-gray, boolean in green/red. */
+    /** Draw "label: yes/no" — label in light-gray, yes in green, no in light-gray. */
     protected void drawLabelBoolean(GuiGraphics g, Component label, boolean value, int x, int y) {
         Component labelColon = label.copy().append(": ");
         g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
         int labelWidth = font.width(labelColon);
         Component boolText = Component.translatable(value ? "gui.neoecoae.common.yes" : "gui.neoecoae.common.no");
-        g.drawString(font, boolText, x + labelWidth, y,
-            value ? NENativeUiConstants.MACHINE_TEXT_SUCCESS : NENativeUiConstants.MACHINE_TEXT_ERROR);
+        int color = value ? NENativeUiConstants.MACHINE_TEXT_SUCCESS : NENativeUiConstants.MACHINE_TEXT_SECONDARY;
+        g.drawString(font, boolText, x + labelWidth, y, color);
     }
 
     /** Draw a hint line in blue. */
