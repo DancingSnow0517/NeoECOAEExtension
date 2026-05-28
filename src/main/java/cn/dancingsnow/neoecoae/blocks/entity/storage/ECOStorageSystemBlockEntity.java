@@ -203,7 +203,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
                 // Per-cell-type arrays - best-effort, may skip if id lookup fails
                 ECOCellType cellType = inv.getCellType();
-                int id = NERegistries.CELL_TYPE.getId(cellType);
+                var reg = NERegistries.cellTypeRegistry();
+                int id = reg != null ? reg.getId(cellType) : -1;
                 if (id >= 0 && id < typeCount) {
                     usedTypes[id] += st;
                     totalTypes[id] += tt;
@@ -293,7 +294,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
      * singleton, rather than trying to guess via Component-desc matching.
      */
     private static ResourceLocation getCellTypeKey(ECOCellType cellType) {
-        ResourceLocation key = NERegistries.CELL_TYPE.getKey(cellType);
+        var reg = NERegistries.cellTypeRegistry();
+        if (reg == null) return new ResourceLocation("neoecoae", "unknown");
+        ResourceLocation key = reg.getKey(cellType);
         return key != null ? key : new ResourceLocation("neoecoae", "unknown");
     }
 
@@ -420,7 +423,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private int getCellTypeCount() {
-        return Math.max(NERegistries.CELL_TYPE.size(), 1);
+        var reg = NERegistries.cellTypeRegistry();
+        return Math.max(reg != null ? reg.size() : 1, 1);
     }
 
     private static long sum(long[] values) {

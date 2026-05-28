@@ -14,7 +14,10 @@ public class NELDLibPlugin implements ILDLibPlugin {
     public void onLoad() {
         AccessorRegistries.setPriority(100);
 
-        AccessorRegistries.registerAccessor(RegistryAccessor.of(ECOCellType.class, NERegistries.CELL_TYPE));
+        var cellTypeReg = NERegistries.cellTypeRegistry();
+        if (cellTypeReg != null) {
+            AccessorRegistries.registerAccessor(RegistryAccessor.of(ECOCellType.class, cellTypeReg));
+        }
         AccessorRegistries.registerAccessor(RegistryAccessor.of(IECOTier.class, NERegistries.ECO_TIER));
     }
 }

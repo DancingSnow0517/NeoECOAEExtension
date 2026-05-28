@@ -6,14 +6,22 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import com.mojang.serialization.Lifecycle;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 
 public class NERegistries {
-    public static final Registry<ECOCellType> CELL_TYPE = new MappedRegistry<>(
-        Keys.CELL_TYPE,
-        Lifecycle.stable()
-    );
 
+    /**
+     * Returns the Forge-managed cell type registry (populated via
+     * {@code NewRegistryEvent}), not a local empty {@code MappedRegistry}.
+     */
+    @SuppressWarnings("unchecked")
+    public static Registry<ECOCellType> cellTypeRegistry() {
+        return (Registry<ECOCellType>) BuiltInRegistries.REGISTRY.get(Keys.CELL_TYPE.location());
+    }
+
+    /** @deprecated Kept for LDLib accessor compatibility; prefer {@link #cellTypeRegistry()}. */
+    @Deprecated
     public static final Registry<IECOTier> ECO_TIER = new MappedRegistry<>(
         Keys.ECO_TIER,
         Lifecycle.stable()
