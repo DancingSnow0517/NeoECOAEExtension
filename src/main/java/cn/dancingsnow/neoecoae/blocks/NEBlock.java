@@ -5,7 +5,9 @@ import appeng.blockentity.crafting.CraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -65,15 +67,15 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
 
     /**
      * Returns the item stack for this block, used by AE2 wrench dismantle
-     * and pick-block. Falls back to {@link #asItem()} if the block has an
-     * item form; otherwise returns empty.
+     * and pick-block. Returns empty for blocks without an item form.
      */
     @Override
     public ItemStack getCloneItemStack(BlockState state, HitResult target, BlockGetter level,
                                         BlockPos pos, Player player) {
-        if (asItem() != null) {
-            return new ItemStack(asItem());
+        Item item = asItem();
+        if (item == Items.AIR) {
+            return ItemStack.EMPTY;
         }
-        return ItemStack.EMPTY;
+        return new ItemStack(item);
     }
 }

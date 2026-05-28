@@ -14,9 +14,9 @@ import net.minecraft.resources.ResourceLocation;
  */
 public class NETexturedButton extends Button {
 
-    private static final ResourceLocation TEX_BUTTON = NeoECOAE.id("textures/gui/button");
-    private static final ResourceLocation TEX_BUTTON_HOVER = NeoECOAE.id("textures/gui/button_hover");
-    private static final ResourceLocation TEX_BUTTON_DISABLED = NeoECOAE.id("textures/gui/button_disabled");
+    private static final ResourceLocation TEX_BUTTON = NeoECOAE.id("textures/gui/button.png");
+    private static final ResourceLocation TEX_BUTTON_HOVER = NeoECOAE.id("textures/gui/button_hover.png");
+    private static final ResourceLocation TEX_BUTTON_DISABLED = NeoECOAE.id("textures/gui/button_disabled.png");
     private static final int TEX_SIZE = 20;
     private static final int BORDER_LEFT = 2;
     private static final int BORDER_TOP = 2;

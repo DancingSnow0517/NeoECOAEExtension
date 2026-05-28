@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEComputationControllerMenu;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
+import cn.dancingsnow.neoecoae.util.NEInteractionUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -40,8 +41,8 @@ public class ECOComputationSystem extends NEBlock<ECOComputationSystemBlockEntit
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                   InteractionHand hand, BlockHitResult hitResult) {
-        // If player is shift-right-clicking with a Structure Terminal, let the item handle it
-        if (player.isShiftKeyDown() && player.getItemInHand(hand).getItem() instanceof StructureTerminalItem) {
+        // If player is holding a special tool (Structure Terminal shift, wrench), pass through
+        if (NEInteractionUtil.shouldPassBlockUseToHeldTool(player, hand)) {
             return InteractionResult.PASS;
         }
         if (level.isClientSide) {

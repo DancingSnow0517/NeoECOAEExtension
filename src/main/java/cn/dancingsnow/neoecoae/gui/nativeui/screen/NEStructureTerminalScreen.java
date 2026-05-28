@@ -21,7 +21,7 @@ import net.minecraft.world.entity.player.Inventory;
  */
 public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
 
-    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/background");
+    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/background.png");
     private static final int TEX_BG_SIZE = 16;
     private static final int BG_LEFT = 2;
     private static final int BG_TOP = 2;

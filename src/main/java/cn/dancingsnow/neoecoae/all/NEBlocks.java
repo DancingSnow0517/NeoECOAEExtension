@@ -1115,6 +1115,7 @@ public class NEBlocks {
             .block("storage_system_" + level, ECOStorageSystemBlock::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .loot((tables, block) -> tables.dropSelf(block))
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_off"));
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed"));
@@ -1141,6 +1142,7 @@ public class NEBlocks {
             .block("crafting_parallel_core_" + level, p -> new ECOCraftingParallelCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .loot((tables, block) -> tables.dropSelf(block))
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_core/parallel_core_" + level));
                 ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/crafting_core/parallel_core_" + level + "_formed"));
@@ -1172,6 +1174,7 @@ public class NEBlocks {
             .block("crafting_system_" + level, ECOCraftingSystem::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .loot((tables, block) -> tables.dropSelf(block))
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_off"));
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_formed"));
@@ -1229,6 +1232,7 @@ public class NEBlocks {
             .block("computation_parallel_core_" + level, p -> new ECOComputationParallelCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .loot((tables, block) -> tables.dropSelf(block))
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/computation_core/parallel_core_" + level));
                 ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/computation_core/parallel_core_" + level + "_formed"));
@@ -1255,6 +1259,7 @@ public class NEBlocks {
             .block("computation_threading_core_" + level, p -> new ECOComputationThreadingCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+            .loot((tables, block) -> tables.dropSelf(block))
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/computation_core/threading_core_" + level));
                 ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/computation_core/threading_core_" + level + "_formed"));

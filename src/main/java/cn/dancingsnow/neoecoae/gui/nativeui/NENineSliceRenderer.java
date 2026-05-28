@@ -43,6 +43,12 @@ public final class NENineSliceRenderer {
         int texCenterH = texHeight - top - bottom;
 
         RenderSystem.enableBlend();
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        if (centerW <= 0 || centerH <= 0) {
+            // Target area too small for nine-slice; draw as simple blit
+            guiGraphics.blit(texture, x, y, 0, 0, Math.min(width, texWidth), Math.min(height, texHeight), texWidth, texHeight);
+            return;
+        }
         // Top-left corner (no stretch)
         blit(guiGraphics, texture, x, y, left, top, 0, 0, left, top, texWidth, texHeight);
         // Top edge (stretch horizontally)
