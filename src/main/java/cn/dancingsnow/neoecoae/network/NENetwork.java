@@ -12,6 +12,8 @@ import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -59,27 +61,43 @@ public final class NENetwork {
         public static void encode(NEStorageUiStatePacket pkt, FriendlyByteBuf buf) {
             NEStorageUiState s = pkt.state();
             buf.writeBlockPos(s.pos());
-            buf.writeLong(s.usedTypes());
-            buf.writeLong(s.totalTypes());
-            buf.writeLong(s.usedBytes());
-            buf.writeLong(s.totalBytes());
             buf.writeLong(s.storedEnergy());
             buf.writeLong(s.maxEnergy());
             buf.writeBoolean(s.formed());
+
+            List<NEStorageUiTypeState> types = s.typeStates();
+            buf.writeVarInt(types.size());
+            for (NEStorageUiTypeState ts : types) {
+                buf.writeResourceLocation(ts.typeId());
+                buf.writeUtf(ts.displayName(), 128);
+                buf.writeLong(ts.usedTypes());
+                buf.writeLong(ts.totalTypes());
+                buf.writeLong(ts.usedBytes());
+                buf.writeLong(ts.totalBytes());
+            }
         }
 
         public static NEStorageUiStatePacket decode(FriendlyByteBuf buf) {
             BlockPos pos = buf.readBlockPos();
-            long usedTypes = buf.readLong();
-            long totalTypes = buf.readLong();
-            long usedBytes = buf.readLong();
-            long totalBytes = buf.readLong();
             long storedEnergy = buf.readLong();
             long maxEnergy = buf.readLong();
             boolean formed = buf.readBoolean();
+
+            int typeCount = buf.readVarInt();
+            List<NEStorageUiTypeState> typeStates = new ArrayList<>(typeCount);
+            for (int i = 0; i < typeCount; i++) {
+                ResourceLocation typeId = buf.readResourceLocation();
+                String displayName = buf.readUtf(128);
+                long usedTypes = buf.readLong();
+                long totalTypes = buf.readLong();
+                long usedBytes = buf.readLong();
+                long totalBytes = buf.readLong();
+                typeStates.add(new NEStorageUiTypeState(typeId, displayName,
+                    usedTypes, totalTypes, usedBytes, totalBytes));
+            }
+
             return new NEStorageUiStatePacket(
-                new NEStorageUiState(pos, usedTypes, totalTypes, usedBytes, totalBytes,
-                    storedEnergy, maxEnergy, formed)
+                new NEStorageUiState(pos, typeStates, storedEnergy, maxEnergy, formed)
             );
         }
 

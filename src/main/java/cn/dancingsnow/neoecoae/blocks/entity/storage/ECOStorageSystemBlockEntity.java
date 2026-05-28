@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.network.NEStorageUiState;
+import cn.dancingsnow.neoecoae.network.NEStorageUiTypeState;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -24,6 +25,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -35,7 +37,10 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IGridTickable {
@@ -225,22 +230,77 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     /**
      * Creates a snapshot of current storage stats for S2C UI sync.
-     * Recalculates stats on the server before building the state.
+     * <p>
+     * Stats are grouped by ECOCellType registry key so the screen can display
+     * separate rows for Items, Fluids, and future cell types.
+     * </p>
      */
     public NEStorageUiState createStorageUiState() {
         if (level != null && !level.isClientSide) {
             recalculateStorageStats();
         }
+
+        List<NEStorageUiTypeState> typeStates;
+        if (cluster != null) {
+            // Group by cell type key; LinkedHashMap preserves insertion order
+            Map<ResourceLocation, NEStorageUiTypeState> grouped = new LinkedHashMap<>();
+
+            for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                IECOStorageCell inv = drive.getCellInventory();
+                if (inv == null) continue;
+
+                ECOCellType cellType = inv.getCellType();
+                ResourceLocation typeId = getCellTypeKey(cellType);
+                String displayName = cellType.desc().getString();
+
+                long st = inv.getStoredItemTypes();
+                long tt = inv.getTotalItemTypes();
+                long ub = inv.getUsedBytes();
+                long tb = inv.getTotalBytes();
+
+                NEStorageUiTypeState existing = grouped.get(typeId);
+                if (existing != null) {
+                    grouped.put(typeId, new NEStorageUiTypeState(
+                        typeId, displayName,
+                        existing.usedTypes() + st,
+                        existing.totalTypes() + tt,
+                        existing.usedBytes() + ub,
+                        existing.totalBytes() + tb
+                    ));
+                } else {
+                    grouped.put(typeId, new NEStorageUiTypeState(
+                        typeId, displayName, st, tt, ub, tb
+                    ));
+                }
+            }
+            typeStates = new ArrayList<>(grouped.values());
+        } else {
+            typeStates = new ArrayList<>();
+        }
+
         return new NEStorageUiState(
             worldPosition,
-            _synUsedTypes,
-            _synTotalTypes,
-            _synUsedBytes,
-            _synTotalBytes,
+            typeStates,
             storedEnergy,
             maxEnergy,
             formed
         );
+    }
+
+    /**
+     * Resolves the registry key for an ECOCellType, falling back to iteration
+     * when the instance is not the registered singleton.
+     */
+    private static ResourceLocation getCellTypeKey(ECOCellType cellType) {
+        ResourceLocation key = NERegistries.CELL_TYPE.getKey(cellType);
+        if (key != null) return key;
+        // Fallback: match by Component description
+        for (var entry : NERegistries.CELL_TYPE.entrySet()) {
+            if (entry.getValue().desc().equals(cellType.desc())) {
+                return entry.getKey().location();
+            }
+        }
+        return new ResourceLocation("neoecoae", "unknown");
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
