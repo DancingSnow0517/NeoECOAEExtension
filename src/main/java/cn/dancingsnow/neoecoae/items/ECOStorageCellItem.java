@@ -15,13 +15,13 @@ import appeng.items.storage.StorageCellTooltipComponent;
 import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
-import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import com.tterrag.registrate.util.entry.RegistryEntry;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -43,7 +43,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
@@ -53,9 +52,10 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     private final int bytesPerType;
     private final int totalTypes;
     private final AEKeyType keyType;
-    private final Supplier<ECOCellType> cellType;
+    /** Registered cell-type entry — direct access avoids Component-desc matching bugs. */
+    private final RegistryEntry<ECOCellType> cellType;
 
-    public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType, Supplier<ECOCellType> cellType) {
+    public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType, RegistryEntry<ECOCellType> cellType) {
         super(properties);
         this.tier = tier;
         this.totalBytes = tier.getStorageTotalBytes();
@@ -87,26 +87,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public ECOCellType getCellType() {
-        if (cachedResolvedCellType == null) {
-            cachedResolvedCellType = resolveFromRegistry(cellType.get());
-        }
-        return cachedResolvedCellType;
-    }
-
-    private ECOCellType cachedResolvedCellType;
-
-    /**
-     * Looks up the registered singleton for a cell type from the registry.
-     * This ensures {@code Registry.getId()} works correctly because the
-     * returned instance is the same object held by the registry's internal map.
-     */
-    private static ECOCellType resolveFromRegistry(ECOCellType candidate) {
-        for (ECOCellType entry : NERegistries.CELL_TYPE) {
-            if (entry.desc().equals(candidate.desc())) {
-                return entry;
-            }
-        }
-        return candidate;
+        return cellType.get();
     }
 
     @Override

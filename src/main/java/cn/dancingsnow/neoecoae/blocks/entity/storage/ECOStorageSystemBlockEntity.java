@@ -288,19 +288,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     /**
-     * Resolves the registry key for an ECOCellType, falling back to iteration
-     * when the instance is not the registered singleton.
+     * Resolves the registry key for an ECOCellType.
+     * Returns {@code neoecoae:unknown} when the instance is not a registered
+     * singleton, rather than trying to guess via Component-desc matching.
      */
     private static ResourceLocation getCellTypeKey(ECOCellType cellType) {
         ResourceLocation key = NERegistries.CELL_TYPE.getKey(cellType);
-        if (key != null) return key;
-        // Fallback: match by Component description
-        for (var entry : NERegistries.CELL_TYPE.entrySet()) {
-            if (entry.getValue().desc().equals(cellType.desc())) {
-                return entry.getKey().location();
-            }
-        }
-        return new ResourceLocation("neoecoae", "unknown");
+        return key != null ? key : new ResourceLocation("neoecoae", "unknown");
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
