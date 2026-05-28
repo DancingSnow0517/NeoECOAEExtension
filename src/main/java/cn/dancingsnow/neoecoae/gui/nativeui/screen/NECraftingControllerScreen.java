@@ -56,49 +56,49 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int valueColor = 0xFFC0C0D0;
+        final int valueColor = NENativeUiConstants.PANEL_TEXT_SECONDARY;
         int y = 50;
 
         // Row 1: Formed / Active
         guiGraphics.drawString(font,
-            Component.literal("Formed: " + s.formed()),
+            Component.translatable("gui.neoecoae.machine.formed").append(": ").append(boolText(s.formed())),
             x, y, valueColor);
         guiGraphics.drawString(font,
-            Component.literal("Active: " + s.active()),
+            Component.translatable("gui.neoecoae.machine.active").append(": ").append(boolText(s.active())),
             x + 140, y, valueColor);
         y += 14;
 
         // Row 2: Workers / Parallel / Buses
         guiGraphics.drawString(font,
-            Component.literal("Workers: " + s.workerCount()),
+            Component.translatable("gui.neoecoae.machine.workers", s.workerCount()),
             x, y, valueColor);
         guiGraphics.drawString(font,
-            Component.literal("Parallel: " + s.parallelCount()),
+            Component.translatable("gui.neoecoae.machine.parallel", s.parallelCount()),
             x + 100, y, valueColor);
         guiGraphics.drawString(font,
-            Component.literal("Patterns: " + s.patternBusCount()),
+            Component.translatable("gui.neoecoae.machine.patterns", s.patternBusCount()),
             x + 200, y, valueColor);
         y += 14;
 
         // Row 3: Threads
         guiGraphics.drawString(font,
-            Component.literal("Threads: " + s.runningThreadCount() + " / " + s.threadCount()),
+            Component.translatable("gui.neoecoae.machine.threads_value", s.runningThreadCount(), s.threadCount()),
             x, y, valueColor);
         y += 14;
 
         // Row 4: Overclocked / Active Cooling
         guiGraphics.drawString(font,
-            Component.literal("Overclocked: " + s.overclocked()),
+            Component.translatable("gui.neoecoae.machine.overclocked").append(": ").append(boolText(s.overclocked())),
             x, y, valueColor);
         guiGraphics.drawString(font,
-            Component.literal("Active Cooling: " + s.activeCooling()),
+            Component.translatable("gui.neoecoae.machine.active_cooling").append(": ").append(boolText(s.activeCooling())),
             x + 140, y, valueColor);
         y += 14;
 
-        // Row 5: Build hint — use the Structure Terminal
+        // Row 5: Build hint
         guiGraphics.drawString(font,
-            Component.literal("Use Structure Terminal to build"),
-            x, y, 0xFF6A8AAA);
+            Component.translatable("gui.neoecoae.machine.use_structure_terminal"),
+            x, y, NENativeUiConstants.PANEL_TEXT_HINT);
     }
 
     private ECOCraftingSystemBlockEntity getCraftingBE() {

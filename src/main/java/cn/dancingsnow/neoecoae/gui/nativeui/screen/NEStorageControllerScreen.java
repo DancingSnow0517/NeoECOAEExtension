@@ -85,46 +85,43 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int labelColor = 0xFF8A8AA0;
+        final int labelColor = NENativeUiConstants.PANEL_TEXT_MUTED;
+        final int valueColor = NENativeUiConstants.PANEL_TEXT_SECONDARY;
         int y = 50;
 
         // Per-cell-type rows
         List<NEStorageUiTypeState> types = s.typeStates();
         if (types.isEmpty()) {
             guiGraphics.drawString(font,
-                Component.literal("No storage cells detected"),
+                Component.translatable("gui.neoecoae.machine.no_storage_cells"),
                 x, y, labelColor);
             y += 14;
         } else {
             for (NEStorageUiTypeState ts : types) {
-                int typeColor = 0xFFC0C0D0;
-                // Header: displayName
                 guiGraphics.drawString(font,
                     Component.literal(ts.displayName() + ":"),
-                    x, y, typeColor);
+                    x, y, valueColor);
                 y += 12;
-                // Types
                 guiGraphics.drawString(font,
-                    Component.literal("  Types: " + fmt(ts.usedTypes()) + " / " + fmt(ts.totalTypes())),
-                    x + 4, y, typeColor);
+                    Component.translatable("gui.neoecoae.machine.types_value", fmt(ts.usedTypes()), fmt(ts.totalTypes())),
+                    x + 4, y, valueColor);
                 y += 11;
-                // Bytes
                 guiGraphics.drawString(font,
-                    Component.literal("  Bytes: " + fmt(ts.usedBytes()) + " / " + fmt(ts.totalBytes())),
-                    x + 4, y, typeColor);
+                    Component.translatable("gui.neoecoae.machine.bytes_value", fmt(ts.usedBytes()), fmt(ts.totalBytes())),
+                    x + 4, y, valueColor);
                 y += 13;
             }
         }
 
         // Energy
         guiGraphics.drawString(font,
-            Component.literal("Energy: " + fmt(s.storedEnergy()) + " / " + fmt(s.maxEnergy()) + " AE"),
-            x, y, 0xFFC0C0D0);
+            Component.translatable("gui.neoecoae.machine.energy_value", fmt(s.storedEnergy()), fmt(s.maxEnergy())),
+            x, y, valueColor);
         y += 14;
 
         // Formed
         guiGraphics.drawString(font,
-            Component.literal("Formed: " + s.formed()),
+            Component.translatable("gui.neoecoae.machine.formed").append(": ").append(boolText(s.formed())),
             x, y, labelColor);
     }
 

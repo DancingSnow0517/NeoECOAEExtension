@@ -16,10 +16,19 @@ public final class NENativeUiConstants {
     // ── Background ──
     public static final int BG_COLOR = 0xFF2A2A3A;
 
-    // ── Label colors ──
-    public static final int TITLE_COLOR = 0xFFE8E8F0;
-    public static final int REBUILDING_TEXT_COLOR = 0xFF8A8AA0;
-    public static final int ACTIVE_TEXT_COLOR = 0xFF6AFF6A;
+    // ── Text colors (panel palette) ──
+    public static final int PANEL_TEXT_PRIMARY   = 0xFFE8E8F0;
+    public static final int PANEL_TEXT_SECONDARY = 0xFFC0C0D0;
+    public static final int PANEL_TEXT_MUTED     = 0xFF8A8AA0;
+    public static final int PANEL_TEXT_HINT      = 0xFF6A8AAA;
+    public static final int PANEL_TEXT_SUCCESS   = 0xFF6AFF6A;
+    public static final int PANEL_TEXT_WARNING   = 0xFFFFD36A;
+    public static final int PANEL_TEXT_ERROR     = 0xFFFF6A6A;
+
+    // ── Label colors (aliases for panel palette) ──
+    public static final int TITLE_COLOR          = PANEL_TEXT_PRIMARY;
+    public static final int REBUILDING_TEXT_COLOR = PANEL_TEXT_MUTED;
+    public static final int ACTIVE_TEXT_COLOR    = PANEL_TEXT_SUCCESS;
 
     // ── Label positions (relative to guiLeft / guiTop) ──
     public static final int TITLE_X = 8;

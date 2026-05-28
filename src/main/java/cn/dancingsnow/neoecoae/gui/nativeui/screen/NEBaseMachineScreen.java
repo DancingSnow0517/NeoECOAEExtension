@@ -1,12 +1,15 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
+import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.widget.NETexturedButton;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,13 +17,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Base screen for all ECO machine native UIs.
  * <p>
- * Provides the complete boilerplate: window size, background fill,
- * title / "UI rebuilding" / "Native UI active" labels,
- * a Test button, and the standard {@link #render} pipeline.
- * </p>
- * <p>
- * Concrete subclasses only supply a {@link NEMachineScreenConfig} so
- * the test-button log message is machine-specific.
+ * Uses nine-slice project GUI assets for background and buttons.
+ * No LDLib dependency.
  * </p>
  *
  * @param <T> the menu type
@@ -29,6 +27,12 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
     extends AbstractContainerScreen<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(NENativeUiConstants.LOGGER_NAME);
+    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/background.png");
+    private static final int TEX_BG_SIZE = 16;
+    private static final int BG_LEFT = 2;
+    private static final int BG_TOP = 2;
+    private static final int BG_RIGHT = 2;
+    private static final int BG_BOTTOM = 4;
 
     protected final NEMachineScreenConfig config;
 
@@ -40,46 +44,41 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
         this.imageHeight = NENativeUiConstants.UI_HEIGHT;
     }
 
-    // ── Test button ──
+    /** Returns a translatable yes/no component for boolean status display. */
+    protected Component boolText(boolean value) {
+        return Component.translatable(value ? "gui.neoecoae.common.yes" : "gui.neoecoae.common.no");
+    }
+
+    // ── Buttons ──
 
     @Override
     protected void init() {
         super.init();
         if (config.showTestButton()) {
-            addRenderableWidget(Button.builder(
-                Component.literal(NENativeUiConstants.TEST_BUTTON_TEXT),
-                btn -> LOG.info(getTestLogMessage())
-            ).pos(
+            addRenderableWidget(new NETexturedButton(
                 leftPos + NENativeUiConstants.BUTTON_X_OFFSET,
-                topPos + NENativeUiConstants.BUTTON_Y_OFFSET
-            ).size(
+                topPos + NENativeUiConstants.BUTTON_Y_OFFSET,
                 NENativeUiConstants.BUTTON_WIDTH,
-                NENativeUiConstants.BUTTON_HEIGHT
-            ).build());
+                NENativeUiConstants.BUTTON_HEIGHT,
+                Component.translatable("gui.neoecoae.machine.test"),
+                btn -> LOG.info(getTestLogMessage())
+            ));
         }
 
         if (shouldShowCraftingEntryButton()) {
-            addRenderableWidget(Button.builder(
-                Component.literal("Craft"),
+            addRenderableWidget(new NETexturedButton(
+                leftPos - 28, topPos + 4, 24, 20,
+                Component.translatable("gui.neoecoae.machine.open_crafting"),
                 btn -> NENetwork.CHANNEL.sendToServer(
                     new NENetwork.NEOpenCraftingUiPacket(menu.getMachinePos()))
-            ).pos(leftPos - 28, topPos + 4).size(24, 20).build());
+            ));
         }
     }
 
-    /**
-     * Whether a side button linking to the Crafting Controller UI should
-     * appear on this screen. Default is {@code false}. Override in
-     * Storage and Computation screens to show the entry point.
-     */
     protected boolean shouldShowCraftingEntryButton() {
         return false;
     }
 
-    /**
-     * Subclasses can override to customise the test-button log message.
-     * Default uses {@link NEMachineScreenConfig#buildLogMessage()}.
-     */
     protected String getTestLogMessage() {
         return config.buildLogMessage();
     }
@@ -95,9 +94,10 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        guiGraphics.fill(leftPos, topPos,
-            leftPos + imageWidth, topPos + imageHeight,
-            NENativeUiConstants.BG_COLOR);
+        NENineSliceRenderer.drawPanel(guiGraphics, TEX_BACKGROUND,
+            leftPos, topPos, imageWidth, imageHeight,
+            TEX_BG_SIZE, TEX_BG_SIZE,
+            BG_LEFT, BG_TOP, BG_RIGHT, BG_BOTTOM);
     }
 
     @Override
@@ -106,20 +106,16 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
             NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
             NENativeUiConstants.TITLE_COLOR);
         guiGraphics.drawString(font,
-            Component.translatable("gui.neoecoae.ui.rebuilding"),
+            Component.translatable("gui.neoecoae.machine.ui_rebuilding"),
             NENativeUiConstants.TITLE_X, NENativeUiConstants.REBUILDING_Y,
             NENativeUiConstants.REBUILDING_TEXT_COLOR);
         guiGraphics.drawString(font,
-            Component.literal(NENativeUiConstants.ACTIVE_TEXT),
+            Component.translatable("gui.neoecoae.machine.native_ui_active"),
             NENativeUiConstants.TITLE_X, NENativeUiConstants.ACTIVE_Y,
             NENativeUiConstants.ACTIVE_TEXT_COLOR);
         renderAdditionalLabels(guiGraphics, mouseX, mouseY);
     }
 
-    /**
-     * Hook for subclasses to draw machine-specific status lines
-     * below the common labels. Default is no-op.
-     */
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
     }
 }

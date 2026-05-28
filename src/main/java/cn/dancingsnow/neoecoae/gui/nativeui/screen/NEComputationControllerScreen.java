@@ -78,43 +78,42 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
         }
 
         final int x = NENativeUiConstants.TITLE_X;
-        final int labelColor = 0xFF8A8AA0;
-        final int valueColor = 0xFFC0C0D0;
+        final int valueColor = NENativeUiConstants.PANEL_TEXT_SECONDARY;
         int y = 50;
 
         // Formed
         guiGraphics.drawString(font,
-            Component.literal("Formed: " + s.formed()),
+            Component.translatable("gui.neoecoae.machine.formed").append(": ").append(boolText(s.formed())),
             x, y, valueColor);
         y += 14;
 
         // Active
         guiGraphics.drawString(font,
-            Component.literal("Active: " + s.active()),
+            Component.translatable("gui.neoecoae.machine.active").append(": ").append(boolText(s.active())),
             x, y, valueColor);
         y += 14;
 
         // Storage
         guiGraphics.drawString(font,
-            Component.literal("Storage: " + fmt(s.availableStorage()) + " / " + fmt(s.totalStorage()) + " bytes"),
+            Component.translatable("gui.neoecoae.machine.storage_bytes", fmt(s.availableStorage()), fmt(s.totalStorage())),
             x, y, valueColor);
         y += 14;
 
         // Threads
         guiGraphics.drawString(font,
-            Component.literal("Threads: " + s.usedThreads() + " / " + s.maxThreads()),
+            Component.translatable("gui.neoecoae.machine.threads_value", s.usedThreads(), s.maxThreads()),
             x, y, valueColor);
         y += 14;
 
         // Parallel Cores
         guiGraphics.drawString(font,
-            Component.literal("Parallel Cores: " + s.parallelCount()),
+            Component.translatable("gui.neoecoae.machine.parallel_cores", s.parallelCount()),
             x, y, valueColor);
         y += 14;
 
         // Accelerators
         guiGraphics.drawString(font,
-            Component.literal("Accelerators: " + s.accelerators()),
+            Component.translatable("gui.neoecoae.machine.accelerators", s.accelerators()),
             x, y, valueColor);
     }
 
