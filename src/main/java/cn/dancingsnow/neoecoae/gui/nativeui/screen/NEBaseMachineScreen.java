@@ -27,12 +27,12 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
     extends AbstractContainerScreen<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(NENativeUiConstants.LOGGER_NAME);
-    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/crafting/background_dark.png");
-    private static final int TEX_BG_SIZE = 32;
-    private static final int BG_LEFT = 6;
-    private static final int BG_TOP = 12;
-    private static final int BG_RIGHT = 6;
-    private static final int BG_BOTTOM = 6;
+    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/background.png");
+    private static final int TEX_BG_SIZE = 16;
+    private static final int BG_LEFT = 2;
+    private static final int BG_TOP = 2;
+    private static final int BG_RIGHT = 2;
+    private static final int BG_BOTTOM = 4;
 
     protected final NEMachineScreenConfig config;
 

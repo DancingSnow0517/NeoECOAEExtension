@@ -30,15 +30,15 @@ public final class NENativeUiConstants {
     public static final int REBUILDING_TEXT_COLOR = PANEL_TEXT_MUTED;
     public static final int ACTIVE_TEXT_COLOR    = PANEL_TEXT_SUCCESS;
 
-    // ── Machine UI text colors (for dark background) ──
-    public static final int MACHINE_TEXT_PRIMARY   = 0xFFE8E8F0;
-    public static final int MACHINE_TEXT_SECONDARY = 0xFFC8C8D8;
-    public static final int MACHINE_TEXT_MUTED     = 0xFFAAAABC;
-    public static final int MACHINE_TEXT_HINT      = 0xFF7FA6D8;
-    public static final int MACHINE_TEXT_SUCCESS   = 0xFF33FF66;
-    public static final int MACHINE_TEXT_WARNING   = 0xFFFFD36A;
-    public static final int MACHINE_TEXT_ERROR     = 0xFFFF6A6A;
-    public static final int MACHINE_TEXT_VALUE     = 0xFF8E7CFF;
+    // ── Machine UI text colors (for light component-style background) ──
+    public static final int MACHINE_TEXT_PRIMARY   = 0xFF20232A;
+    public static final int MACHINE_TEXT_SECONDARY = 0xFF303846;
+    public static final int MACHINE_TEXT_MUTED     = 0xFF5A6070;
+    public static final int MACHINE_TEXT_HINT      = 0xFF1F4E79;
+    public static final int MACHINE_TEXT_SUCCESS   = 0xFF008A2E;
+    public static final int MACHINE_TEXT_WARNING   = 0xFF9A6500;
+    public static final int MACHINE_TEXT_ERROR     = 0xFFB00020;
+    public static final int MACHINE_TEXT_VALUE     = 0xFF5A49D6;
 
     // ── Label positions (relative to guiLeft / guiTop) ──
     public static final int TITLE_X = 8;
