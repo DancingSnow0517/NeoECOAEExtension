@@ -68,6 +68,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -221,6 +222,48 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
         this.setPowerSides(getGridConnectableSides(getOrientation()));
     }
+
+    // ── ContainerData for native Forge Menu sync ──
+
+    private final ContainerData containerData = new ContainerData() {
+        @Override
+        public int get(int index) {
+            return switch (index) {
+                case 0 -> (int) getInternalCurrentPower();
+                case 1 -> (int) getInternalMaxPower();
+                case 2 -> processingTime;
+                case 3 -> MAX_PROCESSING_STEPS;
+                case 4 -> cachedTask != null ? cachedTask.energy() : 0;
+                case 5 -> working ? 1 : 0;
+                case 6 -> inputTank.getFluidAmount();
+                default -> 0;
+            };
+        }
+
+        @Override
+        public void set(int index, int value) {
+            // Server-driven; client cannot set
+        }
+
+        @Override
+        public int getCount() {
+            return 7;
+        }
+    };
+
+    public ContainerData getContainerData() {
+        return containerData;
+    }
+
+    public IItemHandler getInputItemHandler() {
+        return (IItemHandler) inputExposed.toItemHandler();
+    }
+
+    public IItemHandler getOutputItemHandler() {
+        return (IItemHandler) outputExposed.toItemHandler();
+    }
+
+    // ── State ──
 
     public void setWorking(boolean working) {
         if (working != this.working) {
