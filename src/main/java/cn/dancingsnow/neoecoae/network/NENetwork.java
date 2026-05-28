@@ -562,17 +562,19 @@ public final class NENetwork {
     }
 
     /**
-     * S2C packet carrying the current build length for the Structure
-     * Terminal config UI.
+     * S2C packet carrying the current build length + range for the
+     * Structure Terminal config UI.
      */
-    public record NEStructureTerminalConfigPacket(int buildLength) {
+    public record NEStructureTerminalConfigPacket(int currentLength, int minLength, int maxLength) {
 
         public static void encode(NEStructureTerminalConfigPacket pkt, FriendlyByteBuf buf) {
-            buf.writeInt(pkt.buildLength());
+            buf.writeInt(pkt.currentLength());
+            buf.writeInt(pkt.minLength());
+            buf.writeInt(pkt.maxLength());
         }
 
         public static NEStructureTerminalConfigPacket decode(FriendlyByteBuf buf) {
-            return new NEStructureTerminalConfigPacket(buf.readInt());
+            return new NEStructureTerminalConfigPacket(buf.readInt(), buf.readInt(), buf.readInt());
         }
 
         public static void handle(NEStructureTerminalConfigPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
@@ -627,11 +629,11 @@ public final class NENetwork {
                 int newLength = switch (pkt.action()) {
                     case INCREASE -> current + 1;
                     case DECREASE -> current - 1;
-                    case RESET -> 1;
+                    case RESET -> StructureTerminalItem.DEFAULT_DISPLAY_LENGTH;
                 };
                 StructureTerminalItem.setBuildLength(stack, newLength);
 
-                // Sync back to client
+                // Sync fresh value from NBT (not cached value) to client
                 menu.syncToClient(sender);
             });
             ctx.setPacketHandled(true);

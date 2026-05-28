@@ -65,12 +65,18 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
     }
 
     /**
-     * Sends the current build length state to the client.
+     * Sends the current build length state to the client,
+     * reading directly from the ItemStack NBT to avoid stale cache.
      */
     public void syncToClient(ServerPlayer player) {
+        ItemStack stack = getTerminalStack(player);
+        int length = stack != null ? StructureTerminalItem.getBuildLength(stack) : StructureTerminalItem.DEFAULT_DISPLAY_LENGTH;
+        int min = StructureTerminalItem.MIN_DISPLAY_LENGTH;
+        int max = StructureTerminalItem.getGlobalMaxDisplayLength();
+        this.buildLength = length;
         cn.dancingsnow.neoecoae.network.NENetwork.CHANNEL.send(
             net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-            new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(buildLength)
+            new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(length, min, max)
         );
     }
 }

@@ -20,6 +20,8 @@ import net.minecraft.world.entity.player.Inventory;
 public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
 
     private int displayBuildLength;
+    private int minLength = 1;
+    private int maxLength = 15;
 
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -28,9 +30,11 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         this.displayBuildLength = menu.getBuildLength();
     }
 
-    /** Called from client packet handler to update the displayed length. */
-    public void setBuildLength(int length) {
+    /** Called from client packet handler to update the displayed length and range. */
+    public void setBuildLength(int length, int min, int max) {
         this.displayBuildLength = length;
+        this.minLength = min;
+        this.maxLength = max;
     }
 
     @Override
@@ -45,21 +49,18 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         addRenderableWidget(Button.builder(Component.literal("-"), btn -> {
             NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE));
-            this.displayBuildLength = Math.max(1, this.displayBuildLength - 1);
         }).pos(centerX - 30, btnY).size(20, btnH).build());
 
         // Build Length +
         addRenderableWidget(Button.builder(Component.literal("+"), btn -> {
             NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE));
-            this.displayBuildLength = Math.min(64, this.displayBuildLength + 1);
         }).pos(centerX + 10, btnY).size(20, btnH).build());
 
-        // Reset to 1
+        // Reset
         addRenderableWidget(Button.builder(Component.literal("Reset"), btn -> {
             NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET));
-            this.displayBuildLength = 1;
         }).pos(centerX + 40, btnY).size(44, btnH).build());
     }
 
@@ -76,13 +77,12 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
             NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
             NENativeUiConstants.TITLE_COLOR);
 
-        // Build length display
         guiGraphics.drawString(font,
-            Component.literal("Build Length: " + displayBuildLength),
+            Component.literal("Total Length: " + displayBuildLength
+                + " [" + minLength + "-" + maxLength + "]"),
             NENativeUiConstants.TITLE_X, 30,
             0xFFC0C0D0);
 
-        // Hint
         guiGraphics.drawString(font,
             Component.literal("Shift+right-click a controller to build"),
             NENativeUiConstants.TITLE_X, 44,

@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.items;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import net.minecraft.core.BlockPos;
@@ -38,25 +39,33 @@ import net.minecraftforge.network.NetworkHooks;
 public class StructureTerminalItem extends Item {
 
     public static final String TAG_BUILD_LENGTH = "BuildLength";
-    private static final int DEFAULT_BUILD_LENGTH = 1;
-    private static final int MAX_GLOBAL_LENGTH = 64;
+    public static final int DEFAULT_DISPLAY_LENGTH = 1;
+    public static final int MIN_DISPLAY_LENGTH = 1;
 
     public StructureTerminalItem(Properties properties) {
         super(properties.stacksTo(1).rarity(Rarity.UNCOMMON));
     }
 
-    // ── ItemStack NBT helpers ──
+    // ── Global max display length ──
+
+    public static int getGlobalMaxDisplayLength() {
+        return Math.max(NEConfig.craftingSystemMaxLength,
+            Math.max(NEConfig.computationSystemMaxLength, NEConfig.storageSystemMaxLength));
+    }
+
+    // ── ItemStack NBT helpers (display length = player-visible total length) ──
 
     public static int getBuildLength(ItemStack stack) {
         CompoundTag tag = stack.getTag();
         if (tag == null || !tag.contains(TAG_BUILD_LENGTH)) {
-            return DEFAULT_BUILD_LENGTH;
+            return DEFAULT_DISPLAY_LENGTH;
         }
-        return Mth.clamp(tag.getInt(TAG_BUILD_LENGTH), 1, MAX_GLOBAL_LENGTH);
+        return Mth.clamp(tag.getInt(TAG_BUILD_LENGTH), MIN_DISPLAY_LENGTH, getGlobalMaxDisplayLength());
     }
 
     public static void setBuildLength(ItemStack stack, int length) {
-        stack.getOrCreateTag().putInt(TAG_BUILD_LENGTH, Mth.clamp(length, 1, MAX_GLOBAL_LENGTH));
+        stack.getOrCreateTag().putInt(TAG_BUILD_LENGTH,
+            Mth.clamp(length, MIN_DISPLAY_LENGTH, getGlobalMaxDisplayLength()));
     }
 
     // ── Item behaviour ──

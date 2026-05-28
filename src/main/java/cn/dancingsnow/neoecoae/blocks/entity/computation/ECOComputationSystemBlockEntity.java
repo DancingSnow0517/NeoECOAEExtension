@@ -5,6 +5,8 @@ import appeng.core.localization.Tooltips;
 import appeng.api.networking.IGridNodeListener;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.gui.AETextures;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
@@ -29,6 +31,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -38,7 +41,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.List;
 import java.util.UUID;
 
-public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity> implements ISyncPersistRPCBlockEntity {
+public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity> implements ISyncPersistRPCBlockEntity, INEMultiblockBuildHost {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -243,6 +246,65 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return buildPreviewStatusComponent();
     }
 
+    // ── INEMultiblockBuildHost interface ──
+
+    @Override
+    public BlockPos getHostPos() { return worldPosition; }
+
+    @Override
+    public BlockState getHostBlockState() { return getBlockState(); }
+
+    @Override
+    public MultiBlockDefinition getBuildDefinition() {
+        return NEMultiBlocks.getComputationSystemDefinition(tier);
+    }
+
+    @Override
+    public void setSelectedBuildLength(int length) {
+        this.selectedBuildLength = Mth.clamp(length, getMinBuildLength(), getMaxBuildLength());
+    }
+
+    @Override
+    public int getMinBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMin();
+    }
+
+    @Override
+    public int getMaxBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMax();
+    }
+
+    private static final int COMPUTATION_BASE_LENGTH = 4;
+
+    private int displayLengthToRepeatCount(int displayLength) {
+        int total = Mth.clamp(displayLength, COMPUTATION_BASE_LENGTH + getMinBuildLength(), NEConfig.computationSystemMaxLength);
+        return Mth.clamp(total - COMPUTATION_BASE_LENGTH, getMinBuildLength(), getMaxBuildLength());
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int displayLength) {
+        setSelectedBuildLength(displayLengthToRepeatCount(displayLength));
+        previewStructure((Player) player);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int displayLength) {
+        setSelectedBuildLength(displayLengthToRepeatCount(displayLength));
+        autoBuild((Player) player);
+    }
+
+    @Deprecated
+    @Override
+    public void previewStructure(ServerPlayer player) { previewStructure((Player) player); }
+
+    @Deprecated
+    @Override
+    public void autoBuild(ServerPlayer player) { autoBuild((Player) player); }
+
+    // ── Legacy public accessors ──
+
     public int getSelectedBuildLength() {
         return selectedBuildLength;
     }
@@ -400,20 +462,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         buildPlayerId = serverPlayer.getUUID();
         buildInProgress = true;
         syncPreview(plan.getMissingBlocks().size(), 0, plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.building", buildSession.getPlacedBlockCount(), buildSession.getTotalBlocks());
-    }
-
-    private MultiBlockDefinition getBuildDefinition() {
-        return NEMultiBlocks.getComputationSystemDefinition(tier);
-    }
-
-    private int getMinBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMin();
-    }
-
-    private int getMaxBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMax();
     }
 
     private void resetPreview(String statusKey) {

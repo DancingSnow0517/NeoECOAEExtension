@@ -13,6 +13,8 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.network.NEStorageUiState;
 import cn.dancingsnow.neoecoae.network.NEStorageUiTypeState;
@@ -29,6 +31,7 @@ import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -44,7 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IGridTickable {
+public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IGridTickable, INEMultiblockBuildHost {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -407,6 +410,65 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return buildPreviewStatusComponent();
     }
 
+    // ── INEMultiblockBuildHost interface ──
+
+    @Override
+    public BlockPos getHostPos() { return worldPosition; }
+
+    @Override
+    public BlockState getHostBlockState() { return getBlockState(); }
+
+    @Override
+    public MultiBlockDefinition getBuildDefinition() {
+        return NEMultiBlocks.getStorageSystemDefinition(tier);
+    }
+
+    @Override
+    public void setSelectedBuildLength(int length) {
+        this.selectedBuildLength = Mth.clamp(length, getMinBuildLength(), getMaxBuildLength());
+    }
+
+    @Override
+    public int getMinBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMin();
+    }
+
+    @Override
+    public int getMaxBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMax();
+    }
+
+    private static final int STORAGE_BASE_LENGTH = 3;
+
+    private int displayLengthToRepeatCount(int displayLength) {
+        int total = Mth.clamp(displayLength, STORAGE_BASE_LENGTH + getMinBuildLength(), NEConfig.storageSystemMaxLength);
+        return Mth.clamp(total - STORAGE_BASE_LENGTH, getMinBuildLength(), getMaxBuildLength());
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int displayLength) {
+        setSelectedBuildLength(displayLengthToRepeatCount(displayLength));
+        previewStructure((Player) player);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int displayLength) {
+        setSelectedBuildLength(displayLengthToRepeatCount(displayLength));
+        autoBuild((Player) player);
+    }
+
+    @Deprecated
+    @Override
+    public void previewStructure(ServerPlayer player) { previewStructure((Player) player); }
+
+    @Deprecated
+    @Override
+    public void autoBuild(ServerPlayer player) { autoBuild((Player) player); }
+
+    // ── Legacy public accessors ──
+
     public int getSelectedBuildLength() {
         return selectedBuildLength;
     }
@@ -552,28 +614,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         syncPreview(plan.getMissingBlocks().size(), 0, plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.building", buildSession.getPlacedBlockCount(), buildSession.getTotalBlocks());
     }
 
-    private MultiBlockDefinition getBuildDefinition() {
-        return NEMultiBlocks.getStorageSystemDefinition(tier);
-    }
-
-    private int getMinBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMin();
-    }
-
-    private int getMaxBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMax();
-    }
-
-    private void resetPreview(String statusKey) {
-        syncPreview(0, 0, 0, 0, statusKey);
-    }
-
-    private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {
-        syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, 0, 0);
-    }
-
     private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey, int statusArg1, int statusArg2) {
         previewMissingBlocks = missingBlocks;
         previewConflictBlocks = conflictBlocks;
@@ -584,6 +624,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         previewStatusArg2 = statusArg2;
         setChanged();
         markForUpdate();
+    }
+
+    private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {
+        syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, 0, 0);
+    }
+
+    private void resetPreview(String statusKey) {
+        syncPreview(0, 0, 0, 0, statusKey);
     }
 
     private Component buildPreviewStatusComponent() {
