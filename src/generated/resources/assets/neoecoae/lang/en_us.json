@@ -329,5 +329,8 @@
   "gui.neoecoae.multiblock.status.build_failed": "Build failed",
   "gui.neoecoae.multiblock.status.build_interrupted": "Build interrupted",
   "gui.neoecoae.multiblock.status.builder_unavailable": "Builder unavailable",
-  "gui.neoecoae.terminal.not_a_host": "This block is not a valid build target"
+  "gui.neoecoae.terminal.not_a_host": "This block is not a valid build target",
+  "gui.neoecoae.structure_terminal.variable_sections": "Variable Sections: %s [%s-%s]",
+  "gui.neoecoae.structure_terminal.hint_shift_build": "Shift+right-click a controller to build",
+  "gui.neoecoae.structure_terminal.reset": "Reset"
 }

@@ -1,23 +1,32 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.widget.NETexturedButton;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
  * Screen for the Structure Terminal configuration UI.
  * <p>
- * Displays and allows editing of the build length stored in the
- * Structure Terminal item's NBT. No machine binding, no preview,
- * no auto-build — those happen via Shift+right-click on a host.
+ * Uses project nine-slice GUI assets for background and buttons.
+ * No LDLib dependency.
  * </p>
  */
 public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
+
+    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/background");
+    private static final int TEX_BG_SIZE = 16;
+    private static final int BG_LEFT = 2;
+    private static final int BG_TOP = 2;
+    private static final int BG_RIGHT = 2;
+    private static final int BG_BOTTOM = 4;
 
     private int displayBuildLength;
     private int minLength = 1;
@@ -30,7 +39,6 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         this.displayBuildLength = menu.getBuildLength();
     }
 
-    /** Called from client packet handler to update the displayed length and range. */
     public void setBuildLength(int length, int min, int max) {
         this.displayBuildLength = length;
         this.minLength = min;
@@ -45,30 +53,28 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int btnH = 20;
         int centerX = leftPos + imageWidth / 2;
 
-        // Build Length -
-        addRenderableWidget(Button.builder(Component.literal("-"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
-                NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE));
-        }).pos(centerX - 30, btnY).size(20, btnH).build());
+        addRenderableWidget(new NETexturedButton(centerX - 30, btnY, 20, btnH,
+            Component.literal("-"),
+            btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
-        // Build Length +
-        addRenderableWidget(Button.builder(Component.literal("+"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
-                NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE));
-        }).pos(centerX + 10, btnY).size(20, btnH).build());
+        addRenderableWidget(new NETexturedButton(centerX + 10, btnY, 20, btnH,
+            Component.literal("+"),
+            btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
-        // Reset
-        addRenderableWidget(Button.builder(Component.literal("Reset"), btn -> {
-            NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
-                NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET));
-        }).pos(centerX + 40, btnY).size(44, btnH).build());
+        addRenderableWidget(new NETexturedButton(centerX + 40, btnY, 44, btnH,
+            Component.translatable("gui.neoecoae.structure_terminal.reset"),
+            btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
     }
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        guiGraphics.fill(leftPos, topPos,
-            leftPos + imageWidth, topPos + imageHeight,
-            NENativeUiConstants.BG_COLOR);
+        NENineSliceRenderer.drawPanel(guiGraphics, TEX_BACKGROUND,
+            leftPos, topPos, imageWidth, imageHeight,
+            TEX_BG_SIZE, TEX_BG_SIZE,
+            BG_LEFT, BG_TOP, BG_RIGHT, BG_BOTTOM);
     }
 
     @Override
@@ -78,13 +84,13 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
             NENativeUiConstants.TITLE_COLOR);
 
         guiGraphics.drawString(font,
-            Component.literal("Variable Sections: " + displayBuildLength
-                + " [" + minLength + "-" + maxLength + "]"),
+            Component.translatable("gui.neoecoae.structure_terminal.variable_sections",
+                displayBuildLength, minLength, maxLength),
             NENativeUiConstants.TITLE_X, 30,
             0xFFC0C0D0);
 
         guiGraphics.drawString(font,
-            Component.literal("Shift+right-click a controller to build"),
+            Component.translatable("gui.neoecoae.structure_terminal.hint_shift_build"),
             NENativeUiConstants.TITLE_X, 44,
             0xFF6A8AAA);
     }

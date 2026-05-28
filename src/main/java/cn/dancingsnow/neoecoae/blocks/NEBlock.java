@@ -4,11 +4,16 @@ import appeng.block.AEBaseEntityBlock;
 import appeng.blockentity.crafting.CraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.phys.HitResult;
+import org.jetbrains.annotations.Nullable;
 
 public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntityBlock<T> {
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
@@ -56,5 +61,19 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
         if (be != null) {
             be.updateMultiBlock(neighborPos);
         }
+    }
+
+    /**
+     * Returns the item stack for this block, used by AE2 wrench dismantle
+     * and pick-block. Falls back to {@link #asItem()} if the block has an
+     * item form; otherwise returns empty.
+     */
+    @Override
+    public ItemStack getCloneItemStack(BlockState state, HitResult target, BlockGetter level,
+                                        BlockPos pos, Player player) {
+        if (asItem() != null) {
+            return new ItemStack(asItem());
+        }
+        return ItemStack.EMPTY;
     }
 }
