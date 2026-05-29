@@ -4,12 +4,12 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NENativeAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.forge.ForgeTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
-import mezz.jei.api.gui.drawable.IDrawableAnimated;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.recipe.IFocusGroup;
@@ -18,7 +18,6 @@ import mezz.jei.api.recipe.category.IRecipeCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 import org.slf4j.Logger;
@@ -28,32 +27,63 @@ import java.util.List;
 
 /**
  * JEI recipe category for the ECO Integrated Working Station.
- * Background and progress bar textures match the 1.21.1 reference implementation.
+ * Uses 1.20.1 AE2-style rendering via {@link NENativeAe2StyleRenderer}.
  */
 public class IntegratedWorkingStationJeiCategory
     implements IRecipeCategory<IntegratedWorkingStationRecipe> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IntegratedWorkingStationJeiCategory.class);
 
-    private static final ResourceLocation TEX_BG =
-        NeoECOAE.id("textures/gui/jei/integration_working_station.png");
-    private static final ResourceLocation TEX_PROGRESS =
-        NeoECOAE.id("textures/gui/jei/progress_bar.png");
+    // ── Layout constants ──
+    private static final int WIDTH = 168;
+    private static final int HEIGHT = 75;
+
+    // Fluid tanks (background drawn in draw())
+    private static final int FLUID_TANK_W = 18;
+    private static final int FLUID_TANK_H = 58;
+
+    private static final int INPUT_FLUID_TANK_X = 5;
+    private static final int INPUT_FLUID_TANK_Y = 9;
+    private static final int INPUT_FLUID_SLOT_X = INPUT_FLUID_TANK_X;
+    private static final int INPUT_FLUID_SLOT_Y = INPUT_FLUID_TANK_Y;
+
+    // 3×3 input item grid
+    private static final int INPUT_GRID_COLS = 3;
+    private static final int INPUT_GRID_X = 38;
+    private static final int INPUT_GRID_Y = 12;
+    private static final int SLOT_SPACING = 18;
+
+    // Output item: Inscriber-style frame (26×26), JEI slot centered inside
+    private static final int OUTPUT_FRAME_X = 110;
+    private static final int OUTPUT_FRAME_Y = 27;
+    private static final int OUTPUT_FRAME_W = 26;
+    private static final int OUTPUT_FRAME_H = 26;
+    private static final int OUTPUT_SLOT_X = OUTPUT_FRAME_X + (OUTPUT_FRAME_W - 16) / 2; // 115
+    private static final int OUTPUT_SLOT_Y = OUTPUT_FRAME_Y + (OUTPUT_FRAME_H - 16) / 2; // 32
+
+    // Output fluid tank
+    private static final int OUTPUT_FLUID_TANK_X = 146;
+    private static final int OUTPUT_FLUID_TANK_Y = 9;
+    private static final int OUTPUT_FLUID_SLOT_X = OUTPUT_FLUID_TANK_X;
+    private static final int OUTPUT_FLUID_SLOT_Y = OUTPUT_FLUID_TANK_Y;
+
+    // AE2 inscriber-style progress bar
+    private static final int PROGRESS_X = 136;
+    private static final int PROGRESS_Y = 30;
+    private static final int PROGRESS_W = 6;
+    private static final int PROGRESS_H = 18;
+
+    // Energy text
+    private static final int ENERGY_TEXT_X = 24;
+    private static final int ENERGY_TEXT_Y = 66;
+    private static final int ENERGY_TEXT_COLOR = 0xFF404040;
 
     private final IDrawable icon;
-    private final IDrawable background;
-    private final IDrawableAnimated progress;
     private final Component title;
 
     public IntegratedWorkingStationJeiCategory(IGuiHelper helper) {
         this.title = Component.translatable("category.neoecoae.integrated_working_station");
         this.icon = helper.createDrawableItemStack(NEBlocks.INTEGRATED_WORKING_STATION.asStack());
-        this.background = helper.drawableBuilder(TEX_BG, 0, 0, 168, 75)
-            .setTextureSize(168, 75)
-            .build();
-        this.progress = helper.drawableBuilder(TEX_PROGRESS, 0, 0, 6, 18)
-            .setTextureSize(6, 18)
-            .buildAnimated(100, IDrawableAnimated.StartDirection.BOTTOM, false);
     }
 
     @Override
@@ -73,12 +103,12 @@ public class IntegratedWorkingStationJeiCategory
 
     @Override
     public int getWidth() {
-        return background.getWidth(); // 168
+        return WIDTH;
     }
 
     @Override
     public int getHeight() {
-        return background.getHeight(); // 75
+        return HEIGHT;
     }
 
     @Override
@@ -86,7 +116,7 @@ public class IntegratedWorkingStationJeiCategory
                            IntegratedWorkingStationRecipe recipe,
                            IFocusGroup focuses) {
 
-        // ── Input fluid (left side, matches 1.21.1: x=5, y=9, 16×58) ──
+        // ── Input fluid slot ──
         SizedFluidIngredient inputFluid = recipe.inputFluid();
         if (!inputFluid.ingredient().isEmpty()) {
             FluidStack[] rawFluids = inputFluid.getFluids();
@@ -102,7 +132,7 @@ public class IntegratedWorkingStationJeiCategory
                     stacks.add(copy);
                 }
                 if (!stacks.isEmpty()) {
-                    builder.addInputSlot(5, 9)
+                    builder.addInputSlot(INPUT_FLUID_SLOT_X, INPUT_FLUID_SLOT_Y)
                         .addIngredients(ForgeTypes.FLUID_STACK, stacks)
                         .setFluidRenderer(16000, false, 16, 58);
                 } else {
@@ -112,17 +142,17 @@ public class IntegratedWorkingStationJeiCategory
             }
         }
 
-        // ── Input items (3×3 grid, matches 1.21.1: x=38, y=12, 18px spacing) ──
+        // ── Input item slots (3×3 grid) ──
         List<SizedIngredient> inputItems = recipe.inputItems();
         for (int i = 0; i < inputItems.size(); i++) {
             SizedIngredient input = inputItems.get(i);
             if (input.ingredient().isEmpty()) {
                 continue;
             }
-            int col = i % 3;
-            int row = i / 3;
-            int x = 38 + col * 18;
-            int y = 12 + row * 18;
+            int col = i % INPUT_GRID_COLS;
+            int row = i / INPUT_GRID_COLS;
+            int x = INPUT_GRID_X + col * SLOT_SPACING;
+            int y = INPUT_GRID_Y + row * SLOT_SPACING;
 
             ItemStack[] rawStacks = input.ingredient().getItems();
             if (rawStacks == null || rawStacks.length == 0) {
@@ -133,9 +163,7 @@ public class IntegratedWorkingStationJeiCategory
 
             List<ItemStack> stacks = new java.util.ArrayList<>();
             for (ItemStack raw : rawStacks) {
-                if (raw == null || raw.isEmpty()) {
-                    continue;
-                }
+                if (raw == null || raw.isEmpty()) continue;
                 ItemStack copy = raw.copy();
                 copy.setCount(input.count());
                 stacks.add(copy);
@@ -151,17 +179,17 @@ public class IntegratedWorkingStationJeiCategory
                 .addIngredients(VanillaTypes.ITEM_STACK, stacks);
         }
 
-        // ── Output item (matches 1.21.1: x=114, y=31) ──
+        // ── Output item slot ──
         ItemStack itemOutput = recipe.itemOutput();
         if (!itemOutput.isEmpty()) {
-            builder.addOutputSlot(114, 31)
+            builder.addOutputSlot(OUTPUT_SLOT_X, OUTPUT_SLOT_Y)
                 .addItemStack(itemOutput.copy());
         }
 
-        // ── Output fluid (matches 1.21.1: x=147, y=9, 16×58) ──
+        // ── Output fluid slot ──
         FluidStack fluidOutput = recipe.fluidOutput();
         if (!fluidOutput.isEmpty()) {
-            builder.addOutputSlot(147, 9)
+            builder.addOutputSlot(OUTPUT_FLUID_SLOT_X, OUTPUT_FLUID_SLOT_Y)
                 .addIngredient(ForgeTypes.FLUID_STACK, fluidOutput.copy())
                 .setFluidRenderer(16000, false, 16, 58);
         }
@@ -171,14 +199,49 @@ public class IntegratedWorkingStationJeiCategory
     public void draw(IntegratedWorkingStationRecipe recipe,
                       IRecipeSlotsView slots, GuiGraphics g,
                       double mouseX, double mouseY) {
-        // Draw the JEI background (168×75 custom texture)
-        background.draw(g);
-        // Draw the animated progress bar (matches 1.21.1: x=136, y=30)
-        progress.draw(g, 136, 30);
-        // Energy text (matches 1.21.1: x=24, y=66)
+
+        // 1. AE2 BackgroundGenerator main panel
+        NENativeAe2StyleRenderer.drawAeMainPanel(g, 0, 0, WIDTH, HEIGHT);
+
+        // 2. Input fluid tank background (empty — JEI renders actual fluid)
+        NENativeAe2StyleRenderer.drawAeFluidTank(g,
+            INPUT_FLUID_TANK_X, INPUT_FLUID_TANK_Y,
+            FLUID_TANK_W, FLUID_TANK_H,
+            FluidStack.EMPTY, 0, 16000);
+
+        // 3. Input item slot backgrounds (AE2 io_port.png baked slots)
+        List<SizedIngredient> inputItems = recipe.inputItems();
+        for (int i = 0; i < inputItems.size(); i++) {
+            int col = i % INPUT_GRID_COLS;
+            int row = i / INPUT_GRID_COLS;
+            NENativeAe2StyleRenderer.drawAeSlot(g,
+                INPUT_GRID_X + col * SLOT_SPACING - 1,
+                INPUT_GRID_Y + row * SLOT_SPACING - 1);
+        }
+
+        // 4. Output item Inscriber-style frame
+        NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(g,
+            OUTPUT_FRAME_X, OUTPUT_FRAME_Y,
+            OUTPUT_FRAME_W, OUTPUT_FRAME_H);
+
+        // 5. Output fluid tank background
+        NENativeAe2StyleRenderer.drawAeFluidTank(g,
+            OUTPUT_FLUID_TANK_X, OUTPUT_FLUID_TANK_Y,
+            FLUID_TANK_W, FLUID_TANK_H,
+            FluidStack.EMPTY, 0, 16000);
+
+        // 6. AE2 inscriber-style progress bar
+        int progress = (int) ((System.currentTimeMillis() / 50) % 100);
+        NENativeAe2StyleRenderer.drawAeProgressBar(g,
+            PROGRESS_X, PROGRESS_Y,
+            PROGRESS_W, PROGRESS_H,
+            progress, 100);
+
+        // 7. Energy text
         Component energyText = Component.translatable(
             "gui.neoecoae.integrated_working_station.energy",
             recipe.energy() / 1000);
-        g.drawString(Minecraft.getInstance().font, energyText, 24, 66, 0xFF403E53, false);
+        g.drawString(Minecraft.getInstance().font, energyText,
+            ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
     }
 }
