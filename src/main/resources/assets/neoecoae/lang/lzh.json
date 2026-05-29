@@ -95,7 +95,7 @@
   "gui.neoecoae.integrated_working_station.allow_outputs": "\u8f93\u51fa\u9762",
   "gui.neoecoae.integrated_working_station.allow_outputs.disabled": "\u5df2\u7981\u7528",
   "gui.neoecoae.integrated_working_station.allow_outputs.enabled": "\u5df2\u542f\u7528",
-  "gui.neoecoae.integrated_working_station.energy": "\u5df2\u7528\u80fd\u91cf\uff1a%dk FE",
+  "gui.neoecoae.integrated_working_station.energy": "所需能量：%s kAE",
   "gui.neoecoae.multiblock.build": "\u6784\u5efa",
   "gui.neoecoae.multiblock.builder": "\u7ed3\u6784\u6784\u5efa\u5668",
   "gui.neoecoae.multiblock.close_builder": "\u5173\u95ed\u6784\u5efa\u5668",

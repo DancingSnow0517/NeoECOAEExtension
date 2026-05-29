@@ -51,7 +51,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.cpu.coprocessors", "%s Co-processors");
 
         // integrated working station
-        provider.add("gui.neoecoae.integrated_working_station.energy", "Used Energy: %dk FE");
+        provider.add("gui.neoecoae.integrated_working_station.energy", "Required Energy: %s kAE");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.enabled", "Enabled");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.disabled", "Disabled");

@@ -136,7 +136,7 @@
   "gui.neoecoae.integrated_working_station.available_upgrades": "Available Upgrades:",
   "gui.neoecoae.integrated_working_station.clear_input_fluid": "Clear Input Fluid",
   "gui.neoecoae.integrated_working_station.clear_output_fluid": "Clear Output Fluid",
-  "gui.neoecoae.integrated_working_station.energy": "Required Energy: %s",
+  "gui.neoecoae.integrated_working_station.energy": "Required Energy: %s kAE",
   "gui.neoecoae.integrated_working_station.energy_label": "Required Energy: ",
   "gui.neoecoae.integrated_working_station.not_implemented": "Not yet implemented",
   "gui.neoecoae.integrated_working_station.progress_percent": "Progress: %s%%",

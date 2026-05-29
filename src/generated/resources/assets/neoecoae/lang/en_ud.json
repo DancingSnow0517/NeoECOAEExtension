@@ -95,7 +95,7 @@
   "gui.neoecoae.integrated_working_station.allow_outputs": "Output Sides",
   "gui.neoecoae.integrated_working_station.allow_outputs.disabled": "Disabled",
   "gui.neoecoae.integrated_working_station.allow_outputs.enabled": "Enabled",
-  "gui.neoecoae.integrated_working_station.energy": "Used Energy: %dk FE",
+  "gui.neoecoae.integrated_working_station.energy": "Required Energy: %s kAE",
   "gui.neoecoae.multiblock.build": "Build",
   "gui.neoecoae.multiblock.builder": "Structure Builder",
   "gui.neoecoae.multiblock.close_builder": "Close builder",

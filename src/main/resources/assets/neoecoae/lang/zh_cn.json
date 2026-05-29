@@ -109,7 +109,7 @@
   "gui.neoecoae.integrated_working_station.available_upgrades": "可用升级：",
   "gui.neoecoae.integrated_working_station.clear_input_fluid": "清空输入流体",
   "gui.neoecoae.integrated_working_station.clear_output_fluid": "清空输出流体",
-  "gui.neoecoae.integrated_working_station.energy": "所需能量：%s",
+  "gui.neoecoae.integrated_working_station.energy": "所需能量：%s kAE",
   "gui.neoecoae.integrated_working_station.energy_label": "所需能量：",
   "gui.neoecoae.integrated_working_station.not_implemented": "暂未实现",
   "gui.neoecoae.integrated_working_station.progress_percent": "进度：%s%%",
