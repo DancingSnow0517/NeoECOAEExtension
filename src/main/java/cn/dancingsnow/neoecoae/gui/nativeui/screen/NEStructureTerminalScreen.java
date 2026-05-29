@@ -1,32 +1,21 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
-import cn.dancingsnow.neoecoae.gui.nativeui.widget.NETexturedButton;
+import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEAe2TextButton;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
  * Screen for the Structure Terminal configuration UI.
  * <p>
- * Uses project nine-slice GUI assets for background and buttons.
- * No LDLib dependency.
+ * Uses AE2-style generated panel background and AE2-style text buttons.
  * </p>
  */
 public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
-
-    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/background.png");
-    private static final int TEX_BG_SIZE = 16;
-    private static final int BG_LEFT = 2;
-    private static final int BG_TOP = 2;
-    private static final int BG_RIGHT = 2;
-    private static final int BG_BOTTOM = 4;
 
     private int displayBuildLength;
     private int minLength = 1;
@@ -53,17 +42,17 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int btnH = 20;
         int centerX = leftPos + imageWidth / 2;
 
-        addRenderableWidget(new NETexturedButton(centerX - 30, btnY, 20, btnH,
+        addRenderableWidget(new NEAe2TextButton(centerX - 30, btnY, 20, btnH,
             Component.literal("-"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
-        addRenderableWidget(new NETexturedButton(centerX + 10, btnY, 20, btnH,
+        addRenderableWidget(new NEAe2TextButton(centerX + 10, btnY, 20, btnH,
             Component.literal("+"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
-        addRenderableWidget(new NETexturedButton(centerX + 40, btnY, 44, btnH,
+        addRenderableWidget(new NEAe2TextButton(centerX + 40, btnY, 44, btnH,
             Component.translatable("gui.neoecoae.structure_terminal.reset"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
@@ -71,28 +60,25 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        NENineSliceRenderer.drawPanel(guiGraphics, TEX_BACKGROUND,
-            leftPos, topPos, imageWidth, imageHeight,
-            TEX_BG_SIZE, TEX_BG_SIZE,
-            BG_LEFT, BG_TOP, BG_RIGHT, BG_BOTTOM);
+        NENativeAe2StyleRenderer.drawAeMainPanel(guiGraphics, leftPos, topPos, imageWidth, imageHeight);
     }
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         guiGraphics.drawString(font, title,
             NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
-            NENativeUiConstants.TITLE_COLOR);
+            NENativeUiConstants.MACHINE_TEXT_PRIMARY);
 
         guiGraphics.drawString(font,
             Component.translatable("gui.neoecoae.structure_terminal.variable_sections",
                 displayBuildLength, minLength, maxLength),
             NENativeUiConstants.TITLE_X, 30,
-            0xFFC0C0D0);
+            NENativeUiConstants.MACHINE_TEXT_SECONDARY);
 
         guiGraphics.drawString(font,
             Component.translatable("gui.neoecoae.structure_terminal.hint_shift_build"),
             NENativeUiConstants.TITLE_X, 44,
-            0xFF6A8AAA);
+            NENativeUiConstants.MACHINE_TEXT_HINT);
     }
 
     @Override

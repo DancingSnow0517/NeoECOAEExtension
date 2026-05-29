@@ -79,7 +79,7 @@ public final class NEIntegratedWorkingStationLayout {
     public static final int UPGRADE_FIRST_SLOT_Y = UPGRADE_FIRST_BG_Y + ITEM_OFFSET;
 
     // —— 进度条 ——
-    public static final int PROGRESS_X = OUTPUT_FRAME_X + 18;
+    public static final int PROGRESS_X = OUTPUT_FRAME_X + 30;
     public static final int PROGRESS_Y = OUTPUT_FRAME_Y + 4;
     public static final int PROGRESS_W = 6;
     public static final int PROGRESS_H = 18;

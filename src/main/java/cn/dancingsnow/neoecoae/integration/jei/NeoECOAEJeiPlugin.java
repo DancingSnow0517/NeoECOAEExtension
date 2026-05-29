@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEIntegratedWorkingStationScreen;
 import cn.dancingsnow.neoecoae.integration.jei.categories.CoolingCategory;
 import cn.dancingsnow.neoecoae.integration.jei.categories.IntegrationWorkingStationCategory;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
@@ -8,14 +9,19 @@ import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.mojang.logging.LogUtils;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.recipe.RecipeType;
+import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
+
+import java.util.List;
 
 @JeiPlugin
 public class NeoECOAEJeiPlugin implements IModPlugin {
@@ -48,6 +54,17 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
         LOGGER.info("JEI registerRecipeCatalysts called");
         CoolingCategory.registerRecipeCatalysts(registration);
         IntegrationWorkingStationCategory.registerRecipeCatalysts(registration);
+    }
+
+    @Override
+    public void registerGuiHandlers(IGuiHandlerRegistration registration) {
+        registration.addGuiContainerHandler(NEIntegratedWorkingStationScreen.class,
+            new IGuiContainerHandler<>() {
+                @Override
+                public List<Rect2i> getGuiExtraAreas(NEIntegratedWorkingStationScreen screen) {
+                    return screen.getJeiExtraAreas();
+                }
+            });
     }
 
     public static <R extends Recipe<?>> RecipeType<RecipeHolder<R>> createRecipeHolderType(String name) {

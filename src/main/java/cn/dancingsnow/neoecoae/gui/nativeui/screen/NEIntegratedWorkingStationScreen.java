@@ -6,11 +6,13 @@ import cn.dancingsnow.neoecoae.network.NENetwork;
 import appeng.client.gui.Icon;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraftforge.fluids.FluidStack;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingStationLayout.*;
@@ -61,6 +63,21 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             return false;
         }
         return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, mouseButton);
+    }
+
+    /**
+     * Returns the extra GUI areas that extend beyond imageWidth/imageHeight
+     * (right upgrade panel), so JEI can avoid overlapping them.
+     */
+    public List<Rect2i> getJeiExtraAreas() {
+        List<Rect2i> areas = new ArrayList<>();
+        // Right upgrade panel
+        areas.add(new Rect2i(
+            this.leftPos + UPGRADE_PANEL_X,
+            this.topPos + UPGRADE_PANEL_Y,
+            UPGRADE_PANEL_W,
+            UPGRADE_PANEL_H));
+        return areas;
     }
 
     private void sendAction(NENetwork.IWSAction action) {
