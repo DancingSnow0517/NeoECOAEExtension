@@ -10,7 +10,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -382,26 +381,13 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         int fillY = y + h - 1 - barH;
         int fillW = w - 2;
 
-        if (!stack.isEmpty() && stack.getFluid() != null && minecraft != null) {
+        // Simple solid-color bar; fluid texture can be re-added after sync is proven stable
+        int color = fallbackColor;
+        if (!stack.isEmpty() && stack.getFluid() != null) {
             var ext = net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions.of(stack.getFluid());
-            ResourceLocation still = ext.getStillTexture(stack);
-            if (still != null) {
-                int tint = ext.getTintColor(stack);
-                float r = ((tint >> 16) & 0xFF) / 255f;
-                float gv = ((tint >> 8) & 0xFF) / 255f;
-                float b = (tint & 0xFF) / 255f;
-                var sprite = minecraft.getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(still);
-                RenderSystem.setShaderTexture(0, TextureAtlas.LOCATION_BLOCKS);
-                RenderSystem.setShaderColor(r, gv, b, 1f);
-                for (int ty = 0; ty < barH; ty += 16) {
-                    int drawH = Math.min(16, barH - ty);
-                    g.blit(fillX, fillY + ty, 0, fillW, drawH, sprite);
-                }
-                RenderSystem.setShaderColor(1, 1, 1, 1);
-                return;
-            }
+            color = ext.getTintColor(stack) | 0xFF000000;
         }
-        g.fill(fillX, fillY, fillX + fillW, fillY + barH, fallbackColor);
+        g.fill(fillX, fillY, fillX + fillW, fillY + barH, color);
     }
 
     private void drawProgressBar(GuiGraphics g, int x, int y, int progress, int max) {

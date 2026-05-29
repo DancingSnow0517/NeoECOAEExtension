@@ -76,6 +76,7 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
     private FluidStack clientInputFluid = FluidStack.EMPTY;
     private FluidStack clientOutputFluid = FluidStack.EMPTY;
     private boolean clientAutoExport;
+    private boolean hasClientState;
 
     public NEIntegratedWorkingStationMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
         super(NENativeMenus.INTEGRATED_WORKING_STATION.get(), containerId, playerInv, machinePos);
@@ -227,6 +228,7 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
     }
 
     public boolean isAutoExportEnabled() {
+        if (hasClientState) return clientAutoExport;
         return data.get(DATA_AUTO_EXPORT) != 0;
     }
 
@@ -234,11 +236,11 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
 
     public FluidStack getClientInputFluid() { return clientInputFluid; }
     public FluidStack getClientOutputFluid() { return clientOutputFluid; }
-    public boolean getClientAutoExport() { return clientAutoExport; }
 
     public void updateClientState(FluidStack input, FluidStack output, boolean autoExport) {
         this.clientInputFluid = input;
         this.clientOutputFluid = output;
         this.clientAutoExport = autoExport;
+        this.hasClientState = true;
     }
 }

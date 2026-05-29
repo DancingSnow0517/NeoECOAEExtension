@@ -729,18 +729,8 @@ public final class NENetwork {
 
         public static void handle(NEIWSStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
-            ctx.enqueueWork(() -> {
-                var player = ctx.getSender();
-                if (player != null && player.containerMenu instanceof NEIntegratedWorkingStationMenu menu) {
-                    if (menu.getMachinePos().equals(pkt.pos())) {
-                        var inputTank = new FluidTank(16000);
-                        var outputTank = new FluidTank(16000);
-                        if (pkt.inputTankTag() != null) inputTank.readFromNBT(pkt.inputTankTag());
-                        if (pkt.outputTankTag() != null) outputTank.readFromNBT(pkt.outputTankTag());
-                        menu.updateClientState(inputTank.getFluid(), outputTank.getFluid(), pkt.autoExport());
-                    }
-                }
-            });
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> NEClientUiPacketHandlers.handleIwsStatePacket(pkt)));
             ctx.setPacketHandled(true);
         }
     }
