@@ -33,9 +33,9 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final ResourceLocation TEX_BAR_CONTAINER = NeoECOAE.id("textures/gui/bar_container.png");
 
     private static final int PANEL_W = 168;
-    private static final int PANEL_H = 168;
+    private static final int PANEL_H = 171;
     private static final int GUI_WIDTH = 168;
-    private static final int GUI_HEIGHT = 168;
+    private static final int GUI_HEIGHT = 171;
     private static final int SLOT_SIZE = 18;
     private static final int ITEM_OFFSET = 1;
 
@@ -67,11 +67,11 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int OUTPUT_BG_X = 108;
     private static final int OUTPUT_BG_Y = 32;
 
-    // Right upgrade bar — fully covers 4 slots (18×4=72) + 2-3px margin each side
+    // Right upgrade bar — pixel-aligned wrapper for 4 slots
     private static final int UPGRADE_BAR_X = 170;
-    private static final int UPGRADE_BAR_Y = 0;
+    private static final int UPGRADE_BAR_Y = 1;
     private static final int UPGRADE_BAR_W = 22;
-    private static final int UPGRADE_BAR_H = 78;
+    private static final int UPGRADE_BAR_H = 76;
 
     private static final int UPGRADE_BG_X = 171;
     private static final int UPGRADE_FIRST_BG_Y = 2;
@@ -100,27 +100,16 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int FLUID_IN_COLOR = 0xFF3A7FD6;
     private static final int FLUID_OUT_COLOR = 0xFF8E7CFF;
 
-    // Left settings panel (matches 1.21.1 LDLib2 settingsPanel)
-    private static final int SETTINGS_PANEL_X = -22;
-    private static final int SETTINGS_PANEL_Y = 0;
-    private static final int SETTINGS_PANEL_W = 22;
-    private static final int SETTINGS_PANEL_H = 70;
+    // Left settings panel — single auto-export button only
+    private static final int SETTINGS_PANEL_X = -20;
+    private static final int SETTINGS_PANEL_Y = 1;
+    private static final int SETTINGS_PANEL_W = 20;
+    private static final int SETTINGS_PANEL_H = 24;
 
-    // Settings panel button positions (within panel, relative to leftPos/topPos)
-    private static final int HELP_BTN_X = -21;
-    private static final int HELP_BTN_Y = 1;
-    private static final int HELP_BTN_W = 18;
-    private static final int HELP_BTN_H = 20;
-
-    private static final int TOGGLE_BTN_X = -21;
-    private static final int TOGGLE_BTN_Y = 23;
+    private static final int TOGGLE_BTN_X = -19;
+    private static final int TOGGLE_BTN_Y = 2;
     private static final int TOGGLE_BTN_W = 18;
-    private static final int TOGGLE_BTN_H = 22;
-
-    private static final int OUTPUTS_BTN_X = -21;
-    private static final int OUTPUTS_BTN_Y = 47;
-    private static final int OUTPUTS_BTN_W = 18;
-    private static final int OUTPUTS_BTN_H = 20;
+    private static final int TOGGLE_BTN_H = 20;
 
     // X-button constants (8x8 matches 1.21.1 LDLib2 reference)
     private static final int CLEAR_BTN_W = 8;
@@ -131,12 +120,12 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int CLEAR_BTN_OUT_X = 137;
     private static final int CLEAR_BTN_Y = 59;
 
-    // Upgrade ghost placeholder (16x16 item area, alpha overlay)
-    private static final float UPGRADE_GHOST_ALPHA = 0.30f;
+    // Upgrade blank-card placeholder colors (opaque, no alpha)
+    private static final int CARD_BORDER = 0xFF6F7288;
+    private static final int CARD_FILL   = 0xFFB5B8C8;
+    private static final int CARD_LINE   = 0xFF8E91A5;
 
     private NETexturedButton autoExportBtn;
-    private NETexturedButton helpBtn;
-    private NETexturedButton outputsBtn;
 
     public NEIntegratedWorkingStationScreen(NEIntegratedWorkingStationMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -148,30 +137,11 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     protected void init() {
         super.init();
 
-        // ── Left settings panel: 3 vertical buttons ──
-        // Help button (disabled, visual placeholder)
-        helpBtn = new NETexturedButton(
-            leftPos + HELP_BTN_X, topPos + HELP_BTN_Y, HELP_BTN_W, HELP_BTN_H,
-            Component.literal("?"), btn -> {});
-        helpBtn.active = false;
-        helpBtn.setTooltip(Tooltip.create(
-            Component.translatable("gui.neoecoae.integrated_working_station.help")));
-        addRenderableWidget(helpBtn);
-
-        // Auto-export toggle (functional)
+        // ── Left panel: single auto-export toggle button ──
         autoExportBtn = new NETexturedButton(
             leftPos + TOGGLE_BTN_X, topPos + TOGGLE_BTN_Y, TOGGLE_BTN_W, TOGGLE_BTN_H,
             Component.literal("\u2192"), btn -> sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT));
         addRenderableWidget(autoExportBtn);
-
-        // Outputs button (disabled, visual placeholder)
-        outputsBtn = new NETexturedButton(
-            leftPos + OUTPUTS_BTN_X, topPos + OUTPUTS_BTN_Y, OUTPUTS_BTN_W, OUTPUTS_BTN_H,
-            Component.literal("\u25A5"), btn -> {});
-        outputsBtn.active = false;
-        outputsBtn.setTooltip(Tooltip.create(
-            Component.translatable("gui.neoecoae.integrated_working_station.outputs")));
-        addRenderableWidget(outputsBtn);
 
         // ── Fluid clear buttons (8x8, lowercase x) ──
         addRenderableWidget(new NETexturedButton(
@@ -287,22 +257,25 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         // ── 6. Progress bar (6×18, bottom-up with textures) ──
         drawProgressBar(g, leftPos + PROGRESS_X, topPos + PROGRESS_Y, menu.getProgress(), menu.getMaxProgress());
 
-        // ── 7. Upgrade ghost placeholders (empty slots only, 16x16 item area) ──
+        // ── 7. Upgrade blank-card placeholders (empty slots only, opaque, 16x16 item area) ──
         int startUpgradeSlot = NEIntegratedWorkingStationMenu.INPUT_SLOTS
             + NEIntegratedWorkingStationMenu.OUTPUT_SLOTS;
-        RenderSystem.enableBlend();
         for (int i = 0; i < UPGRADE_COUNT; i++) {
             int slotIdx = startUpgradeSlot + i;
             if (slotIdx < menu.slots.size() && !menu.getSlot(slotIdx).hasItem()) {
                 int gx = leftPos + UPGRADE_BG_X + ITEM_OFFSET;
                 int gy = topPos + UPGRADE_FIRST_BG_Y + ITEM_OFFSET + i * SLOT_SIZE;
-                RenderSystem.setShaderColor(1, 1, 1, UPGRADE_GHOST_ALPHA);
-                g.fill(gx, gy, gx + 16, gy + 16, 0x60FFFFFF);
-                g.fill(gx + 2, gy + 2, gx + 14, gy + 14, 0x40707070);
-                RenderSystem.setShaderColor(1, 1, 1, 1);
+                // Card body (12x12 centred in 16x16 item area)
+                g.fill(gx + 2, gy + 2, gx + 14, gy + 14, CARD_FILL);
+                // Card border
+                g.fill(gx + 2, gy + 2, gx + 14, gy + 3, CARD_BORDER);
+                g.fill(gx + 2, gy + 13, gx + 14, gy + 14, CARD_BORDER);
+                g.fill(gx + 2, gy + 2, gx + 3, gy + 14, CARD_BORDER);
+                g.fill(gx + 13, gy + 2, gx + 14, gy + 14, CARD_BORDER);
+                // Card horizontal line (decorative)
+                g.fill(gx + 4, gy + 7, gx + 12, gy + 8, CARD_LINE);
             }
         }
-        RenderSystem.disableBlend();
     }
 
     @Override
