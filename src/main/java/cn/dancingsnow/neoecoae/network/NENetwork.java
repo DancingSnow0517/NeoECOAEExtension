@@ -693,6 +693,7 @@ public final class NENetwork {
                     case CLEAR_OUTPUT_FLUID -> iws.clearFluidOut();
                 }
                 iws.setChanged();
+                iws.markForUpdate();
             });
             ctx.setPacketHandled(true);
         }

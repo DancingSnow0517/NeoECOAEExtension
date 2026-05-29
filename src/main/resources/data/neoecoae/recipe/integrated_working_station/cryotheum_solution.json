@@ -1,0 +1,26 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 1000,
+  "fluidOutput": {
+    "amount": 1000,
+    "id": "neoecoae:cryotheum_solution"
+  },
+  "inputFluid": {
+    "amount": 1000,
+    "tag": "minecraft:water"
+  },
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:cryotheum_crystal"
+    },
+    {
+      "count": 2,
+      "item": "neoecoae:energized_crystal"
+    },
+    {
+      "count": 2,
+      "tag": "c:dusts/redstone"
+    }
+  ]
+}

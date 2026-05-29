@@ -3,8 +3,10 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEClearFluidButton;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NETexturedButton;
 import cn.dancingsnow.neoecoae.network.NENetwork;
+import appeng.core.definitions.AEItems;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
@@ -13,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
@@ -120,12 +123,8 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int CLEAR_BTN_OUT_X = 137;
     private static final int CLEAR_BTN_Y = 59;
 
-    // Upgrade blank-card placeholder colors (opaque, no alpha)
-    private static final int CARD_BORDER = 0xFF6F7288;
-    private static final int CARD_FILL   = 0xFFB5B8C8;
-    private static final int CARD_LINE   = 0xFF8E91A5;
-
     private NETexturedButton autoExportBtn;
+    private final ItemStack upgradeGhost = AEItems.SPEED_CARD.stack();
 
     public NEIntegratedWorkingStationScreen(NEIntegratedWorkingStationMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -143,18 +142,14 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             Component.literal("\u2192"), btn -> sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT));
         addRenderableWidget(autoExportBtn);
 
-        // ── Fluid clear buttons (8x8, lowercase x) ──
-        addRenderableWidget(new NETexturedButton(
-            leftPos + CLEAR_BTN_IN_X, topPos + CLEAR_BTN_Y, CLEAR_BTN_W, CLEAR_BTN_H,
-            Component.literal("x"),
-            btn -> sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID),
-            CLEAR_BTN_TEXT, CLEAR_BTN_DISABLED, false));
+        // ── Fluid clear buttons (8x8, pixel-drawn x) ──
+        addRenderableWidget(new NEClearFluidButton(
+            leftPos + CLEAR_BTN_IN_X, topPos + CLEAR_BTN_Y,
+            btn -> sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID)));
 
-        addRenderableWidget(new NETexturedButton(
-            leftPos + CLEAR_BTN_OUT_X, topPos + CLEAR_BTN_Y, CLEAR_BTN_W, CLEAR_BTN_H,
-            Component.literal("x"),
-            btn -> sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID),
-            CLEAR_BTN_TEXT, CLEAR_BTN_DISABLED, false));
+        addRenderableWidget(new NEClearFluidButton(
+            leftPos + CLEAR_BTN_OUT_X, topPos + CLEAR_BTN_Y,
+            btn -> sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID)));
     }
 
     private void sendAction(NENetwork.IWSAction action) {
@@ -257,7 +252,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         // ── 6. Progress bar (6×18, bottom-up with textures) ──
         drawProgressBar(g, leftPos + PROGRESS_X, topPos + PROGRESS_Y, menu.getProgress(), menu.getMaxProgress());
 
-        // ── 7. Upgrade blank-card placeholders (empty slots only, opaque, 16x16 item area) ──
+        // ── 7. Upgrade speed-card placeholder (empty slots only, opaque, 16x16 item area) ──
         int startUpgradeSlot = NEIntegratedWorkingStationMenu.INPUT_SLOTS
             + NEIntegratedWorkingStationMenu.OUTPUT_SLOTS;
         for (int i = 0; i < UPGRADE_COUNT; i++) {
@@ -265,15 +260,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             if (slotIdx < menu.slots.size() && !menu.getSlot(slotIdx).hasItem()) {
                 int gx = leftPos + UPGRADE_BG_X + ITEM_OFFSET;
                 int gy = topPos + UPGRADE_FIRST_BG_Y + ITEM_OFFSET + i * SLOT_SIZE;
-                // Card body (12x12 centred in 16x16 item area)
-                g.fill(gx + 2, gy + 2, gx + 14, gy + 14, CARD_FILL);
-                // Card border
-                g.fill(gx + 2, gy + 2, gx + 14, gy + 3, CARD_BORDER);
-                g.fill(gx + 2, gy + 13, gx + 14, gy + 14, CARD_BORDER);
-                g.fill(gx + 2, gy + 2, gx + 3, gy + 14, CARD_BORDER);
-                g.fill(gx + 13, gy + 2, gx + 14, gy + 14, CARD_BORDER);
-                // Card horizontal line (decorative)
-                g.fill(gx + 4, gy + 7, gx + 12, gy + 8, CARD_LINE);
+                g.renderItem(upgradeGhost, gx, gy);
             }
         }
     }
