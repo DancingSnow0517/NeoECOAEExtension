@@ -609,7 +609,31 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
 
-    // Native UI fallback sync via BE update tags (chunk load / block update).
+    // ── NBT persistence ──
+
+    @Override
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+    }
+
+    @Override
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
+        selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (selectedBuildLength < 1) selectedBuildLength = 1;
+        // Safety: build session is transient; reset in-progress state on load
+        buildInProgress = false;
+        previewMissingBlocks = 0;
+        previewConflictBlocks = 0;
+        previewReusedBlocks = 0;
+        previewRequiredItems = 0;
+        previewStatusKey = "gui.neoecoae.multiblock.status.idle";
+        previewStatusArg1 = 0;
+        previewStatusArg2 = 0;
+    }
+
+    // ── Native UI fallback sync via BE update tags (chunk load / block update) ──
     // Primary runtime UI sync uses the NENetwork S2C channel.
 
     @Override
@@ -641,31 +665,51 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         tag.putLong("neo_storedEnergy", storedEnergy);
         tag.putLong("neo_maxEnergy", maxEnergy);
         tag.putBoolean("neo_formed", formed);
-        // Scalar fields - primary read path for BE-tag fallback sync
         tag.putLong("neo_usedTypes_s", _synUsedTypes);
         tag.putLong("neo_totalTypes_s", _synTotalTypes);
         tag.putLong("neo_usedBytes_s", _synUsedBytes);
         tag.putLong("neo_totalBytes_s", _synTotalBytes);
-        // Per-type arrays - kept for future per-cell-type UI
         if (usedTypes != null) tag.putLongArray("neo_usedTypes", usedTypes);
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
         if (totalBytes != null) tag.putLongArray("neo_totalBytes", totalBytes);
+        // Build/preview state
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+        tag.putInt("previewMissingBlocks", previewMissingBlocks);
+        tag.putInt("previewConflictBlocks", previewConflictBlocks);
+        tag.putInt("previewReusedBlocks", previewReusedBlocks);
+        tag.putInt("previewRequiredItems", previewRequiredItems);
+        tag.putString("previewStatusKey", previewStatusKey != null ? previewStatusKey : "gui.neoecoae.multiblock.status.idle");
+        tag.putInt("previewStatusArg1", previewStatusArg1);
+        tag.putInt("previewStatusArg2", previewStatusArg2);
+        tag.putBoolean("buildInProgress", buildInProgress);
     }
 
     private void readUiSyncTag(CompoundTag tag) {
         if (tag.contains("neo_storedEnergy")) storedEnergy = tag.getLong("neo_storedEnergy");
         if (tag.contains("neo_maxEnergy")) maxEnergy = tag.getLong("neo_maxEnergy");
         if (tag.contains("neo_formed")) formed = tag.getBoolean("neo_formed");
-        // Scalar fields - primary read path for BE-tag fallback sync
         if (tag.contains("neo_usedTypes_s")) _synUsedTypes = tag.getLong("neo_usedTypes_s");
         if (tag.contains("neo_totalTypes_s")) _synTotalTypes = tag.getLong("neo_totalTypes_s");
         if (tag.contains("neo_usedBytes_s")) _synUsedBytes = tag.getLong("neo_usedBytes_s");
         if (tag.contains("neo_totalBytes_s")) _synTotalBytes = tag.getLong("neo_totalBytes_s");
-        // Per-type arrays - kept for future per-cell-type UI
         if (tag.contains("neo_usedTypes")) usedTypes = tag.getLongArray("neo_usedTypes");
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");
         if (tag.contains("neo_totalBytes")) totalBytes = tag.getLongArray("neo_totalBytes");
+        // Build/preview state
+        if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
+        if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");
+        if (tag.contains("previewReusedBlocks")) previewReusedBlocks = tag.getInt("previewReusedBlocks");
+        if (tag.contains("previewRequiredItems")) previewRequiredItems = tag.getInt("previewRequiredItems");
+        if (tag.contains("previewStatusKey")) previewStatusKey = tag.getString("previewStatusKey");
+        if (tag.contains("previewStatusArg1")) previewStatusArg1 = tag.getInt("previewStatusArg1");
+        if (tag.contains("previewStatusArg2")) previewStatusArg2 = tag.getInt("previewStatusArg2");
+        if (tag.contains("buildInProgress")) buildInProgress = tag.getBoolean("buildInProgress");
+        // Safety: no build session means build cannot be in progress
+        if (buildInProgress && buildSession == null) {
+            buildInProgress = false;
+        }
     }
 }

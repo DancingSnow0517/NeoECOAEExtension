@@ -462,7 +462,30 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return Component.translatable(previewStatusKey);
     }
 
-    // 鈹€鈹€ Client sync for Controller UI (LDLib2 sync bridge) 鈹€鈹€
+    // ── NBT persistence ──
+
+    @Override
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+    }
+
+    @Override
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
+        selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (selectedBuildLength < 1) selectedBuildLength = 1;
+        buildInProgress = false;
+        previewMissingBlocks = 0;
+        previewConflictBlocks = 0;
+        previewReusedBlocks = 0;
+        previewRequiredItems = 0;
+        previewStatusKey = "gui.neoecoae.multiblock.status.idle";
+        previewStatusArg1 = 0;
+        previewStatusArg2 = 0;
+    }
+
+    // ── Client sync via BE update tags (chunk load / block update) ──
 
     @Override
     public CompoundTag getUpdateTag() {
@@ -489,6 +512,16 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         tag.putInt("neo_parallelCount", parallelCount);
         tag.putLong("neo_availableBytes", availableBytes);
         tag.putLong("neo_totalBytes", totalBytes);
+        // Build/preview state
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+        tag.putInt("previewMissingBlocks", previewMissingBlocks);
+        tag.putInt("previewConflictBlocks", previewConflictBlocks);
+        tag.putInt("previewReusedBlocks", previewReusedBlocks);
+        tag.putInt("previewRequiredItems", previewRequiredItems);
+        tag.putString("previewStatusKey", previewStatusKey != null ? previewStatusKey : "gui.neoecoae.multiblock.status.idle");
+        tag.putInt("previewStatusArg1", previewStatusArg1);
+        tag.putInt("previewStatusArg2", previewStatusArg2);
+        tag.putBoolean("buildInProgress", buildInProgress);
     }
 
     private void readUiSyncTag(CompoundTag tag) {
@@ -497,5 +530,18 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         if (tag.contains("neo_parallelCount")) parallelCount = tag.getInt("neo_parallelCount");
         if (tag.contains("neo_availableBytes")) availableBytes = tag.getLong("neo_availableBytes");
         if (tag.contains("neo_totalBytes")) totalBytes = tag.getLong("neo_totalBytes");
+        // Build/preview state
+        if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
+        if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");
+        if (tag.contains("previewReusedBlocks")) previewReusedBlocks = tag.getInt("previewReusedBlocks");
+        if (tag.contains("previewRequiredItems")) previewRequiredItems = tag.getInt("previewRequiredItems");
+        if (tag.contains("previewStatusKey")) previewStatusKey = tag.getString("previewStatusKey");
+        if (tag.contains("previewStatusArg1")) previewStatusArg1 = tag.getInt("previewStatusArg1");
+        if (tag.contains("previewStatusArg2")) previewStatusArg2 = tag.getInt("previewStatusArg2");
+        if (tag.contains("buildInProgress")) buildInProgress = tag.getBoolean("buildInProgress");
+        if (buildInProgress && buildSession == null) {
+            buildInProgress = false;
+        }
     }
 }

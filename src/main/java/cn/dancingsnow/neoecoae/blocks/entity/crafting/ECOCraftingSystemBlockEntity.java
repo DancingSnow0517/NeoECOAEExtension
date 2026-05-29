@@ -23,7 +23,9 @@ import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -96,6 +98,39 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         super(type, pos, blockState);
         this.tier = tier;
         getMainNode().addService(IGridTickable.class, this);
+    }
+
+    // ── NBT persistence ──
+
+    @Override
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        tag.putBoolean("overclocked", overclocked);
+        tag.putBoolean("activeCooling", activeCooling);
+        tag.putInt("coolant", coolant);
+        tag.putInt("coolantMaxOverclock", coolantMaxOverclock);
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+    }
+
+    @Override
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
+        overclocked = tag.getBoolean("overclocked");
+        activeCooling = tag.getBoolean("activeCooling");
+        coolant = Mth.clamp(tag.getInt("coolant"), 0, MAX_COOLANT);
+        coolantMaxOverclock = tag.getInt("coolantMaxOverclock");
+        if (!tag.contains("coolantMaxOverclock")) coolantMaxOverclock = -1;
+        selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (selectedBuildLength < 1) selectedBuildLength = 1;
+        // Safety: build session is transient; reset in-progress state
+        buildInProgress = false;
+        previewMissingBlocks = 0;
+        previewConflictBlocks = 0;
+        previewReusedBlocks = 0;
+        previewRequiredItems = 0;
+        previewStatusKey = "gui.neoecoae.multiblock.status.idle";
+        previewStatusArg1 = 0;
+        previewStatusArg2 = 0;
     }
 
     @Override
@@ -705,6 +740,73 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private int getDisplayedCoolingRecipeMaxOverclock() {
         CoolingRecipe recipe = getCoolingRecipe();
         return recipe == null ? -1 : recipe.maxOverclock();
+    }
+
+    // ── Client sync via BE update tags (chunk load / block update) ──
+
+    @Override
+    public CompoundTag getUpdateTag() {
+        var tag = super.getUpdateTag();
+        writeUiSyncTag(tag);
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        readUiSyncTag(tag);
+    }
+
+    @Override
+    @Nullable
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    private void writeUiSyncTag(CompoundTag tag) {
+        tag.putBoolean("overclocked", overclocked);
+        tag.putBoolean("activeCooling", activeCooling);
+        tag.putInt("coolant", coolant);
+        tag.putInt("coolantMaxOverclock", coolantMaxOverclock);
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+        tag.putInt("patternBusCount", patternBusCount);
+        tag.putInt("parallelCount", parallelCount);
+        tag.putInt("workerCount", workerCount);
+        tag.putInt("threadCount", threadCount);
+        tag.putInt("runningThreadCount", runningThreadCount);
+        tag.putInt("previewMissingBlocks", previewMissingBlocks);
+        tag.putInt("previewConflictBlocks", previewConflictBlocks);
+        tag.putInt("previewReusedBlocks", previewReusedBlocks);
+        tag.putInt("previewRequiredItems", previewRequiredItems);
+        tag.putString("previewStatusKey", previewStatusKey != null ? previewStatusKey : "gui.neoecoae.multiblock.status.idle");
+        tag.putInt("previewStatusArg1", previewStatusArg1);
+        tag.putInt("previewStatusArg2", previewStatusArg2);
+        tag.putBoolean("buildInProgress", buildInProgress && buildSession != null);
+    }
+
+    private void readUiSyncTag(CompoundTag tag) {
+        if (tag.contains("overclocked")) overclocked = tag.getBoolean("overclocked");
+        if (tag.contains("activeCooling")) activeCooling = tag.getBoolean("activeCooling");
+        if (tag.contains("coolant")) coolant = Mth.clamp(tag.getInt("coolant"), 0, MAX_COOLANT);
+        if (tag.contains("coolantMaxOverclock")) coolantMaxOverclock = tag.getInt("coolantMaxOverclock");
+        else coolantMaxOverclock = -1;
+        if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (tag.contains("patternBusCount")) patternBusCount = tag.getInt("patternBusCount");
+        if (tag.contains("parallelCount")) parallelCount = tag.getInt("parallelCount");
+        if (tag.contains("workerCount")) workerCount = tag.getInt("workerCount");
+        if (tag.contains("threadCount")) threadCount = tag.getInt("threadCount");
+        if (tag.contains("runningThreadCount")) runningThreadCount = tag.getInt("runningThreadCount");
+        if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
+        if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");
+        if (tag.contains("previewReusedBlocks")) previewReusedBlocks = tag.getInt("previewReusedBlocks");
+        if (tag.contains("previewRequiredItems")) previewRequiredItems = tag.getInt("previewRequiredItems");
+        if (tag.contains("previewStatusKey")) previewStatusKey = tag.getString("previewStatusKey");
+        if (tag.contains("previewStatusArg1")) previewStatusArg1 = tag.getInt("previewStatusArg1");
+        if (tag.contains("previewStatusArg2")) previewStatusArg2 = tag.getInt("previewStatusArg2");
+        if (tag.contains("buildInProgress")) buildInProgress = tag.getBoolean("buildInProgress");
+        if (buildInProgress && buildSession == null) {
+            buildInProgress = false;
+        }
     }
 
 }
