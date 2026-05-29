@@ -81,22 +81,7 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
         // 1. Main background (AE2 generated panel)
         NENativeAe2StyleRenderer.drawAeMainPanel(g, x, y, GUI_W, GUI_H);
 
-        // 2. Pattern area slot group panel
-        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
-            x + PATTERN_PANEL_X, y + PATTERN_PANEL_Y,
-            PATTERN_PANEL_W, PATTERN_PANEL_H);
-
-        // 3. Player inventory slot group panel
-        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
-            x + PLAYER_INV_PANEL_X, y + PLAYER_INV_PANEL_Y,
-            PLAYER_INV_PANEL_W, PLAYER_INV_PANEL_H);
-
-        // 4. Hotbar slot group panel
-        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
-            x + HOTBAR_PANEL_X, y + HOTBAR_PANEL_Y,
-            HOTBAR_PANEL_W, HOTBAR_PANEL_H);
-
-        // 5. Pattern area slots
+        // 2. Pattern area slots
         for (int row = 0; row < PATTERN_ROWS; row++) {
             for (int col = 0; col < PATTERN_COLS; col++) {
                 NENativeAe2StyleRenderer.drawAeSlot(g,
@@ -105,7 +90,7 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
             }
         }
 
-        // 6. Player inventory slots
+        // 3. Player inventory slots
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 NENativeAe2StyleRenderer.drawAeSlot(g,
@@ -114,14 +99,14 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
             }
         }
 
-        // 7. Hotbar slots
+        // 4. Hotbar slots
         for (int col = 0; col < 9; col++) {
             NENativeAe2StyleRenderer.drawAeSlot(g,
                 x + HOTBAR_BG_X + col * SLOT_SIZE,
                 y + HOTBAR_BG_Y);
         }
 
-        // 8. Ghost pattern hints (pattern slots only)
+        // 5. Ghost pattern hints (pattern slots only)
         RenderSystem.enableBlend();
         for (int i = 0; i < NECraftingPatternBusMenu.PATTERN_SLOTS; i++) {
             if (i < menu.slots.size() && !menu.getSlot(i).hasItem()) {

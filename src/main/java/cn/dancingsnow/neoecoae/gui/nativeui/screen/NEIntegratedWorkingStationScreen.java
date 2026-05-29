@@ -31,7 +31,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     @Override
     protected void init() {
         super.init();
-        // Auto-export toggle button using AE2 icon
+        // Auto-export toggle button (inside main panel, top-right)
         autoExportBtn = new NEAe2IconButton(
             leftPos + TOGGLE_BTN_X, topPos + TOGGLE_BTN_Y,
             TOGGLE_BTN_W, TOGGLE_BTN_H,
@@ -45,29 +45,19 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     }
 
     /**
-     * Treat clicks within the main panel, left toolbar, and right upgrade panel
-     * as "inside" the GUI — prevents the game from interacting with the world
-     * when clicking on these extended areas.
+     * Treat clicks within the main panel and right upgrade panel as "inside".
      */
     @Override
     public boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int mouseButton) {
-        // Main panel
         if (mouseX >= guiLeft && mouseX < guiLeft + PANEL_W
             && mouseY >= guiTop && mouseY < guiTop + PANEL_H) {
             return false;
         }
-        // Left toolbar panel
-        if (mouseX >= guiLeft + SETTINGS_PANEL_X
-            && mouseX < guiLeft + SETTINGS_PANEL_X + SETTINGS_PANEL_W
-            && mouseY >= guiTop + SETTINGS_PANEL_Y
-            && mouseY < guiTop + SETTINGS_PANEL_Y + SETTINGS_PANEL_H) {
-            return false;
-        }
-        // Right upgrade panel
+        // Right upgrade panel (full padded area)
         if (mouseX >= guiLeft + UPGRADE_PANEL_X
-            && mouseX < guiLeft + UPGRADE_PANEL_X + SLOT_SIZE + UPGRADE_PADDING * 2
+            && mouseX < guiLeft + UPGRADE_PANEL_X + UPGRADE_PANEL_W
             && mouseY >= guiTop + UPGRADE_PANEL_Y
-            && mouseY < guiTop + UPGRADE_PANEL_Y + UPGRADE_COUNT * SLOT_SIZE + UPGRADE_PADDING * 2) {
+            && mouseY < guiTop + UPGRADE_PANEL_Y + UPGRADE_PANEL_H) {
             return false;
         }
         return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, mouseButton);
@@ -110,8 +100,8 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private void renderUpgradeTooltip(GuiGraphics g, int mouseX, int mouseY) {
         int ux = leftPos + UPGRADE_PANEL_X;
         int uy = topPos + UPGRADE_PANEL_Y;
-        int uh = UPGRADE_COUNT * SLOT_SIZE;
-        if (mouseX >= ux && mouseX < ux + SLOT_SIZE && mouseY >= uy && mouseY < uy + uh) {
+        if (mouseX >= ux && mouseX < ux + UPGRADE_PANEL_W
+            && mouseY >= uy && mouseY < uy + UPGRADE_PANEL_H) {
             g.renderTooltip(font, List.of(
                 Component.translatable("gui.neoecoae.integrated_working_station.available_upgrades")
                     .getVisualOrderText(),
@@ -125,52 +115,36 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         int x = leftPos;
         int y = topPos;
 
-        // 1. Main panel (AE2 BackgroundGenerator)
+        // 1. Main panel (AE2 BackgroundGenerator — provides the full visual background)
         NENativeAe2StyleRenderer.drawAeMainPanel(g, x, y, PANEL_W, PANEL_H);
 
-        // 2. Input 3×3 slot group panel
-        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
-            x + INPUT_PANEL_X, y + INPUT_PANEL_Y,
-            INPUT_PANEL_W, INPUT_PANEL_H);
-
-        // 3. Player inventory slot group panel
-        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
-            x + PLAYER_INV_PANEL_X, y + PLAYER_INV_PANEL_Y,
-            PLAYER_INV_PANEL_W, PLAYER_INV_PANEL_H);
-
-        // 4. Hotbar slot group panel
-        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
-            x + HOTBAR_PANEL_X, y + HOTBAR_PANEL_Y,
-            HOTBAR_PANEL_W, HOTBAR_PANEL_H);
-
-        // 5. Upgrade panel (right side, AE2 extra_panels.png)
+        // 2. Upgrade panel (right side, AE2 extra_panels.png)
         NENativeAe2StyleRenderer.drawAeUpgradePanel(g,
             x + UPGRADE_PANEL_X, y + UPGRADE_PANEL_Y, UPGRADE_COUNT);
 
-        // 6. Draw ordinary AE2 slots (input 3×3, output, player inv, hotbar)
-        // --- NOT upgrade slots, they are drawn by the upgrade panel ---
+        // 3. Draw ordinary AE2 slots — no group panels, slots sit directly on main bg
         drawInputSlots(g, x, y);
         drawOutputSlot(g, x, y);
         drawPlayerInventorySlots(g, x, y);
         drawHotbarSlots(g, x, y);
 
-        // 7. Fluid tanks
+        // 4. Fluid tanks
         drawFluidTank(g, x + FLUID_IN_X, y + FLUID_IN_Y, FLUID_IN_W, FLUID_IN_H, true);
         drawFluidTank(g, x + FLUID_OUT_X, y + FLUID_OUT_Y, FLUID_OUT_W, FLUID_OUT_H, false);
 
-        // 8. Progress bar
+        // 5. Progress bar
         NENativeAe2StyleRenderer.drawAeProgressBar(g,
             x + PROGRESS_X, y + PROGRESS_Y, PROGRESS_W, PROGRESS_H,
             menu.getProgress(), menu.getMaxProgress());
 
-        // 9. Upgrade placeholders (empty upgrade slots → BACKGROUND_UPGRADE icon)
+        // 6. Upgrade placeholders (empty upgrade slots → BACKGROUND_UPGRADE)
         drawUpgradePlaceholders(g, x, y);
 
-        // 10. Fluid hover highlights
-        drawFluidHover(g, mouseX, mouseY, x, y);
+        // 7. Clear fluid buttons (16×16 Icon.CLEAR)
+        drawClearFluidButtons(g, x, y);
 
-        // 11. Clear fluid buttons (AE2-style small buttons)
-        drawClearFluidButtons(g, x, y, mouseX, mouseY);
+        // 8. Fluid hover highlights
+        drawFluidHover(g, mouseX, mouseY, x, y);
     }
 
     private void drawInputSlots(GuiGraphics g, int baseX, int baseY) {
@@ -223,7 +197,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
         g.drawString(font, title, 8, 5, TXT_PRIMARY, false);
         g.drawString(font, Component.translatable("gui.neoecoae.common.inventory"),
-            3, 75, TXT_HINT, false);
+            INV_LABEL_X, INV_LABEL_Y, TXT_HINT, false);
     }
 
     // ── Fluid tank rendering ──
@@ -259,44 +233,13 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         }
     }
 
-    // ── Clear fluid buttons (AE2-style small X buttons) ──
+    // ── Clear fluid buttons (16×16 Icon.CLEAR) ──
 
-    private void drawClearFluidButtons(GuiGraphics g, int baseX, int baseY,
-                                        int mouseX, int mouseY) {
-        boolean hoverIn = mouseX >= baseX + CLEAR_BTN_IN_X
-            && mouseX < baseX + CLEAR_BTN_IN_X + CLEAR_BTN_W
-            && mouseY >= baseY + CLEAR_BTN_IN_Y
-            && mouseY < baseY + CLEAR_BTN_IN_Y + CLEAR_BTN_H;
-        boolean hoverOut = mouseX >= baseX + CLEAR_BTN_OUT_X
-            && mouseX < baseX + CLEAR_BTN_OUT_X + CLEAR_BTN_W
-            && mouseY >= baseY + CLEAR_BTN_OUT_Y
-            && mouseY < baseY + CLEAR_BTN_OUT_Y + CLEAR_BTN_H;
-
-        drawClearBtn(g, baseX + CLEAR_BTN_IN_X, baseY + CLEAR_BTN_IN_Y, hoverIn);
-        drawClearBtn(g, baseX + CLEAR_BTN_OUT_X, baseY + CLEAR_BTN_OUT_Y, hoverOut);
-    }
-
-    private void drawClearBtn(GuiGraphics g, int x, int y, boolean hovered) {
-        NENativeAe2StyleRenderer.drawAeToolbarButtonBackground(g, x, y,
-            CLEAR_BTN_W, CLEAR_BTN_H, hovered, true);
-        // Draw thin X on the button
-        int cx = x;
-        int cy = y;
-        int color = hovered ? 0xFFFFFFFF : 0xFF8B8B8B;
-        // top-left to bottom-right
-        g.fill(cx + 1, cy + 1, cx + 2, cy + 2, color);
-        g.fill(cx + 2, cy + 2, cx + 3, cy + 3, color);
-        g.fill(cx + 3, cy + 3, cx + 4, cy + 4, color);
-        g.fill(cx + 4, cy + 4, cx + 5, cy + 5, color);
-        g.fill(cx + 5, cy + 5, cx + 6, cy + 6, color);
-        g.fill(cx + 6, cy + 6, cx + 7, cy + 7, color);
-        // top-right to bottom-left
-        g.fill(cx + 6, cy + 1, cx + 7, cy + 2, color);
-        g.fill(cx + 5, cy + 2, cx + 6, cy + 3, color);
-        g.fill(cx + 4, cy + 3, cx + 5, cy + 4, color);
-        g.fill(cx + 3, cy + 4, cx + 4, cy + 5, color);
-        g.fill(cx + 2, cy + 5, cx + 3, cy + 6, color);
-        g.fill(cx + 1, cy + 6, cx + 2, cy + 7, color);
+    private void drawClearFluidButtons(GuiGraphics g, int baseX, int baseY) {
+        NENativeAe2StyleRenderer.drawAeIcon(g, Icon.CLEAR,
+            baseX + CLEAR_BTN_IN_X, baseY + CLEAR_BTN_IN_Y, 0.7F);
+        NENativeAe2StyleRenderer.drawAeIcon(g, Icon.CLEAR,
+            baseX + CLEAR_BTN_OUT_X, baseY + CLEAR_BTN_OUT_Y, 0.7F);
     }
 
     // ── Mouse click handling ──
@@ -308,17 +251,17 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             int my = (int) mouseY;
             // Clear input fluid
             if (mx >= leftPos + CLEAR_BTN_IN_X
-                && mx < leftPos + CLEAR_BTN_IN_X + CLEAR_BTN_W
+                && mx < leftPos + CLEAR_BTN_IN_X + CLEAR_BTN_SIZE
                 && my >= topPos + CLEAR_BTN_IN_Y
-                && my < topPos + CLEAR_BTN_IN_Y + CLEAR_BTN_H) {
+                && my < topPos + CLEAR_BTN_IN_Y + CLEAR_BTN_SIZE) {
                 sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID);
                 return true;
             }
             // Clear output fluid
             if (mx >= leftPos + CLEAR_BTN_OUT_X
-                && mx < leftPos + CLEAR_BTN_OUT_X + CLEAR_BTN_W
+                && mx < leftPos + CLEAR_BTN_OUT_X + CLEAR_BTN_SIZE
                 && my >= topPos + CLEAR_BTN_OUT_Y
-                && my < topPos + CLEAR_BTN_OUT_Y + CLEAR_BTN_H) {
+                && my < topPos + CLEAR_BTN_OUT_Y + CLEAR_BTN_SIZE) {
                 sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID);
                 return true;
             }

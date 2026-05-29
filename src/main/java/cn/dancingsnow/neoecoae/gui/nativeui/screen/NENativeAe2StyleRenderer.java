@@ -47,28 +47,17 @@ public final class NENativeAe2StyleRenderer {
     }
 
     /**
-     * Draw an AE2-style inset/slot-group panel — a lighter recessed area
-     * for grouping slots (input grid, player inventory, hotbar, pattern area).
-     * <p>
-     * Uses a thin AE2-style border with a slightly lighter fill than the
-     * main panel background, producing a visual "sunken" group frame.
-     * </p>
+     * Draw a very subtle AE2-style slot-group inset — barely visible,
+     * just a 1px dark border without white highlight or fill.
+     * Use sparingly; most slot groups should just use the main
+     * BackgroundGenerator panel + Icon.SLOT_BACKGROUND alone.
      */
-    public static void drawAeSlotGroupPanel(GuiGraphics g, int x, int y, int w, int h) {
-        // Outer shadow (bottom-right)
-        g.fill(x + w, y + 1, x + w + 1, y + h + 1, 0xFF555555);
-        g.fill(x + 1, y + h, x + w + 1, y + h + 1, 0xFF555555);
-        // Outer highlight (top-left)
-        g.fill(x, y, x + w, y + 1, 0xFFFFFFFF);
-        g.fill(x, y, x + 1, y + h, 0xFFFFFFFF);
-        // Inner shadow
-        g.fill(x + 1, y + 1, x + w, y + 2, 0xFF898989);
-        g.fill(x + 1, y + 1, x + 2, y + h, 0xFF898989);
-        // Inner highlight
-        g.fill(x + w - 1, y + 1, x + w, y + h, 0xFFE0E0E0);
-        g.fill(x + 1, y + h - 1, x + w, y + h, 0xFFE0E0E0);
-        // Fill
-        g.fill(x + 2, y + 2, x + w - 1, y + h - 1, 0xFFC6C6C6);
+    public static void drawAeSlotGroupInset(GuiGraphics g, int x, int y, int w, int h) {
+        // Single-pixel dark border only — no fill, no white highlight
+        g.fill(x, y, x + w, y + 1, 0xFF555555);
+        g.fill(x, y + h - 1, x + w, y + h, 0xFF555555);
+        g.fill(x, y, x + 1, y + h, 0xFF555555);
+        g.fill(x + w - 1, y, x + w, y + h, 0xFF555555);
     }
 
     // ── Toolbar / button ──
@@ -176,18 +165,19 @@ public final class NENativeAe2StyleRenderer {
      */
     public static void drawAeFluidTank(GuiGraphics g, int x, int y, int w, int h,
                                         FluidStack stack, int amount, int capacity) {
-        int borderColor = 0xFF8B8B8B;
-        g.fill(x, y, x + w, y + 1, borderColor);
-        g.fill(x, y + h - 1, x + w, y + h, borderColor);
-        g.fill(x, y, x + 1, y + h, borderColor);
-        g.fill(x + w - 1, y, x + w, y + h, borderColor);
+        // Subtle AE2-style border (dark bottom-right, light top-left, like a slot)
+        g.fill(x, y, x + w, y + 1, 0xFFFFFFFF);           // top highlight
+        g.fill(x, y, x + 1, y + h, 0xFFFFFFFF);           // left highlight
+        g.fill(x + w - 1, y, x + w, y + h, 0xFF555555);   // right shadow
+        g.fill(x, y + h - 1, x + w, y + h, 0xFF555555);   // bottom shadow
 
         int ix = x + 1;
         int iy = y + 1;
         int iw = w - 2;
         int ih = h - 2;
 
-        g.fill(ix, iy, ix + iw, iy + ih, 0xFF2A2A3A);
+        // Empty background — AE2 panel-like mid gray
+        g.fill(ix, iy, ix + iw, iy + ih, 0xFF8B8B8B);
 
         if (amount <= 0 || stack.isEmpty()) return;
 
@@ -203,22 +193,23 @@ public final class NENativeAe2StyleRenderer {
      */
     public static void drawAeProgressBar(GuiGraphics g, int x, int y, int w, int h,
                                           int progress, int maxProgress) {
-        int borderColor = 0xFF8B8B8B;
-        g.fill(x, y, x + w, y + 1, borderColor);
-        g.fill(x, y + h - 1, x + w, y + h, borderColor);
-        g.fill(x, y, x + 1, y + h, borderColor);
-        g.fill(x + w - 1, y, x + w, y + h, borderColor);
+        // AE2 slot-like border
+        g.fill(x, y, x + w, y + 1, 0xFFFFFFFF);
+        g.fill(x, y, x + 1, y + h, 0xFFFFFFFF);
+        g.fill(x + w - 1, y, x + w, y + h, 0xFF555555);
+        g.fill(x, y + h - 1, x + w, y + h, 0xFF555555);
 
         int ix = x + 1;
         int iy = y + 1;
         int iw = w - 2;
         int ih = h - 2;
 
-        g.fill(ix, iy, ix + iw, iy + ih, 0xFF2A2A3A);
+        g.fill(ix, iy, ix + iw, iy + ih, 0xFF8B8B8B);
 
         if (maxProgress > 0 && progress > 0) {
             int fillH = Mth.clamp(progress * ih / maxProgress, 1, ih);
-            g.fill(ix, iy + ih - fillH, ix + iw, iy + ih, 0xFF4A7FD6);
+            // Low-saturation AE2-style blue
+            g.fill(ix, iy + ih - fillH, ix + iw, iy + ih, 0xFF6A8FB5);
         }
     }
 
