@@ -79,6 +79,16 @@ public class NEInternalInventorySlot extends Slot {
     }
 
     @Override
+    public int getMaxStackSize() {
+        return 64;
+    }
+
+    @Override
+    public int getMaxStackSize(@NotNull ItemStack stack) {
+        return 64;
+    }
+
+    @Override
     public void onTake(@NotNull Player player, @NotNull ItemStack stack) {
         // No container to notify; just mark changed
         setChanged();
