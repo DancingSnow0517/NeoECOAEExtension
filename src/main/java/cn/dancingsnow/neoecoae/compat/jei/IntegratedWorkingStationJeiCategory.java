@@ -35,47 +35,51 @@ public class IntegratedWorkingStationJeiCategory
     private static final Logger LOGGER = LoggerFactory.getLogger(IntegratedWorkingStationJeiCategory.class);
 
     // ── Layout constants ──
-    private static final int WIDTH = 168;
+    private static final int WIDTH = 176;
     private static final int HEIGHT = 75;
 
-    // Fluid tanks (background drawn in draw())
+    // Fluid tanks
     private static final int FLUID_TANK_W = 18;
-    private static final int FLUID_TANK_H = 58;
+    private static final int FLUID_TANK_H = 54;
+    // JEI fluid slot inside the inset border: +1 offset, 16×(h-2)
+    private static final int FLUID_RENDER_W = 16;
+    private static final int FLUID_RENDER_H = FLUID_TANK_H - 2; // 52
 
-    private static final int INPUT_FLUID_TANK_X = 5;
-    private static final int INPUT_FLUID_TANK_Y = 9;
-    private static final int INPUT_FLUID_SLOT_X = INPUT_FLUID_TANK_X;
-    private static final int INPUT_FLUID_SLOT_Y = INPUT_FLUID_TANK_Y;
+    private static final int INPUT_FLUID_TANK_X = 8;
+    private static final int INPUT_FLUID_TANK_Y = 8;
+    private static final int INPUT_FLUID_SLOT_X = INPUT_FLUID_TANK_X + 1;
+    private static final int INPUT_FLUID_SLOT_Y = INPUT_FLUID_TANK_Y + 1;
 
-    // 3×3 input item grid
+    // 3×3 input item grid — always 9 slot backgrounds
     private static final int INPUT_GRID_COLS = 3;
-    private static final int INPUT_GRID_X = 38;
-    private static final int INPUT_GRID_Y = 12;
+    private static final int INPUT_SLOT_COUNT = 9;
+    private static final int INPUT_GRID_X = 42;
+    private static final int INPUT_GRID_Y = 8;
     private static final int SLOT_SPACING = 18;
 
-    // Output item: Inscriber-style frame (26×26), JEI slot centered inside
+    // Output item: Inscriber-style frame (26×26), slot +5 inside
     private static final int OUTPUT_FRAME_X = 110;
-    private static final int OUTPUT_FRAME_Y = 27;
+    private static final int OUTPUT_FRAME_Y = 26;
     private static final int OUTPUT_FRAME_W = 26;
     private static final int OUTPUT_FRAME_H = 26;
-    private static final int OUTPUT_SLOT_X = OUTPUT_FRAME_X + (OUTPUT_FRAME_W - 16) / 2; // 115
-    private static final int OUTPUT_SLOT_Y = OUTPUT_FRAME_Y + (OUTPUT_FRAME_H - 16) / 2; // 32
+    private static final int OUTPUT_SLOT_X = OUTPUT_FRAME_X + 5; // 115
+    private static final int OUTPUT_SLOT_Y = OUTPUT_FRAME_Y + 5; // 31
 
     // Output fluid tank
-    private static final int OUTPUT_FLUID_TANK_X = 146;
-    private static final int OUTPUT_FLUID_TANK_Y = 9;
-    private static final int OUTPUT_FLUID_SLOT_X = OUTPUT_FLUID_TANK_X;
-    private static final int OUTPUT_FLUID_SLOT_Y = OUTPUT_FLUID_TANK_Y;
+    private static final int OUTPUT_FLUID_TANK_X = 151;
+    private static final int OUTPUT_FLUID_TANK_Y = 8;
+    private static final int OUTPUT_FLUID_SLOT_X = OUTPUT_FLUID_TANK_X + 1;
+    private static final int OUTPUT_FLUID_SLOT_Y = OUTPUT_FLUID_TANK_Y + 1;
 
     // AE2 inscriber-style progress bar
-    private static final int PROGRESS_X = 136;
+    private static final int PROGRESS_X = 140;
     private static final int PROGRESS_Y = 30;
     private static final int PROGRESS_W = 6;
     private static final int PROGRESS_H = 18;
 
     // Energy text
-    private static final int ENERGY_TEXT_X = 24;
-    private static final int ENERGY_TEXT_Y = 66;
+    private static final int ENERGY_TEXT_X = 36;
+    private static final int ENERGY_TEXT_Y = 64;
     private static final int ENERGY_TEXT_COLOR = 0xFF404040;
 
     private final IDrawable icon;
@@ -134,7 +138,7 @@ public class IntegratedWorkingStationJeiCategory
                 if (!stacks.isEmpty()) {
                     builder.addInputSlot(INPUT_FLUID_SLOT_X, INPUT_FLUID_SLOT_Y)
                         .addIngredients(ForgeTypes.FLUID_STACK, stacks)
-                        .setFluidRenderer(16000, false, 16, 58);
+                        .setFluidRenderer(16000, false, FLUID_RENDER_W, FLUID_RENDER_H);
                 } else {
                     LOGGER.warn("IWS JEI recipe {} has no valid fluid stacks: {}",
                         recipe.getId(), inputFluid.ingredient().toJson());
@@ -191,7 +195,7 @@ public class IntegratedWorkingStationJeiCategory
         if (!fluidOutput.isEmpty()) {
             builder.addOutputSlot(OUTPUT_FLUID_SLOT_X, OUTPUT_FLUID_SLOT_Y)
                 .addIngredient(ForgeTypes.FLUID_STACK, fluidOutput.copy())
-                .setFluidRenderer(16000, false, 16, 58);
+                .setFluidRenderer(16000, false, FLUID_RENDER_W, FLUID_RENDER_H);
         }
     }
 
@@ -209,9 +213,8 @@ public class IntegratedWorkingStationJeiCategory
             FLUID_TANK_W, FLUID_TANK_H,
             FluidStack.EMPTY, 0, 16000);
 
-        // 3. Input item slot backgrounds (AE2 io_port.png baked slots)
-        List<SizedIngredient> inputItems = recipe.inputItems();
-        for (int i = 0; i < inputItems.size(); i++) {
+        // 3. Input item slot backgrounds — always all 9 slots
+        for (int i = 0; i < INPUT_SLOT_COUNT; i++) {
             int col = i % INPUT_GRID_COLS;
             int row = i / INPUT_GRID_COLS;
             NENativeAe2StyleRenderer.drawAeSlot(g,
