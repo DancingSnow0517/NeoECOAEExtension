@@ -19,8 +19,10 @@ import java.util.List;
 /**
  * Screen for the ECO Integrated Working Station — 1.21.1-style layout.
  * <p>
- * Layout: 168×166 main panel with input/output/upgrade slots,
+ * Layout: 168×168 main panel with input/output/upgrade slots,
  * left/right fluid bars, progress bar, and left-side auto-IO button.
+ * Slot background coordinates are 18×18 visual rectangles; the Menu uses
+ * the corresponding +1/+1 coordinates for the 16×16 item/click area.
  * </p>
  */
 public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NEIntegratedWorkingStationMenu> {
@@ -34,6 +36,8 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int PANEL_H = 168;
     private static final int GUI_WIDTH = 168;
     private static final int GUI_HEIGHT = 168;
+    private static final int SLOT_SIZE = 18;
+    private static final int ITEM_OFFSET = 1;
 
     // Progress bar (6×18 vertical)
     private static final int PROGRESS_X = 128;
@@ -53,16 +57,40 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int FLUID_OUT_W = 18;
     private static final int FLUID_OUT_H = 54;
 
+    // Machine slots: *_BG_* are 18×18 slot.png positions.
+    // NEIntegratedWorkingStationMenu uses *_BG_* + ITEM_OFFSET for Slot positions.
+    private static final int INPUT_COLS = 3;
+    private static final int INPUT_ROWS = 3;
+    private static final int INPUT_BG_X = 39;
+    private static final int INPUT_BG_Y = 14;
+
+    private static final int OUTPUT_BG_X = 108;
+    private static final int OUTPUT_BG_Y = 32;
+
     // Right upgrade bar — fully covers 4 slots (18×4=72) + 2-3px margin each side
     private static final int UPGRADE_BAR_X = 170;
     private static final int UPGRADE_BAR_Y = 0;
     private static final int UPGRADE_BAR_W = 22;
     private static final int UPGRADE_BAR_H = 78;
 
-    // Upgrade slots inside the right bar
-    private static final int UPGRADE_X = 171;
-    private static final int UPGRADE_FIRST_Y = 2;
-    private static final int UPGRADE_SPACING = 18;
+    private static final int UPGRADE_BG_X = 171;
+    private static final int UPGRADE_FIRST_BG_Y = 2;
+    private static final int UPGRADE_COUNT = 4;
+
+    // Player inventory groups
+    private static final int INV_BORDER_X = 2;
+    private static final int INV_BORDER_Y = 87;
+    private static final int INV_BORDER_W = 165;
+    private static final int INV_BORDER_H = 56;
+    private static final int INV_BG_X = 3;
+    private static final int INV_BG_Y = 88;
+
+    private static final int HOTBAR_BORDER_X = 2;
+    private static final int HOTBAR_BORDER_Y = 146;
+    private static final int HOTBAR_BORDER_W = 165;
+    private static final int HOTBAR_BORDER_H = 21;
+    private static final int HOTBAR_BG_X = 3;
+    private static final int HOTBAR_BG_Y = 148;
 
     // Colors (light panel style)
     private static final int TXT_PRIMARY = 0xFF403E53;
@@ -159,7 +187,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
     @Override
     protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
-        // ── 1. Main panel (168×166) ──
+        // ── 1. Main panel (168×168) ──
         NENineSliceRenderer.drawPanel(g, TEX_BG, leftPos, topPos, PANEL_W, PANEL_H,
             16, 16, 2, 2, 2, 4);
 
@@ -167,27 +195,36 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         NENineSliceRenderer.drawPanel(g, TEX_BG, leftPos + UPGRADE_BAR_X, topPos + UPGRADE_BAR_Y,
             UPGRADE_BAR_W, UPGRADE_BAR_H, 16, 16, 2, 2, 2, 4);
 
-        // ── 3. Inventory borders (w=165 covers all slots right edge) ──
-        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER, leftPos + 2, topPos + 87, 165, 56, 16, 16, 1, 1, 1, 1);
-        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER, leftPos + 2, topPos + 146, 165, 21, 16, 16, 1, 1, 1, 1);
+        // ── 3. Inventory borders ──
+        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER,
+            leftPos + INV_BORDER_X, topPos + INV_BORDER_Y,
+            INV_BORDER_W, INV_BORDER_H, 16, 16, 1, 1, 1, 1);
+        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER,
+            leftPos + HOTBAR_BORDER_X, topPos + HOTBAR_BORDER_Y,
+            HOTBAR_BORDER_W, HOTBAR_BORDER_H, 16, 16, 1, 1, 1, 1);
 
         // ── 4. Slot backgrounds ──
-        // 3×3 input at (39,14)
-        for (int row = 0; row < 3; row++)
-            for (int col = 0; col < 3; col++)
-                drawSlot(g, leftPos + 39 + col * 18, topPos + 14 + row * 18);
-        // Output at (108,32)
-        drawSlot(g, leftPos + 108, topPos + 32);
-        // Upgrades — positions synced with Menu
-        for (int i = 0; i < 4; i++)
-            drawSlot(g, leftPos + UPGRADE_X, topPos + UPGRADE_FIRST_Y + i * UPGRADE_SPACING);
-        // Player inventory 3×9 at (3,88)
-        for (int row = 0; row < 3; row++)
-            for (int col = 0; col < 9; col++)
-                drawSlot(g, leftPos + 3 + col * 18, topPos + 88 + row * 18);
-        // Player hotbar 1×9 at (3,148)
-        for (int col = 0; col < 9; col++)
-            drawSlot(g, leftPos + 3 + col * 18, topPos + 148);
+        for (int row = 0; row < INPUT_ROWS; row++) {
+            for (int col = 0; col < INPUT_COLS; col++) {
+                drawSlot(g, leftPos + INPUT_BG_X + col * SLOT_SIZE, topPos + INPUT_BG_Y + row * SLOT_SIZE);
+            }
+        }
+
+        drawSlot(g, leftPos + OUTPUT_BG_X, topPos + OUTPUT_BG_Y);
+
+        for (int i = 0; i < UPGRADE_COUNT; i++) {
+            drawSlot(g, leftPos + UPGRADE_BG_X, topPos + UPGRADE_FIRST_BG_Y + i * SLOT_SIZE);
+        }
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                drawSlot(g, leftPos + INV_BG_X + col * SLOT_SIZE, topPos + INV_BG_Y + row * SLOT_SIZE);
+            }
+        }
+
+        for (int col = 0; col < 9; col++) {
+            drawSlot(g, leftPos + HOTBAR_BG_X + col * SLOT_SIZE, topPos + HOTBAR_BG_Y);
+        }
 
         // ── 5. Fluid bars (explicit w/h for alignment) ──
         drawFluidBar(g, leftPos + FLUID_IN_X, topPos + FLUID_IN_Y,
@@ -208,7 +245,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     // ── Drawing helpers ──
 
     private void drawSlot(GuiGraphics g, int x, int y) {
-        g.blit(TEX_SLOT, x, y, 0, 0, 18, 18, 18, 18);
+        g.blit(TEX_SLOT, x, y, 0, 0, SLOT_SIZE, SLOT_SIZE, SLOT_SIZE, SLOT_SIZE);
     }
 
     private void drawFluidBar(GuiGraphics g, int x, int y, int w, int h, int amount, int color) {
@@ -230,10 +267,10 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
         // ── Fill bar (4×16 inner, bottom-up, solid purple — guaranteed visible) ──
         if (max > 0 && progress > 0) {
-            int innerX = x + 1;
-            int innerY = y + 1;
-            int innerW = PROGRESS_W - 2;  // 4
-            int innerH = PROGRESS_H - 2;  // 16
+            int innerX = x + ITEM_OFFSET;
+            int innerY = y + ITEM_OFFSET;
+            int innerW = PROGRESS_W - ITEM_OFFSET * 2;  // 4
+            int innerH = PROGRESS_H - ITEM_OFFSET * 2;  // 16
             int h = Mth.clamp(progress * innerH / max, 1, innerH);
             g.fill(innerX, innerY + innerH - h, innerX + innerW, innerY + innerH, 0xFF5A49D6);
         }
