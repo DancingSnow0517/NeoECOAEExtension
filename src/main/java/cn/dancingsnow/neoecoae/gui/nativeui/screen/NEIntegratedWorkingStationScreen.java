@@ -100,16 +100,43 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int FLUID_IN_COLOR = 0xFF3A7FD6;
     private static final int FLUID_OUT_COLOR = 0xFF8E7CFF;
 
-    // X-button constants
-    private static final int CLEAR_BTN_W = 10;
-    private static final int CLEAR_BTN_H = 10;
+    // Left settings panel (matches 1.21.1 LDLib2 settingsPanel)
+    private static final int SETTINGS_PANEL_X = -22;
+    private static final int SETTINGS_PANEL_Y = 0;
+    private static final int SETTINGS_PANEL_W = 22;
+    private static final int SETTINGS_PANEL_H = 70;
+
+    // Settings panel button positions (within panel, relative to leftPos/topPos)
+    private static final int HELP_BTN_X = -21;
+    private static final int HELP_BTN_Y = 1;
+    private static final int HELP_BTN_W = 18;
+    private static final int HELP_BTN_H = 20;
+
+    private static final int TOGGLE_BTN_X = -21;
+    private static final int TOGGLE_BTN_Y = 23;
+    private static final int TOGGLE_BTN_W = 18;
+    private static final int TOGGLE_BTN_H = 22;
+
+    private static final int OUTPUTS_BTN_X = -21;
+    private static final int OUTPUTS_BTN_Y = 47;
+    private static final int OUTPUTS_BTN_W = 18;
+    private static final int OUTPUTS_BTN_H = 20;
+
+    // X-button constants (8x8 matches 1.21.1 LDLib2 reference)
+    private static final int CLEAR_BTN_W = 8;
+    private static final int CLEAR_BTN_H = 8;
     private static final int CLEAR_BTN_TEXT = 0xFFFFFFFF;
     private static final int CLEAR_BTN_DISABLED = 0xFF888888;
     private static final int CLEAR_BTN_IN_X = 20;
     private static final int CLEAR_BTN_OUT_X = 137;
     private static final int CLEAR_BTN_Y = 59;
 
+    // Upgrade ghost placeholder (16x16 item area, alpha overlay)
+    private static final float UPGRADE_GHOST_ALPHA = 0.30f;
+
     private NETexturedButton autoExportBtn;
+    private NETexturedButton helpBtn;
+    private NETexturedButton outputsBtn;
 
     public NEIntegratedWorkingStationScreen(NEIntegratedWorkingStationMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -121,23 +148,43 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     protected void init() {
         super.init();
 
-        // ── Left side: auto-IO toggle at (-21, 1) ──
-        autoExportBtn = new NETexturedButton(leftPos - 21, topPos + 1, 18, 20,
-            Component.empty(), btn -> sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT));
+        // ── Left settings panel: 3 vertical buttons ──
+        // Help button (disabled, visual placeholder)
+        helpBtn = new NETexturedButton(
+            leftPos + HELP_BTN_X, topPos + HELP_BTN_Y, HELP_BTN_W, HELP_BTN_H,
+            Component.literal("?"), btn -> {});
+        helpBtn.active = false;
+        helpBtn.setTooltip(Tooltip.create(
+            Component.translatable("gui.neoecoae.integrated_working_station.help")));
+        addRenderableWidget(helpBtn);
+
+        // Auto-export toggle (functional)
+        autoExportBtn = new NETexturedButton(
+            leftPos + TOGGLE_BTN_X, topPos + TOGGLE_BTN_Y, TOGGLE_BTN_W, TOGGLE_BTN_H,
+            Component.literal("\u2192"), btn -> sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT));
         addRenderableWidget(autoExportBtn);
 
-        // ── Fluid clear X buttons (10×10, white X with dark shadow) ──
+        // Outputs button (disabled, visual placeholder)
+        outputsBtn = new NETexturedButton(
+            leftPos + OUTPUTS_BTN_X, topPos + OUTPUTS_BTN_Y, OUTPUTS_BTN_W, OUTPUTS_BTN_H,
+            Component.literal("\u25A5"), btn -> {});
+        outputsBtn.active = false;
+        outputsBtn.setTooltip(Tooltip.create(
+            Component.translatable("gui.neoecoae.integrated_working_station.outputs")));
+        addRenderableWidget(outputsBtn);
+
+        // ── Fluid clear buttons (8x8, lowercase x) ──
         addRenderableWidget(new NETexturedButton(
             leftPos + CLEAR_BTN_IN_X, topPos + CLEAR_BTN_Y, CLEAR_BTN_W, CLEAR_BTN_H,
-            Component.literal("X"),
+            Component.literal("x"),
             btn -> sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID),
-            CLEAR_BTN_TEXT, CLEAR_BTN_DISABLED, true));
+            CLEAR_BTN_TEXT, CLEAR_BTN_DISABLED, false));
 
         addRenderableWidget(new NETexturedButton(
             leftPos + CLEAR_BTN_OUT_X, topPos + CLEAR_BTN_Y, CLEAR_BTN_W, CLEAR_BTN_H,
-            Component.literal("X"),
+            Component.literal("x"),
             btn -> sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID),
-            CLEAR_BTN_TEXT, CLEAR_BTN_DISABLED, true));
+            CLEAR_BTN_TEXT, CLEAR_BTN_DISABLED, false));
     }
 
     private void sendAction(NENetwork.IWSAction action) {
@@ -147,10 +194,10 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // Update auto-export button state
+        // Update auto-export toggle state
         if (autoExportBtn != null) {
             boolean on = menu.isAutoExportEnabled();
-            autoExportBtn.setMessage(Component.literal(on ? "IO+" : "IO-"));
+            autoExportBtn.setMessage(Component.literal(on ? "\u2192" : "\u2190"));
             autoExportBtn.setTooltip(Tooltip.create(
                 Component.translatable(on
                     ? "gui.neoecoae.integrated_working_station.auto_io.on"
@@ -187,6 +234,11 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
     @Override
     protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+        // ── 0. Left settings panel background ──
+        NENineSliceRenderer.drawPanel(g, TEX_BG,
+            leftPos + SETTINGS_PANEL_X, topPos + SETTINGS_PANEL_Y,
+            SETTINGS_PANEL_W, SETTINGS_PANEL_H, 16, 16, 2, 2, 2, 4);
+
         // ── 1. Main panel (168×168) ──
         NENineSliceRenderer.drawPanel(g, TEX_BG, leftPos, topPos, PANEL_W, PANEL_H,
             16, 16, 2, 2, 2, 4);
@@ -234,6 +286,23 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
         // ── 6. Progress bar (6×18, bottom-up with textures) ──
         drawProgressBar(g, leftPos + PROGRESS_X, topPos + PROGRESS_Y, menu.getProgress(), menu.getMaxProgress());
+
+        // ── 7. Upgrade ghost placeholders (empty slots only, 16x16 item area) ──
+        int startUpgradeSlot = NEIntegratedWorkingStationMenu.INPUT_SLOTS
+            + NEIntegratedWorkingStationMenu.OUTPUT_SLOTS;
+        RenderSystem.enableBlend();
+        for (int i = 0; i < UPGRADE_COUNT; i++) {
+            int slotIdx = startUpgradeSlot + i;
+            if (slotIdx < menu.slots.size() && !menu.getSlot(slotIdx).hasItem()) {
+                int gx = leftPos + UPGRADE_BG_X + ITEM_OFFSET;
+                int gy = topPos + UPGRADE_FIRST_BG_Y + ITEM_OFFSET + i * SLOT_SIZE;
+                RenderSystem.setShaderColor(1, 1, 1, UPGRADE_GHOST_ALPHA);
+                g.fill(gx, gy, gx + 16, gy + 16, 0x60FFFFFF);
+                g.fill(gx + 2, gy + 2, gx + 14, gy + 14, 0x40707070);
+                RenderSystem.setShaderColor(1, 1, 1, 1);
+            }
+        }
+        RenderSystem.disableBlend();
     }
 
     @Override
