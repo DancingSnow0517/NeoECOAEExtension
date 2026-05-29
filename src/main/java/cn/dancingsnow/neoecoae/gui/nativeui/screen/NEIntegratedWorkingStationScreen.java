@@ -6,7 +6,6 @@ import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEClearFluidButton;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NETexturedButton;
 import cn.dancingsnow.neoecoae.network.NENetwork;
-import appeng.core.definitions.AEItems;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
@@ -15,7 +14,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
@@ -123,8 +121,12 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int CLEAR_BTN_OUT_X = 137;
     private static final int CLEAR_BTN_Y = 59;
 
+    // Upgrade blank-card placeholder colors (opaque)
+    private static final int CARD_BORDER = 0xFF6F7288;
+    private static final int CARD_FILL   = 0xFFB5B8C8;
+    private static final int CARD_LINE   = 0xFF8E91A5;
+
     private NETexturedButton autoExportBtn;
-    private final ItemStack upgradeGhost = AEItems.SPEED_CARD.stack();
 
     public NEIntegratedWorkingStationScreen(NEIntegratedWorkingStationMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -162,7 +164,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         // Update auto-export toggle state
         if (autoExportBtn != null) {
             boolean on = menu.isAutoExportEnabled();
-            autoExportBtn.setMessage(Component.literal(on ? "\u2192" : "\u2190"));
+            autoExportBtn.setMessage(Component.literal(on ? "\u2192" : "\u00D7"));
             autoExportBtn.setTooltip(Tooltip.create(
                 Component.translatable(on
                     ? "gui.neoecoae.integrated_working_station.auto_io.on"
@@ -252,7 +254,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         // ── 6. Progress bar (6×18, bottom-up with textures) ──
         drawProgressBar(g, leftPos + PROGRESS_X, topPos + PROGRESS_Y, menu.getProgress(), menu.getMaxProgress());
 
-        // ── 7. Upgrade speed-card placeholder (empty slots only, opaque, 16x16 item area) ──
+        // ── 7. Upgrade blank-card placeholder (empty slots only, opaque, 16x16 item area) ──
         int startUpgradeSlot = NEIntegratedWorkingStationMenu.INPUT_SLOTS
             + NEIntegratedWorkingStationMenu.OUTPUT_SLOTS;
         for (int i = 0; i < UPGRADE_COUNT; i++) {
@@ -260,9 +262,12 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             if (slotIdx < menu.slots.size() && !menu.getSlot(slotIdx).hasItem()) {
                 int gx = leftPos + UPGRADE_BG_X + ITEM_OFFSET;
                 int gy = topPos + UPGRADE_FIRST_BG_Y + ITEM_OFFSET + i * SLOT_SIZE;
-                g.renderItem(upgradeGhost, gx, gy);
+                drawBlankCard(g, gx, gy);
             }
         }
+
+        // ── 8. Fluid hover overlays ──
+        drawFluidHover(g, mouseX, mouseY);
     }
 
     @Override
@@ -272,6 +277,66 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     }
 
     // ── Drawing helpers ──
+
+    // ── Blank card placeholder drawing ──
+
+    private void drawBlankCard(GuiGraphics g, int gx, int gy) {
+        // 12x12 card centred in 16x16 item area
+        g.fill(gx + 2, gy + 2, gx + 14, gy + 14, CARD_FILL);
+        g.fill(gx + 2, gy + 2, gx + 14, gy + 3, CARD_BORDER);
+        g.fill(gx + 2, gy + 13, gx + 14, gy + 14, CARD_BORDER);
+        g.fill(gx + 2, gy + 2, gx + 3, gy + 14, CARD_BORDER);
+        g.fill(gx + 13, gy + 2, gx + 14, gy + 14, CARD_BORDER);
+        g.fill(gx + 4, gy + 7, gx + 12, gy + 8, CARD_LINE);
+    }
+
+    // ── Fluid hover overlay ──
+
+    private void drawFluidHover(GuiGraphics g, int mouseX, int mouseY) {
+        int fiX = leftPos + FLUID_IN_X;
+        int fiY = topPos + FLUID_IN_Y;
+        if (mouseX >= fiX && mouseX < fiX + FLUID_IN_W && mouseY >= fiY && mouseY < fiY + FLUID_IN_H) {
+            g.fill(fiX + 1, fiY + 1, fiX + FLUID_IN_W - 1, fiY + FLUID_IN_H - 1, 0x40FFFFFF);
+            int inAmt = menu.getFluidInAmount();
+            g.renderTooltip(font, Component.literal(inAmt + " / 16000 mB"), mouseX, mouseY);
+        }
+        int foX = leftPos + FLUID_OUT_X;
+        int foY = topPos + FLUID_OUT_Y;
+        if (mouseX >= foX && mouseX < foX + FLUID_OUT_W && mouseY >= foY && mouseY < foY + FLUID_OUT_H) {
+            g.fill(foX + 1, foY + 1, foX + FLUID_OUT_W - 1, foY + FLUID_OUT_H - 1, 0x40FFFFFF);
+            int outAmt = menu.getFluidOutAmount();
+            g.renderTooltip(font, Component.literal(outAmt + " / 16000 mB"), mouseX, mouseY);
+        }
+    }
+
+    // ── Mouse click: clear buttons + fluid tank container interaction ──
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            int mx = (int) mouseX;
+            int my = (int) mouseY;
+            // Input clear button
+            if (mx >= leftPos + CLEAR_BTN_IN_X && mx < leftPos + CLEAR_BTN_IN_X + CLEAR_BTN_W
+                && my >= topPos + CLEAR_BTN_Y && my < topPos + CLEAR_BTN_Y + CLEAR_BTN_H) {
+                sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID);
+                return true;
+            }
+            // Output clear button
+            if (mx >= leftPos + CLEAR_BTN_OUT_X && mx < leftPos + CLEAR_BTN_OUT_X + CLEAR_BTN_W
+                && my >= topPos + CLEAR_BTN_Y && my < topPos + CLEAR_BTN_Y + CLEAR_BTN_H) {
+                sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID);
+                return true;
+            }
+            // Input fluid tank container click
+            if (mx >= leftPos + FLUID_IN_X && mx < leftPos + FLUID_IN_X + FLUID_IN_W
+                && my >= topPos + FLUID_IN_Y && my < topPos + FLUID_IN_Y + FLUID_IN_H) {
+                sendAction(NENetwork.IWSAction.INPUT_TANK_CONTAINER_CLICK);
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
 
     private void drawSlot(GuiGraphics g, int x, int y) {
         g.blit(TEX_SLOT, x, y, 0, 0, SLOT_SIZE, SLOT_SIZE, SLOT_SIZE, SLOT_SIZE);

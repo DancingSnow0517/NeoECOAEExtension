@@ -57,8 +57,4 @@ public class NEClearFluidButton extends Button {
         g.fill(cx + 1, cy + 6, cx + 2, cy + 7, lineColor);
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderWidget(guiGraphics, mouseX, mouseY, partialTick);
-    }
 }

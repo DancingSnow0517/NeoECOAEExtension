@@ -62,6 +62,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
@@ -75,6 +76,8 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.FluidActionResult;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.fml.loading.FMLEnvironment;
@@ -716,6 +719,34 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public void clearFluidOut() {
         this.outputTank.setFluid(FluidStack.EMPTY);
+    }
+
+    /**
+     * Handles left-click on the input fluid tank with a held container item.
+     * Tries to empty a filled container into the input tank first;
+     * if that fails, tries to fill an empty container from the input tank.
+     */
+    public void handleInputTankContainerClick(ServerPlayer player) {
+        if (level == null || level.isClientSide) return;
+        ItemStack carried = player.containerMenu.getCarried();
+        if (carried.isEmpty()) return;
+
+        // Try to empty held container into input tank
+        FluidActionResult result = FluidUtil.tryEmptyContainer(carried, inputTank, MAX_TANK_CAPACITY, player, true);
+        if (result.isSuccess()) {
+            player.containerMenu.setCarried(result.getResult());
+            markForUpdate();
+            setChanged();
+            return;
+        }
+
+        // Try to fill held empty container from input tank
+        result = FluidUtil.tryFillContainer(carried, inputTank, MAX_TANK_CAPACITY, player, true);
+        if (result.isSuccess()) {
+            player.containerMenu.setCarried(result.getResult());
+            markForUpdate();
+            setChanged();
+        }
     }
 
     @Override

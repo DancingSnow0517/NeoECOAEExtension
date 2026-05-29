@@ -652,7 +652,8 @@ public final class NENetwork {
     public enum IWSAction {
         TOGGLE_AUTO_EXPORT,
         CLEAR_INPUT_FLUID,
-        CLEAR_OUTPUT_FLUID
+        CLEAR_OUTPUT_FLUID,
+        INPUT_TANK_CONTAINER_CLICK
     }
 
     public record NEIntegratedWorkingStationActionPacket(BlockPos pos, IWSAction action) {
@@ -691,9 +692,11 @@ public final class NENetwork {
                     case TOGGLE_AUTO_EXPORT -> iws.toggleAutoExport();
                     case CLEAR_INPUT_FLUID -> iws.clearFluid();
                     case CLEAR_OUTPUT_FLUID -> iws.clearFluidOut();
+                    case INPUT_TANK_CONTAINER_CLICK -> iws.handleInputTankContainerClick(sender);
                 }
                 iws.setChanged();
                 iws.markForUpdate();
+                menu.broadcastChanges();
             });
             ctx.setPacketHandled(true);
         }

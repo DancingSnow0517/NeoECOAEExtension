@@ -21,11 +21,6 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
     public static final RecipeType<RecipeHolder<CoolingRecipe>> COOLING_TYPE = createRecipeHolderType("cooling");
     public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE = createRecipeHolderType("integrated_working_station");
 
-    // MULTIBLOCK_TYPE removed (LDLib dependency)\r
-        NeoECOAE.id("multiblock"),
-        MultiBlockInfoWrapper.class
-    );
-
     @Override
     public ResourceLocation getPluginUid() {
         return NeoECOAE.id("jei_plugin");
@@ -35,21 +30,18 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
     public void registerCategories(IRecipeCategoryRegistration registration) {
         IGuiHelper guiHelper = registration.getJeiHelpers().getGuiHelper();
         registration.addRecipeCategories(new CoolingCategory(guiHelper));
-        registration.addRecipeCategories(new MultiBlockInfoCategory(guiHelper));
         registration.addRecipeCategories(new IntegrationWorkingStationCategory(guiHelper));
     }
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
         CoolingCategory.registerRecipes(registration);
-        MultiBlockInfoCategory.registerRecipes(registration);
         IntegrationWorkingStationCategory.registerRecipes(registration);
     }
 
     @Override
     public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         CoolingCategory.registerRecipeCatalysts(registration);
-        MultiBlockInfoCategory.registerRecipeCatalysts(registration);
         IntegrationWorkingStationCategory.registerRecipeCatalysts(registration);
     }
 
