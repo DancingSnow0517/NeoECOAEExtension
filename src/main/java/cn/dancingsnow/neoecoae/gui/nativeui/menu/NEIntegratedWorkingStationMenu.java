@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.nativeui.menu;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
+import cn.dancingsnow.neoecoae.gui.nativeui.slot.NEInternalInventorySlot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -82,37 +83,48 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
         super(NENativeMenus.INTEGRATED_WORKING_STATION.get(), containerId, playerInv, machinePos);
 
         ECOIntegratedWorkingStationBlockEntity be = getBlockEntity(playerInv.player);
-        // Always use same count of machine slots, even when BE is unavailable.
-        // Dummy ItemStackHandler prevents client/server slot index mismatch.
-        IItemHandler inputHandler;
-        IItemHandler outputHandler;
         IItemHandler upgradeHandler;
         if (be != null) {
-            inputHandler = be.getInputGuiItemHandler();
-            outputHandler = be.getOutputItemHandler();
             upgradeHandler = be.getUpgradeItemHandler();
             this.data = be.getContainerData();
         } else {
-            inputHandler = new ItemStackHandler(INPUT_SLOTS);
-            outputHandler = new ItemStackHandler(OUTPUT_SLOTS);
             upgradeHandler = new ItemStackHandler(UPGRADE_SLOTS);
             this.data = new SimpleContainerData(DATA_COUNT);
         }
 
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 3; col++) {
-                addSlot(new SlotItemHandler(inputHandler, col + row * 3,
-                    INPUT_SLOT_X + col * SLOT_SIZE,
-                    INPUT_SLOT_Y + row * SLOT_SIZE));
+        // Input slots 0-8: use NEInternalInventorySlot when BE available, dummy SlotItemHandler otherwise
+        if (be != null) {
+            var inputInv = be.getInput();
+            for (int row = 0; row < 3; row++) {
+                for (int col = 0; col < 3; col++) {
+                    addSlot(new NEInternalInventorySlot(inputInv, col + row * 3,
+                        INPUT_SLOT_X + col * SLOT_SIZE,
+                        INPUT_SLOT_Y + row * SLOT_SIZE,
+                        be, true, true));
+                }
+            }
+        } else {
+            var dummyInput = new ItemStackHandler(INPUT_SLOTS);
+            for (int row = 0; row < 3; row++) {
+                for (int col = 0; col < 3; col++) {
+                    addSlot(new SlotItemHandler(dummyInput, col + row * 3,
+                        INPUT_SLOT_X + col * SLOT_SIZE,
+                        INPUT_SLOT_Y + row * SLOT_SIZE));
+                }
             }
         }
 
-        addSlot(new SlotItemHandler(outputHandler, 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y) {
-            @Override
-            public boolean mayPlace(@NotNull ItemStack stack) {
-                return false;
-            }
-        });
+        // Output slot 9
+        if (be != null) {
+            addSlot(new NEInternalInventorySlot(be.getOutput(), 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y,
+                be, false, true));
+        } else {
+            var dummyOutput = new ItemStackHandler(OUTPUT_SLOTS);
+            addSlot(new SlotItemHandler(dummyOutput, 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y) {
+                @Override
+                public boolean mayPlace(@NotNull ItemStack stack) { return false; }
+            });
+        }
 
         for (int i = 0; i < UPGRADE_SLOTS; i++) {
             final int slotIdx = i;

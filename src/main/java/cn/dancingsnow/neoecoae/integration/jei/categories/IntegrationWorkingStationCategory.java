@@ -1,10 +1,12 @@
 package cn.dancingsnow.neoecoae.integration.jei.categories;
 
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import com.mojang.logging.LogUtils;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
@@ -35,6 +37,7 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     private final Component title;
     private final IDrawable background;
     private final IDrawableAnimated progress;
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
 
     public IntegrationWorkingStationCategory(IGuiHelper helper) {
         icon = helper.createDrawableItemStack(NEBlocks.INTEGRATED_WORKING_STATION.asStack());
@@ -124,10 +127,15 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     }
 
     public static void registerRecipes(IRecipeRegistration registration) {
-        registration.addRecipes(
-            NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE,
-            Minecraft.getInstance().getConnection().getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())
-        );
+        var mc = Minecraft.getInstance();
+        if (mc.getConnection() == null) {
+            LOGGER.warn("JEI IWS register skipped: connection is null");
+            return;
+        }
+        var recipes = mc.getConnection().getRecipeManager()
+            .getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
+        LOGGER.info("JEI IWS register count = {}", recipes.size());
+        registration.addRecipes(NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE, recipes);
     }
 
     public static void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {

@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.integration.jei.categories.CoolingCategory;
 import cn.dancingsnow.neoecoae.integration.jei.categories.IntegrationWorkingStationCategory;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import com.mojang.logging.LogUtils;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.helpers.IGuiHelper;
@@ -18,6 +19,7 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 
 @JeiPlugin
 public class NeoECOAEJeiPlugin implements IModPlugin {
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
     public static final RecipeType<RecipeHolder<CoolingRecipe>> COOLING_TYPE = createRecipeHolderType("cooling");
     public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE = createRecipeHolderType("integrated_working_station");
 
@@ -28,6 +30,7 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerCategories(IRecipeCategoryRegistration registration) {
+        LOGGER.info("JEI registerCategories called");
         IGuiHelper guiHelper = registration.getJeiHelpers().getGuiHelper();
         registration.addRecipeCategories(new CoolingCategory(guiHelper));
         registration.addRecipeCategories(new IntegrationWorkingStationCategory(guiHelper));
@@ -35,12 +38,14 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
+        LOGGER.info("JEI registerRecipes called");
         CoolingCategory.registerRecipes(registration);
         IntegrationWorkingStationCategory.registerRecipes(registration);
     }
 
     @Override
     public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
+        LOGGER.info("JEI registerRecipeCatalysts called");
         CoolingCategory.registerRecipeCatalysts(registration);
         IntegrationWorkingStationCategory.registerRecipeCatalysts(registration);
     }

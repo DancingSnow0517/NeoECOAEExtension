@@ -386,8 +386,14 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     private void onChangeInventory() {
         this.dirty = true;
-
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
+    }
+
+    /** Called by NEInternalInventorySlot when the GUI modifies the inventory. */
+    public void onGuiInventoryChanged() {
+        onChangeInventory();
+        setChanged();
+        markForUpdate();
     }
 
     @Override

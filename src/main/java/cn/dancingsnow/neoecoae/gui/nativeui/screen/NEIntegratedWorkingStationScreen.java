@@ -298,15 +298,29 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         int fiY = topPos + FLUID_IN_Y;
         if (mouseX >= fiX && mouseX < fiX + FLUID_IN_W && mouseY >= fiY && mouseY < fiY + FLUID_IN_H) {
             g.fill(fiX + 1, fiY + 1, fiX + FLUID_IN_W - 1, fiY + FLUID_IN_H - 1, 0x40FFFFFF);
-            int inAmt = menu.getFluidInAmount();
-            g.renderTooltip(font, Component.literal(inAmt + " / 16000 mB"), mouseX, mouseY);
+            FluidStack inStack = menu.getClientInputFluid();
+            if (!inStack.isEmpty()) {
+                g.renderTooltip(font, List.of(
+                    inStack.getDisplayName().getVisualOrderText(),
+                    Component.literal(inStack.getAmount() + " / 16000 mB").getVisualOrderText()
+                ), mouseX, mouseY);
+            } else {
+                g.renderTooltip(font, Component.literal(menu.getFluidInAmount() + " / 16000 mB"), mouseX, mouseY);
+            }
         }
         int foX = leftPos + FLUID_OUT_X;
         int foY = topPos + FLUID_OUT_Y;
         if (mouseX >= foX && mouseX < foX + FLUID_OUT_W && mouseY >= foY && mouseY < foY + FLUID_OUT_H) {
             g.fill(foX + 1, foY + 1, foX + FLUID_OUT_W - 1, foY + FLUID_OUT_H - 1, 0x40FFFFFF);
-            int outAmt = menu.getFluidOutAmount();
-            g.renderTooltip(font, Component.literal(outAmt + " / 16000 mB"), mouseX, mouseY);
+            FluidStack outStack = menu.getClientOutputFluid();
+            if (!outStack.isEmpty()) {
+                g.renderTooltip(font, List.of(
+                    outStack.getDisplayName().getVisualOrderText(),
+                    Component.literal(outStack.getAmount() + " / 16000 mB").getVisualOrderText()
+                ), mouseX, mouseY);
+            } else {
+                g.renderTooltip(font, Component.literal(menu.getFluidOutAmount() + " / 16000 mB"), mouseX, mouseY);
+            }
         }
     }
 
@@ -369,7 +383,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         g.fill(x, y, x + 1, y + h, FLUID_BORDER);
         g.fill(x + w - 1, y, x + w, y + h, FLUID_BORDER);
 
-        var stack = input ? menu.getClientInputFluid() : menu.getClientOutputFluid();
+        FluidStack stack = input ? menu.getClientInputFluid() : menu.getClientOutputFluid();
         int amount = stack.getAmount();
         if (amount <= 0) {
             amount = input ? menu.getFluidInAmount() : menu.getFluidOutAmount();
