@@ -8,7 +8,7 @@
   "type": "mekanism:enriching",
   "input": {
     "count": 3,
-    "tag": "c:raw_materials/aluminum"
+    "tag": "forge:raw_materials/aluminum"
   },
   "output": {
     "count": 4,

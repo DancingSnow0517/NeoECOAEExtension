@@ -1,10 +1,10 @@
-﻿{
+{
   "type": "minecraft:smelting",
   "category": "misc",
   "cookingtime": 200,
   "experience": 1.0,
   "ingredient": {
-    "tag": "c:dusts/black_tungsten_alloy"
+    "tag": "forge:dusts/black_tungsten_alloy"
   },
   "result": {
     "count": 1,

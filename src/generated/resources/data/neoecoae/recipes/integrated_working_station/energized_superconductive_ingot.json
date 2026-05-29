@@ -8,15 +8,15 @@
   "inputItems": [
     {
       "count": 4,
-      "tag": "c:dusts/energized_fluix_crystal"
+      "tag": "forge:dusts/energized_fluix_crystal"
     },
     {
       "count": 4,
-      "tag": "c:dusts/aluminum"
+      "tag": "forge:dusts/aluminum"
     },
     {
       "count": 4,
-      "tag": "c:silicon"
+      "tag": "forge:silicon"
     },
     {
       "count": 4,

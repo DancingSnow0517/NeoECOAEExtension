@@ -1,7 +1,7 @@
-﻿{
+{
   "type": "minecraft:smithing_transform",
   "addition": {
-    "tag": "c:ingots/black_tungsten_alloy"
+    "tag": "forge:ingots/black_tungsten_alloy"
   },
   "base": {
     "item": "neoecoae:tungsten_shovel"

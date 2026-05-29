@@ -1,9 +1,9 @@
-﻿{
+{
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
     {
-      "tag": "c:storage_blocks/energized_fluix_crystal"
+      "tag": "forge:storage_blocks/energized_fluix_crystal"
     }
   ],
   "result": {

@@ -10,7 +10,7 @@
         },
         "target": {
           "predicate_type": "minecraft:tag_match",
-          "tag": "c:end_stones"
+          "tag": "forge:end_stones"
         }
       }
     ]

@@ -1,4 +1,4 @@
-﻿{
+{
   "forge:conditions": [
     {
       "type": "forge:mod_loaded",
@@ -12,10 +12,10 @@
       "item": "neoecoae:crystal_matrix"
     },
     "B": {
-      "tag": "c:dusts/redstone"
+      "tag": "forge:dusts/redstone"
     },
     "C": {
-      "tag": "c:ingots/black_tungsten_alloy"
+      "tag": "forge:ingots/black_tungsten_alloy"
     }
   },
   "pattern": [

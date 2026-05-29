@@ -1,11 +1,11 @@
-﻿{
+{
   "type": "ae2:transform",
   "ingredients": [
     {
-      "tag": "c:storage_blocks/energized_crystal"
+      "tag": "forge:storage_blocks/energized_crystal"
     },
     {
-      "tag": "c:gems/energized_crystal"
+      "tag": "forge:gems/energized_crystal"
     }
   ],
   "result": {

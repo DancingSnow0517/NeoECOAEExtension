@@ -1,18 +1,18 @@
-﻿{
+{
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
     {
-      "tag": "c:dusts/tungsten"
+      "tag": "forge:dusts/tungsten"
     },
     {
-      "tag": "c:dusts/aluminum_alloy"
+      "tag": "forge:dusts/aluminum_alloy"
     },
     {
-      "tag": "c:dusts/fluix"
+      "tag": "forge:dusts/fluix"
     },
     {
-      "tag": "c:dusts/fluix"
+      "tag": "forge:dusts/fluix"
     }
   ],
   "result": {

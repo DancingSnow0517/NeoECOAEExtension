@@ -1,8 +1,8 @@
-﻿{
+{
   "type": "ae2:inscriber",
   "ingredients": {
     "middle": {
-      "tag": "c:ingots/black_tungsten_alloy"
+      "tag": "forge:ingots/black_tungsten_alloy"
     }
   },
   "mode": "inscribe",

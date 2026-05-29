@@ -8,7 +8,7 @@
   "type": "mekanism:crushing",
   "input": {
     "count": 1,
-    "tag": "c:ingots/aluminum"
+    "tag": "forge:ingots/aluminum"
   },
   "output": {
     "count": 1,

@@ -56,7 +56,7 @@ public class NETags {
         }
 
         private static TagKey<Item> common(String path) {
-            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 
@@ -82,7 +82,7 @@ public class NETags {
         }
 
         private static TagKey<Block> common(String path) {
-            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 
@@ -94,7 +94,7 @@ public class NETags {
         }
 
         private static TagKey<Fluid> common(String path) {
-            return FluidTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+            return FluidTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 }

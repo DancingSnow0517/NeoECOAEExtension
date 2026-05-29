@@ -1,9 +1,9 @@
-﻿{
+{
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
     {
-      "tag": "c:storage_blocks/raw_aluminum"
+      "tag": "forge:storage_blocks/raw_aluminum"
     }
   ],
   "result": {

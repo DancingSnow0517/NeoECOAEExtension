@@ -1,9 +1,9 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
     "A": {
-      "tag": "c:dusts/sky_stone"
+      "tag": "forge:dusts/sky_stone"
     },
     "B": {
       "item": "neoecoae:cryotheum"

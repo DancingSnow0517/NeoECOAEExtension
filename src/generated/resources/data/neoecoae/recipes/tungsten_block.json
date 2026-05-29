@@ -1,9 +1,9 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
     "A": {
-      "tag": "c:ingots/tungsten"
+      "tag": "forge:ingots/tungsten"
     }
   },
   "pattern": [

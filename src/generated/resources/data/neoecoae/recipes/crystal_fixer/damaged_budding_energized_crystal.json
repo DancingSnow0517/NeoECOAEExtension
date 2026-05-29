@@ -9,7 +9,7 @@
   "chance": 8000,
   "fuel": {
     "ingredient": {
-      "tag": "c:gems/energized_crystal"
+      "tag": "forge:gems/energized_crystal"
     }
   },
   "input": {

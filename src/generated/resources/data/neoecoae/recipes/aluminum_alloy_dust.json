@@ -1,18 +1,18 @@
-﻿{
+{
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
     {
-      "tag": "c:dusts/iron"
+      "tag": "forge:dusts/iron"
     },
     {
-      "tag": "c:dusts/aluminum"
+      "tag": "forge:dusts/aluminum"
     },
     {
-      "tag": "c:dusts/certus_quartz"
+      "tag": "forge:dusts/certus_quartz"
     },
     {
-      "tag": "c:dusts/certus_quartz"
+      "tag": "forge:dusts/certus_quartz"
     }
   ],
   "result": {

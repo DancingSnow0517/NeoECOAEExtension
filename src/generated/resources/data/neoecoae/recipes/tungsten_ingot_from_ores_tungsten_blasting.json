@@ -1,10 +1,10 @@
-﻿{
+{
   "type": "minecraft:blasting",
   "category": "misc",
   "cookingtime": 100,
   "experience": 1.0,
   "ingredient": {
-    "tag": "c:ores/tungsten"
+    "tag": "forge:ores/tungsten"
   },
   "result": {
     "count": 1,

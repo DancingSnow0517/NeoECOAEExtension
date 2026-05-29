@@ -1,8 +1,8 @@
-﻿{
+{
   "type": "ae2:inscriber",
   "ingredients": {
     "middle": {
-      "tag": "c:storage_blocks/iron"
+      "tag": "forge:storage_blocks/iron"
     },
     "top": {
       "item": "neoecoae:superconducting_processor_press"

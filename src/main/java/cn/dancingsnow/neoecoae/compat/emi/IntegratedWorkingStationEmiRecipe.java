@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * EMI recipe display for the ECO Integrated Working Station.
  * Draws only AE2-style slot / tank / frame parts — the outer card
- * background is provided by EMI itself.  No full machine panel is drawn.
+ * background is provided by EMI itself. No full machine panel is drawn.
  */
 public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
 
@@ -79,13 +79,16 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
 
         // ── Input items ──
         for (SizedIngredient input : recipe.inputItems()) {
-            if (input.ingredient().isEmpty()) continue;
+            if (input.ingredient().isEmpty())
+                continue;
             ItemStack[] stacks = input.ingredient().getItems();
-            if (stacks == null || stacks.length == 0) continue;
+            if (stacks == null || stacks.length == 0)
+                continue;
 
             List<EmiStack> variants = new ArrayList<>();
             for (ItemStack stack : stacks) {
-                if (stack == null || stack.isEmpty()) continue;
+                if (stack == null || stack.isEmpty())
+                    continue;
                 ItemStack copy = stack.copy();
                 copy.setCount(input.count());
                 variants.add(EmiStack.of(copy));
@@ -102,7 +105,8 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
             if (rawFluids != null && rawFluids.length > 0) {
                 List<EmiStack> fluidVariants = new ArrayList<>();
                 for (FluidStack fs : rawFluids) {
-                    if (fs == null || fs.isEmpty()) continue;
+                    if (fs == null || fs.isEmpty())
+                        continue;
                     fluidVariants.add(EmiStack.of(fs.getFluid(), inputFluid.amount()));
                 }
                 if (!fluidVariants.isEmpty()) {
@@ -137,7 +141,8 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
     @Override
     public List<EmiIngredient> getInputs() {
         List<EmiIngredient> all = new ArrayList<>(itemInputs);
-        if (fluidInput != null) all.add(fluidInput);
+        if (fluidInput != null)
+            all.add(fluidInput);
         return all;
     }
 
@@ -160,47 +165,47 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
     public void addWidgets(WidgetHolder widgets) {
 
         // ═══════════════════════════════════════════════════════════
-        //  Layer 1 — AE2-style parts (NO full panel — EMI provides
-        //            the outer card background)
+        // Layer 1 — AE2-style parts (NO full panel — EMI provides
+        // the outer card background)
         // ═══════════════════════════════════════════════════════════
         widgets.addDrawable(0, 0, WIDTH, HEIGHT, (g, mouseX, mouseY, delta) -> {
 
-            // 1.a  Input fluid tank background
+            // 1.a Input fluid tank background
             NENativeAe2StyleRenderer.drawAeFluidTank(g,
-                INPUT_FLUID_TANK_X, INPUT_FLUID_TANK_Y,
-                FLUID_TANK_W, FLUID_TANK_H,
-                FluidStack.EMPTY, 0, 16000);
+                    INPUT_FLUID_TANK_X, INPUT_FLUID_TANK_Y,
+                    FLUID_TANK_W, FLUID_TANK_H,
+                    FluidStack.EMPTY, 0, 16000);
 
-            // 1.b  Input item slot backgrounds — always all 9 slots
+            // 1.b Input item slot backgrounds — always all 9 slots
             for (int i = 0; i < INPUT_SLOT_COUNT; i++) {
                 int col = i % INPUT_GRID_COLS;
                 int row = i / INPUT_GRID_COLS;
                 NENativeAe2StyleRenderer.drawAeSlot(g,
-                    INPUT_GRID_X + col * SLOT_SPACING,
-                    INPUT_GRID_Y + row * SLOT_SPACING);
+                        INPUT_GRID_X + col * SLOT_SPACING,
+                        INPUT_GRID_Y + row * SLOT_SPACING);
             }
 
-            // 1.c  Output Inscriber-style frame
+            // 1.c Output Inscriber-style frame
             NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(g,
-                OUTPUT_FRAME_X, OUTPUT_FRAME_Y,
-                OUTPUT_FRAME_W, OUTPUT_FRAME_H);
+                    OUTPUT_FRAME_X, OUTPUT_FRAME_Y,
+                    OUTPUT_FRAME_W, OUTPUT_FRAME_H);
 
-            // 1.d  Output fluid tank background
+            // 1.d Output fluid tank background
             NENativeAe2StyleRenderer.drawAeFluidTank(g,
-                OUTPUT_FLUID_TANK_X, OUTPUT_FLUID_TANK_Y,
-                FLUID_TANK_W, FLUID_TANK_H,
-                FluidStack.EMPTY, 0, 16000);
+                    OUTPUT_FLUID_TANK_X, OUTPUT_FLUID_TANK_Y,
+                    FLUID_TANK_W, FLUID_TANK_H,
+                    FluidStack.EMPTY, 0, 16000);
 
-            // 1.e  AE2 inscriber-style progress bar
+            // 1.e AE2 inscriber-style progress bar
             int progress = (int) ((System.currentTimeMillis() / 50L) % 100L);
             NENativeAe2StyleRenderer.drawAeProgressBar(g,
-                PROGRESS_X, PROGRESS_Y,
-                PROGRESS_W, PROGRESS_H,
-                progress, 100);
+                    PROGRESS_X, PROGRESS_Y,
+                    PROGRESS_W, PROGRESS_H,
+                    progress, 100);
         });
 
         // ═══════════════════════════════════════════════════════════
-        //  Layer 2 — EMI ingredient widgets (overlay, no default bg)
+        // Layer 2 — EMI ingredient widgets (overlay, no default bg)
         // ═══════════════════════════════════════════════════════════
 
         // ── Input fluid slot (inside the inset border: +1, 16×(h-2)) ──
@@ -208,30 +213,33 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
             widgets.addTank(fluidInput,
                     INPUT_FLUID_TANK_X + 1, INPUT_FLUID_TANK_Y + 1,
                     16, FLUID_TANK_H - 2, 16000)
-                .drawBack(false);
+                    .drawBack(false);
         }
 
         // ── Input item slots (same coords as background) ──
         List<SizedIngredient> inputItems = recipe.inputItems();
         for (int i = 0; i < inputItems.size(); i++) {
             SizedIngredient input = inputItems.get(i);
-            if (input.ingredient().isEmpty()) continue;
+            if (input.ingredient().isEmpty())
+                continue;
             ItemStack[] stacks = input.ingredient().getItems();
-            if (stacks == null || stacks.length == 0) continue;
+            if (stacks == null || stacks.length == 0)
+                continue;
 
             int x = INPUT_GRID_X + i % INPUT_GRID_COLS * SLOT_SPACING;
             int y = INPUT_GRID_Y + i / INPUT_GRID_COLS * SLOT_SPACING;
 
             List<EmiStack> variants = new ArrayList<>();
             for (ItemStack stack : stacks) {
-                if (stack == null || stack.isEmpty()) continue;
+                if (stack == null || stack.isEmpty())
+                    continue;
                 ItemStack copy = stack.copy();
                 copy.setCount(input.count());
                 variants.add(EmiStack.of(copy));
             }
             if (!variants.isEmpty()) {
                 widgets.addSlot(EmiIngredient.of(variants, input.count()), x, y)
-                    .drawBack(false);
+                        .drawBack(false);
             }
         }
 
@@ -240,8 +248,8 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
         if (!itemOutput.isEmpty()) {
             widgets.addSlot(EmiStack.of(itemOutput.copy()),
                     OUTPUT_SLOT_X, OUTPUT_SLOT_Y)
-                .recipeContext(this)
-                .drawBack(false);
+                    .recipeContext(this)
+                    .drawBack(false);
         }
 
         // ── Output fluid slot (inside the inset border: +1, 16×(h-2)) ──
@@ -250,13 +258,13 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
             widgets.addTank(EmiStack.of(fluidOutput.getFluid(), fluidOutput.getAmount()),
                     OUTPUT_FLUID_TANK_X + 1, OUTPUT_FLUID_TANK_Y + 1,
                     16, FLUID_TANK_H - 2, 16000)
-                .drawBack(false);
+                    .drawBack(false);
         }
 
         // ── Energy text ──
         widgets.addText(
-            Component.translatable("gui.neoecoae.integrated_working_station.energy",
-                recipe.energy() / 1000),
-            ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
+                Component.translatable("gui.neoecoae.integrated_working_station.energy",
+                        recipe.energy() / 1000),
+                ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
     }
 }

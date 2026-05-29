@@ -1,8 +1,8 @@
-﻿{
+{
   "type": "ae2:inscriber",
   "ingredients": {
     "middle": {
-      "tag": "c:ingots/iron"
+      "tag": "forge:ingots/iron"
     }
   },
   "mode": "inscribe",

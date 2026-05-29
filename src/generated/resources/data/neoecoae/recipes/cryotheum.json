@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
@@ -6,25 +6,25 @@
       "item": "minecraft:ice"
     },
     {
-      "tag": "c:dusts/certus_quartz"
+      "tag": "forge:dusts/certus_quartz"
     },
     {
-      "tag": "c:dusts/sky_stone"
+      "tag": "forge:dusts/sky_stone"
     },
     {
       "item": "minecraft:snowball"
     },
     {
-      "tag": "c:dusts/energized_crystal"
+      "tag": "forge:dusts/energized_crystal"
     },
     {
-      "tag": "c:dusts/energized_crystal"
+      "tag": "forge:dusts/energized_crystal"
     },
     {
-      "tag": "c:dusts/energized_crystal"
+      "tag": "forge:dusts/energized_crystal"
     },
     {
-      "tag": "c:dusts/energized_crystal"
+      "tag": "forge:dusts/energized_crystal"
     }
   ],
   "result": {

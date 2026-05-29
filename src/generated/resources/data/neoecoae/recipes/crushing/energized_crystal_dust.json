@@ -8,7 +8,7 @@
   "type": "mekanism:crushing",
   "input": {
     "count": 1,
-    "tag": "c:gems/energized_crystal"
+    "tag": "forge:gems/energized_crystal"
   },
   "output": {
     "count": 1,

@@ -1,8 +1,8 @@
-﻿{
+{
   "type": "ae2:inscriber",
   "ingredients": {
     "middle": {
-      "tag": "c:ingots/aluminum"
+      "tag": "forge:ingots/aluminum"
     }
   },
   "mode": "inscribe",

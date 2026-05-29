@@ -1,9 +1,9 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
     "A": {
-      "tag": "c:gems/energized_fluix_crystal"
+      "tag": "forge:gems/energized_fluix_crystal"
     }
   },
   "pattern": [

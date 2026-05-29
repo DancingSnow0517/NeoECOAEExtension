@@ -1,10 +1,10 @@
-﻿{
+{
   "type": "minecraft:smelting",
   "category": "misc",
   "cookingtime": 200,
   "experience": 0.8,
   "ingredient": {
-    "tag": "c:dusts/aluminum"
+    "tag": "forge:dusts/aluminum"
   },
   "result": {
     "count": 1,

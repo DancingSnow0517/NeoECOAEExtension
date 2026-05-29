@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -6,10 +6,10 @@
       "item": "neoecoae:crystal_matrix"
     },
     "B": {
-      "tag": "c:dusts/redstone"
+      "tag": "forge:dusts/redstone"
     },
     "C": {
-      "tag": "c:ingots/aluminum"
+      "tag": "forge:ingots/aluminum"
     }
   },
   "pattern": [

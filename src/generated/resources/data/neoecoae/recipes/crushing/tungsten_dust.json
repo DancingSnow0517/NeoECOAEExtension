@@ -8,7 +8,7 @@
   "type": "mekanism:crushing",
   "input": {
     "count": 1,
-    "tag": "c:ingots/tungsten"
+    "tag": "forge:ingots/tungsten"
   },
   "output": {
     "count": 1,

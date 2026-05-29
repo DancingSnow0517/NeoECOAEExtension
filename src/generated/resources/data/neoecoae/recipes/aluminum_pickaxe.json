@@ -1,9 +1,9 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "key": {
     "A": {
-      "tag": "c:ingots/aluminum"
+      "tag": "forge:ingots/aluminum"
     },
     "B": {
       "item": "minecraft:stick"

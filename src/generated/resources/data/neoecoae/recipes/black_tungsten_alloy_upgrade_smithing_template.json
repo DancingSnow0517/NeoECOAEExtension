@@ -1,9 +1,9 @@
-﻿{
+{
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
     {
-      "tag": "c:ingots/black_tungsten_alloy"
+      "tag": "forge:ingots/black_tungsten_alloy"
     },
     {
       "item": "neoecoae:energized_fluix_crystal"

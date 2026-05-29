@@ -1,8 +1,8 @@
-﻿{
+{
   "type": "ae2:inscriber",
   "ingredients": {
     "middle": {
-      "tag": "c:gems/energized_crystal"
+      "tag": "forge:gems/energized_crystal"
     }
   },
   "mode": "inscribe",

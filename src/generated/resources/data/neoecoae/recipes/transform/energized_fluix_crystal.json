@@ -1,11 +1,11 @@
-﻿{
+{
   "type": "ae2:transform",
   "ingredients": [
     {
-      "tag": "c:dusts/energized_crystal"
+      "tag": "forge:dusts/energized_crystal"
     },
     {
-      "tag": "c:gems/fluix"
+      "tag": "forge:gems/fluix"
     }
   ],
   "result": {

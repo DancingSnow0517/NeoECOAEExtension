@@ -1,17 +1,17 @@
-﻿{
+{
   "type": "ae2:transform",
   "circumstance": {
     "type": "explosion"
   },
   "ingredients": [
     {
-      "tag": "c:dusts/energized_fluix_crystal"
+      "tag": "forge:dusts/energized_fluix_crystal"
     },
     {
-      "tag": "c:dusts/aluminum"
+      "tag": "forge:dusts/aluminum"
     },
     {
-      "tag": "c:silicon"
+      "tag": "forge:silicon"
     },
     {
       "tag": "neoecoae:superconductive_ingot_base"

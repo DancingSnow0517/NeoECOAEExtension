@@ -1,9 +1,9 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
     "A": {
-      "tag": "c:raw_materials/aluminum"
+      "tag": "forge:raw_materials/aluminum"
     }
   },
   "pattern": [

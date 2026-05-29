@@ -9,7 +9,7 @@
   "coolant": 5000,
   "input": {
     "amount": 100,
-    "tag": "c:sodium"
+    "tag": "forge:dusts/sodium"
   },
   "max_overclock": 6,
   "output": {

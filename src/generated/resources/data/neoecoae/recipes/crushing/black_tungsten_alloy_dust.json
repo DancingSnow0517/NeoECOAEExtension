@@ -8,7 +8,7 @@
   "type": "mekanism:crushing",
   "input": {
     "count": 1,
-    "tag": "c:ingots/black_tungsten_alloy"
+    "tag": "forge:ingots/black_tungsten_alloy"
   },
   "output": {
     "count": 1,
