@@ -87,6 +87,10 @@ public final class NENativeAe2StyleRenderer {
             Icon.SLOT_BACKGROUND.x, Icon.SLOT_BACKGROUND.y,
             Icon.SLOT_BACKGROUND.width, Icon.SLOT_BACKGROUND.height,
             Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
+
+        // AE2 IO Port 的槽位来自静态背景贴图，看起来比直接 blit
+        // Icon.SLOT_BACKGROUND 略深。这里只压暗内部 16×16，不覆盖边框。
+        g.fill(x + 1, y + 1, x + 17, y + 17, 0x18000000);
     }
 
     // ── Icons ──
@@ -158,28 +162,48 @@ public final class NENativeAe2StyleRenderer {
         }
     }
 
+    // ── Inset rectangle ──
+
+    /**
+     * Draw an inset (sunken) rectangle with AE2-style shadow/highlight.
+     * Used for fluid tanks and progress bars to match the recessed look.
+     *
+     * @param fillColor the interior fill color
+     */
+    public static void drawAeInsetRect(GuiGraphics g, int x, int y, int w, int h, int fillColor) {
+        // top/left shadow
+        g.fill(x, y, x + w, y + 1, 0xFF3F3F3F);
+        g.fill(x, y, x + 1, y + h, 0xFF3F3F3F);
+
+        // bottom/right highlight
+        g.fill(x, y + h - 1, x + w, y + h, 0xFFFFFFFF);
+        g.fill(x + w - 1, y, x + w, y + h, 0xFFFFFFFF);
+
+        // inner top/left shadow
+        g.fill(x + 1, y + 1, x + w - 1, y + 2, 0xFF707070);
+        g.fill(x + 1, y + 1, x + 2, y + h - 1, 0xFF707070);
+
+        // inner fill
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, fillColor);
+    }
+
     // ── Fluid tank ──
 
     /**
-     * Draw a fluid tank with AE2-style border and fluid texture tiling.
+     * Draw a fluid tank with recessed AE2-style inset border and fluid texture tiling.
      */
     public static void drawAeFluidTank(GuiGraphics g, int x, int y, int w, int h,
                                         FluidStack stack, int amount, int capacity) {
-        // Subtle AE2-style border (dark bottom-right, light top-left, like a slot)
-        g.fill(x, y, x + w, y + 1, 0xFFFFFFFF);           // top highlight
-        g.fill(x, y, x + 1, y + h, 0xFFFFFFFF);           // left highlight
-        g.fill(x + w - 1, y, x + w, y + h, 0xFF555555);   // right shadow
-        g.fill(x, y + h - 1, x + w, y + h, 0xFF555555);   // bottom shadow
+        drawAeInsetRect(g, x, y, w, h, 0xFF8E8E8E);
 
-        int ix = x + 1;
-        int iy = y + 1;
-        int iw = w - 2;
-        int ih = h - 2;
+        int ix = x + 2;
+        int iy = y + 2;
+        int iw = w - 4;
+        int ih = h - 4;
 
-        // Empty background — AE2 panel-like mid gray
-        g.fill(ix, iy, ix + iw, iy + ih, 0xFF8B8B8B);
-
-        if (amount <= 0 || stack.isEmpty()) return;
+        if (amount <= 0 || stack.isEmpty() || capacity <= 0) {
+            return;
+        }
 
         int barH = Mth.clamp((int) ((long) amount * ih / capacity), 1, ih);
         int fillY = iy + ih - barH;
@@ -189,27 +213,20 @@ public final class NENativeAe2StyleRenderer {
     // ── Progress bar ──
 
     /**
-     * Draw a progress bar with AE2-style visuals.
+     * Draw a progress bar with recessed AE2-style inset.
      */
     public static void drawAeProgressBar(GuiGraphics g, int x, int y, int w, int h,
                                           int progress, int maxProgress) {
-        // AE2 slot-like border
-        g.fill(x, y, x + w, y + 1, 0xFFFFFFFF);
-        g.fill(x, y, x + 1, y + h, 0xFFFFFFFF);
-        g.fill(x + w - 1, y, x + w, y + h, 0xFF555555);
-        g.fill(x, y + h - 1, x + w, y + h, 0xFF555555);
+        drawAeInsetRect(g, x, y, w, h, 0xFF8E8E8E);
 
-        int ix = x + 1;
-        int iy = y + 1;
-        int iw = w - 2;
-        int ih = h - 2;
-
-        g.fill(ix, iy, ix + iw, iy + ih, 0xFF8B8B8B);
+        int ix = x + 2;
+        int iy = y + 2;
+        int iw = w - 4;
+        int ih = h - 4;
 
         if (maxProgress > 0 && progress > 0) {
             int fillH = Mth.clamp(progress * ih / maxProgress, 1, ih);
-            // Low-saturation AE2-style blue
-            g.fill(ix, iy + ih - fillH, ix + iw, iy + ih, 0xFF6A8FB5);
+            g.fill(ix, iy + ih - fillH, ix + iw, iy + ih, 0xFF6F7F8F);
         }
     }
 

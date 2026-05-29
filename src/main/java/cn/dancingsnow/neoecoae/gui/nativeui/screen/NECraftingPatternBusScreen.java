@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingPatternBusMenu;
 import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.EncodedPatternItem;
@@ -23,8 +24,7 @@ import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NECraftingPatternBusLa
  */
 public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECraftingPatternBusMenu> {
 
-    // ── Text colors ──
-    private static final int TXT_PRIMARY = 0xFFC6C6C6;
+    // ── Text colors ── (uses NENativeUiConstants.MACHINE_TEXT_PRIMARY)
 
     // Ghost
     private static final float GHOST_ALPHA = 0.10f;
@@ -124,7 +124,8 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        g.drawString(font, title, TITLE_X, TITLE_Y, TXT_PRIMARY, false);
+        g.drawString(font, title, TITLE_X, TITLE_Y,
+            NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
     }
 
     /**

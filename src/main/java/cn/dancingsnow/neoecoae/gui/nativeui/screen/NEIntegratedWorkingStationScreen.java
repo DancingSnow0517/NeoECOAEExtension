@@ -140,8 +140,8 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         // 6. Upgrade placeholders (empty upgrade slots → BACKGROUND_UPGRADE)
         drawUpgradePlaceholders(g, x, y);
 
-        // 7. Clear fluid buttons (16×16 Icon.CLEAR)
-        drawClearFluidButtons(g, x, y);
+        // 7. Clear fluid buttons (hover-only X markers)
+        drawClearFluidButtons(g, x, y, mouseX, mouseY);
 
         // 8. Fluid hover highlights
         drawFluidHover(g, mouseX, mouseY, x, y);
@@ -195,7 +195,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        g.drawString(font, title, 8, 5, TXT_PRIMARY, false);
+        g.drawString(font, title, TITLE_X, TITLE_Y, TXT_PRIMARY, false);
         g.drawString(font, Component.translatable("gui.neoecoae.common.inventory"),
             INV_LABEL_X, INV_LABEL_Y, TXT_HINT, false);
     }
@@ -233,13 +233,68 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         }
     }
 
-    // ── Clear fluid buttons (16×16 Icon.CLEAR) ──
+    // ── Clear fluid buttons (hover-only 8×8 bar + 6×6 X) ──
 
-    private void drawClearFluidButtons(GuiGraphics g, int baseX, int baseY) {
-        NENativeAe2StyleRenderer.drawAeIcon(g, Icon.CLEAR,
-            baseX + CLEAR_BTN_IN_X, baseY + CLEAR_BTN_IN_Y, 0.7F);
-        NENativeAe2StyleRenderer.drawAeIcon(g, Icon.CLEAR,
-            baseX + CLEAR_BTN_OUT_X, baseY + CLEAR_BTN_OUT_Y, 0.7F);
+    private void drawClearFluidButtons(GuiGraphics g, int baseX, int baseY,
+                                        int mouseX, int mouseY) {
+        boolean hoverIn = isMouseOverRect(mouseX, mouseY,
+            baseX + CLEAR_BTN_IN_X,
+            baseY + CLEAR_BTN_IN_Y,
+            CLEAR_BTN_W,
+            CLEAR_BTN_H);
+
+        boolean hoverOut = isMouseOverRect(mouseX, mouseY,
+            baseX + CLEAR_BTN_OUT_X,
+            baseY + CLEAR_BTN_OUT_Y,
+            CLEAR_BTN_W,
+            CLEAR_BTN_H);
+
+        if (hoverIn) {
+            drawClearBarButton(g, baseX + CLEAR_BTN_IN_X, baseY + CLEAR_BTN_IN_Y);
+        }
+
+        if (hoverOut) {
+            drawClearBarButton(g, baseX + CLEAR_BTN_OUT_X, baseY + CLEAR_BTN_OUT_Y);
+        }
+    }
+
+    private boolean isMouseOverRect(int mouseX, int mouseY, int x, int y, int w, int h) {
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+    }
+
+    /**
+     * Draw an 8×8 subtle backing bar with a 6×6 white X.
+     * Only shown on hover.
+     */
+    private void drawClearBarButton(GuiGraphics g, int x, int y) {
+        // 8×8 subtle backing bar.
+        g.fill(x, y, x + 8, y + 8, 0x80505050);
+        g.fill(x, y, x + 8, y + 1, 0xA0303030);
+        g.fill(x, y, x + 1, y + 8, 0xA0303030);
+        g.fill(x, y + 7, x + 8, y + 8, 0xA0FFFFFF);
+        g.fill(x + 7, y, x + 8, y + 8, 0xA0FFFFFF);
+
+        // Shadow first, then the white X.
+        drawSmallX6(g, x + 2, y + 2, 0x40000000);
+        drawSmallX6(g, x + 1, y + 1, 0xFFFFFFFF);
+    }
+
+    private void drawSmallX6(GuiGraphics g, int x, int y, int color) {
+        // top-left to bottom-right
+        g.fill(x,     y,     x + 1, y + 1, color);
+        g.fill(x + 1, y + 1, x + 2, y + 2, color);
+        g.fill(x + 2, y + 2, x + 3, y + 3, color);
+        g.fill(x + 3, y + 3, x + 4, y + 4, color);
+        g.fill(x + 4, y + 4, x + 5, y + 5, color);
+        g.fill(x + 5, y + 5, x + 6, y + 6, color);
+
+        // top-right to bottom-left
+        g.fill(x + 5, y,     x + 6, y + 1, color);
+        g.fill(x + 4, y + 1, x + 5, y + 2, color);
+        g.fill(x + 3, y + 2, x + 4, y + 3, color);
+        g.fill(x + 2, y + 3, x + 3, y + 4, color);
+        g.fill(x + 1, y + 4, x + 2, y + 5, color);
+        g.fill(x,     y + 5, x + 1, y + 6, color);
     }
 
     // ── Mouse click handling ──
