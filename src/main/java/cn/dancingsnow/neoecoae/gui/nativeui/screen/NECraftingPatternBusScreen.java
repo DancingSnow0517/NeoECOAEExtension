@@ -31,9 +31,9 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
 
     // ── Panel dimensions ─────────────────────────────────────
     private static final int GUI_W = 172;
-    private static final int GUI_H = 250;
+    private static final int GUI_H = 246;
 
-    // ── Layout constants (derived, not borrowed from IWS) ────
+    // ── Layout constants (Menu must use identical values) ────
     private static final int PATTERN_COLS = 9;
     private static final int PATTERN_ROWS = 7;
 
@@ -41,31 +41,31 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
 
     // Pattern area
     private static final int PATTERN_BORDER_X = 4;
-    private static final int PATTERN_BORDER_Y = 28;
+    private static final int PATTERN_BORDER_Y = 27;
     private static final int PATTERN_BORDER_W = PATTERN_COLS * SLOT_SIZE + 2;  // 164
     private static final int PATTERN_BORDER_H = PATTERN_ROWS * SLOT_SIZE + 2;  // 128
     private static final int PATTERN_SLOT_X   = PATTERN_BORDER_X + 1;          // 5
-    private static final int PATTERN_SLOT_Y   = PATTERN_BORDER_Y + 1;          // 29
+    private static final int PATTERN_SLOT_Y   = PATTERN_BORDER_Y + 1;          // 28
 
     // Player inventory area
     private static final int INV_BORDER_X = 4;
-    private static final int INV_BORDER_Y = 163;
+    private static final int INV_BORDER_Y = 160;
     private static final int INV_BORDER_W = 9 * SLOT_SIZE + 2;   // 164
     private static final int INV_BORDER_H = 3 * SLOT_SIZE + 2;   // 56
     private static final int INV_SLOT_X   = INV_BORDER_X + 1;    // 5
-    private static final int INV_SLOT_Y   = INV_BORDER_Y + 1;    // 164
+    private static final int INV_SLOT_Y   = INV_BORDER_Y + 1;    // 161
 
     // Hotbar area
     private static final int HOTBAR_BORDER_X = 4;
-    private static final int HOTBAR_BORDER_Y = 224;
+    private static final int HOTBAR_BORDER_Y = 219;
     private static final int HOTBAR_BORDER_W = 9 * SLOT_SIZE + 2;  // 164
     private static final int HOTBAR_BORDER_H = 1 * SLOT_SIZE + 2;  // 20
     private static final int HOTBAR_SLOT_X   = HOTBAR_BORDER_X + 1; // 5
-    private static final int HOTBAR_SLOT_Y   = HOTBAR_BORDER_Y + 1; // 225
+    private static final int HOTBAR_SLOT_Y   = HOTBAR_BORDER_Y + 1; // 220
 
     // Title
     private static final int TITLE_X = 8;
-    private static final int TITLE_Y = 6;
+    private static final int TITLE_Y = 5;
     private static final int TXT_PRIMARY = 0xFF403E53;
 
     // Ghost
@@ -134,14 +134,15 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
         }
 
         // ── 5. Ghost pattern hints (pattern slots only) ──────
-        // Only draw ghost on empty pattern slots; never on player inventory or hotbar.
+        // Must use the same coordinates as Menu Slot positions — no +1 offset.
+        // Real items are rendered at Slot.x / Slot.y by the container screen.
         RenderSystem.enableBlend();
         for (int i = 0; i < NECraftingPatternBusMenu.PATTERN_SLOTS; i++) {
             if (i < menu.slots.size() && !menu.getSlot(i).hasItem()) {
                 int col = i % PATTERN_COLS;
                 int row = i / PATTERN_COLS;
-                int gx = x + PATTERN_SLOT_X + col * SLOT_SIZE + 1;
-                int gy = y + PATTERN_SLOT_Y + row * SLOT_SIZE + 1;
+                int gx = x + PATTERN_SLOT_X + col * SLOT_SIZE;
+                int gy = y + PATTERN_SLOT_Y + row * SLOT_SIZE;
                 RenderSystem.setShaderColor(1, 1, 1, GHOST_ALPHA);
                 g.renderItem(ghostPattern, gx, gy);
                 RenderSystem.setShaderColor(1, 1, 1, 1);

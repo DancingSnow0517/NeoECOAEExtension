@@ -25,13 +25,13 @@ public class NECraftingPatternBusMenu extends NEBaseMachineMenu {
     public static final int PATTERN_SLOTS = COLS * ROWS; // 63
     public static final int PLAYER_INV_SLOTS = 36;
 
-    // ── Screen-aligned slot origins ──────────────────────────
+    // ── Screen-aligned slot origins (must match NECraftingPatternBusScreen) ──
     private static final int PATTERN_X = 5;
-    private static final int PATTERN_Y = 29;
+    private static final int PATTERN_Y = 28;
     private static final int INV_X     = 5;
-    private static final int INV_Y     = 164;
+    private static final int INV_Y     = 161;
     private static final int HOTBAR_X  = 5;
-    private static final int HOTBAR_Y  = 225;
+    private static final int HOTBAR_Y  = 220;
 
     public NECraftingPatternBusMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
         super(NENativeMenus.CRAFTING_PATTERN_BUS.get(), containerId, playerInv, machinePos);

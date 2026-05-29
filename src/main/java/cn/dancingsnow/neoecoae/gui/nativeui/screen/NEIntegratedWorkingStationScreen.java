@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 
 import java.util.List;
@@ -28,12 +29,11 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final ResourceLocation TEX_SLOT = NeoECOAE.id("textures/gui/slot.png");
     private static final ResourceLocation TEX_INV_BORDER = NeoECOAE.id("textures/gui/inventory_border.png");
     private static final ResourceLocation TEX_BAR_CONTAINER = NeoECOAE.id("textures/gui/bar_container.png");
-    private static final ResourceLocation TEX_BAR = NeoECOAE.id("textures/gui/bar.png");
 
     private static final int PANEL_W = 168;
-    private static final int PANEL_H = 166;
+    private static final int PANEL_H = 168;
     private static final int GUI_WIDTH = 168;
-    private static final int GUI_HEIGHT = 166;
+    private static final int GUI_HEIGHT = 168;
 
     // Progress bar (6×18 vertical)
     private static final int PROGRESS_X = 128;
@@ -78,7 +78,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private static final int CLEAR_BTN_TEXT = 0xFFFFFFFF;
     private static final int CLEAR_BTN_DISABLED = 0xFF888888;
     private static final int CLEAR_BTN_IN_X = 20;
-    private static final int CLEAR_BTN_OUT_X = 138;
+    private static final int CLEAR_BTN_OUT_X = 137;
     private static final int CLEAR_BTN_Y = 59;
 
     private NETexturedButton autoExportBtn;
@@ -167,9 +167,9 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         NENineSliceRenderer.drawPanel(g, TEX_BG, leftPos + UPGRADE_BAR_X, topPos + UPGRADE_BAR_Y,
             UPGRADE_BAR_W, UPGRADE_BAR_H, 16, 16, 2, 2, 2, 4);
 
-        // ── 3. Inventory borders ──
-        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER, leftPos + 2, topPos + 87, 164, 56, 16, 16, 1, 1, 1, 1);
-        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER, leftPos + 2, topPos + 146, 164, 21, 16, 16, 1, 1, 1, 1);
+        // ── 3. Inventory borders (w=165 covers all slots right edge) ──
+        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER, leftPos + 2, topPos + 87, 165, 56, 16, 16, 1, 1, 1, 1);
+        NENineSliceRenderer.drawPanel(g, TEX_INV_BORDER, leftPos + 2, topPos + 146, 165, 21, 16, 16, 1, 1, 1, 1);
 
         // ── 4. Slot backgrounds ──
         // 3×3 input at (39,14)
@@ -224,12 +224,18 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     }
 
     private void drawProgressBar(GuiGraphics g, int x, int y, int progress, int max) {
+        // ── Container background (6×18) ──
         RenderSystem.setShaderTexture(0, TEX_BAR_CONTAINER);
         g.blit(TEX_BAR_CONTAINER, x, y, 0, 0, PROGRESS_W, PROGRESS_H, PROGRESS_W, PROGRESS_H);
+
+        // ── Fill bar (4×16 inner, bottom-up, solid purple — guaranteed visible) ──
         if (max > 0 && progress > 0) {
-            int h = Math.min(16, Math.max(1, progress * 16 / max));
-            RenderSystem.setShaderTexture(0, TEX_BAR);
-            g.blit(TEX_BAR, x + 1, y + 1 + 16 - h, 0, 16 - h, 4, h, 4, 16);
+            int innerX = x + 1;
+            int innerY = y + 1;
+            int innerW = PROGRESS_W - 2;  // 4
+            int innerH = PROGRESS_H - 2;  // 16
+            int h = Mth.clamp(progress * innerH / max, 1, innerH);
+            g.fill(innerX, innerY + innerH - h, innerX + innerW, innerY + innerH, 0xFF5A49D6);
         }
     }
 }
