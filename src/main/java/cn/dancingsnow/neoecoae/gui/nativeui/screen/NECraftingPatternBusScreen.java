@@ -98,8 +98,34 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         renderBackground(g);
+
+        // Temporarily swap pattern items with their decoded output so that
+        // super.render() draws the product icon instead of the encoded-pattern icon.
+        // Original ItemStacks are restored immediately after rendering so that
+        // clicks, shift-clicks, and tooltips still operate on the real pattern item.
+        int limit = Math.min(NECraftingPatternBusMenu.PATTERN_SLOTS, menu.slots.size());
+        ItemStack[] originals = new ItemStack[limit];
+        for (int i = 0; i < limit; i++) {
+            Slot slot = menu.getSlot(i);
+            ItemStack stack = slot.getItem();
+            if (!stack.isEmpty() && stack.getItem() instanceof EncodedPatternItem) {
+                ItemStack display = getPatternDisplay(stack);
+                if (!display.isEmpty()) {
+                    originals[i] = stack.copy();
+                    slot.set(display);
+                }
+            }
+        }
+
         super.render(g, mouseX, mouseY, partialTick);
-        renderPatternOutputs(g);
+
+        // Restore original encoded-pattern ItemStacks
+        for (int i = 0; i < limit; i++) {
+            if (originals[i] != null) {
+                menu.getSlot(i).set(originals[i]);
+            }
+        }
+
         renderTooltip(g, mouseX, mouseY);
     }
 
@@ -165,32 +191,6 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
             }
         }
         RenderSystem.disableBlend();
-    }
-
-    // ── Pattern output overlay (visual only — slot ItemStack unchanged) ──
-
-    /**
-     * Draw output item icons on top of pattern bus slots that hold AE2 encoded patterns.
-     * Only affects the pattern area (first {@code PATTERN_SLOTS} slots);
-     * player inventory and hotbar slots are never touched.
-     */
-    private void renderPatternOutputs(GuiGraphics g) {
-        int x = leftPos;
-        int y = topPos;
-        int limit = Math.min(NECraftingPatternBusMenu.PATTERN_SLOTS, menu.slots.size());
-        for (int i = 0; i < limit; i++) {
-            Slot slot = menu.getSlot(i);
-            if (!slot.hasItem()) continue;
-            ItemStack stack = slot.getItem();
-            if (!(stack.getItem() instanceof EncodedPatternItem)) continue;
-            ItemStack output = getPatternDisplay(stack);
-            if (!output.isEmpty()) {
-                int sx = x + slot.x;
-                int sy = y + slot.y;
-                g.renderItem(output, sx, sy);
-                g.renderItemDecorations(font, output, sx, sy);
-            }
-        }
     }
 
     /**
