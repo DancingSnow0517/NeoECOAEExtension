@@ -158,8 +158,11 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     }
 
     private void drawOutputSlot(GuiGraphics g, int baseX, int baseY) {
-        NENativeAe2StyleRenderer.drawAeSlot(g,
-            baseX + OUTPUT_BG_X, baseY + OUTPUT_BG_Y);
+        NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(g,
+            baseX + OUTPUT_FRAME_X,
+            baseY + OUTPUT_FRAME_Y,
+            OUTPUT_FRAME_W,
+            OUTPUT_FRAME_H);
     }
 
     private void drawPlayerInventorySlots(GuiGraphics g, int baseX, int baseY) {
@@ -233,7 +236,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         }
     }
 
-    // ── Clear fluid buttons (hover-only 8×8 bar + 6×6 X) ──
+    // ── Clear fluid buttons (常显 8×8 bar + hover 5×5 X) ──
 
     private void drawClearFluidButtons(GuiGraphics g, int baseX, int baseY,
                                         int mouseX, int mouseY) {
@@ -249,12 +252,18 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             CLEAR_BTN_W,
             CLEAR_BTN_H);
 
-        if (hoverIn) {
-            drawClearBarButton(g, baseX + CLEAR_BTN_IN_X, baseY + CLEAR_BTN_IN_Y);
-        }
+        // 常显 bar
+        drawClearBar(g, baseX + CLEAR_BTN_IN_X, baseY + CLEAR_BTN_IN_Y);
+        drawClearBar(g, baseX + CLEAR_BTN_OUT_X, baseY + CLEAR_BTN_OUT_Y);
 
+        // hover 时显示 5×5 X
+        if (hoverIn) {
+            drawSmallX5(g, baseX + CLEAR_BTN_IN_X + 2, baseY + CLEAR_BTN_IN_Y + 2, 0x40000000);
+            drawSmallX5(g, baseX + CLEAR_BTN_IN_X + 1, baseY + CLEAR_BTN_IN_Y + 1, 0xFFFFFFFF);
+        }
         if (hoverOut) {
-            drawClearBarButton(g, baseX + CLEAR_BTN_OUT_X, baseY + CLEAR_BTN_OUT_Y);
+            drawSmallX5(g, baseX + CLEAR_BTN_OUT_X + 2, baseY + CLEAR_BTN_OUT_Y + 2, 0x40000000);
+            drawSmallX5(g, baseX + CLEAR_BTN_OUT_X + 1, baseY + CLEAR_BTN_OUT_Y + 1, 0xFFFFFFFF);
         }
     }
 
@@ -262,39 +271,30 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 
-    /**
-     * Draw an 8×8 subtle backing bar with a 6×6 white X.
-     * Only shown on hover.
-     */
-    private void drawClearBarButton(GuiGraphics g, int x, int y) {
-        // 8×8 subtle backing bar.
+    /** Draw the persistent 8×8 subtle backing bar (no X). */
+    private void drawClearBar(GuiGraphics g, int x, int y) {
         g.fill(x, y, x + 8, y + 8, 0x80505050);
         g.fill(x, y, x + 8, y + 1, 0xA0303030);
         g.fill(x, y, x + 1, y + 8, 0xA0303030);
         g.fill(x, y + 7, x + 8, y + 8, 0xA0FFFFFF);
         g.fill(x + 7, y, x + 8, y + 8, 0xA0FFFFFF);
-
-        // Shadow first, then the white X.
-        drawSmallX6(g, x + 2, y + 2, 0x40000000);
-        drawSmallX6(g, x + 1, y + 1, 0xFFFFFFFF);
     }
 
-    private void drawSmallX6(GuiGraphics g, int x, int y, int color) {
+    /** Draw a 5×5 X at the given position. */
+    private void drawSmallX5(GuiGraphics g, int x, int y, int color) {
         // top-left to bottom-right
         g.fill(x,     y,     x + 1, y + 1, color);
         g.fill(x + 1, y + 1, x + 2, y + 2, color);
         g.fill(x + 2, y + 2, x + 3, y + 3, color);
         g.fill(x + 3, y + 3, x + 4, y + 4, color);
         g.fill(x + 4, y + 4, x + 5, y + 5, color);
-        g.fill(x + 5, y + 5, x + 6, y + 6, color);
 
         // top-right to bottom-left
-        g.fill(x + 5, y,     x + 6, y + 1, color);
-        g.fill(x + 4, y + 1, x + 5, y + 2, color);
-        g.fill(x + 3, y + 2, x + 4, y + 3, color);
-        g.fill(x + 2, y + 3, x + 3, y + 4, color);
-        g.fill(x + 1, y + 4, x + 2, y + 5, color);
-        g.fill(x,     y + 5, x + 1, y + 6, color);
+        g.fill(x + 4, y,     x + 5, y + 1, color);
+        g.fill(x + 3, y + 1, x + 4, y + 2, color);
+        g.fill(x + 2, y + 2, x + 3, y + 3, color);
+        g.fill(x + 1, y + 3, x + 2, y + 4, color);
+        g.fill(x,     y + 4, x + 1, y + 5, color);
     }
 
     // ── Mouse click handling ──

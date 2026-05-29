@@ -25,9 +25,14 @@ public final class NEIntegratedWorkingStationLayout {
     public static final int INPUT_BG_Y = 20;
 
     // ── 输出槽位 ──
-    // PANEL_W 从 168 增到 176 后，右侧工作区整体右移 8px。
-    public static final int OUTPUT_BG_X = 116;
-    public static final int OUTPUT_BG_Y = 40;
+    public static final int OUTPUT_BG_X = 112;
+    public static final int OUTPUT_BG_Y = 38;
+
+    // 产物大框：26×26，类似 AE2 压印器输出框。内部 16×16 item 居中。
+    public static final int OUTPUT_FRAME_X = OUTPUT_BG_X - 4;
+    public static final int OUTPUT_FRAME_Y = OUTPUT_BG_Y - 4;
+    public static final int OUTPUT_FRAME_W = 26;
+    public static final int OUTPUT_FRAME_H = 26;
 
     // ── 升级面板（extra_panels.png）──
     public static final int UPGRADE_COUNT = 4;
@@ -44,13 +49,6 @@ public final class NEIntegratedWorkingStationLayout {
     public static final int UPGRADE_FIRST_BG_Y = UPGRADE_PANEL_Y + UPGRADE_PADDING;
 
     // ── AE2 玩家背包布局 ──
-    // AE2 common/player_inventory.json:
-    // PLAYER_INVENTORY slot: left = 8, bottom = 82
-    // PLAYER_HOTBAR slot:    left = 8, bottom = 24
-    // player_inventory_title: left = 8, bottom = 93
-    //
-    // 注意：AE2 的 left/bottom 是 16×16 Menu Slot 坐标。
-    // 本项目的 *_BG 是 18×18 背景坐标，所以 BG = SLOT - 1。
     public static final int AE2_PLAYER_SLOT_LEFT = 8;
     public static final int AE2_PLAYER_INV_BOTTOM = 82;
     public static final int AE2_HOTBAR_BOTTOM = 24;
@@ -74,15 +72,15 @@ public final class NEIntegratedWorkingStationLayout {
     public static final int INPUT_SLOT_X = INPUT_BG_X + ITEM_OFFSET;
     public static final int INPUT_SLOT_Y = INPUT_BG_Y + ITEM_OFFSET;
 
-    public static final int OUTPUT_SLOT_X = OUTPUT_BG_X + ITEM_OFFSET;
-    public static final int OUTPUT_SLOT_Y = OUTPUT_BG_Y + ITEM_OFFSET;
+    public static final int OUTPUT_SLOT_X = OUTPUT_FRAME_X + (OUTPUT_FRAME_W - 16) / 2;
+    public static final int OUTPUT_SLOT_Y = OUTPUT_FRAME_Y + (OUTPUT_FRAME_H - 16) / 2;
 
     public static final int UPGRADE_SLOT_X = UPGRADE_BG_X + ITEM_OFFSET;
     public static final int UPGRADE_FIRST_SLOT_Y = UPGRADE_FIRST_BG_Y + ITEM_OFFSET;
 
-    // ── 进度条 ──
-    public static final int PROGRESS_X = 136;
-    public static final int PROGRESS_Y = 40;
+    // —— 进度条 ——
+    public static final int PROGRESS_X = OUTPUT_FRAME_X + 18;
+    public static final int PROGRESS_Y = OUTPUT_FRAME_Y + 4;
     public static final int PROGRESS_W = 6;
     public static final int PROGRESS_H = 18;
 
@@ -102,8 +100,6 @@ public final class NEIntegratedWorkingStationLayout {
     public static final int TITLE_Y = 7;
 
     // ── 自动导出开关按钮 ──
-    // 这个值是负数，说明按钮在主面板左侧外接，不是“位于主面板内右上角”。
-    // 如果你想做 AE2 左侧 toolbar，保留这种负数坐标是合理的。
     public static final int TOGGLE_BTN_X = -18;
     public static final int TOGGLE_BTN_Y = 3;
     public static final int TOGGLE_BTN_W = 14;
@@ -116,11 +112,11 @@ public final class NEIntegratedWorkingStationLayout {
 
     // 输入清空按钮：放在输入流体槽右下侧，底部留 2px 间距。
     public static final int CLEAR_BTN_IN_X = FLUID_IN_X + FLUID_IN_W + 2;
-    public static final int CLEAR_BTN_IN_Y = FLUID_IN_Y + FLUID_IN_H - CLEAR_BTN_SIZE - 2;
+    public static final int CLEAR_BTN_IN_Y = FLUID_IN_Y + FLUID_IN_H - CLEAR_BTN_SIZE;
 
     // 输出清空按钮：放在输出流体槽左下侧，底部留 2px 间距。
     public static final int CLEAR_BTN_OUT_X = FLUID_OUT_X - CLEAR_BTN_SIZE - 2;
-    public static final int CLEAR_BTN_OUT_Y = FLUID_OUT_Y + FLUID_OUT_H - CLEAR_BTN_SIZE - 2;
+    public static final int CLEAR_BTN_OUT_Y = FLUID_OUT_Y + FLUID_OUT_H - CLEAR_BTN_SIZE;
 
     // ── 背包标签位置 ──
     public static final int INV_LABEL_X = AE2_PLAYER_SLOT_LEFT;

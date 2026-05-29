@@ -33,6 +33,17 @@ public final class NENativeAe2StyleRenderer {
     public static final int EXTRA_TEX_W = 128;
     public static final int EXTRA_TEX_H = 128;
 
+    /** AE2 inscriber.png — progress bar texture. */
+    private static final ResourceLocation AE_INSCRIBER =
+        ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/inscriber.png");
+
+    private static final int INSCRIBER_PROGRESS_U = 135;
+    private static final int INSCRIBER_PROGRESS_V = 177;
+    private static final int INSCRIBER_PROGRESS_W = 6;
+    private static final int INSCRIBER_PROGRESS_H = 18;
+    private static final int INSCRIBER_TEX_W = 256;
+    private static final int INSCRIBER_TEX_H = 256;
+
     public static final int UPGRADE_PADDING = 7;
     public static final int SLOT_SIZE = 18;
 
@@ -79,18 +90,34 @@ public final class NENativeAe2StyleRenderer {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
+    // ── AE2 IO Port background — baked slot patch ──
+
+    /** AE2 IO Port background texture, used as the source for baked player slots. */
+    private static final ResourceLocation AE_IO_PORT =
+        ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/io_port.png");
+
+    private static final int AE_MACHINE_TEX_W = 256;
+    private static final int AE_MACHINE_TEX_H = 256;
+
+    // AE2 IO Port background: 176×166
+    // common/player_inventory.json: PLAYER_INVENTORY slot left=8, bottom=82
+    // slotY = 166 - 82 = 84  →  bgY = 83
+    private static final int AE_BAKED_SLOT_U = 7;
+    private static final int AE_BAKED_SLOT_V = 83;
+    private static final int AE_BAKED_SLOT_SIZE = 18;
+
     // ── Slots ──
 
-    /** Draw a standard AE2 slot background (Icon.SLOT_BACKGROUND). */
+    /**
+     * Draw a player-style slot from the AE2 IO Port baked background.
+     * This matches the colour of AE2 machine GUIs exactly.
+     */
     public static void drawAeSlot(GuiGraphics g, int x, int y) {
-        g.blit(Icon.TEXTURE, x, y,
-            Icon.SLOT_BACKGROUND.x, Icon.SLOT_BACKGROUND.y,
-            Icon.SLOT_BACKGROUND.width, Icon.SLOT_BACKGROUND.height,
-            Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
-
-        // AE2 IO Port 的槽位来自静态背景贴图，看起来比直接 blit
-        // Icon.SLOT_BACKGROUND 略深。这里只压暗内部 16×16，不覆盖边框。
-        g.fill(x + 1, y + 1, x + 17, y + 17, 0x18000000);
+        g.blit(AE_IO_PORT,
+            x, y,
+            AE_BAKED_SLOT_U, AE_BAKED_SLOT_V,
+            AE_BAKED_SLOT_SIZE, AE_BAKED_SLOT_SIZE,
+            AE_MACHINE_TEX_W, AE_MACHINE_TEX_H);
     }
 
     // ── Icons ──
@@ -210,24 +237,59 @@ public final class NENativeAe2StyleRenderer {
         drawFluidTexture(g, ix, fillY, iw, barH, stack);
     }
 
+    // ── Output frame (Inscriber-style large frame) ──
+
+    /**
+     * Draw an AE2 Inscriber-style output frame — a larger recessed frame
+     * that visually contains the output item slot (which remains a 16×16
+     * Menu Slot, drawn separately).
+     */
+    public static void drawAeInscriberOutputFrame(GuiGraphics g, int x, int y, int w, int h) {
+        // outer top/left shadow
+        g.fill(x, y, x + w, y + 1, 0xFF3F3F3F);
+        g.fill(x, y, x + 1, y + h, 0xFF3F3F3F);
+
+        // outer bottom/right highlight
+        g.fill(x, y + h - 1, x + w, y + h, 0xFFFFFFFF);
+        g.fill(x + w - 1, y, x + w, y + h, 0xFFFFFFFF);
+
+        // inner fill
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, 0xFF9B9B9B);
+
+        // subtle inner darkening
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, 0x10000000);
+    }
+
     // ── Progress bar ──
 
     /**
-     * Draw a progress bar with recessed AE2-style inset.
+     * Draw a progress bar using the AE2 inscriber.png texture.
+     * Empty background is a recessed inset rect; the filled portion
+     * uses the actual AE2 inscriber progress bar sprite.
      */
     public static void drawAeProgressBar(GuiGraphics g, int x, int y, int w, int h,
                                           int progress, int maxProgress) {
+        // draw a recessed empty background first
         drawAeInsetRect(g, x, y, w, h, 0xFF8E8E8E);
 
-        int ix = x + 2;
-        int iy = y + 2;
-        int iw = w - 4;
-        int ih = h - 4;
-
-        if (maxProgress > 0 && progress > 0) {
-            int fillH = Mth.clamp(progress * ih / maxProgress, 1, ih);
-            g.fill(ix, iy + ih - fillH, ix + iw, iy + ih, 0xFF6F7F8F);
+        if (maxProgress <= 0 || progress <= 0) {
+            return;
         }
+
+        int fullH = INSCRIBER_PROGRESS_H;
+        int fillH = Mth.clamp((int) ((long) progress * fullH / maxProgress), 1, fullH);
+
+        // Fill from bottom to top, matching the current vertical bar behavior.
+        int srcY = INSCRIBER_PROGRESS_V + fullH - fillH;
+        int dstY = y + (h - fullH) / 2 + fullH - fillH;
+
+        int dstX = x + (w - INSCRIBER_PROGRESS_W) / 2;
+
+        g.blit(AE_INSCRIBER,
+            dstX, dstY,
+            INSCRIBER_PROGRESS_U, srcY,
+            INSCRIBER_PROGRESS_W, fillH,
+            INSCRIBER_TEX_W, INSCRIBER_TEX_H);
     }
 
     // ── Fluid texture helpers ──
