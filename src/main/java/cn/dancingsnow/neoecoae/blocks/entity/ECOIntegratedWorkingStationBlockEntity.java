@@ -58,6 +58,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -251,6 +252,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public IItemHandler getInputItemHandler() {
         return (IItemHandler) inputExposed.toItemHandler();
+    }
+
+    /** Returns a GUI-safe input handler that allows extraction (not insert-only). */
+    public IItemHandler getInputGuiItemHandler() {
+        return (IItemHandler) this.inputInv.toItemHandler();
     }
 
     public IItemHandler getOutputItemHandler() {
@@ -714,11 +720,21 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     public void clearFluid() {
-        this.inputTank.setFluid(FluidStack.EMPTY);
+        if (!this.inputTank.getFluid().isEmpty()) {
+            this.inputTank.setFluid(FluidStack.EMPTY);
+            onChangeTank();
+            setChanged();
+            markForUpdate();
+        }
     }
 
     public void clearFluidOut() {
-        this.outputTank.setFluid(FluidStack.EMPTY);
+        if (!this.outputTank.getFluid().isEmpty()) {
+            this.outputTank.setFluid(FluidStack.EMPTY);
+            onChangeTank();
+            setChanged();
+            markForUpdate();
+        }
     }
 
     /**
@@ -747,6 +763,43 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             markForUpdate();
             setChanged();
         }
+    }
+
+    // ── Client sync (fluid tanks + processing state) ──
+
+    @Override
+    public CompoundTag getUpdateTag() {
+        var tag = super.getUpdateTag();
+        writeUiSyncTag(tag);
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        readUiSyncTag(tag);
+    }
+
+    @Override
+    @Nullable
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    private void writeUiSyncTag(CompoundTag tag) {
+        tag.put("neo_inputTank", inputTank.writeToNBT(new CompoundTag()));
+        tag.put("neo_outputTank", outputTank.writeToNBT(new CompoundTag()));
+        tag.putInt("neo_processingTime", processingTime);
+        tag.putBoolean("neo_working", working);
+        tag.putBoolean("neo_autoExport", shouldAutoExport);
+    }
+
+    private void readUiSyncTag(CompoundTag tag) {
+        if (tag.contains("neo_inputTank")) inputTank.readFromNBT(tag.getCompound("neo_inputTank"));
+        if (tag.contains("neo_outputTank")) outputTank.readFromNBT(tag.getCompound("neo_outputTank"));
+        if (tag.contains("neo_processingTime")) processingTime = tag.getInt("neo_processingTime");
+        if (tag.contains("neo_working")) working = tag.getBoolean("neo_working");
+        if (tag.contains("neo_autoExport")) shouldAutoExport = tag.getBoolean("neo_autoExport");
     }
 
     @Override

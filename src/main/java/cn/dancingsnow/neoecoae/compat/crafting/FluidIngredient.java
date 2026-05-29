@@ -103,10 +103,16 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
         buffer.writeResourceLocation(tag.location());
     }
 
-    /** Returns FluidStack array for EMI display (specific fluid only; tags return empty). */
+    /** Returns FluidStack array for JEI/EMI display. Tags are expanded to matching fluids. */
     public FluidStack[] getFluids() {
         if (fluid != null) {
             return new FluidStack[]{new FluidStack(fluid, 1000)};
+        }
+        if (tag != null) {
+            return ForgeRegistries.FLUIDS.getValues().stream()
+                .filter(f -> f != Fluids.EMPTY && f.builtInRegistryHolder().is(tag))
+                .map(f -> new FluidStack(f, 1000))
+                .toArray(FluidStack[]::new);
         }
         return new FluidStack[0];
     }

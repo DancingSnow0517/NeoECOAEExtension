@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEClearFluidButton;
@@ -10,10 +11,13 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.List;
 
@@ -245,11 +249,11 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             drawSlot(g, leftPos + HOTBAR_BG_X + col * SLOT_SIZE, topPos + HOTBAR_BG_Y);
         }
 
-        // ── 5. Fluid bars (explicit w/h for alignment) ──
-        drawFluidBar(g, leftPos + FLUID_IN_X, topPos + FLUID_IN_Y,
-            FLUID_IN_W, FLUID_IN_H, menu.getFluidInAmount(), FLUID_IN_COLOR);
-        drawFluidBar(g, leftPos + FLUID_OUT_X, topPos + FLUID_OUT_Y,
-            FLUID_OUT_W, FLUID_OUT_H, menu.getFluidOutAmount(), FLUID_OUT_COLOR);
+        // ── 5. Fluid bars with real fluid texture ──
+        drawFluidStackBar(g, leftPos + FLUID_IN_X, topPos + FLUID_IN_Y,
+            FLUID_IN_W, FLUID_IN_H, true, FLUID_IN_COLOR);
+        drawFluidStackBar(g, leftPos + FLUID_OUT_X, topPos + FLUID_OUT_Y,
+            FLUID_OUT_W, FLUID_OUT_H, false, FLUID_OUT_COLOR);
 
         // ── 6. Progress bar (6×18, bottom-up with textures) ──
         drawProgressBar(g, leftPos + PROGRESS_X, topPos + PROGRESS_Y, menu.getProgress(), menu.getMaxProgress());
@@ -309,26 +313,32 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         }
     }
 
-    // ── Mouse click: clear buttons + fluid tank container interaction ──
+    // ── Mouse click: auto export > clear buttons > fluid tank > super ──
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
             int mx = (int) mouseX;
             int my = (int) mouseY;
-            // Input clear button
+            // 1. Auto export toggle
+            if (mx >= leftPos + TOGGLE_BTN_X && mx < leftPos + TOGGLE_BTN_X + TOGGLE_BTN_W
+                && my >= topPos + TOGGLE_BTN_Y && my < topPos + TOGGLE_BTN_Y + TOGGLE_BTN_H) {
+                sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT);
+                return true;
+            }
+            // 2. Input clear button
             if (mx >= leftPos + CLEAR_BTN_IN_X && mx < leftPos + CLEAR_BTN_IN_X + CLEAR_BTN_W
                 && my >= topPos + CLEAR_BTN_Y && my < topPos + CLEAR_BTN_Y + CLEAR_BTN_H) {
                 sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID);
                 return true;
             }
-            // Output clear button
+            // 3. Output clear button
             if (mx >= leftPos + CLEAR_BTN_OUT_X && mx < leftPos + CLEAR_BTN_OUT_X + CLEAR_BTN_W
                 && my >= topPos + CLEAR_BTN_Y && my < topPos + CLEAR_BTN_Y + CLEAR_BTN_H) {
                 sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID);
                 return true;
             }
-            // Input fluid tank container click
+            // 4. Input fluid tank container click
             if (mx >= leftPos + FLUID_IN_X && mx < leftPos + FLUID_IN_X + FLUID_IN_W
                 && my >= topPos + FLUID_IN_Y && my < topPos + FLUID_IN_Y + FLUID_IN_H) {
                 sendAction(NENetwork.IWSAction.INPUT_TANK_CONTAINER_CLICK);
@@ -352,6 +362,59 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             int barH = Math.max(1, amount * (h - 2) / 16000);
             g.fill(x + 1, y + h - 1 - barH, x + w - 1, y + h - 1, color);
         }
+    }
+
+    private void drawFluidStackBar(GuiGraphics g, int x, int y, int w, int h,
+                                    boolean input, int fallbackColor) {
+        g.fill(x, y, x + w, y + h, FLUID_EMPTY);
+        g.fill(x, y, x + w, y + 1, FLUID_BORDER);
+        g.fill(x, y + h - 1, x + w, y + h, FLUID_BORDER);
+        g.fill(x, y, x + 1, y + h, FLUID_BORDER);
+        g.fill(x + w - 1, y, x + w, y + h, FLUID_BORDER);
+
+        var iws = getClientMachine();
+        var stack = (iws != null) ? (input ? iws.getInputTank().getFluid() : iws.getOutputTank().getFluid())
+            : FluidStack.EMPTY;
+        int amount = stack.getAmount();
+        if (amount <= 0) {
+            amount = input ? menu.getFluidInAmount() : menu.getFluidOutAmount();
+        }
+        if (amount <= 0) return;
+
+        int barH = Mth.clamp(amount * (h - 2) / 16000, 1, h - 2);
+        int fillX = x + 1;
+        int fillY = y + h - 1 - barH;
+        int fillW = w - 2;
+
+        // Try real fluid texture; fall back to solid color
+        if (!stack.isEmpty() && stack.getFluid() != null && minecraft != null) {
+            var ext = net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions.of(stack.getFluid());
+            ResourceLocation still = ext.getStillTexture(stack);
+            if (still != null) {
+                int tint = ext.getTintColor(stack);
+                float r = ((tint >> 16) & 0xFF) / 255f;
+                float gv = ((tint >> 8) & 0xFF) / 255f;
+                float b = (tint & 0xFF) / 255f;
+                var sprite = minecraft.getTextureAtlas(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS).apply(still);
+                RenderSystem.setShaderTexture(0, net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS);
+                RenderSystem.setShaderColor(r, gv, b, 1f);
+                // Tile the sprite across the fill area, clipped to barH
+                for (int ty = 0; ty < barH; ty += 16) {
+                    int drawH = Math.min(16, barH - ty);
+                    g.blit(fillX, fillY + ty, 0, fillW, drawH, sprite);
+                }
+                RenderSystem.setShaderColor(1, 1, 1, 1);
+                return;
+            }
+        }
+        // Fallback: solid color
+        g.fill(fillX, fillY, fillX + fillW, fillY + barH, fallbackColor);
+    }
+
+    private ECOIntegratedWorkingStationBlockEntity getClientMachine() {
+        if (minecraft == null || minecraft.level == null) return null;
+        var be = minecraft.level.getBlockEntity(menu.getMachinePos());
+        return be instanceof ECOIntegratedWorkingStationBlockEntity iws ? iws : null;
     }
 
     private void drawProgressBar(GuiGraphics g, int x, int y, int progress, int max) {
