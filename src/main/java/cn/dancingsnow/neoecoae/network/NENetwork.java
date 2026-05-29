@@ -12,9 +12,12 @@ import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.NetworkHooks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -104,6 +107,11 @@ public final class NENetwork {
             NEIntegratedWorkingStationActionPacket::encode,
             NEIntegratedWorkingStationActionPacket::decode,
             NEIntegratedWorkingStationActionPacket::handle);
+
+        registerS2C(NEIWSStatePacket.class,
+            NEIWSStatePacket::encode,
+            NEIWSStatePacket::decode,
+            NEIWSStatePacket::handle);
     }
 
     /**
@@ -697,8 +705,54 @@ public final class NENetwork {
                 iws.setChanged();
                 iws.markForUpdate();
                 menu.broadcastChanges();
+                // Send updated state back to this client immediately
+                sendIwsStateTo(sender, iws);
             });
             ctx.setPacketHandled(true);
         }
+    }
+
+    // ── IWS state sync packet (S2C, sent after every IWSAction) ──
+
+    public record NEIWSStatePacket(BlockPos pos, CompoundTag inputTankTag, CompoundTag outputTankTag,
+                                    boolean autoExport) {
+        public static void encode(NEIWSStatePacket pkt, FriendlyByteBuf buf) {
+            buf.writeBlockPos(pkt.pos());
+            buf.writeNbt(pkt.inputTankTag());
+            buf.writeNbt(pkt.outputTankTag());
+            buf.writeBoolean(pkt.autoExport());
+        }
+
+        public static NEIWSStatePacket decode(FriendlyByteBuf buf) {
+            return new NEIWSStatePacket(buf.readBlockPos(), buf.readNbt(), buf.readNbt(), buf.readBoolean());
+        }
+
+        public static void handle(NEIWSStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.enqueueWork(() -> {
+                var player = ctx.getSender();
+                if (player != null && player.containerMenu instanceof NEIntegratedWorkingStationMenu menu) {
+                    if (menu.getMachinePos().equals(pkt.pos())) {
+                        var inputTank = new FluidTank(16000);
+                        var outputTank = new FluidTank(16000);
+                        if (pkt.inputTankTag() != null) inputTank.readFromNBT(pkt.inputTankTag());
+                        if (pkt.outputTankTag() != null) outputTank.readFromNBT(pkt.outputTankTag());
+                        menu.updateClientState(inputTank.getFluid(), outputTank.getFluid(), pkt.autoExport());
+                    }
+                }
+            });
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    private static void sendIwsStateTo(ServerPlayer player, ECOIntegratedWorkingStationBlockEntity iws) {
+        var inputTag = new CompoundTag();
+        var outputTag = new CompoundTag();
+        iws.getInputTank().writeToNBT(inputTag);
+        iws.getOutputTank().writeToNBT(outputTag);
+        CHANNEL.send(
+            PacketDistributor.PLAYER.with(() -> player),
+            new NEIWSStatePacket(iws.getBlockPos(), inputTag, outputTag, iws.isShouldAutoExport())
+        );
     }
 }

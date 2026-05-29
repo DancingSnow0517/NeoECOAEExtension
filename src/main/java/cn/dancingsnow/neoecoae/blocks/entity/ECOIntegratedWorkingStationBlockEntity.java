@@ -142,6 +142,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     boolean shouldAutoExport;
 
+    public boolean isShouldAutoExport() { return shouldAutoExport; }
+
     @Getter
     private final IFluidHandler fluidCombined = new IFluidHandler() {
         @Override
@@ -747,21 +749,24 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         ItemStack carried = player.containerMenu.getCarried();
         if (carried.isEmpty()) return;
 
+        int BUCKET_VOLUME = 1000;
         // Try to empty held container into input tank
-        FluidActionResult result = FluidUtil.tryEmptyContainer(carried, inputTank, MAX_TANK_CAPACITY, player, true);
+        FluidActionResult result = FluidUtil.tryEmptyContainer(carried, inputTank, BUCKET_VOLUME, player, true);
         if (result.isSuccess()) {
             player.containerMenu.setCarried(result.getResult());
-            markForUpdate();
+            onChangeTank();
             setChanged();
+            markForUpdate();
             return;
         }
 
         // Try to fill held empty container from input tank
-        result = FluidUtil.tryFillContainer(carried, inputTank, MAX_TANK_CAPACITY, player, true);
+        result = FluidUtil.tryFillContainer(carried, inputTank, BUCKET_VOLUME, player, true);
         if (result.isSuccess()) {
             player.containerMenu.setCarried(result.getResult());
-            markForUpdate();
+            onChangeTank();
             setChanged();
+            markForUpdate();
         }
     }
 

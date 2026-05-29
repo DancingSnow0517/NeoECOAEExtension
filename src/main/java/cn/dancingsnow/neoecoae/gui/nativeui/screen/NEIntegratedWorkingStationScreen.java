@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEClearFluidButton;
@@ -16,7 +15,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.fluids.FluidStack;
 
 import java.util.List;
@@ -372,9 +370,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         g.fill(x, y, x + 1, y + h, FLUID_BORDER);
         g.fill(x + w - 1, y, x + w, y + h, FLUID_BORDER);
 
-        var iws = getClientMachine();
-        var stack = (iws != null) ? (input ? iws.getInputTank().getFluid() : iws.getOutputTank().getFluid())
-            : FluidStack.EMPTY;
+        var stack = input ? menu.getClientInputFluid() : menu.getClientOutputFluid();
         int amount = stack.getAmount();
         if (amount <= 0) {
             amount = input ? menu.getFluidInAmount() : menu.getFluidOutAmount();
@@ -386,7 +382,6 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         int fillY = y + h - 1 - barH;
         int fillW = w - 2;
 
-        // Try real fluid texture; fall back to solid color
         if (!stack.isEmpty() && stack.getFluid() != null && minecraft != null) {
             var ext = net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions.of(stack.getFluid());
             ResourceLocation still = ext.getStillTexture(stack);
@@ -395,10 +390,9 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
                 float r = ((tint >> 16) & 0xFF) / 255f;
                 float gv = ((tint >> 8) & 0xFF) / 255f;
                 float b = (tint & 0xFF) / 255f;
-                var sprite = minecraft.getTextureAtlas(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS).apply(still);
-                RenderSystem.setShaderTexture(0, net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS);
+                var sprite = minecraft.getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(still);
+                RenderSystem.setShaderTexture(0, TextureAtlas.LOCATION_BLOCKS);
                 RenderSystem.setShaderColor(r, gv, b, 1f);
-                // Tile the sprite across the fill area, clipped to barH
                 for (int ty = 0; ty < barH; ty += 16) {
                     int drawH = Math.min(16, barH - ty);
                     g.blit(fillX, fillY + ty, 0, fillW, drawH, sprite);
@@ -407,14 +401,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
                 return;
             }
         }
-        // Fallback: solid color
         g.fill(fillX, fillY, fillX + fillW, fillY + barH, fallbackColor);
-    }
-
-    private ECOIntegratedWorkingStationBlockEntity getClientMachine() {
-        if (minecraft == null || minecraft.level == null) return null;
-        var be = minecraft.level.getBlockEntity(menu.getMachinePos());
-        return be instanceof ECOIntegratedWorkingStationBlockEntity iws ? iws : null;
     }
 
     private void drawProgressBar(GuiGraphics g, int x, int y, int progress, int max) {

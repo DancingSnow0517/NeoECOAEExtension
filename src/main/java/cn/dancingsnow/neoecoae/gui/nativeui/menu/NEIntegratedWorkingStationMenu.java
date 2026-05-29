@@ -10,7 +10,9 @@ import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import org.jetbrains.annotations.NotNull;
 
@@ -70,45 +72,59 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
     private static final int HOTBAR_SLOT_Y = HOTBAR_BG_Y + ITEM_OFFSET;
 
     private final ContainerData data;
+    // Client-side fluid cache updated via IWSStatePacket from server
+    private FluidStack clientInputFluid = FluidStack.EMPTY;
+    private FluidStack clientOutputFluid = FluidStack.EMPTY;
+    private boolean clientAutoExport;
 
     public NEIntegratedWorkingStationMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
         super(NENativeMenus.INTEGRATED_WORKING_STATION.get(), containerId, playerInv, machinePos);
 
         ECOIntegratedWorkingStationBlockEntity be = getBlockEntity(playerInv.player);
+        // Always use same count of machine slots, even when BE is unavailable.
+        // Dummy ItemStackHandler prevents client/server slot index mismatch.
+        IItemHandler inputHandler;
+        IItemHandler outputHandler;
+        IItemHandler upgradeHandler;
         if (be != null) {
-            IItemHandler inputHandler = be.getInputGuiItemHandler();
-            for (int row = 0; row < 3; row++) {
-                for (int col = 0; col < 3; col++) {
-                    addSlot(new SlotItemHandler(inputHandler, col + row * 3,
-                        INPUT_SLOT_X + col * SLOT_SIZE,
-                        INPUT_SLOT_Y + row * SLOT_SIZE));
-                }
-            }
-
-            IItemHandler outputHandler = be.getOutputItemHandler();
-            addSlot(new SlotItemHandler(outputHandler, 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y) {
-                @Override
-                public boolean mayPlace(@NotNull ItemStack stack) {
-                    return false;
-                }
-            });
-
-            IItemHandler upgradeHandler = be.getUpgradeItemHandler();
-            for (int i = 0; i < UPGRADE_SLOTS; i++) {
-                addSlot(new SlotItemHandler(upgradeHandler, i,
-                    UPGRADE_SLOT_X,
-                    UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE) {
-                    @Override
-                    public boolean mayPlace(@NotNull ItemStack stack) {
-                        return upgradeHandler.isItemValid(0, stack);
-                    }
-                });
-            }
-
+            inputHandler = be.getInputGuiItemHandler();
+            outputHandler = be.getOutputItemHandler();
+            upgradeHandler = be.getUpgradeItemHandler();
             this.data = be.getContainerData();
         } else {
+            inputHandler = new ItemStackHandler(INPUT_SLOTS);
+            outputHandler = new ItemStackHandler(OUTPUT_SLOTS);
+            upgradeHandler = new ItemStackHandler(UPGRADE_SLOTS);
             this.data = new SimpleContainerData(DATA_COUNT);
         }
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                addSlot(new SlotItemHandler(inputHandler, col + row * 3,
+                    INPUT_SLOT_X + col * SLOT_SIZE,
+                    INPUT_SLOT_Y + row * SLOT_SIZE));
+            }
+        }
+
+        addSlot(new SlotItemHandler(outputHandler, 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y) {
+            @Override
+            public boolean mayPlace(@NotNull ItemStack stack) {
+                return false;
+            }
+        });
+
+        for (int i = 0; i < UPGRADE_SLOTS; i++) {
+            final int slotIdx = i;
+            addSlot(new SlotItemHandler(upgradeHandler, i,
+                UPGRADE_SLOT_X,
+                UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE) {
+                @Override
+                public boolean mayPlace(@NotNull ItemStack stack) {
+                    return be != null && be.getUpgradeItemHandler().isItemValid(slotIdx, stack);
+                }
+            });
+        }
+
         addDataSlots(this.data);
 
         for (int row = 0; row < 3; row++) {
@@ -212,5 +228,17 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
 
     public boolean isAutoExportEnabled() {
         return data.get(DATA_AUTO_EXPORT) != 0;
+    }
+
+    // ── Client-side fluid/state cache (updated via IWSStatePacket from server) ──
+
+    public FluidStack getClientInputFluid() { return clientInputFluid; }
+    public FluidStack getClientOutputFluid() { return clientOutputFluid; }
+    public boolean getClientAutoExport() { return clientAutoExport; }
+
+    public void updateClientState(FluidStack input, FluidStack output, boolean autoExport) {
+        this.clientInputFluid = input;
+        this.clientOutputFluid = output;
+        this.clientAutoExport = autoExport;
     }
 }
