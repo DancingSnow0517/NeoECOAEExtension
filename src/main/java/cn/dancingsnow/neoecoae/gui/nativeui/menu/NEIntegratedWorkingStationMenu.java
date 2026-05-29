@@ -82,20 +82,23 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
     public NEIntegratedWorkingStationMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
         super(NENativeMenus.INTEGRATED_WORKING_STATION.get(), containerId, playerInv, machinePos);
 
-        ECOIntegratedWorkingStationBlockEntity be = getBlockEntity(playerInv.player);
+        boolean serverSide = !playerInv.player.level().isClientSide();
+        ECOIntegratedWorkingStationBlockEntity be = serverSide ? getBlockEntity(playerInv.player) : null;
 
         IItemHandler inputHandler;
         IItemHandler outputHandler;
         IItemHandler upgradeHandler;
         if (be != null) {
-            // Use Forge's stable SlotItemHandler rendering/sync path, but bridge it
-            // directly to AE2 InternalInventory instead of using AE2's generic wrapper.
+            // Server-side slots mutate the real BE inventories.
             inputHandler = new NEInternalInventoryItemHandler(be.getInput(), be, true, true);
             outputHandler = new NEInternalInventoryItemHandler(be.getOutput(), be, false, true);
             upgradeHandler = be.getUpgradeItemHandler();
             this.data = be.getContainerData();
         } else {
-            // Keep the exact same slot count/order on the client during early construction.
+            // Client-side slots must use menu-local storage. Container slot packets
+            // will keep these dummy handlers in sync with the server. Binding the
+            // client menu directly to the client BlockEntity inventory is unstable
+            // because BE item inventories are not the source of truth for menu sync.
             inputHandler = new ItemStackHandler(INPUT_SLOTS);
             outputHandler = new ItemStackHandler(OUTPUT_SLOTS);
             upgradeHandler = new ItemStackHandler(UPGRADE_SLOTS);
