@@ -17,13 +17,9 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Menu for the ECO Integrated Working Station with real machine slots.
  * <p>
- * Layout (176×196):
- * <ul>
- *   <li>3×3 input slots starting at (30, 17)</li>
- *   <li>1 output slot at (124, 35)</li>
- *   <li>Player inventory 3×9 at (8, 114)</li>
- *   <li>Player hotbar 1×9 at (8, 172)</li>
- * </ul>
+ * Coordinates are paired with {@code NEIntegratedWorkingStationScreen}:
+ * the Screen draws 18×18 slot backgrounds and this Menu places the 16×16
+ * Slot item/click areas at background +1/+1.
  * </p>
  */
 public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
@@ -46,6 +42,33 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
     public static final int DATA_AUTO_EXPORT = 7;
     public static final int DATA_FLUID_OUT_AMOUNT = 8;
 
+    private static final int SLOT_SIZE = 18;
+    private static final int ITEM_OFFSET = 1;
+
+    // 18×18 visual slot backgrounds in Screen coordinates.
+    private static final int INPUT_BG_X = 39;
+    private static final int INPUT_BG_Y = 14;
+    private static final int OUTPUT_BG_X = 108;
+    private static final int OUTPUT_BG_Y = 32;
+    private static final int UPGRADE_BG_X = 171;
+    private static final int UPGRADE_FIRST_BG_Y = 2;
+    private static final int PLAYER_INV_BG_X = 3;
+    private static final int PLAYER_INV_BG_Y = 88;
+    private static final int HOTBAR_BG_X = 3;
+    private static final int HOTBAR_BG_Y = 148;
+
+    // 16×16 item/click area origins used by Minecraft Slot.
+    private static final int INPUT_SLOT_X = INPUT_BG_X + ITEM_OFFSET;
+    private static final int INPUT_SLOT_Y = INPUT_BG_Y + ITEM_OFFSET;
+    private static final int OUTPUT_SLOT_X = OUTPUT_BG_X + ITEM_OFFSET;
+    private static final int OUTPUT_SLOT_Y = OUTPUT_BG_Y + ITEM_OFFSET;
+    private static final int UPGRADE_SLOT_X = UPGRADE_BG_X + ITEM_OFFSET;
+    private static final int UPGRADE_FIRST_SLOT_Y = UPGRADE_FIRST_BG_Y + ITEM_OFFSET;
+    private static final int PLAYER_INV_SLOT_X = PLAYER_INV_BG_X + ITEM_OFFSET;
+    private static final int PLAYER_INV_SLOT_Y = PLAYER_INV_BG_Y + ITEM_OFFSET;
+    private static final int HOTBAR_SLOT_X = HOTBAR_BG_X + ITEM_OFFSET;
+    private static final int HOTBAR_SLOT_Y = HOTBAR_BG_Y + ITEM_OFFSET;
+
     private final ContainerData data;
 
     public NEIntegratedWorkingStationMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
@@ -53,27 +76,28 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
 
         ECOIntegratedWorkingStationBlockEntity be = getBlockEntity(playerInv.player);
         if (be != null) {
-            // Input slots (3×3 grid) at (39,14)
             IItemHandler inputHandler = be.getInputItemHandler();
             for (int row = 0; row < 3; row++) {
                 for (int col = 0; col < 3; col++) {
-                    addSlot(new SlotItemHandler(inputHandler, col + row * 3, 39 + col * 18, 14 + row * 18));
+                    addSlot(new SlotItemHandler(inputHandler, col + row * 3,
+                        INPUT_SLOT_X + col * SLOT_SIZE,
+                        INPUT_SLOT_Y + row * SLOT_SIZE));
                 }
             }
 
-            // Output slot at (108,32)
             IItemHandler outputHandler = be.getOutputItemHandler();
-            addSlot(new SlotItemHandler(outputHandler, 0, 108, 32) {
+            addSlot(new SlotItemHandler(outputHandler, 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y) {
                 @Override
                 public boolean mayPlace(@NotNull ItemStack stack) {
                     return false;
                 }
             });
 
-            // Upgrade slots (4, right bar) — coordinates synced with Screen
             IItemHandler upgradeHandler = be.getUpgradeItemHandler();
-            for (int i = 0; i < 4; i++) {
-                addSlot(new SlotItemHandler(upgradeHandler, i, 171, 2 + i * 18) {
+            for (int i = 0; i < UPGRADE_SLOTS; i++) {
+                addSlot(new SlotItemHandler(upgradeHandler, i,
+                    UPGRADE_SLOT_X,
+                    UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE) {
                     @Override
                     public boolean mayPlace(@NotNull ItemStack stack) {
                         return upgradeHandler.isItemValid(0, stack);
@@ -81,22 +105,24 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
                 });
             }
 
-            // ContainerData from BE
             this.data = be.getContainerData();
         } else {
             this.data = new SimpleContainerData(DATA_COUNT);
         }
         addDataSlots(this.data);
 
-        // Player inventory (3 rows × 9) at (3,88)
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(playerInv, col + row * 9 + 9, 3 + col * 18, 88 + row * 18));
+                addSlot(new Slot(playerInv, col + row * 9 + 9,
+                    PLAYER_INV_SLOT_X + col * SLOT_SIZE,
+                    PLAYER_INV_SLOT_Y + row * SLOT_SIZE));
             }
         }
-        // Player hotbar (1 row × 9) at (3,148)
+
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(playerInv, col, 3 + col * 18, 148));
+            addSlot(new Slot(playerInv, col,
+                HOTBAR_SLOT_X + col * SLOT_SIZE,
+                HOTBAR_SLOT_Y));
         }
     }
 
