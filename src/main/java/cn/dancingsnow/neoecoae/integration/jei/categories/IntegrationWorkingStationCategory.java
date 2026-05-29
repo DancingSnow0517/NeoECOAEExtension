@@ -23,6 +23,7 @@ import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
@@ -78,24 +79,67 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
         IntegratedWorkingStationRecipe recipe = holder.value();
+        ResourceLocation recipeId = holder.id();
 
-        // input fluid
+        // ── Input fluid ──
         SizedFluidIngredient inputFluid = recipe.inputFluid();
         if (!inputFluid.ingredient().isEmpty()) {
-            builder.addInputSlot(5, 9)
-                .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(inputFluid.getFluids()))
-                .setFluidRenderer(16000, false, 16, 58);
+            FluidStack[] rawFluids = inputFluid.getFluids();
+            if (rawFluids == null || rawFluids.length == 0) {
+                LOGGER.warn("IWS JEI recipe {} has empty fluid ingredient: {}",
+                    recipeId, inputFluid.ingredient().toJson());
+            } else {
+                List<FluidStack> fluidStacks = new java.util.ArrayList<>();
+                for (FluidStack fs : rawFluids) {
+                    if (fs == null || fs.isEmpty()) continue;
+                    FluidStack copy = fs.copy();
+                    copy.setAmount(inputFluid.amount());
+                    fluidStacks.add(copy);
+                }
+                if (!fluidStacks.isEmpty()) {
+                    builder.addInputSlot(5, 9)
+                        .addIngredients(NeoForgeTypes.FLUID_STACK, fluidStacks)
+                        .setFluidRenderer(16000, false, 16, 58);
+                } else {
+                    LOGGER.warn("IWS JEI recipe {} has no valid fluid stacks: {}",
+                        recipeId, inputFluid.ingredient().toJson());
+                }
+            }
         }
 
-        // input items
+        // ── Input items ──
         List<SizedIngredient> inputItems = recipe.inputItems();
         for (int i = 0; i < inputItems.size(); i++) {
             SizedIngredient input = inputItems.get(i);
-            var x = 38 + i % 3 * 18;
-            var y = 12 + i / 3 * 18;
-            if (!input.ingredient().isEmpty()) {
-                builder.addInputSlot(x, y).addIngredients(VanillaTypes.ITEM_STACK, Arrays.asList(input.getItems()));
+            if (input.ingredient().isEmpty()) {
+                continue;
             }
+            int x = 38 + i % 3 * 18;
+            int y = 12 + i / 3 * 18;
+
+            ItemStack[] rawStacks = input.ingredient().getItems();
+            if (rawStacks == null || rawStacks.length == 0) {
+                LOGGER.warn("IWS JEI recipe {} has empty item ingredient at index {}: {}",
+                    recipeId, i, input.ingredient().toJson());
+                continue;
+            }
+
+            List<ItemStack> stacks = new java.util.ArrayList<>();
+            for (ItemStack raw : rawStacks) {
+                if (raw == null || raw.isEmpty()) continue;
+                ItemStack copy = raw.copy();
+                copy.setCount(input.count());
+                stacks.add(copy);
+            }
+
+            if (stacks.isEmpty()) {
+                LOGGER.warn("IWS JEI recipe {} has no valid item stacks at index {}: {}",
+                    recipeId, i, input.ingredient().toJson());
+                continue;
+            }
+
+            builder.addInputSlot(x, y)
+                .addIngredients(VanillaTypes.ITEM_STACK, stacks);
         }
 
         // output item

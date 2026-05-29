@@ -21,6 +21,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -30,6 +32,8 @@ import java.util.List;
  */
 public class IntegratedWorkingStationJeiCategory
     implements IRecipeCategory<IntegratedWorkingStationRecipe> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(IntegratedWorkingStationJeiCategory.class);
 
     private static final ResourceLocation TEX_BG =
         NeoECOAE.id("textures/gui/jei/integration_working_station.png");
@@ -86,16 +90,25 @@ public class IntegratedWorkingStationJeiCategory
         SizedFluidIngredient inputFluid = recipe.inputFluid();
         if (!inputFluid.ingredient().isEmpty()) {
             FluidStack[] rawFluids = inputFluid.getFluids();
-            if (rawFluids != null && rawFluids.length > 0) {
+            if (rawFluids == null || rawFluids.length == 0) {
+                LOGGER.warn("IWS JEI recipe {} has empty fluid ingredient: {}",
+                    recipe.getId(), inputFluid.ingredient().toJson());
+            } else {
                 List<FluidStack> stacks = new java.util.ArrayList<>();
                 for (FluidStack fs : rawFluids) {
+                    if (fs == null || fs.isEmpty()) continue;
                     FluidStack copy = fs.copy();
                     copy.setAmount(inputFluid.amount());
                     stacks.add(copy);
                 }
-                builder.addInputSlot(5, 9)
-                    .addIngredients(ForgeTypes.FLUID_STACK, stacks)
-                    .setFluidRenderer(16000, false, 16, 58);
+                if (!stacks.isEmpty()) {
+                    builder.addInputSlot(5, 9)
+                        .addIngredients(ForgeTypes.FLUID_STACK, stacks)
+                        .setFluidRenderer(16000, false, 16, 58);
+                } else {
+                    LOGGER.warn("IWS JEI recipe {} has no valid fluid stacks: {}",
+                        recipe.getId(), inputFluid.ingredient().toJson());
+                }
             }
         }
 
@@ -112,11 +125,26 @@ public class IntegratedWorkingStationJeiCategory
             int y = 12 + row * 18;
 
             ItemStack[] rawStacks = input.ingredient().getItems();
+            if (rawStacks == null || rawStacks.length == 0) {
+                LOGGER.warn("IWS JEI recipe {} has empty item ingredient at index {}: {}",
+                    recipe.getId(), i, input.ingredient().toJson());
+                continue;
+            }
+
             List<ItemStack> stacks = new java.util.ArrayList<>();
             for (ItemStack raw : rawStacks) {
+                if (raw == null || raw.isEmpty()) {
+                    continue;
+                }
                 ItemStack copy = raw.copy();
                 copy.setCount(input.count());
                 stacks.add(copy);
+            }
+
+            if (stacks.isEmpty()) {
+                LOGGER.warn("IWS JEI recipe {} has no valid item stacks at index {}: {}",
+                    recipe.getId(), i, input.ingredient().toJson());
+                continue;
             }
 
             builder.addInputSlot(x, y)

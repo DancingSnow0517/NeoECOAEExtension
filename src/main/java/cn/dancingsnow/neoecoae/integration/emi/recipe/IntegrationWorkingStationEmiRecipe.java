@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import com.mojang.logging.LogUtils;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.WidgetHolder;
@@ -16,22 +17,39 @@ import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import java.util.List;
 
 public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
 
     private final IntegratedWorkingStationRecipe recipe;
 
     public IntegrationWorkingStationEmiRecipe(RecipeHolder<IntegratedWorkingStationRecipe> holder) {
         super(NeoECOAEEmiPlugin.INTEGRATED_WORKING_STATION, holder.id(), 168, 75);
         this.recipe = holder.value();
+        var recipeId = holder.id();
 
         // item inputs
         for (SizedIngredient inputItem : recipe.inputItems()) {
+            if (inputItem.ingredient().isEmpty()) {
+                continue;
+            }
+            ItemStack[] stacks = inputItem.ingredient().getItems();
+            if (stacks == null || stacks.length == 0) {
+                LOGGER.warn("IWS EMI recipe {} has empty item ingredient: {}",
+                    recipeId, inputItem.ingredient().toJson());
+                continue;
+            }
             inputs.add(NeoECOAEEmiPlugin.of(inputItem));
         }
 
         // fluid input
         SizedFluidIngredient inputFluid = recipe.inputFluid();
         if (!inputFluid.ingredient().isEmpty()) {
-            inputs.add(NeoECOAEEmiPlugin.of(inputFluid));
+            FluidStack[] rawFluids = inputFluid.getFluids();
+            if (rawFluids == null || rawFluids.length == 0) {
+                LOGGER.warn("IWS EMI recipe {} has empty fluid ingredient: {}",
+                    recipeId, inputFluid.ingredient().toJson());
+            } else {
+                inputs.add(NeoECOAEEmiPlugin.of(inputFluid));
+            }
         }
 
         // item output
