@@ -1,15 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
-import cn.dancingsnow.neoecoae.gui.nativeui.NENineSliceRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
-import cn.dancingsnow.neoecoae.gui.nativeui.widget.NETexturedButton;
+import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEAe2TextButton;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,12 +23,6 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
     extends AbstractContainerScreen<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(NENativeUiConstants.LOGGER_NAME);
-    private static final ResourceLocation TEX_BACKGROUND = NeoECOAE.id("textures/gui/background.png");
-    private static final int TEX_BG_SIZE = 16;
-    private static final int BG_LEFT = 2;
-    private static final int BG_TOP = 2;
-    private static final int BG_RIGHT = 2;
-    private static final int BG_BOTTOM = 4;
 
     protected final NEMachineScreenConfig config;
 
@@ -55,7 +45,7 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
     protected void init() {
         super.init();
         if (config.showTestButton()) {
-            addRenderableWidget(new NETexturedButton(
+            addRenderableWidget(new NEAe2TextButton(
                 leftPos + NENativeUiConstants.BUTTON_X_OFFSET,
                 topPos + NENativeUiConstants.BUTTON_Y_OFFSET,
                 NENativeUiConstants.BUTTON_WIDTH,
@@ -81,10 +71,7 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        NENineSliceRenderer.drawPanel(guiGraphics, TEX_BACKGROUND,
-            leftPos, topPos, imageWidth, imageHeight,
-            TEX_BG_SIZE, TEX_BG_SIZE,
-            BG_LEFT, BG_TOP, BG_RIGHT, BG_BOTTOM);
+        NENativeAe2StyleRenderer.drawAeMainPanel(guiGraphics, leftPos, topPos, imageWidth, imageHeight);
     }
 
     @Override

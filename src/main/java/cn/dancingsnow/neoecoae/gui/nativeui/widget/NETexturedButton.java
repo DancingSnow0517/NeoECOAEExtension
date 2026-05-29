@@ -62,21 +62,12 @@ public class NETexturedButton extends Button {
             BORDER_LEFT, BORDER_TOP, BORDER_RIGHT, BORDER_BOTTOM);
 
         int color = active ? textColor : disabledTextColor;
-        if (drawShadow) {
-            // drawString with shadow — manual center since drawCenteredString lacks shadow
-            Component msg = getMessage();
-            int textW = Minecraft.getInstance().font.width(msg);
-            int textX = getX() + (width - textW) / 2;
-            int textY = getY() + (height - 8) / 2;
-            guiGraphics.drawString(Minecraft.getInstance().font, msg, textX, textY, color, true);
-        } else {
-            guiGraphics.drawCenteredString(
-                Minecraft.getInstance().font,
-                getMessage(),
-                getX() + width / 2,
-                getY() + (height - 8) / 2,
-                color
-            );
-        }
+        Component msg = getMessage();
+        var font = Minecraft.getInstance().font;
+        int textW = font.width(msg);
+        int textX = getX() + (width - textW) / 2;
+        int textY = getY() + (height - 8) / 2;
+
+        guiGraphics.drawString(font, msg, textX, textY, color, false);
     }
 }

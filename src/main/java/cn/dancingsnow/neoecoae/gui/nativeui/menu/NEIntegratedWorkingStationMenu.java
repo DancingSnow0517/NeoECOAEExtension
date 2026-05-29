@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.nativeui.menu;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
+import cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingStationLayout;
 import cn.dancingsnow.neoecoae.gui.nativeui.slot.NEInternalInventoryItemHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
@@ -16,6 +17,8 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import org.jetbrains.annotations.NotNull;
+
+import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingStationLayout.*;
 
 /**
  * Menu for the ECO Integrated Working Station with real machine slots.
@@ -45,32 +48,7 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
     public static final int DATA_AUTO_EXPORT = 7;
     public static final int DATA_FLUID_OUT_AMOUNT = 8;
 
-    private static final int SLOT_SIZE = 18;
-    private static final int ITEM_OFFSET = 1;
-
-    // 18×18 visual slot backgrounds in Screen coordinates.
-    private static final int INPUT_BG_X = 39;
-    private static final int INPUT_BG_Y = 14;
-    private static final int OUTPUT_BG_X = 108;
-    private static final int OUTPUT_BG_Y = 32;
-    private static final int UPGRADE_BG_X = 171;
-    private static final int UPGRADE_FIRST_BG_Y = 2;
-    private static final int PLAYER_INV_BG_X = 3;
-    private static final int PLAYER_INV_BG_Y = 88;
-    private static final int HOTBAR_BG_X = 3;
-    private static final int HOTBAR_BG_Y = 148;
-
-    // 16×16 item/click area origins used by Minecraft Slot.
-    private static final int INPUT_SLOT_X = INPUT_BG_X + ITEM_OFFSET;
-    private static final int INPUT_SLOT_Y = INPUT_BG_Y + ITEM_OFFSET;
-    private static final int OUTPUT_SLOT_X = OUTPUT_BG_X + ITEM_OFFSET;
-    private static final int OUTPUT_SLOT_Y = OUTPUT_BG_Y + ITEM_OFFSET;
-    private static final int UPGRADE_SLOT_X = UPGRADE_BG_X + ITEM_OFFSET;
-    private static final int UPGRADE_FIRST_SLOT_Y = UPGRADE_FIRST_BG_Y + ITEM_OFFSET;
-    private static final int PLAYER_INV_SLOT_X = PLAYER_INV_BG_X + ITEM_OFFSET;
-    private static final int PLAYER_INV_SLOT_Y = PLAYER_INV_BG_Y + ITEM_OFFSET;
-    private static final int HOTBAR_SLOT_X = HOTBAR_BG_X + ITEM_OFFSET;
-    private static final int HOTBAR_SLOT_Y = HOTBAR_BG_Y + ITEM_OFFSET;
+    // Layout constants imported from NEIntegratedWorkingStationLayout via static import above.
 
     private final ContainerData data;
     // Client-side fluid cache updated via IWSStatePacket from server

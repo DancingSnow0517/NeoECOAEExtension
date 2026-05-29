@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.nativeui.menu;
 
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
+import cn.dancingsnow.neoecoae.gui.nativeui.layout.NECraftingPatternBusLayout;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -12,26 +13,18 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import org.jetbrains.annotations.NotNull;
 
+import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NECraftingPatternBusLayout.*;
+
 /**
  * Menu for the ECO Crafting Pattern Bus — 9×7 pattern slots (63) + player inventory + hotbar.
  * <p>
- * Slot coordinates must stay in sync with {@code NECraftingPatternBusScreen}.
+ * Slot coordinates are imported from {@link NECraftingPatternBusLayout}.
  * </p>
  */
 public class NECraftingPatternBusMenu extends NEBaseMachineMenu {
 
-    private static final int COLS = 9;
-    private static final int ROWS = 7;
-    public static final int PATTERN_SLOTS = COLS * ROWS; // 63
+    public static final int PATTERN_SLOTS = PATTERN_COLS * PATTERN_ROWS; // 63
     public static final int PLAYER_INV_SLOTS = 36;
-
-    // ── Screen-aligned slot origins (BG coords + 1 to centre 16×16 items in 18×18 slot.png) ──
-    private static final int PATTERN_X = 6;
-    private static final int PATTERN_Y = 29;
-    private static final int INV_X     = 6;
-    private static final int INV_Y     = 162;
-    private static final int HOTBAR_X  = 6;
-    private static final int HOTBAR_Y  = 221;
 
     public NECraftingPatternBusMenu(int containerId, Inventory playerInv, BlockPos machinePos) {
         super(NENativeMenus.CRAFTING_PATTERN_BUS.get(), containerId, playerInv, machinePos);
@@ -40,10 +33,11 @@ public class NECraftingPatternBusMenu extends NEBaseMachineMenu {
         if (be instanceof ECOCraftingPatternBusBlockEntity bus) {
             IItemHandler handler = bus.itemHandler;
             // Pattern slots 9×7
-            for (int row = 0; row < ROWS; row++) {
-                for (int col = 0; col < COLS; col++) {
-                    addSlot(new SlotItemHandler(handler, col + row * COLS,
-                        PATTERN_X + col * 18, PATTERN_Y + row * 18));
+            for (int row = 0; row < PATTERN_ROWS; row++) {
+                for (int col = 0; col < PATTERN_COLS; col++) {
+                    addSlot(new SlotItemHandler(handler, col + row * PATTERN_COLS,
+                        PATTERN_SLOT_X + col * SLOT_SIZE,
+                        PATTERN_SLOT_Y + row * SLOT_SIZE));
                 }
             }
         }
@@ -52,13 +46,15 @@ public class NECraftingPatternBusMenu extends NEBaseMachineMenu {
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(playerInv, col + row * 9 + 9,
-                    INV_X + col * 18, INV_Y + row * 18));
+                    INV_SLOT_X + col * SLOT_SIZE,
+                    INV_SLOT_Y + row * SLOT_SIZE));
             }
         }
         // Player hotbar 1×9
         for (int col = 0; col < 9; col++) {
             addSlot(new Slot(playerInv, col,
-                HOTBAR_X + col * 18, HOTBAR_Y));
+                HOTBAR_SLOT_X + col * SLOT_SIZE,
+                HOTBAR_SLOT_Y));
         }
     }
 

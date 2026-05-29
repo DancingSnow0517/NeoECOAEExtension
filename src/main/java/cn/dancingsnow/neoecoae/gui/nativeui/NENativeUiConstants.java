@@ -16,29 +16,29 @@ public final class NENativeUiConstants {
     // ── Background ──
     public static final int BG_COLOR = 0xFF2A2A3A;
 
-    // ── Text colors (panel palette for light background / Structure Terminal) ──
-    public static final int PANEL_TEXT_PRIMARY   = 0xFF20232A;
-    public static final int PANEL_TEXT_SECONDARY = 0xFF303846;
-    public static final int PANEL_TEXT_MUTED     = 0xFF5A6070;
-    public static final int PANEL_TEXT_HINT      = 0xFF1F4E79;
-    public static final int PANEL_TEXT_SUCCESS   = 0xFF008A2E;
-    public static final int PANEL_TEXT_WARNING   = 0xFF9A6500;
-    public static final int PANEL_TEXT_ERROR     = 0xFFB00020;
+    // ── Text colors (AE2-compatible dark gray / blue-gray palette) ──
+    public static final int PANEL_TEXT_PRIMARY   = 0xFF2A2A3A;
+    public static final int PANEL_TEXT_SECONDARY = 0xFF404A5A;
+    public static final int PANEL_TEXT_MUTED     = 0xFF6A6F7A;
+    public static final int PANEL_TEXT_HINT      = 0xFF3A608A;
+    public static final int PANEL_TEXT_SUCCESS   = 0xFF1A7A3A;
+    public static final int PANEL_TEXT_WARNING   = 0xFF8A5A1A;
+    public static final int PANEL_TEXT_ERROR     = 0xFF9A2A3A;
 
     // ── Label colors (aliases for panel palette) ──
     public static final int TITLE_COLOR          = PANEL_TEXT_PRIMARY;
     public static final int REBUILDING_TEXT_COLOR = PANEL_TEXT_MUTED;
     public static final int ACTIVE_TEXT_COLOR    = PANEL_TEXT_SUCCESS;
 
-    // ── Machine UI text colors (for light component-style background) ──
-    public static final int MACHINE_TEXT_PRIMARY   = 0xFF20232A;
-    public static final int MACHINE_TEXT_SECONDARY = 0xFF303846;
-    public static final int MACHINE_TEXT_MUTED     = 0xFF5A6070;
-    public static final int MACHINE_TEXT_HINT      = 0xFF1F4E79;
-    public static final int MACHINE_TEXT_SUCCESS   = 0xFF008A2E;
-    public static final int MACHINE_TEXT_WARNING   = 0xFF9A6500;
-    public static final int MACHINE_TEXT_ERROR     = 0xFFB00020;
-    public static final int MACHINE_TEXT_VALUE     = 0xFF5A49D6;
+    // ── Machine UI text colors (for AE2-style dark panel background) ──
+    public static final int MACHINE_TEXT_PRIMARY   = 0xFFC6C6C6;
+    public static final int MACHINE_TEXT_SECONDARY = 0xFF8A8A8A;
+    public static final int MACHINE_TEXT_MUTED     = 0xFF6A6F7A;
+    public static final int MACHINE_TEXT_HINT      = 0xFF3A608A;
+    public static final int MACHINE_TEXT_SUCCESS   = 0xFF1A7A3A;
+    public static final int MACHINE_TEXT_WARNING   = 0xFF8A5A1A;
+    public static final int MACHINE_TEXT_ERROR     = 0xFF9A2A3A;
+    public static final int MACHINE_TEXT_VALUE     = 0xFF8A9FC6;
 
     // ── Label positions (relative to guiLeft / guiTop) ──
     public static final int TITLE_X = 8;

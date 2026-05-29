@@ -661,7 +661,9 @@ public final class NENetwork {
         TOGGLE_AUTO_EXPORT,
         CLEAR_INPUT_FLUID,
         CLEAR_OUTPUT_FLUID,
-        INPUT_TANK_CONTAINER_CLICK
+        INPUT_TANK_CONTAINER_CLICK,
+        /** Client requests current fluid/auto-export state without changing anything. */
+        REQUEST_STATE
     }
 
     public record NEIntegratedWorkingStationActionPacket(BlockPos pos, IWSAction action) {
@@ -701,6 +703,7 @@ public final class NENetwork {
                     case CLEAR_INPUT_FLUID -> iws.clearFluid();
                     case CLEAR_OUTPUT_FLUID -> iws.clearFluidOut();
                     case INPUT_TANK_CONTAINER_CLICK -> iws.handleInputTankContainerClick(sender);
+                    case REQUEST_STATE -> { /* no state change, just sync below */ }
                 }
                 iws.setChanged();
                 iws.markForUpdate();
