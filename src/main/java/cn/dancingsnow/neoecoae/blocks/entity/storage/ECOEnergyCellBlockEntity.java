@@ -15,10 +15,6 @@ import appeng.me.energy.StoredEnergyAmount;
 import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import com.lowdragmc.lowdraglib2.syncdata.storage.IManagedStorage;
 import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -35,22 +31,18 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
-    implements IExternalPowerSink, IGridTickable, ISyncPersistRPCBlockEntity {
+    implements IExternalPowerSink, IGridTickable {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_POWER_CHANGES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_ENERGY_TICKS = ConcurrentHashMap.newKeySet();
 
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     @Getter
     private final IECOTier tier;
     private byte currentDisplayLevel;
 
-    @Persisted
     private final StoredEnergyAmount energyStored;
 
-    @Persisted
     private boolean neighborChangePending = false;
 
 
@@ -136,11 +128,6 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
             getMainNode().ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
         }
         logEnergyTick("onEnergyChanged");
-    }
-
-    @Override
-    public IManagedStorage getRootStorage() {
-        return syncStorage;
     }
 
     @Override

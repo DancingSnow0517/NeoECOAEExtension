@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.mixins;
 
 import appeng.util.inv.AppEngInternalInventory;
-import com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraftforge.common.util.INBTSerializable;
@@ -11,7 +10,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(AppEngInternalInventory.class)
-public abstract class AppEngInternalInventoryMixin implements INBTSerializable<CompoundTag>, IContentChangeAware {
+public abstract class AppEngInternalInventoryMixin implements INBTSerializable<CompoundTag> {
     @Unique
     private Runnable neoECOAEExtension$onContentsChanged;
 

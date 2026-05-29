@@ -155,7 +155,6 @@ dependencies {
     compileOnly("org.appliedenergistics:guideme:${guideme_version}:api")
     runtimeOnly fg.deobf("org.appliedenergistics:guideme:${guideme_version}")
 
-    implementation fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
     compileOnly("dev.vfyjxf:taffy:${taffy_version}")
 
     compileOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")

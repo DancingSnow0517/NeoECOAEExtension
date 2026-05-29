@@ -7,11 +7,6 @@ import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
 
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,39 +34,27 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ECOComputationDriveBlockEntity
-    extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity> implements ISyncPersistRPCBlockEntity, ICellHost {
+    extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity> implements ICellHost {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_UPDATE_TAGS = ConcurrentHashMap.newKeySet();
 
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     @Getter
-    @DescSynced
-    @Persisted
-    @RequireRerender
     @Nullable
     private ItemStack cellStack = null;
 
-    @DescSynced
-    @RequireRerender
     private boolean formedState;
 
     @Getter
-    @DescSynced
-    @RequireRerender
     private boolean isLowerDrive = false;
 
     @Setter
     @Getter
-    @DescSynced
-    @RequireRerender
     @Nullable
     private BlockPos ownerBlockPos;
 
     @Setter
     @Getter
-    @DescSynced
     @Nullable
     private IECOTier tier = null;
 

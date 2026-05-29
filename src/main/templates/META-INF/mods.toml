@@ -40,13 +40,6 @@ file="META-INF/accesstransformer.cfg"
     ordering="NONE"
     side="BOTH"
 
-[[dependencies.${mod_id}]]
-    modId="ldlib"
-    mandatory=true
-    versionRange="[1.0.50,)"
-    ordering="NONE"
-    side="BOTH"
-
 [mc-publish]
     modrinth="udZtKfzP"
     curseforge=1460639

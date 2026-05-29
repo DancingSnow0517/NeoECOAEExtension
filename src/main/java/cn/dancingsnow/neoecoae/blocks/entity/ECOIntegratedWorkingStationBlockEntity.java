@@ -45,20 +45,15 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import guideme.GuidesCommon;
 import guideme.PageAnchor;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -100,14 +95,12 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
-    implements ISyncPersistRPCBlockEntity, IGridTickable, IUpgradeableObject, IConfigurableObject {
+    implements IGridTickable, IUpgradeableObject, IConfigurableObject {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static boolean loggedRecipeCounts = false;
-    private static final IGuiTexture AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
-    private static final IGuiTexture AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
+    private static final ResourceLocation AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
+    private static final ResourceLocation AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
 
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     private static final int MAX_INPUT_SLOTS = 9;
     private static final int MAX_PROCESSING_STEPS = 200;
@@ -143,7 +136,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         }
     };
 
-    @DescSynced
     boolean shouldAutoExport;
 
     @Getter
@@ -188,15 +180,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
 
     @Getter
-    @DescSynced
     private boolean working = false;
 
     @Setter
     @Getter
     private int processingTime = 0;
 
-    @Persisted
-    @DescSynced
     private final EnumSet<RelativeSide> allowOutputs = EnumSet.allOf(RelativeSide.class);
 
     private boolean dirty = false;

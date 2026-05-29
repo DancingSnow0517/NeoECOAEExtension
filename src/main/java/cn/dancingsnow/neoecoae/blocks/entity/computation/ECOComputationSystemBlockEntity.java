@@ -7,8 +7,6 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
-import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
@@ -16,10 +14,6 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.network.NEComputationUiState;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -41,42 +35,26 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.List;
 import java.util.UUID;
 
-public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity> implements ISyncPersistRPCBlockEntity, INEMultiblockBuildHost {
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
+public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity> implements INEMultiblockBuildHost {
 
     @Getter
     private final IECOTier tier;
 
     private int usedThread;
-    @DescSynced
     private int totalThread;
-    @DescSynced
     private int parallelCount;
-    @DescSynced
     private long availableBytes;
-    @DescSynced
     private long totalBytes;
     /** Sum of CPU accelerators from all parallel cores in the cluster. */
     private int acceleratorCount;
-    @Persisted
-    @DescSynced
     private int selectedBuildLength = 1;
-    @DescSynced
     private int previewMissingBlocks;
-    @DescSynced
     private int previewConflictBlocks;
-    @DescSynced
     private int previewReusedBlocks;
-    @DescSynced
     private int previewRequiredItems;
-    @DescSynced
     private String previewStatusKey = "gui.neoecoae.multiblock.status.idle";
-    @DescSynced
     private int previewStatusArg1;
-    @DescSynced
     private int previewStatusArg2;
-    @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;

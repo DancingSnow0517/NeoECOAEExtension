@@ -11,8 +11,6 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
@@ -23,10 +21,6 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.network.NECraftingUiState;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -47,73 +41,48 @@ import java.util.List;
 import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IGridTickable, INEMultiblockBuildHost {
+    implements IGridTickable, INEMultiblockBuildHost {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
 
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     @Getter
     private final IECOTier tier;
 
     @Getter
-    @Persisted
-    @DescSynced
     private boolean overclocked = false;
 
     @Getter
-    @Persisted
-    @DescSynced
     private boolean activeCooling = false;
 
     @Getter
-    @Persisted
-    @DescSynced
     private int coolant = 0;
     @Getter
-    @Persisted
-    @DescSynced
     private int coolantMaxOverclock = -1;
 
-    @DescSynced
     private int patternBusCount, parallelCount, workerCount = 0;
 
     @Getter
-    @DescSynced
     private int runningThreadCount = 0;
 
     @Getter
-    @DescSynced
     private int threadCount = 0;
 
     @Getter
-    @DescSynced
     private int threadCountPerWorker = 0;
 
     @Getter
-    @DescSynced
     private int overlockTimes = 0;
-    @Persisted
-    @DescSynced
     private int selectedBuildLength = 1;
-    @DescSynced
     private int previewMissingBlocks;
-    @DescSynced
     private int previewConflictBlocks;
-    @DescSynced
     private int previewReusedBlocks;
-    @DescSynced
     private int previewRequiredItems;
-    @DescSynced
     private String previewStatusKey = "gui.neoecoae.multiblock.status.idle";
-    @DescSynced
     private int previewStatusArg1;
-    @DescSynced
     private int previewStatusArg2;
-    @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
@@ -408,7 +377,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
      * Creates a snapshot of current crafting stats for S2C UI sync.
      * <p>
      * On the server side this reads live cluster data. No business
-     * state is modified — this is a pure read-only snapshot.
+     * state is modified - this is a pure read-only snapshot.
      * </p>
      */
     public NECraftingUiState createCraftingUiState() {

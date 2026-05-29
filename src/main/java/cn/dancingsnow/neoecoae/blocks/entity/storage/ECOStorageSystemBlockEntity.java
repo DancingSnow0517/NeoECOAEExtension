@@ -18,10 +18,6 @@ import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.network.NEStorageUiState;
 import cn.dancingsnow.neoecoae.network.NEStorageUiTypeState;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -47,45 +43,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IGridTickable, INEMultiblockBuildHost {
+public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements IGridTickable, INEMultiblockBuildHost {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     @Getter
     private final IECOTier tier;
 
-    @DescSynced
     private long[] usedTypes;
-    @DescSynced
     private long[] totalTypes;
-    @DescSynced
     private long[] usedBytes;
-    @DescSynced
     private long[] totalBytes;
 
-    @DescSynced
     private long storedEnergy;
-    @DescSynced
     private long maxEnergy;
-    @Persisted
-    @DescSynced
     private int selectedBuildLength = 1;
-    @DescSynced
     private int previewMissingBlocks;
-    @DescSynced
     private int previewConflictBlocks;
-    @DescSynced
     private int previewReusedBlocks;
-    @DescSynced
     private int previewRequiredItems;
-    @DescSynced
     private String previewStatusKey = "gui.neoecoae.multiblock.status.idle";
-    @DescSynced
     private int previewStatusArg1;
-    @DescSynced
     private int previewStatusArg2;
-    @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
@@ -380,14 +358,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return maxEnergy;
     }
 
-    // Scalar synced fields 闁?written directly to avoid long[] array sync issues on client
-    @DescSynced
+    // Scalar synced fields - written directly to avoid long[] array sync issues on client
     private long _synUsedTypes;
-    @DescSynced
     private long _synTotalTypes;
-    @DescSynced
     private long _synUsedBytes;
-    @DescSynced
     private long _synTotalBytes;
 
     public long getTotalUsedBytes() {
@@ -667,12 +641,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         tag.putLong("neo_storedEnergy", storedEnergy);
         tag.putLong("neo_maxEnergy", maxEnergy);
         tag.putBoolean("neo_formed", formed);
-        // Scalar fields — primary read path for BE-tag fallback sync
+        // Scalar fields - primary read path for BE-tag fallback sync
         tag.putLong("neo_usedTypes_s", _synUsedTypes);
         tag.putLong("neo_totalTypes_s", _synTotalTypes);
         tag.putLong("neo_usedBytes_s", _synUsedBytes);
         tag.putLong("neo_totalBytes_s", _synTotalBytes);
-        // Per-type arrays — kept for future per-cell-type UI
+        // Per-type arrays - kept for future per-cell-type UI
         if (usedTypes != null) tag.putLongArray("neo_usedTypes", usedTypes);
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
@@ -683,12 +657,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (tag.contains("neo_storedEnergy")) storedEnergy = tag.getLong("neo_storedEnergy");
         if (tag.contains("neo_maxEnergy")) maxEnergy = tag.getLong("neo_maxEnergy");
         if (tag.contains("neo_formed")) formed = tag.getBoolean("neo_formed");
-        // Scalar fields — primary read path for BE-tag fallback sync
+        // Scalar fields - primary read path for BE-tag fallback sync
         if (tag.contains("neo_usedTypes_s")) _synUsedTypes = tag.getLong("neo_usedTypes_s");
         if (tag.contains("neo_totalTypes_s")) _synTotalTypes = tag.getLong("neo_totalTypes_s");
         if (tag.contains("neo_usedBytes_s")) _synUsedBytes = tag.getLong("neo_usedBytes_s");
         if (tag.contains("neo_totalBytes_s")) _synTotalBytes = tag.getLong("neo_totalBytes_s");
-        // Per-type arrays — kept for future per-cell-type UI
+        // Per-type arrays - kept for future per-cell-type UI
         if (tag.contains("neo_usedTypes")) usedTypes = tag.getLongArray("neo_usedTypes");
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");

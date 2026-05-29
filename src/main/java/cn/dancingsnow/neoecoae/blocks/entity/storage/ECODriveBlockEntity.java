@@ -10,11 +10,6 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -40,30 +35,23 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost {
+    implements IStorageProvider, ICellHost {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_UPDATE_TAGS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_STORAGE_UPDATES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MOUNT_ATTEMPTS = ConcurrentHashMap.newKeySet();
 
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     public final IItemHandler HANDLER = new CellHostItemHandler(this);
     private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> HANDLER);
 
     @Getter
-    @DescSynced
-    @Persisted
-    @RequireRerender
     @Nullable
     private ItemStack cellStack = null;
 
     @Getter
-    @DescSynced
     private boolean mounted = false;
     @Getter
-    @DescSynced
     private boolean online = false;
 
     public ECODriveBlockEntity(

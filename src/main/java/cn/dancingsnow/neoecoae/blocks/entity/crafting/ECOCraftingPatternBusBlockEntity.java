@@ -15,10 +15,6 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -41,16 +37,12 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
+    implements InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
 
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     public static final int ROW_SIZE = 9;
     public static final int COL_SIZE = 7;
 
-    @Persisted
-    @DescSynced
     private final AppEngInternalInventory inventory;
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;

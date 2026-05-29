@@ -3,8 +3,6 @@ package cn.dancingsnow.neoecoae.integration.jei;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.jei.categories.CoolingCategory;
 import cn.dancingsnow.neoecoae.integration.jei.categories.IntegrationWorkingStationCategory;
-import cn.dancingsnow.neoecoae.integration.jei.categories.multiblock.MultiBlockInfoCategory;
-import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import mezz.jei.api.IModPlugin;
@@ -23,7 +21,7 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
     public static final RecipeType<RecipeHolder<CoolingRecipe>> COOLING_TYPE = createRecipeHolderType("cooling");
     public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE = createRecipeHolderType("integrated_working_station");
 
-    public static final RecipeType<MultiBlockInfoWrapper> MULTIBLOCK_TYPE = new RecipeType<>(
+    // MULTIBLOCK_TYPE removed (LDLib dependency)\r
         NeoECOAE.id("multiblock"),
         MultiBlockInfoWrapper.class
     );

@@ -11,7 +11,6 @@ import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
-import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
 import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import lombok.Setter;
@@ -142,11 +141,8 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @Override
     public CompoundTag getUpdateTag() {
-        CompoundTag tag = super.getUpdateTag();
-        if (this instanceof ISyncMangedHolder syncMangedHolder) {
-            tag.put(syncMangedHolder.getSyncTag(), syncMangedHolder.serializeInitialData(null));
-        }
-        return tag;
+        // Subclasses override writeUiSyncTag to include UI state in the update tag.
+        return super.getUpdateTag();
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {

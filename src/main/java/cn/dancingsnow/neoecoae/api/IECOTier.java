@@ -1,8 +1,7 @@
 package cn.dancingsnow.neoecoae.api;
 
 import appeng.api.stacks.AEKeyType;
-import cn.dancingsnow.neoecoae.gui.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.resources.ResourceLocation;
 
 public interface IECOTier {
@@ -65,14 +64,14 @@ public interface IECOTier {
 
     ResourceLocation getCPUOverlayTexture();
 
-    default IGuiTexture getCraftingOverlayTexture() {
-        return NETextures.Crafting.F0;
+    default ResourceLocation getCraftingOverlayTexture() {
+        return NeoECOAE.id("textures/gui/crafting/f0.png");
     }
 
     /**
      * 瀛樺偍绯荤粺瀛樺偍鐭╅樀绫诲瀷鏁伴噺
      *
-     * @param keyType 鏍规嵁 {@link AEKeyType} 涓嶅悓锛岀被鍨嬫暟閲?
+     * @param keyType 鏍规�?{@link AEKeyType} 涓嶅悓锛岀被鍨嬫暟�?
      * @return 瀛樺偍鐭╅樀绫诲瀷鏁伴噺
      */
     default int getStorageTotalTypes(AEKeyType keyType) {
