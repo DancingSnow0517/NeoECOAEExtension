@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.gui.nativeui.menu;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
-import cn.dancingsnow.neoecoae.gui.nativeui.slot.NEInternalInventorySlot;
+import cn.dancingsnow.neoecoae.gui.nativeui.slot.NEInternalInventoryItemHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -83,48 +83,39 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
         super(NENativeMenus.INTEGRATED_WORKING_STATION.get(), containerId, playerInv, machinePos);
 
         ECOIntegratedWorkingStationBlockEntity be = getBlockEntity(playerInv.player);
+
+        IItemHandler inputHandler;
+        IItemHandler outputHandler;
         IItemHandler upgradeHandler;
         if (be != null) {
+            // Use Forge's stable SlotItemHandler rendering/sync path, but bridge it
+            // directly to AE2 InternalInventory instead of using AE2's generic wrapper.
+            inputHandler = new NEInternalInventoryItemHandler(be.getInput(), be, true, true);
+            outputHandler = new NEInternalInventoryItemHandler(be.getOutput(), be, false, true);
             upgradeHandler = be.getUpgradeItemHandler();
             this.data = be.getContainerData();
         } else {
+            // Keep the exact same slot count/order on the client during early construction.
+            inputHandler = new ItemStackHandler(INPUT_SLOTS);
+            outputHandler = new ItemStackHandler(OUTPUT_SLOTS);
             upgradeHandler = new ItemStackHandler(UPGRADE_SLOTS);
             this.data = new SimpleContainerData(DATA_COUNT);
         }
 
-        // Input slots 0-8: use NEInternalInventorySlot when BE available, dummy SlotItemHandler otherwise
-        if (be != null) {
-            var inputInv = be.getInput();
-            for (int row = 0; row < 3; row++) {
-                for (int col = 0; col < 3; col++) {
-                    addSlot(new NEInternalInventorySlot(inputInv, col + row * 3,
-                        INPUT_SLOT_X + col * SLOT_SIZE,
-                        INPUT_SLOT_Y + row * SLOT_SIZE,
-                        be, true, true));
-                }
-            }
-        } else {
-            var dummyInput = new ItemStackHandler(INPUT_SLOTS);
-            for (int row = 0; row < 3; row++) {
-                for (int col = 0; col < 3; col++) {
-                    addSlot(new SlotItemHandler(dummyInput, col + row * 3,
-                        INPUT_SLOT_X + col * SLOT_SIZE,
-                        INPUT_SLOT_Y + row * SLOT_SIZE));
-                }
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                addSlot(new SlotItemHandler(inputHandler, col + row * 3,
+                    INPUT_SLOT_X + col * SLOT_SIZE,
+                    INPUT_SLOT_Y + row * SLOT_SIZE));
             }
         }
 
-        // Output slot 9
-        if (be != null) {
-            addSlot(new NEInternalInventorySlot(be.getOutput(), 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y,
-                be, false, true));
-        } else {
-            var dummyOutput = new ItemStackHandler(OUTPUT_SLOTS);
-            addSlot(new SlotItemHandler(dummyOutput, 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y) {
-                @Override
-                public boolean mayPlace(@NotNull ItemStack stack) { return false; }
-            });
-        }
+        addSlot(new SlotItemHandler(outputHandler, 0, OUTPUT_SLOT_X, OUTPUT_SLOT_Y) {
+            @Override
+            public boolean mayPlace(@NotNull ItemStack stack) {
+                return false;
+            }
+        });
 
         for (int i = 0; i < UPGRADE_SLOTS; i++) {
             final int slotIdx = i;
@@ -175,7 +166,6 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
         ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
 
-        int machineStart = 0;
         int machineEnd = INPUT_SLOTS + OUTPUT_SLOTS + UPGRADE_SLOTS; // 14
         int playerStart = machineEnd;
         int playerEnd = playerStart + PLAYER_INV_SLOTS; // 50
