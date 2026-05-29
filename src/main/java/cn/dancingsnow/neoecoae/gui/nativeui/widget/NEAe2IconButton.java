@@ -49,15 +49,24 @@ public class NEAe2IconButton extends Button {
 
     @Override
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        NENativeAe2StyleRenderer.drawAeToolbarButtonBackground(g,
-            getX(), getY(), width, height, isHovered(), active);
+        // Use Icon.TOOLBAR_BUTTON_BACKGROUND stretched to button size
+        Icon bg = Icon.TOOLBAR_BUTTON_BACKGROUND;
+        float alpha = active ? 1.0F : 0.5F;
+        if (!active || !isHovered()) {
+            // Inactive or not hovered: use at normal/slightly dimmed alpha
+        }
+        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
+        g.blit(Icon.TEXTURE, getX(), getY(), width, height,
+            bg.x, bg.y, bg.width, bg.height,
+            Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
         Icon icon = useToggleIcons ? (toggled ? iconOn : iconOff) : iconOn;
         if (icon != null) {
-            float alpha = active ? 1.0F : 0.4F;
             int iconX = getX() + (width - icon.width) / 2;
             int iconY = getY() + (height - icon.height) / 2;
-            NENativeAe2StyleRenderer.drawAeIcon(g, icon, iconX, iconY, alpha);
+            NENativeAe2StyleRenderer.drawAeIcon(g, icon, iconX, iconY, active ? 1.0F : 0.4F);
         }
     }
 }

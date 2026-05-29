@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.widget;
 
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NENativeAe2StyleRenderer;
+import appeng.client.gui.Icon;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -17,7 +17,7 @@ public class NEAe2TextButton extends Button {
 
     public NEAe2TextButton(int x, int y, int width, int height, Component message,
                             OnPress onPress) {
-        this(x, y, width, height, message, onPress, 0xFFC6C6C6, 0xFF555555);
+        this(x, y, width, height, message, onPress, 0xFF404040, 0xFF909090);
     }
 
     public NEAe2TextButton(int x, int y, int width, int height, Component message,
@@ -29,8 +29,14 @@ public class NEAe2TextButton extends Button {
 
     @Override
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        NENativeAe2StyleRenderer.drawAeToolbarButtonBackground(g,
-            getX(), getY(), width, height, isHovered(), active);
+        Icon bg = Icon.TOOLBAR_BUTTON_BACKGROUND;
+        float alpha = active ? 1.0F : 0.5F;
+        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
+        g.blit(Icon.TEXTURE, getX(), getY(), width, height,
+            bg.x, bg.y, bg.width, bg.height,
+            Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
         int color = active ? textColor : disabledTextColor;
         var font = Minecraft.getInstance().font;

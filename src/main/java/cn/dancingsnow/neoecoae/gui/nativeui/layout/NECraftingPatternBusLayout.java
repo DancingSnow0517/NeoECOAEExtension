@@ -41,6 +41,22 @@ public final class NECraftingPatternBusLayout {
     public static final int HOTBAR_SLOT_X = 6;
     public static final int HOTBAR_SLOT_Y = 221;
 
+    // ── Slot group panels (inset backgrounds for grouped slots) ──
+    public static final int PATTERN_PANEL_X = PATTERN_BG_X - 4;
+    public static final int PATTERN_PANEL_Y = PATTERN_BG_Y - 4;
+    public static final int PATTERN_PANEL_W = PATTERN_COLS * SLOT_SIZE + 8;
+    public static final int PATTERN_PANEL_H = PATTERN_ROWS * SLOT_SIZE + 8;
+
+    public static final int PLAYER_INV_PANEL_X = INV_BG_X - 4;
+    public static final int PLAYER_INV_PANEL_Y = INV_BG_Y - 4;
+    public static final int PLAYER_INV_PANEL_W = 9 * SLOT_SIZE + 8;
+    public static final int PLAYER_INV_PANEL_H = 3 * SLOT_SIZE + 8;
+
+    public static final int HOTBAR_PANEL_X = HOTBAR_BG_X - 4;
+    public static final int HOTBAR_PANEL_Y = HOTBAR_BG_Y - 4;
+    public static final int HOTBAR_PANEL_W = 9 * SLOT_SIZE + 8;
+    public static final int HOTBAR_PANEL_H = 1 * SLOT_SIZE + 8;
+
     // ── Title ──
     public static final int TITLE_X = 8;
     public static final int TITLE_Y = 5;

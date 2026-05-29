@@ -699,11 +699,16 @@ public final class NENetwork {
                     return;
                 }
                 switch (pkt.action()) {
+                    case REQUEST_STATE -> {
+                        // Only sync state back, no machine changes
+                        sendIwsStateTo(sender, iws);
+                        ctx.setPacketHandled(true);
+                        return;
+                    }
                     case TOGGLE_AUTO_EXPORT -> iws.toggleAutoExport();
                     case CLEAR_INPUT_FLUID -> iws.clearFluid();
                     case CLEAR_OUTPUT_FLUID -> iws.clearFluidOut();
                     case INPUT_TANK_CONTAINER_CLICK -> iws.handleInputTankContainerClick(sender);
-                    case REQUEST_STATE -> { /* no state change, just sync below */ }
                 }
                 iws.setChanged();
                 iws.markForUpdate();

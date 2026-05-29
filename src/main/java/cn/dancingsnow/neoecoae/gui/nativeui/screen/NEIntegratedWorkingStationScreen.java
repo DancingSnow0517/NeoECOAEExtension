@@ -17,14 +17,14 @@ import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingSta
 
 public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NEIntegratedWorkingStationMenu> {
 
-    private static final int TXT_PRIMARY = 0xFFC6C6C6;
-    private static final int TXT_HINT = 0xFF6A7F9A;
+    private static final int TXT_PRIMARY = 0xFF404040;
+    private static final int TXT_HINT = 0xFF606060;
 
     private NEAe2IconButton autoExportBtn;
 
     public NEIntegratedWorkingStationScreen(NEIntegratedWorkingStationMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
-        this.imageWidth = PANEL_W + UPGRADE_PANEL_X + 2; // Extend width to include upgrade panel
+        this.imageWidth = PANEL_W;
         this.imageHeight = PANEL_H;
     }
 
@@ -42,6 +42,35 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
         // Send REQUEST_STATE on first open to get fluid state immediately
         sendAction(NENetwork.IWSAction.REQUEST_STATE);
+    }
+
+    /**
+     * Treat clicks within the main panel, left toolbar, and right upgrade panel
+     * as "inside" the GUI — prevents the game from interacting with the world
+     * when clicking on these extended areas.
+     */
+    @Override
+    public boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int mouseButton) {
+        // Main panel
+        if (mouseX >= guiLeft && mouseX < guiLeft + PANEL_W
+            && mouseY >= guiTop && mouseY < guiTop + PANEL_H) {
+            return false;
+        }
+        // Left toolbar panel
+        if (mouseX >= guiLeft + SETTINGS_PANEL_X
+            && mouseX < guiLeft + SETTINGS_PANEL_X + SETTINGS_PANEL_W
+            && mouseY >= guiTop + SETTINGS_PANEL_Y
+            && mouseY < guiTop + SETTINGS_PANEL_Y + SETTINGS_PANEL_H) {
+            return false;
+        }
+        // Right upgrade panel
+        if (mouseX >= guiLeft + UPGRADE_PANEL_X
+            && mouseX < guiLeft + UPGRADE_PANEL_X + SLOT_SIZE + UPGRADE_PADDING * 2
+            && mouseY >= guiTop + UPGRADE_PANEL_Y
+            && mouseY < guiTop + UPGRADE_PANEL_Y + UPGRADE_COUNT * SLOT_SIZE + UPGRADE_PADDING * 2) {
+            return false;
+        }
+        return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, mouseButton);
     }
 
     private void sendAction(NENetwork.IWSAction action) {
@@ -96,41 +125,51 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         int x = leftPos;
         int y = topPos;
 
-        // 1. Main panel
+        // 1. Main panel (AE2 BackgroundGenerator)
         NENativeAe2StyleRenderer.drawAeMainPanel(g, x, y, PANEL_W, PANEL_H);
 
-        // 2. Toolbar panel (left-side settings panel)
-        NENativeAe2StyleRenderer.drawAeToolbarPanel(g,
-            x + SETTINGS_PANEL_X, y + SETTINGS_PANEL_Y,
-            SETTINGS_PANEL_W, SETTINGS_PANEL_H);
+        // 2. Input 3×3 slot group panel
+        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
+            x + INPUT_PANEL_X, y + INPUT_PANEL_Y,
+            INPUT_PANEL_W, INPUT_PANEL_H);
 
-        // 3. Upgrade panel (right side, AE2 extra_panels.png)
+        // 3. Player inventory slot group panel
+        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
+            x + PLAYER_INV_PANEL_X, y + PLAYER_INV_PANEL_Y,
+            PLAYER_INV_PANEL_W, PLAYER_INV_PANEL_H);
+
+        // 4. Hotbar slot group panel
+        NENativeAe2StyleRenderer.drawAeSlotGroupPanel(g,
+            x + HOTBAR_PANEL_X, y + HOTBAR_PANEL_Y,
+            HOTBAR_PANEL_W, HOTBAR_PANEL_H);
+
+        // 5. Upgrade panel (right side, AE2 extra_panels.png)
         NENativeAe2StyleRenderer.drawAeUpgradePanel(g,
             x + UPGRADE_PANEL_X, y + UPGRADE_PANEL_Y, UPGRADE_COUNT);
 
-        // 4. Draw ordinary AE2 slots (input 3×3, output, player inv, hotbar)
+        // 6. Draw ordinary AE2 slots (input 3×3, output, player inv, hotbar)
         // --- NOT upgrade slots, they are drawn by the upgrade panel ---
         drawInputSlots(g, x, y);
         drawOutputSlot(g, x, y);
         drawPlayerInventorySlots(g, x, y);
         drawHotbarSlots(g, x, y);
 
-        // 5. Fluid tanks
+        // 7. Fluid tanks
         drawFluidTank(g, x + FLUID_IN_X, y + FLUID_IN_Y, FLUID_IN_W, FLUID_IN_H, true);
         drawFluidTank(g, x + FLUID_OUT_X, y + FLUID_OUT_Y, FLUID_OUT_W, FLUID_OUT_H, false);
 
-        // 6. Progress bar
+        // 8. Progress bar
         NENativeAe2StyleRenderer.drawAeProgressBar(g,
             x + PROGRESS_X, y + PROGRESS_Y, PROGRESS_W, PROGRESS_H,
             menu.getProgress(), menu.getMaxProgress());
 
-        // 7. Upgrade placeholders (empty upgrade slots → BACKGROUND_UPGRADE icon)
+        // 9. Upgrade placeholders (empty upgrade slots → BACKGROUND_UPGRADE icon)
         drawUpgradePlaceholders(g, x, y);
 
-        // 8. Fluid hover highlights
+        // 10. Fluid hover highlights
         drawFluidHover(g, mouseX, mouseY, x, y);
 
-        // 9. Clear fluid buttons (AE2-style small buttons)
+        // 11. Clear fluid buttons (AE2-style small buttons)
         drawClearFluidButtons(g, x, y, mouseX, mouseY);
     }
 
@@ -172,6 +211,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         for (int i = 0; i < UPGRADE_COUNT; i++) {
             int slotIdx = startUpgradeSlot + i;
             if (slotIdx < menu.slots.size() && !menu.getSlot(slotIdx).hasItem()) {
+                // Draw BACKGROUND_UPGRADE at the item/click position (16×16 centred in 18×18)
                 int gx = baseX + UPGRADE_SLOT_X;
                 int gy = baseY + UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE;
                 NENativeAe2StyleRenderer.drawAeIcon(g, Icon.BACKGROUND_UPGRADE, gx, gy, 0.4F);
