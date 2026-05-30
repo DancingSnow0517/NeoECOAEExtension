@@ -37,6 +37,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private static final int DARK_TEXT_PRIMARY = 0xFFD6D0E0;
     private static final int DARK_TEXT_VALUE = 0xFF8377FF;
+    private static final int DARK_TEXT_USED = 0xFF00FC00;
     private static final int DARK_TEXT_MUTED = 0xFFAAA4B2;
     private static final int DARK_TEXT_SUCCESS = 0xFF6CFFA0;
     private static final int DARK_TEXT_ERROR = 0xFFFF6A75;
@@ -53,7 +54,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private static final int TEXT_START_X = LEFT_PANEL_X + 8;
     private static final int TEXT_START_Y = LEFT_PANEL_Y + 8;
-    private static final int TEXT_LINE_STEP = 10;
+    private static final int TEXT_LINE_STEP = 13;
     private static final int TEXT_MAX_W = LEFT_PANEL_W - 16;
 
     private static final int COLUMN_Y = RIGHT_PANEL_Y + 34;
@@ -202,7 +203,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private int drawStorageTypeBlock(GuiGraphics g, Metric metric, int x, int y) {
-        drawPlainLine(g, metric.label(), x, y, metric.accentColor());
+        drawBoldLine(g, metric.label(), x, y, metric.accentColor());
         y += TEXT_LINE_STEP;
         drawUsedTotalLine(g, metric.usedTypes(), metric.totalTypes(), "类型", x, y);
         y += TEXT_LINE_STEP;
@@ -210,9 +211,10 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         return y + TEXT_LINE_STEP;
     }
 
-    private void drawPrefixedUsedTotalLine(GuiGraphics g, String prefix, long used, long max, String suffix, int x, int y) {
+    private void drawPrefixedUsedTotalLine(GuiGraphics g, String prefix, long used, long max, String suffix, int x,
+            int y) {
         int cursor = drawSegment(g, prefix, x, y, DARK_TEXT_MUTED);
-        cursor += drawSegment(g, formatMetricNumber(used), x + cursor, y, DARK_TEXT_VALUE);
+        cursor += drawSegment(g, formatMetricNumber(used), x + cursor, y, DARK_TEXT_USED);
         cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
         cursor += drawSegment(g, formatMetricNumber(max), x + cursor, y, DARK_TEXT_VALUE);
         if (!suffix.isEmpty()) {
@@ -221,7 +223,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawUsedTotalLine(GuiGraphics g, long used, long max, String suffix, int x, int y) {
-        int cursor = drawSegment(g, formatMetricNumber(used), x, y, DARK_TEXT_VALUE);
+        int cursor = drawSegment(g, formatMetricNumber(used), x, y, DARK_TEXT_USED);
         cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
         cursor += drawSegment(g, formatMetricNumber(max), x + cursor, y, DARK_TEXT_VALUE);
         drawSegment(g, " " + suffix, x + cursor, y, DARK_TEXT_MUTED);
@@ -234,6 +236,10 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private void drawPlainLine(GuiGraphics g, Component text, int x, int y, int color) {
         g.drawString(font, text, x, y, color, false);
+    }
+
+    private void drawBoldLine(GuiGraphics g, Component text, int x, int y, int color) {
+        g.drawString(font, text.copy().withStyle(net.minecraft.ChatFormatting.BOLD), x, y, color, false);
     }
 
     private void drawBoundMetricColumns(GuiGraphics g, Metric[] metrics, double[] animatedValues) {
