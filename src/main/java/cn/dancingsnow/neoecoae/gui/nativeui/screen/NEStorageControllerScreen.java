@@ -31,26 +31,29 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private static final NumberFormat NUMBER_FORMAT = NumberFormat.getNumberInstance(Locale.US);
 
-    private static final int LEFT_PANEL_X = 14;
-    private static final int LEFT_PANEL_Y = 29;
+    private static final int LEFT_PANEL_X = 9;
+    private static final int LEFT_PANEL_Y = 30;
     private static final int LEFT_PANEL_W = 198;
     private static final int LEFT_PANEL_H = 158;
 
     private static final int RIGHT_PANEL_X = 218;
-    private static final int RIGHT_PANEL_Y = 29;
-    private static final int RIGHT_PANEL_W = 112;
+    private static final int RIGHT_PANEL_Y = 30;
+    private static final int RIGHT_PANEL_W = 130;
     private static final int RIGHT_PANEL_H = 158;
 
+    private static final int ROW_SIDE_PADDING = 10;
+    private static final int ROW_TOP_PADDING = 14;
     private static final int ROW_X = LEFT_PANEL_X + 10;
     private static final int ROW_W = LEFT_PANEL_W - 20;
     private static final int ROW_H = 30;
     private static final int ROW_GAP = 4;
 
-    private static final int COLUMN_Y = RIGHT_PANEL_Y + 33;
+    private static final int COLUMN_Y = 58;
     private static final int COLUMN_H = 88;
     private static final int COLUMN_PERCENT_GAP = 7;
     private static final int COLUMN_PERCENT_H = 17;
 
+    private static final int FORMED_LABEL_Y = 199;
     private static final double ANIMATION_SPEED = 0.16D;
 
     private boolean hasStorageState;
@@ -63,12 +66,15 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     public NEStorageControllerScreen(NEStorageControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.STORAGE_CONTROLLER);
-        this.imageWidth = 340;
+        this.imageWidth = 358;
         this.imageHeight = 220;
         this.storageState = NEStorageUiState.empty(menu.getMachinePos());
     }
 
-    /** Called from the network thread via {@link cn.dancingsnow.neoecoae.client.NEClientUiPacketHandlers}. */
+    /**
+     * Called from the network thread via
+     * {@link cn.dancingsnow.neoecoae.client.NEClientUiPacketHandlers}.
+     */
     public void setStorageUiState(NEStorageUiState state) {
         this.hasStorageState = true;
         this.storageState = state;
@@ -93,7 +99,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         drawInsetGroupPanel(guiGraphics, LEFT_PANEL_X, LEFT_PANEL_Y, LEFT_PANEL_W, LEFT_PANEL_H);
         drawInsetGroupPanel(guiGraphics, RIGHT_PANEL_X, RIGHT_PANEL_Y, RIGHT_PANEL_W, RIGHT_PANEL_H);
 
-        int y = LEFT_PANEL_Y + 10;
+        int y = LEFT_PANEL_Y + ROW_TOP_PADDING;
         drawMetricRow(guiGraphics, metrics.energy(), ROW_X, y, ROW_W, ROW_H, animatedEnergyPct);
         y += ROW_H + ROW_GAP;
         drawMetricRow(guiGraphics, metrics.items(), ROW_X, y, ROW_W, ROW_H, animatedItemPct);
@@ -104,17 +110,17 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             y += ROW_H + ROW_GAP;
             drawMetricRow(guiGraphics, metrics.chemicals(), ROW_X, y, ROW_W, ROW_H, animatedChemicalPct);
             drawBoundMetricColumns(guiGraphics,
-                new Metric[]{metrics.items(), metrics.fluids(), metrics.chemicals()},
-                new double[]{animatedItemPct, animatedFluidPct, animatedChemicalPct});
+                    new Metric[] { metrics.items(), metrics.fluids(), metrics.chemicals() },
+                    new double[] { animatedItemPct, animatedFluidPct, animatedChemicalPct });
         } else {
             drawBoundMetricColumns(guiGraphics,
-                new Metric[]{metrics.items(), metrics.fluids()},
-                new double[]{animatedItemPct, animatedFluidPct});
+                    new Metric[] { metrics.items(), metrics.fluids() },
+                    new double[] { animatedItemPct, animatedFluidPct });
         }
 
         drawLabelBoolean(guiGraphics,
-            Component.translatable("gui.neoecoae.machine.formed"),
-            s.formed(), LEFT_PANEL_X, 199);
+                Component.translatable("gui.neoecoae.machine.formed"),
+                s.formed(), LEFT_PANEL_X, FORMED_LABEL_Y);
     }
 
     private NEStorageUiState resolveStorageState() {
@@ -128,17 +134,15 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         if (be != null) {
             // Wrap legacy BE getters into a single "unknown" type row.
             NEStorageUiTypeState fallbackType = new NEStorageUiTypeState(
-                ResourceLocation.fromNamespaceAndPath("neoecoae", "legacy"),
-                "Storage",
-                be.getTotalUsedTypes(), be.getTotalTypes(),
-                be.getTotalUsedBytes(), be.getTotalBytes()
-            );
+                    ResourceLocation.fromNamespaceAndPath("neoecoae", "legacy"),
+                    "Storage",
+                    be.getTotalUsedTypes(), be.getTotalTypes(),
+                    be.getTotalUsedBytes(), be.getTotalBytes());
             return new NEStorageUiState(
-                menu.getMachinePos(),
-                Collections.singletonList(fallbackType),
-                be.getStoredEnergy(), be.getMaxEnergy(),
-                be.isFormed()
-            );
+                    menu.getMachinePos(),
+                    Collections.singletonList(fallbackType),
+                    be.getStoredEnergy(), be.getMaxEnergy(),
+                    be.isFormed());
         }
         return this.storageState;
     }
@@ -154,12 +158,11 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         }
 
         Metric energy = new Metric(
-            Component.literal("能量"),
-            s.storedEnergy(), s.maxEnergy(),
-            0xFF5374C8,
-            false,
-            false
-        );
+                Component.literal("能量"),
+                s.storedEnergy(), s.maxEnergy(),
+                0xFF5374C8,
+                false,
+                false);
         Metric items = createTypeMetric(itemState, Component.literal("物品"), true, 0xFF43B678);
         Metric fluids = createTypeMetric(fluidState, Component.literal("流体"), true, 0xFF3A8FD6);
         Metric chemicals = createTypeMetric(chemicalState, Component.literal("化学品"), true, 0xFF9A6AE8);
@@ -167,7 +170,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private Metric createTypeMetric(NEStorageUiTypeState state, Component fallbackLabel,
-                                    boolean dangerHigh, int accentColor) {
+            boolean dangerHigh, int accentColor) {
         if (state == null) {
             return new Metric(fallbackLabel, 0, 0, accentColor, dangerHigh, true);
         }
@@ -267,7 +270,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawInsetGroupPanel(GuiGraphics g, int x, int y, int w, int h) {
-        // Pseudo-rounded inset panel: clipped 2px corners, dark top/left shadow and light bottom/right edge.
+        // Pseudo-rounded inset panel: clipped 2px corners, dark top/left shadow and
+        // light bottom/right edge.
         g.fill(x + 3, y, x + w - 3, y + 1, 0xFF3F3F3F);
         g.fill(x + 1, y + 1, x + w - 1, y + 2, 0xFF575757);
         g.fill(x, y + 3, x + 1, y + h - 3, 0xFF3F3F3F);
@@ -310,9 +314,9 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static boolean hasChemicalStorageIntegration() {
         ModList mods = ModList.get();
         return mods.isLoaded("mekanism")
-            && (mods.isLoaded("appmek")
-            || mods.isLoaded("applied_mekanistics")
-            || mods.isLoaded("appliedmekanistics"));
+                && (mods.isLoaded("appmek")
+                        || mods.isLoaded("applied_mekanistics")
+                        || mods.isLoaded("appliedmekanistics"));
     }
 
     private static NEStorageUiTypeState findTypeState(List<NEStorageUiTypeState> types, String needle) {
@@ -328,7 +332,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private static NEStorageUiTypeState findChemicalTypeState(List<NEStorageUiTypeState> types) {
-        String[] needles = new String[]{"chemical", "chem", "gas", "infuse", "infusion", "pigment", "slurry", "mekanism"};
+        String[] needles = new String[] { "chemical", "chem", "gas", "infuse", "infusion", "pigment", "slurry",
+                "mekanism" };
         for (String needle : needles) {
             NEStorageUiTypeState state = findTypeState(types, needle);
             if (state != null) {
@@ -392,7 +397,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private record Metric(Component label, long used, long max, int accentColor,
-                          boolean dangerHigh, boolean byteBased) {
+            boolean dangerHigh, boolean byteBased) {
         private double percent() {
             return NEStorageControllerScreen.percent(used, max);
         }
