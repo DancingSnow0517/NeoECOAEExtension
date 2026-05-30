@@ -19,12 +19,11 @@ import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import net.minecraftforge.registries.ForgeRegistries;
 
 public record CoolingRecipe(
-    ResourceLocation id,
-    SizedFluidIngredient input,
-    FluidStack output,
-    int coolant,
-    int maxOverclock
-) implements Recipe<CoolingRecipe.Input> {
+        ResourceLocation id,
+        SizedFluidIngredient input,
+        FluidStack output,
+        int coolant,
+        int maxOverclock) implements Recipe<CoolingRecipe.Input> {
 
     @Override
     public boolean matches(Input i, Level l) {
@@ -79,8 +78,8 @@ public record CoolingRecipe(
                 throw new JsonParseException("Recipe " + id + " input " + e.getMessage(), e);
             }
             FluidStack output = json.has("output")
-                ? readFluidStack(id, json.getAsJsonObject("output"))
-                : FluidStack.EMPTY;
+                    ? readFluidStack(id, json.getAsJsonObject("output"))
+                    : FluidStack.EMPTY;
             int coolant = json.get("coolant").getAsInt();
             int maxOverclock = json.has("max_overclock") ? json.get("max_overclock").getAsInt() : 0;
             return new CoolingRecipe(id, input, output, coolant, maxOverclock);
@@ -109,12 +108,11 @@ public record CoolingRecipe(
         @Override
         public CoolingRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
             return new CoolingRecipe(
-                id,
-                SizedFluidIngredient.fromNetwork(buffer),
-                FluidStack.readFromPacket(buffer),
-                buffer.readVarInt(),
-                buffer.readVarInt()
-            );
+                    id,
+                    SizedFluidIngredient.fromNetwork(buffer),
+                    FluidStack.readFromPacket(buffer),
+                    buffer.readVarInt(),
+                    buffer.readVarInt());
         }
 
         @Override
