@@ -3,23 +3,13 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.network.NENetwork;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.fml.ModList;
 
-import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -49,31 +39,27 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private static final int PANEL_MARGIN = 7;
     private static final int PANEL_GAP = 7;
 
-    private static final int PREVIEW_X = PANEL_MARGIN;
-    private static final int PREVIEW_Y = 24;
-    private static final int PREVIEW_W = 358 - PANEL_MARGIN * 2;
-    private static final int PREVIEW_H = 101;
-
-    private static final int LOWER_Y = PREVIEW_Y + PREVIEW_H + PANEL_GAP;
-    private static final int LOWER_H = 220 - LOWER_Y - PANEL_MARGIN;
+    private static final int CONTENT_Y = 24;
+    private static final int CONTENT_H = 220 - CONTENT_Y - PANEL_MARGIN;
 
     private static final int CONTROL_X = PANEL_MARGIN;
-    private static final int CONTROL_Y = LOWER_Y;
+    private static final int CONTROL_Y = CONTENT_Y;
     private static final int CONTROL_W = 154;
-    private static final int CONTROL_H = LOWER_H;
+    private static final int CONTROL_H = CONTENT_H;
 
     private static final int MATERIAL_X = CONTROL_X + CONTROL_W + PANEL_GAP;
-    private static final int MATERIAL_Y = LOWER_Y;
+    private static final int MATERIAL_Y = CONTENT_Y;
     private static final int MATERIAL_W = 358 - MATERIAL_X - PANEL_MARGIN;
-    private static final int MATERIAL_H = LOWER_H;
+    private static final int MATERIAL_H = CONTENT_H;
 
     private int displayBuildLength;
     private int minLength = 1;
     private int maxLength = 12;
 
     // Toggle states (client-only, not synced)
+    private boolean buildMode = true;
     private boolean dismantleMode = false;
-    private boolean expansionMode = true;
+    private boolean expansionMode = false;
 
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -92,53 +78,66 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     protected void init() {
         super.init();
 
-        int baseX = leftPos + CONTROL_X + 10;
-        int baseY = topPos + CONTROL_Y + 25;
-
+        int buttonH = 18;
         int smallW = 22;
-        int smallH = 20;
+        int valueW = 46;
+        int resetW = smallW * 2 + valueW; // 90
+        int modeW = 48;
 
-        int resetW = 70;
-        int resetH = 20;
+        int baseX = leftPos + CONTROL_X + 10;
+        int baseY = topPos + CONTROL_Y + 24;
+        int modeX = leftPos + CONTROL_X + CONTROL_W - modeW - 10;
+        int rowGap = 3;
 
-        int toggleX = leftPos + CONTROL_X + CONTROL_W - 58;
-        int toggleY = topPos + CONTROL_Y + 22;
-        int toggleW = 48;
-        int toggleH = 18;
+        int row0Y = baseY;
+        int row1Y = row0Y + buttonH + rowGap;
+        int row2Y = row1Y + buttonH + rowGap;
 
-        // Length: - / +
-        addRenderableWidget(new NEInsetTextButton(baseX, baseY, smallW, smallH,
+        // Row 1 (row1Y): - / value / + --- dismantle
+        addRenderableWidget(new NEInsetTextButton(baseX, row1Y, smallW, buttonH,
                 Component.literal("-"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
-        addRenderableWidget(new NEInsetTextButton(baseX + 74, baseY, smallW, smallH,
+        addRenderableWidget(new NEInsetTextButton(baseX + smallW + valueW, row1Y, smallW, buttonH,
                 Component.literal("+"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
-        // Reset
-        addRenderableWidget(new NEInsetTextButton(baseX, baseY + 27, resetW, resetH,
+        // Row 2 (row2Y): reset --- expansion
+        addRenderableWidget(new NEInsetTextButton(baseX, row2Y, resetW, buttonH,
                 Component.translatable("gui.neoecoae.structure_terminal.reset"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
-        // Toggle: dismantle
-        addRenderableWidget(new NEToggleTextButton(toggleX, toggleY, toggleW, toggleH,
+        // Row 0 (row0Y): build mode toggle
+        addRenderableWidget(new NEToggleTextButton(modeX, row0Y, modeW, buttonH,
+                Component.literal("搭建"),
+                () -> buildMode,
+                btn -> {
+                    buildMode = true;
+                    dismantleMode = false;
+                    expansionMode = false;
+                }));
+
+        // Row 1 (row1Y): dismantle mode toggle
+        addRenderableWidget(new NEToggleTextButton(modeX, row1Y, modeW, buttonH,
                 Component.literal("拆除"),
                 () -> dismantleMode,
                 btn -> {
+                    buildMode = false;
                     dismantleMode = true;
                     expansionMode = false;
                 }));
 
-        // Toggle: expansion
-        addRenderableWidget(new NEToggleTextButton(toggleX, toggleY + 22, toggleW, toggleH,
+        // Row 2 (row2Y): expansion mode toggle
+        addRenderableWidget(new NEToggleTextButton(modeX, row2Y, modeW, buttonH,
                 Component.literal("扩建"),
                 () -> expansionMode,
                 btn -> {
-                    expansionMode = true;
+                    buildMode = false;
                     dismantleMode = false;
+                    expansionMode = true;
                 }));
     }
 
@@ -150,12 +149,9 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(leftPos, topPos, 0);
 
-        drawDarkInsetRect(guiGraphics, PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H);
         drawDarkInsetRect(guiGraphics, CONTROL_X, CONTROL_Y, CONTROL_W, CONTROL_H);
         drawDarkInsetRect(guiGraphics, MATERIAL_X, MATERIAL_Y, MATERIAL_W, MATERIAL_H);
         drawMaterialSlotGrid(guiGraphics);
-
-        renderStructurePreview(guiGraphics, PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H);
 
         guiGraphics.pose().popPose();
     }
@@ -167,22 +163,24 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
                 NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
 
-        // ── Preview area ──
-        guiGraphics.drawString(font, Component.literal("结构预览区域"),
-                PREVIEW_X + 10, PREVIEW_Y + 8, DARK_TEXT_PRIMARY, false);
-
-        Component lengthText = Component.literal("长度: " + displayBuildLength + " / " + maxLength);
-        guiGraphics.drawString(font, lengthText,
-                PREVIEW_X + 10, PREVIEW_Y + PREVIEW_H - 16,
-                DARK_TEXT_MUTED, false);
-
         // ── Control panel ──
+        int cLabelX = CONTROL_X + 10;
+        int cLabelY = CONTROL_Y + 8;
         guiGraphics.drawString(font, Component.literal("结构长度"),
-                CONTROL_X + 10, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
+                cLabelX, cLabelY, DARK_TEXT_PRIMARY, false);
+
+        int cSmallW = 22;
+        int cValueW = 46;
+        int cButtonH = 18;
+        int cRowGap = 3;
+        int cBaseX = CONTROL_X + 10;
+        int cBaseY = CONTROL_Y + 24;
+        int cRow1Y = cBaseY + cButtonH + cRowGap;
 
         String lengthValue = String.valueOf(displayBuildLength);
-        int valueX = CONTROL_X + 10 + 22 + (52 - font.width(lengthValue)) / 2;
-        int valueY = CONTROL_Y + 31;
+        int valueBoxX = cBaseX + cSmallW;
+        int valueX = valueBoxX + (cValueW - font.width(lengthValue)) / 2;
+        int valueY = cRow1Y + (cButtonH - font.lineHeight) / 2;
         guiGraphics.drawString(font, Component.literal(lengthValue), valueX, valueY, DARK_TEXT_VALUE, false);
 
         // ── Material panel ──
@@ -349,74 +347,9 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         }
     }
 
-    // ── 3D BlockState preview ──
+    // ── LDLib1 optional preview detection ──
 
-    private record PreviewBlock(BlockPos pos, BlockState state) {
-    }
-
-    private List<PreviewBlock> buildDebugPreviewBlocks() {
-        return List.of(
-                new PreviewBlock(new BlockPos(0, 0, 0), Blocks.IRON_BLOCK.defaultBlockState()),
-                new PreviewBlock(new BlockPos(1, 0, 0), Blocks.IRON_BLOCK.defaultBlockState()),
-                new PreviewBlock(new BlockPos(2, 0, 0), Blocks.IRON_BLOCK.defaultBlockState()),
-
-                new PreviewBlock(new BlockPos(0, 1, 0), Blocks.GLASS.defaultBlockState()),
-                new PreviewBlock(new BlockPos(1, 1, 0), Blocks.COPPER_BLOCK.defaultBlockState()),
-                new PreviewBlock(new BlockPos(2, 1, 0), Blocks.GLASS.defaultBlockState()),
-
-                new PreviewBlock(new BlockPos(0, 0, 1), Blocks.SMOOTH_STONE.defaultBlockState()),
-                new PreviewBlock(new BlockPos(1, 0, 1), Blocks.SMOOTH_STONE.defaultBlockState()),
-                new PreviewBlock(new BlockPos(2, 0, 1), Blocks.SMOOTH_STONE.defaultBlockState()));
-    }
-
-    private void renderStructurePreview(GuiGraphics g, int x, int y, int w, int h) {
-        List<PreviewBlock> blocks = buildDebugPreviewBlocks();
-        if (blocks.isEmpty()) {
-            return;
-        }
-
-        int scissorX1 = leftPos + x + 6;
-        int scissorY1 = topPos + y + 6;
-        int scissorX2 = leftPos + x + w - 6;
-        int scissorY2 = topPos + y + h - 6;
-
-        g.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
-
-        PoseStack pose = g.pose();
-        pose.pushPose();
-
-        pose.translate(x + w / 2.0F, y + h / 2.0F + 22.0F, 250.0F);
-
-        float scale = 24.0F;
-        pose.scale(scale, -scale, scale);
-
-        pose.mulPose(Axis.XP.rotationDegrees(30.0F));
-        pose.mulPose(Axis.YP.rotationDegrees(45.0F));
-
-        pose.translate(-1.0F, -0.75F, -0.5F);
-
-        Minecraft mc = Minecraft.getInstance();
-        BlockRenderDispatcher blockRenderer = mc.getBlockRenderer();
-        MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
-
-        for (PreviewBlock block : blocks) {
-            pose.pushPose();
-            BlockPos p = block.pos();
-            pose.translate(p.getX(), p.getY(), p.getZ());
-
-            blockRenderer.renderSingleBlock(
-                    block.state(),
-                    pose,
-                    buffer,
-                    LightTexture.FULL_BRIGHT,
-                    OverlayTexture.NO_OVERLAY);
-
-            pose.popPose();
-        }
-
-        buffer.endBatch();
-        pose.popPose();
-
-        g.disableScissor();
+    private static boolean hasLDLib1() {
+        return ModList.get().isLoaded("ldlib");
     }
 }
