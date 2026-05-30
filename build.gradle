@@ -101,6 +101,7 @@ minecraft {
             property 'forge.logging.console.level', 'debug'
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            args '--width', '1920', '--height', '1080'
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -183,7 +184,6 @@ sourceSets.main.resources {
 def forge120JavaExcludes = [
         'cn/dancingsnow/neoecoae/integration/**',
         'cn/dancingsnow/neoecoae/mixins/**',
-        'cn/dancingsnow/neoecoae/forge/mixin/**',
         'cn/dancingsnow/neoecoae/client/model/**',
         'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java',
         'cn/dancingsnow/neoecoae/client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java',
