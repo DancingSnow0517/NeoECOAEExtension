@@ -13,12 +13,12 @@ import net.minecraft.world.entity.player.Inventory;
  * Screen for the Structure Terminal configuration UI.
  * <p>
  * Layout: large preview area (top), length controls + buttons (bottom-left),
- * material list placeholder (bottom-right), status bar (bottom).
+ * material list placeholder (bottom-right).
  * </p>
  */
 public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
 
-    // ── Layout constants ──
+    // ── Colours ──
 
     private static final int DARK_PANEL_OUTER = 0xFF17141E;
     private static final int DARK_PANEL_MIDDLE = 0xFF2B2834;
@@ -31,25 +31,28 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private static final int DARK_TEXT_MUTED = 0xFFAAA4B2;
     private static final int DARK_TEXT_SUCCESS = 0xFF6CFFA0;
 
-    private static final int PREVIEW_X = 9;
+    // ── Layout constants (uniform 7 px margin) ──
+
+    private static final int PANEL_MARGIN = 7;
+    private static final int PANEL_GAP = 7;
+
+    private static final int PREVIEW_X = PANEL_MARGIN;
     private static final int PREVIEW_Y = 24;
-    private static final int PREVIEW_W = 340;
-    private static final int PREVIEW_H = 96;
+    private static final int PREVIEW_W = 358 - PANEL_MARGIN * 2;
+    private static final int PREVIEW_H = 101;
 
-    private static final int CONTROL_X = 9;
-    private static final int CONTROL_Y = 128;
-    private static final int CONTROL_W = 160;
-    private static final int CONTROL_H = 59;
+    private static final int LOWER_Y = PREVIEW_Y + PREVIEW_H + PANEL_GAP;
+    private static final int LOWER_H = 220 - LOWER_Y - PANEL_MARGIN;
 
-    private static final int MATERIAL_X = 178;
-    private static final int MATERIAL_Y = 128;
-    private static final int MATERIAL_W = 171;
-    private static final int MATERIAL_H = 59;
+    private static final int CONTROL_X = PANEL_MARGIN;
+    private static final int CONTROL_Y = LOWER_Y;
+    private static final int CONTROL_W = 158;
+    private static final int CONTROL_H = LOWER_H;
 
-    private static final int BOTTOM_BAR_X = 9;
-    private static final int BOTTOM_BAR_Y = 197;
-    private static final int BOTTOM_BAR_W = 340;
-    private static final int BOTTOM_BAR_H = 16;
+    private static final int MATERIAL_X = CONTROL_X + CONTROL_W + PANEL_GAP;
+    private static final int MATERIAL_Y = LOWER_Y;
+    private static final int MATERIAL_W = 358 - MATERIAL_X - PANEL_MARGIN;
+    private static final int MATERIAL_H = LOWER_H;
 
     private int displayBuildLength;
     private int minLength = 1;
@@ -76,31 +79,31 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int smallW = 24;
         int mediumW = 44;
 
-        int x = leftPos + CONTROL_X + 10;
-        int y = topPos + CONTROL_Y + 9;
+        int baseX = leftPos + CONTROL_X + 10;
+        int baseY = topPos + CONTROL_Y + 25;
 
         // Row 1: length adjustment
-        addRenderableWidget(new NEAe2TextButton(x, y, smallW, btnH,
+        addRenderableWidget(new NEAe2TextButton(baseX, baseY, smallW, btnH,
             Component.literal("-"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
-        addRenderableWidget(new NEAe2TextButton(x + 98, y, smallW, btnH,
+        addRenderableWidget(new NEAe2TextButton(baseX + 98, baseY, smallW, btnH,
             Component.literal("+"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
         // Row 2: reset, preview, build
-        addRenderableWidget(new NEAe2TextButton(x, y + 27, mediumW, btnH,
+        addRenderableWidget(new NEAe2TextButton(baseX, baseY + 27, mediumW, btnH,
             Component.translatable("gui.neoecoae.structure_terminal.reset"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
-        addRenderableWidget(new NEAe2TextButton(x + 49, y + 27, mediumW, btnH,
+        addRenderableWidget(new NEAe2TextButton(baseX + 49, baseY + 27, mediumW, btnH,
             Component.literal("预览"),
             btn -> {}));
 
-        addRenderableWidget(new NEAe2TextButton(x + 98, y + 27, mediumW, btnH,
+        addRenderableWidget(new NEAe2TextButton(baseX + 98, baseY + 27, mediumW, btnH,
             Component.literal("构建"),
             btn -> {}));
     }
@@ -112,29 +115,30 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        // Title
+        // Title — use machine-native colour (not dark-panel text)
         guiGraphics.drawString(font, title,
             NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
-            NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+            NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
 
         // ── Panels ──
         drawDarkInsetRect(guiGraphics, PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H);
         drawDarkInsetRect(guiGraphics, CONTROL_X, CONTROL_Y, CONTROL_W, CONTROL_H);
         drawDarkInsetRect(guiGraphics, MATERIAL_X, MATERIAL_Y, MATERIAL_W, MATERIAL_H);
-        drawDarkInsetRect(guiGraphics, BOTTOM_BAR_X, BOTTOM_BAR_Y, BOTTOM_BAR_W, BOTTOM_BAR_H);
 
         // ── Preview area ──
         guiGraphics.drawString(font, Component.literal("结构预览区域"),
             PREVIEW_X + 10, PREVIEW_Y + 8, DARK_TEXT_PRIMARY, false);
 
+        Component placeholder = Component.literal("3D Preview Placeholder");
+        guiGraphics.drawString(font, placeholder,
+            PREVIEW_X + (PREVIEW_W - font.width(placeholder)) / 2,
+            PREVIEW_Y + PREVIEW_H / 2 - 4,
+            DARK_TEXT_MUTED, false);
+
         Component lengthText = Component.literal("长度: " + displayBuildLength + " / " + maxLength);
         guiGraphics.drawString(font, lengthText,
-            PREVIEW_X + 10, PREVIEW_Y + PREVIEW_H - 16, DARK_TEXT_MUTED, false);
-
-        Component placeholder = Component.literal("3D Preview Placeholder");
-        int placeholderX = PREVIEW_X + (PREVIEW_W - font.width(placeholder)) / 2;
-        int placeholderY = PREVIEW_Y + PREVIEW_H / 2 - 4;
-        guiGraphics.drawString(font, placeholder, placeholderX, placeholderY, DARK_TEXT_MUTED, false);
+            PREVIEW_X + 10, PREVIEW_Y + PREVIEW_H - 16,
+            DARK_TEXT_MUTED, false);
 
         // ── Control panel ──
         guiGraphics.drawString(font, Component.literal("结构长度"),
@@ -142,28 +146,11 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
         String lengthValue = String.valueOf(displayBuildLength);
         int valueX = CONTROL_X + 10 + 24 + (74 - font.width(lengthValue)) / 2;
-        int valueY = CONTROL_Y + 16;
+        int valueY = CONTROL_Y + 31;
         guiGraphics.drawString(font, Component.literal(lengthValue), valueX, valueY, DARK_TEXT_VALUE, false);
 
-        Component range = Component.literal("范围: " + minLength + " - " + maxLength);
-        guiGraphics.drawString(font, range,
-            CONTROL_X + 10, CONTROL_Y + CONTROL_H - 13, DARK_TEXT_MUTED, false);
-
         // ── Material panel ──
-        guiGraphics.drawString(font, Component.literal("所需方块"),
-            MATERIAL_X + 10, MATERIAL_Y + 8, DARK_TEXT_PRIMARY, false);
-
-        guiGraphics.drawString(font, Component.literal("等待结构预览数据"),
-            MATERIAL_X + 10, MATERIAL_Y + 24, DARK_TEXT_MUTED, false);
-
-        guiGraphics.drawString(font, Component.literal("- 暂无材料列表"),
-            MATERIAL_X + 10, MATERIAL_Y + 38, DARK_TEXT_MUTED, false);
-
-        // ── Bottom status bar ──
-        Component bottom = Component.literal("调整长度后可预览并构建结构");
-        int bottomX = BOTTOM_BAR_X + (BOTTOM_BAR_W - font.width(bottom)) / 2;
-        int bottomY = BOTTOM_BAR_Y + (BOTTOM_BAR_H - font.lineHeight) / 2;
-        guiGraphics.drawString(font, bottom, bottomX, bottomY, DARK_TEXT_PRIMARY, false);
+        drawMaterialListPlaceholder(guiGraphics);
     }
 
     @Override
@@ -182,5 +169,34 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         g.fill(x + 3, y + 3, x + w - 3, y + h - 3, 0xFF0D0D11);
         g.fill(x + 4, y + 4, x + w - 4, y + h - 4, 0xFF47434F);
         g.fill(x + 5, y + 5, x + w - 5, y + h - 5, 0xFF605A66);
+    }
+
+    private void drawMaterialListPlaceholder(GuiGraphics g) {
+        int x = MATERIAL_X + 10;
+        int y = MATERIAL_Y + 8;
+
+        g.drawString(font, Component.literal("所需方块"), x, y, DARK_TEXT_PRIMARY, false);
+
+        int listX = MATERIAL_X + 8;
+        int listY = MATERIAL_Y + 22;
+        int listW = MATERIAL_W - 16;
+        int rowH = 12;
+        int rows = 4;
+
+        for (int i = 0; i < rows; i++) {
+            int rowY = listY + i * rowH;
+
+            // Row separator line
+            g.fill(listX, rowY + rowH - 1, listX + listW, rowY + rowH, 0x447A7482);
+
+            // Icon placeholder square
+            g.fill(listX, rowY + 1, listX + 10, rowY + 11, 0x4017141E);
+            g.fill(listX + 1, rowY + 2, listX + 9, rowY + 10, 0x40665F6D);
+        }
+
+        Component empty = Component.literal("暂无材料数据");
+        int emptyX = listX + 16;
+        int emptyY = listY + 3;
+        g.drawString(font, empty, emptyX, emptyY, DARK_TEXT_MUTED, false);
     }
 }
