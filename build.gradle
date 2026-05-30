@@ -101,6 +101,7 @@ minecraft {
             property 'forge.logging.console.level', 'debug'
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            args '--width', '1920', '--height', '1080'
             mods {
                 "${mod_id}" {
                     source sourceSets.main
