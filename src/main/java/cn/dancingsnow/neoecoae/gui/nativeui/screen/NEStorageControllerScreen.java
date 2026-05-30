@@ -34,17 +34,17 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static final int LEFT_PANEL_X = 14;
     private static final int LEFT_PANEL_Y = 29;
     private static final int LEFT_PANEL_W = 194;
-    private static final int LEFT_PANEL_H = 154;
+    private static final int LEFT_PANEL_H = 164;
 
     private static final int RIGHT_PANEL_X = 212;
     private static final int RIGHT_PANEL_Y = 29;
-    private static final int RIGHT_PANEL_W = 94;
-    private static final int RIGHT_PANEL_H = 154;
+    private static final int RIGHT_PANEL_W = 96;
+    private static final int RIGHT_PANEL_H = 164;
 
-    private static final int ROW_X = LEFT_PANEL_X + 8;
-    private static final int ROW_W = LEFT_PANEL_W - 16;
-    private static final int ROW_H = 31;
-    private static final int ROW_GAP = 4;
+    private static final int ROW_X = LEFT_PANEL_X + 10;
+    private static final int ROW_W = LEFT_PANEL_W - 20;
+    private static final int ROW_H = 29;
+    private static final int ROW_GAP = 5;
 
     private static final int COLUMN_Y = RIGHT_PANEL_Y + 31;
     private static final int COLUMN_H = 101;
@@ -91,7 +91,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         drawInsetGroupPanel(guiGraphics, LEFT_PANEL_X, LEFT_PANEL_Y, LEFT_PANEL_W, LEFT_PANEL_H);
         drawInsetGroupPanel(guiGraphics, RIGHT_PANEL_X, RIGHT_PANEL_Y, RIGHT_PANEL_W, RIGHT_PANEL_H);
 
-        int y = LEFT_PANEL_Y + 9;
+        int y = LEFT_PANEL_Y + 10;
         drawMetricRow(guiGraphics, metrics.energy(), ROW_X, y, ROW_W, ROW_H, animatedEnergyPct);
         y += ROW_H + ROW_GAP;
         drawMetricRow(guiGraphics, metrics.items(), ROW_X, y, ROW_W, ROW_H, animatedItemPct);
@@ -110,12 +110,12 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
                 new double[]{animatedItemPct, animatedFluidPct});
         }
 
-        drawPanelFooterBar(guiGraphics, LEFT_PANEL_X + 8, LEFT_PANEL_Y + LEFT_PANEL_H - 14, LEFT_PANEL_W - 16);
-        drawPanelFooterBar(guiGraphics, RIGHT_PANEL_X + 8, RIGHT_PANEL_Y + RIGHT_PANEL_H - 14, RIGHT_PANEL_W - 16);
+        drawPanelFooterBar(guiGraphics, LEFT_PANEL_X + 10, LEFT_PANEL_Y + LEFT_PANEL_H - 13, LEFT_PANEL_W - 20);
+        drawPanelFooterBar(guiGraphics, RIGHT_PANEL_X + 10, RIGHT_PANEL_Y + RIGHT_PANEL_H - 13, RIGHT_PANEL_W - 20);
 
         drawLabelBoolean(guiGraphics,
             Component.translatable("gui.neoecoae.machine.formed"),
-            s.formed(), LEFT_PANEL_X, 191);
+            s.formed(), LEFT_PANEL_X, 199);
     }
 
     private NEStorageUiState resolveStorageState() {
@@ -176,7 +176,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawMetricRow(GuiGraphics g, Metric metric, int x, int y, int w, int h, double animatedPct) {
-        drawSoftRowPanel(g, x, y, w, h);
+        drawMetricLane(g, metric, x, y, w, h);
 
         int labelColor = NENativeUiConstants.MACHINE_TEXT_PRIMARY;
         int valueColor = NENativeUiConstants.MACHINE_TEXT_VALUE;
@@ -186,19 +186,21 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             ? NENativeUiConstants.MACHINE_TEXT_MUTED
             : metricColor(metric, metric.percent());
 
-        g.drawString(font, metric.label(), x + 7, y + 4, labelColor, false);
+        int labelY = y + 3;
+        int valueY = y + 14;
+        g.drawString(font, metric.label(), x + 8, labelY, labelColor, false);
         g.drawString(font, Component.literal(percent),
-            x + w - 7 - font.width(percent), y + 4,
+            x + w - 8 - font.width(percent), labelY,
             percentColor, false);
 
         String valueText = formatMetricNumber(metric.used()) + " / " + formatMetricNumber(metric.max());
-        int valueMaxWidth = w - 14;
+        int valueMaxWidth = w - 16;
         if (font.width(valueText) > valueMaxWidth) {
             valueText = font.plainSubstrByWidth(valueText, valueMaxWidth - font.width("…")) + "…";
         }
-        g.drawString(font, Component.literal(valueText), x + 7, y + 16, valueColor, false);
+        g.drawString(font, Component.literal(valueText), x + 8, valueY, valueColor, false);
 
-        drawHorizontalMetricBar(g, x + 7, y + h - 7, w - 14, 5, animatedPct, metric);
+        drawHorizontalMetricBar(g, x + 8, y + h - 8, w - 16, 6, animatedPct, metric);
     }
 
     private void drawHorizontalMetricBar(GuiGraphics g, int x, int y, int w, int h, double pct, Metric metric) {
@@ -218,7 +220,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private void drawBoundMetricColumns(GuiGraphics g, Metric[] metrics, double[] animatedValues) {
         int count = metrics.length;
         int columnW = count == 3 ? 26 : 34;
-        int gap = count == 3 ? 6 : 18;
+        int gap = count == 3 ? 7 : 18;
         int totalW = columnW * count + gap * (count - 1);
         int startX = RIGHT_PANEL_X + (RIGHT_PANEL_W - totalW) / 2;
 
@@ -279,20 +281,18 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         g.fill(x + w - 1, y + 3, x + w, y + h - 3, 0xFFFFFFFF);
         g.fill(x + w - 2, y + 2, x + w - 1, y + h - 2, 0xFFE8E8E8);
 
-        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, 0xFFD1D2D3);
-        g.fill(x + 4, y + 4, x + w - 4, y + h - 4, 0xFFBFC2C5);
-        g.fill(x + 4, y + 4, x + w - 4, y + 5, 0x407A7A7A);
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, 0xFFD5D7D9);
+        g.fill(x + 4, y + 4, x + w - 4, y + h - 4, 0xFFC4C8CC);
+        g.fill(x + 4, y + 4, x + w - 4, y + 5, 0x50707070);
         g.fill(x + 4, y + h - 5, x + w - 4, y + h - 4, 0x60FFFFFF);
     }
 
-    private void drawSoftRowPanel(GuiGraphics g, int x, int y, int w, int h) {
-        g.fill(x + 2, y, x + w - 2, y + h, 0xFFE3E4E5);
-        g.fill(x, y + 2, x + w, y + h - 2, 0xFFE3E4E5);
-        g.fill(x + 2, y, x + w - 2, y + 1, 0xFF686868);
-        g.fill(x, y + 2, x + 1, y + h - 2, 0xFF686868);
-        g.fill(x + 2, y + h - 1, x + w - 2, y + h, 0xFFFFFFFF);
-        g.fill(x + w - 1, y + 2, x + w, y + h - 2, 0xFFFFFFFF);
-        g.fill(x + 4, y + h - 10, x + w - 4, y + h - 9, 0x30404040);
+    private void drawMetricLane(GuiGraphics g, Metric metric, int x, int y, int w, int h) {
+        int accent = metric.accentColor();
+        g.fill(x + 2, y + 1, x + w - 2, y + h - 1, 0xAADFE2E5);
+        g.fill(x, y + 3, x + 3, y + h - 3, darken(accent, 0.78D));
+        g.fill(x + 4, y + h - 1, x + w - 4, y + h, 0x70FFFFFF);
+        g.fill(x + 6, y + h - 10, x + w - 6, y + h - 9, 0x30404040);
     }
 
     private void drawPanelFooterBar(GuiGraphics g, int x, int y, int w) {
