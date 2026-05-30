@@ -12,11 +12,10 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 public class NEAppMekCellTypes {
 
     public static final RegistryEntry<ECOCellType> CHEMICAL = REGISTRATE
-        .cellType("chemicals", () -> new ECOCellType(
-            NeoECOAE.id("chemicals"),
-            AppMekCompat.getChemicalKeyType().getDescription()
-        ))
-        .register();
+            .cellType("chemicals", () -> new ECOCellType(
+                    NeoECOAE.id("chemicals"),
+                    AppMekCompat.getChemicalKeyType().getDescription()))
+            .register();
 
     public static void register() {
     }

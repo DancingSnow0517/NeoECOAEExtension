@@ -52,10 +52,14 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     private final int bytesPerType;
     private final int totalTypes;
     private final AEKeyType keyType;
-    /** Registered cell-type entry — direct access avoids Component-desc matching bugs. */
+    /**
+     * Registered cell-type entry — direct access avoids Component-desc matching
+     * bugs.
+     */
     private final RegistryEntry<ECOCellType> cellType;
 
-    public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType, RegistryEntry<ECOCellType> cellType) {
+    public ECOStorageCellItem(Properties properties, IECOTier tier, AEKeyType keyType,
+            RegistryEntry<ECOCellType> cellType) {
         super(properties);
         this.tier = tier;
         this.totalBytes = tier.getStorageTotalBytes();
@@ -91,7 +95,8 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> lines, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> lines,
+            TooltipFlag tooltipFlag) {
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
@@ -157,11 +162,10 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
 
         return Optional.of(new StorageCellTooltipComponent(
-            upgradeStacks,
-            content,
-            hasMoreContent,
-            true)
-        );
+                upgradeStacks,
+                content,
+                hasMoreContent,
+                true));
     }
 
     @Nullable
@@ -193,7 +197,6 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         is.getOrCreateTag().putString("fuzzyMode", fzMode.name());
     }
 
-
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
         return CellConfig.create(key -> key.getType() == keyType, is);
@@ -207,14 +210,15 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         this.disassembleDrive(player.getItemInHand(hand), level, player);
-        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), player.getItemInHand(hand));
+        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()),
+                player.getItemInHand(hand));
     }
 
     @Override
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
         return this.disassembleDrive(stack, context.getLevel(), context.getPlayer())
-            ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
-            : InteractionResult.PASS;
+                ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
+                : InteractionResult.PASS;
     }
 
     private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
@@ -318,7 +322,9 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
     }
 
-    /** @deprecated Replaced by {@link ItemCellHandler} and {@link FluidCellHandler}. */
+    /**
+     * @deprecated Replaced by {@link ItemCellHandler} and {@link FluidCellHandler}.
+     */
     @Deprecated
     public static class Handler implements IECOCellHandler {
 
