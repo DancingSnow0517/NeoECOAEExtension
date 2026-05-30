@@ -51,11 +51,10 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static final int RIGHT_PANEL_W = 130;
     private static final int RIGHT_PANEL_H = 158;
 
-    private static final int ROW_TOP_PADDING = 6;
-    private static final int ROW_X = LEFT_PANEL_X + 6;
-    private static final int ROW_W = LEFT_PANEL_W - 20;
-    private static final int ROW_H = 32;
-    private static final int ROW_GAP = 5;
+    private static final int TEXT_START_X = LEFT_PANEL_X + 8;
+    private static final int TEXT_START_Y = LEFT_PANEL_Y + 8;
+    private static final int TEXT_LINE_STEP = 10;
+    private static final int TEXT_MAX_W = LEFT_PANEL_W - 16;
 
     private static final int COLUMN_Y = RIGHT_PANEL_Y + 34;
     private static final int COLUMN_H = 88;
@@ -108,17 +107,9 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
         drawInsetGroupPanel(guiGraphics, LEFT_PANEL_X, LEFT_PANEL_Y, LEFT_PANEL_W, LEFT_PANEL_H);
         drawInsetGroupPanel(guiGraphics, RIGHT_PANEL_X, RIGHT_PANEL_Y, RIGHT_PANEL_W, RIGHT_PANEL_H);
-
-        int y = LEFT_PANEL_Y + ROW_TOP_PADDING;
-        drawMetricRow(guiGraphics, metrics.energy(), ROW_X, y, ROW_W, ROW_H, animatedEnergyPct);
-        y += ROW_H + ROW_GAP;
-        drawMetricRow(guiGraphics, metrics.items(), ROW_X, y, ROW_W, ROW_H, animatedItemPct);
-        y += ROW_H + ROW_GAP;
-        drawMetricRow(guiGraphics, metrics.fluids(), ROW_X, y, ROW_W, ROW_H, animatedFluidPct);
+        drawStorageTextLines(guiGraphics, metrics, chemicalMode);
 
         if (chemicalMode) {
-            y += ROW_H + ROW_GAP;
-            drawMetricRow(guiGraphics, metrics.chemicals(), ROW_X, y, ROW_W, ROW_H, animatedChemicalPct);
             drawBoundMetricColumns(guiGraphics,
                     new Metric[] { metrics.items(), metrics.fluids(), metrics.chemicals() },
                     new double[] { animatedItemPct, animatedFluidPct, animatedChemicalPct });
@@ -194,40 +185,55 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
                 true);
     }
 
-    private void drawMetricRow(GuiGraphics g, Metric metric, int x, int y, int w, int h, double animatedPct) {
-        drawMetricLane(g, metric, x, y, w, h);
+    private void drawStorageTextLines(GuiGraphics g, StorageMetrics metrics, boolean chemicalMode) {
+        int x = TEXT_START_X;
+        int y = TEXT_START_Y;
 
-        int labelColor = metric.byteBased() ? metric.accentColor() : DARK_TEXT_PRIMARY;
-        int valueColor = DARK_TEXT_VALUE;
-        int mutedColor = DARK_TEXT_MUTED;
+        drawPlainLine(g, metrics.energy().label(), x, y, DARK_TEXT_PRIMARY);
+        y += TEXT_LINE_STEP;
+        drawPrefixedUsedTotalLine(g, "能量存储: ", metrics.energy().used(), metrics.energy().max(), "", x, y);
+        y += TEXT_LINE_STEP;
 
-        g.drawString(font, metric.label(), x + 8, y + 2, labelColor, false);
-
-        if (metric.byteBased()) {
-            String typeText = "类型: " + formatMetricNumber(metric.usedTypes()) + " / "
-                    + formatMetricNumber(metric.totalTypes());
-            String byteText = "字节已使用: " + formatMetricNumber(metric.used()) + " / " + formatMetricNumber(metric.max());
-
-            drawClippedString(g, typeText, x + 8, y + 13, w - 16, mutedColor);
-            drawClippedString(g, byteText, x + 8, y + 23, w - 16, valueColor);
-        } else {
-            String energyText = "能量存储: " + formatMetricNumber(metric.used()) + " / " + formatMetricNumber(metric.max());
-            drawClippedString(g, energyText, x + 8, y + 16, w - 16, valueColor);
+        y = drawStorageTypeBlock(g, metrics.items(), x, y);
+        y = drawStorageTypeBlock(g, metrics.fluids(), x, y);
+        if (chemicalMode) {
+            drawStorageTypeBlock(g, metrics.chemicals(), x, y);
         }
     }
 
-    private void drawHorizontalMetricBar(GuiGraphics g, int x, int y, int w, int h, double pct, Metric metric) {
-        drawTinyInsetRect(g, x, y, w, h, 0xFF17141E);
-        int ix = x + 2;
-        int iy = y + 2;
-        int iw = w - 4;
-        int ih = h - 4;
-        int fillW = Mth.clamp((int) Math.round(iw * pct), 0, iw);
-        if (fillW > 0) {
-            int color = metricColor(metric, pct);
-            g.fill(ix, iy, ix + fillW, iy + ih, color);
-            g.fill(ix, iy, ix + fillW, iy + 1, 0x90FFFFFF);
+    private int drawStorageTypeBlock(GuiGraphics g, Metric metric, int x, int y) {
+        drawPlainLine(g, metric.label(), x, y, metric.accentColor());
+        y += TEXT_LINE_STEP;
+        drawUsedTotalLine(g, metric.usedTypes(), metric.totalTypes(), "类型", x, y);
+        y += TEXT_LINE_STEP;
+        drawUsedTotalLine(g, metric.used(), metric.max(), "字节已使用", x, y);
+        return y + TEXT_LINE_STEP;
+    }
+
+    private void drawPrefixedUsedTotalLine(GuiGraphics g, String prefix, long used, long max, String suffix, int x, int y) {
+        int cursor = drawSegment(g, prefix, x, y, DARK_TEXT_MUTED);
+        cursor += drawSegment(g, formatMetricNumber(used), x + cursor, y, DARK_TEXT_VALUE);
+        cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
+        cursor += drawSegment(g, formatMetricNumber(max), x + cursor, y, DARK_TEXT_VALUE);
+        if (!suffix.isEmpty()) {
+            drawSegment(g, " " + suffix, x + cursor, y, DARK_TEXT_MUTED);
         }
+    }
+
+    private void drawUsedTotalLine(GuiGraphics g, long used, long max, String suffix, int x, int y) {
+        int cursor = drawSegment(g, formatMetricNumber(used), x, y, DARK_TEXT_VALUE);
+        cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
+        cursor += drawSegment(g, formatMetricNumber(max), x + cursor, y, DARK_TEXT_VALUE);
+        drawSegment(g, " " + suffix, x + cursor, y, DARK_TEXT_MUTED);
+    }
+
+    private int drawSegment(GuiGraphics g, String text, int x, int y, int color) {
+        g.drawString(font, Component.literal(text), x, y, color, false);
+        return font.width(text);
+    }
+
+    private void drawPlainLine(GuiGraphics g, Component text, int x, int y, int color) {
+        g.drawString(font, text, x, y, color, false);
     }
 
     private void drawBoundMetricColumns(GuiGraphics g, Metric[] metrics, double[] animatedValues) {
@@ -292,19 +298,14 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         drawDarkInsetRect(g, x, y, w, h);
     }
 
-    private void drawMetricLane(GuiGraphics g, Metric metric, int x, int y, int w, int h) {
-        // No light lane background; keep only a faint separator on the dark inset
-        // panel.
-        g.fill(x + 4, y + h - 1, x + w - 4, y + h, 0x447A7482);
-    }
-
     private void drawFormedStatusBar(GuiGraphics g, boolean formed, int x, int y, int w, int h) {
         drawDarkInsetRect(g, x, y, w, h);
 
         Component label = Component.translatable("gui.neoecoae.machine.formed").append(": ");
         Component value = boolText(formed);
-        int textX = x + 8;
-        int textY = y + 3;
+        int textW = font.width(label) + font.width(value);
+        int textX = x + (w - textW) / 2;
+        int textY = y + (h - font.lineHeight) / 2;
 
         g.drawString(font, label, textX, textY, DARK_TEXT_PRIMARY, false);
         g.drawString(font, value, textX + font.width(label), textY,
@@ -324,13 +325,6 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         g.fill(x, y, x + w, y + h, DARK_PANEL_LIGHT_EDGE);
         g.fill(x + 1, y + 1, x + w - 1, y + h - 1, DARK_PANEL_OUTER);
         g.fill(x + 2, y + 2, x + w - 2, y + h - 2, innerColor);
-    }
-
-    private void drawClippedString(GuiGraphics g, String text, int x, int y, int maxWidth, int color) {
-        if (font.width(text) > maxWidth) {
-            text = font.plainSubstrByWidth(text, maxWidth - font.width("…")) + "…";
-        }
-        g.drawString(font, Component.literal(text), x, y, color, false);
     }
 
     private void drawCenteredString(GuiGraphics g, String text, int x, int y, int w, int color) {
