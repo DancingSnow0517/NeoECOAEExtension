@@ -181,7 +181,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             x + w - 8 - font.width(percent), y + 7,
             metricColor(metric, metric.percent()), false);
 
-        String valueText = formatNumber(metric.used()) + " / " + formatNumber(metric.max());
+        String valueText = formatMetricNumber(metric.used()) + " / " + formatMetricNumber(metric.max());
         int maxValueWidth = w - 16;
         if (font.width(valueText) > maxValueWidth) {
             valueText = font.plainSubstrByWidth(valueText, maxValueWidth - font.width("…")) + "…";
@@ -329,7 +329,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
-    private static String formatNumber(long value) {
+    private static String formatMetricNumber(long value) {
         return NUMBER_FORMAT.format(value);
     }
 
