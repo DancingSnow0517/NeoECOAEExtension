@@ -111,6 +111,17 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
         NENativeAe2StyleRenderer.drawAeMainPanel(guiGraphics, leftPos, topPos, imageWidth, imageHeight);
+
+        // Draw dark panels and slots in bg layer so buttons render on top.
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(leftPos, topPos, 0);
+
+        drawDarkInsetRect(guiGraphics, PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H);
+        drawDarkInsetRect(guiGraphics, CONTROL_X, CONTROL_Y, CONTROL_W, CONTROL_H);
+        drawDarkInsetRect(guiGraphics, MATERIAL_X, MATERIAL_Y, MATERIAL_W, MATERIAL_H);
+        drawMaterialSlotGrid(guiGraphics);
+
+        guiGraphics.pose().popPose();
     }
 
     @Override
@@ -119,11 +130,6 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         guiGraphics.drawString(font, title,
             NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
             NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
-
-        // ── Panels ──
-        drawDarkInsetRect(guiGraphics, PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H);
-        drawDarkInsetRect(guiGraphics, CONTROL_X, CONTROL_Y, CONTROL_W, CONTROL_H);
-        drawDarkInsetRect(guiGraphics, MATERIAL_X, MATERIAL_Y, MATERIAL_W, MATERIAL_H);
 
         // ── Preview area ──
         guiGraphics.drawString(font, Component.literal("结构预览区域"),
@@ -150,7 +156,8 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         guiGraphics.drawString(font, Component.literal(lengthValue), valueX, valueY, DARK_TEXT_VALUE, false);
 
         // ── Material panel ──
-        drawMaterialListPlaceholder(guiGraphics);
+        guiGraphics.drawString(font, Component.literal("所需方块"),
+            MATERIAL_X + 10, MATERIAL_Y + 8, DARK_TEXT_PRIMARY, false);
     }
 
     @Override
@@ -171,32 +178,47 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         g.fill(x + 5, y + 5, x + w - 5, y + h - 5, 0xFF605A66);
     }
 
-    private void drawMaterialListPlaceholder(GuiGraphics g) {
-        int x = MATERIAL_X + 10;
-        int y = MATERIAL_Y + 8;
+    private void drawMaterialSlotGrid(GuiGraphics g) {
+        int slotSize = 18;
+        int gap = 3;
 
-        g.drawString(font, Component.literal("所需方块"), x, y, DARK_TEXT_PRIMARY, false);
+        int startX = MATERIAL_X + 10;
+        int startY = MATERIAL_Y + 24;
 
-        int listX = MATERIAL_X + 8;
-        int listY = MATERIAL_Y + 22;
-        int listW = MATERIAL_W - 16;
-        int rowH = 12;
-        int rows = 4;
+        int cols = 7;
+        int rows = 2;
 
-        for (int i = 0; i < rows; i++) {
-            int rowY = listY + i * rowH;
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < cols; col++) {
+                int x = startX + col * (slotSize + gap);
+                int y = startY + row * (slotSize + gap);
 
-            // Row separator line
-            g.fill(listX, rowY + rowH - 1, listX + listW, rowY + rowH, 0x447A7482);
+                if (x + slotSize > MATERIAL_X + MATERIAL_W - 8) {
+                    continue;
+                }
+                if (y + slotSize > MATERIAL_Y + MATERIAL_H - 8) {
+                    continue;
+                }
 
-            // Icon placeholder square
-            g.fill(listX, rowY + 1, listX + 10, rowY + 11, 0x4017141E);
-            g.fill(listX + 1, rowY + 2, listX + 9, rowY + 10, 0x40665F6D);
+                drawSlot(g, x, y);
+            }
         }
+    }
 
-        Component empty = Component.literal("暂无材料数据");
-        int emptyX = listX + 16;
-        int emptyY = listY + 3;
-        g.drawString(font, empty, emptyX, emptyY, DARK_TEXT_MUTED, false);
+    private void drawSlot(GuiGraphics g, int x, int y) {
+        // Outer bright edge
+        g.fill(x, y, x + 18, y + 18, 0xFFC9C3D6);
+
+        // Inner dark edge
+        g.fill(x + 1, y + 1, x + 17, y + 17, 0xFF0D0D11);
+
+        // Slot background
+        g.fill(x + 2, y + 2, x + 16, y + 16, 0xFF4B4653);
+
+        // Top-left shadow, bottom-right highlight
+        g.fill(x + 2, y + 2, x + 16, y + 3, 0xAA17141E);
+        g.fill(x + 2, y + 2, x + 3, y + 16, 0xAA17141E);
+        g.fill(x + 2, y + 15, x + 16, y + 16, 0x66AFA8BE);
+        g.fill(x + 15, y + 2, x + 16, y + 16, 0x66AFA8BE);
     }
 }
