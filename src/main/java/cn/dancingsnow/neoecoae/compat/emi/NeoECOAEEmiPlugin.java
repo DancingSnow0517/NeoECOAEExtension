@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.compat.emi;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import dev.emi.emi.api.EmiEntrypoint;
 import dev.emi.emi.api.EmiPlugin;
@@ -18,11 +19,21 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         NeoECOAE.id("integrated_working_station"),
         EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
 
+    public static final EmiRecipeCategory COOLING = new EmiRecipeCategory(
+        NeoECOAE.id("cooling"),
+        EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
+
     @Override
     public void register(EmiRegistry registry) {
         // ── Integrated Working Station ──
         registry.addCategory(INTEGRATED_WORKING_STATION);
         registry.addWorkstation(INTEGRATED_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
+
+        // ── Cooling ──
+        registry.addCategory(COOLING);
+        registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L4));
+        registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L6));
+        registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
 
         var mc = Minecraft.getInstance();
         if (mc.level == null) return;
@@ -30,6 +41,11 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         for (IntegratedWorkingStationRecipe recipe :
              mc.level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
             registry.addRecipe(new IntegratedWorkingStationEmiRecipe(recipe));
+        }
+
+        for (CoolingRecipe recipe :
+             mc.level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
+            registry.addRecipe(new CoolingEmiRecipe(recipe));
         }
     }
 }

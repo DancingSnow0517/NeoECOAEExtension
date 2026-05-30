@@ -63,6 +63,7 @@
   "block.neoecoae.tungsten_ore": "Tungsten Ore",
   "category.neoecoae.cooling": "Cooling",
   "category.neoecoae.cooling.coolant": "Coolant: %d",
+  "category.neoecoae.cooling.max_overclock": "Max OC: %s",
   "category.neoecoae.integrated_working_station": "Integrated Working Station",
   "category.neoecoae.multiblock": "ECO Multiblock Info",
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO Crafting System",

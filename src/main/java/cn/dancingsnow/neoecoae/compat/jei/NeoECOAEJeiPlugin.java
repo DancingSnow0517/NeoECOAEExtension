@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEIntegratedWorkingStationScreen;
+import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
@@ -14,7 +15,6 @@ import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.ResourceLocation;
 
@@ -29,6 +29,9 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
     public static final RecipeType<IntegratedWorkingStationRecipe> IWS_RECIPE_TYPE =
         RecipeType.create(NeoECOAE.MOD_ID, "integrated_working_station", IntegratedWorkingStationRecipe.class);
 
+    public static final RecipeType<CoolingRecipe> COOLING_RECIPE_TYPE =
+        RecipeType.create(NeoECOAE.MOD_ID, "cooling", CoolingRecipe.class);
+
     @Override
     public ResourceLocation getPluginUid() {
         return NeoECOAE.id("jei_plugin");
@@ -37,6 +40,8 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
     @Override
     public void registerCategories(IRecipeCategoryRegistration registration) {
         registration.addRecipeCategories(new IntegratedWorkingStationJeiCategory(
+            registration.getJeiHelpers().getGuiHelper()));
+        registration.addRecipeCategories(new CoolingJeiCategory(
             registration.getJeiHelpers().getGuiHelper()));
     }
 
@@ -47,11 +52,15 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
             return;
         }
 
-        List<IntegratedWorkingStationRecipe> recipes =
+        List<IntegratedWorkingStationRecipe> iwsRecipes =
             minecraft.level.getRecipeManager()
                 .getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
+        registration.addRecipes(IWS_RECIPE_TYPE, iwsRecipes);
 
-        registration.addRecipes(IWS_RECIPE_TYPE, recipes);
+        List<CoolingRecipe> coolingRecipes =
+            minecraft.level.getRecipeManager()
+                .getAllRecipesFor(NERecipeTypes.COOLING.get());
+        registration.addRecipes(COOLING_RECIPE_TYPE, coolingRecipes);
     }
 
     @Override
@@ -59,6 +68,18 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
         registration.addRecipeCatalyst(
             NEBlocks.INTEGRATED_WORKING_STATION.asStack(),
             IWS_RECIPE_TYPE);
+
+        // Cooling recipes are consumed by the Crafting System Controller
+        // (see ECOCraftingSystemBlockEntity.getCoolingRecipe())
+        registration.addRecipeCatalyst(
+            NEBlocks.CRAFTING_SYSTEM_L4.asStack(),
+            COOLING_RECIPE_TYPE);
+        registration.addRecipeCatalyst(
+            NEBlocks.CRAFTING_SYSTEM_L6.asStack(),
+            COOLING_RECIPE_TYPE);
+        registration.addRecipeCatalyst(
+            NEBlocks.CRAFTING_SYSTEM_L9.asStack(),
+            COOLING_RECIPE_TYPE);
     }
 
     @Override
