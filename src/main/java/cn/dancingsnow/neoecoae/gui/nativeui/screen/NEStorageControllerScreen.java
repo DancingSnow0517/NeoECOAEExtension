@@ -42,8 +42,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static final int CHEMICAL_ROW_H = 34;
     private static final int CHEMICAL_ROW_GAP = 6;
 
-    private static final int COLUMN_PANEL_X = 214;
-    private static final int COLUMN_PANEL_W = 92;
+    private static final int COLUMN_PANEL_X = 210;
+    private static final int COLUMN_PANEL_W = 100;
     private static final int COLUMN_Y = 47;
     private static final int COLUMN_H = 110;
     private static final int CHEMICAL_COLUMN_Y = 45;
@@ -97,6 +97,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             drawMetricRow(guiGraphics, metrics.fluids(), ROW_X, y, CHEMICAL_ROW_W, CHEMICAL_ROW_H, animatedFluidPct);
             y += CHEMICAL_ROW_H + CHEMICAL_ROW_GAP;
             drawMetricRow(guiGraphics, metrics.chemicals(), ROW_X, y, CHEMICAL_ROW_W, CHEMICAL_ROW_H, animatedChemicalPct);
+            drawPanelFooterBar(guiGraphics, ROW_X, 188, CHEMICAL_ROW_W);
 
             drawBoundMetricColumns(guiGraphics, chemicalMode,
                 new Metric[]{metrics.items(), metrics.fluids(), metrics.chemicals()},
@@ -108,13 +109,14 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             drawMetricRow(guiGraphics, metrics.energy(), ROW_X, ROW_Y, ROW_W, ROW_H, animatedEnergyPct);
             drawMetricRow(guiGraphics, metrics.items(), ROW_X, ROW_Y + ROW_H + ROW_GAP, ROW_W, ROW_H, animatedItemPct);
             drawMetricRow(guiGraphics, metrics.fluids(), ROW_X, ROW_Y + (ROW_H + ROW_GAP) * 2, ROW_W, ROW_H, animatedFluidPct);
+            drawPanelFooterBar(guiGraphics, ROW_X, 181, ROW_W);
 
             drawBoundMetricColumns(guiGraphics, chemicalMode,
                 new Metric[]{metrics.items(), metrics.fluids()},
                 new double[]{animatedItemPct, animatedFluidPct});
             drawLabelBoolean(guiGraphics,
                 Component.translatable("gui.neoecoae.machine.formed"),
-                s.formed(), ROW_X, 190);
+                s.formed(), ROW_X, 191);
         }
     }
 
@@ -180,17 +182,20 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
         int labelColor = NENativeUiConstants.MACHINE_TEXT_PRIMARY;
         int valueColor = NENativeUiConstants.MACHINE_TEXT_VALUE;
-        int mutedColor = NENativeUiConstants.MACHINE_TEXT_MUTED;
 
         g.drawString(font, metric.label(), x + 8, y + 6, labelColor, false);
 
-        String percent = formatPercent(metric.percent());
+        String percent = metric.max() <= 0 ? "N/A" : formatPercent(metric.percent());
+        int percentColor = metric.max() <= 0
+            ? NENativeUiConstants.MACHINE_TEXT_MUTED
+            : metricColor(metric, metric.percent());
         g.drawString(font, Component.literal(percent),
             x + w - 8 - font.width(percent), y + 6,
-            metricColor(metric, metric.percent()), false);
+            percentColor, false);
 
         String valueText = formatMetricNumber(metric.used()) + " / " + formatMetricNumber(metric.max());
-        int maxValueWidth = w - 16;
+        int percentReserve = Math.max(34, font.width(percent) + 8);
+        int maxValueWidth = w - 16 - percentReserve;
         if (font.width(valueText) > maxValueWidth) {
             valueText = font.plainSubstrByWidth(valueText, maxValueWidth - font.width("…")) + "…";
         }
@@ -199,12 +204,6 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         drawHorizontalMetricBar(g, x + 8, y + h - 9, w - 16, 6, animatedPct, metric);
         g.fill(x + 8, y + h - 2, x + w - 8, y + h - 1, 0x40FFFFFF);
         g.fill(x + 8, y + h - 11, x + w - 8, y + h - 10, 0x403F3F3F);
-
-        if (metric.max() <= 0) {
-            g.drawString(font, Component.literal("N/A"),
-                x + w - 8 - font.width("N/A"), y + 19,
-                mutedColor, false);
-        }
     }
 
     private void drawHorizontalMetricBar(GuiGraphics g, int x, int y, int w, int h, double pct, Metric metric) {
@@ -223,9 +222,9 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private void drawBoundMetricColumns(GuiGraphics g, boolean chemicalMode, Metric[] metrics, double[] animatedValues) {
         int count = metrics.length;
-        int columnW = chemicalMode ? 26 : 34;
+        int columnW = chemicalMode ? 28 : 38;
         int columnH = chemicalMode ? CHEMICAL_COLUMN_H : COLUMN_H;
-        int gap = chemicalMode ? 7 : 12;
+        int gap = chemicalMode ? 8 : 20;
         int totalW = columnW * count + gap * (count - 1);
         int startX = COLUMN_PANEL_X + (COLUMN_PANEL_W - totalW) / 2;
         int y = chemicalMode ? CHEMICAL_COLUMN_Y : COLUMN_Y;
@@ -234,10 +233,12 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             int x = startX + i * (columnW + gap);
             drawBoundMetricColumn(g, metrics[i], x, y, columnW, columnH, animatedValues[i]);
         }
+
+        drawPanelFooterBar(g, startX - 4, y + columnH + 31, totalW + 8);
     }
 
     private void drawBoundMetricColumn(GuiGraphics g, Metric metric, int x, int y, int w, int h, double pct) {
-        drawCenteredComponent(g, metric.label(), x - 4, y - 13, w + 8, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        drawCenteredComponent(g, metric.label(), x - 6, y - 13, w + 12, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
         NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF2F3A43);
 
         int ix = x + 5;
@@ -278,6 +279,13 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         NENativeAe2StyleRenderer.drawAeInsetRect(g, x - 2, percentBoxY, w + 4, 18, 0xFF202326);
         drawCenteredString(g, formatPercent(metric.percent()), x - 2, percentBoxY + 5, w + 4,
             NENativeUiConstants.MACHINE_TEXT_VALUE);
+    }
+
+    private void drawPanelFooterBar(GuiGraphics g, int x, int y, int w) {
+        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, 7, 0xFF505760);
+        g.fill(x + 3, y + 2, x + w - 3, y + 3, 0x704F7FB8);
+        g.fill(x + 3, y + 3, x + w - 3, y + 5, 0xFF2D4774);
+        g.fill(x + 3, y + 5, x + w - 3, y + 6, 0x80000000);
     }
 
     private void drawCenteredString(GuiGraphics g, String text, int x, int y, int w, int color) {
