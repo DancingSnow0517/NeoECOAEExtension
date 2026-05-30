@@ -37,7 +37,7 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
     private static final int MAIN_PANEL_W = 286;
     private static final int MAIN_PANEL_H = 112;
 
-    private static final int FORMED_BAR_H = 16;
+    private static final int FORMED_BAR_H = 25;
     private static final int FORMED_BAR_BOTTOM_GAP = 7;
 
     private boolean hasComputationState;
