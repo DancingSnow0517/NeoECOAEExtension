@@ -61,7 +61,7 @@
   "block.neoecoae.tungsten_block": "钨块",
   "block.neoecoae.tungsten_ore": "钨矿石",
   "category.neoecoae.cooling": "冷却系统",
-  "category.neoecoae.cooling.coolant": "冷却值: %d",
+  "category.neoecoae.cooling.coolant": "冷却值：%s",
   "category.neoecoae.cooling.max_overclock": "最大超频：%s",
   "category.neoecoae.integrated_working_station": "集成工作站",
   "category.neoecoae.multiblock": "ECO 多方块信息",
