@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
-import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
 import cn.dancingsnow.neoecoae.network.NEStorageUiState;
 import cn.dancingsnow.neoecoae.network.NEStorageUiTypeState;
@@ -31,15 +30,16 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private static final NumberFormat NUMBER_FORMAT = NumberFormat.getNumberInstance(Locale.US);
 
-    private static final int DARK_PANEL_OUTER = 0xFF15191E;
-    private static final int DARK_PANEL_INNER = 0xFF20272E;
-    private static final int DARK_PANEL_SOFT = 0xFF263039;
+    private static final int DARK_PANEL_OUTER = 0xFF17141E;
+    private static final int DARK_PANEL_MIDDLE = 0xFF2B2834;
+    private static final int DARK_PANEL_INNER = 0xFF665F6D;
+    private static final int DARK_PANEL_LIGHT_EDGE = 0xFFC9C3D6;
 
-    private static final int DARK_TEXT_PRIMARY = 0xFFE8EEF2;
-    private static final int DARK_TEXT_VALUE = 0xFF9DBEFF;
-    private static final int DARK_TEXT_MUTED = 0xFF9AA3AA;
-    private static final int DARK_TEXT_SUCCESS = 0xFF4FE083;
-    private static final int DARK_TEXT_ERROR = 0xFFFF6A5A;
+    private static final int DARK_TEXT_PRIMARY = 0xFFD6D0E0;
+    private static final int DARK_TEXT_VALUE = 0xFF8377FF;
+    private static final int DARK_TEXT_MUTED = 0xFFAAA4B2;
+    private static final int DARK_TEXT_SUCCESS = 0xFF6CFFA0;
+    private static final int DARK_TEXT_ERROR = 0xFFFF6A75;
 
     private static final int LEFT_PANEL_X = 9;
     private static final int LEFT_PANEL_Y = 24;
@@ -51,11 +51,11 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static final int RIGHT_PANEL_W = 130;
     private static final int RIGHT_PANEL_H = 158;
 
-    private static final int ROW_TOP_PADDING = 14;
+    private static final int ROW_TOP_PADDING = 5;
     private static final int ROW_X = LEFT_PANEL_X + 10;
     private static final int ROW_W = LEFT_PANEL_W - 20;
-    private static final int ROW_H = 30;
-    private static final int ROW_GAP = 4;
+    private static final int ROW_H = 36;
+    private static final int ROW_GAP = 2;
 
     private static final int COLUMN_Y = RIGHT_PANEL_Y + 34;
     private static final int COLUMN_H = 88;
@@ -173,21 +173,25 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         Metric energy = new Metric(
                 Component.literal("能量"),
                 s.storedEnergy(), s.maxEnergy(),
-                0xFF5374C8,
-                false,
+                0, 0,
+                0xFF8377FF,
                 false);
-        Metric items = createTypeMetric(itemState, Component.literal("物品"), true, 0xFF43B678);
-        Metric fluids = createTypeMetric(fluidState, Component.literal("流体"), true, 0xFF3A8FD6);
-        Metric chemicals = createTypeMetric(chemicalState, Component.literal("化学品"), true, 0xFF9A6AE8);
+        Metric items = createTypeMetric(itemState, Component.literal("物品"), 0xFF7A6CFF);
+        Metric fluids = createTypeMetric(fluidState, Component.literal("流体"), 0xFF7A6CFF);
+        Metric chemicals = createTypeMetric(chemicalState, Component.literal("化学品"), 0xFF7A6CFF);
         return new StorageMetrics(energy, items, fluids, chemicals);
     }
 
-    private Metric createTypeMetric(NEStorageUiTypeState state, Component fallbackLabel,
-            boolean dangerHigh, int accentColor) {
+    private Metric createTypeMetric(NEStorageUiTypeState state, Component fallbackLabel, int accentColor) {
         if (state == null) {
-            return new Metric(fallbackLabel, 0, 0, accentColor, dangerHigh, true);
+            return new Metric(fallbackLabel, 0, 0, 0, 0, accentColor, true);
         }
-        return new Metric(fallbackLabel, state.usedBytes(), state.totalBytes(), accentColor, dangerHigh, true);
+        return new Metric(
+                fallbackLabel,
+                state.usedBytes(), state.totalBytes(),
+                state.usedTypes(), state.totalTypes(),
+                accentColor,
+                true);
     }
 
     private void drawMetricRow(GuiGraphics g, Metric metric, int x, int y, int w, int h, double animatedPct) {
@@ -195,23 +199,25 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
         int labelColor = DARK_TEXT_PRIMARY;
         int valueColor = DARK_TEXT_VALUE;
+        int mutedColor = DARK_TEXT_MUTED;
 
-        int labelY = y + 3;
-        int valueY = y + 14;
-        g.drawString(font, metric.label(), x + 8, labelY, labelColor, false);
+        g.drawString(font, metric.label(), x + 8, y + 3, labelColor, false);
 
-        String valueText = formatMetricNumber(metric.used()) + " / " + formatMetricNumber(metric.max());
-        int valueMaxWidth = w - 16;
-        if (font.width(valueText) > valueMaxWidth) {
-            valueText = font.plainSubstrByWidth(valueText, valueMaxWidth - font.width("…")) + "…";
+        if (metric.byteBased()) {
+            String typeText = "类型: " + formatMetricNumber(metric.usedTypes()) + " / " + formatMetricNumber(metric.totalTypes());
+            String byteText = "字节已使用: " + formatMetricNumber(metric.used()) + " / " + formatMetricNumber(metric.max());
+            drawClippedString(g, typeText, x + 8, y + 13, w - 16, mutedColor);
+            drawClippedString(g, byteText, x + 8, y + 22, w - 16, valueColor);
+        } else {
+            String energyText = "能量存储: " + formatMetricNumber(metric.used()) + " / " + formatMetricNumber(metric.max());
+            drawClippedString(g, energyText, x + 8, y + 16, w - 16, valueColor);
         }
-        g.drawString(font, Component.literal(valueText), x + 8, valueY, valueColor, false);
 
         drawHorizontalMetricBar(g, x + 8, y + h - 6, w - 16, 5, animatedPct, metric);
     }
 
     private void drawHorizontalMetricBar(GuiGraphics g, int x, int y, int w, int h, double pct, Metric metric) {
-        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF14191F);
+        drawTinyInsetRect(g, x, y, w, h, 0xFF17141E);
         int ix = x + 2;
         int iy = y + 2;
         int iw = w - 4;
@@ -239,7 +245,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private void drawBoundMetricColumn(GuiGraphics g, Metric metric, int x, int y, int w, int h, double pct) {
         drawCenteredComponent(g, metric.label(), x - 8, y - 14, w + 16, DARK_TEXT_PRIMARY);
-        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF2F3A43);
+        drawTinyInsetRect(g, x, y, w, h, 0xFF201E27);
 
         int ix = x + 5;
         int iy = y + 6;
@@ -249,9 +255,9 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         int fillY = iy + ih - fillH;
 
         // Inner dark glass body.
-        g.fill(ix, iy, ix + iw, iy + ih, 0xA0141A20);
-        g.fill(ix + 1, iy + 3, ix + 3, iy + ih - 3, 0x55FFFFFF);
-        g.fill(ix + iw - 3, iy + 3, ix + iw - 1, iy + ih - 3, 0x30202020);
+        g.fill(ix, iy, ix + iw, iy + ih, 0xAA17141E);
+        g.fill(ix + 1, iy + 3, ix + 3, iy + ih - 3, 0x45C9C3D6);
+        g.fill(ix + iw - 3, iy + 3, ix + iw - 1, iy + ih - 3, 0x40202020);
 
         if (fillH > 0) {
             int color = metricColor(metric, pct);
@@ -263,22 +269,22 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         // White side ticks, matching the 1.12.2 vertical gauge feel.
         for (int i = 1; i < 6; i++) {
             int tickY = iy + ih - Math.round(ih * i / 6.0F);
-            g.fill(ix - 2, tickY, ix + 3, tickY + 1, 0xCCFFFFFF);
-            g.fill(ix + iw - 3, tickY, ix + iw + 2, tickY + 1, 0xCCFFFFFF);
+            g.fill(ix - 2, tickY, ix + 3, tickY + 1, 0xCCC9C3D6);
+            g.fill(ix + iw - 3, tickY, ix + iw + 2, tickY + 1, 0xCCC9C3D6);
         }
 
         // Outer dark braces.
-        g.fill(x + 2, y + 2, x + w - 2, y + 5, 0xCC1B1F24);
-        g.fill(x + 2, y + h - 5, x + w - 2, y + h - 2, 0xCC1B1F24);
-        g.fill(x + 3, y + 3, x + 8, y + 10, 0xAA0D1115);
-        g.fill(x + w - 8, y + 3, x + w - 3, y + 10, 0xAA0D1115);
-        g.fill(x + 3, y + h - 10, x + 8, y + h - 3, 0xAA0D1115);
-        g.fill(x + w - 8, y + h - 10, x + w - 3, y + h - 3, 0xAA0D1115);
+        g.fill(x + 2, y + 2, x + w - 2, y + 5, 0xCC17141E);
+        g.fill(x + 2, y + h - 5, x + w - 2, y + h - 2, 0xCC17141E);
+        g.fill(x + 3, y + 3, x + 8, y + 10, 0xAA100E16);
+        g.fill(x + w - 8, y + 3, x + w - 3, y + 10, 0xAA100E16);
+        g.fill(x + 3, y + h - 10, x + 8, y + h - 3, 0xAA100E16);
+        g.fill(x + w - 8, y + h - 10, x + w - 3, y + h - 3, 0xAA100E16);
 
         int percentY = y + h + COLUMN_PERCENT_GAP;
         int percentColor = metric.max() <= 0 ? DARK_TEXT_MUTED : metricColor(metric, pct);
         String percentText = metric.max() <= 0 ? "N/A" : formatPercent(metric.percent());
-        NENativeAe2StyleRenderer.drawAeInsetRect(g, x - 2, percentY, w + 4, COLUMN_PERCENT_H, 0xFF202326);
+        drawTinyInsetRect(g, x - 2, percentY, w + 4, COLUMN_PERCENT_H, 0xFF201E27);
         drawCenteredString(g, percentText, x - 2, percentY + 5, w + 4, percentColor);
     }
 
@@ -288,7 +294,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private void drawMetricLane(GuiGraphics g, Metric metric, int x, int y, int w, int h) {
         // No light lane background; keep only a faint separator on the dark inset panel.
-        g.fill(x + 4, y + h - 1, x + w - 4, y + h, 0x332F3942);
+        g.fill(x + 4, y + h - 1, x + w - 4, y + h, 0x447A7482);
     }
 
     private void drawFormedStatusBar(GuiGraphics g, boolean formed, int x, int y, int w, int h) {
@@ -305,10 +311,25 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawDarkInsetRect(GuiGraphics g, int x, int y, int w, int h) {
-        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF1B2026);
-        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, DARK_PANEL_INNER);
-        g.fill(x + 3, y + 3, x + w - 3, y + 4, 0x30FFFFFF);
-        g.fill(x + 3, y + h - 4, x + w - 3, y + h - 3, 0x80000000);
+        g.fill(x, y, x + w, y + h, DARK_PANEL_OUTER);
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, DARK_PANEL_LIGHT_EDGE);
+        g.fill(x + 3, y + 3, x + w - 3, y + h - 3, DARK_PANEL_MIDDLE);
+        g.fill(x + 5, y + 5, x + w - 5, y + h - 5, DARK_PANEL_INNER);
+        g.fill(x + 5, y + 5, x + w - 5, y + 6, 0x60201E27);
+        g.fill(x + 5, y + h - 6, x + w - 5, y + h - 5, 0x70AFA8BE);
+    }
+
+    private void drawTinyInsetRect(GuiGraphics g, int x, int y, int w, int h, int innerColor) {
+        g.fill(x, y, x + w, y + h, DARK_PANEL_LIGHT_EDGE);
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, DARK_PANEL_OUTER);
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, innerColor);
+    }
+
+    private void drawClippedString(GuiGraphics g, String text, int x, int y, int maxWidth, int color) {
+        if (font.width(text) > maxWidth) {
+            text = font.plainSubstrByWidth(text, maxWidth - font.width("…")) + "…";
+        }
+        g.drawString(font, Component.literal(text), x, y, color, false);
     }
 
     private void drawCenteredString(GuiGraphics g, String text, int x, int y, int w, int color) {
@@ -415,8 +436,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private record StorageMetrics(Metric energy, Metric items, Metric fluids, Metric chemicals) {
     }
 
-    private record Metric(Component label, long used, long max, int accentColor,
-            boolean dangerHigh, boolean byteBased) {
+    private record Metric(Component label, long used, long max, long usedTypes, long totalTypes,
+            int accentColor, boolean byteBased) {
         private double percent() {
             return NEStorageControllerScreen.percent(used, max);
         }
