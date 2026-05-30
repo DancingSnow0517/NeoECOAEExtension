@@ -765,7 +765,7 @@ public class NEItems {
                 .itemOutput(ctx.get())
                 .save(prov);
         })
-        .lang("16M ECO Storage Component")
+        .lang("LE4 ECO Storage Component")
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_CELL_COMPONENT_64M = REGISTRATE
@@ -780,7 +780,7 @@ public class NEItems {
                 .energy(48000)
                 .save(prov);
         })
-        .lang("64M ECO Storage Component")
+        .lang("LE6 ECO Storage Component")
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_CELL_COMPONENT_256M = REGISTRATE
@@ -795,7 +795,7 @@ public class NEItems {
                 .energy(144000)
                 .save(prov);
         })
-        .lang("256M ECO Storage Component")
+        .lang("LE9 ECO Storage Component")
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_ITEM_CELL_HOUSING = REGISTRATE
