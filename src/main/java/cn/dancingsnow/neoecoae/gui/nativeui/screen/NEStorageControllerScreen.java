@@ -31,6 +31,16 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private static final NumberFormat NUMBER_FORMAT = NumberFormat.getNumberInstance(Locale.US);
 
+    private static final int DARK_PANEL_OUTER = 0xFF15191E;
+    private static final int DARK_PANEL_INNER = 0xFF20272E;
+    private static final int DARK_PANEL_SOFT = 0xFF263039;
+
+    private static final int DARK_TEXT_PRIMARY = 0xFFE8EEF2;
+    private static final int DARK_TEXT_VALUE = 0xFF9DBEFF;
+    private static final int DARK_TEXT_MUTED = 0xFF9AA3AA;
+    private static final int DARK_TEXT_SUCCESS = 0xFF4FE083;
+    private static final int DARK_TEXT_ERROR = 0xFFFF6A5A;
+
     private static final int LEFT_PANEL_X = 9;
     private static final int LEFT_PANEL_Y = 30;
     private static final int LEFT_PANEL_W = 198;
@@ -53,7 +63,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static final int COLUMN_PERCENT_GAP = 7;
     private static final int COLUMN_PERCENT_H = 17;
 
-    private static final int FORMED_LABEL_Y = 199;
+    private static final int FORMED_BAR_Y = 198;
+    private static final int FORMED_BAR_H = 16;
     private static final double ANIMATION_SPEED = 0.16D;
 
     private boolean hasStorageState;
@@ -118,9 +129,12 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
                     new double[] { animatedItemPct, animatedFluidPct });
         }
 
-        drawLabelBoolean(guiGraphics,
-                Component.translatable("gui.neoecoae.machine.formed"),
-                s.formed(), LEFT_PANEL_X, FORMED_LABEL_Y);
+        drawFormedStatusBar(guiGraphics,
+                s.formed(),
+                LEFT_PANEL_X,
+                FORMED_BAR_Y,
+                RIGHT_PANEL_X + RIGHT_PANEL_W - LEFT_PANEL_X,
+                FORMED_BAR_H);
     }
 
     private NEStorageUiState resolveStorageState() {
@@ -180,8 +194,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private void drawMetricRow(GuiGraphics g, Metric metric, int x, int y, int w, int h, double animatedPct) {
         drawMetricLane(g, metric, x, y, w, h);
 
-        int labelColor = NENativeUiConstants.MACHINE_TEXT_PRIMARY;
-        int valueColor = NENativeUiConstants.MACHINE_TEXT_VALUE;
+        int labelColor = DARK_TEXT_PRIMARY;
+        int valueColor = DARK_TEXT_VALUE;
 
         int labelY = y + 3;
         int valueY = y + 14;
@@ -198,7 +212,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawHorizontalMetricBar(GuiGraphics g, int x, int y, int w, int h, double pct, Metric metric) {
-        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF5E666E);
+        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF14191F);
         int ix = x + 2;
         int iy = y + 2;
         int iw = w - 4;
@@ -225,7 +239,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawBoundMetricColumn(GuiGraphics g, Metric metric, int x, int y, int w, int h, double pct) {
-        drawCenteredComponent(g, metric.label(), x - 8, y - 14, w + 16, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        drawCenteredComponent(g, metric.label(), x - 8, y - 14, w + 16, DARK_TEXT_PRIMARY);
         NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF2F3A43);
 
         int ix = x + 5;
@@ -263,7 +277,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         g.fill(x + w - 8, y + h - 10, x + w - 3, y + h - 3, 0xAA0D1115);
 
         int percentY = y + h + COLUMN_PERCENT_GAP;
-        int percentColor = metric.max() <= 0 ? NENativeUiConstants.MACHINE_TEXT_MUTED : metricColor(metric, pct);
+        int percentColor = metric.max() <= 0 ? DARK_TEXT_MUTED : metricColor(metric, pct);
         String percentText = metric.max() <= 0 ? "N/A" : formatPercent(metric.percent());
         NENativeAe2StyleRenderer.drawAeInsetRect(g, x - 2, percentY, w + 4, COLUMN_PERCENT_H, 0xFF202326);
         drawCenteredString(g, percentText, x - 2, percentY + 5, w + 4, percentColor);
@@ -272,24 +286,40 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private void drawInsetGroupPanel(GuiGraphics g, int x, int y, int w, int h) {
         // Pseudo-rounded inset panel: clipped 2px corners, dark top/left shadow and
         // light bottom/right edge.
-        g.fill(x + 3, y, x + w - 3, y + 1, 0xFF3F3F3F);
-        g.fill(x + 1, y + 1, x + w - 1, y + 2, 0xFF575757);
-        g.fill(x, y + 3, x + 1, y + h - 3, 0xFF3F3F3F);
-        g.fill(x + 1, y + 2, x + 2, y + h - 2, 0xFF575757);
+        g.fill(x + 3, y, x + w - 3, y + 1, 0xFF080A0C);
+        g.fill(x + 1, y + 1, x + w - 1, y + 2, 0xFF101318);
+        g.fill(x, y + 3, x + 1, y + h - 3, 0xFF080A0C);
+        g.fill(x + 1, y + 2, x + 2, y + h - 2, 0xFF101318);
 
-        g.fill(x + 3, y + h - 1, x + w - 3, y + h, 0xFFFFFFFF);
-        g.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, 0xFFE8E8E8);
-        g.fill(x + w - 1, y + 3, x + w, y + h - 3, 0xFFFFFFFF);
-        g.fill(x + w - 2, y + 2, x + w - 1, y + h - 2, 0xFFE8E8E8);
+        g.fill(x + 3, y + h - 1, x + w - 3, y + h, 0xFF5A6470);
+        g.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, 0xFF38434C);
+        g.fill(x + w - 1, y + 3, x + w, y + h - 3, 0xFF5A6470);
+        g.fill(x + w - 2, y + 2, x + w - 1, y + h - 2, 0xFF38434C);
 
-        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, 0xFFD5D7D9);
-        g.fill(x + 5, y + 5, x + w - 5, y + h - 5, 0xFFC9CDD1);
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, DARK_PANEL_OUTER);
+        g.fill(x + 5, y + 5, x + w - 5, y + h - 5, DARK_PANEL_INNER);
+        g.fill(x + 5, y + 5, x + w - 5, y + 6, 0x80000000);
     }
 
     private void drawMetricLane(GuiGraphics g, Metric metric, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, 0xFFE4E7EA);
-        g.fill(x, y + h - 1, x + w, y + h, 0xA0F8F8F8);
-        g.fill(x + 6, y + h - 9, x + w - 6, y + h - 8, 0x30404040);
+        // No light lane background; keep only a faint separator on the dark inset panel.
+        g.fill(x + 4, y + h - 1, x + w - 4, y + h, 0x332F3942);
+    }
+
+    private void drawFormedStatusBar(GuiGraphics g, boolean formed, int x, int y, int w, int h) {
+        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF1B2026);
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, DARK_PANEL_INNER);
+        g.fill(x + 3, y + 3, x + w - 3, y + 4, 0x30FFFFFF);
+        g.fill(x + 3, y + h - 4, x + w - 3, y + h - 3, 0x80000000);
+
+        Component label = Component.translatable("gui.neoecoae.machine.formed").append(": ");
+        Component value = boolText(formed);
+        int textX = x + 8;
+        int textY = y + 4;
+
+        g.drawString(font, label, textX, textY, DARK_TEXT_PRIMARY, false);
+        g.drawString(font, value, textX + font.width(label), textY,
+                formed ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR, false);
     }
 
     private void drawCenteredString(GuiGraphics g, String text, int x, int y, int w, int color) {
@@ -359,7 +389,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private static int metricColor(Metric metric, double pct) {
         if (metric.max() <= 0) {
-            return NENativeUiConstants.MACHINE_TEXT_MUTED;
+            return DARK_TEXT_MUTED;
         }
         return lerpColor(darken(metric.accentColor(), 0.72D), metric.accentColor(), Mth.clamp(pct + 0.2D, 0.0D, 1.0D));
     }
