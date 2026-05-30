@@ -42,28 +42,27 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static final int DARK_TEXT_ERROR = 0xFFFF6A5A;
 
     private static final int LEFT_PANEL_X = 9;
-    private static final int LEFT_PANEL_Y = 30;
+    private static final int LEFT_PANEL_Y = 24;
     private static final int LEFT_PANEL_W = 198;
     private static final int LEFT_PANEL_H = 158;
 
     private static final int RIGHT_PANEL_X = 218;
-    private static final int RIGHT_PANEL_Y = 30;
+    private static final int RIGHT_PANEL_Y = 24;
     private static final int RIGHT_PANEL_W = 130;
     private static final int RIGHT_PANEL_H = 158;
 
-    private static final int ROW_SIDE_PADDING = 10;
     private static final int ROW_TOP_PADDING = 14;
     private static final int ROW_X = LEFT_PANEL_X + 10;
     private static final int ROW_W = LEFT_PANEL_W - 20;
     private static final int ROW_H = 30;
     private static final int ROW_GAP = 4;
 
-    private static final int COLUMN_Y = 58;
+    private static final int COLUMN_Y = RIGHT_PANEL_Y + 34;
     private static final int COLUMN_H = 88;
     private static final int COLUMN_PERCENT_GAP = 7;
     private static final int COLUMN_PERCENT_H = 17;
 
-    private static final int FORMED_BAR_Y = 198;
+    private static final int FORMED_BAR_Y = 197;
     private static final int FORMED_BAR_H = 16;
     private static final double ANIMATION_SPEED = 0.16D;
 
@@ -284,21 +283,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawInsetGroupPanel(GuiGraphics g, int x, int y, int w, int h) {
-        // Pseudo-rounded inset panel: clipped 2px corners, dark top/left shadow and
-        // light bottom/right edge.
-        g.fill(x + 3, y, x + w - 3, y + 1, 0xFF080A0C);
-        g.fill(x + 1, y + 1, x + w - 1, y + 2, 0xFF101318);
-        g.fill(x, y + 3, x + 1, y + h - 3, 0xFF080A0C);
-        g.fill(x + 1, y + 2, x + 2, y + h - 2, 0xFF101318);
-
-        g.fill(x + 3, y + h - 1, x + w - 3, y + h, 0xFF5A6470);
-        g.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, 0xFF38434C);
-        g.fill(x + w - 1, y + 3, x + w, y + h - 3, 0xFF5A6470);
-        g.fill(x + w - 2, y + 2, x + w - 1, y + h - 2, 0xFF38434C);
-
-        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, DARK_PANEL_OUTER);
-        g.fill(x + 5, y + 5, x + w - 5, y + h - 5, DARK_PANEL_INNER);
-        g.fill(x + 5, y + 5, x + w - 5, y + 6, 0x80000000);
+        drawDarkInsetRect(g, x, y, w, h);
     }
 
     private void drawMetricLane(GuiGraphics g, Metric metric, int x, int y, int w, int h) {
@@ -307,10 +292,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawFormedStatusBar(GuiGraphics g, boolean formed, int x, int y, int w, int h) {
-        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF1B2026);
-        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, DARK_PANEL_INNER);
-        g.fill(x + 3, y + 3, x + w - 3, y + 4, 0x30FFFFFF);
-        g.fill(x + 3, y + h - 4, x + w - 3, y + h - 3, 0x80000000);
+        drawDarkInsetRect(g, x, y, w, h);
 
         Component label = Component.translatable("gui.neoecoae.machine.formed").append(": ");
         Component value = boolText(formed);
@@ -320,6 +302,13 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         g.drawString(font, label, textX, textY, DARK_TEXT_PRIMARY, false);
         g.drawString(font, value, textX + font.width(label), textY,
                 formed ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR, false);
+    }
+
+    private void drawDarkInsetRect(GuiGraphics g, int x, int y, int w, int h) {
+        NENativeAe2StyleRenderer.drawAeInsetRect(g, x, y, w, h, 0xFF1B2026);
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, DARK_PANEL_INNER);
+        g.fill(x + 3, y + 3, x + w - 3, y + 4, 0x30FFFFFF);
+        g.fill(x + 3, y + h - 4, x + w - 3, y + h - 3, 0x80000000);
     }
 
     private void drawCenteredString(GuiGraphics g, String text, int x, int y, int w, int color) {
