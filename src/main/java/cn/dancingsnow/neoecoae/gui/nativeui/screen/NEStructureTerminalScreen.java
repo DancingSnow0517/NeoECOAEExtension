@@ -40,7 +40,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private static final int PANEL_GAP = 7;
 
     private static final int CONTENT_Y = 24;
-    private static final int CONTENT_H = 220 - CONTENT_Y - PANEL_MARGIN;
+    private static final int CONTENT_H = 140 - CONTENT_Y - PANEL_MARGIN;
 
     private static final int CONTROL_X = PANEL_MARGIN;
     private static final int CONTROL_Y = CONTENT_Y;
@@ -64,7 +64,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
         this.imageWidth = 358;
-        this.imageHeight = 220;
+        this.imageHeight = 140;
         this.displayBuildLength = menu.getBuildLength();
     }
 
@@ -79,33 +79,37 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         super.init();
 
         int buttonH = 18;
-        int smallW = 22;
-        int valueW = 46;
-        int resetW = smallW * 2 + valueW; // 90
-        int modeW = 48;
-
-        int baseX = leftPos + CONTROL_X + 10;
-        int baseY = topPos + CONTROL_Y + 24;
-        int modeX = leftPos + CONTROL_X + CONTROL_W - modeW - 10;
         int rowGap = 3;
 
-        int row0Y = baseY;
+        int innerX = leftPos + CONTROL_X + 10;
+        int innerY = topPos + CONTROL_Y + 24;
+
+        int smallW = 22;
+        int valueW = 35;
+        int leftGroupW = smallW + valueW + smallW; // 79
+
+        int modeGap = 7;
+        int modeW = 48;
+
+        int modeX = innerX + leftGroupW + modeGap;
+
+        int row0Y = innerY;
         int row1Y = row0Y + buttonH + rowGap;
         int row2Y = row1Y + buttonH + rowGap;
 
         // Row 1 (row1Y): - / value / + --- dismantle
-        addRenderableWidget(new NEInsetTextButton(baseX, row1Y, smallW, buttonH,
+        addRenderableWidget(new NEInsetTextButton(innerX, row1Y, smallW, buttonH,
                 Component.literal("-"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
-        addRenderableWidget(new NEInsetTextButton(baseX + smallW + valueW, row1Y, smallW, buttonH,
+        addRenderableWidget(new NEInsetTextButton(innerX + smallW + valueW, row1Y, smallW, buttonH,
                 Component.literal("+"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
         // Row 2 (row2Y): reset --- expansion
-        addRenderableWidget(new NEInsetTextButton(baseX, row2Y, resetW, buttonH,
+        addRenderableWidget(new NEInsetTextButton(innerX, row2Y, leftGroupW, buttonH,
                 Component.translatable("gui.neoecoae.structure_terminal.reset"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
@@ -164,21 +168,20 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
 
         // ── Control panel ──
-        int cLabelX = CONTROL_X + 10;
-        int cLabelY = CONTROL_Y + 8;
         guiGraphics.drawString(font, Component.literal("结构长度"),
-                cLabelX, cLabelY, DARK_TEXT_PRIMARY, false);
+                CONTROL_X + 10, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
 
-        int cSmallW = 22;
-        int cValueW = 46;
         int cButtonH = 18;
         int cRowGap = 3;
-        int cBaseX = CONTROL_X + 10;
-        int cBaseY = CONTROL_Y + 24;
-        int cRow1Y = cBaseY + cButtonH + cRowGap;
+        int cSmallW = 22;
+        int cValueW = 35;
+
+        int cInnerX = CONTROL_X + 10;
+        int cInnerY = CONTROL_Y + 24;
+        int cRow1Y = cInnerY + cButtonH + cRowGap;
 
         String lengthValue = String.valueOf(displayBuildLength);
-        int valueBoxX = cBaseX + cSmallW;
+        int valueBoxX = cInnerX + cSmallW;
         int valueX = valueBoxX + (cValueW - font.width(lengthValue)) / 2;
         int valueY = cRow1Y + (cButtonH - font.lineHeight) / 2;
         guiGraphics.drawString(font, Component.literal(lengthValue), valueX, valueY, DARK_TEXT_VALUE, false);
@@ -215,7 +218,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int gridH = rows * slotSize;
 
         int startX = MATERIAL_X + (MATERIAL_W - gridW) / 2;
-        int startY = MATERIAL_Y + 28;
+        int startY = MATERIAL_Y + 34;
 
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
@@ -227,19 +230,22 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     }
 
     private void drawInventorySlot(GuiGraphics g, int x, int y) {
-        // 18×18, tight inventory-style slot
-        g.fill(x, y, x + 18, y + 18, 0xFF0D0D11);
-        g.fill(x + 1, y + 1, x + 17, y + 17, 0xFF85818D);
-        g.fill(x + 2, y + 2, x + 16, y + 16, 0xFF47434F);
-        g.fill(x + 3, y + 3, x + 15, y + 15, 0xFF5A5460);
+        // Tight inventory-style 18×18 slot
+        g.fill(x, y, x + 18, y + 18, 0xFF2B2834);
 
         // Top-left shadow
-        g.fill(x + 3, y + 3, x + 15, y + 4, 0xAA17141E);
-        g.fill(x + 3, y + 3, x + 4, y + 15, 0xAA17141E);
+        g.fill(x, y, x + 18, y + 1, 0xFF0D0D11);
+        g.fill(x, y, x + 1, y + 18, 0xFF0D0D11);
 
         // Bottom-right highlight
-        g.fill(x + 3, y + 14, x + 15, y + 15, 0x55C9C3D6);
-        g.fill(x + 14, y + 3, x + 15, y + 15, 0x55C9C3D6);
+        g.fill(x, y + 17, x + 18, y + 18, 0xFFC9C3D6);
+        g.fill(x + 17, y, x + 18, y + 18, 0xFFC9C3D6);
+
+        // Inner face
+        g.fill(x + 1, y + 1, x + 17, y + 17, 0xFF4B4653);
+
+        // Subtle recess
+        g.fill(x + 2, y + 2, x + 16, y + 16, 0xFF5A5460);
     }
 
     // ── Inset button drawing ──
