@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "ae2:item/wireless_crafting_terminal"
+    "layer0": "neoecoae:item/structure_terminal"
   }
 }
