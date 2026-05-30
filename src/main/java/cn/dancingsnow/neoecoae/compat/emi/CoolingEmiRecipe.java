@@ -31,10 +31,9 @@ public class CoolingEmiRecipe implements EmiRecipe {
     private static final Logger LOGGER = LoggerFactory.getLogger(CoolingEmiRecipe.class);
 
     // ── Textures ──
-    private static final ResourceLocation TEX_PROGRESS_EMPTY =
-        NeoECOAE.id("textures/gui/jei/cooling_progress_empty.png");
-    private static final ResourceLocation TEX_PROGRESS =
-        NeoECOAE.id("textures/gui/jei/cooling_progress.png");
+    private static final ResourceLocation TEX_PROGRESS_EMPTY = NeoECOAE
+            .id("textures/gui/jei/cooling_progress_empty.png");
+    private static final ResourceLocation TEX_PROGRESS = NeoECOAE.id("textures/gui/jei/cooling_progress.png");
 
     // ── Layout constants ──
     private static final int WIDTH = 150;
@@ -118,37 +117,36 @@ public class CoolingEmiRecipe implements EmiRecipe {
         // ── Input fluid tank ──
         if (input != null) {
             widgets.addTank(input, INPUT_TANK_X, INPUT_TANK_Y, 18, 18,
-                Math.max(recipe.inputAmount(), 1000));
+                    Math.max(recipe.inputAmount(), 1000));
         }
 
         // ── Cooling progress empty background ──
         widgets.addTexture(TEX_PROGRESS_EMPTY,
-            PROGRESS_X, PROGRESS_Y, 30, 30,
-            0, 0, 30, 30, 30, 30);
+                PROGRESS_X, PROGRESS_Y, 30, 30,
+                0, 0, 30, 30, 30, 30);
 
         // ── Cooling progress animated overlay ──
         widgets.addAnimatedTexture(TEX_PROGRESS,
-            PROGRESS_X, PROGRESS_Y, 30, 30,
-            0, 0, 30, 30, 30, 30,
-            2000, false, true, false);
+                PROGRESS_X, PROGRESS_Y, 30, 30,
+                0, 0, 30, 30, 30, 30,
+                2000, false, true, false);
 
         // ── Output fluid tank ──
         if (!recipe.output().isEmpty()) {
             widgets.addTank(
-                EmiStack.of(recipe.output().getFluid(), recipe.output().getAmount()),
-                OUTPUT_TANK_X, OUTPUT_TANK_Y, 18, 18,
-                Math.max(recipe.outputAmount(), 1000)
-            ).recipeContext(this);
+                    EmiStack.of(recipe.output().getFluid(), recipe.output().getAmount()),
+                    OUTPUT_TANK_X, OUTPUT_TANK_Y, 18, 18,
+                    Math.max(recipe.outputAmount(), 1000)).recipeContext(this);
         }
 
         // ── Coolant amount (line 1) ──
         widgets.addText(
-            Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()),
-            TEXT_X, COOLANT_TEXT_Y, TEXT_COLOR, false);
+                Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()),
+                TEXT_X, COOLANT_TEXT_Y, TEXT_COLOR, false);
 
         // ── Max overclock (line 2) ──
         widgets.addText(
-            Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()),
-            TEXT_X, OVERCLOCK_TEXT_Y, TEXT_COLOR, false);
+                Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()),
+                TEXT_X, OVERCLOCK_TEXT_Y, TEXT_COLOR, false);
     }
 }

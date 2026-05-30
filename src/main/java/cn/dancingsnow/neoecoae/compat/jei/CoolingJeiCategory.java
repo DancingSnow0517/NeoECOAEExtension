@@ -38,10 +38,9 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
     private static final Logger LOGGER = LoggerFactory.getLogger(CoolingJeiCategory.class);
 
     // ── Textures ──
-    private static final ResourceLocation TEX_PROGRESS_EMPTY =
-        NeoECOAE.id("textures/gui/jei/cooling_progress_empty.png");
-    private static final ResourceLocation TEX_PROGRESS =
-        NeoECOAE.id("textures/gui/jei/cooling_progress.png");
+    private static final ResourceLocation TEX_PROGRESS_EMPTY = NeoECOAE
+            .id("textures/gui/jei/cooling_progress_empty.png");
+    private static final ResourceLocation TEX_PROGRESS = NeoECOAE.id("textures/gui/jei/cooling_progress.png");
 
     // ── Layout constants ──
     private static final int WIDTH = 150;
@@ -71,17 +70,16 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
         this.title = Component.translatable("category.neoecoae.cooling");
 
         this.progressEmpty = helper.drawableBuilder(TEX_PROGRESS_EMPTY, 0, 0, 30, 30)
-            .setTextureSize(30, 30)
-            .build();
+                .setTextureSize(30, 30)
+                .build();
 
         this.progress = helper.createAnimatedDrawable(
-            helper.drawableBuilder(TEX_PROGRESS, 0, 0, 30, 30)
-                .setTextureSize(30, 30)
-                .build(),
-            20,
-            IDrawableAnimated.StartDirection.TOP,
-            false
-        );
+                helper.drawableBuilder(TEX_PROGRESS, 0, 0, 30, 30)
+                        .setTextureSize(30, 30)
+                        .build(),
+                20,
+                IDrawableAnimated.StartDirection.TOP,
+                false);
     }
 
     @Override
@@ -126,8 +124,8 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
 
         if (!inputs.isEmpty()) {
             builder.addInputSlot(INPUT_TANK_X, INPUT_TANK_Y)
-                .addIngredients(ForgeTypes.FLUID_STACK, inputs)
-                .setFluidRenderer(Math.max(recipe.inputAmount(), 1000), false, 16, 16);
+                    .addIngredients(ForgeTypes.FLUID_STACK, inputs)
+                    .setFluidRenderer(Math.max(recipe.inputAmount(), 1000), false, 16, 16);
         } else {
             LOGGER.warn("CoolingRecipe {} has no input fluids", recipe.getId());
         }
@@ -136,8 +134,8 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
         FluidStack output = recipe.output();
         if (!output.isEmpty()) {
             builder.addOutputSlot(OUTPUT_TANK_X, OUTPUT_TANK_Y)
-                .addIngredient(ForgeTypes.FLUID_STACK, output.copy())
-                .setFluidRenderer(Math.max(output.getAmount(), 1000), false, 16, 16);
+                    .addIngredient(ForgeTypes.FLUID_STACK, output.copy())
+                    .setFluidRenderer(Math.max(output.getAmount(), 1000), false, 16, 16);
         }
     }
 
@@ -151,16 +149,16 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
 
         // ── Coolant amount (line 1) ──
         g.drawString(mc.font,
-            Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()),
-            TEXT_X, COOLANT_TEXT_Y,
-            TEXT_COLOR,
-            false);
+                Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()),
+                TEXT_X, COOLANT_TEXT_Y,
+                TEXT_COLOR,
+                false);
 
         // ── Max overclock (line 2) ──
         g.drawString(mc.font,
-            Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()),
-            TEXT_X, OVERCLOCK_TEXT_Y,
-            TEXT_COLOR,
-            false);
+                Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()),
+                TEXT_X, OVERCLOCK_TEXT_Y,
+                TEXT_COLOR,
+                false);
     }
 }
