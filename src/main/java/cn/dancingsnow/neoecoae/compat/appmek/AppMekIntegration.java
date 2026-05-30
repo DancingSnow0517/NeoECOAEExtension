@@ -4,6 +4,7 @@ import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.ECOAETypeCounts;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
@@ -30,6 +31,9 @@ public class AppMekIntegration {
         // Register cell types, items
         NEAppMekCellTypes.register();
         NEAppMekItems.register();
+
+        // Register type count for Mekanism chemical key type (default 0 → 25)
+        ECOAETypeCounts.register(AppMekCompat.getChemicalKeyType(), 25);
 
         // Defer all registry-entry access to mod bus events —
         // Registrate has not built entries yet during mod construction.
