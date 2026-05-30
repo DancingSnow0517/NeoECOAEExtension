@@ -2,18 +2,20 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
-import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEAe2TextButton;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
+import java.util.function.BooleanSupplier;
+
 /**
  * Screen for the Structure Terminal configuration UI.
  * <p>
- * Layout: large preview area (top), length controls + buttons (bottom-left),
- * material list placeholder (bottom-right).
+ * Layout: large preview area (top), length controls + toggle buttons
+ * (bottom-left), 2×9 material slot grid (bottom-right).
  * </p>
  */
 public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
@@ -46,7 +48,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     private static final int CONTROL_X = PANEL_MARGIN;
     private static final int CONTROL_Y = LOWER_Y;
-    private static final int CONTROL_W = 158;
+    private static final int CONTROL_W = 154;
     private static final int CONTROL_H = LOWER_H;
 
     private static final int MATERIAL_X = CONTROL_X + CONTROL_W + PANEL_GAP;
@@ -57,6 +59,10 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private int displayBuildLength;
     private int minLength = 1;
     private int maxLength = 12;
+
+    // Toggle states (client-only, not synced)
+    private boolean dismantleMode = false;
+    private boolean expansionMode = true;
 
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -75,37 +81,54 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     protected void init() {
         super.init();
 
-        int btnH = 20;
-        int smallW = 24;
-        int mediumW = 44;
-
         int baseX = leftPos + CONTROL_X + 10;
         int baseY = topPos + CONTROL_Y + 25;
 
-        // Row 1: length adjustment
-        addRenderableWidget(new NEAe2TextButton(baseX, baseY, smallW, btnH,
+        int smallW = 22;
+        int smallH = 20;
+
+        int resetW = 70;
+        int resetH = 20;
+
+        int toggleX = leftPos + CONTROL_X + CONTROL_W - 58;
+        int toggleY = topPos + CONTROL_Y + 22;
+        int toggleW = 48;
+        int toggleH = 18;
+
+        // Length: - / +
+        addRenderableWidget(new NEInsetTextButton(baseX, baseY, smallW, smallH,
             Component.literal("-"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
-        addRenderableWidget(new NEAe2TextButton(baseX + 98, baseY, smallW, btnH,
+        addRenderableWidget(new NEInsetTextButton(baseX + 74, baseY, smallW, smallH,
             Component.literal("+"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
-        // Row 2: reset, preview, build
-        addRenderableWidget(new NEAe2TextButton(baseX, baseY + 27, mediumW, btnH,
+        // Reset
+        addRenderableWidget(new NEInsetTextButton(baseX, baseY + 27, resetW, resetH,
             Component.translatable("gui.neoecoae.structure_terminal.reset"),
             btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
-        addRenderableWidget(new NEAe2TextButton(baseX + 49, baseY + 27, mediumW, btnH,
-            Component.literal("预览"),
-            btn -> {}));
+        // Toggle: dismantle
+        addRenderableWidget(new NEToggleTextButton(toggleX, toggleY, toggleW, toggleH,
+            Component.literal("拆除"),
+            () -> dismantleMode,
+            btn -> {
+                dismantleMode = true;
+                expansionMode = false;
+            }));
 
-        addRenderableWidget(new NEAe2TextButton(baseX + 98, baseY + 27, mediumW, btnH,
-            Component.literal("构建"),
-            btn -> {}));
+        // Toggle: expansion
+        addRenderableWidget(new NEToggleTextButton(toggleX, toggleY + 22, toggleW, toggleH,
+            Component.literal("扩建"),
+            () -> expansionMode,
+            btn -> {
+                expansionMode = true;
+                dismantleMode = false;
+            }));
     }
 
     @Override
@@ -151,7 +174,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
             CONTROL_X + 10, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
 
         String lengthValue = String.valueOf(displayBuildLength);
-        int valueX = CONTROL_X + 10 + 24 + (74 - font.width(lengthValue)) / 2;
+        int valueX = CONTROL_X + 10 + 22 + (52 - font.width(lengthValue)) / 2;
         int valueY = CONTROL_Y + 31;
         guiGraphics.drawString(font, Component.literal(lengthValue), valueX, valueY, DARK_TEXT_VALUE, false);
 
@@ -167,7 +190,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         renderTooltip(guiGraphics, mouseX, mouseY);
     }
 
-    // ── Helpers ──
+    // ── Panel / slot drawing ──
 
     private void drawDarkInsetRect(GuiGraphics g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, 0xFFCBCCD4);
@@ -180,45 +203,142 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     private void drawMaterialSlotGrid(GuiGraphics g) {
         int slotSize = 18;
-        int gap = 3;
-
-        int startX = MATERIAL_X + 10;
-        int startY = MATERIAL_Y + 24;
-
-        int cols = 7;
+        int cols = 9;
         int rows = 2;
+
+        int gridW = cols * slotSize;
+        int gridH = rows * slotSize;
+
+        int startX = MATERIAL_X + (MATERIAL_W - gridW) / 2;
+        int startY = MATERIAL_Y + 28;
 
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
-                int x = startX + col * (slotSize + gap);
-                int y = startY + row * (slotSize + gap);
-
-                if (x + slotSize > MATERIAL_X + MATERIAL_W - 8) {
-                    continue;
-                }
-                if (y + slotSize > MATERIAL_Y + MATERIAL_H - 8) {
-                    continue;
-                }
-
-                drawSlot(g, x, y);
+                int x = startX + col * slotSize;
+                int y = startY + row * slotSize;
+                drawInventorySlot(g, x, y);
             }
         }
     }
 
-    private void drawSlot(GuiGraphics g, int x, int y) {
-        // Outer bright edge
-        g.fill(x, y, x + 18, y + 18, 0xFFC9C3D6);
+    private void drawInventorySlot(GuiGraphics g, int x, int y) {
+        // 18×18, tight inventory-style slot
+        g.fill(x, y, x + 18, y + 18, 0xFF0D0D11);
+        g.fill(x + 1, y + 1, x + 17, y + 17, 0xFF85818D);
+        g.fill(x + 2, y + 2, x + 16, y + 16, 0xFF47434F);
+        g.fill(x + 3, y + 3, x + 15, y + 15, 0xFF5A5460);
 
-        // Inner dark edge
-        g.fill(x + 1, y + 1, x + 17, y + 17, 0xFF0D0D11);
+        // Top-left shadow
+        g.fill(x + 3, y + 3, x + 15, y + 4, 0xAA17141E);
+        g.fill(x + 3, y + 3, x + 4, y + 15, 0xAA17141E);
 
-        // Slot background
-        g.fill(x + 2, y + 2, x + 16, y + 16, 0xFF4B4653);
+        // Bottom-right highlight
+        g.fill(x + 3, y + 14, x + 15, y + 15, 0x55C9C3D6);
+        g.fill(x + 14, y + 3, x + 15, y + 15, 0x55C9C3D6);
+    }
 
-        // Top-left shadow, bottom-right highlight
-        g.fill(x + 2, y + 2, x + 16, y + 3, 0xAA17141E);
-        g.fill(x + 2, y + 2, x + 3, y + 16, 0xAA17141E);
-        g.fill(x + 2, y + 15, x + 16, y + 16, 0x66AFA8BE);
-        g.fill(x + 15, y + 2, x + 16, y + 16, 0x66AFA8BE);
+    // ── Inset button drawing ──
+
+    private void drawInsetButton(GuiGraphics g, int x, int y, int w, int h,
+                                 boolean hover, boolean pressed, boolean selected) {
+        int outer = 0xFF0D0D11;
+        int edge = hover ? 0xFFDAD5E8 : 0xFFC9C3D6;
+        int mid = selected ? 0xFF3B3445 : 0xFF47434F;
+        int inner = selected ? 0xFF282232 : 0xFF5A5460;
+
+        if (pressed) {
+            inner = 0xFF211C29;
+            mid = 0xFF302A38;
+        }
+
+        g.fill(x, y, x + w, y + h, edge);
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, outer);
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, mid);
+        g.fill(x + 3, y + 3, x + w - 3, y + h - 3, inner);
+
+        if (!pressed) {
+            g.fill(x + 3, y + 3, x + w - 3, y + 4, 0x55FFFFFF);
+            g.fill(x + 3, y + h - 4, x + w - 3, y + h - 3, 0x99000000);
+        } else {
+            g.fill(x + 3, y + 3, x + w - 3, y + 4, 0x99000000);
+        }
+
+        if (selected) {
+            g.fill(x + 3, y + h - 4, x + w - 3, y + h - 3, DARK_TEXT_SUCCESS);
+        }
+    }
+
+    // ── Inner button classes ──
+
+    private class NEInsetTextButton extends Button {
+        private boolean pressed;
+
+        private NEInsetTextButton(int x, int y, int w, int h, Component message, OnPress onPress) {
+            super(x, y, w, h, message, onPress, DEFAULT_NARRATION);
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            boolean result = super.mouseClicked(mouseX, mouseY, button);
+            if (result) {
+                pressed = true;
+            }
+            return result;
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            pressed = false;
+            return super.mouseReleased(mouseX, mouseY, button);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            boolean hover = isHoveredOrFocused();
+            drawInsetButton(g, getX(), getY(), width, height, hover, pressed, false);
+
+            int color = active ? DARK_TEXT_PRIMARY : DARK_TEXT_MUTED;
+            int tx = getX() + (width - font.width(getMessage())) / 2;
+            int ty = getY() + (height - font.lineHeight) / 2 + (pressed ? 1 : 0);
+            g.drawString(font, getMessage(), tx, ty, color, false);
+        }
+    }
+
+    private class NEToggleTextButton extends Button {
+        private final BooleanSupplier selectedSupplier;
+        private boolean pressed;
+
+        private NEToggleTextButton(int x, int y, int w, int h, Component message,
+                                   BooleanSupplier selectedSupplier, OnPress onPress) {
+            super(x, y, w, h, message, onPress, DEFAULT_NARRATION);
+            this.selectedSupplier = selectedSupplier;
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            boolean result = super.mouseClicked(mouseX, mouseY, button);
+            if (result) {
+                pressed = true;
+            }
+            return result;
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            pressed = false;
+            return super.mouseReleased(mouseX, mouseY, button);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            boolean selected = selectedSupplier.getAsBoolean();
+            boolean hover = isHoveredOrFocused();
+            drawInsetButton(g, getX(), getY(), width, height, hover, pressed, selected);
+
+            int color = selected ? DARK_TEXT_SUCCESS : DARK_TEXT_MUTED;
+            int tx = getX() + (width - font.width(getMessage())) / 2;
+            int ty = getY() + (height - font.lineHeight) / 2 + (pressed ? 1 : 0);
+            g.drawString(font, getMessage(), tx, ty, color, false);
+        }
     }
 }
