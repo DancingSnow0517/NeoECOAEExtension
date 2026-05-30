@@ -183,7 +183,6 @@ sourceSets.main.resources {
 def forge120JavaExcludes = [
         'cn/dancingsnow/neoecoae/integration/**',
         'cn/dancingsnow/neoecoae/mixins/**',
-        'cn/dancingsnow/neoecoae/forge/mixin/**',
         'cn/dancingsnow/neoecoae/client/model/**',
         'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java',
         'cn/dancingsnow/neoecoae/client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java',
