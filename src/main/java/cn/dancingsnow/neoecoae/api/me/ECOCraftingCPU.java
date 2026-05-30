@@ -33,7 +33,8 @@ public class ECOCraftingCPU implements ICraftingCPU {
     @Getter
     private final IECOTier tier;
 
-    public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan, ECOComputationThreadingCoreBlockEntity owner) {
+    public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan,
+            ECOComputationThreadingCoreBlockEntity owner) {
         this.cluster = cluster;
         this.plan = plan;
         this.owner = owner;
@@ -59,15 +60,14 @@ public class ECOCraftingCPU implements ICraftingCPU {
         var finalOutput = logic.getFinalJobOutput();
         if (finalOutput != null) {
             var elapsedTimeTracker = logic.getElapsedTimeTracker();
-            var progress =
-                Math.max(0, elapsedTimeTracker.getStartItemCount() - elapsedTimeTracker.getRemainingItemCount());
+            var progress = Math.max(0,
+                    elapsedTimeTracker.getStartItemCount() - elapsedTimeTracker.getRemainingItemCount());
             return new CraftingJobStatus(
-                finalOutput, elapsedTimeTracker.getStartItemCount(), progress, elapsedTimeTracker.getElapsedTime());
+                    finalOutput, elapsedTimeTracker.getStartItemCount(), progress, elapsedTimeTracker.getElapsedTime());
         } else {
             return null;
         }
     }
-
 
     @Override
     public void cancelJob() {

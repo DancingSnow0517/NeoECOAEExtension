@@ -6,41 +6,39 @@ import net.minecraft.resources.ResourceLocation;
 
 public enum ECOTier implements IECOTier {
     L4(
-        1,
-        24,
-        32,
-        64,
-        4,
-        1 << 26,
-        1 << 24,
-        10_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l4.png"),
-        NeoECOAE.id("textures/gui/crafting/f4.png")
-    ),
+            1,
+            24,
+            32,
+            64,
+            4,
+            1 << 26,
+            1 << 24,
+            10_000_000,
+            NeoECOAE.id("textures/gui/cpu_overlay/l4.png"),
+            NeoECOAE.id("textures/gui/crafting/f4.png")),
     L6(
-        2,
-        72,
-        96,
-        192,
-        16,
-        1 << 28,
-        1 << 26,
-        100_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l6.png"),
-        NeoECOAE.id("textures/gui/crafting/f6.png")
-    ),
+            2,
+            72,
+            96,
+            192,
+            16,
+            1 << 28,
+            1 << 26,
+            100_000_000,
+            NeoECOAE.id("textures/gui/cpu_overlay/l6.png"),
+            NeoECOAE.id("textures/gui/crafting/f6.png")),
     L9(
-        3,
-        256,
-        384,
-        576,
-        64,
-        1 << 30,
-        1 << 28,
-        1_000_000_000,
-        NeoECOAE.id("textures/gui/cpu_overlay/l9.png"),
-        NeoECOAE.id("textures/gui/crafting/f9.png")
-    );
+            3,
+            256,
+            384,
+            576,
+            64,
+            1 << 30,
+            1 << 28,
+            1_000_000_000,
+            NeoECOAE.id("textures/gui/cpu_overlay/l9.png"),
+            NeoECOAE.id("textures/gui/crafting/f9.png"));
+
     @Getter
     private final int tier;
     @Getter
@@ -59,17 +57,16 @@ public enum ECOTier implements IECOTier {
     private final ResourceLocation craftingOverlayTexture;
 
     ECOTier(
-        int tier,
-        int crafterParallel,
-        int overclockedCrafterParallel,
-        int cpuAccelerators,
-        int cpuThreads,
-        long cpuTotalBytes,
-        long storageTotalBytes,
-        long powerStorageSize,
-        ResourceLocation cpuOverlayTexture,
-        ResourceLocation craftingOverlayTexture
-    ) {
+            int tier,
+            int crafterParallel,
+            int overclockedCrafterParallel,
+            int cpuAccelerators,
+            int cpuThreads,
+            long cpuTotalBytes,
+            long storageTotalBytes,
+            long powerStorageSize,
+            ResourceLocation cpuOverlayTexture,
+            ResourceLocation craftingOverlayTexture) {
         this.tier = tier;
         this.crafterParallel = crafterParallel;
         this.overclockedCrafterParallel = overclockedCrafterParallel;

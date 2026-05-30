@@ -3,12 +3,23 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.network.NENetwork;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -97,38 +108,38 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
         // Length: - / +
         addRenderableWidget(new NEInsetTextButton(baseX, baseY, smallW, smallH,
-            Component.literal("-"),
-            btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
-                NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
+                Component.literal("-"),
+                btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                        NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
         addRenderableWidget(new NEInsetTextButton(baseX + 74, baseY, smallW, smallH,
-            Component.literal("+"),
-            btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
-                NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
+                Component.literal("+"),
+                btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                        NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
         // Reset
         addRenderableWidget(new NEInsetTextButton(baseX, baseY + 27, resetW, resetH,
-            Component.translatable("gui.neoecoae.structure_terminal.reset"),
-            btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
-                NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
+                Component.translatable("gui.neoecoae.structure_terminal.reset"),
+                btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
+                        NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
         // Toggle: dismantle
         addRenderableWidget(new NEToggleTextButton(toggleX, toggleY, toggleW, toggleH,
-            Component.literal("拆除"),
-            () -> dismantleMode,
-            btn -> {
-                dismantleMode = true;
-                expansionMode = false;
-            }));
+                Component.literal("拆除"),
+                () -> dismantleMode,
+                btn -> {
+                    dismantleMode = true;
+                    expansionMode = false;
+                }));
 
         // Toggle: expansion
         addRenderableWidget(new NEToggleTextButton(toggleX, toggleY + 22, toggleW, toggleH,
-            Component.literal("扩建"),
-            () -> expansionMode,
-            btn -> {
-                expansionMode = true;
-                dismantleMode = false;
-            }));
+                Component.literal("扩建"),
+                () -> expansionMode,
+                btn -> {
+                    expansionMode = true;
+                    dismantleMode = false;
+                }));
     }
 
     @Override
@@ -144,6 +155,8 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         drawDarkInsetRect(guiGraphics, MATERIAL_X, MATERIAL_Y, MATERIAL_W, MATERIAL_H);
         drawMaterialSlotGrid(guiGraphics);
 
+        renderStructurePreview(guiGraphics, PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H);
+
         guiGraphics.pose().popPose();
     }
 
@@ -151,27 +164,21 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         // Title — use machine-native colour (not dark-panel text)
         guiGraphics.drawString(font, title,
-            NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
-            NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
+                NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
+                NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
 
         // ── Preview area ──
         guiGraphics.drawString(font, Component.literal("结构预览区域"),
-            PREVIEW_X + 10, PREVIEW_Y + 8, DARK_TEXT_PRIMARY, false);
-
-        Component placeholder = Component.literal("3D Preview Placeholder");
-        guiGraphics.drawString(font, placeholder,
-            PREVIEW_X + (PREVIEW_W - font.width(placeholder)) / 2,
-            PREVIEW_Y + PREVIEW_H / 2 - 4,
-            DARK_TEXT_MUTED, false);
+                PREVIEW_X + 10, PREVIEW_Y + 8, DARK_TEXT_PRIMARY, false);
 
         Component lengthText = Component.literal("长度: " + displayBuildLength + " / " + maxLength);
         guiGraphics.drawString(font, lengthText,
-            PREVIEW_X + 10, PREVIEW_Y + PREVIEW_H - 16,
-            DARK_TEXT_MUTED, false);
+                PREVIEW_X + 10, PREVIEW_Y + PREVIEW_H - 16,
+                DARK_TEXT_MUTED, false);
 
         // ── Control panel ──
         guiGraphics.drawString(font, Component.literal("结构长度"),
-            CONTROL_X + 10, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
+                CONTROL_X + 10, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
 
         String lengthValue = String.valueOf(displayBuildLength);
         int valueX = CONTROL_X + 10 + 22 + (52 - font.width(lengthValue)) / 2;
@@ -180,7 +187,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
         // ── Material panel ──
         guiGraphics.drawString(font, Component.literal("所需方块"),
-            MATERIAL_X + 10, MATERIAL_Y + 8, DARK_TEXT_PRIMARY, false);
+                MATERIAL_X + 10, MATERIAL_Y + 8, DARK_TEXT_PRIMARY, false);
     }
 
     @Override
@@ -240,7 +247,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     // ── Inset button drawing ──
 
     private void drawInsetButton(GuiGraphics g, int x, int y, int w, int h,
-                                 boolean hover, boolean pressed, boolean selected) {
+            boolean hover, boolean pressed, boolean selected) {
         int outer = 0xFF0D0D11;
         int edge = hover ? 0xFFDAD5E8 : 0xFFC9C3D6;
         int mid = selected ? 0xFF3B3445 : 0xFF47434F;
@@ -309,7 +316,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         private boolean pressed;
 
         private NEToggleTextButton(int x, int y, int w, int h, Component message,
-                                   BooleanSupplier selectedSupplier, OnPress onPress) {
+                BooleanSupplier selectedSupplier, OnPress onPress) {
             super(x, y, w, h, message, onPress, DEFAULT_NARRATION);
             this.selectedSupplier = selectedSupplier;
         }
@@ -340,5 +347,76 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
             int ty = getY() + (height - font.lineHeight) / 2 + (pressed ? 1 : 0);
             g.drawString(font, getMessage(), tx, ty, color, false);
         }
+    }
+
+    // ── 3D BlockState preview ──
+
+    private record PreviewBlock(BlockPos pos, BlockState state) {
+    }
+
+    private List<PreviewBlock> buildDebugPreviewBlocks() {
+        return List.of(
+                new PreviewBlock(new BlockPos(0, 0, 0), Blocks.IRON_BLOCK.defaultBlockState()),
+                new PreviewBlock(new BlockPos(1, 0, 0), Blocks.IRON_BLOCK.defaultBlockState()),
+                new PreviewBlock(new BlockPos(2, 0, 0), Blocks.IRON_BLOCK.defaultBlockState()),
+
+                new PreviewBlock(new BlockPos(0, 1, 0), Blocks.GLASS.defaultBlockState()),
+                new PreviewBlock(new BlockPos(1, 1, 0), Blocks.COPPER_BLOCK.defaultBlockState()),
+                new PreviewBlock(new BlockPos(2, 1, 0), Blocks.GLASS.defaultBlockState()),
+
+                new PreviewBlock(new BlockPos(0, 0, 1), Blocks.SMOOTH_STONE.defaultBlockState()),
+                new PreviewBlock(new BlockPos(1, 0, 1), Blocks.SMOOTH_STONE.defaultBlockState()),
+                new PreviewBlock(new BlockPos(2, 0, 1), Blocks.SMOOTH_STONE.defaultBlockState()));
+    }
+
+    private void renderStructurePreview(GuiGraphics g, int x, int y, int w, int h) {
+        List<PreviewBlock> blocks = buildDebugPreviewBlocks();
+        if (blocks.isEmpty()) {
+            return;
+        }
+
+        int scissorX1 = leftPos + x + 6;
+        int scissorY1 = topPos + y + 6;
+        int scissorX2 = leftPos + x + w - 6;
+        int scissorY2 = topPos + y + h - 6;
+
+        g.enableScissor(scissorX1, scissorY1, scissorX2, scissorY2);
+
+        PoseStack pose = g.pose();
+        pose.pushPose();
+
+        pose.translate(x + w / 2.0F, y + h / 2.0F + 22.0F, 250.0F);
+
+        float scale = 24.0F;
+        pose.scale(scale, -scale, scale);
+
+        pose.mulPose(Axis.XP.rotationDegrees(30.0F));
+        pose.mulPose(Axis.YP.rotationDegrees(45.0F));
+
+        pose.translate(-1.0F, -0.75F, -0.5F);
+
+        Minecraft mc = Minecraft.getInstance();
+        BlockRenderDispatcher blockRenderer = mc.getBlockRenderer();
+        MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+
+        for (PreviewBlock block : blocks) {
+            pose.pushPose();
+            BlockPos p = block.pos();
+            pose.translate(p.getX(), p.getY(), p.getZ());
+
+            blockRenderer.renderSingleBlock(
+                    block.state(),
+                    pose,
+                    buffer,
+                    LightTexture.FULL_BRIGHT,
+                    OverlayTexture.NO_OVERLAY);
+
+            pose.popPose();
+        }
+
+        buffer.endBatch();
+        pose.popPose();
+
+        g.disableScissor();
     }
 }
