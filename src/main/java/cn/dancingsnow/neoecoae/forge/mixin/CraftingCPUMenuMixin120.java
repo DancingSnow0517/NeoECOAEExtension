@@ -118,7 +118,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
 
     @Override
     public void neoecoae$broadcastEcoCpuChanges() {
-        if (!this.isServerSide() || this.neoecoae$cpu == null) return;
+        if (!this.isServerSide() || this.neoecoae$cpu == null)
+            return;
 
         ECOCraftingCPULogic logic = this.neoecoae$cpu.getLogic();
         this.schedulingMode = this.neoecoae$cpu.getSelectionMode();
@@ -138,7 +139,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             return;
         }
 
-        // Priority 2: heartbeat for elapsed time / remaining items (max every HEARTBEAT_INTERVAL ticks)
+        // Priority 2: heartbeat for elapsed time / remaining items (max every
+        // HEARTBEAT_INTERVAL ticks)
         if (hasJob && tick - this.neoecoae$lastEcoStatusHeartbeatTick >= HEARTBEAT_INTERVAL) {
             var pulseStatus = neoecoae$createHeartbeatStatus(logic);
             this.sendPacketToClient(new CraftingStatusPacket(containerId, pulseStatus));
