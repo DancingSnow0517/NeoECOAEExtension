@@ -14,8 +14,11 @@ public class NECreativeTabs {
             CreativeModeTab.builder()
                 .icon(() -> NEBlocks.STORAGE_SYSTEM_L9.asStack())
                 .title(REGISTRATE.addLang("itemGroup", NeoECOAE.id("main"), "Neo ECO AE Extension"))
+                .displayItems(NECreativeTabOrder::acceptAll)
         )
         .register();
 
-    public static void register() {}
+    public static void register() {
+        REGISTRATE.clearDefaultCreativeTab();
+    }
 }

@@ -6,7 +6,6 @@ import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NECellTypes;
-import cn.dancingsnow.neoecoae.all.NECreativeTabContents;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEEcoTiers;
 import cn.dancingsnow.neoecoae.all.NEFluids;
@@ -90,7 +89,6 @@ public class NeoECOAE {
         modBus.addListener(NEConfig::onLoad);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
 
-        NECreativeTabContents.register(modBus);
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
@@ -113,7 +111,7 @@ public class NeoECOAE {
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
                     NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
-                    NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_FLUID_CELL_256M);
+                    NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M);
             for (ItemEntry<ECOStorageCellItem> cell : cells) {
                 Upgrades.add(AEItems.FUZZY_CARD, cell, 1, storageCellGroup);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
