@@ -1,5 +1,1 @@
-{
-  "values": [
-    "neoecoae:tungsten_dust"
-  ]
-}
+{"replace":false,"values":["neoecoae:tungsten_dust",{"id":"gtceu:tungsten_dust","required":false}]}
