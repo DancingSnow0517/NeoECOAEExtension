@@ -18,6 +18,7 @@ import appeng.util.prioritylist.IPartitionList;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -233,8 +234,12 @@ public class ECOStorageCell implements IECOStorageCell {
         }
 
         this.isPersisted = false;
-        this.persist();
-        if (this.container != null) {
+        if (this.container == null) {
+            this.persist();
+        } else if (this.container instanceof IBatchedECOCellSaveProvider) {
+            this.container.saveChanges();
+        } else {
+            this.persist();
             this.container.saveChanges();
         }
     }

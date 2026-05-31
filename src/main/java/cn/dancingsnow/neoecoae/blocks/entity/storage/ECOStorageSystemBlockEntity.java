@@ -53,6 +53,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private long[] totalTypes;
     private long[] usedBytes;
     private long[] totalBytes;
+    private boolean storageStatsDirty = true;
 
     private long storedEnergy;
     private long maxEnergy;
@@ -115,6 +116,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
         if (updateExposed) {
+            markStorageStatsDirty();
             updateInfos();
         }
     }
@@ -206,9 +208,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @SuppressWarnings("UnstableApiUsage")
     private void updateInfos() {
+        if (ensureStorageStatsCurrent()) {
+            setChanged();
+            syncUiToClient();
+        }
+    }
+
+    private boolean ensureStorageStatsCurrent() {
+        if (!storageStatsDirty) {
+            return false;
+        }
         recalculateStorageStats();
-        setChanged();
-        syncUiToClient();
+        storageStatsDirty = false;
+        return true;
     }
 
     /**
@@ -220,7 +232,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
      */
     public NEStorageUiState createStorageUiState() {
         if (level != null && !level.isClientSide) {
-            recalculateStorageStats();
+            ensureStorageStatsCurrent();
         }
 
         List<NEStorageUiTypeState> typeStates;
@@ -469,7 +481,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (level == null || level.isClientSide) {
             return;
         }
-        updateInfos();
+        markStorageStatsDirty();
+    }
+
+    public void markStorageStatsDirty() {
+        storageStatsDirty = true;
     }
 
     private int getCellTypeCount() {
