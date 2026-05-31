@@ -1,5 +1,1 @@
-{
-  "values": [
-    "neoecoae:aluminum_block"
-  ]
-}
+{"replace":false,"values":["neoecoae:aluminum_block",{"id":"gtceu:aluminium_block","required":false},{"id":"gtceu:aluminum_block","required":false}]}
