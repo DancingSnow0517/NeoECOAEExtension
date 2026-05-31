@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.compat.appmek;
 
-import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -36,10 +35,6 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
  * </p>
  */
 public class NEAppMekItems {
-    static {
-        REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
-    }
-
     // ═══════════════════════════════════════════════════════════════
     // Chemical Cell Housing
     // ═══════════════════════════════════════════════════════════════

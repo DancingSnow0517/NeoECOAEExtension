@@ -59,10 +59,6 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 @SuppressWarnings("CodeBlock2Expr")
 public class NEBlocks {
-    static {
-        REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
-    }
-
     public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
         .block("aluminum_ore", Block::new)
         .initialProperties(() -> Blocks.IRON_ORE)

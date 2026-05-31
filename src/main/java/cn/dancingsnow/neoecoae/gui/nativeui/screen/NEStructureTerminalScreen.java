@@ -199,7 +199,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
 
         // ── Control panel ──
-        Component lengthLabel = Component.literal("结构长度: " + displayBuildLength);
+        Component lengthLabel = Component.literal("可变长度: " + displayBuildLength);
         guiGraphics.drawString(font, lengthLabel,
                 CONTROL_X + (CONTROL_W - font.width(lengthLabel)) / 2, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
 

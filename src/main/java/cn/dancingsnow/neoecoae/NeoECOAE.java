@@ -7,6 +7,7 @@ import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NECellTypes;
+import cn.dancingsnow.neoecoae.all.NECreativeTabContents;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEEcoTiers;
 import cn.dancingsnow.neoecoae.all.NEFluids;
@@ -88,6 +89,7 @@ public class NeoECOAE {
         modBus.addListener(NEConfig::onLoad);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
 
+        NECreativeTabContents.register(modBus);
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);

@@ -45,10 +45,6 @@ import java.util.List;
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 public class NEItems {
-    static {
-        REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
-    }
-
     public static final ItemEntry<AxeItem> ALUMINUM_AXE = REGISTRATE
             .item("aluminum_axe", p -> new AxeItem(NEToolTier.ALUMINUM, 6.0F, -3.2F, p))
             .tag(ItemTags.AXES)
