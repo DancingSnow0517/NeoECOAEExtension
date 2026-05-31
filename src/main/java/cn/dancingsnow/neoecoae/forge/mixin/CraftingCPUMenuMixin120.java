@@ -11,8 +11,10 @@ import appeng.menu.me.common.IncrementalUpdateHelper;
 import appeng.menu.me.crafting.CraftingCPUMenu;
 import appeng.menu.me.crafting.CraftingStatus;
 import appeng.menu.me.crafting.CraftingStatusEntry;
+import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
+import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingCpuMenuBridge;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.world.entity.player.Inventory;
@@ -34,12 +36,23 @@ import java.util.function.Consumer;
 @Mixin(CraftingCPUMenu.class)
 public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoECOCraftingCpuMenuBridge {
 
+    /**
+     * Minimum tick interval between heartbeat (time-only) status updates.
+     */
+    private static final int HEARTBEAT_INTERVAL = 10;
+
     public CraftingCPUMenuMixin120(MenuType<?> menuType, int id, Inventory playerInventory, Object host) {
         super(menuType, id, playerInventory, host);
     }
 
     @Unique
     private ECOCraftingCPU neoecoae$cpu = null;
+
+    @Unique
+    private long neoecoae$lastEcoStatusHeartbeatTick = 0;
+
+    @Unique
+    private boolean neoecoae$forceEcoStatusUpdate = false;
 
     @Final
     @Shadow
@@ -75,6 +88,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
                 this.incrementalUpdateHelper.addChange(entry.getKey());
             }
             ecoCpu.getLogic().addListener(this.cpuChangeListener);
+            this.neoecoae$forceEcoStatusUpdate = true;
             this.neoecoae$broadcastEcoCpuChanges();
             ci.cancel();
         }
@@ -84,6 +98,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
     private void neoecoae$onCancelCrafting(CallbackInfo ci) {
         if (!this.isClientSide() && this.neoecoae$cpu != null) {
             this.neoecoae$cpu.cancelJob();
+            this.neoecoae$forceEcoStatusUpdate = true;
         }
     }
 
@@ -92,6 +107,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         if (!this.isClientSide() && this.neoecoae$cpu != null) {
             ECOCraftingCPULogic logic = this.neoecoae$cpu.getLogic();
             logic.setJobSuspended(!logic.isJobSuspended());
+            this.neoecoae$forceEcoStatusUpdate = true;
         }
     }
 
@@ -102,14 +118,31 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
 
     @Override
     public void neoecoae$broadcastEcoCpuChanges() {
-        if (this.isServerSide() && this.neoecoae$cpu != null) {
-            this.schedulingMode = this.neoecoae$cpu.getSelectionMode();
-            this.cantStoreItems = this.neoecoae$cpu.getLogic().isCantStoreItems();
-            if (this.incrementalUpdateHelper.hasChanges()) {
-                CraftingStatus status = neoecoae$createStatus(this.incrementalUpdateHelper, this.neoecoae$cpu.getLogic());
-                this.incrementalUpdateHelper.commitChanges();
-                this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
-            }
+        if (!this.isServerSide() || this.neoecoae$cpu == null) return;
+
+        ECOCraftingCPULogic logic = this.neoecoae$cpu.getLogic();
+        this.schedulingMode = this.neoecoae$cpu.getSelectionMode();
+        this.cantStoreItems = logic.isCantStoreItems();
+
+        long tick = TickHandler.instance().getCurrentTick();
+        boolean hasJob = logic.hasJob();
+
+        // Priority 1: actual item changes → send incremental update
+        if (this.incrementalUpdateHelper.hasChanges() || this.neoecoae$forceEcoStatusUpdate) {
+            this.neoecoae$forceEcoStatusUpdate = false;
+            var status = neoecoae$createStatus(this.incrementalUpdateHelper, logic);
+            boolean isFull = this.incrementalUpdateHelper.isFullUpdate();
+            this.incrementalUpdateHelper.commitChanges();
+            this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
+            this.neoecoae$lastEcoStatusHeartbeatTick = tick;
+            return;
+        }
+
+        // Priority 2: heartbeat for elapsed time / remaining items (max every HEARTBEAT_INTERVAL ticks)
+        if (hasJob && tick - this.neoecoae$lastEcoStatusHeartbeatTick >= HEARTBEAT_INTERVAL) {
+            var pulseStatus = neoecoae$createHeartbeatStatus(logic);
+            this.sendPacketToClient(new CraftingStatusPacket(containerId, pulseStatus));
+            this.neoecoae$lastEcoStatusHeartbeatTick = tick;
         }
     }
 
@@ -151,5 +184,18 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         long remainingItems = logic.getElapsedTimeTracker().getRemainingItemCount();
         long startItems = logic.getElapsedTimeTracker().getStartItemCount();
         return new CraftingStatus(full, elapsedTime, remainingItems, startItems, newEntries.build());
+    }
+
+    /**
+     * Lightweight heartbeat status: only refreshes elapsed time,
+     * remaining items and start items. No entries are included, so
+     * the client keeps its existing entry list.
+     */
+    @Unique
+    private static CraftingStatus neoecoae$createHeartbeatStatus(ECOCraftingCPULogic logic) {
+        long elapsedTime = logic.getElapsedTimeTracker().getElapsedTime();
+        long remainingItems = logic.getElapsedTimeTracker().getRemainingItemCount();
+        long startItems = logic.getElapsedTimeTracker().getStartItemCount();
+        return new CraftingStatus(false, elapsedTime, remainingItems, startItems, ImmutableList.of());
     }
 }

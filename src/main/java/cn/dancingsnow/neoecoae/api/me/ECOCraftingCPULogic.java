@@ -206,12 +206,14 @@ public class ECOCraftingCPULogic {
                     for (var expectedOutput : expectedOutputs) {
                         job.waitingFor.insert(
                             expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
+                        postChange(expectedOutput.getKey());
                     }
                     for (var expectedContainerItem : expectedContainerItems) {
                         job.waitingFor.insert(
                             expectedContainerItem.getKey(),
                             expectedContainerItem.getLongValue(),
                             Actionable.MODULATE);
+                        postChange(expectedContainerItem.getKey());
                         job.timeTracker.addMaxItems(
                             expectedContainerItem.getLongValue(),
                             expectedContainerItem.getKey().getType());
@@ -270,6 +272,7 @@ public class ECOCraftingCPULogic {
         if (type == Actionable.MODULATE) {
             job.timeTracker.decrementItems(amount, what.getType());
             job.waitingFor.extract(what, amount, Actionable.MODULATE);
+            postChange(what);
             cpu.markDirty();
         }
 
@@ -320,7 +323,10 @@ public class ECOCraftingCPULogic {
 
         // TODO: log
 
-        // Clear waitingFor list and post all the relevant changes.
+        // Post changes for all waitingFor keys before clearing.
+        for (var waitingEntry : job.waitingFor.list) {
+            postChange(waitingEntry.getKey());
+        }
         job.waitingFor.clear();
         // Notify opened menus of cancelled scheduled tasks.
         for (var entry : job.tasks.entrySet()) {

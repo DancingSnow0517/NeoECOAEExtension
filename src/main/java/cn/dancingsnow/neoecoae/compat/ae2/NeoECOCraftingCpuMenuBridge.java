@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.forge.mixin;
+package cn.dancingsnow.neoecoae.compat.ae2;
 
 public interface NeoECOCraftingCpuMenuBridge {
     void neoecoae$cleanupEcoCpuListener();

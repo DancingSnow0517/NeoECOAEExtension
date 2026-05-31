@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.forge.mixin;
 
 import appeng.menu.me.crafting.CraftingCPUMenu;
+import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingCpuMenuBridge;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import org.spongepowered.asm.mixin.Mixin;
