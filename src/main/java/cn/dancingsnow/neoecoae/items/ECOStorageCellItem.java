@@ -296,33 +296,6 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     /**
-     * Matches only chemical (Mekanism/AppMek) storage cells.
-     * <p>
-     * This handler references {@code MekanismKeyType.TYPE} directly.
-     * It must only be registered when Applied Mekanistics is loaded,
-     * otherwise the class reference will cause a
-     * {@link NoClassDefFoundError}.
-     * </p>
-     */
-    public static class ChemicalCellHandler implements IECOCellHandler {
-
-        public static final ChemicalCellHandler INSTANCE = new ChemicalCellHandler();
-
-        @Override
-        public boolean isCell(ItemStack stack) {
-            if (stack.getItem() instanceof ECOStorageCellItem item) {
-                return item.getKeyType() == me.ramidzkh.mekae2.ae2.MekanismKeyType.TYPE;
-            }
-            return false;
-        }
-
-        @Override
-        public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
-            return ECOStorageCellItem.getCellInventory(is, host);
-        }
-    }
-
-    /**
      * @deprecated Replaced by {@link ItemCellHandler} and {@link FluidCellHandler}.
      */
     @Deprecated

@@ -60,6 +60,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private boolean activeCooling = false;
 
     @Getter
+    private boolean autoClearCoolingWaste = false;
+
+    @Getter
     private int coolant = 0;
     @Getter
     private int coolantMaxOverclock = -1;
@@ -107,6 +110,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         super.saveAdditional(tag);
         tag.putBoolean("overclocked", overclocked);
         tag.putBoolean("activeCooling", activeCooling);
+        tag.putBoolean("autoClearCoolingWaste", autoClearCoolingWaste);
         tag.putInt("coolant", coolant);
         tag.putInt("coolantMaxOverclock", coolantMaxOverclock);
         tag.putInt("selectedBuildLength", selectedBuildLength);
@@ -117,6 +121,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         super.loadTag(tag);
         overclocked = tag.getBoolean("overclocked");
         activeCooling = tag.getBoolean("activeCooling");
+        autoClearCoolingWaste = tag.getBoolean("autoClearCoolingWaste");
         coolant = Mth.clamp(tag.getInt("coolant"), 0, MAX_COOLANT);
         coolantMaxOverclock = tag.getInt("coolantMaxOverclock");
         if (!tag.contains("coolantMaxOverclock")) coolantMaxOverclock = -1;
@@ -276,6 +281,25 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         markForUpdate();
     }
 
+    public void toggleOverclocked() {
+        overclocked = !overclocked;
+        updateInfo();
+        setChanged();
+        markForUpdate();
+    }
+
+    public void toggleActiveCooling() {
+        activeCooling = !activeCooling;
+        setChanged();
+        markForUpdate();
+    }
+
+    public void toggleAutoClearCoolingWaste() {
+        autoClearCoolingWaste = !autoClearCoolingWaste;
+        setChanged();
+        markForUpdate();
+    }
+
     private double getOverflowThreadsPercentage() {
         double totalThread = threadCount;
         return totalThread > 0 ? getOverflowThreads() / totalThread : 0.0;
@@ -427,6 +451,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             getRunningThreadCount(),
             isOverclocked(),
             isActiveCooling(),
+            isAutoClearCoolingWaste(),
             getSelectedBuildLength(),
             isBuildInProgress(),
             getPreviewMissingBlocks(),
@@ -513,7 +538,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
 
         FluidStack output = recipe.output();
-        if (!output.isEmpty()) {
+        if (!output.isEmpty() && !autoClearCoolingWaste) {
             int outputAmount = (int) ((long) drained * recipe.outputAmount() / inputAmount);
             if (outputAmount > 0) {
                 outputHatch.fill(new FluidStack(output, outputAmount), IFluidHandler.FluidAction.EXECUTE);
@@ -532,6 +557,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private long getMaxDrainByOutput(CoolingRecipe recipe, FluidTank outputHatch) {
+        if (autoClearCoolingWaste) {
+            return Long.MAX_VALUE;
+        }
         FluidStack output = recipe.output();
         if (output.isEmpty()) {
             return Long.MAX_VALUE;
@@ -766,6 +794,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private void writeUiSyncTag(CompoundTag tag) {
         tag.putBoolean("overclocked", overclocked);
         tag.putBoolean("activeCooling", activeCooling);
+        tag.putBoolean("autoClearCoolingWaste", autoClearCoolingWaste);
         tag.putInt("coolant", coolant);
         tag.putInt("coolantMaxOverclock", coolantMaxOverclock);
         tag.putInt("selectedBuildLength", selectedBuildLength);
@@ -787,6 +816,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private void readUiSyncTag(CompoundTag tag) {
         if (tag.contains("overclocked")) overclocked = tag.getBoolean("overclocked");
         if (tag.contains("activeCooling")) activeCooling = tag.getBoolean("activeCooling");
+        if (tag.contains("autoClearCoolingWaste")) autoClearCoolingWaste = tag.getBoolean("autoClearCoolingWaste");
         if (tag.contains("coolant")) coolant = Mth.clamp(tag.getInt("coolant"), 0, MAX_COOLANT);
         if (tag.contains("coolantMaxOverclock")) coolantMaxOverclock = tag.getInt("coolantMaxOverclock");
         else coolantMaxOverclock = -1;

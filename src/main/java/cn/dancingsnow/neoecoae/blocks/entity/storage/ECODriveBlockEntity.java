@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.cells.CellState;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
@@ -53,6 +54,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private boolean mounted = false;
     @Getter
     private boolean online = false;
+    @Nullable
+    private CellState lastSyncedCellState = null;
 
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
@@ -75,6 +78,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             }
         }
         updateStorageProviderState("setCellStack");
+        lastSyncedCellState = getCurrentCellState();
         markForUpdate();
         setChanged();
         notifyControllerRefresh();
@@ -120,7 +124,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Nullable
     public IECOStorageCell getCellInventory() {
         if (cellStack != null) {
-            return ECOStorageCells.getCellInventory(cellStack, this::saveChanges);
+            return ECOStorageCells.getCellInventory(cellStack, this::notifyPersistence);
         }
         return null;
     }
@@ -140,6 +144,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 storageMounts.mount(cellInventory);
                 mounted = true;
                 setChanged();
+                lastSyncedCellState = getCurrentCellState();
                 markForUpdate();
                 logMountResult(true);
                 notifyControllerRefresh();
@@ -148,6 +153,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         }
         mounted = false;
         setChanged();
+        lastSyncedCellState = getCurrentCellState();
         markForUpdate();
         logMountResult(false);
         notifyControllerRefresh();
@@ -172,9 +178,14 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
                 setChanged();
-                markForUpdate();
+                updateStorageProviderState("notifyPersistence");
+                CellState currentState = getCurrentCellState();
+                if (currentState != lastSyncedCellState) {
+                    lastSyncedCellState = currentState;
+                    markForUpdate();
+                }
+                notifyControllerRefresh();
             });
-            notifyControllerRefresh();
         }
     }
 
@@ -239,6 +250,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         }
         this.mounted = data.getBoolean("mounted");
         this.online = data.getBoolean("online");
+        this.lastSyncedCellState = getCurrentCellState();
+    }
+
+    @Nullable
+    private CellState getCurrentCellState() {
+        IECOStorageCell cellInventory = getCellInventory();
+        return cellInventory == null ? null : cellInventory.getStatus();
     }
 
     private void logVisualSync(String source, CompoundTag data) {

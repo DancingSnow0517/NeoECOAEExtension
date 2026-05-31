@@ -23,6 +23,7 @@ public record NECraftingUiState(
     int runningThreadCount,
     boolean overclocked,
     boolean activeCooling,
+    boolean autoClearCoolingWaste,
     int selectedBuildLength,
     boolean buildInProgress,
     int previewMissingBlocks,
@@ -35,7 +36,7 @@ public record NECraftingUiState(
 ) {
     public static NECraftingUiState empty(BlockPos pos) {
         return new NECraftingUiState(pos, false, false, 0, 0, 0, 0, 0,
-            false, false, 1, false, 0, 0, 0, 0,
+            false, false, false, 1, false, 0, 0, 0, 0,
             "gui.neoecoae.multiblock.status.idle", 0, 0);
     }
 }

@@ -70,7 +70,7 @@ public final class NEClientUiPacketHandlers {
     public static void handleStructureTerminalConfig(NENetwork.NEStructureTerminalConfigPacket pkt) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof NEStructureTerminalScreen screen) {
-            screen.setBuildLength(pkt.currentLength(), pkt.minLength(), pkt.maxLength());
+            screen.setConfig(pkt.currentLength(), pkt.minLength(), pkt.maxLength(), pkt.hostType(), pkt.materials());
         }
     }
 

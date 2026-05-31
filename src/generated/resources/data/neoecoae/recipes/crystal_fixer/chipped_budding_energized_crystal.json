@@ -13,9 +13,8 @@
     }
   },
   "input": {
-    "ingredient": {
-      "item": "neoecoae:damaged_budding_energized_crystal"
-    }
+    "count": 1,
+    "id": "neoecoae:damaged_budding_energized_crystal"
   },
   "output": {
     "count": 1,

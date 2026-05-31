@@ -40,6 +40,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static final int DARK_TEXT_USED = 0xFF00FC00;
     private static final int DARK_TEXT_MUTED = 0xFFAAA4B2;
     private static final int DARK_TEXT_SUCCESS = 0xFF6CFFA0;
+    private static final int DARK_TEXT_WARNING = 0xFFFFD65A;
+    private static final int DARK_TEXT_ORANGE = 0xFFFF9A3D;
     private static final int DARK_TEXT_ERROR = 0xFFFF6A75;
 
     private static final int LEFT_PANEL_X = 9;
@@ -214,7 +216,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private void drawPrefixedUsedTotalLine(GuiGraphics g, String prefix, long used, long max, String suffix, int x,
             int y) {
         int cursor = drawSegment(g, prefix, x, y, DARK_TEXT_MUTED);
-        cursor += drawSegment(g, formatMetricNumber(used), x + cursor, y, DARK_TEXT_USED);
+        cursor += drawSegment(g, formatMetricNumber(used), x + cursor, y, usedValueColor(used, max));
         cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
         cursor += drawSegment(g, formatMetricNumber(max), x + cursor, y, DARK_TEXT_VALUE);
         if (!suffix.isEmpty()) {
@@ -223,7 +225,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawUsedTotalLine(GuiGraphics g, long used, long max, String suffix, int x, int y) {
-        int cursor = drawSegment(g, formatMetricNumber(used), x, y, DARK_TEXT_USED);
+        int cursor = drawSegment(g, formatMetricNumber(used), x, y, usedValueColor(used, max));
         cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
         cursor += drawSegment(g, formatMetricNumber(max), x + cursor, y, DARK_TEXT_VALUE);
         drawSegment(g, " " + suffix, x + cursor, y, DARK_TEXT_MUTED);
@@ -396,6 +398,23 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             return 0.0D;
         }
         return Mth.clamp((double) used / (double) max, 0.0D, 1.0D);
+    }
+
+    private static int usedValueColor(long used, long max) {
+        if (used <= 0 || max <= 0) {
+            return DARK_TEXT_USED;
+        }
+        double pct = (double) used / (double) max;
+        if (pct >= 1.0D) {
+            return DARK_TEXT_ERROR;
+        }
+        if (pct >= 0.9D) {
+            return DARK_TEXT_ORANGE;
+        }
+        if (pct >= 0.75D) {
+            return DARK_TEXT_WARNING;
+        }
+        return DARK_TEXT_USED;
     }
 
     private static int metricColor(Metric metric, double pct) {

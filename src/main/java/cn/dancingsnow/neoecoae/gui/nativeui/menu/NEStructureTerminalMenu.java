@@ -2,6 +2,9 @@ package cn.dancingsnow.neoecoae.gui.nativeui.menu;
 
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
+import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMaterialRequirements;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
@@ -23,11 +26,21 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
 
     private final InteractionHand hand;
     private int buildLength;
+    private int minLength = StructureTerminalItem.MIN_BUILD_LENGTH;
+    private int maxLength = 1;
+    private StructureTerminalHostType hostType = StructureTerminalHostType.DEFAULT;
+    private java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materials = java.util.List.of();
 
     public NEStructureTerminalMenu(int containerId, Inventory playerInv, InteractionHand hand) {
         super(NENativeMenus.STRUCTURE_TERMINAL.get(), containerId);
         this.hand = hand;
-        this.buildLength = StructureTerminalItem.getBuildLength(playerInv.player.getItemInHand(hand));
+        ItemStack stack = playerInv.player.getItemInHand(hand);
+        this.hostType = StructureTerminalItem.getHostType(stack);
+        this.maxLength = StructureTerminalItem.getMaxBuildLength(stack);
+        this.buildLength = StructureTerminalItem.getBuildLength(stack);
+        if (!playerInv.player.level().isClientSide() && playerInv.player instanceof ServerPlayer serverPlayer) {
+            syncToClient(serverPlayer);
+        }
     }
 
     public InteractionHand getHand() {
@@ -40,6 +53,36 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
 
     public void setBuildLength(int length) {
         this.buildLength = length;
+    }
+
+    public int getMinLength() {
+        return minLength;
+    }
+
+    public int getMaxLength() {
+        return maxLength;
+    }
+
+    public StructureTerminalHostType getHostType() {
+        return hostType;
+    }
+
+    public java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> getMaterials() {
+        return materials;
+    }
+
+    public void setClientConfig(
+        int length,
+        int minLength,
+        int maxLength,
+        StructureTerminalHostType hostType,
+        java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materials
+    ) {
+        this.buildLength = length;
+        this.minLength = minLength;
+        this.maxLength = maxLength;
+        this.hostType = hostType;
+        this.materials = java.util.List.copyOf(materials);
     }
 
     /**
@@ -72,11 +115,20 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
         ItemStack stack = getTerminalStack(player);
         int length = stack != null ? StructureTerminalItem.getBuildLength(stack) : StructureTerminalItem.DEFAULT_BUILD_LENGTH;
         int min = StructureTerminalItem.MIN_BUILD_LENGTH;
-        int max = StructureTerminalItem.getGlobalMaxBuildLength();
+        int max = stack != null ? StructureTerminalItem.getMaxBuildLength(stack) : StructureTerminalItem.getGlobalMaxBuildLength();
+        StructureTerminalHostType target = stack != null ? StructureTerminalItem.getHostType(stack) : StructureTerminalHostType.DEFAULT;
+        int tier = stack != null ? StructureTerminalItem.getHostTier(stack) : StructureTerminalHostType.DEFAULT_TIER;
+        java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materialEntries = stack != null
+            ? StructureTerminalMaterialRequirements.collect(player, target, tier, length)
+            : java.util.List.of();
         this.buildLength = length;
+        this.minLength = min;
+        this.maxLength = max;
+        this.hostType = target;
+        this.materials = materialEntries;
         cn.dancingsnow.neoecoae.network.NENetwork.CHANNEL.send(
             net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-            new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(length, min, max)
+            new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(length, min, max, target, materialEntries)
         );
     }
 }

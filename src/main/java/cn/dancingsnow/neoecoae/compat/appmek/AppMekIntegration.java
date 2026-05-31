@@ -9,7 +9,6 @@ import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.compat.appmek.item.ECOChemicalStorageCellItem;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -68,7 +67,7 @@ public class AppMekIntegration {
 
     private void initHandler(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
-            ECOStorageCells.register(ECOStorageCellItem.ChemicalCellHandler.INSTANCE);
+            ECOStorageCells.register(ECOChemicalCellHandler.INSTANCE);
         });
     }
 }

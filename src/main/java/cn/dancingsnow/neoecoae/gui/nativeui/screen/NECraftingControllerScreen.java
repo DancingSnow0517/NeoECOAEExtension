@@ -1,14 +1,21 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEAe2IconButton;
 import cn.dancingsnow.neoecoae.network.NECraftingUiState;
+import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.text.NumberFormat;
 import java.util.Locale;
 
@@ -45,9 +52,16 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     private static final int FORMED_BAR_X = PANEL_MARGIN;
     private static final int FORMED_BAR_H = 25;
     private static final int FORMED_BAR_BOTTOM_GAP = 7;
+    private static final int TOOLBAR_X_OFFSET = -22;
+    private static final int TOOLBAR_Y = 3;
+    private static final int TOOLBAR_BUTTON_SIZE = 14;
+    private static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 7;
 
     private boolean hasCraftingState;
     private NECraftingUiState craftingState;
+    private NEAe2IconButton overclockButton;
+    private NEAe2IconButton activeCoolingButton;
+    private NEAe2IconButton autoClearWasteButton;
 
     public NECraftingControllerScreen(NECraftingControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.CRAFTING_CONTROLLER);
@@ -68,22 +82,43 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     @Override
     protected void init() {
         super.init();
+        int x = leftPos + TOOLBAR_X_OFFSET;
+        int y = topPos + TOOLBAR_Y;
+
+        overclockButton = new NEAe2IconButton(
+                x, y,
+                TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
+                Component.literal("Overclock"),
+                btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_OVERCLOCK));
+        overclockButton.setIcons(Icon.OVERLAY_ON, Icon.OVERLAY_OFF);
+        addRenderableWidget(overclockButton);
+
+        activeCoolingButton = new NEAe2IconButton(
+                x, y + TOOLBAR_BUTTON_STRIDE,
+                TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
+                Component.literal("Active Cooling"),
+                btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_ACTIVE_COOLING));
+        activeCoolingButton.setIcons(Icon.AUTO_EXPORT_ON, Icon.AUTO_EXPORT_OFF);
+        addRenderableWidget(activeCoolingButton);
+
+        autoClearWasteButton = new NEAe2IconButton(
+                x, y + TOOLBAR_BUTTON_STRIDE * 2,
+                TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
+                Component.literal("Auto Clear Waste"),
+                btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_AUTO_CLEAR_COOLING_WASTE));
+        autoClearWasteButton.setIcons(Icon.CLEAR, Icon.INVALID);
+        addRenderableWidget(autoClearWasteButton);
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        updateToolbarButtons(resolveCraftingState());
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        NECraftingUiState s;
-
-        if (hasCraftingState) {
-            s = this.craftingState;
-        } else {
-            ECOCraftingSystemBlockEntity be = getCraftingBE();
-            if (be != null) {
-                s = be.createCraftingUiState();
-            } else {
-                s = this.craftingState;
-            }
-        }
+        NECraftingUiState s = resolveCraftingState();
 
         // ── Main dark panel ──
         drawDarkInsetRect(guiGraphics, MAIN_PANEL_X, MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
@@ -108,9 +143,62 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         drawBooleanLine(guiGraphics, "超频: ", s.overclocked(), x, y);
         y += line;
         drawBooleanLine(guiGraphics, "主动冷却: ", s.activeCooling(), x, y);
+        y += line;
+        drawBooleanLine(guiGraphics, "自动清废液: ", s.autoClearCoolingWaste(), x, y);
 
         // ── Formed status bar ──
         drawFormedStatusBar(guiGraphics, s.formed(), imageWidth, imageHeight);
+    }
+
+    private NECraftingUiState resolveCraftingState() {
+        if (hasCraftingState) {
+            return this.craftingState;
+        }
+        ECOCraftingSystemBlockEntity be = getCraftingBE();
+        return be != null ? be.createCraftingUiState() : this.craftingState;
+    }
+
+    private void updateToolbarButtons(NECraftingUiState state) {
+        if (overclockButton != null) {
+            overclockButton.setToggled(state.overclocked());
+            overclockButton.setTooltip(Tooltip.create(Component.literal(
+                    state.overclocked() ? "Disable overclock" : "Enable overclock")));
+        }
+        if (activeCoolingButton != null) {
+            activeCoolingButton.setToggled(state.activeCooling());
+            activeCoolingButton.setTooltip(Tooltip.create(Component.literal(
+                    state.activeCooling() ? "Disable active cooling" : "Enable active cooling")));
+        }
+        if (autoClearWasteButton != null) {
+            autoClearWasteButton.setToggled(state.autoClearCoolingWaste());
+            autoClearWasteButton.setTooltip(Tooltip.create(Component.literal(
+                    state.autoClearCoolingWaste() ? "Keep cooling waste output" : "Auto-clear cooling waste output")));
+        }
+    }
+
+    private void sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action action) {
+        NENetwork.CHANNEL.sendToServer(new NENetwork.NECraftingUiActionPacket(menu.getMachinePos(), action));
+    }
+
+    @Override
+    public boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int mouseButton) {
+        if (mouseX >= guiLeft + TOOLBAR_X_OFFSET
+                && mouseX < guiLeft + TOOLBAR_X_OFFSET + TOOLBAR_BUTTON_SIZE
+                && mouseY >= guiTop + TOOLBAR_Y
+                && mouseY < guiTop + TOOLBAR_Y + TOOLBAR_BUTTON_SIZE * 3 + 7 * 2) {
+            return false;
+        }
+        return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, mouseButton);
+    }
+
+    public List<Rect2i> getJeiExtraAreas() {
+        List<Rect2i> areas = new ArrayList<>();
+        areas.add(new Rect2i(
+                leftPos + TOOLBAR_X_OFFSET,
+                topPos + TOOLBAR_Y,
+                TOOLBAR_BUTTON_SIZE,
+                TOOLBAR_BUTTON_SIZE * 3 + 7 * 2));
+        return areas;
     }
 
     private ECOCraftingSystemBlockEntity getCraftingBE() {

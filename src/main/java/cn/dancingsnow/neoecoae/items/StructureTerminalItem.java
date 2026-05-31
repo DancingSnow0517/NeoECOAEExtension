@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.items;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -39,6 +41,8 @@ import net.minecraftforge.network.NetworkHooks;
 public class StructureTerminalItem extends Item {
 
     public static final String TAG_BUILD_LENGTH = "BuildLength";
+    public static final String TAG_HOST_TYPE = "HostType";
+    public static final String TAG_HOST_TIER = "HostTier";
     public static final int DEFAULT_BUILD_LENGTH = 1;
     public static final int MIN_BUILD_LENGTH = 1;
 
@@ -59,16 +63,59 @@ public class StructureTerminalItem extends Item {
     // ── ItemStack NBT helpers (length = repeat count / variable sections) ──
 
     public static int getBuildLength(ItemStack stack) {
+        return getBuildLength(stack, getMaxBuildLength(stack));
+    }
+
+    public static int getBuildLength(ItemStack stack, int maxLength) {
         CompoundTag tag = stack.getTag();
         if (tag == null || !tag.contains(TAG_BUILD_LENGTH)) {
             return DEFAULT_BUILD_LENGTH;
         }
-        return Mth.clamp(tag.getInt(TAG_BUILD_LENGTH), MIN_BUILD_LENGTH, getGlobalMaxBuildLength());
+        return Mth.clamp(tag.getInt(TAG_BUILD_LENGTH), MIN_BUILD_LENGTH, Math.max(MIN_BUILD_LENGTH, maxLength));
     }
 
     public static void setBuildLength(ItemStack stack, int length) {
         stack.getOrCreateTag().putInt(TAG_BUILD_LENGTH,
-            Mth.clamp(length, MIN_BUILD_LENGTH, getGlobalMaxBuildLength()));
+            Mth.clamp(length, MIN_BUILD_LENGTH, getMaxBuildLength(stack)));
+    }
+
+    public static StructureTerminalHostType getHostType(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(TAG_HOST_TYPE)) {
+            return StructureTerminalHostType.DEFAULT;
+        }
+        return StructureTerminalHostType.fromName(tag.getString(TAG_HOST_TYPE));
+    }
+
+    public static int getHostTier(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(TAG_HOST_TIER)) {
+            return StructureTerminalHostType.DEFAULT_TIER;
+        }
+        return StructureTerminalHostType.clampTier(tag.getInt(TAG_HOST_TIER));
+    }
+
+    public static int getMaxBuildLength(ItemStack stack) {
+        return getHostType(stack).maxBuildLength(getHostTier(stack));
+    }
+
+    public static void setHostType(ItemStack stack, StructureTerminalHostType hostType) {
+        setHostTarget(stack, hostType, getHostTier(stack));
+    }
+
+    public static void setHostTarget(ItemStack stack, StructureTerminalHostType hostType, int tier) {
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.putString(TAG_HOST_TYPE, hostType.name());
+        tag.putInt(TAG_HOST_TIER, StructureTerminalHostType.clampTier(tier));
+        setBuildLength(stack, getBuildLength(stack));
+    }
+
+    private static void setHostTarget(ItemStack stack, INEMultiblockBuildHost host) {
+        MultiBlockDefinition definition = host.getBuildDefinition();
+        StructureTerminalHostType hostType = StructureTerminalHostType.fromDefinition(definition);
+        if (hostType != null) {
+            setHostTarget(stack, hostType, StructureTerminalHostType.tierFromDefinition(definition));
+        }
     }
 
     // ── Item behaviour ──
@@ -123,6 +170,10 @@ public class StructureTerminalItem extends Item {
                 return InteractionResult.SUCCESS;
             }
             if (player instanceof ServerPlayer serverPlayer) {
+                BlockEntity be = level.getBlockEntity(pos);
+                if (be instanceof INEMultiblockBuildHost host) {
+                    setHostTarget(stack, host);
+                }
                 openTerminalConfig(serverPlayer, ctx.getHand());
             }
             return InteractionResult.CONSUME;
@@ -139,7 +190,8 @@ public class StructureTerminalItem extends Item {
             return InteractionResult.SUCCESS;
         }
 
-        int requestedLength = StructureTerminalItem.getBuildLength(stack);
+        setHostTarget(stack, host);
+        int requestedLength = StructureTerminalItem.getBuildLength(stack, host.getMaxBuildLength());
         ServerPlayer serverPlayer = (ServerPlayer) player;
         host.autoBuild(serverPlayer, requestedLength);
 

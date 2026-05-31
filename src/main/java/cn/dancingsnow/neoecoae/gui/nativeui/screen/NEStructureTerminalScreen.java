@@ -2,14 +2,18 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
+import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraftforge.fml.ModList;
 
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -55,23 +59,45 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private int displayBuildLength;
     private int minLength = 1;
     private int maxLength = 12;
-
-    // Toggle states (client-only, not synced)
-    private boolean buildMode = true;
-    private boolean dismantleMode = false;
-    private boolean expansionMode = false;
+    private StructureTerminalHostType selectedTarget;
+    private List<NEStructureTerminalUiState.BuildMaterialEntry> materials;
+    private int materialScrollOffset;
 
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
         this.imageWidth = 358;
         this.imageHeight = 140;
         this.displayBuildLength = menu.getBuildLength();
+        this.minLength = menu.getMinLength();
+        this.maxLength = menu.getMaxLength();
+        this.selectedTarget = menu.getHostType();
+        this.materials = menu.getMaterials();
     }
 
     public void setBuildLength(int length, int min, int max) {
         this.displayBuildLength = length;
         this.minLength = min;
         this.maxLength = max;
+    }
+
+    public void setConfig(
+            int length,
+            int min,
+            int max,
+            StructureTerminalHostType target,
+            List<NEStructureTerminalUiState.BuildMaterialEntry> materials) {
+        boolean resetScroll = target != selectedTarget || this.materials.size() != materials.size();
+        this.displayBuildLength = length;
+        this.minLength = min;
+        this.maxLength = max;
+        this.selectedTarget = target;
+        this.materials = List.copyOf(materials);
+        this.menu.setClientConfig(length, min, max, target, materials);
+        if (resetScroll) {
+            this.materialScrollOffset = 0;
+        } else {
+            this.materialScrollOffset = clampMaterialScroll(this.materialScrollOffset);
+        }
     }
 
     @Override
@@ -87,11 +113,6 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int smallW = 22;
         int valueW = 35;
         int leftGroupW = smallW + valueW + smallW; // 79
-
-        int modeGap = 7;
-        int modeW = 48;
-
-        int modeX = innerX + leftGroupW + modeGap;
 
         int row0Y = innerY;
         int row1Y = row0Y + buttonH + rowGap;
@@ -114,35 +135,29 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
-        // Row 0 (row0Y): build mode toggle
-        addRenderableWidget(new NEToggleTextButton(modeX, row0Y, modeW, buttonH,
-                Component.literal("搭建"),
-                () -> buildMode,
-                btn -> {
-                    buildMode = true;
-                    dismantleMode = false;
-                    expansionMode = false;
-                }));
+        addTargetButton(StructureTerminalHostType.CRAFTING, 0,
+                Component.literal("Craft"),
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_CRAFTING);
+        addTargetButton(StructureTerminalHostType.STORAGE, 1,
+                Component.literal("Store"),
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_STORAGE);
+        addTargetButton(StructureTerminalHostType.COMPUTATION, 2,
+                Component.literal("Compute"),
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_COMPUTATION);
+    }
 
-        // Row 1 (row1Y): dismantle mode toggle
-        addRenderableWidget(new NEToggleTextButton(modeX, row1Y, modeW, buttonH,
-                Component.literal("拆除"),
-                () -> dismantleMode,
-                btn -> {
-                    buildMode = false;
-                    dismantleMode = true;
-                    expansionMode = false;
-                }));
-
-        // Row 2 (row2Y): expansion mode toggle
-        addRenderableWidget(new NEToggleTextButton(modeX, row2Y, modeW, buttonH,
-                Component.literal("扩建"),
-                () -> expansionMode,
-                btn -> {
-                    buildMode = false;
-                    dismantleMode = false;
-                    expansionMode = true;
-                }));
+    private void addTargetButton(StructureTerminalHostType target, int index, Component label,
+            NENetwork.NEStructureTerminalConfigActionPacket.Action action) {
+        int buttonW = 52;
+        int buttonH = 18;
+        int gap = 4;
+        int totalW = buttonW * 3 + gap * 2;
+        int x = leftPos + MATERIAL_X + (MATERIAL_W - totalW) / 2 + index * (buttonW + gap);
+        int y = topPos + MATERIAL_Y + 20;
+        addRenderableWidget(new NEToggleTextButton(x, y, buttonW, buttonH,
+                label,
+                () -> selectedTarget == target,
+                btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(action))));
     }
 
     @Override
@@ -189,13 +204,25 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         // ── Material panel ──
         guiGraphics.drawString(font, Component.literal("所需方块"),
                 MATERIAL_X + 10, MATERIAL_Y + 8, DARK_TEXT_PRIMARY, false);
+        if (materials.size() > visibleMaterialSlots()) {
+            int start = materialScrollOffset + 1;
+            int end = Math.min(materialScrollOffset + visibleMaterialSlots(), materials.size());
+            String pageText = start + "-" + end + "/" + materials.size();
+            guiGraphics.drawString(font, Component.literal(pageText),
+                    MATERIAL_X + MATERIAL_W - 10 - font.width(pageText),
+                    MATERIAL_Y + MATERIAL_H - 13,
+                    DARK_TEXT_MUTED,
+                    false);
+        }
     }
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
+        renderMaterialItems(guiGraphics);
         renderTooltip(guiGraphics, mouseX, mouseY);
+        renderMaterialTooltip(guiGraphics, mouseX, mouseY);
     }
 
     // ── Panel / slot drawing ──
@@ -218,7 +245,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int gridH = rows * slotSize;
 
         int startX = MATERIAL_X + (MATERIAL_W - gridW) / 2;
-        int startY = MATERIAL_Y + 34;
+        int startY = materialGridY();
 
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
@@ -227,6 +254,112 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 drawInventorySlot(g, x, y);
             }
         }
+    }
+
+    private void renderMaterialItems(GuiGraphics g) {
+        int count = Math.min(visibleMaterialSlots(), Math.max(0, materials.size() - materialScrollOffset));
+        for (int i = 0; i < count; i++) {
+            NEStructureTerminalUiState.BuildMaterialEntry entry = materials.get(materialScrollOffset + i);
+            int x = leftPos + materialSlotX(i);
+            int y = topPos + materialSlotY(i);
+            g.renderItem(entry.item(), x + 1, y + 1);
+            String text = "x" + Math.min(entry.required(), entry.available());
+            if (entry.available() <= 0) {
+                text = "x0";
+            }
+            int color = materialCountColor(entry);
+            int textX = x + 17 - font.width(text);
+            int textY = y + 10;
+            g.pose().pushPose();
+            g.pose().translate(0, 0, 200);
+            g.drawString(font, Component.literal(text), textX, textY, color, true);
+            g.pose().popPose();
+        }
+    }
+
+    private void renderMaterialTooltip(GuiGraphics g, int mouseX, int mouseY) {
+        int index = materialIndexAt(mouseX, mouseY);
+        if (index < 0 || index >= materials.size()) {
+            return;
+        }
+        NEStructureTerminalUiState.BuildMaterialEntry entry = materials.get(index);
+        int missing = Math.max(0, entry.required() - entry.available());
+        g.renderTooltip(font, List.of(
+                entry.item().getHoverName().getVisualOrderText(),
+                Component.literal("需要: " + entry.required()).getVisualOrderText(),
+                Component.literal("拥有: " + entry.available()).getVisualOrderText(),
+                Component.literal("缺少: " + missing).getVisualOrderText()),
+                mouseX, mouseY);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (isInMaterialGrid(mouseX, mouseY) && materials.size() > visibleMaterialSlots()) {
+            int step = 9;
+            int next = materialScrollOffset + (delta < 0 ? step : -step);
+            materialScrollOffset = clampMaterialScroll(next);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    private int materialCountColor(NEStructureTerminalUiState.BuildMaterialEntry entry) {
+        if (entry.available() >= entry.required()) {
+            return DARK_TEXT_SUCCESS;
+        }
+        if (entry.available() > 0) {
+            return 0xFFFFC857;
+        }
+        return 0xFFFF6A75;
+    }
+
+    private int materialIndexAt(double mouseX, double mouseY) {
+        int slot = materialVisibleSlotAt(mouseX, mouseY);
+        return slot < 0 ? -1 : materialScrollOffset + slot;
+    }
+
+    private int materialVisibleSlotAt(double mouseX, double mouseY) {
+        for (int i = 0; i < visibleMaterialSlots(); i++) {
+            int x = leftPos + materialSlotX(i);
+            int y = topPos + materialSlotY(i);
+            if (mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private boolean isInMaterialGrid(double mouseX, double mouseY) {
+        int x = leftPos + MATERIAL_X;
+        int y = topPos + materialGridY();
+        return mouseX >= x && mouseX < x + MATERIAL_W
+            && mouseY >= y && mouseY < y + 36;
+    }
+
+    private int materialSlotX(int visibleIndex) {
+        int cols = 9;
+        int slotSize = 18;
+        int gridW = cols * slotSize;
+        int startX = MATERIAL_X + (MATERIAL_W - gridW) / 2;
+        return startX + (visibleIndex % cols) * slotSize;
+    }
+
+    private int materialSlotY(int visibleIndex) {
+        int slotSize = 18;
+        return materialGridY() + (visibleIndex / 9) * slotSize;
+    }
+
+    private int materialGridY() {
+        return MATERIAL_Y + 46;
+    }
+
+    private int visibleMaterialSlots() {
+        return 18;
+    }
+
+    private int clampMaterialScroll(int value) {
+        int max = Math.max(0, materials.size() - visibleMaterialSlots());
+        return Mth.clamp(value, 0, max);
     }
 
     private void drawInventorySlot(GuiGraphics g, int x, int y) {

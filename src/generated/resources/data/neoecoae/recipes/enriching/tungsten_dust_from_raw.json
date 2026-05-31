@@ -7,9 +7,8 @@
   ],
   "type": "mekanism:enriching",
   "input": {
-    "ingredient": {
-      "tag": "forge:raw_materials/tungsten"
-    }
+    "count": 3,
+    "tag": "forge:raw_materials/tungsten"
   },
   "output": {
     "count": 4,

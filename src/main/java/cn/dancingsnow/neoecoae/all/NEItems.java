@@ -25,6 +25,7 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
 import net.minecraft.data.recipes.SmithingTransformRecipeBuilder;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.ItemTags;
@@ -199,7 +200,8 @@ public class NEItems {
             .register();
 
     public static final ItemEntry<SmithingTemplateItem> ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE = REGISTRATE
-            .item("aluminum_alloy_upgrade_smithing_template", p -> new SmithingTemplateItem(
+            .<SmithingTemplateItem>item("aluminum_alloy_upgrade_smithing_template", p -> new NamedSmithingTemplateItem(
+                    "item.neoecoae.aluminum_alloy_upgrade_smithing_template",
                     REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.applies_to"),
                             "Aluminum Equipment").withStyle(ChatFormatting.BLUE),
                     REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.ingredients"),
@@ -306,7 +308,8 @@ public class NEItems {
             .register();
 
     public static final ItemEntry<SmithingTemplateItem> BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE = REGISTRATE
-            .item("black_tungsten_alloy_upgrade_smithing_template", p -> new SmithingTemplateItem(
+            .<SmithingTemplateItem>item("black_tungsten_alloy_upgrade_smithing_template", p -> new NamedSmithingTemplateItem(
+                    "item.neoecoae.black_tungsten_alloy_upgrade_smithing_template",
                     REGISTRATE.addLang("item", NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.applies_to"),
                             "Tungsten Equipment").withStyle(ChatFormatting.BLUE),
                     REGISTRATE
@@ -998,5 +1001,34 @@ public class NEItems {
 
     public static void register() {
 
+    }
+
+    private static class NamedSmithingTemplateItem extends SmithingTemplateItem {
+        private final String descriptionId;
+
+        NamedSmithingTemplateItem(
+                String descriptionId,
+                Component appliesTo,
+                Component ingredients,
+                Component upgradeDescription,
+                Component baseSlotDescription,
+                Component additionsSlotDescription,
+                List<ResourceLocation> baseSlotEmptyIcons,
+                List<ResourceLocation> additionalSlotEmptyIcons) {
+            super(
+                    appliesTo,
+                    ingredients,
+                    upgradeDescription,
+                    baseSlotDescription,
+                    additionsSlotDescription,
+                    baseSlotEmptyIcons,
+                    additionalSlotEmptyIcons);
+            this.descriptionId = descriptionId;
+        }
+
+        @Override
+        public String getDescriptionId() {
+            return descriptionId;
+        }
     }
 }

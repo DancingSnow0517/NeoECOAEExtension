@@ -69,22 +69,13 @@ public abstract class MultiBlockContext {
 
         public void addRequiredItem(ItemStack itemStack) {
             if (itemStack.isEmpty()) return;
-            boolean added = false;
             for (ItemStack stack : itemStacks) {
                 if (ItemStack.isSameItemSameTags(itemStack, stack)) {
-                    if (stack.getCount() + itemStack.getCount() > stack.getMaxStackSize()) {
-                        itemStack.setCount(stack.getCount() + itemStack.getCount() - stack.getMaxStackSize());
-                        stack.setCount(stack.getMaxStackSize());
-                    } else {
-                        stack.setCount(stack.getCount() + itemStack.getCount());
-                    }
-                    added = true;
-                    break;
+                    stack.grow(itemStack.getCount());
+                    return;
                 }
             }
-            if (!added) {
-                itemStacks.add(itemStack);
-            }
+            itemStacks.add(itemStack.copy());
         }
 
         @Override

@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -56,6 +57,8 @@ public final class NENetwork {
     );
 
     private static int packetId = 0;
+    private static final int MAX_STORAGE_UI_TYPES = 64;
+    private static final int MAX_STRUCTURE_TERMINAL_MATERIALS = 64;
 
     public static void register() {
         registerS2C(NEStorageUiStatePacket.class,
@@ -179,6 +182,9 @@ public final class NENetwork {
             boolean formed = buf.readBoolean();
 
             int typeCount = buf.readVarInt();
+            if (typeCount > MAX_STORAGE_UI_TYPES) {
+                throw new IllegalArgumentException("Storage UI type count exceeds protocol limit: " + typeCount);
+            }
             List<NEStorageUiTypeState> typeStates = new ArrayList<>(typeCount);
             for (int i = 0; i < typeCount; i++) {
                 ResourceLocation typeId = buf.readResourceLocation();
@@ -269,6 +275,7 @@ public final class NENetwork {
             buf.writeInt(s.runningThreadCount());
             buf.writeBoolean(s.overclocked());
             buf.writeBoolean(s.activeCooling());
+            buf.writeBoolean(s.autoClearCoolingWaste());
             buf.writeInt(s.selectedBuildLength());
             buf.writeBoolean(s.buildInProgress());
             buf.writeInt(s.previewMissingBlocks());
@@ -290,6 +297,7 @@ public final class NENetwork {
                 buf.readInt(),
                 buf.readInt(),
                 buf.readInt(),
+                buf.readBoolean(),
                 buf.readBoolean(),
                 buf.readBoolean(),
                 buf.readInt(),
@@ -327,7 +335,10 @@ public final class NENetwork {
             INCREASE_BUILD_LENGTH,
             DECREASE_BUILD_LENGTH,
             PREVIEW_STRUCTURE,
-            AUTO_BUILD
+            AUTO_BUILD,
+            TOGGLE_OVERCLOCK,
+            TOGGLE_ACTIVE_COOLING,
+            TOGGLE_AUTO_CLEAR_COOLING_WASTE
         }
 
         public static void encode(NECraftingUiActionPacket pkt, FriendlyByteBuf buf) {
@@ -367,6 +378,9 @@ public final class NENetwork {
                     case DECREASE_BUILD_LENGTH -> be.decreaseBuildLength();
                     case PREVIEW_STRUCTURE -> be.previewStructure(sender);
                     case AUTO_BUILD -> be.autoBuild(sender);
+                    case TOGGLE_OVERCLOCK -> be.toggleOverclocked();
+                    case TOGGLE_ACTIVE_COOLING -> be.toggleActiveCooling();
+                    case TOGGLE_AUTO_CLEAR_COOLING_WASTE -> be.toggleAutoClearCoolingWaste();
                 }
 
                 // Immediately push updated state to the client
@@ -529,6 +543,9 @@ public final class NENetwork {
             int arg1 = buf.readInt();
             int arg2 = buf.readInt();
             int matCount = buf.readVarInt();
+            if (matCount > MAX_STRUCTURE_TERMINAL_MATERIALS) {
+                throw new IllegalArgumentException("Structure Terminal material count exceeds protocol limit: " + matCount);
+            }
             var mats = new java.util.ArrayList<NEStructureTerminalUiState.BuildMaterialEntry>(matCount);
             for (int i = 0; i < matCount; i++) {
                 mats.add(new NEStructureTerminalUiState.BuildMaterialEntry(
@@ -580,16 +597,46 @@ public final class NENetwork {
      * S2C packet carrying the current build length + range for the
      * Structure Terminal config UI.
      */
-    public record NEStructureTerminalConfigPacket(int currentLength, int minLength, int maxLength) {
+    public record NEStructureTerminalConfigPacket(
+        int currentLength,
+        int minLength,
+        int maxLength,
+        StructureTerminalHostType hostType,
+        List<NEStructureTerminalUiState.BuildMaterialEntry> materials
+    ) {
 
         public static void encode(NEStructureTerminalConfigPacket pkt, FriendlyByteBuf buf) {
             buf.writeInt(pkt.currentLength());
             buf.writeInt(pkt.minLength());
             buf.writeInt(pkt.maxLength());
+            buf.writeEnum(pkt.hostType());
+            buf.writeVarInt(Math.min(pkt.materials().size(), MAX_STRUCTURE_TERMINAL_MATERIALS));
+            int written = 0;
+            for (var mat : pkt.materials()) {
+                if (written++ >= MAX_STRUCTURE_TERMINAL_MATERIALS) {
+                    break;
+                }
+                buf.writeItem(mat.item());
+                buf.writeInt(mat.required());
+                buf.writeInt(mat.available());
+            }
         }
 
         public static NEStructureTerminalConfigPacket decode(FriendlyByteBuf buf) {
-            return new NEStructureTerminalConfigPacket(buf.readInt(), buf.readInt(), buf.readInt());
+            int currentLength = buf.readInt();
+            int minLength = buf.readInt();
+            int maxLength = buf.readInt();
+            StructureTerminalHostType hostType = buf.readEnum(StructureTerminalHostType.class);
+            int matCount = buf.readVarInt();
+            if (matCount > MAX_STRUCTURE_TERMINAL_MATERIALS) {
+                throw new IllegalArgumentException("Structure Terminal config material count exceeds protocol limit: " + matCount);
+            }
+            var mats = new java.util.ArrayList<NEStructureTerminalUiState.BuildMaterialEntry>(matCount);
+            for (int i = 0; i < matCount; i++) {
+                mats.add(new NEStructureTerminalUiState.BuildMaterialEntry(
+                    buf.readItem(), buf.readInt(), buf.readInt()));
+            }
+            return new NEStructureTerminalConfigPacket(currentLength, minLength, maxLength, hostType, mats);
         }
 
         public static void handle(NEStructureTerminalConfigPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
@@ -610,7 +657,10 @@ public final class NENetwork {
         public enum Action {
             INCREASE,
             DECREASE,
-            RESET
+            RESET,
+            SELECT_CRAFTING,
+            SELECT_STORAGE,
+            SELECT_COMPUTATION
         }
 
         public static void encode(NEStructureTerminalConfigActionPacket pkt, FriendlyByteBuf buf) {
@@ -641,12 +691,20 @@ public final class NENetwork {
                 }
 
                 int current = StructureTerminalItem.getBuildLength(stack);
-                int newLength = switch (pkt.action()) {
-                    case INCREASE -> current + 1;
-                    case DECREASE -> current - 1;
-                    case RESET -> StructureTerminalItem.DEFAULT_BUILD_LENGTH;
+                switch (pkt.action()) {
+                    case SELECT_CRAFTING -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.CRAFTING);
+                    case SELECT_STORAGE -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.STORAGE);
+                    case SELECT_COMPUTATION -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.COMPUTATION);
+                    default -> {
+                        int newLength = switch (pkt.action()) {
+                            case INCREASE -> current + 1;
+                            case DECREASE -> current - 1;
+                            case RESET -> StructureTerminalItem.DEFAULT_BUILD_LENGTH;
+                            default -> current;
+                        };
+                        StructureTerminalItem.setBuildLength(stack, newLength);
+                    }
                 };
-                StructureTerminalItem.setBuildLength(stack, newLength);
 
                 // Sync fresh value from NBT (not cached value) to client
                 menu.syncToClient(sender);
