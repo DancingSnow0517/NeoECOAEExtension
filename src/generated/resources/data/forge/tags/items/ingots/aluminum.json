@@ -1,5 +1,1 @@
-{
-  "values": [
-    "neoecoae:aluminum_ingot"
-  ]
-}
+{"replace":false,"values":["neoecoae:aluminum_ingot",{"id":"gtceu:aluminium_ingot","required":false},{"id":"gtceu:aluminum_ingot","required":false}]}
