@@ -1128,6 +1128,18 @@ public class NEItems {
                         .lang("Structure Terminal")
                         .model((ctx, prov) -> {
                         })
+                        .recipe((ctx, prov) -> {
+                                ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
+                                                .pattern(" A ")
+                                                .pattern("ACA")
+                                                .pattern(" A ")
+                                                .define('A', NETags.Items.ALUMINUM_INGOT)
+                                                .define('C', CRYSTAL_MATRIX)
+                                                .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(CRYSTAL_MATRIX))
+                                                .unlockedBy("has_aluminum_ingot",
+                                                                RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                                                .save(prov);
+                        })
                         .register();
 
         public static void register() {

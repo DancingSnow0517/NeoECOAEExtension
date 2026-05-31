@@ -203,6 +203,10 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         guiGraphics.drawString(font, lengthLabel,
                 CONTROL_X + (CONTROL_W - font.width(lengthLabel)) / 2, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
 
+        Component maxLenLabel = Component.literal("(最大长度:" + maxLength + ")");
+        guiGraphics.drawString(font, maxLenLabel,
+                CONTROL_X + (CONTROL_W - font.width(maxLenLabel)) / 2, CONTROL_Y + 8 + font.lineHeight + 1, DARK_TEXT_MUTED, false);
+
         int cButtonH = 18;
         int cRowGap = 3;
         int cSmallW = 22;

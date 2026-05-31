@@ -192,6 +192,7 @@
   "gui.neoecoae.storage.tooltip.fluids_used": "流体存储已使用 %s",
   "gui.neoecoae.storage.tooltip.chemicals_used": "化学品存储已使用 %s",
   "gui.neoecoae.storage.tooltip.used_total": "已用：%s / %s",
+  "item.neoecoae.structure_terminal": "结构终端",
   "gui.neoecoae.structure_terminal.hint_shift_build": "潜行右键主机以搭建",
   "gui.neoecoae.structure_terminal.reset": "重置",
   "gui.neoecoae.structure_terminal.target.computation": "计算",
