@@ -56,6 +56,15 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     private static final int TOOLBAR_Y = 3;
     private static final int TOOLBAR_BUTTON_SIZE = 14;
     private static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 7;
+    private static final String OVERCLOCK_KEY = "gui.neoecoae.crafting.overclock";
+    private static final String OVERCLOCK_ON_KEY = "gui.neoecoae.crafting.overclock.on";
+    private static final String OVERCLOCK_OFF_KEY = "gui.neoecoae.crafting.overclock.off";
+    private static final String ACTIVE_COOLING_KEY = "gui.neoecoae.crafting.active_cooling";
+    private static final String ACTIVE_COOLING_ON_KEY = "gui.neoecoae.crafting.active_cooling.on";
+    private static final String ACTIVE_COOLING_OFF_KEY = "gui.neoecoae.crafting.active_cooling.off";
+    private static final String AUTO_CLEAR_COOLANT_KEY = "gui.neoecoae.crafting.auto_clear_coolant";
+    private static final String AUTO_CLEAR_COOLANT_ON_KEY = "gui.neoecoae.crafting.auto_clear_coolant.on";
+    private static final String AUTO_CLEAR_COOLANT_OFF_KEY = "gui.neoecoae.crafting.auto_clear_coolant.off";
 
     private boolean hasCraftingState;
     private NECraftingUiState craftingState;
@@ -88,25 +97,25 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         overclockButton = new NEAe2IconButton(
                 x, y,
                 TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
-                Component.literal("Overclock"),
+                Component.translatable(OVERCLOCK_KEY),
                 btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_OVERCLOCK));
-        overclockButton.setIcons(Icon.OVERLAY_ON, Icon.OVERLAY_OFF);
+        overclockButton.setIcons(Icon.LEVEL_ENERGY, Icon.POWER_UNIT_AE);
         addRenderableWidget(overclockButton);
 
         activeCoolingButton = new NEAe2IconButton(
                 x, y + TOOLBAR_BUTTON_STRIDE,
                 TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
-                Component.literal("Active Cooling"),
+                Component.translatable(ACTIVE_COOLING_KEY),
                 btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_ACTIVE_COOLING));
-        activeCoolingButton.setIcons(Icon.AUTO_EXPORT_ON, Icon.AUTO_EXPORT_OFF);
+        activeCoolingButton.setIcons(Icon.FLUID_SUBSTITUTION_ENABLED, Icon.FLUID_SUBSTITUTION_DISABLED);
         addRenderableWidget(activeCoolingButton);
 
         autoClearWasteButton = new NEAe2IconButton(
                 x, y + TOOLBAR_BUTTON_STRIDE * 2,
                 TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
-                Component.literal("Auto Clear Waste"),
+                Component.translatable(AUTO_CLEAR_COOLANT_KEY),
                 btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_AUTO_CLEAR_COOLING_WASTE));
-        autoClearWasteButton.setIcons(Icon.CLEAR, Icon.INVALID);
+        autoClearWasteButton.setIcons(Icon.CONDENSER_OUTPUT_TRASH, Icon.BACKGROUND_TRASH);
         addRenderableWidget(autoClearWasteButton);
     }
 
@@ -125,18 +134,16 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
         int x = MAIN_PANEL_X + 8;
         int y = MAIN_PANEL_Y + 8;
-        int line = 12;
+        int line = 11;
 
-        drawLine(guiGraphics, "样板总线数量: " + fmt(s.patternBusCount()), x, y, DARK_TEXT_PRIMARY);
+        drawLine(guiGraphics, "样板总线: " + fmt(s.patternBusCount()), x, y, DARK_TEXT_PRIMARY);
         y += line;
-        drawLine(guiGraphics, "并行核心数量: " + fmt(s.parallelCount()), x, y, DARK_TEXT_PRIMARY);
+        drawLine(guiGraphics, "并行核心: " + fmt(s.parallelCount()), x, y, DARK_TEXT_PRIMARY);
         y += line;
-        drawLine(guiGraphics, "工作核心数量: " + fmt(s.workerCount()), x, y, DARK_TEXT_PRIMARY);
-        y += line;
-
+        drawLine(guiGraphics, "工作核心: " + fmt(s.workerCount()), x, y, DARK_TEXT_PRIMARY);
         y += line;
 
-        drawPairLine(guiGraphics, "工作线程: ", s.runningThreadCount(), s.threadCount(), " (0%)", x, y);
+        drawPairLine(guiGraphics, "工作线程: ", s.runningThreadCount(), s.threadCount(), "", x, y);
         y += line;
         drawLine(guiGraphics, "总并行数: " + fmt(s.parallelCount()), x, y, DARK_TEXT_PRIMARY);
         y += line;
@@ -161,18 +168,18 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     private void updateToolbarButtons(NECraftingUiState state) {
         if (overclockButton != null) {
             overclockButton.setToggled(state.overclocked());
-            overclockButton.setTooltip(Tooltip.create(Component.literal(
-                    state.overclocked() ? "Disable overclock" : "Enable overclock")));
+            overclockButton.setTooltip(Tooltip.create(Component.translatable(
+                    state.overclocked() ? OVERCLOCK_ON_KEY : OVERCLOCK_OFF_KEY)));
         }
         if (activeCoolingButton != null) {
             activeCoolingButton.setToggled(state.activeCooling());
-            activeCoolingButton.setTooltip(Tooltip.create(Component.literal(
-                    state.activeCooling() ? "Disable active cooling" : "Enable active cooling")));
+            activeCoolingButton.setTooltip(Tooltip.create(Component.translatable(
+                    state.activeCooling() ? ACTIVE_COOLING_ON_KEY : ACTIVE_COOLING_OFF_KEY)));
         }
         if (autoClearWasteButton != null) {
             autoClearWasteButton.setToggled(state.autoClearCoolingWaste());
-            autoClearWasteButton.setTooltip(Tooltip.create(Component.literal(
-                    state.autoClearCoolingWaste() ? "Keep cooling waste output" : "Auto-clear cooling waste output")));
+            autoClearWasteButton.setTooltip(Tooltip.create(Component.translatable(
+                    state.autoClearCoolingWaste() ? AUTO_CLEAR_COOLANT_ON_KEY : AUTO_CLEAR_COOLANT_OFF_KEY)));
         }
     }
 

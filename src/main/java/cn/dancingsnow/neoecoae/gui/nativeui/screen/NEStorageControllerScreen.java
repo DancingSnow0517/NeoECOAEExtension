@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
 import cn.dancingsnow.neoecoae.network.NEStorageUiState;
 import cn.dancingsnow.neoecoae.network.NEStorageUiTypeState;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -16,6 +17,7 @@ import java.text.NumberFormat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Screen for the ECO Storage Controller with live read-only status.
@@ -67,6 +69,14 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private static final int FORMED_BAR_Y = 187;
     private static final int FORMED_BAR_H = 25;
     private static final double ANIMATION_SPEED = 0.16D;
+    private static final long BYTES_IN_G = 1024L * 1024L * 1024L;
+    private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
+    private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
+
+    private static final String TOOLTIP_ITEMS_USED = "gui.neoecoae.storage.tooltip.items_used";
+    private static final String TOOLTIP_FLUIDS_USED = "gui.neoecoae.storage.tooltip.fluids_used";
+    private static final String TOOLTIP_CHEMICALS_USED = "gui.neoecoae.storage.tooltip.chemicals_used";
+    private static final String TOOLTIP_USED_TOTAL = "gui.neoecoae.storage.tooltip.used_total";
 
     private boolean hasStorageState;
     private NEStorageUiState storageState;
@@ -99,6 +109,12 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         animatedItemPct = 0.0D;
         animatedFluidPct = 0.0D;
         animatedChemicalPct = 0.0D;
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        renderMetricColumnTooltip(guiGraphics, mouseX, mouseY);
     }
 
     @Override
@@ -164,10 +180,6 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         NEStorageUiTypeState fluidState = findTypeState(types, "fluid");
         NEStorageUiTypeState chemicalState = findChemicalTypeState(types);
 
-        if (itemState == null && !types.isEmpty()) {
-            itemState = types.get(0);
-        }
-
         Metric energy = new Metric(
                 Component.literal("能量"),
                 s.storedEnergy(), s.maxEnergy(),
@@ -213,7 +225,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         y += TEXT_LINE_STEP;
         drawUsedTotalLine(g, metric.usedTypes(), metric.totalTypes(), "类型", x, y);
         y += TEXT_LINE_STEP;
-        drawUsedTotalLine(g, metric.used(), metric.max(), "字节已使用", x, y);
+        drawByteUsedTotalLine(g, metric.used(), metric.max(), x, y);
         return y + TEXT_LINE_STEP;
     }
 
@@ -229,9 +241,24 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private void drawUsedTotalLine(GuiGraphics g, long used, long max, String suffix, int x, int y) {
-        int cursor = drawSegment(g, formatMetricNumber(used), x, y, usedValueColor(used, max));
+        drawUsedTotalLine(g, formatMetricNumber(used), formatMetricNumber(max), used, max, suffix, x, y);
+    }
+
+    private void drawByteUsedTotalLine(GuiGraphics g, long used, long max, int x, int y) {
+        String usedText = formatStorageBytes(used);
+        String maxText = formatStorageBytes(max);
+        String suffix = "字节已使用";
+        if (font.width(usedText + " / " + maxText + " " + suffix) > TEXT_MAX_W) {
+            suffix = "已用";
+        }
+        drawUsedTotalLine(g, usedText, maxText, used, max, suffix, x, y);
+    }
+
+    private void drawUsedTotalLine(GuiGraphics g, String usedText, String maxText, long used, long max, String suffix,
+            int x, int y) {
+        int cursor = drawSegment(g, usedText, x, y, usedValueColor(used, max));
         cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
-        cursor += drawSegment(g, formatMetricNumber(max), x + cursor, y, DARK_TEXT_VALUE);
+        cursor += drawSegment(g, maxText, x + cursor, y, DARK_TEXT_VALUE);
         drawSegment(g, " " + suffix, x + cursor, y, DARK_TEXT_MUTED);
     }
 
@@ -303,7 +330,40 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         int percentColor = metric.max() <= 0 ? DARK_TEXT_MUTED : metricColor(metric, pct);
         String percentText = metric.max() <= 0 ? "N/A" : formatPercent(metric.percent());
         drawTinyInsetRect(g, x - 2, percentY, w + 4, COLUMN_PERCENT_H, 0xFF201E27);
-        drawCenteredScaledString(g, percentText, x - 2, percentY + 4, w + 4, percentColor, 0.9F);
+        drawCenteredScaledString(g, percentText, x - 2, percentY, w + 4, COLUMN_PERCENT_H, percentColor, 0.9F);
+    }
+
+    private void renderMetricColumnTooltip(GuiGraphics g, int mouseX, int mouseY) {
+        boolean chemicalMode = hasChemicalStorageIntegration();
+        StorageMetrics metrics = buildStorageMetrics(resolveStorageState());
+        Metric[] columns = chemicalMode
+                ? new Metric[] { metrics.items(), metrics.fluids(), metrics.chemicals() }
+                : new Metric[] { metrics.items(), metrics.fluids() };
+        String[] tooltipKeys = chemicalMode
+                ? new String[] { TOOLTIP_ITEMS_USED, TOOLTIP_FLUIDS_USED, TOOLTIP_CHEMICALS_USED }
+                : new String[] { TOOLTIP_ITEMS_USED, TOOLTIP_FLUIDS_USED };
+
+        int count = columns.length;
+        int columnW = count == 3 ? 30 : 38;
+        int gap = count == 3 ? 10 : 20;
+        int totalW = columnW * count + gap * (count - 1);
+        int startX = leftPos + RIGHT_PANEL_X + (RIGHT_PANEL_W - totalW) / 2;
+        int columnY = topPos + COLUMN_Y;
+
+        for (int i = 0; i < count; i++) {
+            int x = startX + i * (columnW + gap);
+            Rect2i rect = new Rect2i(x, columnY, columnW, COLUMN_H);
+            if (rect.contains(mouseX, mouseY)) {
+                Metric metric = columns[i];
+                g.renderTooltip(font, List.of(
+                        Component.translatable(tooltipKeys[i], formatPercent(metric.percent())),
+                        Component.translatable(TOOLTIP_USED_TOTAL,
+                                formatStorageBytes(metric.used()),
+                                formatStorageBytes(metric.max()))),
+                        Optional.empty(), mouseX, mouseY);
+                return;
+            }
+        }
     }
 
     private void drawInsetGroupPanel(GuiGraphics g, int x, int y, int w, int h) {
@@ -343,15 +403,18 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         g.drawString(font, Component.literal(text), x + (w - font.width(text)) / 2, y, color, false);
     }
 
-    private void drawCenteredScaledString(GuiGraphics g, String text, int x, int y, int w, int color, float scale) {
+    private void drawCenteredScaledString(GuiGraphics g, String text, int boxX, int boxY, int boxW, int boxH,
+            int color, float scale) {
         var pose = g.pose();
         float scaledTextW = font.width(text) * scale;
-        float drawX = (x + (w - scaledTextW) / 2.0F) / scale;
-        float drawY = y / scale;
+        float scaledTextH = font.lineHeight * scale;
+        float drawX = boxX + (boxW - scaledTextW) / 2.0F;
+        float drawY = boxY + (boxH - scaledTextH) / 2.0F;
 
         pose.pushPose();
+        pose.translate(drawX, drawY, 0.0F);
         pose.scale(scale, scale, 1.0F);
-        g.drawString(font, Component.literal(text), (int) drawX, (int) drawY, color, false);
+        g.drawString(font, Component.literal(text), 0, 0, color, false);
         pose.popPose();
     }
 
@@ -380,6 +443,13 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private static NEStorageUiTypeState findTypeState(List<NEStorageUiTypeState> types, String needle) {
         String lowerNeedle = needle.toLowerCase(Locale.ROOT);
+        String pluralNeedle = lowerNeedle + "s";
+        for (NEStorageUiTypeState ts : types) {
+            String path = ts.typeId().getPath().toLowerCase(Locale.ROOT);
+            if (path.equals(lowerNeedle) || path.equals(pluralNeedle)) {
+                return ts;
+            }
+        }
         for (NEStorageUiTypeState ts : types) {
             String path = ts.typeId().getPath().toLowerCase(Locale.ROOT);
             String name = ts.displayName().toLowerCase(Locale.ROOT);
@@ -457,6 +527,36 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private static String formatMetricNumber(long value) {
         return NUMBER_FORMAT.format(value);
+    }
+
+    private static String formatStorageBytes(long value) {
+        long abs = value == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(value);
+        if (abs < BYTES_IN_G) {
+            return formatMetricNumber(value);
+        }
+
+        long unit = BYTES_IN_G;
+        String suffix = "G";
+        if (abs >= BYTES_IN_P) {
+            unit = BYTES_IN_P;
+            suffix = "P";
+        } else if (abs >= BYTES_IN_T) {
+            unit = BYTES_IN_T;
+            suffix = "T";
+        }
+
+        return trimDecimal((double) value / (double) unit) + suffix;
+    }
+
+    private static String trimDecimal(double value) {
+        String text = String.format(Locale.US, "%.2f", value);
+        while (text.endsWith("0")) {
+            text = text.substring(0, text.length() - 1);
+        }
+        if (text.endsWith(".")) {
+            text = text.substring(0, text.length() - 1);
+        }
+        return text;
     }
 
     private static String formatPercent(double pct) {
