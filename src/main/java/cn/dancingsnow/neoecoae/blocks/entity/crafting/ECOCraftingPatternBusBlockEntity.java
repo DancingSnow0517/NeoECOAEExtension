@@ -34,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
@@ -55,17 +56,34 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
+        return pushPattern(patternDetails, inputHolder, null);
+    }
+
+    public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder, @Nullable UUID craftingJobId) {
         if (!(patternDetails instanceof IMolecularAssemblerSupportedPattern supportedPattern)) {
             return false;
         }
         if (cluster != null) {
             for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                if (worker.pushPattern(supportedPattern, inputHolder)) {
+                if (worker.pushPattern(supportedPattern, inputHolder, craftingJobId)) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    public boolean recoverJobToNetwork(UUID craftingJobId, appeng.api.storage.MEStorage storage) {
+        if (cluster == null) {
+            return false;
+        }
+        boolean recoveredAll = true;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            if (!worker.recoverJobToNetwork(craftingJobId, storage)) {
+                recoveredAll = false;
+            }
+        }
+        return recoveredAll;
     }
 
     @Override

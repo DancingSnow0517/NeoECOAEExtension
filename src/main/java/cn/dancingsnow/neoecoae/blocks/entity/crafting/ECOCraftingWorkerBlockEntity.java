@@ -5,6 +5,7 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import lombok.Getter;
@@ -12,11 +13,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingWorkerBlockEntity>
@@ -67,6 +71,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table) {
+        return pushPattern(pattern, table, null);
+    }
+
+    public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, UUID craftingJobId) {
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
             if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
@@ -78,7 +86,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     if (pushed.get()) {
                         continue;
                     }
-                    if (t.pushPattern(pattern, table, controller)) {
+                    if (t.pushPattern(pattern, table, controller, craftingJobId)) {
                         pushed.set(true);
                     }
                 }
@@ -89,7 +97,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     craftingThreads.add(thread);
                     setChanged();
                     markForUpdate();
-                    return thread.pushPattern(pattern, table, controller);
+                    return thread.pushPattern(pattern, table, controller, craftingJobId);
                 } else {
                     return false;
                 }
@@ -150,6 +158,32 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         setChanged();
     }
 
+    public boolean recoverJobToNetwork(UUID craftingJobId, MEStorage storage) {
+        boolean recoveredAll = true;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.belongsToJob(craftingJobId) && !thread.recoverInputsToNetwork(storage)) {
+                recoveredAll = false;
+            }
+        }
+        if (recoveredAll) {
+            wakeTickingDevice();
+        }
+        return recoveredAll;
+    }
+
+    public boolean recoverAllToNetwork(MEStorage storage) {
+        boolean recoveredAll = true;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree() && !thread.recoverInputsToNetwork(storage)) {
+                recoveredAll = false;
+            }
+        }
+        if (recoveredAll) {
+            wakeTickingDevice();
+        }
+        return recoveredAll;
+    }
+
     private void wakeTickingDevice() {
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
     }
@@ -169,15 +203,28 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
+        craftingThreads.clear();
+        int busyThreads = 0;
         for (int i = 0; i < threads.size(); i++) {
             ECOCraftingThread thread = new ECOCraftingThread(this);
             thread.deserializeNBT(threads.getCompound(i));
             craftingThreads.add(thread);
+            if (!thread.isFree()) {
+                busyThreads++;
+            }
         }
-        runningThreads = data.getInt("runningThreads");
+        runningThreads = busyThreads;
     }
 
     public boolean isWorking() {
         return runningThreads > 0;
+    }
+
+    @Override
+    public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
+        super.addAdditionalDrops(level, pos, drops);
+        for (ECOCraftingThread thread : craftingThreads) {
+            thread.addRecoverableDrops(drops);
+        }
     }
 }

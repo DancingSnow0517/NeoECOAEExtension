@@ -36,6 +36,7 @@ import appeng.crafting.execution.*;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 
 public class ECOCraftingCPULogic {
 
@@ -194,7 +195,11 @@ public class ECOCraftingCPULogic {
                 if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
                     < patternPower - 0.01) break;
 
-                if (provider.pushPattern(details, craftingContainer)) {
+                boolean pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                    ? patternBus.pushPattern(details, craftingContainer, job.link.getCraftingID())
+                    : provider.pushPattern(details, craftingContainer);
+
+                if (pushed) {
                     energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
                     pushedPatterns++;
 
@@ -341,7 +346,20 @@ public class ECOCraftingCPULogic {
         // No job to cancel :P
         if (job == null) return;
 
+        UUID craftingJobId = job.link.getCraftingID();
         finishJob(false);
+        recoverInflightWorkerInputs(craftingJobId);
+    }
+
+    private void recoverInflightWorkerInputs(UUID craftingJobId) {
+        IGrid grid = cpu.getGrid();
+        if (grid == null) {
+            return;
+        }
+        var storage = grid.getStorageService().getInventory();
+        for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
+            patternBus.recoverJobToNetwork(craftingJobId, storage);
+        }
     }
 
     /**
