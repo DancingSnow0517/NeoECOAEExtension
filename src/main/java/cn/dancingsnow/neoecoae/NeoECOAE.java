@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae;
 
-
 import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
@@ -19,7 +18,9 @@ import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
-import cn.dancingsnow.neoecoae.config.NEConfig;import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
+import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import lombok.Getter;
@@ -111,9 +112,8 @@ public class NeoECOAE {
             Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
-                NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
-                NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_FLUID_CELL_256M
-            );
+                    NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
+                    NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_FLUID_CELL_256M);
             for (ItemEntry<ECOStorageCellItem> cell : cells) {
                 Upgrades.add(AEItems.FUZZY_CARD, cell, 1, storageCellGroup);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
@@ -131,13 +131,11 @@ public class NeoECOAE {
 
     private static void newRegistry(NewRegistryEvent event) {
         event.create(
-            RegistryBuilder.of(NERegistries.Keys.ECO_TIER.location())
-                .setMaxID(256)
-        );
+                RegistryBuilder.of(NERegistries.Keys.ECO_TIER.location())
+                        .setMaxID(256));
         event.create(
-            RegistryBuilder.of(NERegistries.Keys.CELL_TYPE.location())
-                .setMaxID(256)
-        );
+                RegistryBuilder.of(NERegistries.Keys.CELL_TYPE.location())
+                        .setMaxID(256));
     }
 
     private static void addClassicPack(AddPackFindersEvent event) {

@@ -190,7 +190,8 @@ public final class NECreativeTabContents {
         add(NEItems.ECO_FLUID_CELL_64M);
         add(NEItems.ECO_FLUID_CELL_256M);
 
-        // --- Chemical Cells (looked up by registry name; only present if AppMek loaded) ---
+        // --- Chemical Cells (looked up by registry name; only present if AppMek
+        // loaded) ---
         addIfPresent("eco_chemical_cell_housing");
         addIfPresent("eco_chemical_cell_16m");
         addIfPresent("eco_chemical_cell_64m");
