@@ -69,17 +69,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private int patternBusCount, parallelCount, workerCount = 0;
 
-    @Getter
     private int runningThreadCount = 0;
 
-    @Getter
     private int threadCount = 0;
 
-    @Getter
     private int threadCountPerWorker = 0;
 
-    @Getter
     private int overlockTimes = 0;
+    private boolean structureStatsDirty = true;
+    private long uiRevision = 0L;
     private int selectedBuildLength = 1;
     private int previewMissingBlocks;
     private int previewConflictBlocks;
@@ -148,8 +146,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
                 setChanged();
-                markForUpdate();
-                updateInfo();
+                markStructureStatsDirty();
+                ensureCraftingStatsCurrent();
             });
         }
     }
@@ -158,7 +156,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
         if (updateExposed) {
-            updateInfo();
+            markStructureStatsDirty();
+            ensureCraftingStatsCurrent();
         }
     }
 
@@ -193,13 +192,35 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateInfo() {
-        updateThreadCount();
+        markStructureStatsDirty();
+        ensureCraftingStatsCurrent();
+    }
+
+    public void markStructureStatsDirty() {
+        structureStatsDirty = true;
+        markUiStateDirty();
+    }
+
+    public long getUiRevision() {
+        return uiRevision;
+    }
+
+    private void markUiStateDirty() {
+        uiRevision++;
+    }
+
+    private void ensureCraftingStatsCurrent() {
+        if (!structureStatsDirty) {
+            return;
+        }
         updateCount();
+        updateThreadCount();
         updateOverlockTimes();
+        structureStatsDirty = false;
     }
 
     private void updateThreadCount() {
-        if (cluster != null && !cluster.getParallelCores().isEmpty()) {
+        if (cluster != null && parallelCount > 0) {
             int perCore = tier.getCrafterParallel();
             if (overclocked) {
                 perCore += tier.getOverclockedCrafterParallel();
@@ -207,10 +228,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             } else {
                 threadCountPerWorker = 32;
             }
-            threadCount = cluster.getParallelCores().size() * perCore;
+            threadCount = parallelCount * perCore;
             runningThreadCount = cluster.getWorkers().stream().mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
         } else {
             threadCount = 0;
+            threadCountPerWorker = 0;
+            runningThreadCount = 0;
         }
     }
 
@@ -227,7 +250,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateOverlockTimes() {
-        int overflow = getOverflowThreads();
+        int overflow = Math.max(0, threadCount - threadCountPerWorker * workerCount);
         if (overflow <= 0 || threadCount <= 0) {
             overlockTimes = 0;
             return;
@@ -252,11 +275,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             coolantMaxOverclock = -1;
         }
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
         return true;
     }
 
     public int getEffectiveOverclockTimes() {
+        ensureCraftingStatsCurrent();
         if (!overclocked) {
             return 0;
         }
@@ -278,50 +302,80 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         coolant = 0;
         coolantMaxOverclock = -1;
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
     }
 
     public void toggleOverclocked() {
         overclocked = !overclocked;
-        updateInfo();
+        markStructureStatsDirty();
+        ensureCraftingStatsCurrent();
         setChanged();
-        markForUpdate();
     }
 
     public void toggleActiveCooling() {
         activeCooling = !activeCooling;
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
     }
 
     public void toggleAutoClearCoolingWaste() {
         autoClearCoolingWaste = !autoClearCoolingWaste;
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
     }
 
     private double getOverflowThreadsPercentage() {
+        ensureCraftingStatsCurrent();
         double totalThread = threadCount;
         return totalThread > 0 ? getOverflowThreads() / totalThread : 0.0;
     }
 
     public int getOverflowThreads() {
+        ensureCraftingStatsCurrent();
         return Math.max(0, threadCount - getAvailableThreads());
     }
 
     public int getAvailableThreads() {
+        ensureCraftingStatsCurrent();
         return threadCountPerWorker * workerCount;
     }
 
+    public int getRunningThreadCount() {
+        return runningThreadCount;
+    }
+
+    public int getThreadCount() {
+        ensureCraftingStatsCurrent();
+        return threadCount;
+    }
+
+    public int getThreadCountPerWorker() {
+        ensureCraftingStatsCurrent();
+        return threadCountPerWorker;
+    }
+
+    public int getOverlockTimes() {
+        ensureCraftingStatsCurrent();
+        return overlockTimes;
+    }
+
+    public void onWorkerThreadCountChanged(int delta) {
+        runningThreadCount = Math.max(0, runningThreadCount + delta);
+        markUiStateDirty();
+    }
+
     public int getPatternBusCount() {
+        ensureCraftingStatsCurrent();
         return patternBusCount;
     }
 
     public int getParallelCount() {
+        ensureCraftingStatsCurrent();
         return parallelCount;
     }
 
     public int getWorkerCount() {
+        ensureCraftingStatsCurrent();
         return workerCount;
     }
 
@@ -444,11 +498,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             worldPosition,
             formed,
             cluster != null && getMainNode().isActive(),
-            getWorkerCount(),
-            getParallelCount(),
-            getPatternBusCount(),
-            getThreadCount(),
-            getRunningThreadCount(),
+            workerCount,
+            parallelCount,
+            patternBusCount,
+            threadCount,
+            runningThreadCount,
             isOverclocked(),
             isActiveCooling(),
             isAutoClearCoolingWaste(),
@@ -552,7 +606,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         coolant = Math.min(MAX_COOLANT, coolant + coolantGain);
         coolantMaxOverclock = recipe.maxOverclock();
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
         return coolantGain;
     }
 
@@ -736,7 +790,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         previewStatusArg1 = statusArg1;
         previewStatusArg2 = statusArg2;
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
     }
 
     private Component buildPreviewStatusComponent() {

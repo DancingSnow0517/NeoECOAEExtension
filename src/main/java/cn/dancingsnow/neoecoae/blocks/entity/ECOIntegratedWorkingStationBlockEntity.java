@@ -196,6 +196,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     private boolean dirty = false;
 
+    private boolean recipeCacheValid = false;
+
     private @Nullable IntegratedWorkingStationRecipe cachedTask = null;
 
     @SuppressWarnings("UnstableApiUsage")
@@ -211,7 +213,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         this.getMainNode().setIdlePowerUsage(0).addService(IGridTickable.class, this);
         this.setInternalMaxPower(MAX_POWER_STORAGE);
 
-        this.upgrades = UpgradeInventories.forMachine(NEBlocks.INTEGRATED_WORKING_STATION, 4, this::saveChanges);
+        this.upgrades = UpgradeInventories.forMachine(NEBlocks.INTEGRATED_WORKING_STATION, 4, this::onUpgradeInventoryChanged);
         this.configManager = new ConfigManager(this::onConfigChanged);
         this.configManager.registerSetting(Settings.AUTO_EXPORT, YesNo.NO);
 
@@ -385,8 +387,18 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     private void onChangeInventory() {
+        invalidateRecipeCache();
+    }
+
+    private void invalidateRecipeCache() {
+        this.recipeCacheValid = false;
         this.dirty = true;
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
+    }
+
+    private void onUpgradeInventoryChanged() {
+        invalidateRecipeCache();
+        saveChanges();
     }
 
     /** Called by NEInternalInventorySlot when the GUI modifies the inventory. */
@@ -430,11 +442,30 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     @Nullable
     public IntegratedWorkingStationRecipe getTask() {
-        if (this.cachedTask == null && level != null) {
-
-            this.cachedTask = findRecipe(level);
-        }
+        ensureRecipeCached();
         return this.cachedTask;
+    }
+
+    private void ensureRecipeCached() {
+        if (!recipeCacheValid) {
+            refreshRecipeCache();
+        }
+    }
+
+    private void refreshRecipeCache() {
+        IntegratedWorkingStationRecipe newTask = level == null ? null : findRecipe(level);
+        if (!Objects.equals(
+            cachedTask == null ? null : cachedTask.getId(),
+            newTask == null ? null : newTask.getId()
+        )) {
+            this.setProcessingTime(0);
+        }
+        this.cachedTask = newTask;
+        this.recipeCacheValid = true;
+        this.dirty = false;
+        if (this.cachedTask == null) {
+            this.setWorking(false);
+        }
     }
 
     private @Nullable IntegratedWorkingStationRecipe findRecipe(Level level) {
@@ -478,19 +509,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     @Override
     public TickRateModulation tickingRequest(IGridNode iGridNode, int ticksSinceLastCall) {
         if (this.dirty) {
-            IntegratedWorkingStationRecipe newTask = level == null ? null : findRecipe(level);
-            if (!Objects.equals(
-                cachedTask == null ? null : cachedTask.getId(),
-                newTask == null ? null : newTask.getId()
-            )) {
-                this.setProcessingTime(0);
-            }
-            this.cachedTask = newTask;
-            if (this.cachedTask == null) {
-                this.setWorking(false);
-            }
-            this.markForUpdate();
-            this.dirty = false;
+            refreshRecipeCache();
         }
 
         if (this.hasCraftWork()) {
@@ -612,7 +631,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
                             this.setProcessingTime(0);
                             this.saveChanges();
-                            this.cachedTask = null;
+                            this.invalidateRecipeCache();
                             this.setWorking(false);
                         }
                     }
@@ -707,6 +726,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
             shouldAutoExport = manager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
         }
+        invalidateRecipeCache();
 
         saveChanges();
     }

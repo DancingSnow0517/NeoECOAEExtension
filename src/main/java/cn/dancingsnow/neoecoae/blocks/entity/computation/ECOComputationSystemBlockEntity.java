@@ -47,6 +47,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private long totalBytes;
     /** Sum of CPU accelerators from all parallel cores in the cluster. */
     private int acceleratorCount;
+    private boolean computationStatsDirty = true;
+    private long uiRevision = 0L;
     private int selectedBuildLength = 1;
     private int previewMissingBlocks;
     private int previewConflictBlocks;
@@ -73,6 +75,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
         if (updateExposed) {
+            markComputationStatsDirty();
             updateInfos();
         }
     }
@@ -80,6 +83,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
+        markUiStateDirty();
         if (reason != IGridNodeListener.State.GRID_BOOT && cluster != null && getMainNode().isActive()) {
             cluster.updateGridForChangedCpu(cluster);
         }
@@ -88,22 +92,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private void recalculateComputationStats() {
         if (cluster != null) {
             availableBytes = cluster.getAvailableStorage();
-
-            totalBytes = 0;
-            for (ECOComputationDriveBlockEntity drive : cluster.getUpperDrives()) {
-                ItemStack cellStack = drive.getCellStack();
-                if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    totalBytes += cellItem.getTier().getCPUTotalBytes();
-                }
-            }
-            for (ECOComputationDriveBlockEntity drive : cluster.getLowerDrives()) {
-                ItemStack cellStack = drive.getCellStack();
-                if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    totalBytes += cellItem.getTier().getCPUTotalBytes();
-                }
-            }
-
-            usedThread = cluster.getActiveCPUs().size();
+            totalBytes = cluster.getTotalStorageBytes();
+            usedThread = cluster.getActiveCpuCountCached();
             totalThread = cluster.getMaxThreads();
             parallelCount = cluster.getParallelCores().size();
             acceleratorCount = cluster.getCPUAccelerators();
@@ -117,8 +107,29 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
     }
 
-    public void updateInfos() {
+    public void markComputationStatsDirty() {
+        computationStatsDirty = true;
+        markUiStateDirty();
+    }
+
+    public long getUiRevision() {
+        return uiRevision;
+    }
+
+    private void markUiStateDirty() {
+        uiRevision++;
+    }
+
+    private void ensureStatsCurrent() {
+        if (!computationStatsDirty) {
+            return;
+        }
         recalculateComputationStats();
+        computationStatsDirty = false;
+    }
+
+    public void updateInfos() {
+        ensureStatsCurrent();
         setChanged();
         syncUiToClient();
     }
@@ -168,6 +179,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public int getUsedThread() {
+        ensureStatsCurrent();
         return usedThread;
     }
 
@@ -176,37 +188,38 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public int getTotalThread() {
+        ensureStatsCurrent();
         return totalThread;
     }
 
     public int getParallelCount() {
+        ensureStatsCurrent();
         return parallelCount;
     }
 
     public long getAvailableBytes() {
+        ensureStatsCurrent();
         return availableBytes;
     }
 
     public long getTotalBytes() {
+        ensureStatsCurrent();
         return totalBytes;
     }
 
     public int getAcceleratorCount() {
+        ensureStatsCurrent();
         return acceleratorCount;
     }
 
     /**
      * Creates a snapshot of current computation stats for S2C UI sync.
      * <p>
-     * On the server side this forces a stats recalculation so the packet
-     * always carries live data, not stale cache. On the client (e.g.
-     * fallback rendering) it uses the last-known values.
+     * This reads cached stats. Mutating cluster paths mark the cache dirty and
+     * update it before bumping the UI revision.
      * </p>
      */
     public NEComputationUiState createComputationUiState() {
-        if (level != null && !level.isClientSide) {
-            recalculateComputationStats();
-        }
         return new NEComputationUiState(
             worldPosition,
             formed,
@@ -452,7 +465,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         previewStatusArg1 = statusArg1;
         previewStatusArg2 = statusArg2;
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
     }
 
     private Component buildPreviewStatusComponent() {

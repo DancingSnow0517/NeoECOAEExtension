@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -20,7 +21,7 @@ import java.util.function.BooleanSupplier;
  * Screen for the Structure Terminal configuration UI.
  * <p>
  * Layout: large preview area (top), length controls + toggle buttons
- * (bottom-left), 2×9 material slot grid (bottom-right).
+ * (bottom-left), 2×10 material slot grid (bottom-right).
  * </p>
  */
 public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
@@ -48,13 +49,16 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     private static final int CONTROL_X = PANEL_MARGIN;
     private static final int CONTROL_Y = CONTENT_Y;
-    private static final int CONTROL_W = 154;
+    private static final int CONTROL_W = 122;
     private static final int CONTROL_H = CONTENT_H;
 
     private static final int MATERIAL_X = CONTROL_X + CONTROL_W + PANEL_GAP;
     private static final int MATERIAL_Y = CONTENT_Y;
     private static final int MATERIAL_W = 358 - MATERIAL_X - PANEL_MARGIN;
     private static final int MATERIAL_H = CONTENT_H;
+    private static final int MATERIAL_COLS = 10;
+    private static final int MATERIAL_ROWS = 2;
+    private static final int MATERIAL_SLOT_SIZE = 18;
 
     private int displayBuildLength;
     private int minLength = 1;
@@ -107,12 +111,12 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int buttonH = 18;
         int rowGap = 3;
 
-        int innerX = leftPos + CONTROL_X + 10;
         int innerY = topPos + CONTROL_Y + 24;
 
         int smallW = 22;
         int valueW = 35;
         int leftGroupW = smallW + valueW + smallW; // 79
+        int innerX = leftPos + CONTROL_X + (CONTROL_W - leftGroupW) / 2;
 
         int row0Y = innerY;
         int row1Y = row0Y + buttonH + rowGap;
@@ -136,17 +140,20 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
         addTargetButton(StructureTerminalHostType.CRAFTING, 0,
-                Component.literal("Craft"),
+                Component.translatable("gui.neoecoae.structure_terminal.target.crafting"),
+                Component.translatable("gui.neoecoae.structure_terminal.target.crafting.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_CRAFTING);
         addTargetButton(StructureTerminalHostType.STORAGE, 1,
-                Component.literal("Store"),
+                Component.translatable("gui.neoecoae.structure_terminal.target.storage"),
+                Component.translatable("gui.neoecoae.structure_terminal.target.storage.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_STORAGE);
         addTargetButton(StructureTerminalHostType.COMPUTATION, 2,
-                Component.literal("Compute"),
+                Component.translatable("gui.neoecoae.structure_terminal.target.computation"),
+                Component.translatable("gui.neoecoae.structure_terminal.target.computation.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_COMPUTATION);
     }
 
-    private void addTargetButton(StructureTerminalHostType target, int index, Component label,
+    private void addTargetButton(StructureTerminalHostType target, int index, Component label, Component tooltip,
             NENetwork.NEStructureTerminalConfigActionPacket.Action action) {
         int buttonW = 52;
         int buttonH = 18;
@@ -154,10 +161,12 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int totalW = buttonW * 3 + gap * 2;
         int x = leftPos + MATERIAL_X + (MATERIAL_W - totalW) / 2 + index * (buttonW + gap);
         int y = topPos + MATERIAL_Y + 20;
-        addRenderableWidget(new NEToggleTextButton(x, y, buttonW, buttonH,
+        NEToggleTextButton button = new NEToggleTextButton(x, y, buttonW, buttonH,
                 label,
                 () -> selectedTarget == target,
-                btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(action))));
+                btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(action)));
+        button.setTooltip(Tooltip.create(tooltip));
+        addRenderableWidget(button);
     }
 
     @Override
@@ -183,15 +192,17 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
 
         // ── Control panel ──
-        guiGraphics.drawString(font, Component.literal("结构长度"),
-                CONTROL_X + 10, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
+        Component lengthLabel = Component.literal("结构长度");
+        guiGraphics.drawString(font, lengthLabel,
+                CONTROL_X + (CONTROL_W - font.width(lengthLabel)) / 2, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
 
         int cButtonH = 18;
         int cRowGap = 3;
         int cSmallW = 22;
         int cValueW = 35;
+        int cGroupW = cSmallW + cValueW + cSmallW;
 
-        int cInnerX = CONTROL_X + 10;
+        int cInnerX = CONTROL_X + (CONTROL_W - cGroupW) / 2;
         int cInnerY = CONTROL_Y + 24;
         int cRow1Y = cInnerY + cButtonH + cRowGap;
 
@@ -237,20 +248,15 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     }
 
     private void drawMaterialSlotGrid(GuiGraphics g) {
-        int slotSize = 18;
-        int cols = 9;
-        int rows = 2;
-
-        int gridW = cols * slotSize;
-        int gridH = rows * slotSize;
+        int gridW = MATERIAL_COLS * MATERIAL_SLOT_SIZE;
 
         int startX = MATERIAL_X + (MATERIAL_W - gridW) / 2;
         int startY = materialGridY();
 
-        for (int row = 0; row < rows; row++) {
-            for (int col = 0; col < cols; col++) {
-                int x = startX + col * slotSize;
-                int y = startY + row * slotSize;
+        for (int row = 0; row < MATERIAL_ROWS; row++) {
+            for (int col = 0; col < MATERIAL_COLS; col++) {
+                int x = startX + col * MATERIAL_SLOT_SIZE;
+                int y = startY + row * MATERIAL_SLOT_SIZE;
                 drawInventorySlot(g, x, y);
             }
         }
@@ -263,10 +269,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
             int x = leftPos + materialSlotX(i);
             int y = topPos + materialSlotY(i);
             g.renderItem(entry.item(), x + 1, y + 1);
-            String text = "x" + Math.min(entry.required(), entry.available());
-            if (entry.available() <= 0) {
-                text = "x0";
-            }
+            String text = "x" + formatCompactCount(entry.required());
             int color = materialCountColor(entry);
             int textX = x + 17 - font.width(text);
             int textY = y + 10;
@@ -295,7 +298,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (isInMaterialGrid(mouseX, mouseY) && materials.size() > visibleMaterialSlots()) {
-            int step = 9;
+            int step = MATERIAL_COLS;
             int next = materialScrollOffset + (delta < 0 ? step : -step);
             materialScrollOffset = clampMaterialScroll(next);
             return true;
@@ -322,7 +325,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         for (int i = 0; i < visibleMaterialSlots(); i++) {
             int x = leftPos + materialSlotX(i);
             int y = topPos + materialSlotY(i);
-            if (mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18) {
+            if (mouseX >= x && mouseX < x + MATERIAL_SLOT_SIZE && mouseY >= y && mouseY < y + MATERIAL_SLOT_SIZE) {
                 return i;
             }
         }
@@ -333,28 +336,35 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int x = leftPos + MATERIAL_X;
         int y = topPos + materialGridY();
         return mouseX >= x && mouseX < x + MATERIAL_W
-            && mouseY >= y && mouseY < y + 36;
+            && mouseY >= y && mouseY < y + MATERIAL_ROWS * MATERIAL_SLOT_SIZE;
     }
 
     private int materialSlotX(int visibleIndex) {
-        int cols = 9;
-        int slotSize = 18;
-        int gridW = cols * slotSize;
+        int gridW = MATERIAL_COLS * MATERIAL_SLOT_SIZE;
         int startX = MATERIAL_X + (MATERIAL_W - gridW) / 2;
-        return startX + (visibleIndex % cols) * slotSize;
+        return startX + (visibleIndex % MATERIAL_COLS) * MATERIAL_SLOT_SIZE;
     }
 
     private int materialSlotY(int visibleIndex) {
-        int slotSize = 18;
-        return materialGridY() + (visibleIndex / 9) * slotSize;
+        return materialGridY() + (visibleIndex / MATERIAL_COLS) * MATERIAL_SLOT_SIZE;
     }
 
     private int materialGridY() {
-        return MATERIAL_Y + 46;
+        return MATERIAL_Y + 54;
     }
 
     private int visibleMaterialSlots() {
-        return 18;
+        return MATERIAL_COLS * MATERIAL_ROWS;
+    }
+
+    private static String formatCompactCount(int value) {
+        if (value < 1000) {
+            return Integer.toString(value);
+        }
+        if (value < 1_000_000) {
+            return (value / 1000) + "K";
+        }
+        return (value / 1_000_000) + "M";
     }
 
     private int clampMaterialScroll(int value) {

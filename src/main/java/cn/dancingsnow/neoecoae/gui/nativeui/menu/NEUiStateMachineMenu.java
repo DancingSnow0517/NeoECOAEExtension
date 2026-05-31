@@ -23,6 +23,7 @@ public abstract class NEUiStateMachineMenu<S> extends NEBaseMachineMenu {
     private int tickCounter;
     @Nullable
     private S lastSentState;
+    private long lastSentRevision = Long.MIN_VALUE;
 
     protected NEUiStateMachineMenu(@Nullable MenuType<?> type, int containerId,
                                     Inventory playerInv, BlockPos machinePos) {
@@ -35,6 +36,14 @@ public abstract class NEUiStateMachineMenu<S> extends NEBaseMachineMenu {
      */
     protected int getStateSyncIntervalTicks() {
         return 20;
+    }
+
+    /**
+     * Optional lightweight revision. Return {@link Long#MIN_VALUE} to keep the
+     * legacy behavior of creating a state snapshot every sync interval.
+     */
+    protected long getStateRevision(ServerPlayer player) {
+        return Long.MIN_VALUE;
     }
 
     /**
@@ -63,6 +72,11 @@ public abstract class NEUiStateMachineMenu<S> extends NEBaseMachineMenu {
         tickCounter++;
 
         if (tickCounter == 1 || tickCounter % getStateSyncIntervalTicks() == 0) {
+            long revision = getStateRevision(serverPlayer);
+            boolean revisionEnabled = revision != Long.MIN_VALUE;
+            if (tickCounter != 1 && revisionEnabled && revision == lastSentRevision) {
+                return;
+            }
             S state = createState(serverPlayer);
             if (state == null) {
                 return;
@@ -72,6 +86,9 @@ public abstract class NEUiStateMachineMenu<S> extends NEBaseMachineMenu {
                 return;
             }
             lastSentState = state;
+            if (revisionEnabled) {
+                lastSentRevision = revision;
+            }
             sendState(serverPlayer, state);
         }
     }
@@ -85,6 +102,10 @@ public abstract class NEUiStateMachineMenu<S> extends NEBaseMachineMenu {
         S state = createState(player);
         if (state != null) {
             lastSentState = state;
+            long revision = getStateRevision(player);
+            if (revision != Long.MIN_VALUE) {
+                lastSentRevision = revision;
+            }
             sendState(player, state);
         }
     }

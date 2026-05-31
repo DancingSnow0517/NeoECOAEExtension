@@ -35,6 +35,15 @@ public class NECraftingControllerMenu extends NEUiStateMachineMenu<NECraftingUiS
     }
 
     @Override
+    protected long getStateRevision(ServerPlayer player) {
+        BlockEntity be = player.level().getBlockEntity(machinePos);
+        if (be instanceof ECOCraftingSystemBlockEntity crafting) {
+            return crafting.getUiRevision();
+        }
+        return Long.MIN_VALUE;
+    }
+
+    @Override
     protected void sendState(ServerPlayer player, NECraftingUiState state) {
         NENetwork.CHANNEL.send(
             PacketDistributor.PLAYER.with(() -> player),

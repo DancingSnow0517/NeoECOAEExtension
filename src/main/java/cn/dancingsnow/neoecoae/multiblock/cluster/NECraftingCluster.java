@@ -64,5 +64,16 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         if (blockEntity instanceof ECOFluidOutputHatchBlockEntity outputHatchBlockEntity) {
             this.outputHatch = outputHatchBlockEntity;
         }
+        if (controller != null) {
+            controller.markStructureStatsDirty();
+        }
+    }
+
+    @Override
+    public void updateFormed(boolean formed) {
+        super.updateFormed(formed);
+        if (controller != null) {
+            controller.markStructureStatsDirty();
+        }
     }
 }

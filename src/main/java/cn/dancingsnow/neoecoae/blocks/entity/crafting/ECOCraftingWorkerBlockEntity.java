@@ -125,8 +125,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public void onThreadWork() {
         runningThreads++;
+        if (cluster != null && cluster.getController() != null) {
+            cluster.getController().onWorkerThreadCountChanged(1);
+        }
         setChanged();
-        markForUpdate();
         wakeTickingDevice();
     }
 
@@ -139,8 +141,13 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public void onThreadStop() {
         runningThreads--;
+        if (runningThreads < 0) {
+            runningThreads = 0;
+        }
+        if (cluster != null && cluster.getController() != null) {
+            cluster.getController().onWorkerThreadCountChanged(-1);
+        }
         setChanged();
-        markForUpdate();
     }
 
     private void wakeTickingDevice() {

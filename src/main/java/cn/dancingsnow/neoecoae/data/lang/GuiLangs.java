@@ -67,6 +67,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.missing", "Missing: %d");
         provider.add("gui.neoecoae.multiblock.conflicts", "Conflicts: %d");
         provider.add("gui.neoecoae.multiblock.required_items", "Required Items: %d");
+        provider.add("gui.neoecoae.structure_terminal.target.crafting", "Craft");
+        provider.add("gui.neoecoae.structure_terminal.target.storage", "Storage");
+        provider.add("gui.neoecoae.structure_terminal.target.computation", "Compute");
+        provider.add("gui.neoecoae.structure_terminal.target.crafting.tooltip", "Crafting Subsystem");
+        provider.add("gui.neoecoae.structure_terminal.target.storage.tooltip", "Storage Subsystem");
+        provider.add("gui.neoecoae.structure_terminal.target.computation.tooltip", "Computation Subsystem");
         provider.add("gui.neoecoae.multiblock.status.idle", "Idle");
         provider.add("gui.neoecoae.multiblock.status.length_updated", "Length updated");
         provider.add("gui.neoecoae.multiblock.status.controller_formed", "Controller already formed");
