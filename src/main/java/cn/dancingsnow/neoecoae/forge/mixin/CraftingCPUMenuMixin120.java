@@ -27,6 +27,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -36,9 +38,6 @@ import java.util.function.Consumer;
 @Mixin(CraftingCPUMenu.class)
 public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoECOCraftingCpuMenuBridge {
 
-    /**
-     * Minimum tick interval between heartbeat (time-only) status updates.
-     */
     private static final int HEARTBEAT_INTERVAL = 10;
 
     public CraftingCPUMenuMixin120(MenuType<?> menuType, int id, Inventory playerInventory, Object host) {
@@ -53,6 +52,21 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
 
     @Unique
     private boolean neoecoae$forceEcoStatusUpdate = false;
+
+    /** Tracked keys that we will refresh during heartbeat. */
+    @Unique
+    private final Set<AEKey> neoecoae$trackedEcoKeys = new HashSet<>();
+
+    /**
+     * Independent ECO CPU change listener (does NOT reuse AE2's
+     * native cpuChangeListener, which depends on CraftingCPUCluster).
+     */
+    @Unique
+    private final Consumer<AEKey> neoecoae$ecoCpuChangeListener = key -> {
+        this.incrementalUpdateHelper.addChange(key);
+        this.neoecoae$trackedEcoKeys.add(key);
+        this.neoecoae$forceEcoStatusUpdate = true;
+    };
 
     @Final
     @Shadow
@@ -76,18 +90,26 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         neoecoae$removeEcoListener();
 
         if (selectedCpu instanceof ECOCraftingCPU ecoCpu) {
+            // Remove AE2 native listener from the previous AE2-native CPU (if any)
             if (this.cpu != null) {
                 this.cpu.craftingLogic.removeListener(this.cpuChangeListener);
             }
 
             this.incrementalUpdateHelper.reset();
+            this.neoecoae$trackedEcoKeys.clear();
             this.neoecoae$cpu = ecoCpu;
+
+            // Full initial population
             KeyCounter allItems = new KeyCounter();
             ecoCpu.getLogic().getAllItems(allItems);
             for (Object2LongMap.Entry<AEKey> entry : allItems) {
-                this.incrementalUpdateHelper.addChange(entry.getKey());
+                var key = entry.getKey();
+                this.incrementalUpdateHelper.addChange(key);
+                this.neoecoae$trackedEcoKeys.add(key);
             }
-            ecoCpu.getLogic().addListener(this.cpuChangeListener);
+
+            // Bind our independent ECO listener
+            ecoCpu.getLogic().addListener(this.neoecoae$ecoCpuChangeListener);
             this.neoecoae$forceEcoStatusUpdate = true;
             this.neoecoae$broadcastEcoCpuChanges();
             ci.cancel();
@@ -128,21 +150,21 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         long tick = TickHandler.instance().getCurrentTick();
         boolean hasJob = logic.hasJob();
 
-        // Priority 1: actual item changes → send incremental update
+        // Priority 1: actual item changes or force-update → send incremental update
         if (this.incrementalUpdateHelper.hasChanges() || this.neoecoae$forceEcoStatusUpdate) {
             this.neoecoae$forceEcoStatusUpdate = false;
             var status = neoecoae$createStatus(this.incrementalUpdateHelper, logic);
-            boolean isFull = this.incrementalUpdateHelper.isFullUpdate();
             this.incrementalUpdateHelper.commitChanges();
             this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
             this.neoecoae$lastEcoStatusHeartbeatTick = tick;
             return;
         }
 
-        // Priority 2: heartbeat for elapsed time / remaining items (max every
-        // HEARTBEAT_INTERVAL ticks)
-        if (hasJob && tick - this.neoecoae$lastEcoStatusHeartbeatTick >= HEARTBEAT_INTERVAL) {
-            var pulseStatus = neoecoae$createHeartbeatStatus(logic);
+        // Priority 2: heartbeat for tracked keys (max every HEARTBEAT_INTERVAL ticks)
+        if (hasJob
+            && !this.neoecoae$trackedEcoKeys.isEmpty()
+            && tick - this.neoecoae$lastEcoStatusHeartbeatTick >= HEARTBEAT_INTERVAL) {
+            var pulseStatus = neoecoae$createTrackedStatus(logic, this.neoecoae$trackedEcoKeys);
             this.sendPacketToClient(new CraftingStatusPacket(containerId, pulseStatus));
             this.neoecoae$lastEcoStatusHeartbeatTick = tick;
         }
@@ -151,9 +173,10 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
     @Unique
     private void neoecoae$removeEcoListener() {
         if (this.neoecoae$cpu != null) {
-            this.neoecoae$cpu.getLogic().removeListener(this.cpuChangeListener);
+            this.neoecoae$cpu.getLogic().removeListener(this.neoecoae$ecoCpuChangeListener);
             this.neoecoae$cpu = null;
         }
+        this.neoecoae$trackedEcoKeys.clear();
     }
 
     @Unique
@@ -189,15 +212,29 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
     }
 
     /**
-     * Lightweight heartbeat status: only refreshes elapsed time,
-     * remaining items and start items. No entries are included, so
-     * the client keeps its existing entry list.
+     * Tracked-key heartbeat: refreshes all currently known keys with
+     * their latest stored / active / pending counts, plus elapsed time.
+     * Non-empty entries so the client updates per-key numbers.
      */
     @Unique
-    private static CraftingStatus neoecoae$createHeartbeatStatus(ECOCraftingCPULogic logic) {
+    private static CraftingStatus neoecoae$createTrackedStatus(
+            ECOCraftingCPULogic logic, Set<AEKey> trackedKeys) {
+        ImmutableList.Builder<CraftingStatusEntry> entries = ImmutableList.builder();
+
+        for (AEKey key : trackedKeys) {
+            long storedCount = logic.getStored(key);
+            long activeCount = logic.getWaitingFor(key);
+            long pendingCount = logic.getPendingOutputs(key);
+
+            // A heartbeat carries the key as the "sent stack" to avoid
+            // interfering with the incremental-update serial machinery.
+            entries.add(new CraftingStatusEntry(
+                    0L, key, storedCount, activeCount, pendingCount));
+        }
+
         long elapsedTime = logic.getElapsedTimeTracker().getElapsedTime();
         long remainingItems = logic.getElapsedTimeTracker().getRemainingItemCount();
         long startItems = logic.getElapsedTimeTracker().getStartItemCount();
-        return new CraftingStatus(false, elapsedTime, remainingItems, startItems, ImmutableList.of());
+        return new CraftingStatus(false, elapsedTime, remainingItems, startItems, entries.build());
     }
 }

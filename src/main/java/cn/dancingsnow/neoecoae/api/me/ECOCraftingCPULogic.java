@@ -233,7 +233,17 @@ public class ECOCraftingCPULogic {
 
                     cpu.markDirty();
 
+                    // Notify pending output changes
                     task.getValue().value--;
+                    {
+                        Set<AEKey> pendingKeys = new HashSet<>();
+                        for (var output : details.getOutputs()) {
+                            pendingKeys.add(output.what());
+                        }
+                        for (AEKey pendingKey : pendingKeys) {
+                            postChange(pendingKey);
+                        }
+                    }
                     if (task.getValue().value <= 0) {
                         it.remove();
                         continue taskLoop;
@@ -323,6 +333,8 @@ public class ECOCraftingCPULogic {
         } else {
             if (type == Actionable.MODULATE) {
                 inventory.insert(what, amount, Actionable.MODULATE);
+                // Explicitly notify stored count changed in addition to inventory callback
+                postChange(what);
             }
         }
 
@@ -405,13 +417,13 @@ public class ECOCraftingCPULogic {
         var storage = g.getStorageService().getInventory();
 
         for (var entry : this.inventory.list) {
-            this.postChange(entry.getKey());
             var inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE,
                     cpu.getActionSource());
 
             // The network was unable to receive all of the items, i.e. no or not enough
             // storage space left
             entry.setValue(entry.getLongValue() - inserted);
+            this.postChange(entry.getKey());
         }
         this.inventory.list.removeZeros();
 
