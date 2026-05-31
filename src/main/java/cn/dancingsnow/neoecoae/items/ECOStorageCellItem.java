@@ -15,6 +15,7 @@ import appeng.items.storage.StorageCellTooltipComponent;
 import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
+import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
@@ -265,7 +266,8 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         @Override
         public boolean isCell(ItemStack stack) {
             if (stack.getItem() instanceof ECOStorageCellItem item) {
-                return item.getKeyType() == AEKeyType.items();
+                return item.getCellType() == NECellTypes.ITEM.get()
+                        && item.getKeyType() == AEKeyType.items();
             }
             return false;
         }
@@ -284,7 +286,8 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         @Override
         public boolean isCell(ItemStack stack) {
             if (stack.getItem() instanceof ECOStorageCellItem item) {
-                return item.getKeyType() == AEKeyType.fluids();
+                return item.getCellType() == NECellTypes.FLUID.get()
+                        && item.getKeyType() == AEKeyType.fluids();
             }
             return false;
         }

@@ -71,10 +71,10 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     private boolean hasStorageState;
     private NEStorageUiState storageState;
 
-    private double animatedEnergyPct = -1.0D;
-    private double animatedItemPct = -1.0D;
-    private double animatedFluidPct = -1.0D;
-    private double animatedChemicalPct = -1.0D;
+    private double animatedEnergyPct = 0.0D;
+    private double animatedItemPct = 0.0D;
+    private double animatedFluidPct = 0.0D;
+    private double animatedChemicalPct = 0.0D;
 
     public NEStorageControllerScreen(NEStorageControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.STORAGE_CONTROLLER);
@@ -95,6 +95,10 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     @Override
     protected void init() {
         super.init();
+        animatedEnergyPct = 0.0D;
+        animatedItemPct = 0.0D;
+        animatedFluidPct = 0.0D;
+        animatedChemicalPct = 0.0D;
     }
 
     @Override
@@ -299,7 +303,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         int percentColor = metric.max() <= 0 ? DARK_TEXT_MUTED : metricColor(metric, pct);
         String percentText = metric.max() <= 0 ? "N/A" : formatPercent(metric.percent());
         drawTinyInsetRect(g, x - 2, percentY, w + 4, COLUMN_PERCENT_H, 0xFF201E27);
-        drawCenteredString(g, percentText, x - 2, percentY + 5, w + 4, percentColor);
+        drawCenteredScaledString(g, percentText, x - 2, percentY + 4, w + 4, percentColor, 0.9F);
     }
 
     private void drawInsetGroupPanel(GuiGraphics g, int x, int y, int w, int h) {
@@ -337,6 +341,18 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
     private void drawCenteredString(GuiGraphics g, String text, int x, int y, int w, int color) {
         g.drawString(font, Component.literal(text), x + (w - font.width(text)) / 2, y, color, false);
+    }
+
+    private void drawCenteredScaledString(GuiGraphics g, String text, int x, int y, int w, int color, float scale) {
+        var pose = g.pose();
+        float scaledTextW = font.width(text) * scale;
+        float drawX = (x + (w - scaledTextW) / 2.0F) / scale;
+        float drawY = y / scale;
+
+        pose.pushPose();
+        pose.scale(scale, scale, 1.0F);
+        g.drawString(font, Component.literal(text), (int) drawX, (int) drawY, color, false);
+        pose.popPose();
     }
 
     private void drawCenteredComponent(GuiGraphics g, Component text, int x, int y, int w, int color) {
@@ -387,10 +403,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private static double animateTo(double current, double target) {
-        if (current < 0.0D) {
-            return target;
-        }
-        return Mth.lerp(ANIMATION_SPEED, current, target);
+        double start = current < 0.0D ? 0.0D : current;
+        return Mth.lerp(ANIMATION_SPEED, start, Mth.clamp(target, 0.0D, 1.0D));
     }
 
     private static double percent(long used, long max) {

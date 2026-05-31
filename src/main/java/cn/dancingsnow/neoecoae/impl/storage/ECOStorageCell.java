@@ -241,7 +241,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (amount == 0 || !keyType.contains(what)) {
+        if (amount <= 0 || !keyType.contains(what)) {
             return 0;
         }
 

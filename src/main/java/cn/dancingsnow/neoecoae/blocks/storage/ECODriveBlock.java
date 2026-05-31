@@ -2,9 +2,9 @@ package cn.dancingsnow.neoecoae.blocks.storage;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -39,7 +39,9 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         ItemStack heldItem = player.getItemInHand(hand);
-        if (heldItem.getItem() instanceof ECOStorageCellItem) {
+        if (ECOStorageCells.isCellHandled(heldItem)
+                && ECOStorageCells.getHandler(heldItem) != null
+                && ECOStorageCells.getCellInventory(heldItem, null) != null) {
             if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
                 if (be.getCellStack() == null) {
                     if (level.isClientSide) return InteractionResult.SUCCESS;

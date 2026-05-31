@@ -99,6 +99,7 @@ minecraft {
             workingDirectory project.file('run/client')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
+            property 'neoecoae.validateChemicalCells', System.getProperty('neoecoae.validateChemicalCells', 'false')
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
             args '--width', '1920', '--height', '1080'
@@ -119,6 +120,7 @@ minecraft {
             workingDirectory project.file('run/server')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
+            property 'neoecoae.validateChemicalCells', System.getProperty('neoecoae.validateChemicalCells', 'false')
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
             args '--nogui'

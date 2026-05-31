@@ -10,8 +10,11 @@ import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.compat.appmek.item.ECOChemicalStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -25,6 +28,8 @@ import java.util.List;
  */
 @Integration("appmek")
 public class AppMekIntegration {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AppMekIntegration.class);
+    private static final String VALIDATE_CHEMICAL_CELLS_PROPERTY = "neoecoae.validateChemicalCells";
 
     public void apply() {
         // Register cell types, items
@@ -39,6 +44,7 @@ public class AppMekIntegration {
         NeoECOAE.MOD_BUS.addListener(this::initModels);
         NeoECOAE.MOD_BUS.addListener(this::initUpgrades);
         NeoECOAE.MOD_BUS.addListener(this::initHandler);
+        MinecraftForge.EVENT_BUS.addListener(ChemicalCellValidation::registerCommand);
     }
 
     private void initModels(FMLClientSetupEvent event) {
@@ -68,6 +74,9 @@ public class AppMekIntegration {
     private void initHandler(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             ECOStorageCells.register(ECOChemicalCellHandler.INSTANCE);
+            if (Boolean.getBoolean(VALIDATE_CHEMICAL_CELLS_PROPERTY)) {
+                LOGGER.info(ChemicalCellValidation.runInsertMatrixOnly());
+            }
         });
     }
 }
