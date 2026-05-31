@@ -54,8 +54,8 @@ public class StructureTerminalItem extends Item {
 
     /** Maximum repeat count across all three multiblock systems. */
     public static int getGlobalMaxBuildLength() {
-        int crafting = Math.max(1, NEConfig.craftingSystemMaxLength - 4);
-        int computation = Math.max(1, NEConfig.computationSystemMaxLength - 4);
+        int crafting = Math.max(1, NEConfig.craftingSystemMaxLength - 3);
+        int computation = Math.max(1, NEConfig.computationSystemMaxLength - 3);
         int storage = Math.max(1, NEConfig.storageSystemMaxLength - 3);
         return Math.max(storage, Math.max(crafting, computation));
     }

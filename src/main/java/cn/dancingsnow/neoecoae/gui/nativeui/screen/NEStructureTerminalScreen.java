@@ -66,6 +66,8 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private StructureTerminalHostType selectedTarget;
     private List<NEStructureTerminalUiState.BuildMaterialEntry> materials;
     private int materialScrollOffset;
+    /** True once the user has explicitly selected a target or received a server config. */
+    private boolean hasActiveTarget;
 
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -95,6 +97,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         this.minLength = min;
         this.maxLength = max;
         this.selectedTarget = target;
+        this.hasActiveTarget = target != null;
         this.materials = List.copyOf(materials);
         this.menu.setClientConfig(length, min, max, target, materials);
         if (resetScroll) {
@@ -163,8 +166,12 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int y = topPos + MATERIAL_Y + 20;
         NEToggleTextButton button = new NEToggleTextButton(x, y, buttonW, buttonH,
                 label,
-                () -> selectedTarget == target,
-                btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(action)));
+                () -> hasActiveTarget && selectedTarget == target,
+                btn -> {
+                    this.hasActiveTarget = true;
+                    this.selectedTarget = target;
+                    NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(action));
+                });
         button.setTooltip(Tooltip.create(tooltip));
         addRenderableWidget(button);
     }
@@ -192,7 +199,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
 
         // ── Control panel ──
-        Component lengthLabel = Component.literal("结构长度");
+        Component lengthLabel = Component.literal("结构长度: " + displayBuildLength);
         guiGraphics.drawString(font, lengthLabel,
                 CONTROL_X + (CONTROL_W - font.width(lengthLabel)) / 2, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
 
