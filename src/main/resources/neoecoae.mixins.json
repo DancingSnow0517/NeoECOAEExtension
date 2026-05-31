@@ -4,6 +4,7 @@
   "package": "cn.dancingsnow.neoecoae.forge.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "AbstractContainerMenuMixin120",
     "CraftingServiceMixin120",
     "CraftingCPUMenuMixin120",
     "CraftingCpuListEntryMixin120",
