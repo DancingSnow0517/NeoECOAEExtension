@@ -66,7 +66,10 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private StructureTerminalHostType selectedTarget;
     private List<NEStructureTerminalUiState.BuildMaterialEntry> materials;
     private int materialScrollOffset;
-    /** True once the user has explicitly selected a target or received a server config. */
+    /**
+     * True once the user has explicitly selected a target or received a server
+     * config.
+     */
     private boolean hasActiveTarget;
 
     public NEStructureTerminalScreen(NEStructureTerminalMenu menu, Inventory playerInv, Component title) {
@@ -205,7 +208,8 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
         Component maxLenLabel = Component.literal("(最大长度:" + maxLength + ")");
         guiGraphics.drawString(font, maxLenLabel,
-                CONTROL_X + (CONTROL_W - font.width(maxLenLabel)) / 2, CONTROL_Y + 8 + font.lineHeight + 1, DARK_TEXT_MUTED, false);
+                CONTROL_X + (CONTROL_W - font.width(maxLenLabel)) / 2, CONTROL_Y + 8 + font.lineHeight + 1,
+                DARK_TEXT_MUTED, false);
 
         int cButtonH = 18;
         int cRowGap = 3;
@@ -347,7 +351,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int x = leftPos + MATERIAL_X;
         int y = topPos + materialGridY();
         return mouseX >= x && mouseX < x + MATERIAL_W
-            && mouseY >= y && mouseY < y + MATERIAL_ROWS * MATERIAL_SLOT_SIZE;
+                && mouseY >= y && mouseY < y + MATERIAL_ROWS * MATERIAL_SLOT_SIZE;
     }
 
     private int materialSlotX(int visibleIndex) {
