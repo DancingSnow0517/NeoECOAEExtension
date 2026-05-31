@@ -1,5 +1,1 @@
-{
-  "values": [
-    "neoecoae:tungsten_ingot"
-  ]
-}
+{"replace":false,"values":["neoecoae:tungsten_ingot",{"id":"gtceu:tungsten_ingot","required":false}]}
