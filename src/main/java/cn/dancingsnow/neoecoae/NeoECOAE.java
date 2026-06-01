@@ -62,7 +62,7 @@ public class NeoECOAE {
         MOD_BUS = modBus;
         REGISTRATE.registerEventListeners(modBus);
 
-        NECreativeTabs.register();
+        NECreativeTabs.register(modBus);
         NEItems.register();
         NEBlocks.register();
         NEFluids.register();
