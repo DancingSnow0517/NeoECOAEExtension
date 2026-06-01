@@ -60,6 +60,28 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private static final int MATERIAL_ROWS = 2;
     private static final int MATERIAL_SLOT_SIZE = 18;
 
+    // ── Left control button layout ──
+
+    private static final int CONTROL_BUTTON_GAP = 7;
+    private static final int CONTROL_BUTTON_H = 18;
+
+    // 三行按钮整体宽度。31 * 3 + 7 * 2 = 107。
+    // 第三行"建造 / 镜像建造 / 拆除"可以等宽排列，并且左右整体对齐。
+    private static final int CONTROL_BUTTON_ROW_W = 107;
+    private static final int CONTROL_BUTTON_ROW_X = CONTROL_X + (CONTROL_W - CONTROL_BUTTON_ROW_W) / 2;
+
+    // 按钮区第一行 Y。这里避开上面的"可变长度"和"最大长度"两行文字。
+    private static final int CONTROL_BUTTON_ROW0_Y = CONTROL_Y + 34;
+    private static final int CONTROL_BUTTON_ROW1_Y = CONTROL_BUTTON_ROW0_Y + CONTROL_BUTTON_H + CONTROL_BUTTON_GAP;
+    private static final int CONTROL_BUTTON_ROW2_Y = CONTROL_BUTTON_ROW1_Y + CONTROL_BUTTON_H + CONTROL_BUTTON_GAP;
+
+    private static final int LENGTH_BUTTON_W = 22;
+    private static final int LENGTH_VALUE_W = CONTROL_BUTTON_ROW_W
+            - LENGTH_BUTTON_W * 2
+            - CONTROL_BUTTON_GAP * 2;
+
+    private static final int MODE_BUTTON_W = 31;
+
     private int displayBuildLength;
     private int minLength = 1;
     private int maxLength = 12;
@@ -118,37 +140,34 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     protected void init() {
         super.init();
 
-        int buttonH = 18;
-        int rowGap = 3;
+        int rowX = leftPos + CONTROL_BUTTON_ROW_X;
 
-        int innerY = topPos + CONTROL_Y + 24;
+        int row0Y = topPos + CONTROL_BUTTON_ROW0_Y;
+        int row1Y = topPos + CONTROL_BUTTON_ROW1_Y;
+        int row2Y = topPos + CONTROL_BUTTON_ROW2_Y;
 
-        int smallW = 22;
-        int valueW = 35;
-        int leftGroupW = smallW + valueW + smallW; // 79
-        int innerX = leftPos + CONTROL_X + 4;
+        int minusX = rowX;
+        int valueBoxX = minusX + LENGTH_BUTTON_W + CONTROL_BUTTON_GAP;
+        int plusX = valueBoxX + LENGTH_VALUE_W + CONTROL_BUTTON_GAP;
 
-        int row0Y = innerY;
-        int row1Y = row0Y + buttonH + rowGap;
-        int row2Y = row1Y + buttonH + rowGap;
-
-        // Row 1 (row1Y): - / value / + --- dismantle
-        addRenderableWidget(new NEInsetTextButton(innerX, row1Y, smallW, buttonH,
+        // 第一行：- / x / +
+        addRenderableWidget(new NEInsetTextButton(minusX, row0Y, LENGTH_BUTTON_W, CONTROL_BUTTON_H,
                 Component.literal("-"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
-        addRenderableWidget(new NEInsetTextButton(innerX + smallW + valueW, row1Y, smallW, buttonH,
+        addRenderableWidget(new NEInsetTextButton(plusX, row0Y, LENGTH_BUTTON_W, CONTROL_BUTTON_H,
                 Component.literal("+"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
-        // Row 2 (row2Y): reset --- expansion
-        addRenderableWidget(new NEInsetTextButton(innerX, row2Y, leftGroupW, buttonH,
+        // 第二行：重置，整行居中并与第一行、第三行左右对齐
+        addRenderableWidget(new NEInsetTextButton(rowX, row1Y, CONTROL_BUTTON_ROW_W, CONTROL_BUTTON_H,
                 Component.translatable("gui.neoecoae.structure_terminal.reset"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
+        // 第三行：建造 / 镜像建造 / 拆除
         addModeButton(StructureTerminalMode.BUILD, 0,
                 Component.translatable("gui.neoecoae.structure_terminal.mode.build"),
                 Component.translatable("gui.neoecoae.structure_terminal.mode.build.tooltip"),
@@ -178,12 +197,10 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     private void addModeButton(StructureTerminalMode mode, int index, Component label, Component tooltip,
             NENetwork.NEStructureTerminalConfigActionPacket.Action action) {
-        int buttonW = 34;
-        int buttonH = 15;
-        int gap = 2;
-        int x = leftPos + CONTROL_X + CONTROL_W - buttonW - 5;
-        int y = topPos + CONTROL_Y + 24 + index * (buttonH + gap);
-        NEToggleTextButton button = new NEToggleTextButton(x, y, buttonW, buttonH,
+        int x = leftPos + CONTROL_BUTTON_ROW_X + index * (MODE_BUTTON_W + CONTROL_BUTTON_GAP);
+        int y = topPos + CONTROL_BUTTON_ROW2_Y;
+
+        NEToggleTextButton button = new NEToggleTextButton(x, y, MODE_BUTTON_W, CONTROL_BUTTON_H,
                 label,
                 () -> selectedMode == mode,
                 btn -> {
@@ -246,20 +263,10 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 CONTROL_X + (CONTROL_W - font.width(maxLenLabel)) / 2, CONTROL_Y + 8 + font.lineHeight + 1,
                 DARK_TEXT_MUTED, false);
 
-        int cButtonH = 18;
-        int cRowGap = 3;
-        int cSmallW = 22;
-        int cValueW = 35;
-        int cGroupW = cSmallW + cValueW + cSmallW;
-
-        int cInnerX = CONTROL_X + 4;
-        int cInnerY = CONTROL_Y + 24;
-        int cRow1Y = cInnerY + cButtonH + cRowGap;
-
         String lengthValue = String.valueOf(displayBuildLength);
-        int valueBoxX = cInnerX + cSmallW;
-        int valueX = valueBoxX + (cValueW - font.width(lengthValue)) / 2;
-        int valueY = cRow1Y + (cButtonH - font.lineHeight) / 2;
+        int valueBoxX = CONTROL_BUTTON_ROW_X + LENGTH_BUTTON_W + CONTROL_BUTTON_GAP;
+        int valueX = valueBoxX + (LENGTH_VALUE_W - font.width(lengthValue)) / 2;
+        int valueY = CONTROL_BUTTON_ROW0_Y + (CONTROL_BUTTON_H - font.lineHeight) / 2;
         guiGraphics.drawString(font, Component.literal(lengthValue), valueX, valueY, DARK_TEXT_VALUE, false);
 
         // ── Material panel ──
