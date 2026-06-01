@@ -6,7 +6,7 @@
       "tag": "forge:dusts/iron"
     },
     {
-      "tag": "forge:dusts/aluminum"
+      "tag": "forge:dusts/aluminium"
     },
     {
       "tag": "forge:dusts/certus_quartz"
@@ -16,8 +16,6 @@
     }
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:aluminum_alloy_dust",
     "item": "neoecoae:aluminum_alloy_dust"
   }
 }

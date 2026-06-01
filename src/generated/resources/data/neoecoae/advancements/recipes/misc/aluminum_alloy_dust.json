@@ -5,7 +5,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/aluminum"
+            "tag": "forge:dusts/aluminium"
           }
         ]
       },
@@ -15,7 +15,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/certus_quartz"
+            "tag": "forge:dusts/certus_quartz"
           }
         ]
       },
@@ -25,7 +25,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/iron"
+            "tag": "forge:dusts/iron"
           }
         ]
       },
@@ -40,15 +40,16 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
       "has_iron_dust",
       "has_aluminum_dust",
-      "has_certus_quartz_dust"
+      "has_certus_quartz_dust",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:aluminum_alloy_dust"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

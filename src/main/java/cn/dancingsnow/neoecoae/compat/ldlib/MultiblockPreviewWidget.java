@@ -27,8 +27,11 @@ import java.util.List;
 public class MultiblockPreviewWidget extends WidgetGroup {
     public static final int WIDTH = 170;
     public static final int HEIGHT = 190;
+    public static final int COMPACT_WIDTH = 170;
+    public static final int COMPACT_HEIGHT = 130;
 
     private final MultiBlockDefinition definition;
+    private final boolean compact;
     private final TrackedDummyWorld world = new TrackedDummyWorld();
     private final SimpleContainer selectedContainer = new SimpleContainer(1);
 
@@ -46,12 +49,27 @@ public class MultiblockPreviewWidget extends WidgetGroup {
     private boolean formed = false;
 
     public MultiblockPreviewWidget(MultiBlockDefinition definition) {
-        super(0, 0, WIDTH, HEIGHT);
+        this(definition, false);
+    }
+
+    public static MultiblockPreviewWidget compact(MultiBlockDefinition definition) {
+        return new MultiblockPreviewWidget(definition, true);
+    }
+
+    private MultiblockPreviewWidget(MultiBlockDefinition definition, boolean compact) {
+        super(0, 0, compact ? COMPACT_WIDTH : WIDTH, compact ? COMPACT_HEIGHT : HEIGHT);
         this.definition = definition;
+        this.compact = compact;
         this.expand = definition.getExpandMin();
         setClientSideWidget();
-        setBackground(ResourceBorderTexture.BORDERED_BACKGROUND);
-        buildWidgets();
+        if (!compact) {
+            setBackground(ResourceBorderTexture.BORDERED_BACKGROUND);
+        }
+        if (compact) {
+            buildCompactWidgets();
+        } else {
+            buildWidgets();
+        }
         createScene();
     }
 
@@ -91,6 +109,17 @@ public class MultiblockPreviewWidget extends WidgetGroup {
         addWidget(requiredItems);
     }
 
+    private void buildCompactWidgets() {
+        scene = new SceneWidget(2, 2, COMPACT_WIDTH - 4, COMPACT_HEIGHT - 4, world)
+                .setDraggable(true)
+                .setScalable(true)
+                .setRenderSelect(false)
+                .setRenderFacing(false)
+                .setHoverTips(true)
+                .useCacheBuffer();
+        addWidget(scene);
+    }
+
     private ButtonWidget button(int x, TextTexture text, Runnable action) {
         text.setType(TextTexture.TextType.NORMAL);
         return new ButtonWidget(
@@ -103,6 +132,9 @@ public class MultiblockPreviewWidget extends WidgetGroup {
     }
 
     private void onSelect(BlockPos pos, Direction direction) {
+        if (selectedText == null) {
+            return;
+        }
         BlockState state = world.getBlockState(pos);
         ItemStack stack = state.isAir() ? ItemStack.EMPTY : new ItemStack(state.getBlock());
         selectedContainer.setItem(0, stack);
@@ -145,8 +177,10 @@ public class MultiblockPreviewWidget extends WidgetGroup {
 
     private void createScene() {
         world.clear();
-        selectedContainer.setItem(0, ItemStack.EMPTY);
-        selectedText.setText(Component.empty());
+        if (selectedText != null) {
+            selectedContainer.setItem(0, ItemStack.EMPTY);
+            selectedText.setText(Component.empty());
+        }
 
         MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(expand, world);
         context.setFormed(formed);
@@ -169,7 +203,9 @@ public class MultiblockPreviewWidget extends WidgetGroup {
             scene.setRenderedCore(rendered);
         }
         scene.needCompileCache();
-        refreshRequiredItems(context.getRequiredItems());
+        if (!compact) {
+            refreshRequiredItems(context.getRequiredItems());
+        }
     }
 
     private void updateLayerText() {

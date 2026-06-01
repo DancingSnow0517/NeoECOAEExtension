@@ -17,6 +17,7 @@ import net.minecraft.world.level.Level;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.features.IPlayerRegistry;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingLink;
@@ -182,6 +183,7 @@ public class ECOCraftingCPULogic {
         taskLoop: while (it.hasNext()) {
             var task = it.next();
             if (task.getValue().value <= 0) {
+                postPatternOutputsChange(task.getKey());
                 it.remove();
                 continue;
             }
@@ -218,32 +220,23 @@ public class ECOCraftingCPULogic {
                     for (var expectedOutput : expectedOutputs) {
                         job.waitingFor.insert(
                                 expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
-                        postChange(expectedOutput.getKey());
                     }
+                    postCounterKeysChange(expectedOutputs);
                     for (var expectedContainerItem : expectedContainerItems) {
                         job.waitingFor.insert(
                                 expectedContainerItem.getKey(),
                                 expectedContainerItem.getLongValue(),
                                 Actionable.MODULATE);
-                        postChange(expectedContainerItem.getKey());
                         job.timeTracker.addMaxItems(
                                 expectedContainerItem.getLongValue(),
                                 expectedContainerItem.getKey().getType());
                     }
+                    postCounterKeysChange(expectedContainerItems);
 
                     cpu.markDirty();
 
-                    // Notify pending output changes
                     task.getValue().value--;
-                    {
-                        Set<AEKey> pendingKeys = new HashSet<>();
-                        for (var output : details.getOutputs()) {
-                            pendingKeys.add(output.what());
-                        }
-                        for (AEKey pendingKey : pendingKeys) {
-                            postChange(pendingKey);
-                        }
-                    }
+                    postPatternOutputsChange(details);
                     if (task.getValue().value <= 0) {
                         it.remove();
                         continue taskLoop;
@@ -355,16 +348,12 @@ public class ECOCraftingCPULogic {
 
         // TODO: log
 
-        // Post changes for all waitingFor keys before clearing.
-        for (var waitingEntry : job.waitingFor.list) {
-            postChange(waitingEntry.getKey());
-        }
+        Set<AEKey> waitingKeys = collectWaitingKeys();
         job.waitingFor.clear();
+        postKeysChange(waitingKeys);
         // Notify opened menus of cancelled scheduled tasks.
         for (var entry : job.tasks.entrySet()) {
-            for (var output : entry.getKey().getOutputs()) {
-                postChange(output.what());
-            }
+            postPatternOutputsChange(entry.getKey());
         }
 
         notifyJobOwner(
@@ -434,6 +423,38 @@ public class ECOCraftingCPULogic {
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
         for (var listener : listeners) {
             listener.accept(what);
+        }
+    }
+
+    private void postPatternOutputsChange(IPatternDetails details) {
+        Set<AEKey> keys = new HashSet<>();
+        for (var output : details.getOutputs()) {
+            keys.add(output.what());
+        }
+        postKeysChange(keys);
+    }
+
+    private void postCounterKeysChange(KeyCounter counter) {
+        Set<AEKey> keys = new HashSet<>();
+        for (var entry : counter) {
+            keys.add(entry.getKey());
+        }
+        postKeysChange(keys);
+    }
+
+    private Set<AEKey> collectWaitingKeys() {
+        Set<AEKey> keys = new HashSet<>();
+        if (this.job != null) {
+            for (var entry : this.job.waitingFor.list) {
+                keys.add(entry.getKey());
+            }
+        }
+        return keys;
+    }
+
+    private void postKeysChange(Set<AEKey> keys) {
+        for (AEKey key : keys) {
+            postChange(key);
         }
     }
 

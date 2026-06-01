@@ -13,16 +13,16 @@ public class MultiblockEmiRecipe extends ModularEmiRecipe<MultiblockPreviewWidge
     private final ResourceLocation id;
 
     public MultiblockEmiRecipe(MultiBlockDefinition definition) {
-        super(() -> new MultiblockPreviewWidget(definition));
+        super(() -> MultiblockPreviewWidget.compact(definition));
         this.definition = definition;
         this.id = definition.getOwner().unwrapKey()
                 .map(key -> {
                     ResourceLocation ownerId = key.location();
-                    return ResourceLocation.fromNamespaceAndPath(ownerId.getNamespace(), "multiblock/" + ownerId.getPath());
+                    return new ResourceLocation(ownerId.getNamespace(), "multiblock/" + ownerId.getPath());
                 })
                 .orElse(null);
-        this.width = MultiblockPreviewWidget.WIDTH;
-        this.height = MultiblockPreviewWidget.HEIGHT;
+        this.width = MultiblockPreviewWidget.COMPACT_WIDTH;
+        this.height = MultiblockPreviewWidget.COMPACT_HEIGHT;
         this.outputs.add(EmiStack.of(definition.getOwner().value()));
     }
 

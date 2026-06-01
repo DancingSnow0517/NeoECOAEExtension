@@ -20,6 +20,7 @@ public class NETags {
         public static final TagKey<Item> ALUMINUM_RAW = common("raw_materials/aluminum");
         public static final TagKey<Item> ALUMINUM_INGOT = common("ingots/aluminum");
         public static final TagKey<Item> ALUMINUM_DUST = common("dusts/aluminum");
+        public static final TagKey<Item> ALUMINIUM_DUST = common("dusts/aluminium");
 
         public static final TagKey<Item> TUNGSTEN_ORE = common("ores/tungsten");
         public static final TagKey<Item> RAW_TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/raw_tungsten");
@@ -58,7 +59,7 @@ public class NETags {
         }
 
         private static TagKey<Item> common(String path) {
-            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
+            return ItemTags.create(new ResourceLocation("forge", path));
         }
     }
 
@@ -86,7 +87,7 @@ public class NETags {
         }
 
         private static TagKey<Block> common(String path) {
-            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
+            return BlockTags.create(new ResourceLocation("forge", path));
         }
     }
 
@@ -98,7 +99,7 @@ public class NETags {
         }
 
         private static TagKey<Fluid> common(String path) {
-            return FluidTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
+            return FluidTags.create(new ResourceLocation("forge", path));
         }
     }
 }

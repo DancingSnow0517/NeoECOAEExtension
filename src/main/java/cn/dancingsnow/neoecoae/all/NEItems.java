@@ -515,13 +515,13 @@ public class NEItems {
                                                 0.8f);
                                 prov.smelting(DataIngredient.tag(NETags.Items.ALUMINUM_RAW), RecipeCategory.MISC, ctx,
                                                 0.8f);
-                                prov.smelting(DataIngredient.tag(NETags.Items.ALUMINUM_DUST), RecipeCategory.MISC, ctx,
+                                prov.smelting(DataIngredient.tag(NETags.Items.ALUMINIUM_DUST), RecipeCategory.MISC, ctx,
                                                 0.8f);
                                 prov.blasting(DataIngredient.tag(NETags.Items.ALUMINUM_ORE), RecipeCategory.MISC, ctx,
                                                 0.8f);
                                 prov.blasting(DataIngredient.tag(NETags.Items.ALUMINUM_RAW), RecipeCategory.MISC, ctx,
                                                 0.8f);
-                                prov.blasting(DataIngredient.tag(NETags.Items.ALUMINUM_DUST), RecipeCategory.MISC, ctx,
+                                prov.blasting(DataIngredient.tag(NETags.Items.ALUMINIUM_DUST), RecipeCategory.MISC, ctx,
                                                 0.8f);
 
                                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get(), 9)
@@ -535,7 +535,7 @@ public class NEItems {
 
         public static final ItemEntry<MaterialItem> ALUMINUM_DUST = REGISTRATE
                         .item("aluminum_dust", MaterialItem::new)
-                        .tag(NETags.Items.ALUMINUM_DUST, Tags.Items.DUSTS)
+                        .tag(NETags.Items.ALUMINUM_DUST, NETags.Items.ALUMINIUM_DUST, Tags.Items.DUSTS)
                         .recipe((ctx, prov) -> {
                                 InscriberRecipeBuilder.inscribe(NETags.Items.ALUMINUM_INGOT, ctx.get(), 1)
                                                 .save(prov, NeoECOAE.id("inscriber/aluminum_dust"));
@@ -613,14 +613,14 @@ public class NEItems {
                         .recipe((ctx, prov) -> {
                                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                                                 .requires(NETags.Items.IRON_DUST)
-                                                .requires(NETags.Items.ALUMINUM_DUST)
+                                                .requires(NETags.Items.ALUMINIUM_DUST)
                                                 .requires(ConventionTags.CERTUS_QUARTZ_DUST)
                                                 .requires(ConventionTags.CERTUS_QUARTZ_DUST)
                                                 .unlockedBy("has_iron_dust",
                                                                 RegistrateRecipeProvider.has(NETags.Items.IRON_DUST))
                                                 .unlockedBy("has_aluminum_dust",
                                                                 RegistrateRecipeProvider
-                                                                                .has(NETags.Items.ALUMINUM_DUST))
+                                                                                .has(NETags.Items.ALUMINIUM_DUST))
                                                 .unlockedBy("has_certus_quartz_dust",
                                                                 RegistrateRecipeProvider
                                                                                 .has(ConventionTags.CERTUS_QUARTZ_DUST))
@@ -779,12 +779,12 @@ public class NEItems {
                                                 1,
                                                 TransformCircumstance.EXPLOSION,
                                                 Ingredient.of(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST),
-                                                Ingredient.of(NETags.Items.ALUMINUM_DUST),
+                                                Ingredient.of(NETags.Items.ALUMINIUM_DUST),
                                                 Ingredient.of(ConventionTags.SILICON),
                                                 Ingredient.of(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE));
                                 IntegratedWorkingStationRecipe.builder()
                                                 .require(NETags.Items.ENERGIZED_FLUIX_CRYSTAL_DUST, 4)
-                                                .require(NETags.Items.ALUMINUM_DUST, 4)
+                                                .require(NETags.Items.ALUMINIUM_DUST, 4)
                                                 .require(ConventionTags.SILICON, 4)
                                                 .require(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE, 4)
                                                 .requireFluid(FluidTags.LAVA, 2000)
