@@ -113,6 +113,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     @Persisted
     @DescSynced
     private int selectedBuildLength = 1;
+    @Persisted
+    @DescSynced
+    private boolean mirrorBuild;
     @DescSynced
     private int previewMissingBlocks;
     @DescSynced
@@ -665,6 +668,16 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             ));
 
         window.addChild(new UIElement()
+            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4))
+            .addChildren(
+                new TextElement()
+                    .setText(Component.translatable("gui.neoecoae.multiblock.mirror"))
+                    .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle),
+                new Switch()
+                    .bind(DataBindingBuilder.bool(() -> mirrorBuild, this::setMirrorBuild).build())
+            ));
+
+        window.addChild(new UIElement()
             .layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4))
             .addChildren(
                 new Button()
@@ -732,7 +745,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrorBuild);
         boolean hasMaterials = player instanceof ServerPlayer serverPlayer
             && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
         String statusKey = plan.getConflictPositions().isEmpty()
@@ -760,7 +773,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrorBuild);
         if (!plan.getConflictPositions().isEmpty()) {
             syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.conflicts_detected");
             return;
@@ -805,6 +818,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void resetPreview(String statusKey) {
         syncPreview(0, 0, 0, 0, statusKey);
+    }
+
+    private void setMirrorBuild(boolean mirrorBuild) {
+        if (buildInProgress) {
+            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
+            return;
+        }
+        this.mirrorBuild = mirrorBuild;
+        resetPreview("gui.neoecoae.multiblock.status.mirror_updated");
     }
 
     private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {

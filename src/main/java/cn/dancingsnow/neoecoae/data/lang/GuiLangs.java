@@ -14,6 +14,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.decrease_length", "Decrease length");
         provider.add("gui.neoecoae.multiblock.increase_length", "Increase length");
         provider.add("gui.neoecoae.multiblock.length", "Length: %d");
+        provider.add("gui.neoecoae.multiblock.mirror", "Mirror");
         provider.add("gui.neoecoae.multiblock.preview", "Preview");
         provider.add("gui.neoecoae.multiblock.build", "Build");
         provider.add("gui.neoecoae.multiblock.reused", "Reused: %d");
@@ -22,6 +23,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.required_items", "Required Items: %d");
         provider.add("gui.neoecoae.multiblock.status.idle", "Idle");
         provider.add("gui.neoecoae.multiblock.status.length_updated", "Length updated");
+        provider.add("gui.neoecoae.multiblock.status.mirror_updated", "Mirror option updated");
         provider.add("gui.neoecoae.multiblock.status.controller_formed", "Controller already formed");
         provider.add("gui.neoecoae.multiblock.status.no_definition", "No structure definition");
         provider.add("gui.neoecoae.multiblock.status.structure_ready", "Structure ready");

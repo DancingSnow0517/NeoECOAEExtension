@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
@@ -22,6 +23,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -70,6 +72,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Persisted
     @DescSynced
     private int selectedBuildLength = 1;
+    @Persisted
+    @DescSynced
+    private boolean mirrorBuild;
     @DescSynced
     private int previewMissingBlocks;
     @DescSynced
@@ -322,6 +327,16 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             ));
 
         window.addChild(new UIElement()
+            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4))
+            .addChildren(
+                new TextElement()
+                    .setText(Component.translatable("gui.neoecoae.multiblock.mirror"))
+                    .textStyle(ECOComputationSystemBlockEntity::buildPanelTextStyle),
+                new Switch()
+                    .bind(DataBindingBuilder.bool(() -> mirrorBuild, this::setMirrorBuild).build())
+            ));
+
+        window.addChild(new UIElement()
             .layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4))
             .addChildren(
                 new Button()
@@ -394,7 +409,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             worldPosition,
             getBlockState(),
             definition,
-            selectedBuildLength
+            selectedBuildLength,
+            mirrorBuild
         );
         boolean hasMaterials = player instanceof ServerPlayer serverPlayer
             && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
@@ -436,7 +452,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             worldPosition,
             getBlockState(),
             definition,
-            selectedBuildLength
+            selectedBuildLength,
+            mirrorBuild
         );
         if (!plan.getConflictPositions().isEmpty()) {
             syncPreview(
@@ -500,6 +517,15 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     private void resetPreview(String statusKey) {
         syncPreview(0, 0, 0, 0, statusKey);
+    }
+
+    private void setMirrorBuild(boolean mirrorBuild) {
+        if (buildInProgress) {
+            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
+            return;
+        }
+        this.mirrorBuild = mirrorBuild;
+        resetPreview("gui.neoecoae.multiblock.status.mirror_updated");
     }
 
     private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {

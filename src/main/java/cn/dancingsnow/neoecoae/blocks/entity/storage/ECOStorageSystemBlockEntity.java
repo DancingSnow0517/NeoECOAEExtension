@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -26,6 +27,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -79,6 +81,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Persisted
     @DescSynced
     private int selectedBuildLength = 1;
+    @Persisted
+    @DescSynced
+    private boolean mirrorBuild;
     @DescSynced
     private int previewMissingBlocks;
     @DescSynced
@@ -431,6 +436,16 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             ));
 
         window.addChild(new UIElement()
+            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4))
+            .addChildren(
+                new TextElement()
+                    .setText(Component.translatable("gui.neoecoae.multiblock.mirror"))
+                    .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle),
+                new Switch()
+                    .bind(DataBindingBuilder.bool(() -> mirrorBuild, this::setMirrorBuild).build())
+            ));
+
+        window.addChild(new UIElement()
             .layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4))
             .addChildren(
                 new Button()
@@ -498,7 +513,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrorBuild);
         boolean hasMaterials = player instanceof ServerPlayer serverPlayer
             && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
         String statusKey = plan.getConflictPositions().isEmpty()
@@ -526,7 +541,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrorBuild);
         if (!plan.getConflictPositions().isEmpty()) {
             syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.conflicts_detected");
             return;
@@ -571,6 +586,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private void resetPreview(String statusKey) {
         syncPreview(0, 0, 0, 0, statusKey);
+    }
+
+    private void setMirrorBuild(boolean mirrorBuild) {
+        if (buildInProgress) {
+            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
+            return;
+        }
+        this.mirrorBuild = mirrorBuild;
+        resetPreview("gui.neoecoae.multiblock.status.mirror_updated");
     }
 
     private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {

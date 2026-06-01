@@ -37,6 +37,17 @@ public final class MultiBlockPlacementService {
         MultiBlockDefinition definition,
         int repeats
     ) {
+        return preview(level, controllerPos, controllerState, definition, repeats, false);
+    }
+
+    public static MultiBlockPlacementPlan preview(
+        ServerLevel level,
+        BlockPos controllerPos,
+        BlockState controllerState,
+        MultiBlockDefinition definition,
+        int repeats,
+        boolean mirrored
+    ) {
         Direction facing = controllerState.getOptionalValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING)
             .orElse(Direction.NORTH);
         MultiBlockPlanContext context = new MultiBlockPlanContext(repeats);
@@ -52,8 +63,8 @@ public final class MultiBlockPlacementService {
             if (plannedBlock.relativePos().equals(MultiBlockRotation.CONTROLLER_ANCHOR)) {
                 continue;
             }
-            BlockPos worldPos = MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing);
-            BlockState targetState = MultiBlockRotation.rotateState(plannedBlock.targetState(), facing);
+            BlockPos worldPos = MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing, mirrored);
+            BlockState targetState = MultiBlockRotation.rotateState(plannedBlock.targetState(), facing, mirrored);
             WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy());
             allBlocks.add(worldBlock);
 
