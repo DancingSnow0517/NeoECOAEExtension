@@ -980,7 +980,6 @@ public class NEItems {
                                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(),
                                                 List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(),
                                                                 NEItems.ECO_CELL_COMPONENT_16M.asStack()));
-                                prov.accept(recipe);
                         })
                         .lang("ECO - LE4 Storage Matrix (Item)")
                         .register();
@@ -1002,7 +1001,6 @@ public class NEItems {
                                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(),
                                                 List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(),
                                                                 NEItems.ECO_CELL_COMPONENT_64M.asStack()));
-                                prov.accept(recipe);
                         })
                         .lang("ECO - LE6 Storage Matrix (Item)")
                         .register();
@@ -1024,7 +1022,6 @@ public class NEItems {
                                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(),
                                                 List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(),
                                                                 NEItems.ECO_CELL_COMPONENT_256M.asStack()));
-                                prov.accept(recipe);
                         })
                         .lang("ECO - LE9 Storage Matrix (Item)")
                         .register();
@@ -1046,7 +1043,6 @@ public class NEItems {
                                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(),
                                                 List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(),
                                                                 NEItems.ECO_CELL_COMPONENT_16M.asStack()));
-                                prov.accept(recipe);
                         })
                         .lang("ECO - LE4 Storage Matrix (Fluid)")
                         .register();
@@ -1068,7 +1064,6 @@ public class NEItems {
                                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(),
                                                 List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(),
                                                                 NEItems.ECO_CELL_COMPONENT_64M.asStack()));
-                                prov.accept(recipe);
                         })
                         .lang("ECO - LE6 Storage Matrix (Fluid)")
                         .register();
@@ -1090,7 +1085,6 @@ public class NEItems {
                                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(),
                                                 List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(),
                                                                 NEItems.ECO_CELL_COMPONENT_256M.asStack()));
-                                prov.accept(recipe);
                         })
                         .lang("ECO - LE9 Storage Matrix (Fluid)")
                         .register();

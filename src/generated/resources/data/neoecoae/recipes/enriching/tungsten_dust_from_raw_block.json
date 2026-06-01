@@ -1,17 +1,18 @@
 {
-  "forge:conditions": [
-    {
-      "type": "forge:mod_loaded",
-      "modid": "mekanism"
-    }
-  ],
-  "type": "mekanism:enriching",
-  "input": {
-    "count": 1,
-    "tag": "forge:storage_blocks/raw_tungsten"
-  },
-  "output": {
-    "count": 12,
-    "id": "neoecoae:tungsten_dust"
-  }
+    "conditions":  [
+                       {
+                           "type":  "forge:mod_loaded",
+                           "modid":  "mekanism"
+                       }
+                   ],
+    "type":  "mekanism:enriching",
+    "input":  {
+                  "ingredient":  {
+                                     "tag":  "forge:storage_blocks/raw_tungsten"
+                                 }
+              },
+    "output":  {
+                   "count":  12,
+                   "item":  "neoecoae:tungsten_dust"
+               }
 }

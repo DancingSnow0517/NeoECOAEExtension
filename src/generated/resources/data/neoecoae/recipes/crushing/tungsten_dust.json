@@ -1,17 +1,18 @@
 {
-  "forge:conditions": [
-    {
-      "type": "forge:mod_loaded",
-      "modid": "mekanism"
-    }
-  ],
-  "type": "mekanism:crushing",
-  "input": {
-    "count": 1,
-    "tag": "forge:ingots/tungsten"
-  },
-  "output": {
-    "count": 1,
-    "id": "neoecoae:tungsten_dust"
-  }
+    "conditions":  [
+                       {
+                           "type":  "forge:mod_loaded",
+                           "modid":  "mekanism"
+                       }
+                   ],
+    "type":  "mekanism:crushing",
+    "input":  {
+                  "ingredient":  {
+                                     "tag":  "forge:ingots/tungsten"
+                                 }
+              },
+    "output":  {
+                   "count":  1,
+                   "item":  "neoecoae:tungsten_dust"
+               }
 }

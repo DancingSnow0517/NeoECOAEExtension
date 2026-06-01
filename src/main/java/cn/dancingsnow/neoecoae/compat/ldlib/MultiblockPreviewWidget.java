@@ -209,7 +209,9 @@ public class MultiblockPreviewWidget extends WidgetGroup {
     }
 
     private void updateLayerText() {
-        layerText.updateText(layer < 0 ? "L:*" : "L:" + layer);
+        if (layerText != null) {
+            layerText.updateText(layer < 0 ? "L:*" : "L:" + layer);
+        }
     }
 
     private void refreshRequiredItems(List<ItemStack> stacks) {

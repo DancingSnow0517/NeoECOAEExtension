@@ -14,11 +14,23 @@ public final class LDLibJeiIntegration {
                 registration.getJeiHelpers().getGuiHelper()));
     }
 
+    public static void registerJeiCategories(IRecipeCategoryRegistration registration) {
+        registerCategories(registration);
+    }
+
     public static void registerRecipes(IRecipeRegistration registration) {
         MultiblockJeiCategory.registerRecipes(registration);
     }
 
+    public static void registerJeiRecipes(IRecipeRegistration registration) {
+        registerRecipes(registration);
+    }
+
     public static void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         MultiblockJeiCategory.registerRecipeCatalysts(registration);
+    }
+
+    public static void registerJeiRecipeCatalysts(IRecipeCatalystRegistration registration) {
+        registerRecipeCatalysts(registration);
     }
 }

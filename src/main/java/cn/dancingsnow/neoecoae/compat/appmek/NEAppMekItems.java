@@ -78,7 +78,6 @@ public class NEAppMekItems {
                         ctx.get(),
                         List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
                                 NEItems.ECO_CELL_COMPONENT_16M.asStack()));
-                appmekInstalled.accept(recipe);
             })
             .lang("ECO - LE4 Storage Matrix (Chemical)")
             .register();
@@ -98,7 +97,6 @@ public class NEAppMekItems {
                         ctx.get(),
                         List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
                                 NEItems.ECO_CELL_COMPONENT_64M.asStack()));
-                appmekInstalled.accept(recipe);
             })
             .lang("ECO - LE6 Storage Matrix (Chemical)")
             .register();
@@ -118,7 +116,6 @@ public class NEAppMekItems {
                         ctx.get(),
                         List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
                                 NEItems.ECO_CELL_COMPONENT_256M.asStack()));
-                appmekInstalled.accept(recipe);
             })
             .lang("ECO - LE9 Storage Matrix (Chemical)")
             .register();
@@ -135,13 +132,13 @@ public class NEAppMekItems {
         @Override
         public void serializeRecipeData(JsonObject json) {
             recipe.serializeRecipeData(json);
-            json.add("forge:conditions", CraftingHelper.serialize(condition));
+            json.add("conditions", CraftingHelper.serialize(condition));
         }
 
         @Override
         public JsonObject serializeRecipe() {
             JsonObject json = recipe.serializeRecipe();
-            json.add("forge:conditions", CraftingHelper.serialize(condition));
+            json.add("conditions", CraftingHelper.serialize(condition));
             return json;
         }
 
@@ -159,7 +156,7 @@ public class NEAppMekItems {
         public JsonObject serializeAdvancement() {
             JsonObject json = recipe.serializeAdvancement();
             if (json != null) {
-                json.add("forge:conditions", CraftingHelper.serialize(condition));
+                json.add("conditions", CraftingHelper.serialize(condition));
             }
             return json;
         }
