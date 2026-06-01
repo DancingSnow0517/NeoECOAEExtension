@@ -17,6 +17,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingCpuMenuBridge;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
 import org.spongepowered.asm.mixin.Final;
@@ -26,6 +27,8 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,10 +37,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
-@Mixin(CraftingCPUMenu.class)
+@Mixin(value = CraftingCPUMenu.class, remap = false)
 public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoECOCraftingCpuMenuBridge {
     @Unique
     private static final long NEOECOAE_ECO_STATUS_UPDATE_INTERVAL = 5L;
+    @Unique
+    private static final boolean NEOECOAE_DEBUG_ECO_STATUS =
+            Boolean.getBoolean("neoecoae.debugEcoCraftingStatus");
+    @Unique
+    private static final Logger NEOECOAE_LOGGER = LoggerFactory.getLogger("neoecoae-crafting-status");
 
     public CraftingCPUMenuMixin120(MenuType<?> menuType, int id, Inventory playerInventory, Object host) {
         super(menuType, id, playerInventory, host);
@@ -89,7 +97,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
     @Shadow
     public boolean cantStoreItems;
 
-    @Inject(method = "setCPU(Lappeng/api/networking/crafting/ICraftingCPU;)V", at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = "setCPU(Lappeng/api/networking/crafting/ICraftingCPU;)V", at = @At("HEAD"), cancellable = true, require = 1)
     private void neoecoae$onSetCPU(ICraftingCPU selectedCpu, CallbackInfo ci) {
         neoecoae$removeEcoListener();
 
@@ -119,7 +127,23 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         }
     }
 
-    @Inject(method = "cancelCrafting", at = @At("TAIL"), require = 0)
+    @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("HEAD"), require = 1)
+    private void neoecoae$onBroadcastChanges(CallbackInfo ci) {
+        this.neoecoae$broadcastEcoCpuChanges();
+    }
+
+    @Inject(
+            method = {
+                    "removed(Lnet/minecraft/world/entity/player/Player;)V",
+                    "m_6877_(Lnet/minecraft/world/entity/player/Player;)V"
+            },
+            at = @At("TAIL"),
+            require = 1)
+    private void neoecoae$onRemoved(Player player, CallbackInfo ci) {
+        this.neoecoae$cleanupEcoCpuListener();
+    }
+
+    @Inject(method = "cancelCrafting", at = @At("TAIL"), require = 1)
     private void neoecoae$onCancelCrafting(CallbackInfo ci) {
         if (!this.isClientSide() && this.neoecoae$cpu != null) {
             this.neoecoae$cpu.cancelJob();
@@ -158,6 +182,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         boolean cantStore = logic.isCantStoreItems();
         long revision = logic.getStatusRevision();
         long currentTick = TickHandler.instance().getCurrentTick();
+        neoecoae$logEcoStatus("broadcast", logic, currentTick, false);
         boolean jobPresenceChanged = hasJob != this.neoecoae$lastEcoJobPresent;
         boolean statusStateChanged = revision != this.neoecoae$lastEcoStatusRevision
                 || suspended != this.neoecoae$lastEcoSuspended
@@ -190,6 +215,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             CraftingStatus status = neoecoae$createStatus(this.incrementalUpdateHelper, logic, this.neoecoae$trackedEcoKeys);
             this.incrementalUpdateHelper.commitChanges();
             this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
+            this.neoecoae$logEcoStatus("send-status", logic, currentTick, true);
             this.neoecoae$rememberEcoHeader(status);
             this.neoecoae$rememberEcoStatus(logic, currentTick);
             return;
@@ -198,9 +224,29 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         if (hasJob && this.neoecoae$hasEcoHeaderChanged(logic)) {
             CraftingStatus status = neoecoae$createHeaderOnlyStatus(logic);
             this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
+            this.neoecoae$logEcoStatus("send-header", logic, currentTick, true);
             this.neoecoae$rememberEcoHeader(status);
             this.neoecoae$rememberEcoStatus(logic, currentTick);
         }
+    }
+
+    @Unique
+    private void neoecoae$logEcoStatus(String event, ECOCraftingCPULogic logic, long tick, boolean packet) {
+        if (!NEOECOAE_DEBUG_ECO_STATUS) {
+            return;
+        }
+        NEOECOAE_LOGGER.info(
+                "CraftingCPUMenu ECO {} container={} tick={} packet={} hasJob={} revision={} trackedKeys={} elapsed={} remaining={} start={}",
+                event,
+                this.containerId,
+                tick,
+                packet,
+                logic.hasJob(),
+                logic.getStatusRevision(),
+                this.neoecoae$trackedEcoKeys.size(),
+                logic.getElapsedTimeTracker().getElapsedTime(),
+                logic.getElapsedTimeTracker().getRemainingItemCount(),
+                logic.getElapsedTimeTracker().getStartItemCount());
     }
 
     @Unique

@@ -17,16 +17,12 @@ import net.minecraft.world.entity.player.Inventory;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 
-/**
- * Screen for the Structure Terminal configuration UI.
- * <p>
- * Layout: large preview area (top), length controls + toggle buttons
- * (bottom-left), 2×10 material slot grid (bottom-right).
- * </p>
- */
+// NEStructureTerminalScreen 是结构终端的 GUI 界面类，负责显示和交互结构终端的相关信息和功能。
+// 这个界面分为两个主要区域：左侧的控制区和右侧的材料区。控制区显示当前的建造长度、模式和目标选择，并提供相应的按钮进行调整。
+// 材料区显示建造所需的方块列表，并支持滚动查看。
 public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructureTerminalMenu> {
 
-    // ── Colours ──
+    // 颜色
 
     private static final int DARK_PANEL_OUTER = 0xFF17141E;
     private static final int DARK_PANEL_MIDDLE = 0xFF2B2834;
@@ -39,7 +35,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private static final int DARK_TEXT_MUTED = 0xFFAAA4B2;
     private static final int DARK_TEXT_SUCCESS = 0xFF6CFFA0;
 
-    // ── Layout constants (uniform 7 px margin) ──
+    // 布局常量
 
     private static final int PANEL_MARGIN = 7;
     private static final int PANEL_GAP = 7;
@@ -60,7 +56,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private static final int MATERIAL_ROWS = 2;
     private static final int MATERIAL_SLOT_SIZE = 18;
 
-    // ── Left control button layout ──
+    // 控制区按钮相关常量
 
     private static final int CONTROL_BUTTON_GAP = 7;
     private static final int CONTROL_BUTTON_H = 18;
@@ -181,6 +177,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 Component.translatable("gui.neoecoae.structure_terminal.mode.dismantle.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_DISMANTLE_MODE);
 
+        // 目标选择按钮，居中于材料区，三者等宽排列
         addTargetButton(StructureTerminalHostType.CRAFTING, 0,
                 Component.translatable("gui.neoecoae.structure_terminal.target.crafting"),
                 Component.translatable("gui.neoecoae.structure_terminal.target.crafting.tooltip"),
@@ -194,7 +191,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 Component.translatable("gui.neoecoae.structure_terminal.target.computation.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_COMPUTATION);
     }
-
+    // 帮助去除重复代码的函数：添加模式选择按钮和目标选择按钮的函数。它们的实现非常相似，都是根据传入的参数创建一个 NEToggleTextButton，并设置相应的点击事件和工具提示。
     private void addModeButton(StructureTerminalMode mode, int index, Component label, Component tooltip,
             NENetwork.NEStructureTerminalConfigActionPacket.Action action) {
         int x = leftPos + CONTROL_BUTTON_ROW_X + index * (MODE_BUTTON_W + CONTROL_BUTTON_GAP);
@@ -235,7 +232,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
         NENativeAe2StyleRenderer.drawAeMainPanel(guiGraphics, leftPos, topPos, imageWidth, imageHeight);
 
-        // Draw dark panels and slots in bg layer so buttons render on top.
+        // 绘制控制区和材料区的内嵌面板
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(leftPos, topPos, 0);
 
@@ -248,28 +245,30 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        // Title — use machine-native colour (not dark-panel text)
+        // 标题
         guiGraphics.drawString(font, title,
                 NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
                 NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
 
-        // ── Control panel ──
+        // 控制区标题和数值
         Component lengthLabel = Component.literal("可变长度: " + displayBuildLength);
         guiGraphics.drawString(font, lengthLabel,
                 CONTROL_X + (CONTROL_W - font.width(lengthLabel)) / 2, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
 
+        // 最大长度提示
         Component maxLenLabel = Component.literal("(最大长度:" + maxLength + ")");
         guiGraphics.drawString(font, maxLenLabel,
                 CONTROL_X + (CONTROL_W - font.width(maxLenLabel)) / 2, CONTROL_Y + 8 + font.lineHeight + 1,
                 DARK_TEXT_MUTED, false);
 
+        // 中间的数值显示框
         String lengthValue = String.valueOf(displayBuildLength);
         int valueBoxX = CONTROL_BUTTON_ROW_X + LENGTH_BUTTON_W + CONTROL_BUTTON_GAP;
         int valueX = valueBoxX + (LENGTH_VALUE_W - font.width(lengthValue)) / 2;
         int valueY = CONTROL_BUTTON_ROW0_Y + (CONTROL_BUTTON_H - font.lineHeight) / 2;
         guiGraphics.drawString(font, Component.literal(lengthValue), valueX, valueY, DARK_TEXT_VALUE, false);
 
-        // ── Material panel ──
+        // 所需方块标题
         guiGraphics.drawString(font, Component.literal("所需方块"),
                 MATERIAL_X + 10, MATERIAL_Y + 8, DARK_TEXT_PRIMARY, false);
         if (materials.size() > visibleMaterialSlots()) {
@@ -293,7 +292,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         renderMaterialTooltip(guiGraphics, mouseX, mouseY);
     }
 
-    // ── Panel / slot drawing ──
+    // 内嵌框绘制函数，模仿 Minecraft 的 GUI 样式，使用多层矩形来营造凹陷的效果。
 
     private void drawDarkInsetRect(GuiGraphics g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, 0xFFCBCCD4);
@@ -337,6 +336,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         }
     }
 
+    // Tooltip
     private void renderMaterialTooltip(GuiGraphics g, int mouseX, int mouseY) {
         int index = materialIndexAt(mouseX, mouseY);
         if (index < 0 || index >= materials.size()) {
@@ -352,6 +352,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 mouseX, mouseY);
     }
 
+    // 鼠标滚轮滚动时，如果鼠标在材料区内且材料数量超过可见格数，则调整滚动偏移。
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (isInMaterialGrid(mouseX, mouseY) && materials.size() > visibleMaterialSlots()) {
@@ -363,6 +364,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
+    // 根据材料的可用数量和所需数量返回不同的颜色：绿色表示充足，黄色表示部分缺失，红色表示完全缺失。
     private int materialCountColor(NEStructureTerminalUiState.BuildMaterialEntry entry) {
         if (entry.available() >= entry.required()) {
             return DARK_TEXT_SUCCESS;
@@ -373,11 +375,13 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         return 0xFFFF6A75;
     }
 
+    // 根据鼠标位置计算对应的材料索引。如果鼠标不在任何一个可见的材料格子上，则返回 -1。
     private int materialIndexAt(double mouseX, double mouseY) {
         int slot = materialVisibleSlotAt(mouseX, mouseY);
         return slot < 0 ? -1 : materialScrollOffset + slot;
     }
 
+    // 计算鼠标位置对应的可见材料格子索引。遍历所有可见的材料格子，检查鼠标是否在其中，如果是则返回该格子的索引，否则返回 -1。
     private int materialVisibleSlotAt(double mouseX, double mouseY) {
         for (int i = 0; i < visibleMaterialSlots(); i++) {
             int x = leftPos + materialSlotX(i);

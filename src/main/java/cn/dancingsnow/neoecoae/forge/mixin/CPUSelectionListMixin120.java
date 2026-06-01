@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(CPUSelectionList.class)
+@Mixin(value = CPUSelectionList.class, remap = false)
 public abstract class CPUSelectionListMixin120 {
     @Shadow
     @Final

@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.ArrayList;
 
-@Mixin(CraftingStatusMenu.class)
+@Mixin(value = CraftingStatusMenu.class, remap = false)
 public abstract class CraftingStatusMenuMixin120 extends CraftingCPUMenu {
     public CraftingStatusMenuMixin120(MenuType<?> menuType, int id, Inventory playerInventory, Object host) {
         super(menuType, id, playerInventory, host);

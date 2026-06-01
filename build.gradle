@@ -181,6 +181,7 @@ dependencies {
 
     compileOnly("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
     annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
+    annotationProcessor("org.spongepowered:mixin:0.8.7:processor")
     runtimeOnly fg.deobf("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")
     jarJar(fg.deobf("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")) {
         jarJar.ranged(it, "[${mixinextras_version},)")
@@ -188,7 +189,8 @@ dependencies {
 }
 
 sourceSets.main.resources {
-    srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources'
+    srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources',
+            layout.buildDirectory.dir('generated/refmap')
 }
 
 def forge120JavaExcludes = [
@@ -230,6 +232,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 sourceSets.main.resources.srcDir generateModMetadata
 
 processResources.dependsOn generateModMetadata
+processResources.dependsOn compileJava
 tasks.named('processResources', ProcessResources).configure {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
@@ -264,6 +267,18 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+tasks.named('compileJava', JavaCompile).configure {
+    dependsOn 'createMcpToSrg'
+    def refmapFile = layout.buildDirectory.file("generated/refmap/${mod_id}.refmap.json").get().asFile
+    def tsrgFile = layout.buildDirectory.file('createMcpToSrg/output.tsrg').get().asFile
+    options.compilerArgs += [
+            "-AoutRefMapFile=${refmapFile.absolutePath}",
+            "-AdefaultObfuscationEnv=searge",
+            "-AreobfTsrgFile=${tsrgFile.absolutePath}"
+    ]
+    outputs.file(refmapFile)
 }
 
 tasks.register('copyGuidebook', Copy) {

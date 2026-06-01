@@ -30,7 +30,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-@Mixin(CraftingService.class)
+@Mixin(value = CraftingService.class, remap = false)
 public abstract class CraftingServiceMixin120 {
     @Unique
     private static final Comparator<NEComputationCluster> NEOECOAE_FAST_FIRST = Comparator
