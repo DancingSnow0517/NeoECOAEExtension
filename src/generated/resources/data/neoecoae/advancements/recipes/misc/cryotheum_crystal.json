@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_cryotheum": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:cryotheum"
+            "items": ["neoecoae:cryotheum"]
           }
         ]
       },

@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_block": {
       "conditions": {
         "items": [
           {
-            "items": "#c:storage_blocks/aluminum"
+            "tag": "c:storage_blocks/aluminum"
           }
         ]
       },

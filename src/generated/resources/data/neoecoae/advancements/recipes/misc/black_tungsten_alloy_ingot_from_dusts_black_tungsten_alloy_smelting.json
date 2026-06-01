@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_dusts_black_tungsten_alloy": {
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/black_tungsten_alloy"
+            "tag": "c:dusts/black_tungsten_alloy"
           }
         ]
       },

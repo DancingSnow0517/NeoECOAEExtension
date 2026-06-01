@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_block": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:energized_superconductive_block"
+            "items": ["neoecoae:energized_superconductive_block"]
           }
         ]
       },

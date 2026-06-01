@@ -5,7 +5,6 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.core.sync.packets.CraftingStatusPacket;
-import appeng.hooks.ticking.TickHandler;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.menu.AEBaseMenu;
 import appeng.menu.me.common.IncrementalUpdateHelper;
@@ -28,14 +27,14 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
 @Mixin(CraftingCPUMenu.class)
 public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoECOCraftingCpuMenuBridge {
-    private static final int HEARTBEAT_INTERVAL = 10;
-
     public CraftingCPUMenuMixin120(MenuType<?> menuType, int id, Inventory playerInventory, Object host) {
         super(menuType, id, playerInventory, host);
     }
@@ -43,11 +42,17 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
     @Unique
     private ECOCraftingCPU neoecoae$cpu = null;
     @Unique
-    private long neoecoae$lastEcoStatusHeartbeatTick = 0;
-    @Unique
     private boolean neoecoae$forceEcoStatusUpdate = false;
     @Unique
     private final Set<AEKey> neoecoae$trackedEcoKeys = new HashSet<>();
+    @Unique
+    private final Map<AEKey, NeoEcoEntrySnapshot> neoecoae$lastEcoEntrySnapshots = new HashMap<>();
+    @Unique
+    private long neoecoae$lastEcoElapsedTime = Long.MIN_VALUE;
+    @Unique
+    private long neoecoae$lastEcoRemainingItems = Long.MIN_VALUE;
+    @Unique
+    private long neoecoae$lastEcoStartItems = Long.MIN_VALUE;
     @Unique
     private final Consumer<AEKey> neoecoae$ecoCpuChangeListener = key -> {
         if (key != null) {
@@ -81,6 +86,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             this.cpu = null;
             this.incrementalUpdateHelper.reset();
             this.neoecoae$trackedEcoKeys.clear();
+            this.neoecoae$lastEcoEntrySnapshots.clear();
+            this.neoecoae$resetEcoHeaderSnapshot();
             this.neoecoae$cpu = ecoCpu;
 
             KeyCounter allItems = new KeyCounter();
@@ -131,8 +138,13 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         this.schedulingMode = this.neoecoae$cpu.getSelectionMode();
         this.cantStoreItems = logic.isCantStoreItems();
 
-        long tick = TickHandler.instance().getCurrentTick();
         boolean hasJob = logic.hasJob();
+        if (hasJob || !this.neoecoae$trackedEcoKeys.isEmpty()) {
+            this.neoecoae$queueDynamicEcoStatusChanges(logic);
+        } else {
+            this.neoecoae$lastEcoEntrySnapshots.clear();
+            this.neoecoae$resetEcoHeaderSnapshot();
+        }
 
         if (this.neoecoae$forceEcoStatusUpdate && !this.incrementalUpdateHelper.hasChanges()) {
             this.neoecoae$queueTrackedEcoKeys();
@@ -143,16 +155,14 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             CraftingStatus status = neoecoae$createStatus(this.incrementalUpdateHelper, logic, this.neoecoae$trackedEcoKeys);
             this.incrementalUpdateHelper.commitChanges();
             this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
-            this.neoecoae$lastEcoStatusHeartbeatTick = tick;
+            this.neoecoae$rememberEcoHeader(status);
             return;
         }
 
-        if (hasJob && !this.neoecoae$trackedEcoKeys.isEmpty()
-                && tick - this.neoecoae$lastEcoStatusHeartbeatTick >= HEARTBEAT_INTERVAL) {
-            CraftingStatus status = neoecoae$createTrackedStatus(
-                    this.incrementalUpdateHelper, logic, this.neoecoae$trackedEcoKeys);
+        if (hasJob && this.neoecoae$hasEcoHeaderChanged(logic)) {
+            CraftingStatus status = neoecoae$createHeaderOnlyStatus(logic);
             this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
-            this.neoecoae$lastEcoStatusHeartbeatTick = tick;
+            this.neoecoae$rememberEcoHeader(status);
         }
     }
 
@@ -163,6 +173,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             this.neoecoae$cpu = null;
         }
         this.neoecoae$trackedEcoKeys.clear();
+        this.neoecoae$lastEcoEntrySnapshots.clear();
+        this.neoecoae$resetEcoHeaderSnapshot();
         this.neoecoae$forceEcoStatusUpdate = false;
     }
 
@@ -183,6 +195,50 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         for (AEKey key : this.neoecoae$trackedEcoKeys) {
             this.incrementalUpdateHelper.addChange(key);
         }
+    }
+
+    @Unique
+    private void neoecoae$queueDynamicEcoStatusChanges(ECOCraftingCPULogic logic) {
+        KeyCounter allItems = new KeyCounter();
+        logic.getAllItems(allItems);
+        Set<AEKey> keys = new HashSet<>(this.neoecoae$trackedEcoKeys);
+        for (Object2LongMap.Entry<AEKey> entry : allItems) {
+            keys.add(entry.getKey());
+        }
+
+        for (AEKey key : keys) {
+            NeoEcoEntrySnapshot current = NeoEcoEntrySnapshot.of(logic, key);
+            NeoEcoEntrySnapshot previous = this.neoecoae$lastEcoEntrySnapshots.get(key);
+            if (!current.equals(previous)) {
+                this.incrementalUpdateHelper.addChange(key);
+                this.neoecoae$trackedEcoKeys.add(key);
+                this.neoecoae$lastEcoEntrySnapshots.put(key, current);
+            }
+        }
+    }
+
+    @Unique
+    private boolean neoecoae$hasEcoHeaderChanged(ECOCraftingCPULogic logic) {
+        long elapsedTime = logic.getElapsedTimeTracker().getElapsedTime();
+        long remainingItems = logic.getElapsedTimeTracker().getRemainingItemCount();
+        long startItems = logic.getElapsedTimeTracker().getStartItemCount();
+        return elapsedTime != this.neoecoae$lastEcoElapsedTime
+                || remainingItems != this.neoecoae$lastEcoRemainingItems
+                || startItems != this.neoecoae$lastEcoStartItems;
+    }
+
+    @Unique
+    private void neoecoae$rememberEcoHeader(CraftingStatus status) {
+        this.neoecoae$lastEcoElapsedTime = status.getElapsedTime();
+        this.neoecoae$lastEcoRemainingItems = status.getRemainingItemCount();
+        this.neoecoae$lastEcoStartItems = status.getStartItemCount();
+    }
+
+    @Unique
+    private void neoecoae$resetEcoHeaderSnapshot() {
+        this.neoecoae$lastEcoElapsedTime = Long.MIN_VALUE;
+        this.neoecoae$lastEcoRemainingItems = Long.MIN_VALUE;
+        this.neoecoae$lastEcoStartItems = Long.MIN_VALUE;
     }
 
     @Unique
@@ -240,6 +296,16 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
     }
 
     @Unique
+    private static CraftingStatus neoecoae$createHeaderOnlyStatus(ECOCraftingCPULogic logic) {
+        return new CraftingStatus(
+                false,
+                logic.getElapsedTimeTracker().getElapsedTime(),
+                logic.getElapsedTimeTracker().getRemainingItemCount(),
+                logic.getElapsedTimeTracker().getStartItemCount(),
+                ImmutableList.of());
+    }
+
+    @Unique
     private static CraftingStatusEntry neoecoae$createEntry(
             IncrementalUpdateHelper changes,
             ECOCraftingCPULogic logic,
@@ -258,5 +324,15 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
                 storedCount,
                 activeCount,
                 pendingCount);
+    }
+
+    @Unique
+    private record NeoEcoEntrySnapshot(long storedAmount, long activeAmount, long pendingAmount) {
+        private static NeoEcoEntrySnapshot of(ECOCraftingCPULogic logic, AEKey what) {
+            return new NeoEcoEntrySnapshot(
+                    logic.getStored(what),
+                    logic.getWaitingFor(what),
+                    logic.getPendingOutputs(what));
+        }
     }
 }

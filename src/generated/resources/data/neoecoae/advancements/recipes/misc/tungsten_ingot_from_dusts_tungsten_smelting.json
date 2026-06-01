@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_dusts_tungsten": {
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/tungsten"
+            "tag": "c:dusts/tungsten"
           }
         ]
       },

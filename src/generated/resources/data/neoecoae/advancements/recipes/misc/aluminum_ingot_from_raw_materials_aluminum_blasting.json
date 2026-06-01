@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_raw_materials_aluminum": {
       "conditions": {
         "items": [
           {
-            "items": "#c:raw_materials/aluminum"
+            "tag": "c:raw_materials/aluminum"
           }
         ]
       },

@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_dust": {
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/aluminum_alloy"
+            "tag": "c:dusts/aluminum_alloy"
           }
         ]
       },
@@ -15,7 +15,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/certus_quartz"
+            "tag": "c:dusts/certus_quartz"
           }
         ]
       },
@@ -31,7 +31,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/tungsten"
+            "tag": "c:dusts/tungsten"
           }
         ]
       },

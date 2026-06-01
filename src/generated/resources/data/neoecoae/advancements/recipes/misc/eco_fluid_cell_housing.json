@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_allot": {
       "conditions": {
         "items": [
           {
-            "items": "#c:ingots/aluminum_alloy"
+            "tag": "c:ingots/aluminum_alloy"
           }
         ]
       },
@@ -15,7 +15,7 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:crystal_matrix"
+            "items": ["neoecoae:crystal_matrix"]
           }
         ]
       },
@@ -25,7 +25,7 @@
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/redstone"
+            "tag": "c:dusts/redstone"
           }
         ]
       },

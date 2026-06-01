@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_energy_cell_l4": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:energy_cell_l4"
+            "items": ["neoecoae:energy_cell_l4"]
           }
         ]
       },

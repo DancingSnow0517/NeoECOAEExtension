@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_dusts_aluminum_alloy": {
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/aluminum_alloy"
+            "tag": "c:dusts/aluminum_alloy"
           }
         ]
       },

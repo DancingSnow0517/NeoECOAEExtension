@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_alloy_ingot": {
       "conditions": {
         "items": [
           {
-            "items": "#c:ingots/aluminum_alloy"
+            "tag": "c:ingots/aluminum_alloy"
           }
         ]
       },
@@ -15,7 +15,7 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:crystal_ingot"
+            "items": ["neoecoae:crystal_ingot"]
           }
         ]
       },
@@ -25,7 +25,7 @@
       "conditions": {
         "items": [
           {
-            "items": "ae2:quartz_vibrant_glass"
+            "items": ["ae2:quartz_vibrant_glass"]
           }
         ]
       },

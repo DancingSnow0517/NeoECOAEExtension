@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_energized_crystal_block": {
       "conditions": {
         "items": [
           {
-            "items": "#c:storage_blocks/energized_crystal"
+            "tag": "c:storage_blocks/energized_crystal"
           }
         ]
       },

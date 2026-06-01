@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_black_tungsten_alloy_block": {
       "conditions": {
         "items": [
           {
-            "items": "#c:storage_blocks/black_tungsten_alloy"
+            "tag": "c:storage_blocks/black_tungsten_alloy"
           }
         ]
       },

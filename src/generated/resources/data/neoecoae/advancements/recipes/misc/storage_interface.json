@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_storage_casing": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:storage_casing"
+            "items": ["neoecoae:storage_casing"]
           }
         ]
       },

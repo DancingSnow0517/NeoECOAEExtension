@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_ores_aluminum": {
       "conditions": {
         "items": [
           {
-            "items": "#c:ores/aluminum"
+            "tag": "c:ores/aluminum"
           }
         ]
       },

@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_computation_cooling_controller_l4": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:computation_cooling_controller_l4"
+            "items": ["neoecoae:computation_cooling_controller_l4"]
           }
         ]
       },

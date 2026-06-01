@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_alloy_casing": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:aluminum_alloy_casing"
+            "items": ["neoecoae:aluminum_alloy_casing"]
           }
         ]
       },

@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_energized_cryztal_dust": {
       "conditions": {
         "items": [
           {
-            "items": "#c:dusts/energized_crystal"
+            "tag": "c:dusts/energized_crystal"
           }
         ]
       },

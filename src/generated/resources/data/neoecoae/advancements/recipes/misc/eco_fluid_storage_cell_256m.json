@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_256m_component": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:eco_cell_component_256m"
+            "items": ["neoecoae:eco_cell_component_256m"]
           }
         ]
       },

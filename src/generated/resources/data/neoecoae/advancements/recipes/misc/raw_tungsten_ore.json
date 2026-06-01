@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_raw_tungsten_block": {
       "conditions": {
         "items": [
           {
-            "items": "#c:storage_blocks/raw_tungsten"
+            "tag": "c:storage_blocks/raw_tungsten"
           }
         ]
       },

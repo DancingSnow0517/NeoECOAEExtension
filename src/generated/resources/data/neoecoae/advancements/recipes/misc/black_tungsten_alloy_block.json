@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_black_tungsten_alloy_ingot": {
       "conditions": {
         "items": [
           {
-            "items": "#c:ingots/black_tungsten_alloy"
+            "tag": "c:ingots/black_tungsten_alloy"
           }
         ]
       },

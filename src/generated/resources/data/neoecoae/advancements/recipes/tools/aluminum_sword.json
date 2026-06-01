@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_ingot": {
       "conditions": {
         "items": [
           {
-            "items": "#c:ingots/aluminum"
+            "tag": "c:ingots/aluminum"
           }
         ]
       },

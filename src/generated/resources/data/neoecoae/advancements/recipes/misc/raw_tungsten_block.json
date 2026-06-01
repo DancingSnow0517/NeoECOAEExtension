@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_raw_tungsten_ore": {
       "conditions": {
         "items": [
           {
-            "items": "#c:raw_materials/tungsten"
+            "tag": "c:raw_materials/tungsten"
           }
         ]
       },

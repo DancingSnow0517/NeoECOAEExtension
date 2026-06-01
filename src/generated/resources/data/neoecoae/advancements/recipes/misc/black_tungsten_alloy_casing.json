@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_black_tungsten_ingot": {
       "conditions": {
         "items": [
           {
-            "items": "#c:ingots/black_tungsten_alloy"
+            "tag": "c:ingots/black_tungsten_alloy"
           }
         ]
       },
@@ -15,7 +15,7 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:crystal_ingot"
+            "items": ["neoecoae:crystal_ingot"]
           }
         ]
       },
@@ -25,7 +25,7 @@
       "conditions": {
         "items": [
           {
-            "items": "ae2:quartz_vibrant_glass"
+            "items": ["ae2:quartz_vibrant_glass"]
           }
         ]
       },

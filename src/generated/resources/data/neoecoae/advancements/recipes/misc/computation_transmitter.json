@@ -1,11 +1,11 @@
-{
+﻿{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_computation_casing": {
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:computation_casing"
+            "items": ["neoecoae:computation_casing"]
           }
         ]
       },
@@ -15,7 +15,7 @@
       "conditions": {
         "items": [
           {
-            "items": "neoecoae:energized_superconductive_ingot"
+            "items": ["neoecoae:energized_superconductive_ingot"]
           }
         ]
       },
