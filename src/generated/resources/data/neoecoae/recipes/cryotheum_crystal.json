@@ -3,7 +3,7 @@
   "category": "misc",
   "key": {
     "A": {
-      "tag": "forge:dusts/sky_stone"
+      "item": "ae2:sky_dust"
     },
     "B": {
       "item": "neoecoae:cryotheum"
@@ -15,8 +15,7 @@
     "AAA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:cryotheum_crystal",
     "item": "neoecoae:cryotheum_crystal"
-  }
+  },
+  "show_notification": true
 }

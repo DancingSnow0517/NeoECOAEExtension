@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
+import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScrollHandler;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
@@ -18,6 +19,7 @@ import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStructureTerminalScreen;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -30,6 +32,7 @@ public class NeoECOAEClient {
         modBus.addListener(NeoECOAEClient::onRegisterRenderers);
         modBus.addListener((FMLClientSetupEvent event) -> ECOCellModels.on(event));
         modBus.addListener((ModelEvent.RegisterAdditional event) -> ECOCellModels.on(event));
+        MinecraftForge.EVENT_BUS.addListener(MultiblockPreviewScrollHandler::onMouseScrolled);
     }
 
     @SubscribeEvent

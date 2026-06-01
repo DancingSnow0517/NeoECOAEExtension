@@ -12,6 +12,7 @@ import net.minecraft.client.renderer.block.BlockRenderDispatcher;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import org.slf4j.Logger;
@@ -31,6 +32,9 @@ public final class NEMultiblockSceneRenderer {
     private static final float DEFAULT_YAW = -38.0F;
     private static final float DEFAULT_PITCH = 28.0F;
     private static final float DEFAULT_ZOOM = 0.90F;
+    private static final float MIN_ZOOM = 0.55F;
+    private static final float MAX_ZOOM = 1.80F;
+    private static final float ZOOM_STEP = 0.10F;
     private static final float FIT_PADDING = 0.68F;
 
     private float yaw = DEFAULT_YAW;
@@ -106,7 +110,14 @@ public final class NEMultiblockSceneRenderer {
     }
 
     public void setZoom(float zoom) {
-        this.zoom = zoom;
+        this.zoom = Mth.clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+    }
+
+    public void adjustZoom(double scrollDelta) {
+        if (scrollDelta == 0.0D) {
+            return;
+        }
+        setZoom(this.zoom + (float) Math.signum(scrollDelta) * ZOOM_STEP);
     }
 
     public void resetView() {

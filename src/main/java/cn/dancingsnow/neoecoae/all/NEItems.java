@@ -805,7 +805,7 @@ public class NEItems {
                                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                                                 .requires(Items.ICE)
                                                 .requires(ConventionTags.CERTUS_QUARTZ_DUST)
-                                                .requires(appeng.core.definitions.AEItems.CERTUS_QUARTZ_DUST)
+                                                .requires(AEItems.SKY_DUST)
                                                 .requires(Items.SNOWBALL)
                                                 .requires(Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_DUST), 4)
                                                 .unlockedBy("has_energized_cryztal_dust",
@@ -822,7 +822,7 @@ public class NEItems {
                                                 .pattern("AAA")
                                                 .pattern("ABA")
                                                 .pattern("AAA")
-                                                .define('A', appeng.core.definitions.AEItems.CERTUS_QUARTZ_DUST)
+                                                .define('A', AEItems.SKY_DUST)
                                                 .define('B', NEItems.CRYOTHEUM)
                                                 .unlockedBy("has_cryotheum",
                                                                 RegistrateRecipeProvider.has(NEItems.CRYOTHEUM))
@@ -1124,16 +1124,18 @@ public class NEItems {
                         })
                         .recipe((ctx, prov) -> {
                                 ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
-                                                .pattern(" A ")
-                                                .pattern("ACA")
-                                                .pattern(" A ")
-                                                .define('A', NETags.Items.ALUMINUM_INGOT)
+                                                .pattern(" R ")
+                                                .pattern("ICI")
+                                                .pattern(" E ")
+                                                .define('R', Tags.Items.DUSTS_REDSTONE)
+                                                .define('I', Tags.Items.INGOTS_IRON)
+                                                .define('E', ENERGIZED_SUPERCONDUCTIVE_INGOT)
                                                 .define('C', CRYSTAL_MATRIX)
                                                 .unlockedBy("has_crystal_matrix",
                                                                 RegistrateRecipeProvider.has(CRYSTAL_MATRIX))
-                                                .unlockedBy("has_aluminum_ingot",
+                                                .unlockedBy("has_energized_superconductive_ingot",
                                                                 RegistrateRecipeProvider
-                                                                                .has(NETags.Items.ALUMINUM_INGOT))
+                                                                                .has(ENERGIZED_SUPERCONDUCTIVE_INGOT))
                                                 .save(prov);
                         })
                         .register();

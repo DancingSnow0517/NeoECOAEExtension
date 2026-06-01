@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.compat.emi;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScene;
+import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScrollHandler;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.NEMultiblockSceneRenderer;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import dev.emi.emi.api.recipe.EmiRecipe;
@@ -179,9 +180,6 @@ public class MultiblockEmiRecipe implements EmiRecipe {
             if (!materialTooltip.isEmpty()) {
                 return materialTooltip;
             }
-            if (layout.scene().contains(mouseX, mouseY)) {
-                return MultiblockPreviewStyle.tooltip(Component.translatable("emi.neoecoae.multiblock.drag_rotate"));
-            }
             return List.of();
         }
 
@@ -198,6 +196,8 @@ public class MultiblockEmiRecipe implements EmiRecipe {
             g.fill(sceneRect.x(), sceneRect.bottom() - 1, sceneRect.right(), sceneRect.bottom(), MultiblockPreviewStyle.PANEL_BORDER);
             g.fill(sceneRect.x(), sceneRect.y(), sceneRect.x() + 1, sceneRect.bottom(), MultiblockPreviewStyle.PANEL_BORDER);
             g.fill(sceneRect.right() - 1, sceneRect.y(), sceneRect.right(), sceneRect.bottom(), MultiblockPreviewStyle.PANEL_BORDER);
+            MultiblockPreviewScrollHandler.track(renderer, g, sceneRect.x() + 2, sceneRect.y() + 2,
+                    sceneRect.width() - 4, sceneRect.height() - 4);
             renderer.render(g, state.scene(), renderedPositions(), sceneRect.x() + 2, sceneRect.y() + 2,
                     sceneRect.width() - 4, sceneRect.height() - 4, delta, true);
         }

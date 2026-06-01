@@ -75,7 +75,6 @@ public class GuiLangs {
         provider.add("emi.neoecoae.multiblock.show_unformed", "Show unformed state");
         provider.add("emi.neoecoae.multiblock.previous_page", "Previous page");
         provider.add("emi.neoecoae.multiblock.next_page", "Next page");
-        provider.add("emi.neoecoae.multiblock.drag_rotate", "Hold left mouse button to rotate");
         provider.add("emi.neoecoae.multiblock.empty_scene", "No structure data");
         provider.add("gui.neoecoae.structure_terminal.target.crafting", "Craft");
         provider.add("gui.neoecoae.structure_terminal.target.storage", "Storage");

@@ -9,7 +9,7 @@
       "tag": "forge:dusts/certus_quartz"
     },
     {
-      "tag": "forge:dusts/sky_stone"
+      "item": "ae2:sky_dust"
     },
     {
       "item": "minecraft:snowball"
@@ -28,8 +28,6 @@
     }
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:cryotheum",
     "item": "neoecoae:cryotheum"
   }
 }
