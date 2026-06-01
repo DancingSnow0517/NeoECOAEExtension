@@ -40,7 +40,13 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        return verifyInternalStructure(level, min, max, false) || verifyInternalStructure(level, min, max, true);
+        if (verifyInternalStructure(level, min, max, false)) {
+            setMirroredStructure(false);
+            return true;
+        }
+        boolean mirrored = verifyInternalStructure(level, min, max, true);
+        setMirroredStructure(mirrored);
+        return mirrored;
     }
 
     private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {

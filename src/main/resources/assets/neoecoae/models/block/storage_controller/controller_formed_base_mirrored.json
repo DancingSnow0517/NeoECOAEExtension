@@ -1,0 +1,426 @@
+{
+    "format_version": "1.9.0",
+    "credit": "Made with Blockbench, made by TedXenon",
+    "parent": "block/block",
+    "render_type": "cutout",
+    "texture_size": [
+        128,
+        128
+    ],
+    "textures": {
+        "particle": "neoecoae:block/storage/casing"
+    },
+    "elements": [
+        {
+            "name": "light",
+            "shade": false,
+            "from": [
+                -16,
+                -16,
+                0
+            ],
+            "to": [
+                16,
+                32,
+                32
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        12,
+                        6,
+                        16,
+                        12
+                    ],
+                    "texture": "#base",
+                    "forge_data": {
+                        "block_light": 15,
+                        "sky_light": 15
+                    }
+                },
+                "west": {
+                    "uv": [
+                        4,
+                        6,
+                        8,
+                        12
+                    ],
+                    "texture": "#base",
+                    "forge_data": {
+                        "block_light": 15,
+                        "sky_light": 15
+                    }
+                },
+                "south": {
+                    "uv": [
+                        4,
+                        6,
+                        8,
+                        12
+                    ],
+                    "texture": "#base",
+                    "forge_data": {
+                        "block_light": 15,
+                        "sky_light": 15
+                    }
+                }
+            }
+        },
+        {
+            "name": "screen",
+            "shade": false,
+            "from": [
+                0,
+                0,
+                1
+            ],
+            "to": [
+                16,
+                16,
+                16
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        12,
+                        2,
+                        14,
+                        4
+                    ],
+                    "texture": "#base",
+                    "forge_data": {
+                        "block_light": 15,
+                        "sky_light": 15
+                    }
+                }
+            }
+        },
+        {
+            "name": "back",
+            "from": [
+                -16,
+                -16,
+                16
+            ],
+            "to": [
+                16,
+                32,
+                32
+            ],
+            "faces": {
+                "west": {
+                    "uv": [
+                        4,
+                        0,
+                        6,
+                        6
+                    ],
+                    "texture": "#base"
+                },
+                "south": {
+                    "uv": [
+                        4,
+                        0,
+                        8,
+                        6
+                    ],
+                    "texture": "#base"
+                },
+                "up": {
+                    "uv": [
+                        0,
+                        2,
+                        4,
+                        4
+                    ],
+                    "texture": "#base"
+                },
+                "down": {
+                    "uv": [
+                        0,
+                        0,
+                        4,
+                        2
+                    ],
+                    "texture": "#base"
+                }
+            }
+        },
+        {
+            "name": "front_a",
+            "from": [
+                -16,
+                -16,
+                0
+            ],
+            "to": [
+                16,
+                0,
+                16
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        12,
+                        4,
+                        16,
+                        6
+                    ],
+                    "texture": "#base"
+                },
+                "west": {
+                    "uv": [
+                        6,
+                        4,
+                        8,
+                        6
+                    ],
+                    "texture": "#base"
+                },
+                "down": {
+                    "uv": [
+                        0,
+                        2,
+                        4,
+                        4
+                    ],
+                    "texture": "#base"
+                }
+            }
+        },
+        {
+            "name": "front_a",
+            "from": [
+                -16,
+                16,
+                0
+            ],
+            "to": [
+                16,
+                32,
+                16
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        12,
+                        0,
+                        16,
+                        2
+                    ],
+                    "texture": "#base"
+                },
+                "west": {
+                    "uv": [
+                        6,
+                        0,
+                        8,
+                        2
+                    ],
+                    "texture": "#base"
+                },
+                "up": {
+                    "uv": [
+                        0,
+                        0,
+                        4,
+                        2
+                    ],
+                    "texture": "#base"
+                }
+            }
+        },
+        {
+            "name": "front_b",
+            "from": [
+                -16,
+                0,
+                0
+            ],
+            "to": [
+                0,
+                16,
+                16
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        14,
+                        2,
+                        16,
+                        4
+                    ],
+                    "texture": "#base"
+                },
+                "west": {
+                    "uv": [
+                        6,
+                        2,
+                        8,
+                        4
+                    ],
+                    "texture": "#base"
+                }
+            }
+        },
+        {
+            "name": "front",
+            "from": [
+                9,
+                0,
+                0
+            ],
+            "to": [
+                16,
+                16,
+                1
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        12,
+                        2,
+                        12.875,
+                        4
+                    ],
+                    "texture": "#base",
+                    "cullface": "north"
+                },
+                "west": {
+                    "uv": [
+                        3.125,
+                        2,
+                        3.25,
+                        4
+                    ],
+                    "texture": "#base"
+                }
+            }
+        },
+        {
+            "name": "front_pillar_a",
+            "from": [
+                3,
+                13,
+                0
+            ],
+            "to": [
+                9,
+                16,
+                1
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        12.875,
+                        2,
+                        13.625,
+                        2.375
+                    ],
+                    "texture": "#base",
+                    "cullface": "north"
+                },
+                "down": {
+                    "uv": [
+                        13.625,
+                        2.375,
+                        12.875,
+                        2.25
+                    ],
+                    "texture": "#base"
+                }
+            }
+        },
+        {
+            "name": "front_pillar_b",
+            "from": [
+                0,
+                0,
+                0
+            ],
+            "to": [
+                3,
+                16,
+                1
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        13.625,
+                        2,
+                        14,
+                        4
+                    ],
+                    "texture": "#base",
+                    "cullface": "north"
+                },
+                "east": {
+                    "uv": [
+                        2.25,
+                        2,
+                        2.375,
+                        4
+                    ],
+                    "texture": "#base"
+                }
+            }
+        },
+        {
+            "name": "front_pillar_a",
+            "from": [
+                3,
+                0,
+                0
+            ],
+            "to": [
+                9,
+                3,
+                1
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        12.875,
+                        3.625,
+                        13.625,
+                        4
+                    ],
+                    "texture": "#base",
+                    "cullface": "north"
+                },
+                "up": {
+                    "uv": [
+                        13.625,
+                        3.625,
+                        12.875,
+                        3.75
+                    ],
+                    "texture": "#base"
+                }
+            }
+        }
+    ],
+    "groups": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        {
+            "name": "controller",
+            "origin": [
+                8,
+                8,
+                8
+            ],
+            "color": 0,
+            "children": [
+                6,
+                7,
+                8,
+                9
+            ]
+        }
+    ]
+}

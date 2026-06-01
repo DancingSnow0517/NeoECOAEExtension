@@ -64,6 +64,8 @@ public class ECOCraftingCPULogic {
      */
     @Getter
     private boolean cantStoreItems = false;
+    @Getter
+    private long statusRevision = 0L;
 
     @Getter
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
@@ -102,6 +104,7 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        markStatusDirty();
 
         // Crafting Monitor unsupported
         // cpu.updateOutput(plan.finalOutput());
@@ -128,15 +131,16 @@ public class ECOCraftingCPULogic {
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {
         // Don't tick if we're not active.
-        if (!cpu.isActive())
+        if (!cpu.isActive()) {
+            setCantStoreItems(false);
             return;
-        cantStoreItems = false;
+        }
+        setCantStoreItems(false);
         // If we don't have a job, just try to dump our items.
         if (this.job == null) {
             this.storeItems();
-            if (!this.inventory.list.isEmpty()) {
-                cantStoreItems = true;
-            } else {
+            setCantStoreItems(!this.inventory.list.isEmpty());
+            if (this.inventory.list.isEmpty()) {
                 if (markedForDeletion) {
                     cpu.deactivate();
                 }
@@ -374,6 +378,9 @@ public class ECOCraftingCPULogic {
      * @param success True if the job is complete, false if it was cancelled.
      */
     private void finishJob(boolean success) {
+        Set<AEKey> waitingKeys = collectWaitingKeys();
+        Set<AEKey> pendingKeys = collectPendingOutputKeys();
+
         if (success) {
             job.link.markDone();
         } else {
@@ -382,19 +389,18 @@ public class ECOCraftingCPULogic {
 
         // TODO: log
 
-        Set<AEKey> waitingKeys = collectWaitingKeys();
         job.waitingFor.clear();
         postKeysChange(waitingKeys);
         // Notify opened menus of cancelled scheduled tasks.
-        for (var entry : job.tasks.entrySet()) {
-            postPatternOutputsChange(entry.getKey());
-        }
+        postKeysChange(pendingKeys);
 
         notifyJobOwner(
                 job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
 
         // Finish job.
         this.job = null;
+        markStatusDirty();
+        cpu.getCluster().updateGridForChangedCpu(cpu.getCluster());
 
         // Store all remaining items.
         this.storeItems();
@@ -409,6 +415,7 @@ public class ECOCraftingCPULogic {
             return;
 
         UUID craftingJobId = job.link.getCraftingID();
+        markStatusDirty();
         finishJob(false);
         recoverInflightWorkerInputs(craftingJobId);
     }
@@ -455,9 +462,15 @@ public class ECOCraftingCPULogic {
 
     private void postChange(AEKey what) {
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        markStatusDirty();
         for (var listener : listeners) {
             listener.accept(what);
         }
+    }
+
+    private void markStatusDirty() {
+        statusRevision++;
+        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
     }
 
     private void postPatternOutputsChange(IPatternDetails details) {
@@ -481,6 +494,18 @@ public class ECOCraftingCPULogic {
         if (this.job != null) {
             for (var entry : this.job.waitingFor.list) {
                 keys.add(entry.getKey());
+            }
+        }
+        return keys;
+    }
+
+    private Set<AEKey> collectPendingOutputKeys() {
+        Set<AEKey> keys = new HashSet<>();
+        if (this.job != null) {
+            for (var task : this.job.tasks.keySet()) {
+                for (var output : task.getOutputs()) {
+                    keys.add(output.what());
+                }
             }
         }
         return keys;
@@ -513,6 +538,7 @@ public class ECOCraftingCPULogic {
         this.inventory.readFromNBT(data.getList("inventory", 10));
         if (data.contains("job")) {
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
+            markStatusDirty();
             if (this.job.finalOutput == null) {
                 finishJob(false);
             }
@@ -602,6 +628,16 @@ public class ECOCraftingCPULogic {
     public void setJobSuspended(boolean suspended) {
         if (job != null && job.suspended != suspended) {
             job.suspended = suspended;
+            markStatusDirty();
+            postKeysChange(collectWaitingKeys());
+            postKeysChange(collectPendingOutputKeys());
+        }
+    }
+
+    private void setCantStoreItems(boolean cantStoreItems) {
+        if (this.cantStoreItems != cantStoreItems) {
+            this.cantStoreItems = cantStoreItems;
+            markStatusDirty();
         }
     }
 

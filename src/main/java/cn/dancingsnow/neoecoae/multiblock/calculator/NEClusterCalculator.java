@@ -22,6 +22,7 @@ import java.util.function.Predicate;
 
 @SuppressWarnings("BooleanMethodIsAlwaysInverted")
 public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
+    private boolean mirroredStructure = false;
 
     public NEClusterCalculator(NEBlockEntity<C, ?> t) {
         super(t);
@@ -35,6 +36,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     @SuppressWarnings("unchecked")
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {
+        c.setMirrored(mirroredStructure);
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
             BlockEntity rawBlockEntity = level.getBlockEntity(blockPos);
             if (!isValidBlockEntity(rawBlockEntity)) {
@@ -65,6 +67,10 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     protected abstract int maxLength();
+
+    protected void setMirroredStructure(boolean mirroredStructure) {
+        this.mirroredStructure = mirroredStructure;
+    }
 
     /** No-op: debug logging removed. Subclasses may still call this safely. */
     protected void logVerifyFailure(ServerLevel level, String step, BlockPos pos,

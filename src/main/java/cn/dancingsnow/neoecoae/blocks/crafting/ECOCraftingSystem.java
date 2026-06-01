@@ -31,6 +31,7 @@ public class ECOCraftingSystem extends NEBlock<ECOCraftingSystemBlockEntity> {
         super(properties);
         registerDefaultState(getStateDefinition().any()
             .setValue(FORMED, false)
+            .setValue(MIRRORED, false)
             .setValue(FACING, Direction.NORTH)
         );
     }
@@ -38,6 +39,7 @@ public class ECOCraftingSystem extends NEBlock<ECOCraftingSystemBlockEntity> {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
+        builder.add(MIRRORED);
     }
 
     @Override

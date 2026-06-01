@@ -18,6 +18,8 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
 
     @Getter
     private boolean destroyed = false;
+    @Getter
+    private boolean mirrored = false;
 
     public NECluster(BlockPos boundMin, BlockPos boundMax) {
         this.boundMin = boundMin;
@@ -38,6 +40,10 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         for (NEBlockEntity<T, ?> be : this.blockEntities) {
             be.setFormed(formed);
         }
+    }
+
+    public void setMirrored(boolean mirrored) {
+        this.mirrored = mirrored;
     }
 
     public boolean shouldCasingHide(NEBlockEntity<T, ?> blockEntity) {

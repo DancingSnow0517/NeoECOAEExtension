@@ -127,6 +127,9 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (newState.hasProperty(NEBlock.FORMED)) {
             newState = newState.setValue(NEBlock.FORMED, formed);
         }
+        if (newState.hasProperty(NEBlock.MIRRORED)) {
+            newState = newState.setValue(NEBlock.MIRRORED, cluster != null && cluster.isMirrored());
+        }
         if (!oldState.equals(newState)) {
             level.setBlock(
                 worldPosition,

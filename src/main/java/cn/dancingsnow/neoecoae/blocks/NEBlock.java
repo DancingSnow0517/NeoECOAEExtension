@@ -19,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
 
 public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntityBlock<T> {
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
+    public static final BooleanProperty MIRRORED = BooleanProperty.create("mirrored");
 
     protected NEBlock(Properties properties) {
         super(properties.lightLevel(state -> state.getValue(FORMED) ? 1 : 0));
