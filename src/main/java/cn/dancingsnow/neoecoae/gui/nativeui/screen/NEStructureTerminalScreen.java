@@ -12,7 +12,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraftforge.fml.ModList;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -511,9 +510,4 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         }
     }
 
-    // ── LDLib1 optional preview detection ──
-
-    private static boolean hasLDLib1() {
-        return ModList.get().isLoaded("ldlib");
-    }
 }

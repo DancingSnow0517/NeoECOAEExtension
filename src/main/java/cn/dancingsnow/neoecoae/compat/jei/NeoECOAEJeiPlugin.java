@@ -18,9 +18,7 @@ import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.fml.ModList;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
 @JeiPlugin
@@ -46,9 +44,6 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
                 registration.getJeiHelpers().getGuiHelper()));
         registration.addRecipeCategories(new CoolingJeiCategory(
                 registration.getJeiHelpers().getGuiHelper()));
-        if (hasLDLib1()) {
-            invokeLDLib("registerJeiCategories", IRecipeCategoryRegistration.class, registration);
-        }
     }
 
     @Override
@@ -65,10 +60,6 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
         List<CoolingRecipe> coolingRecipes = minecraft.level.getRecipeManager()
                 .getAllRecipesFor(NERecipeTypes.COOLING.get());
         registration.addRecipes(COOLING_RECIPE_TYPE, coolingRecipes);
-
-        if (hasLDLib1()) {
-            invokeLDLib("registerJeiRecipes", IRecipeRegistration.class, registration);
-        }
     }
 
     @Override
@@ -86,10 +77,6 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
         registration.addRecipeCatalyst(
                 NEBlocks.CRAFTING_SYSTEM_L9.asStack(),
                 COOLING_RECIPE_TYPE);
-
-        if (hasLDLib1()) {
-            invokeLDLib("registerJeiRecipeCatalysts", IRecipeCatalystRegistration.class, registration);
-        }
     }
 
     @Override
@@ -101,20 +88,5 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
                         return screen.getJeiExtraAreas();
                     }
                 });
-    }
-
-    private static boolean hasLDLib1() {
-        return ModList.get().isLoaded("ldlib");
-    }
-
-    private static void invokeLDLib(String methodName, Class<?> parameterType, Object parameter) {
-        try {
-            Class<?> bridge = Class.forName("cn.dancingsnow.neoecoae.compat.ldlib.LDLibJeiIntegration");
-            bridge.getMethod(methodName, parameterType).invoke(null, parameter);
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
-            throw new IllegalStateException("Failed to initialize LDLib1 JEI multiblock integration", e);
-        } catch (InvocationTargetException e) {
-            throw new IllegalStateException("LDLib1 JEI multiblock integration failed", e.getCause());
-        }
     }
 }
