@@ -181,7 +181,9 @@ dependencies {
 
     compileOnly("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
     annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
-    implementation("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")
+    jarJar(fg.deobf("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")) {
+        jarJar.ranged(it, "[${mixinextras_version},)")
+    }
 }
 
 sourceSets.main.resources {
