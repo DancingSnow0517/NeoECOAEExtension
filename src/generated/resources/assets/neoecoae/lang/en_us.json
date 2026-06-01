@@ -91,6 +91,8 @@
   "gui.neoecoae.common.no": "No",
   "gui.neoecoae.common.output": "Output",
   "gui.neoecoae.common.output_fluid": "Out Fluid",
+  "gui.neoecoae.fluid_tank.empty": "Empty",
+  "gui.neoecoae.fluid_tank.amount": "%s / %s mB",
   "gui.neoecoae.common.overclock": "Overclock",
   "gui.neoecoae.common.parallel": "Parallel",
   "gui.neoecoae.common.progress": "Progress",

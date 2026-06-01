@@ -146,6 +146,8 @@
   "gui.neoecoae.machine.storage": "存储",
   "gui.neoecoae.machine.storage_bytes": "存储：%s / %s 字节",
   "gui.neoecoae.machine.test": "测试",
+  "gui.neoecoae.fluid_tank.empty": "空",
+  "gui.neoecoae.fluid_tank.amount": "%s / %s mB",
   "gui.neoecoae.machine.threads_label": "线程",
   "gui.neoecoae.machine.threads_value": "线程：%s / %s",
   "gui.neoecoae.machine.types_value": "类型：%s / %s",

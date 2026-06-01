@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -54,6 +55,27 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
         tank.readFromNBT(data);
+    }
+
+    @Override
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag();
+        tag.put("neo_tank", tank.writeToNBT(new CompoundTag()));
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        if (tag.contains("neo_tank")) {
+            tank.readFromNBT(tag.getCompound("neo_tank"));
+        }
+    }
+
+    @Override
+    @Nullable
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override

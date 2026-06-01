@@ -72,6 +72,8 @@
   "emi.category.neoecoae.integrated_working_station": "Integrated Working Station",
   "emi.category.neoecoae.multiblock": "ECO Multiblock Info",
   "fluid.neoecoae.cryotheum_solution": "Cryotheum Solution",
+  "gui.neoecoae.fluid_tank.empty": "Empty",
+  "gui.neoecoae.fluid_tank.amount": "%s / %s mB",
   "gui.neoecoae.computation.parallel_info": "Parallel Count: %d",
   "gui.neoecoae.computation.storage_info": "Storage Used: %s / %s",
   "gui.neoecoae.computation.thread_info": "Thread Used: %d / %d",

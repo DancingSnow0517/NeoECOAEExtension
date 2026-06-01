@@ -30,7 +30,7 @@ public record NEMachineScreenConfig(String testLogName, boolean showTestButton) 
         new NEMachineScreenConfig("Pattern Bus", true);
 
     public static final NEMachineScreenConfig FLUID_HATCH =
-        new NEMachineScreenConfig("Fluid Hatch", true);
+        new NEMachineScreenConfig("Fluid Hatch", false);
 
     public static final NEMachineScreenConfig STRUCTURE_TERMINAL =
         new NEMachineScreenConfig("Structure Terminal", false);

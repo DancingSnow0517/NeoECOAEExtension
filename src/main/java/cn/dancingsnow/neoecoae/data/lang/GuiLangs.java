@@ -26,6 +26,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.common.active_cooling", "Active Cooling");
         provider.add("gui.neoecoae.common.input_fluid", "In Fluid");
         provider.add("gui.neoecoae.common.output_fluid", "Out Fluid");
+        provider.add("gui.neoecoae.fluid_tank.empty", "Empty");
+        provider.add("gui.neoecoae.fluid_tank.amount", "%s / %s mB");
         provider.add("gui.neoecoae.common.multiblock_builder", "Multiblock Builder");
         provider.add("gui.neoecoae.common.show_builder", "Show Builder");
         provider.add("gui.neoecoae.common.hide_builder", "Hide Builder");

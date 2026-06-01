@@ -226,7 +226,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         FluidStack stack = input ? menu.getClientInputFluid() : menu.getClientOutputFluid();
         int amount = stack.getAmount();
         if (amount <= 0) amount = input ? menu.getFluidInAmount() : menu.getFluidOutAmount();
-        NENativeAe2StyleRenderer.drawAeFluidTank(g, x, y, w, h, stack, amount, 16000);
+        NEFluidTankUi.draw(g, x, y, w, h, stack, amount, 16000);
     }
 
     private void drawFluidHover(GuiGraphics g, int mouseX, int mouseY, int baseX, int baseY) {
@@ -238,19 +238,13 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
     private void drawFluidHoverFor(GuiGraphics g, int mouseX, int mouseY,
                                     boolean input, int x, int y, int w, int h) {
-        if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h) return;
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, 0x40FFFFFF);
+        NEFluidTankUi.drawHover(g, mouseX, mouseY, x, y, w, h);
+        if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h) {
+            return;
+        }
         FluidStack stack = input ? menu.getClientInputFluid() : menu.getClientOutputFluid();
         int amount = input ? menu.getFluidInAmount() : menu.getFluidOutAmount();
-        if (!stack.isEmpty()) {
-            g.renderTooltip(font, List.of(
-                stack.getDisplayName().getVisualOrderText(),
-                Component.literal(stack.getAmount() + " / 16000 mB").getVisualOrderText()),
-                mouseX, mouseY);
-        } else {
-            g.renderTooltip(font,
-                Component.literal(amount + " / 16000 mB"), mouseX, mouseY);
-        }
+        NEFluidTankUi.renderTooltip(g, font, stack, amount, 16000, x, y, w, h, mouseX, mouseY);
     }
 
     // ── Clear fluid buttons (常显 8×8 bar + hover 5×5 X) ──
