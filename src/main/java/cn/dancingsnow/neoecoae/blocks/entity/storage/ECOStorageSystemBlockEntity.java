@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.gui.AETextures;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
@@ -96,6 +97,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
+    private boolean mirrored;
 
     public ECOStorageSystemBlockEntity(
         BlockEntityType<?> type,
@@ -143,9 +145,23 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
+        if (level != null) {
+            BlockState state = level.getBlockState(worldPosition);
+            if (state.hasProperty(ECOStorageSystemBlock.MIRRORED)) {
+                level.setBlock(
+                    worldPosition,
+                    state.setValue(ECOStorageSystemBlock.MIRRORED, formed && mirrored),
+                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS
+                );
+            }
+        }
         if (updateExposed) {
             updateInfos();
         }
+    }
+
+    public void setMirrored(boolean mirrored) {
+        this.mirrored = mirrored;
     }
 
     @Override

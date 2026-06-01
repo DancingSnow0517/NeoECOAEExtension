@@ -4,6 +4,7 @@ import appeng.client.gui.Icon;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.AETextures;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
@@ -43,6 +44,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -86,6 +88,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
+    private boolean mirrored;
 
     public ECOComputationSystemBlockEntity(
         BlockEntityType<?> type,
@@ -100,9 +103,23 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Override
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
+        if (level != null) {
+            BlockState state = level.getBlockState(worldPosition);
+            if (state.hasProperty(ECOComputationSystem.MIRRORED)) {
+                level.setBlock(
+                    worldPosition,
+                    state.setValue(ECOComputationSystem.MIRRORED, formed && mirrored),
+                    Block.UPDATE_CLIENTS
+                );
+            }
+        }
         if (updateExposed) {
             updateInfos();
         }
+    }
+
+    public void setMirrored(boolean mirrored) {
+        this.mirrored = mirrored;
     }
 
     public void updateInfos() {

@@ -1121,10 +1121,13 @@ public class NEBlocks {
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_off"));
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed"));
+                ModelFile mirroredFormedModel = prov.models().getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed_mirrored"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
-                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? formedModel : modelFile)
+                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED)
+                                ? (s.getValue(ECOStorageSystemBlock.MIRRORED) ? mirroredFormedModel : formedModel)
+                                : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()
                     );
@@ -1178,10 +1181,13 @@ public class NEBlocks {
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_off"));
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_formed"));
+                ModelFile mirroredFormedModel = prov.models().getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_formed_mirrored"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
-                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? formedModel : modelFile)
+                            .modelFile(s.getValue(ECOCraftingSystem.FORMED)
+                                ? (s.getValue(ECOCraftingSystem.MIRRORED) ? mirroredFormedModel : formedModel)
+                                : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()
                     );
@@ -1207,10 +1213,13 @@ public class NEBlocks {
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_" + level + "_off"));
                 ModelFile formedModel = prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_" + level + "_formed"));
+                ModelFile mirroredFormedModel = prov.models().getExistingFile(prov.modLoc("block/computation_controller/controller_" + level + "_formed_mirrored"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s ->
                         ConfiguredModel.builder()
-                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? formedModel : modelFile)
+                            .modelFile(s.getValue(ECOComputationSystem.FORMED)
+                                ? (s.getValue(ECOComputationSystem.MIRRORED) ? mirroredFormedModel : formedModel)
+                                : modelFile)
                             .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
                             .build()
                     );
@@ -1299,12 +1308,14 @@ public class NEBlocks {
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/computation_cooling_controller/controller_" + level + "_off"));
                 ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/computation_cooling_controller/controller_" + level + "_formed"));
+                ModelFile modelFileFormedMirrored = prov.models().getExistingFile(prov.modLoc("block/computation_cooling_controller/controller_" + level + "_formed_mirrored"));
                 prov.getVariantBuilder(ctx.get())
                     .forAllStates(s -> {
                         boolean formed = s.getValue(ECOComputationThreadingCore.FORMED);
+                        boolean mirrored = s.getValue(ECOComputationCoolingController.MIRRORED);
                         ConfiguredModel.Builder<?> builder = ConfiguredModel.builder();
                         if (formed) {
-                            builder.modelFile(modelFileFormed)
+                            builder.modelFile(mirrored ? modelFileFormedMirrored : modelFileFormed)
                                 .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 270) % 360);
                         } else {
                             builder.modelFile(modelFile)

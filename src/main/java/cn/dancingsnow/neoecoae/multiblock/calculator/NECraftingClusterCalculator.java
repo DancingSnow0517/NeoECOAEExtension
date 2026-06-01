@@ -62,18 +62,41 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         Direction down = top.getOpposite();
         Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
         Direction right = left.getOpposite();
-        if (!validateCasing(level, controllerPos, top, down, left)) return false;
-        if (!validateCasing(level, controllerPos, top, down, right)) return false;
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right)) {
+            controller.setMirrored(false);
+            return true;
+        }
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left)) {
+            controller.setMirrored(true);
+            return true;
+        }
+        controller.setMirrored(false);
+        return false;
+    }
+
+    private boolean verifyStructure(
+        ServerLevel level,
+        BlockPos controllerPos,
+        IECOTier tier,
+        Direction front,
+        Direction back,
+        Direction top,
+        Direction down,
+        Direction interfaceSide,
+        Direction expandSide
+    ) {
+        if (!validateCasing(level, controllerPos, top, down, interfaceSide)) return false;
+        if (!validateCasing(level, controllerPos, top, down, expandSide)) return false;
         if (!validateCasing(level, controllerPos, top, down, back)) return false;
-        if (!validateCasing(level, controllerPos.relative(back).relative(right), top, down)) return false;
-        BlockPos interfacePos = controllerPos.relative(back).relative(left);
-        if (!validateHatchAndInterface(level, interfacePos, top, down, left)) {
+        if (!validateCasing(level, controllerPos.relative(back).relative(expandSide), top, down)) return false;
+        BlockPos interfacePos = controllerPos.relative(back).relative(interfaceSide);
+        if (!validateHatchAndInterface(level, interfacePos, top, down)) {
             return false;
         }
-        BlockPos workerStart = controllerPos.relative(right).relative(right);
+        BlockPos workerStart = controllerPos.relative(expandSide).relative(expandSide);
         DataResult<BlockPos> workerEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             workerStart,
             matchingStateFacing(NEBlocks.CRAFTING_WORKER, front)
         );
@@ -85,7 +108,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         BlockPos upperParallelCoreStart = workerStart.relative(top);
         DataResult<BlockPos> upperParallelCoreEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             upperParallelCoreStart,
             matchingParallelCore(level, tier, front)
         );
@@ -97,7 +120,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         BlockPos lowerParallelCoreStart = workerStart.relative(down);
         DataResult<BlockPos> lowerParallelCoreEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             lowerParallelCoreStart,
             matchingParallelCore(level, tier, front)
         );
@@ -109,7 +132,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         BlockPos ventStart = workerStart.relative(back);
         DataResult<BlockPos> ventEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             ventStart,
             matchingStateFacing(NEBlocks.CRAFTING_VENT, back)
         );
@@ -121,7 +144,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         BlockPos upperPatternBusStart = ventStart.relative(top);
         DataResult<BlockPos> upperPatternBusEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             upperPatternBusStart,
             matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, back)
         );
@@ -133,7 +156,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         BlockPos lowerPatternBusStart = ventStart.relative(down);
         DataResult<BlockPos> lowerPatternBusEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             lowerPatternBusStart,
             matchingStateFacing(NEBlocks.CRAFTING_PATTERN_BUS, back)
         );
@@ -149,7 +172,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             upperPatternBusEnd,
             lowerPatternBusEnd,
             ventEnd
-        ).map(it -> it.relative(right)).toList();
+        ).map(it -> it.relative(expandSide)).toList();
 
         if (!ensureSameSurface(endCasing)) {
             return false;
@@ -163,7 +186,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         return (te instanceof NEBlockEntity<?,?> neBlockEntity && neBlockEntity.getCalculator() instanceof NECraftingClusterCalculator);
     }
 
-    private static boolean validateHatchAndInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down, Direction left) {
+    private static boolean validateHatchAndInterface(ServerLevel level, BlockPos interfacePos, Direction top, Direction down) {
         if (!validateBlock(level, interfacePos, BlockState::is, NEBlocks.CRAFTING_INTERFACE)) {
             return false;
         }

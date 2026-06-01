@@ -63,11 +63,35 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction down = top.getOpposite();
         Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
         Direction right = left.getOpposite();
-        if (!validateCasing(level, controllerPos, top, down, left)) return false;
-        if (!validateCasing(level, controllerPos, top, down, right)) return false;
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right, false)) {
+            controller.setMirrored(false);
+            return true;
+        }
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left, true)) {
+            controller.setMirrored(true);
+            return true;
+        }
+        controller.setMirrored(false);
+        return false;
+    }
+
+    private boolean verifyStructure(
+        ServerLevel level,
+        BlockPos controllerPos,
+        IECOTier tier,
+        Direction front,
+        Direction back,
+        Direction top,
+        Direction down,
+        Direction interfaceSide,
+        Direction expandSide,
+        boolean mirrored
+    ) {
+        if (!validateCasing(level, controllerPos, top, down, interfaceSide)) return false;
+        if (!validateCasing(level, controllerPos, top, down, expandSide)) return false;
         if (!validateCasing(level, controllerPos, top, down, back)) return false;
-        if (!validateCasing(level, controllerPos.relative(back).relative(right), top, down)) return false;
-        BlockPos interfacePos = controllerPos.relative(back).relative(left);
+        if (!validateCasing(level, controllerPos.relative(back).relative(expandSide), top, down)) return false;
+        BlockPos interfacePos = controllerPos.relative(back).relative(interfaceSide);
         if (!validateInterface(
             level,
             interfacePos,
@@ -76,10 +100,10 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             NEBlocks.COMPUTATION_INTERFACE,
             NEBlocks.COMPUTATION_CASING
         )) return false;
-        BlockPos connectorStart = controllerPos.relative(right).relative(right);
+        BlockPos connectorStart = controllerPos.relative(expandSide).relative(expandSide);
         DataResult<BlockPos> connectorEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             connectorStart,
             matchingStateFacing(
                 NEBlocks.COMPUTATION_TRANSMITTER,
@@ -94,7 +118,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         BlockPos threadingCoreStart = connectorStart.relative(back);
         DataResult<BlockPos> threadingCoreEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             threadingCoreStart,
             matchingThreadingCore(level, tier, back)
         );
@@ -106,7 +130,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         BlockPos upperParallelCoreStart = threadingCoreStart.relative(top);
         DataResult<BlockPos> upperParallelCoreEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             upperParallelCoreStart,
             matchingParallelCore(level, tier, back)
         );
@@ -118,7 +142,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         BlockPos lowerParallelCoreStart = threadingCoreStart.relative(down);
         DataResult<BlockPos> lowerParallelCoreEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             lowerParallelCoreStart,
             matchingParallelCore(level, tier, back)
         );
@@ -130,7 +154,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         BlockPos upperDriveStart = connectorStart.relative(top);
         DataResult<BlockPos> upperDriveEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             upperDriveStart,
             matchingStateFacing(NEBlocks.COMPUTATION_DRIVE, front)
         );
@@ -142,7 +166,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         BlockPos lowerDriveStart = connectorStart.relative(down);
         DataResult<BlockPos> lowerDriveEndResult = validateBlockLine(
             level,
-            right,
+            expandSide,
             lowerDriveStart,
             matchingStateFacing(NEBlocks.COMPUTATION_DRIVE, front)
         );
@@ -164,20 +188,23 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             return false;
         }
         List<BlockPos> tailCasings = List.of(
-            threadingCoreEnd.relative(right),
-            upperDriveEnd.relative(right),
-            lowerDriveEnd.relative(right),
-            upperParallelCoreEnd.relative(right),
-            lowerParallelCoreEnd.relative(right)
+            threadingCoreEnd.relative(expandSide),
+            upperDriveEnd.relative(expandSide),
+            lowerDriveEnd.relative(expandSide),
+            upperParallelCoreEnd.relative(expandSide),
+            lowerParallelCoreEnd.relative(expandSide)
         );
-        BlockPos coolerPos = connectorEnd.relative(right);
+        BlockPos coolerPos = connectorEnd.relative(expandSide);
         if (!validateBlock(
             level,
             coolerPos,
-            matchingCoolingController(level, tier, right),
+            matchingCoolingController(level, tier, expandSide),
             coolerPos
         )) {
             return false;
+        }
+        if (level.getBlockEntity(coolerPos) instanceof cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity cooler) {
+            cooler.setMirrored(mirrored);
         }
 
         return validateBlocks(level, tailCasings, BlockState::is, NEBlocks.COMPUTATION_CASING);
