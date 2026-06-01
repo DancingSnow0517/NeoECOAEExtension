@@ -29,9 +29,14 @@ public final class NEMultiblockSceneRenderer {
     private static final int FULL_BRIGHT = LightTexture.FULL_BRIGHT;
     private static final Set<String> LOGGED_RENDER_FAILURES = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    private float yaw = -38.0F;
-    private float pitch = 28.0F;
-    private float zoom = 1.0F;
+    private static final float DEFAULT_YAW = -38.0F;
+    private static final float DEFAULT_PITCH = 28.0F;
+    private static final float DEFAULT_ZOOM = 0.90F;
+    private static final float FIT_PADDING = 0.68F;
+
+    private float yaw = DEFAULT_YAW;
+    private float pitch = DEFAULT_PITCH;
+    private float zoom = DEFAULT_ZOOM;
 
     public void render(GuiGraphics g, MultiblockPreviewScene scene, int x, int y, int width, int height, float partialTick) {
         render(g, scene, scene == null ? List.of() : scene.orderedPositions(), x, y, width, height, partialTick);
@@ -48,8 +53,8 @@ public final class NEMultiblockSceneRenderer {
             return;
         }
 
-        SceneBounds bounds = calculateBounds(scene, positions);
-        if (bounds.maxDimension() <= 0 || width <= 0 || height <= 0) {
+        SceneBounds cameraBounds = fullSceneBounds(scene);
+        if (cameraBounds.maxDimension() <= 0 || width <= 0 || height <= 0) {
             drawEmptyScene(g, x, y, width, height);
             return;
         }
@@ -68,12 +73,12 @@ public final class NEMultiblockSceneRenderer {
         PoseStack pose = g.pose();
         pose.pushPose();
         try {
-            float scale = calculateScale(bounds, width, height) * zoom;
-            pose.translate(x + width * 0.5F, y + height * 0.54F, 240.0F);
+            float scale = calculateScale(cameraBounds, width, height) * zoom;
+            pose.translate(x + width * 0.5F, y + height * 0.50F, 240.0F);
             pose.scale(scale, -scale, scale);
             pose.mulPose(Axis.XP.rotationDegrees(pitch));
             pose.mulPose(Axis.YP.rotationDegrees(yaw));
-            pose.translate(-bounds.centerX(), -bounds.centerY(), -bounds.centerZ());
+            pose.translate(-cameraBounds.centerX(), -cameraBounds.centerY(), -cameraBounds.centerZ());
 
             BlockRenderDispatcher dispatcher = minecraft.getBlockRenderer();
             MultiBufferSource.BufferSource buffer = minecraft.renderBuffers().bufferSource();
@@ -107,56 +112,61 @@ public final class NEMultiblockSceneRenderer {
         this.zoom = zoom;
     }
 
+    public void resetView() {
+        this.yaw = DEFAULT_YAW;
+        this.pitch = DEFAULT_PITCH;
+        this.zoom = DEFAULT_ZOOM;
+    }
+
     public void rotate(float yawDelta, float pitchDelta) {
         this.yaw += yawDelta;
         this.pitch = Math.max(-75.0F, Math.min(75.0F, this.pitch + pitchDelta));
     }
 
     private float calculateScale(SceneBounds bounds, int width, int height) {
-        float sizeX = Math.max(1.0F, bounds.sizeX());
-        float sizeY = Math.max(1.0F, bounds.sizeY());
-        float sizeZ = Math.max(1.0F, bounds.sizeZ());
-
+        float centerX = bounds.centerX();
+        float centerY = bounds.centerY();
+        float centerZ = bounds.centerZ();
         double yawRad = Math.toRadians(yaw);
         double pitchRad = Math.toRadians(pitch);
-        float projectedW = (float) (Math.abs(sizeX * Math.cos(yawRad)) + Math.abs(sizeZ * Math.sin(yawRad)));
-        float projectedD = (float) (Math.abs(sizeX * Math.sin(yawRad)) + Math.abs(sizeZ * Math.cos(yawRad)));
-        float horizontalExtent = Math.max(1.0F, projectedW + projectedD * 0.35F);
-        float verticalExtent = Math.max(1.0F, (float) (sizeY * Math.cos(pitchRad) + projectedD * Math.sin(Math.abs(pitchRad))));
+        double cosYaw = Math.cos(yawRad);
+        double sinYaw = Math.sin(yawRad);
+        double cosPitch = Math.cos(pitchRad);
+        double sinPitch = Math.sin(pitchRad);
 
-        float scaleX = width * 0.78F / horizontalExtent;
-        float scaleY = height * 0.78F / verticalExtent;
+        float minScreenX = Float.POSITIVE_INFINITY;
+        float maxScreenX = Float.NEGATIVE_INFINITY;
+        float minScreenY = Float.POSITIVE_INFINITY;
+        float maxScreenY = Float.NEGATIVE_INFINITY;
+
+        for (float cornerX : new float[]{bounds.minX(), bounds.maxX() + 1.0F}) {
+            for (float cornerY : new float[]{bounds.minY(), bounds.maxY() + 1.0F}) {
+                for (float cornerZ : new float[]{bounds.minZ(), bounds.maxZ() + 1.0F}) {
+                    float localX = cornerX - centerX;
+                    float localY = cornerY - centerY;
+                    float localZ = cornerZ - centerZ;
+
+                    float yawX = (float) (localX * cosYaw + localZ * sinYaw);
+                    float yawZ = (float) (-localX * sinYaw + localZ * cosYaw);
+                    float pitchY = (float) (localY * cosPitch - yawZ * sinPitch);
+
+                    minScreenX = Math.min(minScreenX, yawX);
+                    maxScreenX = Math.max(maxScreenX, yawX);
+                    minScreenY = Math.min(minScreenY, pitchY);
+                    maxScreenY = Math.max(maxScreenY, pitchY);
+                }
+            }
+        }
+
+        float projectedWidth = Math.max(1.0F, maxScreenX - minScreenX);
+        float projectedHeight = Math.max(1.0F, maxScreenY - minScreenY);
+        float scaleX = width * FIT_PADDING / projectedWidth;
+        float scaleY = height * FIT_PADDING / projectedHeight;
         return Math.min(scaleX, scaleY);
     }
 
-    private static SceneBounds calculateBounds(MultiblockPreviewScene scene, List<BlockPos> positions) {
-        if (positions.isEmpty()) {
-            return new SceneBounds(scene.minX(), scene.minY(), scene.minZ(), scene.maxX(), scene.maxY(), scene.maxZ());
-        }
-
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxY = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        Map<BlockPos, BlockState> blocks = scene.blocks();
-        for (BlockPos pos : positions) {
-            BlockState state = blocks.get(pos);
-            if (state == null || state.isAir() || state.getRenderShape() == RenderShape.INVISIBLE) {
-                continue;
-            }
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-            maxX = Math.max(maxX, pos.getX());
-            maxY = Math.max(maxY, pos.getY());
-            maxZ = Math.max(maxZ, pos.getZ());
-        }
-        if (minX == Integer.MAX_VALUE) {
-            return new SceneBounds(0, 0, 0, -1, -1, -1);
-        }
-        return new SceneBounds(minX, minY, minZ, maxX, maxY, maxZ);
+    private static SceneBounds fullSceneBounds(MultiblockPreviewScene scene) {
+        return new SceneBounds(scene.minX(), scene.minY(), scene.minZ(), scene.maxX(), scene.maxY(), scene.maxZ());
     }
 
     private static void renderBlock(

@@ -60,7 +60,6 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         this.id = createId(definition);
         this.expand = definition.getExpandMin();
         rebuildScene();
-        inputs.addAll(materialStacks);
         outputs.add(EmiStack.of(definition.getOwner().value()));
     }
 
@@ -123,6 +122,7 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         if (formed) {
             formed = false;
         }
+        renderer.resetView();
         rebuildScene();
     }
 
@@ -136,11 +136,13 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         if (formed) {
             formed = false;
         }
+        renderer.resetView();
         rebuildScene();
     }
 
     private void toggleFormed() {
         formed = !formed;
+        renderer.resetView();
         rebuildScene();
     }
 
@@ -199,12 +201,13 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         private static final int BUTTON_W = 42;
         private static final int BUTTON_H = 16;
         private static final int BUTTON_GAP = 4;
-        private static final int REQUIRED_TITLE_Y = 42;
-        private static final int SLOTS_Y = 55;
+        private static final int SCENE_Y = 42;
+        private static final int SCENE_PAD = 4;
+        private static final int MATERIAL_BLOCK_H = 35;
+        private static final int MATERIAL_TITLE_GAP = 4;
+        private static final int MATERIAL_SLOT_GAP = 13;
         private static final int PAGE_BUTTON_W = 14;
         private static final int PAGE_BUTTON_H = 12;
-        private static final int SCENE_Y = 80;
-        private static final int SCENE_PAD = 4;
 
         private final int width;
         private final int height;
@@ -238,9 +241,9 @@ public class MultiblockEmiRecipe implements EmiRecipe {
             drawButton(g, layerButtonX(), BUTTON_Y, BUTTON_W, BUTTON_H, layer < 0 ? "L:*" : "L:" + layer, mouseX, mouseY);
             drawButton(g, formedButtonX(), BUTTON_Y, BUTTON_W, BUTTON_H, formed ? "F:Y" : "F:N", mouseX, mouseY);
 
-            g.drawString(font, Component.literal("方块数量需求"), 4, REQUIRED_TITLE_Y, TEXT_COLOR, false);
-            renderMaterials(g, mouseX, mouseY, delta);
             renderScene(g, delta);
+            g.drawString(font, Component.literal("方块数量需求"), 4, materialTitleY(), TEXT_COLOR, false);
+            renderMaterials(g, mouseX, mouseY, delta);
         }
 
         @Override
@@ -276,6 +279,15 @@ public class MultiblockEmiRecipe implements EmiRecipe {
                 lastMouseY = mouseY;
                 return true;
             }
+            draggingScene = false;
+            return false;
+        }
+
+        public boolean mouseReleased(int mouseX, int mouseY, int button) {
+            if (button == 0 && draggingScene) {
+                draggingScene = false;
+                return true;
+            }
             return false;
         }
 
@@ -308,22 +320,23 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         }
 
         private void renderMaterials(GuiGraphics g, int mouseX, int mouseY, float delta) {
+            int slotsY = slotsY();
             int start = materialPage * MATERIAL_PAGE_SIZE;
             int count = Math.min(MATERIAL_PAGE_SIZE, Math.max(0, materialStacks.size() - start));
             int totalWidth = MATERIAL_PAGE_SIZE * SLOT_SIZE;
             int slotsX = materialSlotsX();
-            g.fill(slotsX - 2, SLOTS_Y - 2, slotsX + totalWidth + 2, SLOTS_Y + SLOT_SIZE + 2, 0x66808080);
+            g.fill(slotsX - 2, slotsY - 2, slotsX + totalWidth + 2, slotsY + SLOT_SIZE + 2, 0x66808080);
 
             for (int i = 0; i < MATERIAL_PAGE_SIZE; i++) {
                 int x = slotsX + i * SLOT_SIZE;
-                boolean hovered = contains(mouseX, mouseY, x, SLOTS_Y, SLOT_SIZE, SLOT_SIZE);
-                g.fill(x, SLOTS_Y, x + SLOT_SIZE, SLOTS_Y + SLOT_SIZE, hovered ? 0xFFFFFFFF : 0xFFE8E8E8);
-                g.fill(x, SLOTS_Y, x + SLOT_SIZE, SLOTS_Y + 1, 0xFF707070);
-                g.fill(x, SLOTS_Y + SLOT_SIZE - 1, x + SLOT_SIZE, SLOTS_Y + SLOT_SIZE, 0xFF707070);
-                g.fill(x, SLOTS_Y, x + 1, SLOTS_Y + SLOT_SIZE, 0xFF707070);
-                g.fill(x + SLOT_SIZE - 1, SLOTS_Y, x + SLOT_SIZE, SLOTS_Y + SLOT_SIZE, 0xFF707070);
+                boolean hovered = contains(mouseX, mouseY, x, slotsY, SLOT_SIZE, SLOT_SIZE);
+                g.fill(x, slotsY, x + SLOT_SIZE, slotsY + SLOT_SIZE, hovered ? 0xFFFFFFFF : 0xFFE8E8E8);
+                g.fill(x, slotsY, x + SLOT_SIZE, slotsY + 1, 0xFF707070);
+                g.fill(x, slotsY + SLOT_SIZE - 1, x + SLOT_SIZE, slotsY + SLOT_SIZE, 0xFF707070);
+                g.fill(x, slotsY, x + 1, slotsY + SLOT_SIZE, 0xFF707070);
+                g.fill(x + SLOT_SIZE - 1, slotsY, x + SLOT_SIZE, slotsY + SLOT_SIZE, 0xFF707070);
                 if (i < count) {
-                    materialStacks.get(start + i).render(g, x + 1, SLOTS_Y + 1, delta);
+                    materialStacks.get(start + i).render(g, x + 1, slotsY + 1, delta);
                 }
             }
 
@@ -332,7 +345,7 @@ public class MultiblockEmiRecipe implements EmiRecipe {
                 drawButton(g, rightPageButtonX(), pageButtonY(), PAGE_BUTTON_W, PAGE_BUTTON_H, ">", mouseX, mouseY);
                 String page = (materialPage + 1) + "/" + materialPages();
                 Font font = Minecraft.getInstance().font;
-                g.drawString(font, page, leftPageButtonX() - 4 - font.width(page), REQUIRED_TITLE_Y, TEXT_COLOR, false);
+                g.drawString(font, page, leftPageButtonX() - 4 - font.width(page), materialTitleY(), TEXT_COLOR, false);
             }
         }
 
@@ -354,7 +367,7 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         }
 
         private int hoveredMaterial(int mouseX, int mouseY) {
-            if (!contains(mouseX, mouseY, materialSlotsX(), SLOTS_Y, MATERIAL_PAGE_SIZE * SLOT_SIZE, SLOT_SIZE)) {
+            if (!contains(mouseX, mouseY, materialSlotsX(), slotsY(), MATERIAL_PAGE_SIZE * SLOT_SIZE, SLOT_SIZE)) {
                 return -1;
             }
             int slot = (mouseX - materialSlotsX()) / SLOT_SIZE;
@@ -387,7 +400,7 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         }
 
         private int pageButtonY() {
-            return REQUIRED_TITLE_Y - 2;
+            return materialTitleY() - 2;
         }
 
         private int sceneX() {
@@ -403,7 +416,15 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         }
 
         private int sceneH() {
-            return Math.max(54, height - SCENE_Y - SCENE_PAD);
+            return Math.max(54, height - sceneY() - 4 - MATERIAL_BLOCK_H);
+        }
+
+        private int materialTitleY() {
+            return sceneY() + sceneH() + MATERIAL_TITLE_GAP;
+        }
+
+        private int slotsY() {
+            return materialTitleY() + MATERIAL_SLOT_GAP;
         }
 
         private void drawButton(GuiGraphics g, int x, int y, int w, int h, String text, int mouseX, int mouseY) {
