@@ -84,6 +84,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.structure_terminal.target.crafting.tooltip", "Crafting Subsystem");
         provider.add("gui.neoecoae.structure_terminal.target.storage.tooltip", "Storage Subsystem");
         provider.add("gui.neoecoae.structure_terminal.target.computation.tooltip", "Computation Subsystem");
+        provider.add("gui.neoecoae.structure_terminal.mode.build", "Build");
+        provider.add("gui.neoecoae.structure_terminal.mode.mirrored_build", "Mirror");
+        provider.add("gui.neoecoae.structure_terminal.mode.dismantle", "Dismantle");
+        provider.add("gui.neoecoae.structure_terminal.mode.build.tooltip", "Build normal structure");
+        provider.add("gui.neoecoae.structure_terminal.mode.mirrored_build.tooltip", "Build mirrored structure");
+        provider.add("gui.neoecoae.structure_terminal.mode.dismantle.tooltip", "Dismantle current structure");
         provider.add("gui.neoecoae.multiblock.status.idle", "Idle");
         provider.add("gui.neoecoae.multiblock.status.length_updated", "Length updated");
         provider.add("gui.neoecoae.multiblock.status.controller_formed", "Controller already formed");
@@ -98,6 +104,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.status.build_interrupted", "Build interrupted");
         provider.add("gui.neoecoae.multiblock.status.builder_unavailable", "Builder unavailable");
         provider.add("gui.neoecoae.multiblock.status.build_failed", "Build failed");
+        provider.add("gui.neoecoae.multiblock.status.dismantled", "Dismantled");
+        provider.add("gui.neoecoae.multiblock.status.dismantle_failed", "Dismantle failed");
         provider.add("gui.neoecoae.multiblock.status.building", "Building %d/%d");
         provider.add("gui.neoecoae.relative_side.front", "Front");
         provider.add("gui.neoecoae.relative_side.back", "Back");

@@ -269,14 +269,24 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     @Override
     public void previewStructure(ServerPlayer player, int displayLength) {
+        previewStructure(player, displayLength, false);
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int displayLength, boolean mirrored) {
         setSelectedBuildLength(displayLength);
-        previewStructure((Player) player);
+        previewStructure((Player) player, mirrored);
     }
 
     @Override
     public void autoBuild(ServerPlayer player, int displayLength) {
+        autoBuild(player, displayLength, false);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int displayLength, boolean mirrored) {
         setSelectedBuildLength(displayLength);
-        autoBuild((Player) player);
+        autoBuild((Player) player, mirrored);
     }
 
     @Deprecated
@@ -286,6 +296,18 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Deprecated
     @Override
     public void autoBuild(ServerPlayer player) { autoBuild((Player) player); }
+
+    @Override
+    public void dismantle(ServerPlayer player) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        player.closeContainer();
+        boolean dismantled = MultiBlockPlacementService.dismantle(serverLevel, this, player);
+        syncPreview(0, 0, 0, 0, dismantled
+            ? "gui.neoecoae.multiblock.status.dismantled"
+            : "gui.neoecoae.multiblock.status.dismantle_failed");
+    }
 
     // ── Legacy public accessors ──
 
@@ -336,6 +358,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public void previewStructure(Player player) {
+        previewStructure(player, false);
+    }
+
+    public void previewStructure(Player player, boolean mirrored) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -358,7 +384,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             worldPosition,
             getBlockState(),
             definition,
-            selectedBuildLength
+            selectedBuildLength,
+            mirrored
         );
         boolean hasMaterials = player instanceof ServerPlayer serverPlayer
             && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
@@ -377,6 +404,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public void autoBuild(Player player) {
+        autoBuild(player, false);
+    }
+
+    public void autoBuild(Player player, boolean mirrored) {
         if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
@@ -400,7 +431,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             worldPosition,
             getBlockState(),
             definition,
-            selectedBuildLength
+            selectedBuildLength,
+            mirrored
         );
         if (!plan.getConflictPositions().isEmpty()) {
             syncPreview(

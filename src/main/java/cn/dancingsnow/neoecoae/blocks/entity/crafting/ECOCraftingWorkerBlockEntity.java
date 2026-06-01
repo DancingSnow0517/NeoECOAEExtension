@@ -110,25 +110,15 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean isBusy() {
-        if (cluster != null && cluster.getController() != null) {
-            ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
-                return true;
-            }
-            for (ECOCraftingThread craftingThread : craftingThreads) {
-                if (craftingThread.isFree()) {
-                    return false;
-                }
-            }
-            if (craftingThreads.size() < controller.getThreadCountPerWorker()) {
-                ECOCraftingThread thread = new ECOCraftingThread(this);
-                craftingThreads.add(thread);
-                setChanged();
-                markForUpdate();
-                return false;
-            }
+        return getAvailableThreadSlots() <= 0;
+    }
+
+    public int getAvailableThreadSlots() {
+        if (cluster == null || cluster.getController() == null) {
+            return 0;
         }
-        return true;
+        ECOCraftingSystemBlockEntity controller = cluster.getController();
+        return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
     }
 
     public void onThreadWork() {

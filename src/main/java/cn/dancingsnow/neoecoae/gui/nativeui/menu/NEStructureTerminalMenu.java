@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMaterialRequirements;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
@@ -29,6 +30,7 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
     private int minLength = StructureTerminalItem.MIN_BUILD_LENGTH;
     private int maxLength = 1;
     private StructureTerminalHostType hostType = StructureTerminalHostType.DEFAULT;
+    private StructureTerminalMode operationMode = StructureTerminalMode.BUILD;
     private java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materials = java.util.List.of();
 
     public NEStructureTerminalMenu(int containerId, Inventory playerInv, InteractionHand hand) {
@@ -36,6 +38,7 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
         this.hand = hand;
         ItemStack stack = playerInv.player.getItemInHand(hand);
         this.hostType = StructureTerminalItem.getHostType(stack);
+        this.operationMode = StructureTerminalItem.getOperationMode(stack);
         this.maxLength = StructureTerminalItem.getMaxBuildLength(stack);
         this.buildLength = StructureTerminalItem.getBuildLength(stack);
         if (!playerInv.player.level().isClientSide() && playerInv.player instanceof ServerPlayer serverPlayer) {
@@ -67,6 +70,10 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
         return hostType;
     }
 
+    public StructureTerminalMode getOperationMode() {
+        return operationMode;
+    }
+
     public java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> getMaterials() {
         return materials;
     }
@@ -76,12 +83,14 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
         int minLength,
         int maxLength,
         StructureTerminalHostType hostType,
+        StructureTerminalMode operationMode,
         java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materials
     ) {
         this.buildLength = length;
         this.minLength = minLength;
         this.maxLength = maxLength;
         this.hostType = hostType;
+        this.operationMode = operationMode;
         this.materials = java.util.List.copyOf(materials);
     }
 
@@ -117,6 +126,7 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
         int min = StructureTerminalItem.MIN_BUILD_LENGTH;
         int max = stack != null ? StructureTerminalItem.getMaxBuildLength(stack) : StructureTerminalItem.getGlobalMaxBuildLength();
         StructureTerminalHostType target = stack != null ? StructureTerminalItem.getHostType(stack) : StructureTerminalHostType.DEFAULT;
+        StructureTerminalMode mode = stack != null ? StructureTerminalItem.getOperationMode(stack) : StructureTerminalMode.BUILD;
         int tier = stack != null ? StructureTerminalItem.getHostTier(stack) : StructureTerminalHostType.DEFAULT_TIER;
         java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materialEntries = stack != null
             ? StructureTerminalMaterialRequirements.collect(player, target, tier, length)
@@ -125,10 +135,11 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
         this.minLength = min;
         this.maxLength = max;
         this.hostType = target;
+        this.operationMode = mode;
         this.materials = materialEntries;
         cn.dancingsnow.neoecoae.network.NENetwork.CHANNEL.send(
             net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-            new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(length, min, max, target, materialEntries)
+            new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(length, min, max, target, mode, materialEntries)
         );
     }
 }

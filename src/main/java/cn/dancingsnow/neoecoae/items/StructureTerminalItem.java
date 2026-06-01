@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -43,6 +44,7 @@ public class StructureTerminalItem extends Item {
     public static final String TAG_BUILD_LENGTH = "BuildLength";
     public static final String TAG_HOST_TYPE = "HostType";
     public static final String TAG_HOST_TIER = "HostTier";
+    public static final String TAG_OPERATION_MODE = "OperationMode";
     public static final int DEFAULT_BUILD_LENGTH = 1;
     public static final int MIN_BUILD_LENGTH = 1;
 
@@ -108,6 +110,18 @@ public class StructureTerminalItem extends Item {
         tag.putString(TAG_HOST_TYPE, hostType.name());
         tag.putInt(TAG_HOST_TIER, StructureTerminalHostType.clampTier(tier));
         setBuildLength(stack, getBuildLength(stack));
+    }
+
+    public static StructureTerminalMode getOperationMode(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(TAG_OPERATION_MODE)) {
+            return StructureTerminalMode.BUILD;
+        }
+        return StructureTerminalMode.fromName(tag.getString(TAG_OPERATION_MODE));
+    }
+
+    public static void setOperationMode(ItemStack stack, StructureTerminalMode mode) {
+        stack.getOrCreateTag().putString(TAG_OPERATION_MODE, mode.name());
     }
 
     private static void setHostTarget(ItemStack stack, INEMultiblockBuildHost host) {
@@ -193,7 +207,11 @@ public class StructureTerminalItem extends Item {
         setHostTarget(stack, host);
         int requestedLength = StructureTerminalItem.getBuildLength(stack, host.getMaxBuildLength());
         ServerPlayer serverPlayer = (ServerPlayer) player;
-        host.autoBuild(serverPlayer, requestedLength);
+        switch (StructureTerminalItem.getOperationMode(stack)) {
+            case BUILD -> host.autoBuild(serverPlayer, requestedLength, false);
+            case MIRRORED_BUILD -> host.autoBuild(serverPlayer, requestedLength, true);
+            case DISMANTLE -> host.dismantle(serverPlayer);
+        }
 
         return InteractionResult.CONSUME;
     }

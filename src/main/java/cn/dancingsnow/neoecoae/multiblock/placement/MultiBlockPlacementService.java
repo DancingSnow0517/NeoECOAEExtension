@@ -1,13 +1,19 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
+import appeng.blockentity.AEBaseBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.Containers;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
@@ -37,6 +43,17 @@ public final class MultiBlockPlacementService {
         MultiBlockDefinition definition,
         int repeats
     ) {
+        return preview(level, controllerPos, controllerState, definition, repeats, false);
+    }
+
+    public static MultiBlockPlacementPlan preview(
+        ServerLevel level,
+        BlockPos controllerPos,
+        BlockState controllerState,
+        MultiBlockDefinition definition,
+        int repeats,
+        boolean mirrored
+    ) {
         Direction facing = controllerState.getOptionalValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING)
             .orElse(Direction.NORTH);
         MultiBlockPlanContext context = new MultiBlockPlanContext(repeats);
@@ -52,8 +69,8 @@ public final class MultiBlockPlacementService {
             if (plannedBlock.relativePos().equals(MultiBlockRotation.CONTROLLER_ANCHOR)) {
                 continue;
             }
-            BlockPos worldPos = MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing);
-            BlockState targetState = MultiBlockRotation.rotateState(plannedBlock.targetState(), facing);
+            BlockPos worldPos = MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing, mirrored);
+            BlockState targetState = MultiBlockRotation.rotateState(plannedBlock.targetState(), facing, mirrored);
             WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy());
             allBlocks.add(worldBlock);
 
@@ -71,6 +88,46 @@ public final class MultiBlockPlacementService {
         }
 
         return new MultiBlockPlacementPlan(allBlocks, missingBlocks, conflictPositions, requiredItems, reusedBlockCount);
+    }
+
+    public static boolean dismantle(ServerLevel level, INEMultiblockBuildHost host, ServerPlayer player) {
+        if (!(host instanceof NEBlockEntity<?, ?> hostBlockEntity) || hostBlockEntity.getCluster() == null) {
+            return false;
+        }
+
+        List<BlockPos> positions = new ArrayList<>();
+        var iterator = hostBlockEntity.getCluster().getBlockEntities();
+        while (iterator.hasNext()) {
+            positions.add(iterator.next().getBlockPos());
+        }
+        if (positions.isEmpty()) {
+            return false;
+        }
+
+        BlockPos hostPos = host.getHostPos();
+        hostBlockEntity.breakCluster();
+        boolean removedAny = false;
+        for (BlockPos pos : positions) {
+            if (pos.equals(hostPos)) {
+                continue;
+            }
+            BlockState state = level.getBlockState(pos);
+            if (state.isAir()) {
+                continue;
+            }
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            List<ItemStack> drops = new ArrayList<>(Block.getDrops(state, level, pos, blockEntity, player, ItemStack.EMPTY));
+            if (blockEntity instanceof AEBaseBlockEntity aeBlockEntity) {
+                aeBlockEntity.addAdditionalDrops(level, pos, drops);
+            }
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            for (ItemStack drop : drops) {
+                giveOrDrop(level, player, drop);
+            }
+            removedAny = true;
+        }
+        hostBlockEntity.rebuildMultiblock();
+        return removedAny;
     }
 
     public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan) {
@@ -227,6 +284,16 @@ public final class MultiBlockPlacementService {
             }
         }
         requiredItems.add(toAdd.copy());
+    }
+
+    private static void giveOrDrop(ServerLevel level, ServerPlayer player, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return;
+        }
+        ItemStack toGive = stack.copy();
+        if (!player.getInventory().add(toGive)) {
+            Containers.dropItemStack(level, player.getX(), player.getY(), player.getZ(), toGive);
+        }
     }
 
     private static int nextPlacementDelay(ServerLevel level) {

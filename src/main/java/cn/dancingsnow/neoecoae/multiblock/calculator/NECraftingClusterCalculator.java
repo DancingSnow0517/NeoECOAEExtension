@@ -43,6 +43,10 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
+        return verifyInternalStructure(level, min, max, false) || verifyInternalStructure(level, min, max, true);
+    }
+
+    private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
         ECOCraftingSystemBlockEntity controller = null;
         BlockPos controllerPos = null;
         for (BlockPos pos : MultiBlockUtil.allPossibleController(min, max)) {
@@ -65,6 +69,11 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         Direction down = top.getOpposite();
         Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
         Direction right = left.getOpposite();
+        if (mirrored) {
+            Direction tmp = left;
+            left = right;
+            right = tmp;
+        }
         logVerifyContext(level, min, max, controllerPos, controllerState, front, back, left, right, top, down);
         if (!validateCasing(level, controllerPos, top, down, left)) {
             logCasingColumn(level, min, max, "controller left casing", controllerPos.relative(left), top, down);
@@ -170,6 +179,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         }
         BlockPos lowerPatternBusEnd = lowerPatternBusEndResult.getOrThrow(false, ignored -> {});
 
+        Direction endCasingDirection = right;
         List<BlockPos> endCasing = Stream.of(
             workerEnd,
             upperParallelCoreEnd,
@@ -177,7 +187,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
             upperPatternBusEnd,
             lowerPatternBusEnd,
             ventEnd
-        ).map(it -> it.relative(right)).toList();
+        ).map(it -> it.relative(endCasingDirection)).toList();
 
         if (!ensureSameSurface(endCasing)) {
             for (BlockPos endCasingPos : endCasing) {

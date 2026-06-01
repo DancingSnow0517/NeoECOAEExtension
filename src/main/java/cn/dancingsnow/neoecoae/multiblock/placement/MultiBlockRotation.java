@@ -18,17 +18,44 @@ public final class MultiBlockRotation {
         return controllerPos.offset(rotated);
     }
 
+    public static BlockPos localToWorld(BlockPos localPos, BlockPos controllerPos, Direction facing, boolean mirrored) {
+        BlockPos offset = localPos.subtract(CONTROLLER_ANCHOR);
+        if (mirrored) {
+            offset = new BlockPos(-offset.getX(), offset.getY(), offset.getZ());
+        }
+        BlockPos rotated = rotateOffset(offset, facing);
+        return controllerPos.offset(rotated);
+    }
+
     public static BlockState rotateState(BlockState state, Direction facing) {
+        return rotateState(state, facing, false);
+    }
+
+    public static BlockState rotateState(BlockState state, Direction facing, boolean mirrored) {
+        BlockState source = mirrored ? mirrorState(state) : state;
         BlockState rotated = state;
-        for (Property<?> property : state.getProperties()) {
+        for (Property<?> property : source.getProperties()) {
             if (property instanceof DirectionProperty directionProperty) {
-                Direction direction = state.getValue(directionProperty);
+                Direction direction = source.getValue(directionProperty);
                 if (direction.getAxis().isHorizontal()) {
                     rotated = rotated.setValue(directionProperty, rotateHorizontal(direction, facing));
                 }
             }
         }
         return rotated;
+    }
+
+    private static BlockState mirrorState(BlockState state) {
+        BlockState mirrored = state;
+        for (Property<?> property : state.getProperties()) {
+            if (property instanceof DirectionProperty directionProperty) {
+                Direction direction = state.getValue(directionProperty);
+                if (direction.getAxis() == Direction.Axis.X) {
+                    mirrored = mirrored.setValue(directionProperty, direction.getOpposite());
+                }
+            }
+        }
+        return mirrored;
     }
 
     private static BlockPos rotateOffset(BlockPos offset, Direction facing) {

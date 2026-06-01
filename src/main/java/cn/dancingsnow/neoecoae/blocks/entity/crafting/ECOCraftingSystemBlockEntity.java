@@ -460,14 +460,36 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public void previewStructure(ServerPlayer player, int buildLength) {
+        previewStructure(player, buildLength, false);
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int buildLength, boolean mirrored) {
         setSelectedBuildLength(buildLength);
-        previewStructure(player);
+        previewStructure(player, mirrored);
     }
 
     @Override
     public void autoBuild(ServerPlayer player, int buildLength) {
+        autoBuild(player, buildLength, false);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int buildLength, boolean mirrored) {
         setSelectedBuildLength(buildLength);
-        autoBuild(player);
+        autoBuild(player, mirrored);
+    }
+
+    @Override
+    public void dismantle(ServerPlayer player) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        player.closeContainer();
+        boolean dismantled = MultiBlockPlacementService.dismantle(serverLevel, this, player);
+        syncPreview(0, 0, 0, 0, dismantled
+            ? "gui.neoecoae.multiblock.status.dismantled"
+            : "gui.neoecoae.multiblock.status.dismantle_failed");
     }
 
     public int getPreviewMissingBlocks() {
@@ -694,6 +716,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public void previewStructure(ServerPlayer player) {
+        previewStructure(player, false);
+    }
+
+    public void previewStructure(ServerPlayer player, boolean mirrored) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -711,7 +737,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         setSelectedBuildLength(selectedBuildLength);
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrored);
         boolean hasMaterials = MultiBlockPlacementService.hasRequiredItems(player, plan.getRequiredItems());
         String statusKey = plan.getConflictPositions().isEmpty()
             ? (plan.getMissingBlocks().isEmpty() ? "gui.neoecoae.multiblock.status.structure_ready" : (hasMaterials ? "gui.neoecoae.multiblock.status.ready_to_build" : "gui.neoecoae.multiblock.status.not_enough_items"))
@@ -721,6 +747,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public void autoBuild(ServerPlayer serverPlayer) {
+        autoBuild(serverPlayer, false);
+    }
+
+    public void autoBuild(ServerPlayer serverPlayer, boolean mirrored) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -739,7 +769,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         selectedBuildLength = net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrored);
         if (!plan.getConflictPositions().isEmpty()) {
             syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.conflicts_detected");
             return;

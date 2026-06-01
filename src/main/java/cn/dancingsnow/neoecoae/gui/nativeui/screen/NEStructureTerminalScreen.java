@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -63,6 +64,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private int minLength = 1;
     private int maxLength = 12;
     private StructureTerminalHostType selectedTarget;
+    private StructureTerminalMode selectedMode;
     private List<NEStructureTerminalUiState.BuildMaterialEntry> materials;
     private int materialScrollOffset;
     /**
@@ -79,6 +81,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         this.minLength = menu.getMinLength();
         this.maxLength = menu.getMaxLength();
         this.selectedTarget = menu.getHostType();
+        this.selectedMode = menu.getOperationMode();
         this.materials = menu.getMaterials();
     }
 
@@ -93,15 +96,17 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
             int min,
             int max,
             StructureTerminalHostType target,
+            StructureTerminalMode mode,
             List<NEStructureTerminalUiState.BuildMaterialEntry> materials) {
         boolean resetScroll = target != selectedTarget || this.materials.size() != materials.size();
         this.displayBuildLength = length;
         this.minLength = min;
         this.maxLength = max;
         this.selectedTarget = target;
+        this.selectedMode = mode;
         this.hasActiveTarget = target != null;
         this.materials = List.copyOf(materials);
-        this.menu.setClientConfig(length, min, max, target, materials);
+        this.menu.setClientConfig(length, min, max, target, mode, materials);
         if (resetScroll) {
             this.materialScrollOffset = 0;
         } else {
@@ -121,7 +126,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int smallW = 22;
         int valueW = 35;
         int leftGroupW = smallW + valueW + smallW; // 79
-        int innerX = leftPos + CONTROL_X + (CONTROL_W - leftGroupW) / 2;
+        int innerX = leftPos + CONTROL_X + 4;
 
         int row0Y = innerY;
         int row1Y = row0Y + buttonH + rowGap;
@@ -144,6 +149,19 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
+        addModeButton(StructureTerminalMode.BUILD, 0,
+                Component.translatable("gui.neoecoae.structure_terminal.mode.build"),
+                Component.translatable("gui.neoecoae.structure_terminal.mode.build.tooltip"),
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_BUILD_MODE);
+        addModeButton(StructureTerminalMode.MIRRORED_BUILD, 1,
+                Component.translatable("gui.neoecoae.structure_terminal.mode.mirrored_build"),
+                Component.translatable("gui.neoecoae.structure_terminal.mode.mirrored_build.tooltip"),
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_MIRRORED_BUILD_MODE);
+        addModeButton(StructureTerminalMode.DISMANTLE, 2,
+                Component.translatable("gui.neoecoae.structure_terminal.mode.dismantle"),
+                Component.translatable("gui.neoecoae.structure_terminal.mode.dismantle.tooltip"),
+                NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_DISMANTLE_MODE);
+
         addTargetButton(StructureTerminalHostType.CRAFTING, 0,
                 Component.translatable("gui.neoecoae.structure_terminal.target.crafting"),
                 Component.translatable("gui.neoecoae.structure_terminal.target.crafting.tooltip"),
@@ -156,6 +174,24 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
                 Component.translatable("gui.neoecoae.structure_terminal.target.computation"),
                 Component.translatable("gui.neoecoae.structure_terminal.target.computation.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_COMPUTATION);
+    }
+
+    private void addModeButton(StructureTerminalMode mode, int index, Component label, Component tooltip,
+            NENetwork.NEStructureTerminalConfigActionPacket.Action action) {
+        int buttonW = 34;
+        int buttonH = 15;
+        int gap = 2;
+        int x = leftPos + CONTROL_X + CONTROL_W - buttonW - 5;
+        int y = topPos + CONTROL_Y + 24 + index * (buttonH + gap);
+        NEToggleTextButton button = new NEToggleTextButton(x, y, buttonW, buttonH,
+                label,
+                () -> selectedMode == mode,
+                btn -> {
+                    this.selectedMode = mode;
+                    NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(action));
+                });
+        button.setTooltip(Tooltip.create(tooltip));
+        addRenderableWidget(button);
     }
 
     private void addTargetButton(StructureTerminalHostType target, int index, Component label, Component tooltip,
@@ -216,7 +252,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int cValueW = 35;
         int cGroupW = cSmallW + cValueW + cSmallW;
 
-        int cInnerX = CONTROL_X + (CONTROL_W - cGroupW) / 2;
+        int cInnerX = CONTROL_X + 4;
         int cInnerY = CONTROL_Y + 24;
         int cRow1Y = cInnerY + cButtonH + cRowGap;
 

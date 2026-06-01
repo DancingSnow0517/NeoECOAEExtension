@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
+import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -602,6 +603,7 @@ public final class NENetwork {
         int minLength,
         int maxLength,
         StructureTerminalHostType hostType,
+        StructureTerminalMode operationMode,
         List<NEStructureTerminalUiState.BuildMaterialEntry> materials
     ) {
 
@@ -610,6 +612,7 @@ public final class NENetwork {
             buf.writeInt(pkt.minLength());
             buf.writeInt(pkt.maxLength());
             buf.writeEnum(pkt.hostType());
+            buf.writeEnum(pkt.operationMode());
             buf.writeVarInt(Math.min(pkt.materials().size(), MAX_STRUCTURE_TERMINAL_MATERIALS));
             int written = 0;
             for (var mat : pkt.materials()) {
@@ -627,6 +630,7 @@ public final class NENetwork {
             int minLength = buf.readInt();
             int maxLength = buf.readInt();
             StructureTerminalHostType hostType = buf.readEnum(StructureTerminalHostType.class);
+            StructureTerminalMode operationMode = buf.readEnum(StructureTerminalMode.class);
             int matCount = buf.readVarInt();
             if (matCount > MAX_STRUCTURE_TERMINAL_MATERIALS) {
                 throw new IllegalArgumentException("Structure Terminal config material count exceeds protocol limit: " + matCount);
@@ -636,7 +640,7 @@ public final class NENetwork {
                 mats.add(new NEStructureTerminalUiState.BuildMaterialEntry(
                     buf.readItem(), buf.readInt(), buf.readInt()));
             }
-            return new NEStructureTerminalConfigPacket(currentLength, minLength, maxLength, hostType, mats);
+            return new NEStructureTerminalConfigPacket(currentLength, minLength, maxLength, hostType, operationMode, mats);
         }
 
         public static void handle(NEStructureTerminalConfigPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
@@ -660,7 +664,10 @@ public final class NENetwork {
             RESET,
             SELECT_CRAFTING,
             SELECT_STORAGE,
-            SELECT_COMPUTATION
+            SELECT_COMPUTATION,
+            SELECT_BUILD_MODE,
+            SELECT_MIRRORED_BUILD_MODE,
+            SELECT_DISMANTLE_MODE
         }
 
         public static void encode(NEStructureTerminalConfigActionPacket pkt, FriendlyByteBuf buf) {
@@ -695,6 +702,9 @@ public final class NENetwork {
                     case SELECT_CRAFTING -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.CRAFTING);
                     case SELECT_STORAGE -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.STORAGE);
                     case SELECT_COMPUTATION -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.COMPUTATION);
+                    case SELECT_BUILD_MODE -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.BUILD);
+                    case SELECT_MIRRORED_BUILD_MODE -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.MIRRORED_BUILD);
+                    case SELECT_DISMANTLE_MODE -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.DISMANTLE);
                     default -> {
                         int newLength = switch (pkt.action()) {
                             case INCREASE -> current + 1;

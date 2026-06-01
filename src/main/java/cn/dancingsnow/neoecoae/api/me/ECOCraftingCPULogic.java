@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.api.me;
 
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -38,8 +40,10 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 
 public class ECOCraftingCPULogic {
+    private static final int ECO_PROVIDER_PUSH_BURST_LIMIT = 256;
 
     final ECOCraftingCPU cpu;
 
@@ -150,7 +154,7 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        var remainingOperations = cpu.getCoProcessors() + 1;
+        var remainingOperations = getOperationLimit(cc);
 
         if (remainingOperations > 0) {
             do {
@@ -163,6 +167,36 @@ public class ECOCraftingCPULogic {
                 }
             } while (remainingOperations > 0);
         }
+    }
+
+    private int getOperationLimit(CraftingService craftingService) {
+        int baseLimit = Math.max(1, cpu.getCoProcessors() + 1);
+        if (job == null) {
+            return baseLimit;
+        }
+
+        int ecoSlots = 0;
+        Set<ECOCraftingSystemBlockEntity> countedControllers =
+                Collections.newSetFromMap(new IdentityHashMap<>());
+        for (var task : job.tasks.entrySet()) {
+            if (task.getValue().value <= 0) {
+                continue;
+            }
+            for (var provider : craftingService.getProviders(task.getKey())) {
+                if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)) {
+                    continue;
+                }
+                ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+                if (controller != null && countedControllers.add(controller)) {
+                    ecoSlots += patternBus.getAvailableThreadSlots();
+                    if (ecoSlots >= ECO_PROVIDER_PUSH_BURST_LIMIT) {
+                        return Math.max(baseLimit, ECO_PROVIDER_PUSH_BURST_LIMIT);
+                    }
+                }
+            }
+        }
+
+        return Math.max(baseLimit, Math.min(ecoSlots, ECO_PROVIDER_PUSH_BURST_LIMIT));
     }
 
     /**

@@ -40,7 +40,10 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
+        return verifyInternalStructure(level, min, max, false) || verifyInternalStructure(level, min, max, true);
+    }
 
+    private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
         ECOStorageSystemBlockEntity controller = null;
         BlockPos controllerPos = null;
         for (BlockPos pos : MultiBlockUtil.allPossibleController(min, max)) {
@@ -63,6 +66,11 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         Direction down = top.getOpposite();
         Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
         Direction right = left.getOpposite();
+        if (mirrored) {
+            Direction tmp = left;
+            left = right;
+            right = tmp;
+        }
         logVerifyContext(level, min, max, controllerPos, controllerState, front, back, left, right, top, down);
 
         if (!validateCasing(level, controllerPos, top, down, left)) {

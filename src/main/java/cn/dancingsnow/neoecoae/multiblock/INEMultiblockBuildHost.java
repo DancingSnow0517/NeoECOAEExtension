@@ -72,11 +72,22 @@ public interface INEMultiblockBuildHost {
      */
     void previewStructure(ServerPlayer player, int buildLength);
 
+    default void previewStructure(ServerPlayer player, int buildLength, boolean mirrored) {
+        previewStructure(player, buildLength);
+    }
+
     /**
      * Executes auto-build using the given build length.
      * This is called server-side only.
      */
     void autoBuild(ServerPlayer player, int buildLength);
+
+    default void autoBuild(ServerPlayer player, int buildLength, boolean mirrored) {
+        autoBuild(player, buildLength);
+    }
+
+    default void dismantle(ServerPlayer player) {
+    }
 
     // ── Deprecated (kept for backward compat) ──
 
