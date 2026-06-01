@@ -2,7 +2,9 @@ package cn.dancingsnow.neoecoae.compat.emi;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import dev.emi.emi.api.EmiEntrypoint;
@@ -11,9 +13,6 @@ import dev.emi.emi.api.EmiRegistry;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.fml.ModList;
-
-import java.lang.reflect.InvocationTargetException;
 
 @EmiEntrypoint
 public class NeoECOAEEmiPlugin implements EmiPlugin {
@@ -32,10 +31,6 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
     @Override
     public void register(EmiRegistry registry) {
-        if (hasLDLib1()) {
-            invokeLDLib(registry);
-        }
-
         registry.addCategory(INTEGRATED_WORKING_STATION);
         registry.addWorkstation(INTEGRATED_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
 
@@ -43,6 +38,20 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L4));
         registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L6));
         registry.addWorkstation(COOLING, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
+
+        registry.addCategory(MULTIBLOCK);
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.STORAGE_SYSTEM_L4));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.STORAGE_SYSTEM_L6));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.STORAGE_SYSTEM_L9));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L4));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L6));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.COMPUTATION_SYSTEM_L4));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.COMPUTATION_SYSTEM_L6));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.COMPUTATION_SYSTEM_L9));
+        for (MultiBlockDefinition definition : NEMultiBlocks.DEFINITIONS) {
+            registry.addRecipe(new MultiblockEmiRecipe(definition));
+        }
 
         var mc = Minecraft.getInstance();
         if (mc.level == null) {
@@ -56,21 +65,6 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
         for (CoolingRecipe recipe : mc.level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
             registry.addRecipe(new CoolingEmiRecipe(recipe));
-        }
-    }
-
-    private static boolean hasLDLib1() {
-        return ModList.get().isLoaded("ldlib");
-    }
-
-    private static void invokeLDLib(EmiRegistry registry) {
-        try {
-            Class<?> bridge = Class.forName("cn.dancingsnow.neoecoae.compat.ldlib.LDLibEmiIntegration");
-            bridge.getMethod("registerMultiblocks", EmiRegistry.class).invoke(null, registry);
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
-            throw new IllegalStateException("Failed to initialize LDLib1 EMI multiblock integration", e);
-        } catch (InvocationTargetException e) {
-            throw new IllegalStateException("LDLib1 EMI multiblock integration failed", e.getCause());
         }
     }
 }
