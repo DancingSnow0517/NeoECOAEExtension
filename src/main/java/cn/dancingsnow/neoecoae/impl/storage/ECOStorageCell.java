@@ -227,12 +227,6 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     protected void saveChanges() {
-        this.storedItems = (short) this.storedAmounts.size();
-        this.storedItemCount = 0;
-        for (var storedAmount : this.storedAmounts.values()) {
-            this.storedItemCount += storedAmount;
-        }
-
         this.isPersisted = false;
         if (this.container == null) {
             this.persist();
@@ -302,7 +296,12 @@ public class ECOStorageCell implements IECOStorageCell {
         }
 
         if (mode == Actionable.MODULATE) {
-            getCellItems().put(what, currentAmount + amount);
+            long newAmount = currentAmount + amount;
+            getCellItems().put(what, newAmount);
+            if (currentAmount <= 0) {
+                storedItems++;
+            }
+            storedItemCount = saturatedAdd(storedItemCount, amount);
             this.saveChanges();
         }
 
@@ -316,6 +315,8 @@ public class ECOStorageCell implements IECOStorageCell {
             if (amount >= currentAmount) {
                 if (mode == Actionable.MODULATE) {
                     getCellItems().remove(what, currentAmount);
+                    storedItems = Math.max(0, storedItems - 1);
+                    storedItemCount = Math.max(0, storedItemCount - currentAmount);
                     this.saveChanges();
                 }
 
@@ -323,6 +324,7 @@ public class ECOStorageCell implements IECOStorageCell {
             } else {
                 if (mode == Actionable.MODULATE) {
                     getCellItems().put(what, currentAmount - amount);
+                    storedItemCount = Math.max(0, storedItemCount - amount);
                     this.saveChanges();
                 }
 
@@ -368,5 +370,10 @@ public class ECOStorageCell implements IECOStorageCell {
 
     public ConfigInventory getConfigInventory() {
         return ((ECOStorageCellItem) cellStack.getItem()).getConfigInventory(cellStack);
+    }
+
+    private static long saturatedAdd(long a, long b) {
+        long result = a + b;
+        return result < 0 ? Long.MAX_VALUE : result;
     }
 }

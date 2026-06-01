@@ -5,6 +5,7 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
@@ -26,6 +27,7 @@ import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import org.jetbrains.annotations.UnknownNullability;
 import org.jetbrains.annotations.Nullable;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -184,18 +186,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         IGrid grid = worker.getMainNode().getGrid();
         if (grid != null) {
             MEStorage storage = grid.getStorageService().getInventory();
-            if (!tryEject(storage, outputItem)) {
+            KeyCounter outputs = collectOutputItems();
+            if (!canInsertAll(storage, outputs)) {
                 return false;
             }
-            for (ItemStack item : remainingItems) {
-                if (!tryEject(storage, item)) {
-                    return false;
-                }
-            }
-            eject(storage, outputItem);
-            for (ItemStack item : remainingItems) {
-                eject(storage, item);
-            }
+            insertAll(storage, outputs);
             if (NEConfig.postCraftingEvent) {
                 MinecraftForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
                     NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()),
@@ -210,14 +205,35 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    private boolean tryEject(MEStorage storage, ItemStack stack) {
-        long inserted = storage.insert(AEItemKey.of(stack), stack.getCount(), Actionable.SIMULATE, actionSource);
-        return inserted == stack.getCount();
+    private KeyCounter collectOutputItems() {
+        KeyCounter outputs = new KeyCounter();
+        addStack(outputs, outputItem);
+        for (ItemStack remainingItem : remainingItems) {
+            addStack(outputs, remainingItem);
+        }
+        return outputs;
     }
 
-    private void eject(MEStorage storage, ItemStack stack) {
-        storage.insert(AEItemKey.of(stack), stack.getCount(), Actionable.MODULATE, actionSource);
+    private static void addStack(KeyCounter counter, ItemStack stack) {
+        if (!stack.isEmpty()) {
+            counter.add(AEItemKey.of(stack), stack.getCount());
+        }
+    }
+
+    private boolean canInsertAll(MEStorage storage, KeyCounter stacks) {
+        for (Object2LongMap.Entry<AEKey> entry : stacks) {
+            long inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.SIMULATE, actionSource);
+            if (inserted != entry.getLongValue()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void insertAll(MEStorage storage, KeyCounter stacks) {
+        for (Object2LongMap.Entry<AEKey> entry : stacks) {
+            storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, actionSource);
+        }
     }
 
     public boolean belongsToJob(UUID jobId) {
@@ -231,12 +247,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (inputItems.isEmpty()) {
             return false;
         }
-        if (!canInsertAll(storage, inputItems)) {
+        KeyCounter inputs = collectStacks(inputItems);
+        if (!canInsertAll(storage, inputs)) {
             return false;
         }
-        for (ItemStack inputItem : inputItems) {
-            eject(storage, inputItem);
-        }
+        insertAll(storage, inputs);
         worker.onThreadStop();
         clearWork();
         setChanged();
@@ -255,13 +270,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    private boolean canInsertAll(MEStorage storage, List<ItemStack> stacks) {
+    private static KeyCounter collectStacks(List<ItemStack> stacks) {
+        KeyCounter counter = new KeyCounter();
         for (ItemStack stack : stacks) {
-            if (!tryEject(storage, stack)) {
-                return false;
-            }
+            addStack(counter, stack);
         }
-        return true;
+        return counter;
     }
 
     private List<ItemStack> outputAndRemainingItems() {

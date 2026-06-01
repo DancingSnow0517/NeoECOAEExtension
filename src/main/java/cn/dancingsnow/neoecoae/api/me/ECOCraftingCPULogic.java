@@ -72,6 +72,8 @@ public class ECOCraftingCPULogic {
 
     @Getter
     private boolean markedForDeletion = false;
+    private boolean batchingStatusChanges = false;
+    private final Set<AEKey> batchedStatusChanges = new HashSet<>();
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -216,86 +218,91 @@ public class ECOCraftingCPULogic {
             return 0;
 
         var pushedPatterns = 0;
+        beginStatusChangeBatch();
 
-        var it = job.tasks.entrySet().iterator();
-        taskLoop: while (it.hasNext()) {
-            var task = it.next();
-            if (task.getValue().value <= 0) {
-                postPatternOutputsChange(task.getKey());
-                it.remove();
-                continue;
-            }
-
-            var details = task.getKey();
-            var expectedOutputs = new KeyCounter();
-            var expectedContainerItems = new KeyCounter();
-            // Contains the inputs for the pattern.
-            @Nullable
-            var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                    details, inventory, level, expectedOutputs, expectedContainerItems);
-
-            // Try to push to each provider.
-            for (var provider : craftingService.getProviders(details)) {
-                if (craftingContainer == null)
-                    break;
-                if (provider.isBusy())
+        try {
+            var it = job.tasks.entrySet().iterator();
+            taskLoop: while (it.hasNext()) {
+                var task = it.next();
+                if (task.getValue().value <= 0) {
+                    postPatternOutputsChange(task.getKey());
+                    it.remove();
                     continue;
+                }
 
-                var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
+                var details = task.getKey();
+                var expectedOutputs = new KeyCounter();
+                var expectedContainerItems = new KeyCounter();
+                // Contains the inputs for the pattern.
+                @Nullable
+                var craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                        details, inventory, level, expectedOutputs, expectedContainerItems);
 
-                if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
-                        PowerMultiplier.CONFIG) < patternPower - 0.01)
-                    break;
+                // Try to push to each provider.
+                for (var provider : craftingService.getProviders(details)) {
+                    if (craftingContainer == null)
+                        break;
+                    if (provider.isBusy())
+                        continue;
 
-                boolean pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                        ? patternBus.pushPattern(details, craftingContainer, job.link.getCraftingID())
-                        : provider.pushPattern(details, craftingContainer);
+                    var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
 
-                if (pushed) {
-                    energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                    pushedPatterns++;
+                    if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
+                            PowerMultiplier.CONFIG) < patternPower - 0.01)
+                        break;
 
-                    for (var expectedOutput : expectedOutputs) {
-                        job.waitingFor.insert(
-                                expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
+                    boolean pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                            ? patternBus.pushPattern(details, craftingContainer, job.link.getCraftingID())
+                            : provider.pushPattern(details, craftingContainer);
+
+                    if (pushed) {
+                        energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                        pushedPatterns++;
+
+                        for (var expectedOutput : expectedOutputs) {
+                            job.waitingFor.insert(
+                                    expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
+                        }
+                        postCounterKeysChange(expectedOutputs);
+                        for (var expectedContainerItem : expectedContainerItems) {
+                            job.waitingFor.insert(
+                                    expectedContainerItem.getKey(),
+                                    expectedContainerItem.getLongValue(),
+                                    Actionable.MODULATE);
+                            job.timeTracker.addMaxItems(
+                                    expectedContainerItem.getLongValue(),
+                                    expectedContainerItem.getKey().getType());
+                        }
+                        postCounterKeysChange(expectedContainerItems);
+
+                        cpu.markDirty();
+
+                        task.getValue().value--;
+                        postPatternOutputsChange(details);
+                        if (task.getValue().value <= 0) {
+                            it.remove();
+                            continue taskLoop;
+                        }
+
+                        if (pushedPatterns == maxPatterns) {
+                            break taskLoop;
+                        }
+
+                        // Prepare next inputs.
+                        expectedOutputs.reset();
+                        expectedContainerItems.reset();
+                        craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                                details, inventory, level, expectedOutputs, expectedContainerItems);
                     }
-                    postCounterKeysChange(expectedOutputs);
-                    for (var expectedContainerItem : expectedContainerItems) {
-                        job.waitingFor.insert(
-                                expectedContainerItem.getKey(),
-                                expectedContainerItem.getLongValue(),
-                                Actionable.MODULATE);
-                        job.timeTracker.addMaxItems(
-                                expectedContainerItem.getLongValue(),
-                                expectedContainerItem.getKey().getType());
-                    }
-                    postCounterKeysChange(expectedContainerItems);
+                }
 
-                    cpu.markDirty();
-
-                    task.getValue().value--;
-                    postPatternOutputsChange(details);
-                    if (task.getValue().value <= 0) {
-                        it.remove();
-                        continue taskLoop;
-                    }
-
-                    if (pushedPatterns == maxPatterns) {
-                        break taskLoop;
-                    }
-
-                    // Prepare next inputs.
-                    expectedOutputs.reset();
-                    expectedContainerItems.reset();
-                    craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                            details, inventory, level, expectedOutputs, expectedContainerItems);
+                // Failed to push this pattern, reinject the inputs.
+                if (craftingContainer != null) {
+                    CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
                 }
             }
-
-            // Failed to push this pattern, reinject the inputs.
-            if (craftingContainer != null) {
-                CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
-            }
+        } finally {
+            endStatusChangeBatch();
         }
 
         return pushedPatterns;
@@ -461,11 +468,37 @@ public class ECOCraftingCPULogic {
     }
 
     private void postChange(AEKey what) {
+        if (batchingStatusChanges) {
+            if (what != null) {
+                batchedStatusChanges.add(what);
+            }
+            return;
+        }
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
         markStatusDirty();
         for (var listener : listeners) {
             listener.accept(what);
         }
+    }
+
+    private void beginStatusChangeBatch() {
+        batchingStatusChanges = true;
+        batchedStatusChanges.clear();
+    }
+
+    private void endStatusChangeBatch() {
+        batchingStatusChanges = false;
+        if (batchedStatusChanges.isEmpty()) {
+            return;
+        }
+        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        markStatusDirty();
+        for (AEKey key : batchedStatusChanges) {
+            for (var listener : listeners) {
+                listener.accept(key);
+            }
+        }
+        batchedStatusChanges.clear();
     }
 
     private void markStatusDirty() {

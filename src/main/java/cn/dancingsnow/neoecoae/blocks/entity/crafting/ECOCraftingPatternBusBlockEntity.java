@@ -96,10 +96,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster == null || controller == null) {
             return 0;
         }
-        long controllerRemaining = Math.max(0, controller.getThreadCount() - getRunningThread());
-        long workerRemaining = cluster.getWorkers().stream()
-            .mapToLong(ECOCraftingWorkerBlockEntity::getAvailableThreadSlots)
-            .sum();
+        long runningThreads = controller.getRunningThreadCount();
+        long controllerRemaining = Math.max(0, controller.getThreadCount() - runningThreads);
+        long workerRemaining = Math.max(
+            0,
+            (long) controller.getThreadCountPerWorker() * controller.getWorkerCount() - runningThreads
+        );
         return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));
     }
 
@@ -109,13 +111,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return cluster.getController();
         }
         return null;
-    }
-
-    private long getRunningThread() {
-        if (cluster != null) {
-            return cluster.getWorkers().stream().mapToLong(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
-        }
-        return 0;
     }
 
     @Override
