@@ -1,0 +1,24 @@
+package cn.dancingsnow.neoecoae.compat.ldlib;
+
+import cn.dancingsnow.neoecoae.compat.jei.MultiblockJeiCategory;
+import mezz.jei.api.registration.IRecipeCatalystRegistration;
+import mezz.jei.api.registration.IRecipeCategoryRegistration;
+import mezz.jei.api.registration.IRecipeRegistration;
+
+public final class LDLibJeiIntegration {
+    private LDLibJeiIntegration() {
+    }
+
+    public static void registerCategories(IRecipeCategoryRegistration registration) {
+        registration.addRecipeCategories(new MultiblockJeiCategory(
+                registration.getJeiHelpers().getGuiHelper()));
+    }
+
+    public static void registerRecipes(IRecipeRegistration registration) {
+        MultiblockJeiCategory.registerRecipes(registration);
+    }
+
+    public static void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
+        MultiblockJeiCategory.registerRecipeCatalysts(registration);
+    }
+}
