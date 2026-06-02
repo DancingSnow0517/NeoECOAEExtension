@@ -18,7 +18,6 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
         CompoundTag data = accessor.getServerData();
         tooltip.add(JadeText.threadLine(data.getInt("usedThread"), data.getInt("totalThread")));
         tooltip.add(JadeText.storageLine(data.getLong("usedStorage"), data.getLong("totalStorage")));
-        tooltip.add(JadeText.onlineLine(data.getBoolean("online")));
     }
 
     @Override

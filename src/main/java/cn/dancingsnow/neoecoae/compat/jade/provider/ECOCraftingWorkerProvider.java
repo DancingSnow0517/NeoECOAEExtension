@@ -19,7 +19,6 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
         CompoundTag data = accessor.getServerData();
         tooltip.add(JadeText.runningLine(data.getBoolean("running")));
         tooltip.add(JadeText.recipesPerOperationLine(data.getInt("recipesPerOperation")));
-        tooltip.add(JadeText.onlineLine(data.getBoolean("online")));
     }
 
     @Override
