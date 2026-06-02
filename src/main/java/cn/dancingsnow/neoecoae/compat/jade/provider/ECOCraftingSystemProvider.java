@@ -57,7 +57,6 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
         // 返回 job.waitingFor 中各 key 的总计数，与 AE2 合成状态界面的"工作合成"对齐。
         // 暴露后使用 JadeText.workingCraftsLine(workingCrafts) 替换此注释。
 
-        // 这里不再手动添加"结构已成型"和"设备在线"。
         // 让原有通用 provider / Jade 默认逻辑去显示，避免重复出现两行“设备在线”。
     }
 
@@ -81,6 +80,12 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
                 }
             }
 
+            tag.putBoolean(KEY_FORMED, system.isFormed());
+            tag.putBoolean(KEY_RUNNING, running);
+            tag.putInt(KEY_CURRENT_TICKS, currentTicks);
+            tag.putInt(KEY_TOTAL_TICKS, totalTicks);
+            tag.putLong(KEY_ENERGY_PER_TICK, Math.max(0L, system.getCurrentEnergyPerTick()));
+            tag.putDouble(KEY_TIME_MULTIPLIER, system.getTimeMultiplier());
             tag.putInt(KEY_THEORETICAL_OVERCLOCK, system.getOverlockTimes());
             tag.putInt(KEY_EFFECTIVE_OVERCLOCK, system.getEffectiveOverclockTimes());
         }
