@@ -19,9 +19,11 @@ import lombok.Getter;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -31,6 +33,7 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
@@ -130,6 +133,16 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOCraftingSystemBlockEntity controller,
         @Nullable UUID craftingJobId
     ) {
+        PatternCacheKey cacheKey = PatternCacheKey.of(pattern, table, worker.getLevel());
+        PatternCacheEntry cached = cacheKey == null || NEConfig.postCraftingEvent ? null : worker.getCachedPattern(cacheKey);
+        if (cached != null) {
+            if (!consumeCraftingCoolant(controller)) {
+                return false;
+            }
+            startWork(cached.copyOutput(), cached.copyInputs(), cached.copyRemaining(), craftingJobId);
+            return true;
+        }
+
         craftingInv.clearContent();
         pattern.fillCraftingGrid(table, craftingInv::setItem);
         ItemStack outputItem = pattern.assemble(craftingInv, worker.getLevel());
@@ -137,28 +150,84 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             craftingInv.clearContent();
             return false;
         }
-        if (controller.isActiveCooling() && !controller.tryConsumeCoolant(5, controller.getEffectiveOverclockTimes())) {
+        if (!consumeCraftingCoolant(controller)) {
             craftingInv.clearContent();
             return false;
         }
 
-        this.outputItem = outputItem;
-        this.craftingJobId = craftingJobId;
-        inputItems.clear();
-        inputItems.addAll(snapshotCraftingInputs());
-        remainingItems.clear();
         List<ItemStack> list = new ArrayList<>();
         for (ItemStack item : pattern.getRemainingItems(craftingInv)) {
             if (!item.isEmpty()) {
-                list.add(item);
+                list.add(item.copy());
             }
         }
-        remainingItems.addAll(list);
+
+        List<ItemStack> inputs = snapshotCraftingInputs();
+        if (cacheKey != null && !NEConfig.postCraftingEvent && isCacheSafe(inputs, outputItem, list)) {
+            worker.cachePattern(cacheKey, new PatternCacheEntry(outputItem, inputs, list));
+        }
+        startWork(outputItem.copy(), inputs, list, craftingJobId);
+        return true;
+    }
+
+    private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller) {
+        return !controller.isActiveCooling() || controller.tryConsumeCoolant(5, controller.getEffectiveOverclockTimes());
+    }
+
+    private void startWork(
+        ItemStack outputItem,
+        List<ItemStack> inputs,
+        List<ItemStack> remaining,
+        @Nullable UUID craftingJobId
+    ) {
+        this.outputItem = outputItem;
+        this.craftingJobId = craftingJobId;
+        inputItems.clear();
+        copyStacks(inputs, inputItems);
+        remainingItems.clear();
+        copyStacks(remaining, remainingItems);
         worker.onThreadWork();
         isBusy = true;
         reboot = true;
         setChanged();
+    }
+
+    private static void copyStacks(List<ItemStack> source, List<ItemStack> target) {
+        for (ItemStack stack : source) {
+            if (!stack.isEmpty()) {
+                target.add(stack.copy());
+            }
+        }
+    }
+
+    private static boolean isCacheSafe(List<ItemStack> inputs, ItemStack output, List<ItemStack> remaining) {
+        if (!isCacheSafeStack(output, false)) {
+            return false;
+        }
+        for (ItemStack input : inputs) {
+            if (!isCacheSafeStack(input, true)) {
+                return false;
+            }
+        }
+        for (ItemStack remainder : remaining) {
+            if (!isCacheSafeStack(remainder, false)) {
+                return false;
+            }
+        }
         return true;
+    }
+
+    private static boolean isCacheSafeStack(ItemStack stack, boolean input) {
+        if (stack.isEmpty()) {
+            return true;
+        }
+        if (stack.isDamageableItem()) {
+            return false;
+        }
+        if (stack.hasTag()) {
+            return false;
+        }
+        return !input || !stack.getItem().hasCraftingRemainingItem(stack);
     }
 
     private List<ItemStack> snapshotCraftingInputs() {
@@ -341,6 +410,115 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         remainingItems.clear();
         for (int i = 0; i < remaining.size(); i++) {
             remainingItems.add(ItemStack.of(remaining.getCompound(i)));
+        }
+    }
+
+    public static final class PatternCacheKey {
+        private final IMolecularAssemblerSupportedPattern pattern;
+        private final ResourceLocation dimension;
+        private final List<SlotSignature> slots;
+        private final int hash;
+
+        private PatternCacheKey(
+            IMolecularAssemblerSupportedPattern pattern,
+            ResourceLocation dimension,
+            List<SlotSignature> slots
+        ) {
+            this.pattern = pattern;
+            this.dimension = dimension;
+            this.slots = slots;
+            this.hash = computeHash();
+        }
+
+        @Nullable
+        public static PatternCacheKey of(
+            IMolecularAssemblerSupportedPattern pattern,
+            KeyCounter[] table,
+            @Nullable Level level
+        ) {
+            if (pattern == null || table == null) {
+                return null;
+            }
+            ResourceLocation dimension = level == null ? null : level.dimension().location();
+            List<SlotSignature> slots = new ArrayList<>(table.length);
+            for (KeyCounter counter : table) {
+                List<CounterSignature> entries = new ArrayList<>();
+                if (counter != null) {
+                    for (Object2LongMap.Entry<AEKey> entry : counter) {
+                        entries.add(new CounterSignature(entry.getKey(), entry.getLongValue()));
+                    }
+                }
+                slots.add(new SlotSignature(entries));
+            }
+            return new PatternCacheKey(pattern, dimension, List.copyOf(slots));
+        }
+
+        private int computeHash() {
+            int result = System.identityHashCode(pattern);
+            result = 31 * result + Objects.hashCode(dimension);
+            result = 31 * result + slots.hashCode();
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof PatternCacheKey other)) {
+                return false;
+            }
+            return this.pattern == other.pattern
+                && Objects.equals(this.dimension, other.dimension)
+                && this.slots.equals(other.slots);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+    }
+
+    private record SlotSignature(List<CounterSignature> entries) {
+        private SlotSignature {
+            entries = List.copyOf(entries);
+        }
+    }
+
+    private record CounterSignature(AEKey key, long amount) {
+    }
+
+    public static final class PatternCacheEntry {
+        private final ItemStack output;
+        private final List<ItemStack> inputs;
+        private final List<ItemStack> remaining;
+
+        public PatternCacheEntry(ItemStack output, List<ItemStack> inputs, List<ItemStack> remaining) {
+            this.output = output.copy();
+            this.inputs = copyImmutable(inputs);
+            this.remaining = copyImmutable(remaining);
+        }
+
+        public ItemStack copyOutput() {
+            return output.copy();
+        }
+
+        public List<ItemStack> copyInputs() {
+            return copyImmutable(inputs);
+        }
+
+        public List<ItemStack> copyRemaining() {
+            return copyImmutable(remaining);
+        }
+
+        private static List<ItemStack> copyImmutable(List<ItemStack> stacks) {
+            List<ItemStack> copy = new ArrayList<>(stacks.size());
+            for (ItemStack stack : stacks) {
+                if (!stack.isEmpty()) {
+                    copy.add(stack.copy());
+                }
+            }
+            return List.copyOf(copy);
         }
     }
 }

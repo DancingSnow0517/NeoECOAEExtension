@@ -5,6 +5,7 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.hooks.ticking.TickHandler;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
@@ -89,6 +90,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
+    private long lastCoolantConsumeDirtyTick = Long.MIN_VALUE;
 
     public ECOCraftingSystemBlockEntity(
         BlockEntityType<?> type,
@@ -260,6 +262,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
+        if (!activeCooling) {
+            return true;
+        }
         if (amount <= 0) {
             return true;
         }
@@ -274,9 +279,18 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             coolant = 0;
             coolantMaxOverclock = -1;
         }
+        markCoolantConsumed();
+        return true;
+    }
+
+    private void markCoolantConsumed() {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (lastCoolantConsumeDirtyTick == currentTick) {
+            return;
+        }
+        lastCoolantConsumeDirtyTick = currentTick;
         setChanged();
         markUiStateDirty();
-        return true;
     }
 
     public int getEffectiveOverclockTimes() {

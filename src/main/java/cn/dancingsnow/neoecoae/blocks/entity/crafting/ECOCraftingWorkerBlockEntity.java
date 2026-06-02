@@ -19,17 +19,30 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingWorkerBlockEntity>
     implements IGridTickable {
 
+    private static final int PATTERN_CACHE_LIMIT = 256;
+
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
+    private final Map<ECOCraftingThread.PatternCacheKey, ECOCraftingThread.PatternCacheEntry> patternCache =
+        new LinkedHashMap<>(PATTERN_CACHE_LIMIT, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(
+                Map.Entry<ECOCraftingThread.PatternCacheKey, ECOCraftingThread.PatternCacheEntry> eldest
+            ) {
+                return size() > PATTERN_CACHE_LIMIT;
+            }
+        };
 
     @Getter
     private int runningThreads = 0;
+    private int nextFreeThreadIndex = 0;
 
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -75,38 +88,49 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, UUID craftingJobId) {
-        if (cluster != null && cluster.getController() != null) {
-            ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
-                return false;
-            }
-            AtomicBoolean pushed = new AtomicBoolean(false);
-            for (ECOCraftingThread t : craftingThreads) {
-                if (t.isFree()) {
-                    if (pushed.get()) {
-                        continue;
-                    }
-                    if (t.pushPattern(pattern, table, controller, craftingJobId)) {
-                        pushed.set(true);
-                    }
-                }
-            }
-            if (!pushed.get()) {
-                if (craftingThreads.size() < controller.getThreadCountPerWorker()) {
-                    ECOCraftingThread thread = new ECOCraftingThread(this);
-                    craftingThreads.add(thread);
-                    setChanged();
-                    markForUpdate();
-                    return thread.pushPattern(pattern, table, controller, craftingJobId);
-                } else {
-                    return false;
-                }
-            } else {
-                return true;
-            }
-        } else {
+        if (cluster == null || cluster.getController() == null) {
             return false;
         }
+        ECOCraftingSystemBlockEntity controller = cluster.getController();
+        if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
+            return false;
+        }
+
+        int threadCount = craftingThreads.size();
+        if (threadCount > 0) {
+            int start = Math.floorMod(nextFreeThreadIndex, threadCount);
+            for (int offset = 0; offset < threadCount; offset++) {
+                int index = (start + offset) % threadCount;
+                ECOCraftingThread thread = craftingThreads.get(index);
+                if (!thread.isFree()) {
+                    continue;
+                }
+                if (thread.pushPattern(pattern, table, controller, craftingJobId)) {
+                    nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        if (craftingThreads.size() >= controller.getThreadCountPerWorker()) {
+            return false;
+        }
+
+        ECOCraftingThread thread = new ECOCraftingThread(this);
+        craftingThreads.add(thread);
+        nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
+        setChanged();
+        markForUpdate();
+        return thread.pushPattern(pattern, table, controller, craftingJobId);
+    }
+
+    public ECOCraftingThread.PatternCacheEntry getCachedPattern(ECOCraftingThread.PatternCacheKey key) {
+        return patternCache.get(key);
+    }
+
+    public void cachePattern(ECOCraftingThread.PatternCacheKey key, ECOCraftingThread.PatternCacheEntry entry) {
+        patternCache.put(key, entry);
     }
 
     public boolean isBusy() {
@@ -194,6 +218,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         super.loadTag(data);
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
+        patternCache.clear();
         int busyThreads = 0;
         for (int i = 0; i < threads.size(); i++) {
             ECOCraftingThread thread = new ECOCraftingThread(this);
@@ -204,6 +229,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             }
         }
         runningThreads = busyThreads;
+        nextFreeThreadIndex = 0;
     }
 
     public boolean isWorking() {

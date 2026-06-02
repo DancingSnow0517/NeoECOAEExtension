@@ -48,6 +48,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;
     private final LazyOptional<IItemHandlerModifiable> itemHandlerCap;
+    private int nextWorkerIndex = 0;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -64,8 +65,16 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return false;
         }
         if (cluster != null) {
-            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+            if (workers.isEmpty()) {
+                return false;
+            }
+            int start = Math.floorMod(nextWorkerIndex, workers.size());
+            for (int offset = 0; offset < workers.size(); offset++) {
+                int index = (start + offset) % workers.size();
+                ECOCraftingWorkerBlockEntity worker = workers.get(index);
                 if (worker.pushPattern(supportedPattern, inputHolder, craftingJobId)) {
+                    nextWorkerIndex = (index + 1) % Math.max(1, workers.size());
                     return true;
                 }
             }
