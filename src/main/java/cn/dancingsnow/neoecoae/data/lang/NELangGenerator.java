@@ -11,16 +11,34 @@ public class NELangGenerator {
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
+        provider.add("config.jade.plugin_neoecoae.eco_computation_system", "ECO Computation System");
 
         provider.add("jade.neoecoae.drive_mounted", "ECO Drive Mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO Drive Unmounted");
         provider.add("jade.neoecoae.worker_threads", "Threads: %d/%d");
+        provider.add("jade.neoecoae.formed", "Formed: %s");
+        provider.add("jade.neoecoae.running", "Running: %s");
+        provider.add("jade.neoecoae.yes", "Yes");
+        provider.add("jade.neoecoae.no", "No");
         provider.add("jade.neoecoae.overclocked", "Overclock Enabled");
         provider.add("jade.neoecoae.activeCooling", "Active Cooling Enabled");
         provider.add("jade.neoecoae.coolant", "Coolant: %d");
         provider.add("jade.neoecoae.coolant_max_overclock", "Coolant Max Overclock: %d");
         provider.add("jade.neoecoae.coolant_max_overclock.none", "Coolant Max Overclock: None");
         provider.add("jade.neoecoae.overclock_status", "Theoretical/Effective Overclock: %d/%d");
+        provider.add("jade.neoecoae.crafting.worker_count", "Worker Cores: %s");
+        provider.add("jade.neoecoae.crafting.thread_usage", "Threads: %s/%s");
+        provider.add("jade.neoecoae.crafting.progress", "Batch Progress: %s / %s t");
+        provider.add("jade.neoecoae.crafting.progress_value", "Thread Progress: %s / 100");
+        provider.add("jade.neoecoae.crafting.avg_progress", "Average Progress: %s / 100");
+        provider.add("jade.neoecoae.crafting.speed", "Thread Speed: %s progress/t");
+        provider.add("jade.neoecoae.crafting.duration", "Craft Time: %s t / %s s");
+        provider.add("jade.neoecoae.crafting.batch_slots", "Current Batch Slots: %s");
+        provider.add("jade.neoecoae.crafting.queue_per_worker", "Queue per Worker: %s");
+        provider.add("jade.neoecoae.computation.accelerators", "Accelerators: %s");
+        provider.add("jade.neoecoae.computation.dispatch_limit", "CPU Dispatch Limit: %s patterns/t");
+        provider.add("jade.neoecoae.computation.thread_usage", "Threads: %s/%s");
+        provider.add("jade.neoecoae.computation.storage_usage", "Storage Used: %s / %s bytes");
 
         provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern into available ECO Crafting System");
 

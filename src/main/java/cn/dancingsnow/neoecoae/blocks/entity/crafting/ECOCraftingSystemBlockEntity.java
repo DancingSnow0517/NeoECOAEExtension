@@ -368,7 +368,50 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public int getRunningThreadCount() {
+        ensureCraftingStatsCurrent();
         return runningThreadCount;
+    }
+
+    public boolean isRunning() {
+        return getRunningThreadCount() > 0;
+    }
+
+    public int getCurrentBatchSlots() {
+        ensureCraftingStatsCurrent();
+        int controllerSlots = Math.max(0, threadCount - runningThreadCount);
+        int workerQueueSlots = Math.max(0, threadCountPerWorker * workerCount - runningThreadCount);
+        return Math.min(controllerSlots, workerQueueSlots);
+    }
+
+    public int getProgressPerTick() {
+        return Math.min(10 + getEffectiveOverclockTimes() * 10, 100);
+    }
+
+    public int getTheoreticalCraftTicks() {
+        int progressPerTick = getProgressPerTick();
+        if (progressPerTick <= 0) {
+            return 0;
+        }
+        return Mth.ceil((float) cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / progressPerTick);
+    }
+
+    public ECOCraftingWorkerBlockEntity.ThreadProgressSummary getThreadProgressSummary() {
+        if (cluster == null) {
+            return new ECOCraftingWorkerBlockEntity.ThreadProgressSummary(0, 0, 0, 0);
+        }
+        int busyThreadCount = 0;
+        int occupiedSlots = 0;
+        int maxProgress = 0;
+        long weightedProgress = 0L;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            ECOCraftingWorkerBlockEntity.ThreadProgressSummary summary = worker.getThreadProgressSummary();
+            busyThreadCount += summary.busyThreadCount();
+            occupiedSlots += summary.occupiedSlots();
+            maxProgress = Math.max(maxProgress, summary.maxProgress());
+            weightedProgress += (long) summary.averageProgress() * summary.occupiedSlots();
+        }
+        int averageProgress = occupiedSlots <= 0 ? 0 : Math.round((float) weightedProgress / occupiedSlots);
+        return new ECOCraftingWorkerBlockEntity.ThreadProgressSummary(busyThreadCount, occupiedSlots, maxProgress, averageProgress);
     }
 
     public int getThreadCount() {

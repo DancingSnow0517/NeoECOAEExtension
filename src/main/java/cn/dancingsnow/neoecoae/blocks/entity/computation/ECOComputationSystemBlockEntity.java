@@ -187,6 +187,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return formed;
     }
 
+    public boolean isRunning() {
+        return getUsedThread() > 0;
+    }
+
     public int getTotalThread() {
         ensureStatsCurrent();
         return totalThread;

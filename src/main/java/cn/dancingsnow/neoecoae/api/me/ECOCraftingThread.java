@@ -112,6 +112,29 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return !isBusy;
     }
 
+    public int getProgress() {
+        return progress;
+    }
+
+    public ItemStack getOutputItem() {
+        return firstOutputItem().copy();
+    }
+
+    public List<ItemStack> getRemainingItems() {
+        return copyStacks(remainingItems);
+    }
+
+    public Snapshot createSnapshot() {
+        return new Snapshot(
+            isBusy,
+            progress,
+            MAX_PROGRESS,
+            getOccupiedThreadSlots(),
+            getOutputItem(),
+            getRemainingItems()
+        );
+    }
+
     /**
      * 鎻愪氦鏍锋澘
      *
@@ -344,6 +367,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
+    private static List<ItemStack> copyStacks(List<ItemStack> source) {
+        List<ItemStack> copy = new ArrayList<>();
+        copyStacks(source, copy);
+        return List.copyOf(copy);
+    }
+
     private List<ItemStack> snapshotCraftingInputs() {
         List<ItemStack> inputs = new ArrayList<>();
         for (int slot = 0; slot < craftingInv.getContainerSize(); slot++) {
@@ -563,5 +592,15 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private record FastPathWork(ItemStack output, List<ItemStack> inputs, List<ItemStack> remaining) {
+    }
+
+    public record Snapshot(
+        boolean busy,
+        int progress,
+        int maxProgress,
+        int occupiedThreadSlots,
+        ItemStack outputItem,
+        List<ItemStack> remainingItems
+    ) {
     }
 }

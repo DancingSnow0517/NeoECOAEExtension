@@ -47,6 +47,13 @@ file="META-INF/accesstransformer.cfg"
     ordering="NONE"
     side="BOTH"
 
+[[dependencies.${mod_id}]]
+    modId="jade"
+    mandatory=false
+    versionRange="[11.13.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
 [mc-publish]
     modrinth="udZtKfzP"
     curseforge=1460639

@@ -199,6 +199,35 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
     }
 
+    public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {
+        List<ECOCraftingThread.Snapshot> snapshots = new ArrayList<>();
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree()) {
+                snapshots.add(thread.createSnapshot());
+            }
+        }
+        return List.copyOf(snapshots);
+    }
+
+    public ThreadProgressSummary getThreadProgressSummary() {
+        int busyThreadCount = 0;
+        int occupiedSlots = 0;
+        int maxProgress = 0;
+        long weightedProgress = 0L;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.isFree()) {
+                continue;
+            }
+            int slots = Math.max(1, thread.getOccupiedThreadSlots());
+            busyThreadCount++;
+            occupiedSlots += slots;
+            maxProgress = Math.max(maxProgress, thread.getProgress());
+            weightedProgress += (long) thread.getProgress() * slots;
+        }
+        int averageProgress = occupiedSlots <= 0 ? 0 : Math.round((float) weightedProgress / occupiedSlots);
+        return new ThreadProgressSummary(busyThreadCount, occupiedSlots, maxProgress, averageProgress);
+    }
+
     public void onThreadWork(int occupiedThreadSlots) {
         int slots = Math.max(1, occupiedThreadSlots);
         runningThreads += slots;
@@ -290,6 +319,14 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public boolean isWorking() {
         return runningThreads > 0;
+    }
+
+    public record ThreadProgressSummary(
+        int busyThreadCount,
+        int occupiedSlots,
+        int maxProgress,
+        int averageProgress
+    ) {
     }
 
     @Override
