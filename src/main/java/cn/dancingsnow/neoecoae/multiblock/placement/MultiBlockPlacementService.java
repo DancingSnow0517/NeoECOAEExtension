@@ -6,6 +6,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -31,7 +32,7 @@ public final class MultiBlockPlacementService {
     }
 
     public static MultiBlockPlacementPlan preview(
-        ServerLevel level,
+        Level level,
         BlockPos controllerPos,
         BlockState controllerState,
         MultiBlockDefinition definition,
@@ -41,7 +42,7 @@ public final class MultiBlockPlacementService {
     }
 
     public static MultiBlockPlacementPlan preview(
-        ServerLevel level,
+        Level level,
         BlockPos controllerPos,
         BlockState controllerState,
         MultiBlockDefinition definition,
@@ -133,7 +134,7 @@ public final class MultiBlockPlacementService {
         return true;
     }
 
-    private static int countMatchingItems(Player player, ItemStack target) {
+    public static int countMatchingItems(Player player, ItemStack target) {
         Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         return countMatchingItems(player.getInventory().items, target, visitedHandlers)
             + countMatchingItems(player.getInventory().offhand, target, visitedHandlers);
