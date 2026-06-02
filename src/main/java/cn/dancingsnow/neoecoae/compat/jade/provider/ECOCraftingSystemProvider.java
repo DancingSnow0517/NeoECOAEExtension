@@ -83,7 +83,9 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
                 }
             }
 
-            long recipesPerCycle = running ? Math.max(0L, (long) progress.busyThreadCount()) : 0L;
+            long recipesPerCycle = running
+                    ? Math.max(0L, (long) progress.busyThreadCount() * Math.max(1, progressPerTick))
+                    : 0L;
 
             tag.putBoolean(KEY_FORMED, system.isFormed());
             tag.putBoolean(KEY_RUNNING, running);

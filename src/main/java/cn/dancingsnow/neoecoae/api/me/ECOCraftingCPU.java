@@ -89,9 +89,14 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return cluster.getCPUAccelerators();
     }
 
+    /**
+     * Returns a shortened display name for the AE2 crafting status CPU list.
+     * Uses literal text to avoid the longer translated form (e.g. "ECO 合成CPU")
+     * that causes text overflow in the narrow CPU list UI.
+     */
     @Override
     public @Nullable Component getName() {
-        return Component.translatable("gui.neoecoae.cpu.eco", tier.toString());
+        return Component.literal(tier.toString() + " ECO CPU");
     }
 
     @Override
