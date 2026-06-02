@@ -31,7 +31,7 @@ final class NEFluidTankUi {
             return false;
         }
 
-        int displayedAmount = stack.isEmpty() ? Math.max(0, amount) : stack.getAmount();
+        int displayedAmount = Math.max(0, amount);
         Component name = stack.isEmpty()
             ? Component.translatable("gui.neoecoae.fluid_tank.empty")
             : stack.getDisplayName();

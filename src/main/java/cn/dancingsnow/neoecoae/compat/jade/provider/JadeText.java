@@ -63,6 +63,12 @@ final class JadeText {
                 .append(label(" 个配方"));
     }
 
+    static Component workingCraftsLine(long recipes) {
+        return label("工作合成：")
+                .append(value(formatNumber(Math.max(0L, recipes)), ChatFormatting.AQUA))
+                .append(label(" 个配方"));
+    }
+
     static Component runningLine(boolean running) {
         return label("运行中：")
                 .append(value(running ? "是" : "否", running ? ChatFormatting.GREEN : ChatFormatting.GRAY));

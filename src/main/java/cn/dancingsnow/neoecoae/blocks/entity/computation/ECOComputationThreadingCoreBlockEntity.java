@@ -66,11 +66,14 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     @Override
     public void saveAdditional(CompoundTag data) {
         super.saveAdditional(data);
+        HolderLookup.Provider registries = this.level != null
+                ? this.level.registryAccess()
+                : ServerLifecycleHooks.getCurrentServer().registryAccess();
         for (int i = 0; i < cpus.length; i++) {
             ECOCraftingCPU cpu = cpus[i];
             if (cpu != null) {
                 CompoundTag tag = new CompoundTag();
-                cpu.writeToNBT(tag, null);
+                cpu.writeToNBT(tag, registries);
                 data.put("CPU" + i, tag);
             }
         }
@@ -80,18 +83,29 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     public void updateCluster(@Nullable NEComputationCluster cluster) {
         super.updateCluster(cluster);
         if (cluster != null) {
+            int restored = 0;
+            HolderLookup.Provider registries = ServerLifecycleHooks.getCurrentServer() != null
+                    ? ServerLifecycleHooks.getCurrentServer().registryAccess()
+                    : null;
+            if (registries == null) {
+                return;
+            }
             for (int i = 0; i < deferredInit.length; i++) {
                 CompoundTag tag = deferredInit[i];
                 if (tag != null) {
                     ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
-                    HolderLookup.Provider registries = ServerLifecycleHooks.getCurrentServer().registryAccess();
                     deferredInit[i] = null;
                     cpu.readFromNBT(tag, registries);
-                    if (cpu.getPlan() != null) {
+                    if (cpu.getPlan() != null && cpu.getLogic().hasJob()) {
                         cpus[i] = cpu;
                         cluster.pickup(cpu.getPlan(), cpu);
+                        restored++;
                     }
                 }
+            }
+            if (restored > 0) {
+                cluster.restoreActiveCpusFromThreadingCores();
+                cluster.updateGridForChangedCpu(cluster);
             }
         }
     }

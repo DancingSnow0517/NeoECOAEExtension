@@ -98,7 +98,31 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public void pickup(ICraftingPlan plan, ECOCraftingCPU cpu) {
         this.activeCpus.put(plan, cpu);
+        this.activeJobBytes += plan.bytes();
         this.activeCpuCount = this.activeCpus.size();
+    }
+
+    public void restoreActiveCpusFromThreadingCores() {
+        int restored = 0;
+        long restoredBytes = 0L;
+        for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
+            for (ECOCraftingCPU cpu : core.getCpus()) {
+                if (cpu == null || cpu.getPlan() == null || !cpu.getLogic().hasJob()) {
+                    continue;
+                }
+                if (!activeCpus.containsKey(cpu.getPlan())) {
+                    this.activeCpus.put(cpu.getPlan(), cpu);
+                    this.activeJobBytes += cpu.getPlan().bytes();
+                    restored++;
+                    restoredBytes += cpu.getPlan().bytes();
+                }
+            }
+        }
+        this.activeCpuCount = this.activeCpus.size();
+        if (restored > 0) {
+            LOGGER.info("Restored {} ECO CPU(s) with {} job bytes into activeCpus (total active: {})",
+                    restored, restoredBytes, activeCpuCount);
+        }
     }
 
     @Override
@@ -109,6 +133,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 .filter(it -> it instanceof ECOComputationParallelCoreBlockEntity)
                 .mapToInt(it -> ((ECOComputationParallelCoreBlockEntity) it).getTier().getCPUAccelerators())
                 .sum();
+            this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
+            restoreActiveCpusFromThreadingCores();
             recalculateRemainingStorage();
             this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();

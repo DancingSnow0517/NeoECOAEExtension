@@ -24,7 +24,6 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
     private static final String KEY_TIME_MULTIPLIER = "timeMultiplier";
     private static final String KEY_THEORETICAL_OVERCLOCK = "theoreticalOverclock";
     private static final String KEY_EFFECTIVE_OVERCLOCK = "effectiveOverclock";
-    private static final String KEY_RECIPES_PER_CYCLE = "recipesPerCycle";
 
     @Override
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
@@ -52,14 +51,13 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
                 data.getInt(KEY_EFFECTIVE_OVERCLOCK),
                 data.getInt(KEY_THEORETICAL_OVERCLOCK)));
 
-        long recipesPerCycle = data.getLong(KEY_RECIPES_PER_CYCLE);
-        if (running && recipesPerCycle > 0) {
-            tooltip.add(JadeText.parallelRecipesLine(recipesPerCycle));
-        }
+        // TODO: 显示"工作合成：xxx 个配方"。
+        // 当前 ECOCraftingSystemBlockEntity 无法直接读取 ECOCraftingCPULogic.job.waitingFor。
+        // 需要在 ECOCraftingSystemBlockEntity 中暴露 getWorkingCrafts()，
+        // 返回 job.waitingFor 中各 key 的总计数，与 AE2 合成状态界面的"工作合成"对齐。
+        // 暴露后使用 JadeText.workingCraftsLine(workingCrafts) 替换此注释。
 
-        tooltip.add(JadeText.structureLine(data.getBoolean(KEY_FORMED)));
-
-        // 这里不再手动添加“设备在线/设备离线”。
+        // 这里不再手动添加"结构已成型"和"设备在线"。
         // 让原有通用 provider / Jade 默认逻辑去显示，避免重复出现两行“设备在线”。
     }
 
@@ -83,19 +81,8 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
                 }
             }
 
-            long recipesPerCycle = running
-                    ? Math.max(0L, (long) progress.busyThreadCount() * Math.max(1, progressPerTick))
-                    : 0L;
-
-            tag.putBoolean(KEY_FORMED, system.isFormed());
-            tag.putBoolean(KEY_RUNNING, running);
-            tag.putInt(KEY_CURRENT_TICKS, currentTicks);
-            tag.putInt(KEY_TOTAL_TICKS, totalTicks);
-            tag.putLong(KEY_ENERGY_PER_TICK, Math.max(0L, system.getCurrentEnergyPerTick()));
-            tag.putDouble(KEY_TIME_MULTIPLIER, system.getTimeMultiplier());
             tag.putInt(KEY_THEORETICAL_OVERCLOCK, system.getOverlockTimes());
             tag.putInt(KEY_EFFECTIVE_OVERCLOCK, system.getEffectiveOverclockTimes());
-            tag.putLong(KEY_RECIPES_PER_CYCLE, recipesPerCycle);
         }
     }
 

@@ -62,8 +62,7 @@ public class NEFluidHatchMenu extends NEBaseMachineMenu {
     }
 
     public int getTankAmount() {
-        FluidStack stack = getClientFluid();
-        return stack.isEmpty() ? data.get(DATA_TANK_AMOUNT) : stack.getAmount();
+        return data.get(DATA_TANK_AMOUNT);
     }
 
     public int getTankCapacity() {

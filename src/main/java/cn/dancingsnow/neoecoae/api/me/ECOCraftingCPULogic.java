@@ -840,7 +840,10 @@ public class ECOCraftingCPULogic {
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             markStatusDirty();
             if (this.job.finalOutput == null) {
-                finishJob(false);
+                LOGGER.warn("ECO CPU restored with null finalOutput (job NBT may be corrupted). "
+                        + "Dropping job and marking CPU for cleanup. cpu={}", cpu.getName());
+                this.job = null;
+                markedForDeletion = true;
             }
         }
     }
