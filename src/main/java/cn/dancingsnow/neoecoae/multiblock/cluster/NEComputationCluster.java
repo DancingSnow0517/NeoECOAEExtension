@@ -134,6 +134,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                     .mapToInt(it -> ((ECOComputationParallelCoreBlockEntity) it).getTier().getCPUAccelerators())
                     .sum();
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
+
+            // Step 1: restore CPU NBT from each threading core's deferredInit
+            for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
+                core.restoreDeferredCpus(this);
+            }
+            // Step 2: scan all cores for active CPUs and add to activeCpus map
             restoreActiveCpusFromThreadingCores();
             recalculateRemainingStorage();
             this.fakeCpu = new ECOCraftingCPU(this, availableStorage,

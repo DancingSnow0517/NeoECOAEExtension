@@ -92,6 +92,12 @@ public class ECOCraftingCPULogic {
     private boolean markedForDeletion = false;
     private boolean batchingStatusChanges = false;
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
+
+    // ── NBT restore grace ──
+    private boolean restoredFromNbt = false;
+    private int restoredCancelGraceTicks = 0;
+    private static final int RESTORED_CANCEL_GRACE_INITIAL = 100;
+
     private long debugPushedPatterns;
     private long debugExtractSkippedBecauseProvidersBusy;
     private long debugExtractPatternInputsCalls;
@@ -178,10 +184,30 @@ public class ECOCraftingCPULogic {
             }
             return;
         }
-        // Check if the job was cancelled.
+        // Check if the job was cancelled, with grace period for restored jobs
         if (job.link.isCanceled()) {
-            cancel();
-            return;
+            if (restoredCancelGraceTicks > 0) {
+                // World just loaded — try to rebind the link before giving up
+                IGrid grid = cpu.getGrid();
+                if (grid != null) {
+                    onRestoredToGrid(grid);
+                }
+                restoredCancelGraceTicks--;
+                if (restoredCancelGraceTicks > RESTORED_CANCEL_GRACE_INITIAL / 2) {
+                    // Still in early grace: don't schedule, just wait for rebind
+                    return;
+                }
+                // Running out of grace — continue to tick but don't cancel yet
+            } else {
+                LOGGER.warn("ECO CPU job link is canceled — canceling job. cpu={} jobId={}",
+                        cpu.getName(), job.link.getCraftingID());
+                cancel();
+                return;
+            }
+        } else {
+            // Link is healthy — clear grace state
+            restoredFromNbt = false;
+            restoredCancelGraceTicks = 0;
         }
 
         // Don't schedule more work while suspended
@@ -202,6 +228,20 @@ public class ECOCraftingCPULogic {
                 }
             } while (remainingOperations > 0);
         }
+    }
+
+    /**
+     * Re-bind the restored CraftingLink to AE2's CraftingService.
+     * Must be called after world load when the grid is available.
+     */
+    public void onRestoredToGrid(IGrid grid) {
+        if (job == null) {
+            return;
+        }
+        CraftingService craftingService = (CraftingService) grid.getCraftingService();
+        craftingService.addLink(job.link);
+        LOGGER.info("ECO CPU CraftingLink rebound to CraftingService. cpu={} jobId={}",
+                cpu.getName(), job.link.getCraftingID());
     }
 
     private int getOperationLimit(CraftingService craftingService) {
@@ -844,6 +884,16 @@ public class ECOCraftingCPULogic {
                         + "Dropping job and marking CPU for cleanup. cpu={}", cpu.getName());
                 this.job = null;
                 markedForDeletion = true;
+            } else {
+                // Mark as restored from NBT — tickCraftingLogic will grant a grace period
+                // to allow the CraftingLink to be rebound before checking isCanceled().
+                this.restoredFromNbt = true;
+                this.restoredCancelGraceTicks = RESTORED_CANCEL_GRACE_INITIAL;
+                LOGGER.info("ECO CPU job restored from NBT. cpu={} jobId={} finalOutput={} remainingAmount={}",
+                        cpu.getName(),
+                        this.job.link.getCraftingID(),
+                        this.job.finalOutput.what().getClass().getSimpleName(),
+                        this.job.remainingAmount);
             }
         }
     }
