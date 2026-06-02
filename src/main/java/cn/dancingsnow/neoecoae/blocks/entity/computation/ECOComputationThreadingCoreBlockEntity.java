@@ -23,7 +23,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationBlockEntity<ECOComputationThreadingCoreBlockEntity> {
+public class ECOComputationThreadingCoreBlockEntity
+        extends AbstractComputationBlockEntity<ECOComputationThreadingCoreBlockEntity> {
     @Getter
     private final IECOTier tier;
     @Getter
@@ -31,11 +32,10 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     private final CompoundTag[] deferredInit;
 
     public ECOComputationThreadingCoreBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
-    ) {
+            BlockEntityType<?> type,
+            BlockPos pos,
+            BlockState blockState,
+            IECOTier tier) {
         super(type, pos, blockState);
         this.tier = tier;
         cpus = new ECOCraftingCPU[tier.getCPUThreads()];
@@ -57,7 +57,8 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
 
     public boolean isWorking() {
         for (ECOCraftingCPU cpu : cpus) {
-            if (cpu == null) continue;
+            if (cpu == null)
+                continue;
             return true;
         }
         return false;
@@ -125,7 +126,8 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
         for (ECOCraftingCPU cpu : cpus) {
-            if (cpu == null) continue;
+            if (cpu == null)
+                continue;
             ListCraftingInventory inventory = cpu.getLogic().getInventory();
             for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
                 if (entry.getKey() instanceof AEItemKey itemKey) {

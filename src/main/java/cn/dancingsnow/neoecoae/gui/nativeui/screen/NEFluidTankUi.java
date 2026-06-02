@@ -26,19 +26,19 @@ final class NEFluidTankUi {
     }
 
     static boolean renderTooltip(GuiGraphics g, Font font, FluidStack stack, int amount, int capacity,
-                                 int x, int y, int w, int h, int mouseX, int mouseY) {
+            int x, int y, int w, int h, int mouseX, int mouseY) {
         if (!contains(mouseX, mouseY, x, y, w, h)) {
             return false;
         }
 
         int displayedAmount = Math.max(0, amount);
         Component name = stack.isEmpty()
-            ? Component.translatable("gui.neoecoae.fluid_tank.empty")
-            : stack.getDisplayName();
+                ? Component.translatable("gui.neoecoae.fluid_tank.empty")
+                : stack.getDisplayName();
         Component volume = Component.translatable(
-            "gui.neoecoae.fluid_tank.amount",
-            format(displayedAmount),
-            format(Math.max(0, capacity)));
+                "gui.neoecoae.fluid_tank.amount",
+                format(displayedAmount),
+                format(Math.max(0, capacity)));
 
         g.renderComponentTooltip(font, List.of(name, volume), mouseX, mouseY);
         return true;
@@ -46,9 +46,9 @@ final class NEFluidTankUi {
 
     static Component amountText(int amount, int capacity) {
         return Component.translatable(
-            "gui.neoecoae.fluid_tank.amount",
-            format(Math.max(0, amount)),
-            format(Math.max(0, capacity)));
+                "gui.neoecoae.fluid_tank.amount",
+                format(Math.max(0, amount)),
+                format(Math.max(0, capacity)));
     }
 
     private static boolean contains(int mouseX, int mouseY, int x, int y, int w, int h) {

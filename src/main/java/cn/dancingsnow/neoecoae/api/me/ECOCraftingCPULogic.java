@@ -211,8 +211,7 @@ public class ECOCraftingCPULogic {
         }
 
         int ecoSlots = 0;
-        Set<ECOCraftingSystemBlockEntity> countedControllers =
-                Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<ECOCraftingSystemBlockEntity> countedControllers = Collections.newSetFromMap(new IdentityHashMap<>());
         for (var task : job.tasks.entrySet()) {
             if (task.getValue().value <= 0) {
                 continue;
@@ -400,7 +399,8 @@ public class ECOCraftingCPULogic {
         debugExecuteCraftingNs = 0;
     }
 
-    private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService, IPatternDetails details) {
+    private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
+            IPatternDetails details) {
         List<ICraftingProvider> providers = new ArrayList<>();
         for (ICraftingProvider provider : craftingService.getProviders(details)) {
             if (!provider.isBusy()) {
