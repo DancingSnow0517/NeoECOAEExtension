@@ -1363,12 +1363,15 @@ public class NEBlocks {
                             prov.modLoc("block/computation_cooling_controller/controller_" + level + "_off"));
                     ModelFile modelFileFormed = prov.models().getExistingFile(
                             prov.modLoc("block/computation_cooling_controller/controller_" + level + "_formed"));
+                    ModelFile modelFileFormedMirrored = prov.models().getExistingFile(
+                            prov.modLoc("block/computation_cooling_controller/controller_" + level + "_formed_mirrored"));
                     prov.getVariantBuilder(ctx.get())
                             .forAllStates(s -> {
                                 boolean formed = s.getValue(ECOComputationThreadingCore.FORMED);
+                                boolean mirrored = s.getValue(ECOComputationCoolingController.MIRRORED);
                                 ConfiguredModel.Builder<?> builder = ConfiguredModel.builder();
                                 if (formed) {
-                                    builder.modelFile(modelFileFormed)
+                                    builder.modelFile(mirrored ? modelFileFormedMirrored : modelFileFormed)
                                             .rotationY(
                                                     ((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot()
                                                             + 270) % 360);
