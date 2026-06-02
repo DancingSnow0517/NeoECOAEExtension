@@ -1,4 +1,4 @@
-﻿{
+{
   "variants": {
     "facing=east,formed=false,mirrored=false": {
       "model": "neoecoae:block/crafting_controller/controller_l4_off",

@@ -13,16 +13,14 @@ public final class MultiBlockRotation {
     }
 
     public static BlockPos localToWorld(BlockPos localPos, BlockPos controllerPos, Direction facing) {
-        BlockPos offset = localPos.subtract(CONTROLLER_ANCHOR);
-        BlockPos rotated = rotateOffset(offset, facing);
-        return controllerPos.offset(rotated);
+        return localToWorld(localPos, controllerPos, facing, false);
     }
 
     public static BlockPos localToWorld(BlockPos localPos, BlockPos controllerPos, Direction facing, boolean mirrored) {
-        BlockPos offset = localPos.subtract(CONTROLLER_ANCHOR);
         if (mirrored) {
-            offset = new BlockPos(-offset.getX(), offset.getY(), offset.getZ());
+            localPos = mirrorLocalPos(localPos);
         }
+        BlockPos offset = localPos.subtract(CONTROLLER_ANCHOR);
         BlockPos rotated = rotateOffset(offset, facing);
         return controllerPos.offset(rotated);
     }
@@ -32,12 +30,14 @@ public final class MultiBlockRotation {
     }
 
     public static BlockState rotateState(BlockState state, Direction facing, boolean mirrored) {
-        BlockState source = mirrored ? mirrorState(state) : state;
         BlockState rotated = state;
-        for (Property<?> property : source.getProperties()) {
+        for (Property<?> property : state.getProperties()) {
             if (property instanceof DirectionProperty directionProperty) {
-                Direction direction = source.getValue(directionProperty);
+                Direction direction = state.getValue(directionProperty);
                 if (direction.getAxis().isHorizontal()) {
+                    if (mirrored) {
+                        direction = mirrorHorizontal(direction);
+                    }
                     rotated = rotated.setValue(directionProperty, rotateHorizontal(direction, facing));
                 }
             }
@@ -45,17 +45,8 @@ public final class MultiBlockRotation {
         return rotated;
     }
 
-    private static BlockState mirrorState(BlockState state) {
-        BlockState mirrored = state;
-        for (Property<?> property : state.getProperties()) {
-            if (property instanceof DirectionProperty directionProperty) {
-                Direction direction = state.getValue(directionProperty);
-                if (direction.getAxis() == Direction.Axis.X) {
-                    mirrored = mirrored.setValue(directionProperty, direction.getOpposite());
-                }
-            }
-        }
-        return mirrored;
+    private static BlockPos mirrorLocalPos(BlockPos localPos) {
+        return new BlockPos(CONTROLLER_ANCHOR.getX() * 2 - localPos.getX(), localPos.getY(), localPos.getZ());
     }
 
     private static BlockPos rotateOffset(BlockPos offset, Direction facing) {
@@ -74,6 +65,14 @@ public final class MultiBlockRotation {
             case EAST -> direction.getClockWise();
             case SOUTH -> direction.getOpposite();
             case WEST -> direction.getCounterClockWise();
+            default -> direction;
+        };
+    }
+
+    private static Direction mirrorHorizontal(Direction direction) {
+        return switch (direction) {
+            case EAST -> Direction.WEST;
+            case WEST -> Direction.EAST;
             default -> direction;
         };
     }

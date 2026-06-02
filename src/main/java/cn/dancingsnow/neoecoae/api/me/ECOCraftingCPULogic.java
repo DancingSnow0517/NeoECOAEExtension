@@ -42,10 +42,16 @@ import appeng.crafting.execution.*;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPULogic {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final boolean DEBUG_EXECUTION_STATS = Boolean.getBoolean("neoecoae.debugEcoCraftingExecution");
     private static final int ECO_PROVIDER_PUSH_BURST_LIMIT = 256;
 
     final ECOCraftingCPU cpu;
@@ -77,6 +83,11 @@ public class ECOCraftingCPULogic {
     private boolean markedForDeletion = false;
     private boolean batchingStatusChanges = false;
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
+    private long debugPushedPatterns;
+    private long debugExtractSkippedBecauseProvidersBusy;
+    private long debugExtractPatternInputsNs;
+    private long debugExecuteCraftingNs;
+    private long debugLastExecutionStatsTick = Long.MIN_VALUE;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -221,6 +232,7 @@ public class ECOCraftingCPULogic {
             return 0;
 
         var pushedPatterns = 0;
+        long executeStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
         beginStatusChangeBatch();
 
         try {
@@ -237,17 +249,24 @@ public class ECOCraftingCPULogic {
                 while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
                     List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
                     if (providers.isEmpty()) {
+                        debugExtractSkippedBecauseProvidersBusy++;
                         continue taskLoop;
                     }
 
                     var expectedOutputs = new KeyCounter();
                     var expectedContainerItems = new KeyCounter();
+                    long extractStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
                     @Nullable
                     var craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             details, inventory, level, expectedOutputs, expectedContainerItems);
+                    if (DEBUG_EXECUTION_STATS) {
+                        debugExtractPatternInputsNs += System.nanoTime() - extractStartNs;
+                    }
                     if (craftingContainer == null) {
                         continue taskLoop;
                     }
+                    ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
+                            details, craftingContainer, expectedOutputs, expectedContainerItems, level);
 
                     boolean pushed = false;
                     for (ICraftingProvider provider : providers) {
@@ -262,13 +281,13 @@ public class ECOCraftingCPULogic {
                         }
 
                         pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                                ? patternBus.pushPattern(details, craftingContainer, job.link.getCraftingID())
+                                ? patternBus.pushPattern(execution, job.link.getCraftingID())
                                 : provider.pushPattern(details, craftingContainer);
 
                         if (pushed) {
                             energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
                             pushedPatterns++;
-                            recordPushedPattern(details, expectedOutputs, expectedContainerItems);
+                            recordPushedPattern(execution);
 
                             task.getValue().value--;
                             postPatternOutputsChange(details);
@@ -291,9 +310,32 @@ public class ECOCraftingCPULogic {
             }
         } finally {
             endStatusChangeBatch();
+            if (DEBUG_EXECUTION_STATS) {
+                debugPushedPatterns += pushedPatterns;
+                debugExecuteCraftingNs += System.nanoTime() - executeStartNs;
+                maybeLogExecutionStats();
+            }
         }
 
         return pushedPatterns;
+    }
+
+    private void maybeLogExecutionStats() {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (currentTick - debugLastExecutionStatsTick < 100) {
+            return;
+        }
+        debugLastExecutionStatsTick = currentTick;
+        LOGGER.debug(
+                "ECO executeCrafting: pushedPatterns={} extractSkippedBecauseProvidersBusy={} extractPatternInputsNs={} executeCraftingNs={}",
+                debugPushedPatterns,
+                debugExtractSkippedBecauseProvidersBusy,
+                debugExtractPatternInputsNs,
+                debugExecuteCraftingNs);
+        debugPushedPatterns = 0;
+        debugExtractSkippedBecauseProvidersBusy = 0;
+        debugExtractPatternInputsNs = 0;
+        debugExecuteCraftingNs = 0;
     }
 
     private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService, IPatternDetails details) {
@@ -306,21 +348,21 @@ public class ECOCraftingCPULogic {
         return providers;
     }
 
-    private void recordPushedPattern(IPatternDetails details, KeyCounter expectedOutputs, KeyCounter expectedContainerItems) {
-        for (var expectedOutput : expectedOutputs) {
-            job.waitingFor.insert(expectedOutput.getKey(), expectedOutput.getLongValue(), Actionable.MODULATE);
+    private void recordPushedPattern(ECOExtractedPatternExecution execution) {
+        for (var expectedOutput : execution.expectedOutputs()) {
+            job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount(), Actionable.MODULATE);
         }
-        postCounterKeysChange(expectedOutputs);
-        for (var expectedContainerItem : expectedContainerItems) {
+        postGenericStackKeysChange(execution.expectedOutputs());
+        for (var expectedContainerItem : execution.expectedContainerItems()) {
             job.waitingFor.insert(
-                    expectedContainerItem.getKey(),
-                    expectedContainerItem.getLongValue(),
+                    expectedContainerItem.what(),
+                    expectedContainerItem.amount(),
                     Actionable.MODULATE);
             job.timeTracker.addMaxItems(
-                    expectedContainerItem.getLongValue(),
-                    expectedContainerItem.getKey().getType());
+                    expectedContainerItem.amount(),
+                    expectedContainerItem.what().getType());
         }
-        postCounterKeysChange(expectedContainerItems);
+        postGenericStackKeysChange(execution.expectedContainerItems());
 
         cpu.markDirty();
     }
@@ -535,6 +577,14 @@ public class ECOCraftingCPULogic {
         Set<AEKey> keys = new HashSet<>();
         for (var entry : counter) {
             keys.add(entry.getKey());
+        }
+        postKeysChange(keys);
+    }
+
+    private void postGenericStackKeysChange(List<GenericStack> stacks) {
+        Set<AEKey> keys = new HashSet<>();
+        for (var stack : stacks) {
+            keys.add(stack.what());
         }
         postKeysChange(keys);
     }

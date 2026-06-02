@@ -8,7 +8,8 @@
     "CraftingServiceMixin120",
     "CraftingCPUMenuMixin120",
     "CraftingCpuListEntryMixin120",
-    "CPUSelectionListMixin120"
+    "CPUSelectionListMixin120",
+    "ae2.AECraftingPatternAccessor"
   ],
   "client": [
     "CraftingStatusMenuMixin120"

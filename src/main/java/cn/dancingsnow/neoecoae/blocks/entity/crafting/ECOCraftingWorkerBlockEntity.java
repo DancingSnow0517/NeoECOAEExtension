@@ -8,6 +8,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -19,26 +21,14 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingWorkerBlockEntity>
     implements IGridTickable {
 
-    private static final int PATTERN_CACHE_LIMIT = 256;
-
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
-    private final Map<ECOCraftingThread.PatternCacheKey, ECOCraftingThread.PatternCacheEntry> patternCache =
-        new LinkedHashMap<>(PATTERN_CACHE_LIMIT, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(
-                Map.Entry<ECOCraftingThread.PatternCacheKey, ECOCraftingThread.PatternCacheEntry> eldest
-            ) {
-                return size() > PATTERN_CACHE_LIMIT;
-            }
-        };
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
 
     @Getter
     private int runningThreads = 0;
@@ -88,11 +78,16 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean pushPattern(IMolecularAssemblerSupportedPattern pattern, KeyCounter[] table, UUID craftingJobId) {
+        return pushPattern(ECOExtractedPatternExecution.slow(pattern, table), craftingJobId);
+    }
+
+    public boolean pushPattern(ECOExtractedPatternExecution execution, UUID craftingJobId) {
         if (cluster == null || cluster.getController() == null) {
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
         if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
+            fastPathCache.recordNoThreadReject();
             return false;
         }
 
@@ -105,7 +100,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (!thread.isFree()) {
                     continue;
                 }
-                if (thread.pushPattern(pattern, table, controller, craftingJobId)) {
+                if (thread.pushPattern(execution, controller, craftingJobId)) {
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                     return true;
                 }
@@ -122,15 +117,11 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
         setChanged();
         markForUpdate();
-        return thread.pushPattern(pattern, table, controller, craftingJobId);
+        return thread.pushPattern(execution, controller, craftingJobId);
     }
 
-    public ECOCraftingThread.PatternCacheEntry getCachedPattern(ECOCraftingThread.PatternCacheKey key) {
-        return patternCache.get(key);
-    }
-
-    public void cachePattern(ECOCraftingThread.PatternCacheKey key, ECOCraftingThread.PatternCacheEntry entry) {
-        patternCache.put(key, entry);
+    public ECOCraftingFastPathCache getFastPathCache() {
+        return fastPathCache;
     }
 
     public boolean isBusy() {
@@ -218,7 +209,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         super.loadTag(data);
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
-        patternCache.clear();
+        fastPathCache.clear();
         int busyThreads = 0;
         for (int i = 0; i < threads.size(); i++) {
             ECOCraftingThread thread = new ECOCraftingThread(this);

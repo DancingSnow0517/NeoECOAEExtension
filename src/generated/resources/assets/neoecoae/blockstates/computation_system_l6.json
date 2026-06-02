@@ -1,4 +1,4 @@
-﻿{
+{
   "variants": {
     "facing=east,formed=false,mirrored=false": {
       "model": "neoecoae:block/computation_controller/controller_l6_off",

@@ -50,12 +50,20 @@ public class NEConfig {
         )
         .define("postCraftingEvent", false);
 
+    private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AE2_FAST_PATH = BUILDER
+        .comment(
+            "Enable the verified AE2-assisted fast path for ECO crafting workers.",
+            "Set JVM property -Dneoecoae.ecoFastPath=false to force-disable this optimization without editing the config."
+        )
+        .define("enableEcoAe2FastPath", true);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength = 15;
     public static int computationSystemMaxLength = 15;
     public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
+    public static boolean enableEcoAe2FastPath;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent event) {
@@ -63,5 +71,10 @@ public class NEConfig {
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
+        enableEcoAe2FastPath = ENABLE_ECO_AE2_FAST_PATH.get();
+    }
+
+    public static boolean isEcoAe2FastPathEnabled() {
+        return enableEcoAe2FastPath && !"false".equalsIgnoreCase(System.getProperty("neoecoae.ecoFastPath", "true"));
     }
 }

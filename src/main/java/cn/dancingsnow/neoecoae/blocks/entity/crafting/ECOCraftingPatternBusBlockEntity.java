@@ -15,6 +15,7 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -61,7 +62,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder, @Nullable UUID craftingJobId) {
-        if (!(patternDetails instanceof IMolecularAssemblerSupportedPattern supportedPattern)) {
+        return pushPattern(ECOExtractedPatternExecution.slow(patternDetails, inputHolder), craftingJobId);
+    }
+
+    public boolean pushPattern(ECOExtractedPatternExecution execution, @Nullable UUID craftingJobId) {
+        if (execution.molecularPattern() == null) {
             return false;
         }
         if (cluster != null) {
@@ -73,7 +78,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             for (int offset = 0; offset < workers.size(); offset++) {
                 int index = (start + offset) % workers.size();
                 ECOCraftingWorkerBlockEntity worker = workers.get(index);
-                if (worker.pushPattern(supportedPattern, inputHolder, craftingJobId)) {
+                if (worker.pushPattern(execution, craftingJobId)) {
                     nextWorkerIndex = (index + 1) % Math.max(1, workers.size());
                     return true;
                 }

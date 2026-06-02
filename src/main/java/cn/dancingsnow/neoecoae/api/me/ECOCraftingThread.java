@@ -12,6 +12,11 @@ import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.menu.AutoCraftingMenu;
 import cn.dancingsnow.neoecoae.api.NEFakePlayer;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -19,11 +24,9 @@ import lombok.Getter;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -33,7 +36,6 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
@@ -120,29 +122,92 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOCraftingSystemBlockEntity controller,
         @Nullable UUID craftingJobId
     ) {
+        return pushPattern(ECOExtractedPatternExecution.slow(pattern, table), controller, craftingJobId);
+    }
+
+    public boolean pushPattern(
+        ECOExtractedPatternExecution execution,
+        ECOCraftingSystemBlockEntity controller,
+        @Nullable UUID craftingJobId
+    ) {
         if (isBusy) {
             return false;
         }
 
-        return calcPattern(pattern, table, controller, craftingJobId);
+        return acceptPattern(execution, controller, craftingJobId);
     }
 
-    private boolean calcPattern(
-        IMolecularAssemblerSupportedPattern pattern,
-        KeyCounter[] table,
+    private boolean acceptPattern(
+        ECOExtractedPatternExecution execution,
         ECOCraftingSystemBlockEntity controller,
         @Nullable UUID craftingJobId
     ) {
-        PatternCacheKey cacheKey = PatternCacheKey.of(pattern, table, worker.getLevel());
-        PatternCacheEntry cached = cacheKey == null || NEConfig.postCraftingEvent ? null : worker.getCachedPattern(cacheKey);
+        ECOCraftingFastPathCache cache = worker.getFastPathCache();
+        long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
+        ECOFastPathKey key = execution.key();
+        if (!canUseFastPath(execution, key)) {
+            cache.recordDisabled();
+            return calcPatternSlow(execution, controller, craftingJobId, false, tick);
+        }
+
+        ECOFastPathResult cached = cache.get(key, tick);
         if (cached != null) {
+            if (cached.isNegative()) {
+                cache.recordFallbackSlowPath();
+                return calcPatternSlow(execution, controller, craftingJobId, false, tick);
+            }
+            FastPathWork fastPathWork = createFastPathWork(cached, execution);
+            if (fastPathWork == null) {
+                cache.putNegative(key, tick);
+                cache.recordFallbackSlowPath();
+                return calcPatternSlow(execution, controller, craftingJobId, false, tick);
+            }
             if (!consumeCraftingCoolant(controller)) {
+                cache.recordCoolantReject();
                 return false;
             }
-            startWork(cached.copyOutput(), cached.copyInputs(), cached.copyRemaining(), craftingJobId);
+            startWork(fastPathWork.output(), fastPathWork.inputs(), fastPathWork.remaining(), craftingJobId);
+            cache.recordFastPathAccepted();
+            cache.maybeLogStats(worker.getBlockPos().toShortString(), tick);
             return true;
         }
 
+        return calcPatternSlow(execution, controller, craftingJobId, true, tick);
+    }
+
+    private boolean canUseFastPath(ECOExtractedPatternExecution execution, @Nullable ECOFastPathKey key) {
+        return key != null
+            && execution.fastPathEligible()
+            && NEConfig.isEcoAe2FastPathEnabled()
+            && !NEConfig.postCraftingEvent;
+    }
+
+    @Nullable
+    private FastPathWork createFastPathWork(ECOFastPathResult cached, ECOExtractedPatternExecution execution) {
+        if (!cached.matchesExecution(execution)) {
+            return null;
+        }
+        var output = ECOFastPathStacks.toSingleItemStack(cached.outputEntries());
+        var inputs = ECOFastPathStacks.toItemStacks(cached.inputEntries());
+        var remaining = ECOFastPathStacks.toItemStacks(cached.remainingEntries());
+        if (output.isEmpty() || inputs.isEmpty() || remaining.isEmpty()) {
+            return null;
+        }
+        return new FastPathWork(output.get(), inputs.get(), remaining.get());
+    }
+
+    private boolean calcPatternSlow(
+        ECOExtractedPatternExecution execution,
+        ECOCraftingSystemBlockEntity controller,
+        @Nullable UUID craftingJobId,
+        boolean verifyFastPath,
+        long tick
+    ) {
+        IMolecularAssemblerSupportedPattern pattern = execution.molecularPattern();
+        if (pattern == null) {
+            return false;
+        }
+        KeyCounter[] table = execution.craftingContainer();
         craftingInv.clearContent();
         pattern.fillCraftingGrid(table, craftingInv::setItem);
         ItemStack outputItem = pattern.assemble(craftingInv, worker.getLevel());
@@ -163,11 +228,42 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         List<ItemStack> inputs = snapshotCraftingInputs();
-        if (cacheKey != null && !NEConfig.postCraftingEvent && isCacheSafe(inputs, outputItem, list)) {
-            worker.cachePattern(cacheKey, new PatternCacheEntry(outputItem, inputs, list));
+        if (verifyFastPath) {
+            verifyAndCacheFastPath(execution, outputItem, inputs, list, tick);
         }
         startWork(outputItem.copy(), inputs, list, craftingJobId);
+        ECOCraftingFastPathCache cache = worker.getFastPathCache();
+        cache.recordSlowPathAccepted();
+        cache.maybeLogStats(worker.getBlockPos().toShortString(), tick);
         return true;
+    }
+
+    private void verifyAndCacheFastPath(
+        ECOExtractedPatternExecution execution,
+        ItemStack outputItem,
+        List<ItemStack> inputs,
+        List<ItemStack> remaining,
+        long tick
+    ) {
+        ECOFastPathKey key = execution.key();
+        if (key == null) {
+            return;
+        }
+        ECOCraftingFastPathCache cache = worker.getFastPathCache();
+        var outputEntries = ECOFastPathStacks.fromItemStack(outputItem);
+        var inputEntries = ECOFastPathStacks.fromItemStacks(inputs);
+        var remainingEntries = ECOFastPathStacks.fromItemStacks(remaining);
+        if (outputEntries.isEmpty() || inputEntries.isEmpty() || remainingEntries.isEmpty()) {
+            cache.putNegative(key, tick);
+            return;
+        }
+        if (!outputEntries.get().equals(execution.expectedOutputs())
+            || !remainingEntries.get().equals(execution.expectedContainerItems())
+            || !inputEntries.get().equals(execution.inputItems())) {
+            cache.putNegative(key, tick);
+            return;
+        }
+        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick);
     }
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller) {
@@ -198,36 +294,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 target.add(stack.copy());
             }
         }
-    }
-
-    private static boolean isCacheSafe(List<ItemStack> inputs, ItemStack output, List<ItemStack> remaining) {
-        if (!isCacheSafeStack(output, false)) {
-            return false;
-        }
-        for (ItemStack input : inputs) {
-            if (!isCacheSafeStack(input, true)) {
-                return false;
-            }
-        }
-        for (ItemStack remainder : remaining) {
-            if (!isCacheSafeStack(remainder, false)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean isCacheSafeStack(ItemStack stack, boolean input) {
-        if (stack.isEmpty()) {
-            return true;
-        }
-        if (stack.isDamageableItem()) {
-            return false;
-        }
-        if (stack.hasTag()) {
-            return false;
-        }
-        return !input || !stack.getItem().hasCraftingRemainingItem(stack);
     }
 
     private List<ItemStack> snapshotCraftingInputs() {
@@ -413,112 +479,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    public static final class PatternCacheKey {
-        private final IMolecularAssemblerSupportedPattern pattern;
-        private final ResourceLocation dimension;
-        private final List<SlotSignature> slots;
-        private final int hash;
-
-        private PatternCacheKey(
-            IMolecularAssemblerSupportedPattern pattern,
-            ResourceLocation dimension,
-            List<SlotSignature> slots
-        ) {
-            this.pattern = pattern;
-            this.dimension = dimension;
-            this.slots = slots;
-            this.hash = computeHash();
-        }
-
-        @Nullable
-        public static PatternCacheKey of(
-            IMolecularAssemblerSupportedPattern pattern,
-            KeyCounter[] table,
-            @Nullable Level level
-        ) {
-            if (pattern == null || table == null) {
-                return null;
-            }
-            ResourceLocation dimension = level == null ? null : level.dimension().location();
-            List<SlotSignature> slots = new ArrayList<>(table.length);
-            for (KeyCounter counter : table) {
-                List<CounterSignature> entries = new ArrayList<>();
-                if (counter != null) {
-                    for (Object2LongMap.Entry<AEKey> entry : counter) {
-                        entries.add(new CounterSignature(entry.getKey(), entry.getLongValue()));
-                    }
-                }
-                slots.add(new SlotSignature(entries));
-            }
-            return new PatternCacheKey(pattern, dimension, List.copyOf(slots));
-        }
-
-        private int computeHash() {
-            int result = System.identityHashCode(pattern);
-            result = 31 * result + Objects.hashCode(dimension);
-            result = 31 * result + slots.hashCode();
-            return result;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (!(obj instanceof PatternCacheKey other)) {
-                return false;
-            }
-            return this.pattern == other.pattern
-                && Objects.equals(this.dimension, other.dimension)
-                && this.slots.equals(other.slots);
-        }
-
-        @Override
-        public int hashCode() {
-            return hash;
-        }
-    }
-
-    private record SlotSignature(List<CounterSignature> entries) {
-        private SlotSignature {
-            entries = List.copyOf(entries);
-        }
-    }
-
-    private record CounterSignature(AEKey key, long amount) {
-    }
-
-    public static final class PatternCacheEntry {
-        private final ItemStack output;
-        private final List<ItemStack> inputs;
-        private final List<ItemStack> remaining;
-
-        public PatternCacheEntry(ItemStack output, List<ItemStack> inputs, List<ItemStack> remaining) {
-            this.output = output.copy();
-            this.inputs = copyImmutable(inputs);
-            this.remaining = copyImmutable(remaining);
-        }
-
-        public ItemStack copyOutput() {
-            return output.copy();
-        }
-
-        public List<ItemStack> copyInputs() {
-            return copyImmutable(inputs);
-        }
-
-        public List<ItemStack> copyRemaining() {
-            return copyImmutable(remaining);
-        }
-
-        private static List<ItemStack> copyImmutable(List<ItemStack> stacks) {
-            List<ItemStack> copy = new ArrayList<>(stacks.size());
-            for (ItemStack stack : stacks) {
-                if (!stack.isEmpty()) {
-                    copy.add(stack.copy());
-                }
-            }
-            return List.copyOf(copy);
-        }
+    private record FastPathWork(ItemStack output, List<ItemStack> inputs, List<ItemStack> remaining) {
     }
 }
