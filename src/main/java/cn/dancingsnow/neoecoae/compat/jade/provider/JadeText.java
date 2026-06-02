@@ -63,11 +63,6 @@ final class JadeText {
                 .append(label(" 个配方"));
     }
 
-    static Component structureLine(boolean formed) {
-        return Component.literal(formed ? "结构已成型" : "结构未成型")
-                .withStyle(formed ? ChatFormatting.GREEN : ChatFormatting.RED);
-    }
-
     static Component runningLine(boolean running) {
         return label("运行中：")
                 .append(value(running ? "是" : "否", running ? ChatFormatting.GREEN : ChatFormatting.GRAY));
