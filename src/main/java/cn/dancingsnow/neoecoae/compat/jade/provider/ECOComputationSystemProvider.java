@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.compat.jade.provider;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
@@ -17,20 +16,10 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
     @Override
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
         CompoundTag data = accessor.getServerData();
-        tooltip.add(Component.translatable("jade.neoecoae.formed", yesNo(data.getBoolean("formed"))));
-        tooltip.add(Component.translatable("jade.neoecoae.running", yesNo(data.getBoolean("running"))));
-        tooltip.add(Component.translatable("jade.neoecoae.computation.accelerators", data.getInt("acceleratorCount")));
-        tooltip.add(Component.translatable("jade.neoecoae.computation.dispatch_limit", data.getInt("dispatchLimit")));
-        tooltip.add(Component.translatable(
-            "jade.neoecoae.computation.thread_usage",
-            data.getInt("usedThread"),
-            data.getInt("totalThread")
-        ));
-        tooltip.add(Component.translatable(
-            "jade.neoecoae.computation.storage_usage",
-            data.getLong("usedStorage"),
-            data.getLong("totalStorage")
-        ));
+        tooltip.add(JadeText.threadLine(data.getInt("usedThread"), data.getInt("totalThread")));
+        tooltip.add(JadeText.acceleratorLine(data.getInt("acceleratorCount"), data.getInt("dispatchLimit")));
+        tooltip.add(JadeText.storageLine(data.getLong("usedStorage"), data.getLong("totalStorage")));
+        tooltip.add(JadeText.onlineLine(data.getBoolean("formed")));
     }
 
     @Override
@@ -54,9 +43,5 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
     @Override
     public ResourceLocation getUid() {
         return NeoECOAE.id("eco_computation_system");
-    }
-
-    private static Component yesNo(boolean value) {
-        return Component.translatable(value ? "jade.neoecoae.yes" : "jade.neoecoae.no");
     }
 }

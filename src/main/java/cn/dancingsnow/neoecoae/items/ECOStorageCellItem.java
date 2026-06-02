@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import com.tterrag.registrate.util.entry.RegistryEntry;
@@ -49,7 +50,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Getter
     private final IECOTier tier;
-    private final long totalBytes;
+    private final long fallbackTotalBytes;
     private final int bytesPerType;
     private final int totalTypes;
     private final AEKeyType keyType;
@@ -63,7 +64,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             RegistryEntry<ECOCellType> cellType) {
         super(properties);
         this.tier = tier;
-        this.totalBytes = tier.getStorageTotalBytes();
+        this.fallbackTotalBytes = tier.getStorageTotalBytes();
         this.bytesPerType = 1 << (12 + tier.getTier());
         this.totalTypes = tier.getStorageTotalTypes(keyType);
         this.keyType = keyType;
@@ -77,7 +78,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public long getBytes() {
-        return totalBytes;
+        return NEConfig.getEcoStorageCellCapacity(tier, fallbackTotalBytes);
     }
 
     @Override

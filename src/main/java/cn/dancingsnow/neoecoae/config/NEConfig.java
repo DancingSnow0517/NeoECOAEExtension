@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
@@ -57,6 +58,14 @@ public class NEConfig {
         )
         .define("enableEcoAe2FastPath", true);
 
+    private static final ForgeConfigSpec.BooleanValue INCREASE_STORAGE_CELL_CAPACITY = BUILDER
+        .comment(
+            "Increase ECO Storage Matrix capacity.",
+            "false keeps the old capacity.",
+            "true changes ECO Storage Matrix capacity to L4=256MiB, L6=4GiB, L9=64GiB."
+        )
+        .define("increaseStorageCellCapacity", false);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength = 15;
@@ -64,6 +73,7 @@ public class NEConfig {
     public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
     public static boolean enableEcoAe2FastPath;
+    public static boolean increaseStorageCellCapacity;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent event) {
@@ -72,9 +82,23 @@ public class NEConfig {
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         enableEcoAe2FastPath = ENABLE_ECO_AE2_FAST_PATH.get();
+        increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
     }
 
     public static boolean isEcoAe2FastPathEnabled() {
         return enableEcoAe2FastPath && !"false".equalsIgnoreCase(System.getProperty("neoecoae.ecoFastPath", "true"));
+    }
+
+    public static long getEcoStorageCellCapacity(IECOTier tier, long fallbackBytes) {
+        if (!increaseStorageCellCapacity) {
+            return fallbackBytes;
+        }
+
+        return switch (tier.getTier()) {
+            case 1 -> 256L << 20;
+            case 2 -> 4L << 30;
+            case 3 -> 64L << 30;
+            default -> fallbackBytes;
+        };
     }
 }
