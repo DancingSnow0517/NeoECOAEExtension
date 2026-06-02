@@ -8,8 +8,10 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -120,6 +122,67 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return thread.pushPattern(execution, controller, craftingJobId);
     }
 
+    public boolean pushBatch(ECOBatchCraftingRequest request) {
+        if (cluster == null || cluster.getController() == null) {
+            return false;
+        }
+        ECOCraftingSystemBlockEntity controller = cluster.getController();
+        if (request.batchSize() > getAvailableThreadSlots()) {
+            fastPathCache.recordNoThreadReject();
+            return false;
+        }
+
+        int threadCount = craftingThreads.size();
+        if (threadCount > 0) {
+            int start = Math.floorMod(nextFreeThreadIndex, threadCount);
+            for (int offset = 0; offset < threadCount; offset++) {
+                int index = (start + offset) % threadCount;
+                ECOCraftingThread thread = craftingThreads.get(index);
+                if (!thread.isFree()) {
+                    continue;
+                }
+                if (thread.pushBatch(request, controller)) {
+                    nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        if (craftingThreads.size() >= controller.getThreadCountPerWorker()) {
+            return false;
+        }
+
+        ECOCraftingThread thread = new ECOCraftingThread(this);
+        craftingThreads.add(thread);
+        nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
+        setChanged();
+        markForUpdate();
+        return thread.pushBatch(request, controller);
+    }
+
+    public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
+        var key = execution.key();
+        if (key == null) {
+            fastPathCache.recordKeyBuildFailed();
+            return null;
+        }
+        long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
+        ECOFastPathResult result = fastPathCache.get(key, tick);
+        if (result == null) {
+            return null;
+        }
+        if (result.isNegative()) {
+            fastPathCache.recordFallbackSlowPath();
+            return null;
+        }
+        if (!result.matchesExecution(execution)) {
+            fastPathCache.recordExpectedMismatch();
+            return null;
+        }
+        return result;
+    }
+
     public ECOCraftingFastPathCache getFastPathCache() {
         return fastPathCache;
     }
@@ -136,10 +199,11 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
     }
 
-    public void onThreadWork() {
-        runningThreads++;
+    public void onThreadWork(int occupiedThreadSlots) {
+        int slots = Math.max(1, occupiedThreadSlots);
+        runningThreads += slots;
         if (cluster != null && cluster.getController() != null) {
-            cluster.getController().onWorkerThreadCountChanged(1);
+            cluster.getController().onWorkerThreadCountChanged(slots);
         }
         setChanged();
         wakeTickingDevice();
@@ -152,13 +216,14 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    public void onThreadStop() {
-        runningThreads--;
+    public void onThreadStop(int occupiedThreadSlots) {
+        int slots = Math.max(1, occupiedThreadSlots);
+        runningThreads -= slots;
         if (runningThreads < 0) {
             runningThreads = 0;
         }
         if (cluster != null && cluster.getController() != null) {
-            cluster.getController().onWorkerThreadCountChanged(-1);
+            cluster.getController().onWorkerThreadCountChanged(-slots);
         }
         setChanged();
     }
@@ -216,7 +281,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             thread.deserializeNBT(threads.getCompound(i));
             craftingThreads.add(thread);
             if (!thread.isFree()) {
-                busyThreads++;
+                busyThreads += thread.getOccupiedThreadSlots();
             }
         }
         runningThreads = busyThreads;

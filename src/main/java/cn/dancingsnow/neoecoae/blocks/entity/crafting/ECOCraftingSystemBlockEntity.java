@@ -283,6 +283,19 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return true;
     }
 
+    public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
+        if (!activeCooling || requestedCrafts <= 0) {
+            return Math.max(0, requestedCrafts);
+        }
+        if (coolantPerCraft <= 0) {
+            return Math.max(0, requestedCrafts);
+        }
+        if (requiredOverclock > 0 && coolantMaxOverclock < requiredOverclock) {
+            return 0;
+        }
+        return Math.min(requestedCrafts, coolant / coolantPerCraft);
+    }
+
     private void markCoolantConsumed() {
         long currentTick = TickHandler.instance().getCurrentTick();
         if (lastCoolantConsumeDirtyTick == currentTick) {

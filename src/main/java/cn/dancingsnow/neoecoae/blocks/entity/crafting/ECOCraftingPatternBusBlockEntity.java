@@ -15,7 +15,9 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -87,6 +89,70 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return false;
     }
 
+    public boolean pushBatch(ECOBatchCraftingRequest request) {
+        BatchFastPathOffer offer = findBatchFastPathOffer(request.key(), null, request.batchSize());
+        if (offer == null) {
+            return false;
+        }
+        if (offer.worker().pushBatch(request)) {
+            nextWorkerIndex = nextWorkerIndexAfter(offer.worker());
+            return true;
+        }
+        return false;
+    }
+
+    @Nullable
+    public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
+        if (execution.key() == null) {
+            return null;
+        }
+        return findBatchFastPathOffer(execution.key(), execution, requestedBatchSize);
+    }
+
+    @Nullable
+    private BatchFastPathOffer findBatchFastPathOffer(
+        cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey key,
+        @Nullable ECOExtractedPatternExecution execution,
+        int requestedBatchSize
+    ) {
+        if (cluster == null || requestedBatchSize <= 0) {
+            return null;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+        if (workers.isEmpty()) {
+            return null;
+        }
+        int start = Math.floorMod(nextWorkerIndex, workers.size());
+        for (int offset = 0; offset < workers.size(); offset++) {
+            int index = (start + offset) % workers.size();
+            ECOCraftingWorkerBlockEntity worker = workers.get(index);
+            int availableSlots = worker.getAvailableThreadSlots();
+            if (availableSlots <= 0) {
+                continue;
+            }
+            ECOFastPathResult result = execution == null
+                ? worker.getFastPathCache().peek(key)
+                : worker.getVerifiedFastPathResult(execution);
+            if (result == null || result.isNegative()) {
+                continue;
+            }
+            int maxBatchSize = Math.min(requestedBatchSize, availableSlots);
+            if (maxBatchSize > 0) {
+                return new BatchFastPathOffer(worker, result, maxBatchSize);
+            }
+        }
+        return null;
+    }
+
+    private int nextWorkerIndexAfter(ECOCraftingWorkerBlockEntity acceptedWorker) {
+        if (cluster == null) {
+            return nextWorkerIndex;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+        int index = workers.indexOf(acceptedWorker);
+        return index < 0 ? nextWorkerIndex : (index + 1) % Math.max(1, workers.size());
+    }
+
     public boolean recoverJobToNetwork(UUID craftingJobId, appeng.api.storage.MEStorage storage) {
         if (cluster == null) {
             return false;
@@ -117,6 +183,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             (long) controller.getThreadCountPerWorker() * controller.getWorkerCount() - runningThreads
         );
         return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));
+    }
+
+    public record BatchFastPathOffer(
+        ECOCraftingWorkerBlockEntity worker,
+        ECOFastPathResult result,
+        int maxBatchSize
+    ) {
     }
 
     @Nullable

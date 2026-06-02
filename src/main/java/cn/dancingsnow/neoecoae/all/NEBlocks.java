@@ -1150,14 +1150,18 @@ public class NEBlocks {
                             .getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_off"));
                     ModelFile formedModel = prov.models()
                             .getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed"));
+                    ModelFile formedMirroredModel = prov.models().getExistingFile(
+                            prov.modLoc("block/storage_controller/controller_" + level + "_formed_mirrored"));
                     prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> ConfiguredModel.builder()
-                                    .modelFile(s.getValue(ECOStorageSystemBlock.FORMED)
-                                            ? formedModel
-                                            : modelFile)
-                                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                            % 360)
-                                    .build());
+                            .forAllStates(s -> {
+                                boolean formed = s.getValue(NEBlock.FORMED);
+                                boolean mirrored = s.getValue(NEBlock.MIRRORED);
+                                return ConfiguredModel.builder()
+                                        .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
+                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
+                                                % 360)
+                                        .build();
+                            });
                 })
                 .item()
                 .properties(p -> p.rarity(rarity))
@@ -1214,14 +1218,18 @@ public class NEBlocks {
                             .getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_off"));
                     ModelFile formedModel = prov.models()
                             .getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_formed"));
+                    ModelFile formedMirroredModel = prov.models().getExistingFile(
+                            prov.modLoc("block/crafting_controller/controller_" + level + "_formed_mirrored"));
                     prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> ConfiguredModel.builder()
-                                    .modelFile(s.getValue(ECOStorageSystemBlock.FORMED)
-                                            ? formedModel
-                                            : modelFile)
-                                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                            % 360)
-                                    .build());
+                            .forAllStates(s -> {
+                                boolean formed = s.getValue(NEBlock.FORMED);
+                                boolean mirrored = s.getValue(NEBlock.MIRRORED);
+                                return ConfiguredModel.builder()
+                                        .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
+                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
+                                                % 360)
+                                        .build();
+                            });
                 })
                 .item()
                 .properties(p -> p.rarity(rarity))
@@ -1246,14 +1254,18 @@ public class NEBlocks {
                             .getExistingFile(prov.modLoc("block/computation_controller/controller_" + level + "_off"));
                     ModelFile formedModel = prov.models().getExistingFile(
                             prov.modLoc("block/computation_controller/controller_" + level + "_formed"));
+                    ModelFile formedMirroredModel = prov.models().getExistingFile(
+                            prov.modLoc("block/computation_controller/controller_" + level + "_formed_mirrored"));
                     prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> ConfiguredModel.builder()
-                                    .modelFile(s.getValue(ECOStorageSystemBlock.FORMED)
-                                            ? formedModel
-                                            : modelFile)
-                                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                            % 360)
-                                    .build());
+                            .forAllStates(s -> {
+                                boolean formed = s.getValue(NEBlock.FORMED);
+                                boolean mirrored = s.getValue(NEBlock.MIRRORED);
+                                return ConfiguredModel.builder()
+                                        .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
+                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
+                                                % 360)
+                                        .build();
+                            });
                 })
                 .item()
                 .model((ctx, prov) -> {

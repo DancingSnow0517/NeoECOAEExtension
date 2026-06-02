@@ -40,6 +40,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     private static final Set<String> LOGGED_FORMED_UPDATES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_REBUILDS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_GRID_STATES = ConcurrentHashMap.newKeySet();
+    private static final boolean DEBUG_MIRROR_BUILD = Boolean.getBoolean("neoecoae.debugMultiblockMirror");
 
     @Setter
     @Getter
@@ -129,6 +130,18 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
         if (newState.hasProperty(NEBlock.MIRRORED)) {
             newState = newState.setValue(NEBlock.MIRRORED, cluster != null && cluster.isMirrored());
+        }
+        if (DEBUG_MIRROR_BUILD) {
+            LOGGER.debug(
+                "NE multiblock updateState: pos={} block={} formed={} clusterPresent={} clusterMirrored={} oldState={} newState={}",
+                worldPosition,
+                ForgeRegistries.BLOCKS.getKey(oldState.getBlock()),
+                formed,
+                cluster != null,
+                cluster != null && cluster.isMirrored(),
+                oldState,
+                newState
+            );
         }
         if (!oldState.equals(newState)) {
             level.setBlock(

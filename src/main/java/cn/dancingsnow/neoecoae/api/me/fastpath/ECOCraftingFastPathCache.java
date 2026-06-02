@@ -32,6 +32,12 @@ public final class ECOCraftingFastPathCache {
     private long slowPathAcceptedCount;
     private long coolantRejectCount;
     private long noThreadRejectCount;
+    private long expectedMismatchCount;
+    private long containerMismatchCount;
+    private long nonItemKeyCount;
+    private long postCraftingEventCount;
+    private long keyBuildFailedCount;
+    private long exceptionCount;
     private long lastStatsLogTick = Long.MIN_VALUE;
 
     public ECOCraftingFastPathCache() {
@@ -65,6 +71,11 @@ public final class ECOCraftingFastPathCache {
             hitCount++;
         }
         return result;
+    }
+
+    @Nullable
+    public ECOFastPathResult peek(ECOFastPathKey key) {
+        return entries.get(key);
     }
 
     public void putPositive(
@@ -127,23 +138,56 @@ public final class ECOCraftingFastPathCache {
         noThreadRejectCount++;
     }
 
+    public void recordExpectedMismatch() {
+        expectedMismatchCount++;
+    }
+
+    public void recordContainerMismatch() {
+        containerMismatchCount++;
+    }
+
+    public void recordNonItemKey() {
+        nonItemKeyCount++;
+    }
+
+    public void recordPostCraftingEvent() {
+        postCraftingEventCount++;
+    }
+
+    public void recordKeyBuildFailed() {
+        keyBuildFailedCount++;
+    }
+
+    public void recordException() {
+        exceptionCount++;
+    }
+
     public void maybeLogStats(String owner, long tick) {
         if (!DEBUG_STATS || tick - lastStatsLogTick < 100) {
             return;
         }
         lastStatsLogTick = tick;
+        long positiveLookups = hitCount + missCount + negativeHitCount;
+        double hitRate = positiveLookups <= 0 ? 0.0D : (hitCount * 100.0D / positiveLookups);
         LOGGER.debug(
-            "ECO fast path [{}]: size={}/{} hit={} miss={} verified={} rejected={} negativeHit={} disabled={} fallbackSlow={} fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
+            "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={} negativeHit={} verified={} rejected={} fallbackReason[disabled={} unverified={} expectedMismatch={} containerMismatch={} nonItemKey={} postCraftingEvent={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
             owner,
             size(),
             limit,
             hitCount,
             missCount,
+            String.format(java.util.Locale.ROOT, "%.1f%%", hitRate),
+            negativeHitCount,
             verifySuccessCount,
             verifyRejectCount,
-            negativeHitCount,
             disabledCount,
             fallbackSlowPathCount,
+            expectedMismatchCount,
+            containerMismatchCount,
+            nonItemKeyCount,
+            postCraftingEventCount,
+            keyBuildFailedCount,
+            exceptionCount,
             fastPathAcceptedCount,
             slowPathAcceptedCount,
             coolantRejectCount,

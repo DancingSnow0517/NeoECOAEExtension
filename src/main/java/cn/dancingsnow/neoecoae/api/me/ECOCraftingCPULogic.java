@@ -43,9 +43,12 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +56,12 @@ public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_EXECUTION_STATS = Boolean.getBoolean("neoecoae.debugEcoCraftingExecution");
     private static final int ECO_PROVIDER_PUSH_BURST_LIMIT = 256;
+    private static final int ECO_BATCH_FAST_PATH_LIMIT = Math.max(
+            1,
+            Integer.getInteger("neoecoae.ecoBatchFastPathLimit", 64));
+    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT = Math.max(
+            1,
+            Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", 256));
 
     final ECOCraftingCPU cpu;
 
@@ -85,6 +94,12 @@ public class ECOCraftingCPULogic {
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
     private long debugPushedPatterns;
     private long debugExtractSkippedBecauseProvidersBusy;
+    private long debugExtractPatternInputsCalls;
+    private long debugPushPatternCalls;
+    private long debugAcceptedCraftCount;
+    private long debugAcceptedBatchCount;
+    private long debugAcceptedBatchCraftCount;
+    private long debugMaxBatchSize;
     private long debugExtractPatternInputsNs;
     private long debugExecuteCraftingNs;
     private long debugLastExecutionStatsTick = Long.MIN_VALUE;
@@ -256,6 +271,9 @@ public class ECOCraftingCPULogic {
                     var expectedOutputs = new KeyCounter();
                     var expectedContainerItems = new KeyCounter();
                     long extractStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
+                    if (DEBUG_EXECUTION_STATS) {
+                        debugExtractPatternInputsCalls++;
+                    }
                     @Nullable
                     var craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             details, inventory, level, expectedOutputs, expectedContainerItems);
@@ -268,18 +286,46 @@ public class ECOCraftingCPULogic {
                     ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
                             details, craftingContainer, expectedOutputs, expectedContainerItems, level);
 
+                    double patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
+                    int batchResult = tryPushVerifiedFastPathBatch(
+                            details,
+                            execution,
+                            craftingContainer,
+                            providers,
+                            energyService,
+                            patternPower,
+                            task.getValue().value,
+                            maxPatterns - pushedPatterns);
+                    if (batchResult > 0) {
+                        pushedPatterns += batchResult;
+                        task.getValue().value -= batchResult;
+                        postPatternOutputsChange(details);
+                        if (task.getValue().value <= 0) {
+                            it.remove();
+                            continue taskLoop;
+                        }
+                        if (pushedPatterns == maxPatterns) {
+                            break taskLoop;
+                        }
+                        continue;
+                    } else if (batchResult < 0) {
+                        continue taskLoop;
+                    }
+
                     boolean pushed = false;
                     for (ICraftingProvider provider : providers) {
                         if (provider.isBusy()) {
                             continue;
                         }
 
-                        var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
                         if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
                                 PowerMultiplier.CONFIG) < patternPower - 0.01) {
                             break;
                         }
 
+                        if (DEBUG_EXECUTION_STATS) {
+                            debugPushPatternCalls++;
+                        }
                         pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
                                 ? patternBus.pushPattern(execution, job.link.getCraftingID())
                                 : provider.pushPattern(details, craftingContainer);
@@ -287,7 +333,8 @@ public class ECOCraftingCPULogic {
                         if (pushed) {
                             energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
                             pushedPatterns++;
-                            recordPushedPattern(execution);
+                            recordPushedPattern(execution, 1);
+                            recordAcceptedCrafts(1, false);
 
                             task.getValue().value--;
                             postPatternOutputsChange(details);
@@ -326,14 +373,29 @@ public class ECOCraftingCPULogic {
             return;
         }
         debugLastExecutionStatsTick = currentTick;
+        double averageBatchSize = debugAcceptedBatchCount <= 0
+                ? 0.0D
+                : (double) debugAcceptedBatchCraftCount / (double) debugAcceptedBatchCount;
         LOGGER.debug(
-                "ECO executeCrafting: pushedPatterns={} extractSkippedBecauseProvidersBusy={} extractPatternInputsNs={} executeCraftingNs={}",
+                "ECO executeCrafting: pushedPatterns={} extractSkippedBecauseProvidersBusy={} extractPatternInputsCalls={} pushPatternCalls={} acceptedCraftCount={} acceptedBatchCount={} averageBatchSize={} maxBatchSize={} extractPatternInputsNs={} executeCraftingNs={}",
                 debugPushedPatterns,
                 debugExtractSkippedBecauseProvidersBusy,
+                debugExtractPatternInputsCalls,
+                debugPushPatternCalls,
+                debugAcceptedCraftCount,
+                debugAcceptedBatchCount,
+                String.format(java.util.Locale.ROOT, "%.2f", averageBatchSize),
+                debugMaxBatchSize,
                 debugExtractPatternInputsNs,
                 debugExecuteCraftingNs);
         debugPushedPatterns = 0;
         debugExtractSkippedBecauseProvidersBusy = 0;
+        debugExtractPatternInputsCalls = 0;
+        debugPushPatternCalls = 0;
+        debugAcceptedCraftCount = 0;
+        debugAcceptedBatchCount = 0;
+        debugAcceptedBatchCraftCount = 0;
+        debugMaxBatchSize = 0;
         debugExtractPatternInputsNs = 0;
         debugExecuteCraftingNs = 0;
     }
@@ -348,23 +410,161 @@ public class ECOCraftingCPULogic {
         return providers;
     }
 
-    private void recordPushedPattern(ECOExtractedPatternExecution execution) {
+    private int tryPushVerifiedFastPathBatch(
+            IPatternDetails details,
+            ECOExtractedPatternExecution execution,
+            KeyCounter[] firstCraftingContainer,
+            List<ICraftingProvider> providers,
+            IEnergyService energyService,
+            double patternPower,
+            long taskRemaining,
+            int tickBudgetRemaining) {
+        if (!canAttemptBatchFastPath(execution) || taskRemaining <= 1 || tickBudgetRemaining <= 1) {
+            return 0;
+        }
+
+        int requested = (int) Math.min(
+                Math.min(taskRemaining, tickBudgetRemaining),
+                Math.min(ECO_BATCH_FAST_PATH_LIMIT, ECO_BATCH_FAST_PATH_TICK_LIMIT));
+        ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
+        ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
+        for (ICraftingProvider provider : providers) {
+            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)) {
+                continue;
+            }
+            var offer = patternBus.findBatchFastPathOffer(execution, requested);
+            if (offer != null && offer.maxBatchSize() > 1) {
+                selectedPatternBus = patternBus;
+                selectedOffer = offer;
+                break;
+            }
+        }
+        if (selectedPatternBus == null || selectedOffer == null) {
+            return 0;
+        }
+
+        ECOCraftingSystemBlockEntity controller = selectedPatternBus.getCraftingController();
+        if (controller == null) {
+            return 0;
+        }
+
+        int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
+        batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
+        batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
+        if (batchSize <= 1) {
+            return 0;
+        }
+
+        int extraCrafts = batchSize - 1;
+        int availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
+                inventory,
+                execution.inputItems(),
+                extraCrafts);
+        batchSize = Math.min(batchSize, availableExtraCrafts + 1);
+        if (batchSize <= 1) {
+            return 0;
+        }
+
+        var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
+        var inputTotal = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize);
+        boolean extraInputsExtracted = false;
+        try {
+            if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
+                return 0;
+            }
+            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE,
+                    PowerMultiplier.CONFIG) < patternPower * batchSize - 0.01) {
+                return 0;
+            }
+            ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+            extraInputsExtracted = true;
+            var request = new ECOBatchCraftingRequest(
+                    details,
+                    execution.key(),
+                    batchSize,
+                    execution.inputItems(),
+                    execution.expectedOutputs(),
+                    execution.expectedContainerItems(),
+                    job.link.getCraftingID());
+            if (DEBUG_EXECUTION_STATS) {
+                debugPushPatternCalls++;
+            }
+            if (!selectedPatternBus.pushBatch(request)) {
+                ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
+                return -1;
+            }
+            energyService.extractAEPower(patternPower * batchSize, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            recordPushedPattern(execution, batchSize);
+            recordAcceptedCrafts(batchSize, true);
+            return batchSize;
+        } catch (RuntimeException e) {
+            LOGGER.warn("ECO batch fast path failed, reinjecting inputs and falling back to the slow path", e);
+            if (extraInputsExtracted) {
+                ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
+            } else {
+                CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+            }
+            selectedOffer.worker().getFastPathCache().recordException();
+            return -1;
+        }
+    }
+
+    private boolean canAttemptBatchFastPath(ECOExtractedPatternExecution execution) {
+        return execution.key() != null
+                && execution.fastPathEligible()
+                && NEConfig.isEcoAe2FastPathEnabled()
+                && !NEConfig.postCraftingEvent;
+    }
+
+    private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {
+        if (requested <= 0) {
+            return 0;
+        }
+        if (patternPower <= 0.0D) {
+            return requested;
+        }
+        int batchSize = requested;
+        while (batchSize > 0) {
+            double totalPower = patternPower * batchSize;
+            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE,
+                    PowerMultiplier.CONFIG) >= totalPower - 0.01) {
+                return batchSize;
+            }
+            batchSize--;
+        }
+        return 0;
+    }
+
+    private void recordPushedPattern(ECOExtractedPatternExecution execution, int craftCount) {
+        int multiplier = Math.max(1, craftCount);
         for (var expectedOutput : execution.expectedOutputs()) {
-            job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount(), Actionable.MODULATE);
+            job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount() * multiplier, Actionable.MODULATE);
         }
         postGenericStackKeysChange(execution.expectedOutputs());
         for (var expectedContainerItem : execution.expectedContainerItems()) {
             job.waitingFor.insert(
                     expectedContainerItem.what(),
-                    expectedContainerItem.amount(),
+                    expectedContainerItem.amount() * multiplier,
                     Actionable.MODULATE);
             job.timeTracker.addMaxItems(
-                    expectedContainerItem.amount(),
+                    expectedContainerItem.amount() * multiplier,
                     expectedContainerItem.what().getType());
         }
         postGenericStackKeysChange(execution.expectedContainerItems());
 
         cpu.markDirty();
+    }
+
+    private void recordAcceptedCrafts(int craftCount, boolean batch) {
+        if (!DEBUG_EXECUTION_STATS) {
+            return;
+        }
+        debugAcceptedCraftCount += craftCount;
+        if (batch) {
+            debugAcceptedBatchCount++;
+            debugAcceptedBatchCraftCount += craftCount;
+            debugMaxBatchSize = Math.max(debugMaxBatchSize, craftCount);
+        }
     }
 
     /**

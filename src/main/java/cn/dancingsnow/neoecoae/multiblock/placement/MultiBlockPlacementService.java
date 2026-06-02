@@ -4,6 +4,7 @@ import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
+import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,6 +20,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandler;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -26,6 +28,9 @@ import java.util.List;
 import java.util.Set;
 
 public final class MultiBlockPlacementService {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final boolean DEBUG_MIRROR_BUILD = Boolean.getBoolean("neoecoae.debugMultiblockMirror");
+
     public enum PlacementTickResult {
         WAITING,
         ADVANCED,
@@ -71,6 +76,18 @@ public final class MultiBlockPlacementService {
             }
             BlockPos worldPos = MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing, mirrored);
             BlockState targetState = MultiBlockRotation.rotateState(plannedBlock.targetState(), facing, mirrored);
+            if (DEBUG_MIRROR_BUILD) {
+                LOGGER.debug(
+                    "NE multiblock preview: controllerPos={} controllerFacing={} mirrored={} relativePos={} worldPos={} sourceState={} targetState={}",
+                    controllerPos,
+                    facing,
+                    mirrored,
+                    plannedBlock.relativePos(),
+                    worldPos,
+                    plannedBlock.targetState(),
+                    targetState
+                );
+            }
             WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy());
             allBlocks.add(worldBlock);
 
