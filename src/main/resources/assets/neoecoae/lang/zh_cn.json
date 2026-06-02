@@ -378,4 +378,17 @@
   "tooltip.neoecoae.storage_system": "§7§o存储系统的核心",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "铝合金升级",
   "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑钨合金升级"
+  ,"neoecoae.configuration.increaseStorageCellCapacity": "增加 ECO 容量",
+  "neoecoae.configuration.increaseStorageCellCapacity.tooltip": "增加 ECO 存储矩阵容量，并将计算闪存容量扩大 16 倍。\n检测到 GregTech Modern/GTCEu 时默认开启。\n修改配置后建议重进世界或重启服务器后完全生效。",
+  "screen.neoecoae.config.title": "Neo ECO AE Extension 配置",
+  "screen.neoecoae.config.restart_notice": "修改配置后建议重进世界或重启服务器后完全生效。",
+  "screen.neoecoae.config.craftingSystemMaxLength": "合成主机最大长度",
+  "screen.neoecoae.config.computationSystemMaxLength": "计算主机最大长度",
+  "screen.neoecoae.config.storageSystemMaxLength": "存储主机最大长度",
+  "screen.neoecoae.config.increaseCapacity": "增加容量",
+  "screen.neoecoae.config.increaseCapacity.on": "开启",
+  "screen.neoecoae.config.increaseCapacity.off": "关闭",
+  "screen.neoecoae.config.save": "保存",
+  "screen.neoecoae.config.cancel": "取消",
+  "screen.neoecoae.config.invalid": "请输入正整数。"
 }

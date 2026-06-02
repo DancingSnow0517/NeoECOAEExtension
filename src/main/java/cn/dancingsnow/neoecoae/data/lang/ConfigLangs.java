@@ -30,5 +30,12 @@ public class ConfigLangs {
             "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n" +
                 "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
         );
+        provider.add("neoecoae.configuration.increaseStorageCellCapacity", "Increase ECO Capacity");
+        provider.add(
+            "neoecoae.configuration.increaseStorageCellCapacity.tooltip",
+            "Increase ECO Storage Matrix capacity and multiply computation flash capacity by 16.\n" +
+                "Defaults to enabled when GregTech Modern/GTCEu is loaded.\n" +
+                "Changes are fully applied after re-entering the world or restarting the server."
+        );
     }
 }

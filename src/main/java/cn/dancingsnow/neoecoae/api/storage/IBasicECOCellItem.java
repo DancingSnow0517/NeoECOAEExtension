@@ -10,6 +10,9 @@ public interface IBasicECOCellItem extends ICellWorkbenchItem {
     IECOTier getTier();
     AEKeyType getKeyType();
     long getBytes();
+    default long getIdleDrainBytes() {
+        return getBytes();
+    }
     int getBytesPerType();
     int getTotalTypes();
     ECOCellType getCellType();

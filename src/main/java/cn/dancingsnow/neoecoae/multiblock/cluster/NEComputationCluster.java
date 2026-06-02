@@ -141,7 +141,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             ItemStack itemStack = driveBlockEntity.getCellStack();
             if (itemStack != null && !itemStack.isEmpty()) {
                 if (itemStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    ret += cellItem.getTier().getCPUTotalBytes();
+                    ret += cellItem.getBytes();
                 }
             }
         }

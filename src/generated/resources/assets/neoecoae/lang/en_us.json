@@ -382,4 +382,17 @@
   "tooltip.neoecoae.storage_system": "The core of the storage subsystem",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "Aluminum Alloy Upgrade",
   "upgrade.neoecoae.black_tungsten_alloy_upgrade": "Black Tungsten Alloy Upgrade"
+  ,"neoecoae.configuration.increaseStorageCellCapacity": "Increase ECO Capacity",
+  "neoecoae.configuration.increaseStorageCellCapacity.tooltip": "Increase ECO Storage Matrix capacity and multiply computation flash capacity by 16.\nDefaults to enabled when GregTech Modern/GTCEu is loaded.\nChanges are fully applied after re-entering the world or restarting the server.",
+  "screen.neoecoae.config.title": "Neo ECO AE Extension Config",
+  "screen.neoecoae.config.restart_notice": "Changes are fully applied after re-entering the world or restarting the server.",
+  "screen.neoecoae.config.craftingSystemMaxLength": "Crafting System Max Length",
+  "screen.neoecoae.config.computationSystemMaxLength": "Computation System Max Length",
+  "screen.neoecoae.config.storageSystemMaxLength": "Storage System Max Length",
+  "screen.neoecoae.config.increaseCapacity": "Increase Capacity",
+  "screen.neoecoae.config.increaseCapacity.on": "Enabled",
+  "screen.neoecoae.config.increaseCapacity.off": "Disabled",
+  "screen.neoecoae.config.save": "Save",
+  "screen.neoecoae.config.cancel": "Cancel",
+  "screen.neoecoae.config.invalid": "Enter positive whole numbers."
 }

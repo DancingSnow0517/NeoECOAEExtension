@@ -82,6 +82,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     @Override
+    public long getIdleDrainBytes() {
+        return fallbackTotalBytes;
+    }
+
+    @Override
     public int getBytesPerType() {
         return bytesPerType;
     }

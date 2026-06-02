@@ -17,9 +17,8 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
         CompoundTag data = accessor.getServerData();
         tooltip.add(JadeText.threadLine(data.getInt("usedThread"), data.getInt("totalThread")));
-        tooltip.add(JadeText.acceleratorLine(data.getInt("acceleratorCount"), data.getInt("dispatchLimit")));
         tooltip.add(JadeText.storageLine(data.getLong("usedStorage"), data.getLong("totalStorage")));
-        tooltip.add(JadeText.onlineLine(data.getBoolean("formed")));
+        tooltip.add(JadeText.onlineLine(data.getBoolean("online")));
     }
 
     @Override
@@ -28,11 +27,8 @@ public enum ECOComputationSystemProvider implements IBlockComponentProvider, ISe
             long totalStorage = system.getTotalBytes();
             long availableStorage = system.getAvailableBytes();
             long usedStorage = Math.max(0L, totalStorage - availableStorage);
-            int acceleratorCount = system.getAcceleratorCount();
             tag.putBoolean("formed", system.isFormed());
-            tag.putBoolean("running", system.isRunning());
-            tag.putInt("acceleratorCount", acceleratorCount);
-            tag.putInt("dispatchLimit", acceleratorCount + 1);
+            tag.putBoolean("online", system.isFormed() && system.getMainNode().isActive());
             tag.putInt("usedThread", system.getUsedThread());
             tag.putInt("totalThread", system.getTotalThread());
             tag.putLong("usedStorage", usedStorage);

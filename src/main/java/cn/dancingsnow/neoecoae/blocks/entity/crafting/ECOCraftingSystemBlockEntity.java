@@ -395,6 +395,31 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return Mth.ceil((float) cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / progressPerTick);
     }
 
+    public int getCraftingPowerMultiplier() {
+        if (overclocked && !activeCooling) {
+            return tier.getOverclockedCrafterPowerMultiply();
+        }
+        return 1;
+    }
+
+    public long getCurrentEnergyPerTick() {
+        return (long) getRunningThreadCount() * getProgressPerTick() * getCraftingPowerMultiplier();
+    }
+
+    public double getEnergyMultiplier() {
+        return getCraftingPowerMultiplier();
+    }
+
+    public double getTimeMultiplier() {
+        ensureCraftingStatsCurrent();
+        int baseParallel = parallelCount * tier.getCrafterParallel();
+        if (baseParallel <= 0 || threadCount <= 0) {
+            return 1.0D;
+        }
+        double baseTicks = cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / 10.0D;
+        return (getTheoreticalCraftTicks() * (double) baseParallel) / (baseTicks * (double) threadCount);
+    }
+
     public ECOCraftingWorkerBlockEntity.ThreadProgressSummary getThreadProgressSummary() {
         if (cluster == null) {
             return new ECOCraftingWorkerBlockEntity.ThreadProgressSummary(0, 0, 0, 0);

@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScrollHandler;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
+import cn.dancingsnow.neoecoae.client.screen.NEConfigScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEComputationControllerScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NECraftingControllerScreen;
@@ -16,17 +17,23 @@ import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEFluidHatchScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEIntegratedWorkingStationScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStorageControllerScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStructureTerminalScreen;
+import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 public class NeoECOAEClient {
     public static void init(IEventBus modBus) {
         NEExtraModels.register();
+        ModLoadingContext.get().registerExtensionPoint(
+            ConfigScreenHandler.ConfigScreenFactory.class,
+            () -> new ConfigScreenHandler.ConfigScreenFactory(NEConfigScreen::new)
+        );
         modBus.addListener(NeoECOAEClient::onClientSetup);
         modBus.addListener(NEExtraModels::onRegisterExtraModels);
         modBus.addListener(NeoECOAEClient::onRegisterRenderers);

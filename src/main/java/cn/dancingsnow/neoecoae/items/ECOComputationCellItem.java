@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.items;
 
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
@@ -20,13 +21,16 @@ public class ECOComputationCellItem extends Item {
         this.tier = tier;
     }
 
+    public long getBytes() {
+        return NEConfig.getEcoComputationCellCapacity(tier, tier.getCPUTotalBytes());
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
         if (stack.getItem() instanceof ECOComputationCellItem cellItem) {
-            IECOTier tier = cellItem.getTier();
             tooltipComponents.add(Component.translatable(
                 "tooltip.neoecoae.computation_cell",
-                Tooltips.ofUnformattedNumber(tier.getCPUTotalBytes())
+                Tooltips.ofUnformattedNumber(cellItem.getBytes())
             ));
         }
     }
