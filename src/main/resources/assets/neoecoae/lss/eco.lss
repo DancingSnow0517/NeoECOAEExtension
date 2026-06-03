@@ -60,10 +60,30 @@ fluid-slot {
   background: built-in(ui-eco:BACKGROUND);
 }
 
+.eco-host-header {
+  padding-bottom: 4;
+}
+
+.eco-host-status {
+  background: #143c4620;
+}
+
 .eco-host-metric, .eco-host-card, .eco-host-tile {
   background: built-in(ui-eco:INVENTORY_BORDER);
 }
 
+.eco-host-card {
+  padding-all: 6;
+}
+
+.eco-host-tile {
+  padding-all: 5;
+}
+
 .eco-host-metric-spacer {
   background: #00000000;
+}
+
+.eco-host-footer {
+  padding-top: 4;
 }
