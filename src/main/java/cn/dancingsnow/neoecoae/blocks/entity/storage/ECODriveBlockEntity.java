@@ -37,12 +37,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
-    implements IStorageProvider, ICellHost {
+        implements IStorageProvider, ICellHost {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_UPDATE_TAGS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_STORAGE_UPDATES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MOUNT_ATTEMPTS = ConcurrentHashMap.newKeySet();
-
 
     public final IItemHandler HANDLER = new CellHostItemHandler(this);
     private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> HANDLER);
@@ -63,10 +62,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private CellState lastSyncedCellState = null;
 
     public ECODriveBlockEntity(
-        BlockEntityType<ECODriveBlockEntity> type,
-        BlockPos pos,
-        BlockState blockState
-    ) {
+            BlockEntityType<ECODriveBlockEntity> type,
+            BlockPos pos,
+            BlockState blockState) {
         super(type, pos, blockState);
         getMainNode().addService(IStorageProvider.class, this);
     }
@@ -111,16 +109,24 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     private void updateStorageProviderState(String source) {
         double power = 256;
+        boolean willRequestUpdate = false;
         if (cluster != null && cluster.getController() != null) {
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 power += cellInventory.getIdleDrain();
+                willRequestUpdate = true;
             }
         }
         getMainNode().setIdlePowerUsage(power);
         IStorageProvider.requestUpdate(getMainNode());
-        logStorageProviderUpdate(source, power);
+        // Diagnostic: log requestUpdate calls during reload to verify mount timing
+        if ("onReady".equals(source) || "onMainNodeStateChanged".equals(source)) {
+            LOGGER.info(
+                    "ECODrive updateStorageProviderState: source={} willMount={} hasCell={} hasCluster={} isOnline={} pos={}",
+                    source, willRequestUpdate, cellStack != null, cluster != null, getMainNode().isOnline(),
+                    worldPosition);
+        }
     }
 
     public void scheduleRenderUpdate() {
@@ -266,8 +272,15 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private void loadDriveVisualState(CompoundTag data) {
         if (data.contains("cellStack")) {
             this.cellStack = normalizeCellStack(ItemStack.of(data.getCompound("cellStack")));
+            boolean hasContents = this.cellStack != null && this.cellStack.hasTag()
+                    && this.cellStack.getTag().contains("eco_cell_contents");
+            LOGGER.info("ECODrive loadTag: cellStack loaded. hasContents={} item={} pos={}",
+                    hasContents,
+                    this.cellStack != null ? ForgeRegistries.ITEMS.getKey(this.cellStack.getItem()) : "null",
+                    worldPosition);
         } else {
             this.cellStack = null;
+            LOGGER.info("ECODrive loadTag: no cellStack in NBT. pos={}", worldPosition);
         }
         invalidateCellInventoryCache();
         this.mounted = data.getBoolean("mounted");
@@ -297,19 +310,22 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     private void logMountAttempt(
-        boolean hasCluster,
-        boolean hasController,
-        @Nullable IECOTier mainTier,
-        @Nullable IECOStorageCell cellInventory,
-        @Nullable IECOTier cellTier,
-        boolean tierSupported,
-        boolean willMount
-    ) {
-        // No-op: verbose debug logging removed.
+            boolean hasCluster,
+            boolean hasController,
+            @Nullable IECOTier mainTier,
+            @Nullable IECOStorageCell cellInventory,
+            @Nullable IECOTier cellTier,
+            boolean tierSupported,
+            boolean willMount) {
+        // Diagnostic: log every mount attempt to verify Eco Storage visibility during
+        // reload
+        LOGGER.info(
+                "ECODrive mountInventories: willMount={} hasCluster={} hasController={} tierSupported={} mainTier={} cellTier={} pos={}",
+                willMount, hasCluster, hasController, tierSupported, mainTier, cellTier, worldPosition);
     }
 
     private void logMountResult(boolean mounted) {
-        // No-op: verbose debug logging removed.
+        LOGGER.info("ECODrive mountInventories result: mounted={} pos={}", mounted, worldPosition);
     }
 
     /**
@@ -318,8 +334,10 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
      * executes on the server.
      */
     private void notifyControllerRefresh() {
-        if (level == null || level.isClientSide) return;
-        if (cluster == null || cluster.getController() == null) return;
+        if (level == null || level.isClientSide)
+            return;
+        if (cluster == null || cluster.getController() == null)
+            return;
         cluster.getController().refreshStorageUiState();
     }
 

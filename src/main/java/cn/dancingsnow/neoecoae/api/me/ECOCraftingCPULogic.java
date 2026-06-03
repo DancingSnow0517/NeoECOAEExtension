@@ -108,9 +108,13 @@ public class ECOCraftingCPULogic {
      * Whether the CPU is still within its NBT-restore grace period.
      * During this period, the cluster MUST NOT prune or kill this CPU,
      * because the job may still be waiting for grid rebind.
+     * <p>
+     * Returns true when: a job exists AND the CPU was restored from NBT
+     * ({@code restoredFromNbt} is true). The {@code restoredFromNbt} flag
+     * covers the entire window from deserialization through rebind or safe abort.
      */
     public boolean isInRestoreGrace() {
-        return restoredFromNbt && restoredCancelGraceTicks > 0;
+        return this.job != null && this.restoredFromNbt;
     }
 
     private long debugPushedPatterns;

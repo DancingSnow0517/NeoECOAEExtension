@@ -150,7 +150,7 @@ public class ECOComputationThreadingCoreBlockEntity
                 cpu.writeToNBT(tag, registries);
                 data.put("CPU" + i, tag);
                 saved++;
-                LOGGER.debug("Saved ECO CPU slot {}: hasJob={} jobId={} planBytes={} pos={}",
+                LOGGER.info("Saved ECO CPU slot {}: hasJob={} jobId={} planBytes={} pos={}",
                         i,
                         cpu.getLogic().hasJob(),
                         cpu.getLogic().hasJob() ? cpu.getLogic().getLastLink().getCraftingID() : "none",
@@ -159,7 +159,7 @@ public class ECOComputationThreadingCoreBlockEntity
             }
         }
         if (saved > 0) {
-            LOGGER.debug("Saved {} ECO CPU(s) to NBT. pos={}", saved, worldPosition);
+            LOGGER.info("Saved {} ECO CPU(s) to NBT. pos={}", saved, worldPosition);
         }
     }
 
@@ -186,7 +186,7 @@ public class ECOComputationThreadingCoreBlockEntity
             }
         }
         if (loaded > 0) {
-            LOGGER.debug("Loaded {} ECO CPU NBT tags into deferredInit. pos={}", loaded, worldPosition);
+            LOGGER.info("Loaded {} ECO CPU NBT tags into deferredInit. pos={}", loaded, worldPosition);
         }
         markForUpdate();
     }

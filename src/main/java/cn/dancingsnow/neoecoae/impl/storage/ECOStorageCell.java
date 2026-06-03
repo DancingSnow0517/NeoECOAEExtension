@@ -72,7 +72,15 @@ public class ECOStorageCell implements IECOStorageCell {
             this.cellType = c;
             this.tier = c.getTier();
 
-            // Updates the partition list and mode based on installed upgrades and the configured filter.
+            // Diagnostic: log cell content loading during world reload
+            if (storedStacks.size() > 0) {
+                org.slf4j.LoggerFactory.getLogger("neoecoae").info(
+                        "ECOStorageCell loaded from NBT: types={} totalItems={} tier={} keyType={}",
+                        storedItems, storedItemCount, tier, keyType.getClass().getSimpleName());
+            }
+
+            // Updates the partition list and mode based on installed upgrades and the
+            // configured filter.
             var builder = IPartitionList.builder();
 
             var upgrades = getUpgradesInventory();
@@ -153,7 +161,9 @@ public class ECOStorageCell implements IECOStorageCell {
 
     private boolean canHoldNewItem() {
         final long bytesFree = this.getFreeBytes();
-        return (bytesFree > this.getBytesPerType() || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0) && this.getRemainingItemTypes() > 0;
+        return (bytesFree > this.getBytesPerType()
+                || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0)
+                && this.getRemainingItemTypes() > 0;
     }
 
     public long getStoredItemTypes() {
@@ -255,7 +265,8 @@ public class ECOStorageCell implements IECOStorageCell {
         // Run regular insert logic and then apply void upgrade to the returned value.
         long inserted = innerInsert(what, amount, mode);
 
-        // In the event that a void card is being used on a (full) unformatted cell, ensure it doesn't void any items
+        // In the event that a void card is being used on a (full) unformatted cell,
+        // ensure it doesn't void any items
         // that the cell isn't even storing and cannot store to begin with
         if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
             return getCellItems().containsKey(what) ? amount : inserted;

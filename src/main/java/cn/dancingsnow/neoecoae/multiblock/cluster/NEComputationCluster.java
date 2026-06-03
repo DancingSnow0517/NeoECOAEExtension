@@ -289,8 +289,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             } else {
                 // All remaining CPUs are in restore grace — allow temporary negative storage.
                 // It will be corrected once drives become available.
-                LOGGER.warn("Available storage temporarily negative ({} bytes) — all active CPUs are in restore grace. "
-                        + "Storage will correct once drives initialize.", this.availableStorage);
+                LOGGER.warn(
+                        "ECO computation storage temporarily negative during restore: available={}, activeJobBytes={}, totalStorageBytes={}",
+                        this.availableStorage, this.activeJobBytes, this.totalStorageBytes);
+                // Still sync controller stats and notify grid so the UI shows active CPUs
+                syncControllerStats();
+                postGridCpuChange();
             }
             return;
         }

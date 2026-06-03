@@ -1,12 +1,10 @@
 package cn.dancingsnow.neoecoae.integration.jei.categories;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
-import com.mojang.logging.LogUtils;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
@@ -30,25 +28,24 @@ import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 
-import java.util.Arrays;
 import java.util.List;
 
-public class IntegrationWorkingStationCategory implements IRecipeCategory<RecipeHolder<IntegratedWorkingStationRecipe>> {
+public class IntegrationWorkingStationCategory
+        implements IRecipeCategory<RecipeHolder<IntegratedWorkingStationRecipe>> {
     private final IDrawable icon;
     private final Component title;
     private final IDrawable background;
     private final IDrawableAnimated progress;
-    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
 
     public IntegrationWorkingStationCategory(IGuiHelper helper) {
         icon = helper.createDrawableItemStack(NEBlocks.INTEGRATED_WORKING_STATION.asStack());
         title = Component.translatable("category.neoecoae.integrated_working_station");
         background = helper.drawableBuilder(TextureConstants.INTEGRATED_WORKING_STATION, 0, 0, 168, 75)
-            .setTextureSize(168, 75)
-            .build();
+                .setTextureSize(168, 75)
+                .build();
         progress = helper.drawableBuilder(TextureConstants.PROGRESS_BAR, 0, 0, 6, 18)
-            .setTextureSize(6, 18)
-            .buildAnimated(100, IDrawableAnimated.StartDirection.BOTTOM, false);
+                .setTextureSize(6, 18)
+                .buildAnimated(100, IDrawableAnimated.StartDirection.BOTTOM, false);
     }
 
     @Override
@@ -77,7 +74,8 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     }
 
     @Override
-    public void setRecipe(IRecipeLayoutBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
+    public void setRecipe(IRecipeLayoutBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder,
+            IFocusGroup focuses) {
         IntegratedWorkingStationRecipe recipe = holder.value();
         ResourceLocation recipeId = holder.id();
 
@@ -86,24 +84,22 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
         if (!inputFluid.ingredient().isEmpty()) {
             FluidStack[] rawFluids = inputFluid.getFluids();
             if (rawFluids == null || rawFluids.length == 0) {
-                LOGGER.warn("IWS JEI recipe {} has empty fluid ingredient: {}",
-                    recipeId, inputFluid.ingredient().toJson());
+                // Skip empty fluid ingredient
             } else {
                 List<FluidStack> fluidStacks = new java.util.ArrayList<>();
                 for (FluidStack fs : rawFluids) {
-                    if (fs == null || fs.isEmpty()) continue;
+                    if (fs == null || fs.isEmpty())
+                        continue;
                     FluidStack copy = fs.copy();
                     copy.setAmount(inputFluid.amount());
                     fluidStacks.add(copy);
                 }
                 if (!fluidStacks.isEmpty()) {
                     builder.addInputSlot(5, 9)
-                        .addIngredients(NeoForgeTypes.FLUID_STACK, fluidStacks)
-                        .setFluidRenderer(16000, false, 16, 58);
-                } else {
-                    LOGGER.warn("IWS JEI recipe {} has no valid fluid stacks: {}",
-                        recipeId, inputFluid.ingredient().toJson());
+                            .addIngredients(NeoForgeTypes.FLUID_STACK, fluidStacks)
+                            .setFluidRenderer(16000, false, 16, 58);
                 }
+                // else: no valid fluid stacks — skip slot
             }
         }
 
@@ -119,27 +115,24 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
 
             ItemStack[] rawStacks = input.ingredient().getItems();
             if (rawStacks == null || rawStacks.length == 0) {
-                LOGGER.warn("IWS JEI recipe {} has empty item ingredient at index {}: {}",
-                    recipeId, i, input.ingredient().toJson());
                 continue;
             }
 
             List<ItemStack> stacks = new java.util.ArrayList<>();
             for (ItemStack raw : rawStacks) {
-                if (raw == null || raw.isEmpty()) continue;
+                if (raw == null || raw.isEmpty())
+                    continue;
                 ItemStack copy = raw.copy();
                 copy.setCount(input.count());
                 stacks.add(copy);
             }
 
             if (stacks.isEmpty()) {
-                LOGGER.warn("IWS JEI recipe {} has no valid item stacks at index {}: {}",
-                    recipeId, i, input.ingredient().toJson());
                 continue;
             }
 
             builder.addInputSlot(x, y)
-                .addIngredients(VanillaTypes.ITEM_STACK, stacks);
+                    .addIngredients(VanillaTypes.ITEM_STACK, stacks);
         }
 
         // output item
@@ -152,40 +145,40 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
         FluidStack fluidOutput = recipe.fluidOutput();
         if (!fluidOutput.isEmpty()) {
             builder.addOutputSlot(147, 9)
-                .addFluidStack(fluidOutput.getFluid(), fluidOutput.getAmount())
-                .setFluidRenderer(16000, false, 16, 58);
+                    .addFluidStack(fluidOutput.getFluid(), fluidOutput.getAmount())
+                    .setFluidRenderer(16000, false, 16, 58);
         }
     }
 
     @Override
-    public void draw(RecipeHolder<IntegratedWorkingStationRecipe> recipe, IRecipeSlotsView recipeSlotsView, GuiGraphics guiGraphics, double mouseX, double mouseY) {
+    public void draw(RecipeHolder<IntegratedWorkingStationRecipe> recipe, IRecipeSlotsView recipeSlotsView,
+            GuiGraphics guiGraphics, double mouseX, double mouseY) {
         background.draw(guiGraphics);
         progress.draw(guiGraphics, 136, 30);
     }
 
     @Override
-    public void createRecipeExtras(IRecipeExtrasBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
+    public void createRecipeExtras(IRecipeExtrasBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder,
+            IFocusGroup focuses) {
         IntegratedWorkingStationRecipe recipe = holder.value();
-        Component text = Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
+        Component text = Component.translatable("gui.neoecoae.integrated_working_station.energy",
+                recipe.energy() / 1000);
         builder.addText(text, 120, 12).setPosition(24, 66).setColor(0x403e53);
     }
 
     public static void registerRecipes(IRecipeRegistration registration) {
         var mc = Minecraft.getInstance();
         if (mc.getConnection() == null) {
-            LOGGER.warn("JEI IWS register skipped: connection is null");
             return;
         }
         var recipes = mc.getConnection().getRecipeManager()
-            .getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
-        LOGGER.info("JEI IWS register count = {}", recipes.size());
+                .getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
         registration.addRecipes(NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE, recipes);
     }
 
     public static void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         registration.addRecipeCatalysts(
-            NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE,
-            NEBlocks.INTEGRATED_WORKING_STATION
-        );
+                NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE,
+                NEBlocks.INTEGRATED_WORKING_STATION);
     }
 }
