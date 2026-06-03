@@ -54,6 +54,7 @@ public class ECOHostMetric extends UIElement {
     private static UIElement progress(Supplier<Float> ratio) {
         return new ProgressBar()
             .label(label -> label.setText(""))
+            .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
             .bind(DataBindingBuilder.floatValS2C(ratio::get).build())
             .layout(layout -> layout.height(5).widthPercent(100));
     }
