@@ -54,3 +54,16 @@ fluid-slot {
 .__progress-bar_bar__ {
   background: built-in(ui-eco:BAR);
 }
+
+// unified ECO host UI
+.eco-host-panel {
+  background: built-in(ui-eco:BACKGROUND);
+}
+
+.eco-host-metric, .eco-host-card, .eco-host-tile {
+  background: built-in(ui-eco:INVENTORY_BORDER);
+}
+
+.eco-host-metric-spacer {
+  background: #00000000;
+}
