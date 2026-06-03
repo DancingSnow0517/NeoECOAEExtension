@@ -230,6 +230,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateOverlockTimes() {
         int overflow = threadCount - threadCountPerWorker * workerCount;
+        if (overflow <= 0) {
+            overlockTimes = 0;
+            return;
+        }
         float radio = (float) threadCount / overflow;
         overlockTimes = Math.clamp(Math.round(radio / 0.05f), 0, 9);
     }
