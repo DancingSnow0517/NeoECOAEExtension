@@ -17,7 +17,9 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack getStackInSlot(int slot) {
-        return host.getCellStack() != null ? host.getCellStack().copyWithCount(1) : ItemStack.EMPTY;
+        // AE2 writes running crafting task state into the computation cell's ItemStack NBT.
+        // Must return the real stack reference; returning a copy causes task state to be lost on reload.
+        return host.getCellStack() != null ? host.getCellStack() : ItemStack.EMPTY;
     }
 
     @Override

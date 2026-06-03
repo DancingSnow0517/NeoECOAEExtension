@@ -50,7 +50,7 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
         if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
                 if (level.isClientSide) return InteractionResult.SUCCESS;
-                ItemStack cellStack = be.getCellStack().copyWithCount(1);
+                ItemStack cellStack = be.getCellStack();
                 be.setCellStack(null);
                 giveCellToPlayer(player, hand, cellStack);
                 return InteractionResult.sidedSuccess(level.isClientSide());
