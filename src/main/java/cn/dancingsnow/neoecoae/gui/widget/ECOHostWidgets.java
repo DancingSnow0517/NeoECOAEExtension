@@ -38,7 +38,8 @@ public final class ECOHostWidgets {
         root.addChild(header(title, subtitle, state));
         root.addChild(metricRow(metrics));
         root.addChild(details.layout(layout -> layout.widthPercent(100)));
-        root.addChild(footer(footerHint, buildWindow));
+        root.addChild(footer(footerHint));
+        root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
         root.addChild(buildWindow);
         return root;
     }
@@ -161,7 +162,7 @@ public final class ECOHostWidgets {
         return row;
     }
 
-    public static UIElement footer(Supplier<Component> hint, UIElement buildWindow) {
+    public static UIElement footer(Supplier<Component> hint) {
         UIElement footer = new UIElement().layout(layout -> {
             layout.flexDirection(FlexDirection.ROW);
             layout.justifyContent(AlignContent.SPACE_BETWEEN);
@@ -173,7 +174,6 @@ public final class ECOHostWidgets {
             .bindDataSource(SupplierDataSource.of(hint))
             .textStyle(ECOHostStyles::hintText)
             .layout(layout -> layout.width(390)));
-        footer.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
         return footer;
     }
 
