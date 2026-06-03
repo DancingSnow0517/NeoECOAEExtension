@@ -36,7 +36,7 @@ public class ECOHostSwitchRow extends UIElement {
             new TextElement()
                 .setText(label)
                 .textStyle(ECOHostStyles::valueText)
-                .layout(layout -> layout.width(170)),
+                .layout(layout -> layout.width(160)),
             new Switch()
                 .bind(DataBindingBuilder.bool(getter::get, setter::accept).build())
                 .layout(layout -> layout.width(34).height(18))
