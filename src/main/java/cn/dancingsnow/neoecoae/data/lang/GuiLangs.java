@@ -63,11 +63,34 @@ public class GuiLangs {
         // storage
         provider.add("gui.neoecoae.storage.energy", "Energy Monitoring");
         provider.add("gui.neoecoae.storage.energy_status", "Energy Storage: %sAE / %sAE (%d%%)");
+        provider.add("gui.neoecoae.host.status.online", "ONLINE");
+        provider.add("gui.neoecoae.host.status.running", "RUNNING");
+        provider.add("gui.neoecoae.host.storage.subtitle", "Storage System Host");
+        provider.add("gui.neoecoae.host.computation.subtitle", "Computation System Host");
+        provider.add("gui.neoecoae.host.crafting.subtitle", "Crafting System Host");
+        provider.add("gui.neoecoae.host.storage.type_usage", "Type Usage");
+        provider.add("gui.neoecoae.host.storage.storage_usage", "Storage Usage");
+        provider.add("gui.neoecoae.host.storage.energy_buffer", "Energy Buffer");
+        provider.add("gui.neoecoae.host.storage.channels", "Storage Channels");
+        provider.add("gui.neoecoae.host.storage.footer", "Dynamic by ECOCellType registry; storage channels scroll when expanded.");
+        provider.add("gui.neoecoae.host.metric.types", "Types");
+        provider.add("gui.neoecoae.host.metric.bytes", "Bytes");
 
         // computation
         provider.add("gui.neoecoae.computation.thread_info", "Thread Used: %d / %d");
         provider.add("gui.neoecoae.computation.parallel_info", "Parallel Count: %d");
         provider.add("gui.neoecoae.computation.storage_info", "Storage Used: %s / %s");
+        provider.add("gui.neoecoae.host.computation.cpu_storage", "CPU Storage");
+        provider.add("gui.neoecoae.host.computation.thread_usage", "Thread Usage");
+        provider.add("gui.neoecoae.host.computation.parallel_count", "Parallel Count");
+        provider.add("gui.neoecoae.host.computation.capacity", "Computation Capacity");
+        provider.add("gui.neoecoae.host.computation.active_vcpu", "Active vCPU");
+        provider.add("gui.neoecoae.host.computation.max_vcpu", "Max vCPU");
+        provider.add("gui.neoecoae.host.computation.accelerators", "Accelerators");
+        provider.add("gui.neoecoae.host.computation.free_memory", "Free CPU Memory");
+        provider.add("gui.neoecoae.host.computation.cpu_pool", "Crafting CPU Pool");
+        provider.add("gui.neoecoae.host.computation.cpu_pool_hint", "Threads expose virtual crafting CPUs to the AE network.");
+        provider.add("gui.neoecoae.host.computation.footer", "Single-screen computation status.");
 
         // crafting
         provider.add("gui.neoecoae.crafting.pattern_bus_count", "Pattern Buses: %d");
@@ -87,5 +110,18 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.clear_coolant.tooltip", "Clears the cached coolant so you can switch to a different coolant.");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock.none", "Current Coolant Max Overclock: None");
+        provider.add("gui.neoecoae.host.crafting.working_threads", "Working Threads");
+        provider.add("gui.neoecoae.host.crafting.total_parallelism", "Total Parallelism");
+        provider.add("gui.neoecoae.host.crafting.max_energy_usage", "Max Energy Usage");
+        provider.add("gui.neoecoae.host.crafting.runtime", "Crafting Runtime");
+        provider.add("gui.neoecoae.host.crafting.pattern_buses", "Pattern Buses");
+        provider.add("gui.neoecoae.host.crafting.parallel_cores", "Parallel Cores");
+        provider.add("gui.neoecoae.host.crafting.worker_cores", "Worker Cores");
+        provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
+        provider.add("gui.neoecoae.host.crafting.overclock_cooling", "Overclock & Cooling");
+        provider.add("gui.neoecoae.host.crafting.overclock_summary", "Theoretical %d, effective %d, coolant max %s.");
+        provider.add("gui.neoecoae.host.crafting.coolant", "Coolant");
+        provider.add("gui.neoecoae.host.crafting.energy", "Energy");
+        provider.add("gui.neoecoae.host.crafting.footer", "Single-screen crafting status and controls.");
     }
 }
