@@ -100,7 +100,7 @@ minecraft {
         client {
             workingDirectory project.file('run/client')
             property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
+            property 'forge.logging.console.level', 'info'
             property 'neoecoae.validateChemicalCells', System.getProperty('neoecoae.validateChemicalCells', 'false')
             property 'neoecoae.debugMultiblockMirror', System.getProperty('neoecoae.debugMultiblockMirror', 'false')
             property 'mixin.env.remapRefMap', 'true'
@@ -122,7 +122,7 @@ minecraft {
         server {
             workingDirectory project.file('run/server')
             property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
+            property 'forge.logging.console.level', 'info'
             property 'neoecoae.validateChemicalCells', System.getProperty('neoecoae.validateChemicalCells', 'false')
             property 'neoecoae.debugMultiblockMirror', System.getProperty('neoecoae.debugMultiblockMirror', 'false')
             property 'mixin.env.remapRefMap', 'true'
@@ -138,7 +138,7 @@ minecraft {
         data {
             workingDirectory project.file('run/data')
             property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
+            property 'forge.logging.console.level', 'info'
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
             args '--mod', project.mod_id, '--all',

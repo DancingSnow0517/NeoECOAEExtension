@@ -92,18 +92,23 @@ public class ECOComputationThreadingCoreBlockEntity
             }
             LOGGER.debug("Restoring ECO CPU from deferredInit[{}]. pos={}", i, worldPosition);
             ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
-            cpu.readFromNBT(tag, registries);
-            deferredInit[i] = null;
+            try {
+                cpu.readFromNBT(tag, registries);
+            } catch (Exception e) {
+                LOGGER.error("Failed to read ECO CPU NBT from deferredInit[{}]. pos={}", i, worldPosition, e);
+                continue; // Keep deferredInit[i] for retry
+            }
             if (cpu.getPlan() != null && cpu.getLogic().hasJob()) {
                 cpus[i] = cpu;
                 cluster.pickup(cpu.getPlan(), cpu);
+                deferredInit[i] = null; // Only clear on success
                 restored++;
                 LOGGER.info("Restored ECO CPU slot {} with job. pos={} plan={}",
                         i, worldPosition, cpu.getPlan().finalOutput());
             } else if (cpu.getPlan() != null) {
-                LOGGER.warn("ECO CPU slot {} has plan but no job — skipping restore. pos={}", i, worldPosition);
+                LOGGER.warn("ECO CPU slot {} has plan but no job — keeping deferredInit for retry. pos={}", i, worldPosition);
             } else {
-                LOGGER.debug("ECO CPU slot {} has no plan — skipping restore. pos={}", i, worldPosition);
+                LOGGER.debug("ECO CPU slot {} has no plan — keeping deferredInit for retry. pos={}", i, worldPosition);
             }
         }
         return restored;
@@ -123,6 +128,12 @@ public class ECOComputationThreadingCoreBlockEntity
                 cpu.writeToNBT(tag, registries);
                 data.put("CPU" + i, tag);
                 saved++;
+                LOGGER.debug("Saved ECO CPU slot {}: hasJob={} jobId={} planBytes={} pos={}",
+                        i,
+                        cpu.getLogic().hasJob(),
+                        cpu.getLogic().hasJob() ? cpu.getLogic().getLastLink().getCraftingID() : "none",
+                        cpu.getPlan() != null ? cpu.getPlan().bytes() : 0,
+                        worldPosition);
             }
         }
         if (saved > 0) {

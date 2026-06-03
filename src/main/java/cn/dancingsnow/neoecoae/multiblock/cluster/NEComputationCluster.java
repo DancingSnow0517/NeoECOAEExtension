@@ -142,6 +142,22 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             // Step 2: scan all cores for active CPUs and add to activeCpus map
             restoreActiveCpusFromThreadingCores();
             recalculateRemainingStorage();
+
+            // Step 3: proactively rebind CraftingLinks for all restored CPUs
+            IGridNode node = getNode();
+            IGrid grid = node != null ? node.getGrid() : null;
+            if (grid != null && activeCpuCount > 0) {
+                int rebound = 0;
+                for (ECOCraftingCPU cpu : activeCpus.values()) {
+                    if (cpu.getLogic().onRestoredToGrid(grid)) {
+                        rebound++;
+                    }
+                }
+                if (rebound > 0) {
+                    LOGGER.info("Proactively rebound {} ECO CPU CraftingLink(s) during cluster formation", rebound);
+                }
+            }
+
             this.fakeCpu = new ECOCraftingCPU(this, availableStorage,
                     controller != null ? controller.getTier() : ECOTier.L4);
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();

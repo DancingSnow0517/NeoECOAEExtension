@@ -10,6 +10,7 @@ import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -53,6 +54,9 @@ public abstract class CraftingServiceMixin120 {
     @Shadow
     private boolean updateList;
 
+    @Shadow
+    public abstract void addLink(CraftingLink link);
+
     @Inject(method = "addNode", at = @At("TAIL"))
     private void neoecoae$onAddNode(IGridNode gridNode, net.minecraft.nbt.CompoundTag savedData, CallbackInfo ci) {
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
@@ -66,6 +70,18 @@ public abstract class CraftingServiceMixin120 {
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
             && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
             this.updateList = true;
+        }
+    }
+
+    @Inject(method = "updateCPUClusters", at = @At("TAIL"))
+    private void neoecoae$onUpdateCPUClusters(CallbackInfo ci) {
+        for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
+            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+                var maybeLink = cpu.getLogic().getLastLink();
+                if (maybeLink instanceof CraftingLink link) {
+                    this.addLink(link);
+                }
+            }
         }
     }
 

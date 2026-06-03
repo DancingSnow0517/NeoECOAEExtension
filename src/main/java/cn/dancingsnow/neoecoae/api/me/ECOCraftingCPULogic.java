@@ -93,10 +93,14 @@ public class ECOCraftingCPULogic {
     private boolean batchingStatusChanges = false;
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
 
-    // ── NBT restore grace ──
+    // ── NBT restore state ──
     private boolean restoredFromNbt = false;
+    private boolean restoreRebindAttempted = false;
+    private boolean restoreRebindSuccessful = false;
     private int restoredCancelGraceTicks = 0;
+    private boolean restoredLinkRebound = false;
     private static final int RESTORED_CANCEL_GRACE_INITIAL = 100;
+    private static final int RESTORE_GRACE_LOG_INTERVAL = 20;
 
     private long debugPushedPatterns;
     private long debugExtractSkippedBecauseProvidersBusy;
@@ -151,15 +155,12 @@ public class ECOCraftingCPULogic {
 
         notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
 
-        // Jobs with an external requester need another link, and both links need to be
-        // submitted to the cache.
+        var craftingService = (CraftingService) grid.getCraftingService();
+        // Always register CPU-side link so the job can be tracked and recovered
+        craftingService.addLink(linkCpu);
         if (requester != null) {
             var linkReq = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, false, true), requester);
-
-            var craftingService = (CraftingService) grid.getCraftingService();
-            craftingService.addLink(linkCpu);
             craftingService.addLink(linkReq);
-
             return CraftingSubmitResult.successful(linkReq);
         } else {
             return CraftingSubmitResult.successful(null);
@@ -167,13 +168,11 @@ public class ECOCraftingCPULogic {
     }
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {
-        // Don't tick if we're not active.
         if (!cpu.isActive()) {
             setCantStoreItems(false);
             return;
         }
         setCantStoreItems(false);
-        // If we don't have a job, just try to dump our items.
         if (this.job == null) {
             this.storeItems();
             setCantStoreItems(!this.inventory.list.isEmpty());
@@ -184,33 +183,35 @@ public class ECOCraftingCPULogic {
             }
             return;
         }
-        // Check if the job was cancelled, with grace period for restored jobs
-        if (job.link.isCanceled()) {
-            if (restoredCancelGraceTicks > 0) {
-                // World just loaded — try to rebind the link before giving up
-                IGrid grid = cpu.getGrid();
-                if (grid != null) {
-                    onRestoredToGrid(grid);
-                }
+
+        // ── Restored-from-NBT path: must rebind link BEFORE any cancel check ──
+        if (restoredFromNbt && !restoreRebindSuccessful) {
+            IGrid grid = cpu.getGrid();
+            if (grid != null && !restoreRebindAttempted) {
+                onRestoredToGrid(grid);
+            }
+            if (!restoreRebindSuccessful && restoredCancelGraceTicks > 0) {
                 restoredCancelGraceTicks--;
-                if (restoredCancelGraceTicks > RESTORED_CANCEL_GRACE_INITIAL / 2) {
-                    // Still in early grace: don't schedule, just wait for rebind
-                    return;
+                if (restoredCancelGraceTicks % RESTORE_GRACE_LOG_INTERVAL == 0) {
+                    LOGGER.info("ECO CPU waiting for link rebind: grace={} jobId={}",
+                            restoredCancelGraceTicks, job.link.getCraftingID());
                 }
-                // Running out of grace — continue to tick but don't cancel yet
-            } else {
-                LOGGER.warn("ECO CPU job link is canceled — canceling job. cpu={} jobId={}",
-                        cpu.getName(), job.link.getCraftingID());
-                cancel();
                 return;
             }
-        } else {
-            // Link is healthy — clear grace state
-            restoredFromNbt = false;
-            restoredCancelGraceTicks = 0;
+            if (!restoreRebindSuccessful && restoredCancelGraceTicks <= 0) {
+                safeAbortRestoredJob("link rebind failed after grace period");
+                return;
+            }
         }
 
-        // Don't schedule more work while suspended
+        // ── Normal cancel check (only after restored path is resolved) ──
+        if (job.link.isCanceled()) {
+            LOGGER.warn("ECO CPU job link canceled — canceling. cpu={} jobId={} wasRestored={}",
+                    cpu.getName(), job.link.getCraftingID(), restoredFromNbt);
+            cancel();
+            return;
+        }
+
         if (job.suspended) {
             return;
         }
@@ -232,16 +233,93 @@ public class ECOCraftingCPULogic {
 
     /**
      * Re-bind the restored CraftingLink to AE2's CraftingService.
-     * Must be called after world load when the grid is available.
+     * Must be called proactively during cluster formation, before the first tick.
+     * Returns true if the link is healthy after rebinding.
      */
-    public void onRestoredToGrid(IGrid grid) {
+    public boolean onRestoredToGrid(IGrid grid) {
         if (job == null) {
-            return;
+            return true;
         }
+        if (restoredLinkRebound) {
+            return true;
+        }
+        restoreRebindAttempted = true;
+        UUID jobId = job.link.getCraftingID();
+        boolean wasCanceledBefore = job.link.isCanceled();
+
+        LOGGER.info("ECO CPU onRestoredToGrid: jobId={} wasCanceledBefore={} cpu={}",
+                jobId, wasCanceledBefore, cpu.getName());
+
         CraftingService craftingService = (CraftingService) grid.getCraftingService();
         craftingService.addLink(job.link);
-        LOGGER.info("ECO CPU CraftingLink rebound to CraftingService. cpu={} jobId={}",
-                cpu.getName(), job.link.getCraftingID());
+
+        boolean isCanceledAfter = job.link.isCanceled();
+        if (!isCanceledAfter) {
+            restoreRebindSuccessful = true;
+            restoredLinkRebound = true;
+            restoredFromNbt = false;
+            restoredCancelGraceTicks = 0;
+            LOGGER.info("ECO CPU link rebind SUCCESS. jobId={} cpu={}", jobId, cpu.getName());
+            return true;
+        }
+
+        LOGGER.warn("ECO CPU link still canceled after rebind. jobId={} cpu={} wasCanceledBefore={}",
+                jobId, cpu.getName(), wasCanceledBefore);
+        return false;
+    }
+
+    /**
+     * Safely abort a restored job that could not be rebound.
+     * Tries to recover items to network; does NOT silently drop the job.
+     */
+    private void safeAbortRestoredJob(String reason) {
+        if (job == null) return;
+        UUID jobId = job.link.getCraftingID();
+        LOGGER.warn("ECO CPU safeAbortRestoredJob: reason={} jobId={} finalOutput={} remainingAmount={} waitingForSize={} tasksSize={} cpu={}",
+                reason, jobId,
+                job.finalOutput != null ? job.finalOutput.what().getClass().getSimpleName() : "null",
+                job.remainingAmount,
+                job.waitingFor.list.size(),
+                job.tasks.size(),
+                cpu.getName());
+
+        // Try to recover in-flight worker inputs
+        recoverInflightWorkerInputs(jobId);
+
+        // Try to dump items to network; if network unavailable, defer cleanup
+        IGrid grid = cpu.getGrid();
+        if (grid != null) {
+            // Temporarily null job so storeItems() works
+            var oldJob = this.job;
+            this.job = null;
+            try {
+                this.storeItems();
+            } finally {
+                this.job = oldJob;
+            }
+            // If storeItems cleared inventory, we can safely finish
+            if (this.inventory.list.isEmpty()) {
+                this.job = null;
+                markStatusDirty();
+                markedForDeletion = true;
+                restoredFromNbt = false;
+                restoreRebindSuccessful = false;
+                restoredLinkRebound = false;
+                cpu.getCluster().updateGridForChangedCpu(cpu.getCluster());
+                return;
+            }
+        }
+
+        // Network unavailable or items remain — suspend instead of dropping
+        if (job != null) {
+            job.suspended = true;
+            restoredFromNbt = false;
+            restoreRebindAttempted = false;
+            restoreRebindSuccessful = false;
+            restoredLinkRebound = false;
+            restoredCancelGraceTicks = 0;
+            LOGGER.warn("ECO CPU restored job suspended (safe abort deferred). jobId={} cpu={}", jobId, cpu.getName());
+        }
     }
 
     private int getOperationLimit(CraftingService craftingService) {
@@ -705,6 +783,7 @@ public class ECOCraftingCPULogic {
 
         // Finish job.
         this.job = null;
+        restoredLinkRebound = false;
         markStatusDirty();
         cpu.getCluster().updateGridForChangedCpu(cpu.getCluster());
 
@@ -723,6 +802,7 @@ public class ECOCraftingCPULogic {
         UUID craftingJobId = job.link.getCraftingID();
         markStatusDirty();
         finishJob(false);
+        restoredLinkRebound = false;
         recoverInflightWorkerInputs(craftingJobId);
     }
 
@@ -885,14 +965,16 @@ public class ECOCraftingCPULogic {
                 this.job = null;
                 markedForDeletion = true;
             } else {
-                // Mark as restored from NBT — tickCraftingLogic will grant a grace period
-                // to allow the CraftingLink to be rebound before checking isCanceled().
+                // Mark as restored from NBT — tickCraftingLogic will handle rebind proactively
                 this.restoredFromNbt = true;
+                this.restoreRebindAttempted = false;
+                this.restoreRebindSuccessful = false;
+                this.restoredLinkRebound = false;
                 this.restoredCancelGraceTicks = RESTORED_CANCEL_GRACE_INITIAL;
                 LOGGER.info("ECO CPU job restored from NBT. cpu={} jobId={} finalOutput={} remainingAmount={}",
                         cpu.getName(),
                         this.job.link.getCraftingID(),
-                        this.job.finalOutput.what().getClass().getSimpleName(),
+                        this.job.finalOutput != null ? this.job.finalOutput.what().getClass().getSimpleName() : "null",
                         this.job.remainingAmount);
             }
         }
