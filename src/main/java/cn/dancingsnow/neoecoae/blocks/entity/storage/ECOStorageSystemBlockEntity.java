@@ -13,26 +13,25 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostMetric;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -241,55 +240,106 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         resetStorageInfosIfNeeded();
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
         UIElement buildWindow = buildPanel(holder);
 
-        ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
-        textPanel.addScrollViewChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOStorageSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
+        UIElement details = ECOHostWidgets.detailArea(true);
+        ECOHostWidgets.addDetailChild(details, ECOHostWidgets.sectionTitle("gui.neoecoae.host.storage.channels"));
         NERegistries.CELL_TYPE.stream()
             .forEachOrdered(cellType -> {
                 int id = NERegistries.CELL_TYPE.getId(cellType);
-                textPanel.addScrollViewChild(new Label()
-                    .setText(cellType.desc())
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
-                textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.typesUsed(getArrayValue(usedTypes, id), getArrayValue(totalTypes, id))))
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
-                textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.bytesUsed(getArrayValue(usedBytes, id), getArrayValue(totalBytes, id))))
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
+                ECOHostWidgets.addDetailChild(details, createStorageChannelCard(cellType, id));
             });
 
-        textPanel.addScrollViewChild(new Label().setText("").textStyle(ECOStorageSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .setText(Component.translatable("gui.neoecoae.storage.energy"))
-            .textStyle(ECOStorageSystemBlockEntity::textStyle));
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable(
-                "gui.neoecoae.storage.energy_status",
-                Tooltips.ofNumber(storedEnergy),
-                Tooltips.ofNumber(maxEnergy),
-                maxEnergy > 0 ? (int) ((double) storedEnergy / maxEnergy * 100) : 0
-            )))
-            .textStyle(ECOStorageSystemBlockEntity::textStyle));
-
-        textPanel.layout(layout -> layout.height(160).width(220));
-
-        UIElement buildButtonPanel = MultiblockBuilderUI.createOpenButton(buildWindow);
-
-        root.addChild(textPanel);
-        root.addChild(buildButtonPanel);
-        root.addChild(buildWindow);
+        UIElement root = ECOHostWidgets.hostPanel(
+            () -> getItemFromBlockEntity().getDescription(),
+            () -> Component.translatable("gui.neoecoae.host.storage.subtitle"),
+            () -> Component.translatable(buildInProgress ? "gui.neoecoae.host.status.running" : "gui.neoecoae.host.status.online"),
+            List.of(
+                ECOHostMetric.ratio(
+                    () -> Component.translatable("gui.neoecoae.host.storage.type_usage"),
+                    () -> numberPair(getTotalUsedTypes(), getTotalTypes()),
+                    () -> ECOHostStyles.ratio(getTotalUsedTypes(), getTotalTypes())
+                ),
+                ECOHostMetric.ratio(
+                    () -> Component.translatable("gui.neoecoae.host.storage.storage_usage"),
+                    () -> bytesPair(getTotalUsedBytes(), getTotalBytes()),
+                    () -> ECOHostStyles.ratio(getTotalUsedBytes(), getTotalBytes())
+                ),
+                ECOHostMetric.ratio(
+                    () -> Component.translatable("gui.neoecoae.host.storage.energy_buffer"),
+                    () -> numberPair(storedEnergy, maxEnergy),
+                    () -> ECOHostStyles.ratio(storedEnergy, maxEnergy)
+                )
+            ),
+            details,
+            () -> Component.translatable("gui.neoecoae.host.storage.footer"),
+            buildWindow
+        );
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private long getTotalUsedTypes() {
+        return sumArray(usedTypes);
+    }
+
+    private long getTotalTypes() {
+        return sumArray(totalTypes);
+    }
+
+    private long getTotalUsedBytes() {
+        return sumArray(usedBytes);
+    }
+
+    private long getTotalBytes() {
+        return sumArray(totalBytes);
+    }
+
+    private static long sumArray(long[] array) {
+        if (array == null) {
+            return 0;
+        }
+        long total = 0;
+        for (long value : array) {
+            total += value;
+        }
+        return total;
+    }
+
+    private UIElement createStorageChannelCard(ECOCellType cellType, int id) {
+        UIElement card = ECOHostWidgets.card();
+        card.addChild(new Label()
+            .setText(cellType.desc())
+            .textStyle(ECOHostStyles::valueText));
+        card.addChild(new Label()
+            .setText(Component.literal(storageChannelHint(cellType, id)))
+            .textStyle(ECOHostStyles::hintText));
+        card.addChild(ECOHostWidgets.statLine(
+            "gui.neoecoae.host.metric.types",
+            () -> numberPair(getArrayValue(usedTypes, id), getArrayValue(totalTypes, id)),
+            () -> ECOHostStyles.ratio(getArrayValue(usedTypes, id), getArrayValue(totalTypes, id))
+        ));
+        card.addChild(ECOHostWidgets.statLine(
+            "gui.neoecoae.host.metric.bytes",
+            () -> bytesPair(getArrayValue(usedBytes, id), getArrayValue(totalBytes, id)),
+            () -> ECOHostStyles.ratio(getArrayValue(usedBytes, id), getArrayValue(totalBytes, id))
+        ));
+        return card;
+    }
+
+    private static Component numberPair(long used, long total) {
+        return Component.literal(used + " / " + total);
+    }
+
+    private static Component bytesPair(long used, long total) {
+        return Component.literal(Tooltips.ofBytes(used).getString() + " / " + Tooltips.ofBytes(total).getString());
+    }
+
+    private static String storageChannelHint(ECOCellType cellType, int id) {
+        ResourceLocation key = NERegistries.CELL_TYPE.getKey(cellType);
+        if (key == null) {
+            return "Channel #" + id;
+        }
+        return "Channel #" + id + " - " + key;
     }
 
     private void resetStorageInfosIfNeeded() {
@@ -423,9 +473,5 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         int buildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength, mirrorBuild);
-    }
-
-    private static void textStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xadb0c4).textShadow(false);
     }
 }
