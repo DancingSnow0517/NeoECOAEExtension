@@ -12,7 +12,6 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
-import com.mojang.logging.LogUtils;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -23,25 +22,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
         implements IStorageProvider, ICellHost {
-    private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Set<String> LOGGED_UPDATE_TAGS = ConcurrentHashMap.newKeySet();
-    private static final Set<String> LOGGED_STORAGE_UPDATES = ConcurrentHashMap.newKeySet();
-    private static final Set<String> LOGGED_MOUNT_ATTEMPTS = ConcurrentHashMap.newKeySet();
 
     public final IItemHandler HANDLER = new CellHostItemHandler(this);
     private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> HANDLER);
@@ -109,24 +99,15 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     private void updateStorageProviderState(String source) {
         double power = 256;
-        boolean willRequestUpdate = false;
         if (cluster != null && cluster.getController() != null) {
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 power += cellInventory.getIdleDrain();
-                willRequestUpdate = true;
             }
         }
         getMainNode().setIdlePowerUsage(power);
         IStorageProvider.requestUpdate(getMainNode());
-        // Diagnostic: log requestUpdate calls during reload to verify mount timing
-        if ("onReady".equals(source) || "onMainNodeStateChanged".equals(source)) {
-            LOGGER.info(
-                    "ECODrive updateStorageProviderState: source={} willMount={} hasCell={} hasCluster={} isOnline={} pos={}",
-                    source, willRequestUpdate, cellStack != null, cluster != null, getMainNode().isOnline(),
-                    worldPosition);
-        }
     }
 
     public void scheduleRenderUpdate() {
@@ -272,15 +253,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private void loadDriveVisualState(CompoundTag data) {
         if (data.contains("cellStack")) {
             this.cellStack = normalizeCellStack(ItemStack.of(data.getCompound("cellStack")));
-            boolean hasContents = this.cellStack != null && this.cellStack.hasTag()
-                    && this.cellStack.getTag().contains("eco_cell_contents");
-            LOGGER.info("ECODrive loadTag: cellStack loaded. hasContents={} item={} pos={}",
-                    hasContents,
-                    this.cellStack != null ? ForgeRegistries.ITEMS.getKey(this.cellStack.getItem()) : "null",
-                    worldPosition);
         } else {
             this.cellStack = null;
-            LOGGER.info("ECODrive loadTag: no cellStack in NBT. pos={}", worldPosition);
         }
         invalidateCellInventoryCache();
         this.mounted = data.getBoolean("mounted");
@@ -317,15 +291,11 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             @Nullable IECOTier cellTier,
             boolean tierSupported,
             boolean willMount) {
-        // Diagnostic: log every mount attempt to verify Eco Storage visibility during
-        // reload
-        LOGGER.info(
-                "ECODrive mountInventories: willMount={} hasCluster={} hasController={} tierSupported={} mainTier={} cellTier={} pos={}",
-                willMount, hasCluster, hasController, tierSupported, mainTier, cellTier, worldPosition);
+        // No-op: debug logging removed.
     }
 
     private void logMountResult(boolean mounted) {
-        LOGGER.info("ECODrive mountInventories result: mounted={} pos={}", mounted, worldPosition);
+        // No-op: debug logging removed.
     }
 
     /**

@@ -162,7 +162,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                     controller != null ? controller.getTier() : ECOTier.L4);
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
             LOGGER.debug(
-                    "NE computation cluster formed: formed=true, controller={}, accelerators={}, maxThreads={}, availableStorage={}",
+                    "NE computation cluster formed: controller={} accelerators={} maxThreads={} availableStorage={}",
                     controller != null ? controller.getBlockPos() : null,
                     accelerators,
                     maxThreads,

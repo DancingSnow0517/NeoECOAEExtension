@@ -103,7 +103,7 @@ public class ECOComputationThreadingCoreBlockEntity
                 cluster.pickup(cpu.getPlan(), cpu);
                 deferredInit[i] = null; // Only clear on success
                 restored++;
-                LOGGER.info("Restored ECO CPU slot {} with job. pos={} plan={}",
+                LOGGER.debug("Restored ECO CPU slot {} with job. pos={} plan={}",
                         i, worldPosition, cpu.getPlan().finalOutput());
             } else if (cpu.getPlan() != null) {
                 LOGGER.warn("ECO CPU slot {} has plan but no job — keeping deferredInit for retry. pos={}", i,
@@ -119,7 +119,7 @@ public class ECOComputationThreadingCoreBlockEntity
                 remainingDeferred++;
         }
         if (restored > 0 || remainingDeferred > 0) {
-            LOGGER.info("restoreDeferredCpus complete: restored={} remainingDeferred={} pos={}",
+            LOGGER.debug("restoreDeferredCpus complete: restored={} remainingDeferred={} pos={}",
                     restored, remainingDeferred, worldPosition);
         }
         if (restored > 0) {
@@ -139,10 +139,15 @@ public class ECOComputationThreadingCoreBlockEntity
                         ? ServerLifecycleHooks.getCurrentServer().registryAccess()
                         : null);
         if (registries == null) {
-            LOGGER.warn("Cannot save ECO CPUs — registries unavailable. pos={}", worldPosition);
+            // Even if registries unavailable, preserve deferred NBT tags so they aren't
+            // wiped.
+            int preserved = preserveDeferredTags(data);
+            LOGGER.warn("Cannot save ECO CPUs — registries unavailable. preservedDeferred={} pos={}",
+                    preserved, worldPosition);
             return;
         }
         int saved = 0;
+        int preserved = 0;
         for (int i = 0; i < cpus.length; i++) {
             ECOCraftingCPU cpu = cpus[i];
             if (cpu != null) {
@@ -150,17 +155,33 @@ public class ECOComputationThreadingCoreBlockEntity
                 cpu.writeToNBT(tag, registries);
                 data.put("CPU" + i, tag);
                 saved++;
-                LOGGER.info("Saved ECO CPU slot {}: hasJob={} jobId={} planBytes={} pos={}",
-                        i,
-                        cpu.getLogic().hasJob(),
-                        cpu.getLogic().hasJob() ? cpu.getLogic().getLastLink().getCraftingID() : "none",
-                        cpu.getPlan() != null ? cpu.getPlan().bytes() : 0,
-                        worldPosition);
+            } else if (deferredInit[i] != null) {
+                // CRITICAL: Preserve deferred NBT that hasn't been restored yet.
+                // Without this, a save before restoreDeferredCpus succeeds would
+                // permanently wipe the CPU data from disk.
+                data.put("CPU" + i, deferredInit[i].copy());
+                preserved++;
             }
         }
-        if (saved > 0) {
-            LOGGER.info("Saved {} ECO CPU(s) to NBT. pos={}", saved, worldPosition);
+        if (saved > 0 || preserved > 0) {
+            LOGGER.debug("Saved ECO CPU NBT: active={} deferredPreserved={} pos={}",
+                    saved, preserved, worldPosition);
         }
+    }
+
+    /**
+     * Fallback: write any deferredInit tags directly to NBT when registries are
+     * unavailable, to prevent silent data loss.
+     */
+    private int preserveDeferredTags(CompoundTag data) {
+        int preserved = 0;
+        for (int i = 0; i < deferredInit.length; i++) {
+            if (deferredInit[i] != null && !data.contains("CPU" + i)) {
+                data.put("CPU" + i, deferredInit[i].copy());
+                preserved++;
+            }
+        }
+        return preserved;
     }
 
     @Override
@@ -178,15 +199,10 @@ public class ECOComputationThreadingCoreBlockEntity
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
-        int loaded = 0;
         for (int i = 0; i < cpus.length; i++) {
             if (data.contains("CPU" + i)) {
                 deferredInit[i] = data.getCompound("CPU" + i);
-                loaded++;
             }
-        }
-        if (loaded > 0) {
-            LOGGER.info("Loaded {} ECO CPU NBT tags into deferredInit. pos={}", loaded, worldPosition);
         }
         markForUpdate();
     }

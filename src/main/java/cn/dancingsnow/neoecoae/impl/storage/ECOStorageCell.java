@@ -72,13 +72,6 @@ public class ECOStorageCell implements IECOStorageCell {
             this.cellType = c;
             this.tier = c.getTier();
 
-            // Diagnostic: log cell content loading during world reload
-            if (storedStacks.size() > 0) {
-                org.slf4j.LoggerFactory.getLogger("neoecoae").info(
-                        "ECOStorageCell loaded from NBT: types={} totalItems={} tier={} keyType={}",
-                        storedItems, storedItemCount, tier, keyType.getClass().getSimpleName());
-            }
-
             // Updates the partition list and mode based on installed upgrades and the
             // configured filter.
             var builder = IPartitionList.builder();
