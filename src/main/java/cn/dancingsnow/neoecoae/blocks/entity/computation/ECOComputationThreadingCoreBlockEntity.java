@@ -106,10 +106,26 @@ public class ECOComputationThreadingCoreBlockEntity
                 LOGGER.info("Restored ECO CPU slot {} with job. pos={} plan={}",
                         i, worldPosition, cpu.getPlan().finalOutput());
             } else if (cpu.getPlan() != null) {
-                LOGGER.warn("ECO CPU slot {} has plan but no job — keeping deferredInit for retry. pos={}", i, worldPosition);
+                LOGGER.warn("ECO CPU slot {} has plan but no job — keeping deferredInit for retry. pos={}", i,
+                        worldPosition);
             } else {
                 LOGGER.debug("ECO CPU slot {} has no plan — keeping deferredInit for retry. pos={}", i, worldPosition);
             }
+        }
+        // Count remaining deferred slots for diagnostic visibility
+        int remainingDeferred = 0;
+        for (CompoundTag tag : deferredInit) {
+            if (tag != null)
+                remainingDeferred++;
+        }
+        if (restored > 0 || remainingDeferred > 0) {
+            LOGGER.info("restoreDeferredCpus complete: restored={} remainingDeferred={} pos={}",
+                    restored, remainingDeferred, worldPosition);
+        }
+        if (restored > 0) {
+            // Ensure the restored CPU state is persisted to disk immediately
+            markForUpdate();
+            saveChanges();
         }
         return restored;
     }
@@ -119,7 +135,13 @@ public class ECOComputationThreadingCoreBlockEntity
         super.saveAdditional(data);
         HolderLookup.Provider registries = this.level != null
                 ? this.level.registryAccess()
-                : ServerLifecycleHooks.getCurrentServer().registryAccess();
+                : (ServerLifecycleHooks.getCurrentServer() != null
+                        ? ServerLifecycleHooks.getCurrentServer().registryAccess()
+                        : null);
+        if (registries == null) {
+            LOGGER.warn("Cannot save ECO CPUs — registries unavailable. pos={}", worldPosition);
+            return;
+        }
         int saved = 0;
         for (int i = 0; i < cpus.length; i++) {
             ECOCraftingCPU cpu = cpus[i];

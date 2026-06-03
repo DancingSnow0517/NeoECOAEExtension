@@ -94,13 +94,24 @@ public class ECOCraftingCPULogic {
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
 
     // ── NBT restore state ──
+    @Getter
     private boolean restoredFromNbt = false;
     private boolean restoreRebindAttempted = false;
     private boolean restoreRebindSuccessful = false;
+    @Getter
     private int restoredCancelGraceTicks = 0;
     private boolean restoredLinkRebound = false;
     private static final int RESTORED_CANCEL_GRACE_INITIAL = 100;
     private static final int RESTORE_GRACE_LOG_INTERVAL = 20;
+
+    /**
+     * Whether the CPU is still within its NBT-restore grace period.
+     * During this period, the cluster MUST NOT prune or kill this CPU,
+     * because the job may still be waiting for grid rebind.
+     */
+    public boolean isInRestoreGrace() {
+        return restoredFromNbt && restoredCancelGraceTicks > 0;
+    }
 
     private long debugPushedPatterns;
     private long debugExtractSkippedBecauseProvidersBusy;
@@ -273,9 +284,11 @@ public class ECOCraftingCPULogic {
      * Tries to recover items to network; does NOT silently drop the job.
      */
     private void safeAbortRestoredJob(String reason) {
-        if (job == null) return;
+        if (job == null)
+            return;
         UUID jobId = job.link.getCraftingID();
-        LOGGER.warn("ECO CPU safeAbortRestoredJob: reason={} jobId={} finalOutput={} remainingAmount={} waitingForSize={} tasksSize={} cpu={}",
+        LOGGER.warn(
+                "ECO CPU safeAbortRestoredJob: reason={} jobId={} finalOutput={} remainingAmount={} waitingForSize={} tasksSize={} cpu={}",
                 reason, jobId,
                 job.finalOutput != null ? job.finalOutput.what().getClass().getSimpleName() : "null",
                 job.remainingAmount,

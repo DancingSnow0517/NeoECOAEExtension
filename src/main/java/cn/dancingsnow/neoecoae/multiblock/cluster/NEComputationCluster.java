@@ -244,6 +244,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (!submitted) {
             return CraftingSubmitResult.NO_CPU_FOUND;
         }
+        // Ensure the threading core is marked dirty so the CPU job is saved to disk.
+        // (trySubmitJob already calls cpu.markDirty(), but belt-and-suspenders.)
+        cpu.markDirty();
         if (this.activeCpus.put(job, cpu) == null) {
             this.activeJobBytes += job.bytes();
             this.activeCpuCount = this.activeCpus.size();
@@ -266,10 +269,29 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
         this.availableStorage = this.totalStorageBytes - this.activeJobBytes;
         if (this.availableStorage < 0) {
+            // Do NOT kill CPUs that are still in NBT-restore grace period.
+            // They may have been loaded before drives finished initializing;
+            // killing them now would permanently lose the crafting job.
+            boolean killedAny = false;
             for (ICraftingPlan plan : new ArrayList<>(this.activeCpus.keySet())) {
+                ECOCraftingCPU cpu = this.activeCpus.get(plan);
+                if (cpu != null && cpu.getLogic().isInRestoreGrace()) {
+                    LOGGER.warn(
+                            "Skipping kill of restored-in-grace ECO CPU (planBytes={} totalStorage={} activeJobBytes={})",
+                            plan.bytes(), totalStorageBytes, activeJobBytes);
+                    continue;
+                }
                 this.killCpu(plan, false, false);
+                killedAny = true;
             }
-            recalculateRemainingStorage();
+            if (killedAny) {
+                recalculateRemainingStorage();
+            } else {
+                // All remaining CPUs are in restore grace — allow temporary negative storage.
+                // It will be corrected once drives become available.
+                LOGGER.warn("Available storage temporarily negative ({} bytes) — all active CPUs are in restore grace. "
+                        + "Storage will correct once drives initialize.", this.availableStorage);
+            }
             return;
         }
         syncControllerStats();
@@ -308,6 +330,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         List<ICraftingPlan> killList = new ArrayList<>();
         for (Map.Entry<ICraftingPlan, ECOCraftingCPU> entry : activeCpus.entrySet()) {
             ECOCraftingCPU cpu = entry.getValue();
+            // Never prune a CPU that is still waiting for NBT-restore rebind
+            if (cpu.getLogic().isInRestoreGrace()) {
+                continue;
+            }
             if (!cpu.getLogic().hasJob() && !cpu.getLogic().isMarkedForDeletion() && !cpu.hasRemainingItems()) {
                 killList.add(entry.getKey());
             }
