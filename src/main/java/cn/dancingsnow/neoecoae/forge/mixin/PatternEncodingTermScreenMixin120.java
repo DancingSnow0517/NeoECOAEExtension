@@ -5,9 +5,11 @@ import appeng.client.gui.me.items.PatternEncodingTermScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.menu.me.items.PatternEncodingTermMenu;
 import cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension;
-import net.minecraft.client.gui.components.Button;
+import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.gui.widget.UploadButton;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 
 @Mixin(value = PatternEncodingTermScreen.class, remap = false)
@@ -22,12 +24,14 @@ public abstract class PatternEncodingTermScreenMixin120<C extends PatternEncodin
 
         int left = (this.width - this.imageWidth) / 2;
         int top = (this.height - this.imageHeight) / 2;
+        int uploadX = left + this.imageWidth + 4;
+        int uploadY = top + this.imageHeight - 24;
 
-        addRenderableWidget(Button.builder(
-                Component.literal("Upload"),
-                button -> ((PatternEncodingTermMenuExtension) this.getMenu()).neoecoae$uploadPattern()
-            )
-            .bounds(left + this.imageWidth - 58, top + 4, 54, 20)
-            .build());
+        addRenderableWidget(new UploadButton(
+            uploadX,
+            uploadY,
+            new ItemStack(NEBlocks.CRAFTING_SYSTEM_L4.get()),
+            button -> ((PatternEncodingTermMenuExtension) this.getMenu()).neoecoae$uploadPattern()
+        ));
     }
 }

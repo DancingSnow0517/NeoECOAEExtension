@@ -337,7 +337,7 @@
   "neoecoae.configuration.storageSystemMaxLength.tooltip": "存储子系统多方块结构允许的最大长度（单位：方块）。\n数值越大，可扩展的模块/组件越长，但结构检测开销也可能更高。",
   "neoecoae.configuration.structure": "结构",
   "neoecoae.configuration.structure.tooltip": "多方块结构尺寸限制。",
-  "neoecoae.tooltip.upload_pattern": "上传样板至可用的ECO合成子系统",
+  "neoecoae.tooltip.upload_pattern": "上传样板",
   "tooltip.neoecoae.active_cooling": "§7§o启用主动冷却时：",
   "tooltip.neoecoae.budding_energized_crystal_block": "通过雷击赛特斯石英母岩获得",
   "tooltip.neoecoae.clear_negative_effect": "§7§o清除超频带来的负面效果",

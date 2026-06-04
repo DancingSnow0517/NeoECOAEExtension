@@ -1,19 +1,18 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
 import appeng.client.gui.Icon;
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
 public class UploadButton extends Button {
-    public static final ResourceLocation ICON_TEXTURE = NeoECOAE.id("textures/gui/upload.png");
+    private final ItemStack iconStack;
 
-    public UploadButton(int x, int y, OnPress onPress) {
+    public UploadButton(int x, int y, ItemStack iconStack, OnPress onPress) {
         super(
             x,
             y,
@@ -23,6 +22,8 @@ public class UploadButton extends Button {
             onPress,
             unused -> Component.empty()
         );
+        this.iconStack = iconStack.copy();
+        this.iconStack.setCount(1);
     }
 
     @Override
@@ -33,18 +34,7 @@ public class UploadButton extends Button {
             .dest(getX() - 1, getY() + yOffset, 18, 20)
             .blit(guiGraphics);
 
-        guiGraphics.blit(
-            ICON_TEXTURE,
-            getX(),
-            getY() + 2 + yOffset,
-            200,
-            0,
-            0,
-            16,
-            16,
-            16,
-            16
-        );
+        guiGraphics.renderItem(this.iconStack, getX(), getY() + 2 + yOffset);
 
         if (isHovered()) {
             guiGraphics.renderComponentTooltip(
