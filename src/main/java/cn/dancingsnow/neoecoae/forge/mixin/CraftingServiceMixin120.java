@@ -120,7 +120,15 @@ public abstract class CraftingServiceMixin120 {
         CallbackInfoReturnable<ICraftingSubmitResult> cir
     ) {
         if (target instanceof ECOCraftingCPU ecoCpu) {
-            cir.setReturnValue(ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine));
+            ICraftingSubmitResult result = ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine);
+            if (result.successful()) {
+                this.updateList = true;
+            }
+            cir.setReturnValue(result);
+            return;
+        }
+
+        if (target != null) {
             return;
         }
 

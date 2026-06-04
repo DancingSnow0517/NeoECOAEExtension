@@ -712,7 +712,7 @@ public class ECOCraftingCPULogic {
         // also stop accepting items when the job is complete, i.e. to prevent
         // re-insertion when pushing out
         // items during storeItems
-        if (what == null || job == null)
+        if (what == null || job == null || amount <= 0)
             return 0;
 
         // Only accept items we are waiting for.
@@ -726,51 +726,39 @@ public class ECOCraftingCPULogic {
             amount = waitingFor;
         }
 
-        if (type == Actionable.MODULATE) {
-            job.timeTracker.decrementItems(amount, what.getType());
-            job.waitingFor.extract(what, amount, Actionable.MODULATE);
-            postChange(what);
-            cpu.markDirty();
-        }
-
-        long inserted = amount;
         if (what.matches(job.finalOutput)) {
-            // Final output is special: it goes directly into the requester
-            inserted = job.link.insert(what, amount, type);
-
-            // Note: we ignore any remainder (could be the entire input if there is no
-            // requester),
-            // we already marked the items as done, and we might even finish the job.
-
-            // This means that the job can be marked as finished even if some items were not
-            // actually inserted.
-            // In some cases, repeated failed inserts of a fraction of the final output
-            // might prevent some recipes from
-            // being pushed.
-            // TODO: Look into fixing this, perhaps we could use the network monitor to
-            // check how much was really
-            // TODO: inserted into the network.
-            // TODO: Another solution is to wait until all recipes have been pushed before
-            // cancelling the job.
+            long accepted = job.link.insert(what, amount, type);
+            accepted = Math.max(0, Math.min(accepted, amount));
+            if (accepted <= 0) {
+                return 0;
+            }
 
             if (type == Actionable.MODULATE) {
-                // Update count and displayed CPU stack, and finish the job if possible.
+                job.timeTracker.decrementItems(accepted, what.getType());
+                job.waitingFor.extract(what, accepted, Actionable.MODULATE);
                 postChange(what);
-                job.remainingAmount = Math.max(0, job.remainingAmount - amount);
+                job.remainingAmount = Math.max(0, job.remainingAmount - accepted);
+                cpu.markDirty();
 
                 if (job.remainingAmount <= 0) {
                     finishJob(true);
                 }
             }
-        } else {
-            if (type == Actionable.MODULATE) {
-                inventory.insert(what, amount, Actionable.MODULATE);
-                // Explicitly notify stored count changed in addition to inventory callback
-                postChange(what);
-            }
+
+            return accepted;
         }
 
-        return inserted;
+        if (type == Actionable.MODULATE) {
+            job.timeTracker.decrementItems(amount, what.getType());
+            job.waitingFor.extract(what, amount, Actionable.MODULATE);
+            postChange(what);
+            cpu.markDirty();
+            inventory.insert(what, amount, Actionable.MODULATE);
+            // Explicitly notify stored count changed in addition to inventory callback
+            postChange(what);
+        }
+
+        return amount;
     }
 
     /**

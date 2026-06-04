@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.forge.mixin;
 
+import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.storage.ITerminalHost;
+import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.helpers.IPatternTerminalMenuHost;
 import appeng.menu.me.common.MEStorageMenu;
 import appeng.menu.me.items.PatternEncodingTermMenu;
@@ -69,6 +71,9 @@ public abstract class PatternEncodingTermMenuMixin120 extends MEStorageMenu impl
 
         ItemStack pattern = this.encodedPatternSlot.getItem();
         if (pattern.isEmpty()) {
+            return;
+        }
+        if (!(PatternDetailsHelper.decodePattern(pattern, getPlayer().level()) instanceof IMolecularAssemblerSupportedPattern)) {
             return;
         }
 

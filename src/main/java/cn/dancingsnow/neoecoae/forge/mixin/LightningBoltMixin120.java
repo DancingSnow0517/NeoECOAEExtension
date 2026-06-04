@@ -18,7 +18,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.Map;
 
-@Mixin(value = LightningBolt.class, remap = false)
+@Mixin(LightningBolt.class)
 public abstract class LightningBoltMixin120 extends Entity {
     @Unique
     private static final Map<Block, Block> NEOECOAE_TRANSFORM_MAP = Map.of(
@@ -33,15 +33,19 @@ public abstract class LightningBoltMixin120 extends Entity {
     }
 
     @Inject(
-        method = {"tick", "m_8119_"},
+        method = "m_8119_",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/world/entity/LightningBolt;clearCopperOnLightningStrike(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)V"
+            target = "Lnet/minecraft/world/entity/LightningBolt;m_147150_(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)V"
         ),
         require = 1
     )
     private void neoecoae$transformBuddingQuartz(CallbackInfo ci) {
         Level level = this.level();
+        if (level.isClientSide()) {
+            return;
+        }
+
         BlockPos strikePos = neoecoae$getStrikePosition();
 
         for (int dx = -1; dx <= 1; dx++) {
