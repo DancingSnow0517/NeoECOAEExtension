@@ -32,9 +32,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -51,7 +49,8 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_EXECUTION_STATS = Boolean.getBoolean("neoecoae.debugEcoCraftingExecution");
-    private static final int ECO_PROVIDER_PUSH_BURST_LIMIT = 256;
+    private static final int ECO_CPU_PUSH_TICK_LIMIT =
+            Math.max(1, Integer.getInteger("neoecoae.ecoCpuPushTickLimit", Integer.MAX_VALUE));
     private static final int ECO_BATCH_FAST_PATH_LIMIT =
             Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathLimit", 64));
     private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT =
@@ -69,11 +68,6 @@ public class ECOCraftingCPULogic {
      */
     @Getter
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
-
-    /**
-     * Used crafting operations over the last 3 ticks.
-     */
-    private final int[] usedOps = new int[3];
 
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     /**
@@ -160,7 +154,6 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
-        resetUsedOps();
         markStatusDirty();
 
         // Crafting Monitor unsupported
@@ -237,8 +230,7 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        var remainingOperations = getOperationLimit(cc) - getRecentlyUsedOps();
-        final var started = remainingOperations;
+        var remainingOperations = getOperationLimit();
 
         if (remainingOperations > 0) {
             do {
@@ -251,9 +243,6 @@ public class ECOCraftingCPULogic {
                 }
             } while (remainingOperations > 0);
         }
-        this.usedOps[2] = this.usedOps[1];
-        this.usedOps[1] = this.usedOps[0];
-        this.usedOps[0] = Math.max(0, started - remainingOperations);
     }
 
     /**
@@ -355,43 +344,9 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    private int getOperationLimit(CraftingService craftingService) {
-        int baseLimit = Math.max(1, cpu.getCoProcessors() + 1);
-        if (job == null) {
-            return baseLimit;
-        }
-
-        int ecoSlots = 0;
-        Set<ECOCraftingSystemBlockEntity> countedControllers = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (var task : job.tasks.entrySet()) {
-            if (task.getValue().value <= 0) {
-                continue;
-            }
-            for (var provider : craftingService.getProviders(task.getKey())) {
-                if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)) {
-                    continue;
-                }
-                ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
-                if (controller != null && countedControllers.add(controller)) {
-                    ecoSlots += patternBus.getAvailableThreadSlots();
-                    if (ecoSlots >= ECO_PROVIDER_PUSH_BURST_LIMIT) {
-                        return Math.max(baseLimit, ECO_PROVIDER_PUSH_BURST_LIMIT);
-                    }
-                }
-            }
-        }
-
-        return Math.max(baseLimit, Math.min(ecoSlots, ECO_PROVIDER_PUSH_BURST_LIMIT));
-    }
-
-    private int getRecentlyUsedOps() {
-        return this.usedOps[0] + this.usedOps[1] + this.usedOps[2];
-    }
-
-    private void resetUsedOps() {
-        this.usedOps[0] = 0;
-        this.usedOps[1] = 0;
-        this.usedOps[2] = 0;
+    private int getOperationLimit() {
+        int cpuLimit = Math.max(1, cpu.getCoProcessors() + 1);
+        return Math.min(cpuLimit, ECO_CPU_PUSH_TICK_LIMIT);
     }
 
     /**
