@@ -41,18 +41,25 @@ public enum ECOTier implements IECOTier {
 
     @Getter
     private final int tier;
+
     @Getter
     private final int crafterParallel;
+
     @Getter
     private final int overclockedCrafterParallel;
+
     private final int cpuAccelerators;
     private final int cpuThreads;
     private final long cpuTotalBytes;
+
     @Getter
     private final long storageTotalBytes;
+
     @Getter
     private final long powerStorageSize;
+
     private final ResourceLocation cpuOverlayTexture;
+
     @Getter
     private final ResourceLocation craftingOverlayTexture;
 

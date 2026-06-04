@@ -1,13 +1,15 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
-import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
-
 import com.mojang.logging.LogUtils;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -20,28 +22,20 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-public class ECOComputationDriveBlockEntity
-    extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity> implements ICellHost {
+public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity>
+        implements ICellHost {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_UPDATE_TAGS = ConcurrentHashMap.newKeySet();
 
-
     @Getter
-    @Nullable
-    private ItemStack cellStack = null;
+    @Nullable private ItemStack cellStack = null;
 
     private boolean formedState;
 
@@ -50,16 +44,15 @@ public class ECOComputationDriveBlockEntity
 
     @Setter
     @Getter
-    @Nullable
-    private BlockPos ownerBlockPos;
+    @Nullable private BlockPos ownerBlockPos;
 
     @Setter
     @Getter
-    @Nullable
-    private IECOTier tier = null;
+    @Nullable private IECOTier tier = null;
 
     @Getter
     private final IItemHandler itemHandler = new CellHostItemHandler(this);
+
     private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> itemHandler);
 
     public ECOComputationDriveBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
@@ -189,8 +182,7 @@ public class ECOComputationDriveBlockEntity
         logVisualSync("handleUpdateTag", tag);
     }
 
-    @Nullable
-    @Override
+    @Nullable @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }

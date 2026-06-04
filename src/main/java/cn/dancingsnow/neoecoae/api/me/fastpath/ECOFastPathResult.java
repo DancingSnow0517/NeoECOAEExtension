@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.api.me.fastpath;
 
 import appeng.api.stacks.GenericStack;
-
 import java.util.List;
 
 public final class ECOFastPathResult {
@@ -13,13 +12,12 @@ public final class ECOFastPathResult {
     private long lastAccessTick;
 
     private ECOFastPathResult(
-        boolean negative,
-        boolean verified,
-        List<GenericStack> outputEntries,
-        List<GenericStack> remainingEntries,
-        List<GenericStack> inputEntries,
-        long lastAccessTick
-    ) {
+            boolean negative,
+            boolean verified,
+            List<GenericStack> outputEntries,
+            List<GenericStack> remainingEntries,
+            List<GenericStack> inputEntries,
+            long lastAccessTick) {
         this.negative = negative;
         this.verified = verified;
         this.outputEntries = List.copyOf(outputEntries);
@@ -29,11 +27,10 @@ public final class ECOFastPathResult {
     }
 
     public static ECOFastPathResult positive(
-        List<GenericStack> outputEntries,
-        List<GenericStack> remainingEntries,
-        List<GenericStack> inputEntries,
-        long tick
-    ) {
+            List<GenericStack> outputEntries,
+            List<GenericStack> remainingEntries,
+            List<GenericStack> inputEntries,
+            long tick) {
         return new ECOFastPathResult(false, true, outputEntries, remainingEntries, inputEntries, tick);
     }
 
@@ -63,10 +60,10 @@ public final class ECOFastPathResult {
 
     public boolean matchesExecution(ECOExtractedPatternExecution execution) {
         return !negative
-            && verified
-            && outputEntries.equals(execution.expectedOutputs())
-            && remainingEntries.equals(execution.expectedContainerItems())
-            && inputEntries.equals(execution.inputItems());
+                && verified
+                && outputEntries.equals(execution.expectedOutputs())
+                && remainingEntries.equals(execution.expectedContainerItems())
+                && inputEntries.equals(execution.inputItems());
     }
 
     public long getLastAccessTick() {

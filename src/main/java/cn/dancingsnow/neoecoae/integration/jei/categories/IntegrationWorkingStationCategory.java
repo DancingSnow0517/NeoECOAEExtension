@@ -2,9 +2,12 @@ package cn.dancingsnow.neoecoae.integration.jei.categories;
 
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import java.util.List;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
@@ -24,11 +27,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
-
-import java.util.List;
 
 public class IntegrationWorkingStationCategory
         implements IRecipeCategory<RecipeHolder<IntegratedWorkingStationRecipe>> {
@@ -74,8 +73,8 @@ public class IntegrationWorkingStationCategory
     }
 
     @Override
-    public void setRecipe(IRecipeLayoutBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder,
-            IFocusGroup focuses) {
+    public void setRecipe(
+            IRecipeLayoutBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
         IntegratedWorkingStationRecipe recipe = holder.value();
         ResourceLocation recipeId = holder.id();
 
@@ -88,8 +87,7 @@ public class IntegrationWorkingStationCategory
             } else {
                 List<FluidStack> fluidStacks = new java.util.ArrayList<>();
                 for (FluidStack fs : rawFluids) {
-                    if (fs == null || fs.isEmpty())
-                        continue;
+                    if (fs == null || fs.isEmpty()) continue;
                     FluidStack copy = fs.copy();
                     copy.setAmount(inputFluid.amount());
                     fluidStacks.add(copy);
@@ -120,8 +118,7 @@ public class IntegrationWorkingStationCategory
 
             List<ItemStack> stacks = new java.util.ArrayList<>();
             for (ItemStack raw : rawStacks) {
-                if (raw == null || raw.isEmpty())
-                    continue;
+                if (raw == null || raw.isEmpty()) continue;
                 ItemStack copy = raw.copy();
                 copy.setCount(input.count());
                 stacks.add(copy);
@@ -131,8 +128,7 @@ public class IntegrationWorkingStationCategory
                 continue;
             }
 
-            builder.addInputSlot(x, y)
-                    .addIngredients(VanillaTypes.ITEM_STACK, stacks);
+            builder.addInputSlot(x, y).addIngredients(VanillaTypes.ITEM_STACK, stacks);
         }
 
         // output item
@@ -151,18 +147,22 @@ public class IntegrationWorkingStationCategory
     }
 
     @Override
-    public void draw(RecipeHolder<IntegratedWorkingStationRecipe> recipe, IRecipeSlotsView recipeSlotsView,
-            GuiGraphics guiGraphics, double mouseX, double mouseY) {
+    public void draw(
+            RecipeHolder<IntegratedWorkingStationRecipe> recipe,
+            IRecipeSlotsView recipeSlotsView,
+            GuiGraphics guiGraphics,
+            double mouseX,
+            double mouseY) {
         background.draw(guiGraphics);
         progress.draw(guiGraphics, 136, 30);
     }
 
     @Override
-    public void createRecipeExtras(IRecipeExtrasBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder,
-            IFocusGroup focuses) {
+    public void createRecipeExtras(
+            IRecipeExtrasBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
         IntegratedWorkingStationRecipe recipe = holder.value();
-        Component text = Component.translatable("gui.neoecoae.integrated_working_station.energy",
-                recipe.energy() / 1000);
+        Component text =
+                Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
         builder.addText(text, 120, 12).setPosition(24, 66).setColor(0x403e53);
     }
 
@@ -171,14 +171,13 @@ public class IntegrationWorkingStationCategory
         if (mc.getConnection() == null) {
             return;
         }
-        var recipes = mc.getConnection().getRecipeManager()
-                .getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
+        var recipes =
+                mc.getConnection().getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
         registration.addRecipes(NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE, recipes);
     }
 
     public static void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         registration.addRecipeCatalysts(
-                NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE,
-                NEBlocks.INTEGRATED_WORKING_STATION);
+                NeoECOAEJeiPlugin.INTEGRATED_WORKING_STATION_TYPE, NEBlocks.INTEGRATED_WORKING_STATION);
     }
 }

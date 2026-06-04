@@ -2,22 +2,20 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
-import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEAe2IconButton;
 import cn.dancingsnow.neoecoae.network.NECraftingUiState;
 import cn.dancingsnow.neoecoae.network.NENetwork;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.text.NumberFormat;
-import java.util.Locale;
 
 /**
  * Screen for the ECO Crafting Controller — machine running status only.
@@ -95,24 +93,30 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         int y = topPos + TOOLBAR_Y;
 
         overclockButton = new NEAe2IconButton(
-                x, y,
-                TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
+                x,
+                y,
+                TOOLBAR_BUTTON_SIZE,
+                TOOLBAR_BUTTON_SIZE,
                 Component.translatable(OVERCLOCK_KEY),
                 btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_OVERCLOCK));
         overclockButton.setIcons(Icon.LEVEL_ENERGY, Icon.POWER_UNIT_AE);
         addRenderableWidget(overclockButton);
 
         activeCoolingButton = new NEAe2IconButton(
-                x, y + TOOLBAR_BUTTON_STRIDE,
-                TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
+                x,
+                y + TOOLBAR_BUTTON_STRIDE,
+                TOOLBAR_BUTTON_SIZE,
+                TOOLBAR_BUTTON_SIZE,
                 Component.translatable(ACTIVE_COOLING_KEY),
                 btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_ACTIVE_COOLING));
         activeCoolingButton.setIcons(Icon.FLUID_SUBSTITUTION_ENABLED, Icon.FLUID_SUBSTITUTION_DISABLED);
         addRenderableWidget(activeCoolingButton);
 
         autoClearWasteButton = new NEAe2IconButton(
-                x, y + TOOLBAR_BUTTON_STRIDE * 2,
-                TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
+                x,
+                y + TOOLBAR_BUTTON_STRIDE * 2,
+                TOOLBAR_BUTTON_SIZE,
+                TOOLBAR_BUTTON_SIZE,
                 Component.translatable(AUTO_CLEAR_COOLANT_KEY),
                 btn -> sendCraftingAction(NENetwork.NECraftingUiActionPacket.Action.TOGGLE_AUTO_CLEAR_COOLING_WASTE));
         autoClearWasteButton.setIcons(Icon.CONDENSER_OUTPUT_TRASH, Icon.BACKGROUND_TRASH);
@@ -168,13 +172,13 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     private void updateToolbarButtons(NECraftingUiState state) {
         if (overclockButton != null) {
             overclockButton.setToggled(state.overclocked());
-            overclockButton.setTooltip(Tooltip.create(Component.translatable(
-                    state.overclocked() ? OVERCLOCK_ON_KEY : OVERCLOCK_OFF_KEY)));
+            overclockButton.setTooltip(
+                    Tooltip.create(Component.translatable(state.overclocked() ? OVERCLOCK_ON_KEY : OVERCLOCK_OFF_KEY)));
         }
         if (activeCoolingButton != null) {
             activeCoolingButton.setToggled(state.activeCooling());
-            activeCoolingButton.setTooltip(Tooltip.create(Component.translatable(
-                    state.activeCooling() ? ACTIVE_COOLING_ON_KEY : ACTIVE_COOLING_OFF_KEY)));
+            activeCoolingButton.setTooltip(Tooltip.create(
+                    Component.translatable(state.activeCooling() ? ACTIVE_COOLING_ON_KEY : ACTIVE_COOLING_OFF_KEY)));
         }
         if (autoClearWasteButton != null) {
             autoClearWasteButton.setToggled(state.autoClearCoolingWaste());
@@ -201,10 +205,7 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     public List<Rect2i> getJeiExtraAreas() {
         List<Rect2i> areas = new ArrayList<>();
         areas.add(new Rect2i(
-                leftPos + TOOLBAR_X_OFFSET,
-                topPos + TOOLBAR_Y,
-                TOOLBAR_BUTTON_SIZE,
-                TOOLBAR_BUTTON_SIZE * 3 + 7 * 2));
+                leftPos + TOOLBAR_X_OFFSET, topPos + TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE * 3 + 7 * 2));
         return areas;
     }
 
@@ -246,8 +247,8 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         int textY = y + (h - font.lineHeight) / 2;
 
         g.drawString(font, label, textX, textY, DARK_TEXT_PRIMARY, false);
-        g.drawString(font, value, textX + font.width(label), textY,
-                formed ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR, false);
+        g.drawString(
+                font, value, textX + font.width(label), textY, formed ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR, false);
     }
 
     private void drawLine(GuiGraphics g, String text, int x, int y, int color) {

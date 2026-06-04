@@ -1,12 +1,11 @@
 package cn.dancingsnow.neoecoae.client.all;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import net.minecraft.client.resources.model.UnbakedModel;
-import net.minecraft.resources.ResourceLocation;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
+import net.minecraft.client.resources.model.UnbakedModel;
+import net.minecraft.resources.ResourceLocation;
 
 public class NEBuiltinModels {
     private static final Map<ResourceLocation, Supplier<UnbakedModel>> registry = new HashMap<>();

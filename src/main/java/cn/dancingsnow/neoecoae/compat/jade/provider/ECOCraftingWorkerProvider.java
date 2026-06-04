@@ -24,9 +24,12 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
     @Override
     public void appendServerData(CompoundTag tag, BlockAccessor accessor) {
         if (accessor.getBlockEntity() instanceof ECOCraftingWorkerBlockEntity worker) {
-            ECOCraftingSystemBlockEntity controller = worker.getCluster() == null ? null : worker.getCluster().getController();
+            ECOCraftingSystemBlockEntity controller =
+                    worker.getCluster() == null ? null : worker.getCluster().getController();
             int threadCountPerWorker = controller == null ? 0 : controller.getThreadCountPerWorker();
-            tag.putBoolean("online", worker.getCluster() != null && worker.getMainNode().isActive());
+            tag.putBoolean(
+                    "online",
+                    worker.getCluster() != null && worker.getMainNode().isActive());
             tag.putBoolean("running", worker.isWorking());
             tag.putInt("recipesPerOperation", threadCountPerWorker);
         }

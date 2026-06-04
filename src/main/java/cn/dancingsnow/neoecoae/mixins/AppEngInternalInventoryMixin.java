@@ -11,8 +11,7 @@ import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(AppEngInternalInventory.class)
 public abstract class AppEngInternalInventoryMixin implements INBTSerializable<CompoundTag> {
-    @Unique
-    private Runnable neoECOAEExtension$onContentsChanged;
+    @Unique private Runnable neoECOAEExtension$onContentsChanged;
 
     @Shadow
     public abstract int size();

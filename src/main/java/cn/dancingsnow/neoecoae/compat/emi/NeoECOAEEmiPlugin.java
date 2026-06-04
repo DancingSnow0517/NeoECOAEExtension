@@ -18,16 +18,13 @@ import net.minecraft.client.Minecraft;
 public class NeoECOAEEmiPlugin implements EmiPlugin {
 
     public static final EmiRecipeCategory INTEGRATED_WORKING_STATION = new EmiRecipeCategory(
-            NeoECOAE.id("integrated_working_station"),
-            EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
+            NeoECOAE.id("integrated_working_station"), EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
 
-    public static final EmiRecipeCategory COOLING = new EmiRecipeCategory(
-            NeoECOAE.id("cooling"),
-            EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
+    public static final EmiRecipeCategory COOLING =
+            new EmiRecipeCategory(NeoECOAE.id("cooling"), EmiStack.of(NEBlocks.CRAFTING_SYSTEM_L9));
 
-    public static final EmiRecipeCategory MULTIBLOCK = new EmiRecipeCategory(
-            NeoECOAE.id("multiblock"),
-            EmiStack.of(NEBlocks.STORAGE_SYSTEM_L4));
+    public static final EmiRecipeCategory MULTIBLOCK =
+            new EmiRecipeCategory(NeoECOAE.id("multiblock"), EmiStack.of(NEBlocks.STORAGE_SYSTEM_L4));
 
     @Override
     public void register(EmiRegistry registry) {
@@ -58,8 +55,8 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
             return;
         }
 
-        for (IntegratedWorkingStationRecipe recipe : mc.level.getRecipeManager()
-                .getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
+        for (IntegratedWorkingStationRecipe recipe :
+                mc.level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
             registry.addRecipe(new IntegratedWorkingStationEmiRecipe(recipe));
         }
 

@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -22,31 +23,27 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-
 public class ECOComputationThreadingCoreBlockEntity
         extends AbstractComputationBlockEntity<ECOComputationThreadingCoreBlockEntity> {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     @Getter
     private final IECOTier tier;
+
     @Getter
     private final ECOCraftingCPU[] cpus;
+
     private final CompoundTag[] deferredInit;
 
     public ECOComputationThreadingCoreBlockEntity(
-            BlockEntityType<?> type,
-            BlockPos pos,
-            BlockState blockState,
-            IECOTier tier) {
+            BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
         this.tier = tier;
         cpus = new ECOCraftingCPU[tier.getCPUThreads()];
         deferredInit = new CompoundTag[tier.getCPUThreads()];
     }
 
-    @Nullable
-    public ECOCraftingCPU spawn(ICraftingPlan plan) {
+    @Nullable public ECOCraftingCPU spawn(ICraftingPlan plan) {
         for (int i = 0; i < cpus.length; i++) {
             if (cpus[i] == null) {
                 ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, plan, this);
@@ -60,8 +57,7 @@ public class ECOComputationThreadingCoreBlockEntity
 
     public boolean isWorking() {
         for (ECOCraftingCPU cpu : cpus) {
-            if (cpu == null)
-                continue;
+            if (cpu == null) continue;
             return true;
         }
         return false;
@@ -103,10 +99,15 @@ public class ECOComputationThreadingCoreBlockEntity
                 cluster.pickup(cpu.getPlan(), cpu);
                 deferredInit[i] = null; // Only clear on success
                 restored++;
-                LOGGER.debug("Restored ECO CPU slot {} with job. pos={} plan={}",
-                        i, worldPosition, cpu.getPlan().finalOutput());
+                LOGGER.debug(
+                        "Restored ECO CPU slot {} with job. pos={} plan={}",
+                        i,
+                        worldPosition,
+                        cpu.getPlan().finalOutput());
             } else if (cpu.getPlan() != null) {
-                LOGGER.warn("ECO CPU slot {} has plan but no job — keeping deferredInit for retry. pos={}", i,
+                LOGGER.warn(
+                        "ECO CPU slot {} has plan but no job — keeping deferredInit for retry. pos={}",
+                        i,
                         worldPosition);
             } else {
                 LOGGER.debug("ECO CPU slot {} has no plan — keeping deferredInit for retry. pos={}", i, worldPosition);
@@ -115,12 +116,14 @@ public class ECOComputationThreadingCoreBlockEntity
         // Count remaining deferred slots for diagnostic visibility
         int remainingDeferred = 0;
         for (CompoundTag tag : deferredInit) {
-            if (tag != null)
-                remainingDeferred++;
+            if (tag != null) remainingDeferred++;
         }
         if (restored > 0 || remainingDeferred > 0) {
-            LOGGER.debug("restoreDeferredCpus complete: restored={} remainingDeferred={} pos={}",
-                    restored, remainingDeferred, worldPosition);
+            LOGGER.debug(
+                    "restoreDeferredCpus complete: restored={} remainingDeferred={} pos={}",
+                    restored,
+                    remainingDeferred,
+                    worldPosition);
         }
         if (restored > 0) {
             // Ensure the restored CPU state is persisted to disk immediately
@@ -142,8 +145,10 @@ public class ECOComputationThreadingCoreBlockEntity
             // Even if registries unavailable, preserve deferred NBT tags so they aren't
             // wiped.
             int preserved = preserveDeferredTags(data);
-            LOGGER.warn("Cannot save ECO CPUs — registries unavailable. preservedDeferred={} pos={}",
-                    preserved, worldPosition);
+            LOGGER.warn(
+                    "Cannot save ECO CPUs — registries unavailable. preservedDeferred={} pos={}",
+                    preserved,
+                    worldPosition);
             return;
         }
         int saved = 0;
@@ -164,8 +169,7 @@ public class ECOComputationThreadingCoreBlockEntity
             }
         }
         if (saved > 0 || preserved > 0) {
-            LOGGER.debug("Saved ECO CPU NBT: active={} deferredPreserved={} pos={}",
-                    saved, preserved, worldPosition);
+            LOGGER.debug("Saved ECO CPU NBT: active={} deferredPreserved={} pos={}", saved, preserved, worldPosition);
         }
     }
 
@@ -211,8 +215,7 @@ public class ECOComputationThreadingCoreBlockEntity
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
         for (ECOCraftingCPU cpu : cpus) {
-            if (cpu == null)
-                continue;
+            if (cpu == null) continue;
             ListCraftingInventory inventory = cpu.getLogic().getInventory();
             for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
                 if (entry.getKey() instanceof AEItemKey itemKey) {

@@ -22,9 +22,14 @@ public class NEInternalInventorySlot extends Slot {
     private final boolean allowPlace;
     private final boolean allowPickup;
 
-    public NEInternalInventorySlot(InternalInventory inv, int index,
-                                   int x, int y, ECOIntegratedWorkingStationBlockEntity owner,
-                                   boolean allowPlace, boolean allowPickup) {
+    public NEInternalInventorySlot(
+            InternalInventory inv,
+            int index,
+            int x,
+            int y,
+            ECOIntegratedWorkingStationBlockEntity owner,
+            boolean allowPlace,
+            boolean allowPickup) {
         super(new InternalInventoryContainer(inv, owner), index, x, y);
         this.allowPlace = allowPlace;
         this.allowPickup = allowPickup;

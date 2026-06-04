@@ -1,10 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
-import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
-import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingPatternBusMenu;
+import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NECraftingPatternBusLayout.*;
+
 import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.EncodedPatternItem;
+import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingPatternBusMenu;
 import com.mojang.blaze3d.systems.RenderSystem;
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -12,11 +16,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NECraftingPatternBusLayout.*;
 
 /**
  * Screen for the ECO Crafting Pattern Bus — 9×7 pattern slots (63 total),
@@ -84,26 +83,21 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
         // 2. Pattern area slots
         for (int row = 0; row < PATTERN_ROWS; row++) {
             for (int col = 0; col < PATTERN_COLS; col++) {
-                NENativeAe2StyleRenderer.drawAeSlot(g,
-                    x + PATTERN_BG_X + col * SLOT_SIZE,
-                    y + PATTERN_BG_Y + row * SLOT_SIZE);
+                NENativeAe2StyleRenderer.drawAeSlot(
+                        g, x + PATTERN_BG_X + col * SLOT_SIZE, y + PATTERN_BG_Y + row * SLOT_SIZE);
             }
         }
 
         // 3. Player inventory slots
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                NENativeAe2StyleRenderer.drawAeSlot(g,
-                    x + INV_BG_X + col * SLOT_SIZE,
-                    y + INV_BG_Y + row * SLOT_SIZE);
+                NENativeAe2StyleRenderer.drawAeSlot(g, x + INV_BG_X + col * SLOT_SIZE, y + INV_BG_Y + row * SLOT_SIZE);
             }
         }
 
         // 4. Hotbar slots
         for (int col = 0; col < 9; col++) {
-            NENativeAe2StyleRenderer.drawAeSlot(g,
-                x + HOTBAR_BG_X + col * SLOT_SIZE,
-                y + HOTBAR_BG_Y);
+            NENativeAe2StyleRenderer.drawAeSlot(g, x + HOTBAR_BG_X + col * SLOT_SIZE, y + HOTBAR_BG_Y);
         }
 
         // 5. Ghost pattern hints (pattern slots only)
@@ -124,8 +118,7 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        g.drawString(font, title, TITLE_X, TITLE_Y,
-            NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
+        g.drawString(font, title, TITLE_X, TITLE_Y, NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
     }
 
     /**

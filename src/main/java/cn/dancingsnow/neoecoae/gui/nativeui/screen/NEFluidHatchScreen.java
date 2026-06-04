@@ -45,19 +45,31 @@ public class NEFluidHatchScreen extends NEBaseMachineScreen<NEFluidHatchMenu> {
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         Component amount = NEFluidTankUi.amountText(menu.getTankAmount(), menu.getTankCapacity());
         int amountX = (imageWidth - font.width(amount)) / 2;
-        guiGraphics.drawString(font, amount, amountX, AMOUNT_Y,
-            NENativeUiConstants.MACHINE_TEXT_VALUE, false);
+        guiGraphics.drawString(font, amount, amountX, AMOUNT_Y, NENativeUiConstants.MACHINE_TEXT_VALUE, false);
     }
 
     private void renderFluidTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        NEFluidTankUi.renderTooltip(guiGraphics, font, menu.getClientFluid(), menu.getTankAmount(),
-            menu.getTankCapacity(), leftPos + TANK_X, topPos + TANK_Y, TANK_W, TANK_H, mouseX, mouseY);
+        NEFluidTankUi.renderTooltip(
+                guiGraphics,
+                font,
+                menu.getClientFluid(),
+                menu.getTankAmount(),
+                menu.getTankCapacity(),
+                leftPos + TANK_X,
+                topPos + TANK_Y,
+                TANK_W,
+                TANK_H,
+                mouseX,
+                mouseY);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && mouseX >= leftPos + TANK_X && mouseX < leftPos + TANK_X + TANK_W
-            && mouseY >= topPos + TANK_Y && mouseY < topPos + TANK_Y + TANK_H) {
+        if (button == 0
+                && mouseX >= leftPos + TANK_X
+                && mouseX < leftPos + TANK_X + TANK_W
+                && mouseY >= topPos + TANK_Y
+                && mouseY < topPos + TANK_Y + TANK_H) {
             if (minecraft != null && minecraft.gameMode != null) {
                 minecraft.gameMode.handleInventoryButtonClick(menu.containerId, 0);
             }

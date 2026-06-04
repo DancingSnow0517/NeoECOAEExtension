@@ -1,21 +1,20 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingStationLayout.*;
+
+import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.widget.NEAe2IconButton;
 import cn.dancingsnow.neoecoae.network.NENetwork;
-import appeng.client.gui.Icon;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraftforge.fluids.FluidStack;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingStationLayout.*;
 
 public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NEIntegratedWorkingStationMenu> {
 
@@ -35,10 +34,12 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         super.init();
         // Auto-export toggle button (inside main panel, top-right)
         autoExportBtn = new NEAe2IconButton(
-            leftPos + TOGGLE_BTN_X, topPos + TOGGLE_BTN_Y,
-            TOGGLE_BTN_W, TOGGLE_BTN_H,
-            Component.translatable("gui.neoecoae.integrated_working_station.auto_io"),
-            btn -> sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT));
+                leftPos + TOGGLE_BTN_X,
+                topPos + TOGGLE_BTN_Y,
+                TOGGLE_BTN_W,
+                TOGGLE_BTN_H,
+                Component.translatable("gui.neoecoae.integrated_working_station.auto_io"),
+                btn -> sendAction(NENetwork.IWSAction.TOGGLE_AUTO_EXPORT));
         autoExportBtn.setIcons(Icon.AUTO_EXPORT_ON, Icon.AUTO_EXPORT_OFF);
         addRenderableWidget(autoExportBtn);
 
@@ -51,15 +52,14 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
      */
     @Override
     public boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int mouseButton) {
-        if (mouseX >= guiLeft && mouseX < guiLeft + PANEL_W
-            && mouseY >= guiTop && mouseY < guiTop + PANEL_H) {
+        if (mouseX >= guiLeft && mouseX < guiLeft + PANEL_W && mouseY >= guiTop && mouseY < guiTop + PANEL_H) {
             return false;
         }
         // Right upgrade panel (full padded area)
         if (mouseX >= guiLeft + UPGRADE_PANEL_X
-            && mouseX < guiLeft + UPGRADE_PANEL_X + UPGRADE_PANEL_W
-            && mouseY >= guiTop + UPGRADE_PANEL_Y
-            && mouseY < guiTop + UPGRADE_PANEL_Y + UPGRADE_PANEL_H) {
+                && mouseX < guiLeft + UPGRADE_PANEL_X + UPGRADE_PANEL_W
+                && mouseY >= guiTop + UPGRADE_PANEL_Y
+                && mouseY < guiTop + UPGRADE_PANEL_Y + UPGRADE_PANEL_H) {
             return false;
         }
         return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, mouseButton);
@@ -73,15 +73,13 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         List<Rect2i> areas = new ArrayList<>();
         // Right upgrade panel
         areas.add(new Rect2i(
-            this.leftPos + UPGRADE_PANEL_X,
-            this.topPos + UPGRADE_PANEL_Y,
-            UPGRADE_PANEL_W,
-            UPGRADE_PANEL_H));
+                this.leftPos + UPGRADE_PANEL_X, this.topPos + UPGRADE_PANEL_Y, UPGRADE_PANEL_W, UPGRADE_PANEL_H));
         return areas;
     }
 
     private void sendAction(NENetwork.IWSAction action) {
-        NENetwork.CHANNEL.sendToServer(new NENetwork.NEIntegratedWorkingStationActionPacket(menu.getMachinePos(), action));
+        NENetwork.CHANNEL.sendToServer(
+                new NENetwork.NEIntegratedWorkingStationActionPacket(menu.getMachinePos(), action));
     }
 
     @Override
@@ -90,9 +88,10 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         if (autoExportBtn != null) {
             boolean on = menu.isAutoExportEnabled();
             autoExportBtn.setToggled(on);
-            autoExportBtn.setTooltip(Tooltip.create(Component.translatable(on
-                ? "gui.neoecoae.integrated_working_station.auto_io.on"
-                : "gui.neoecoae.integrated_working_station.auto_io.off")));
+            autoExportBtn.setTooltip(Tooltip.create(Component.translatable(
+                    on
+                            ? "gui.neoecoae.integrated_working_station.auto_io.on"
+                            : "gui.neoecoae.integrated_working_station.auto_io.off")));
         }
         renderBackground(g);
         super.render(g, mouseX, mouseY, partialTick);
@@ -108,22 +107,28 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             int progress = menu.getProgress();
             int maxProgress = menu.getMaxProgress();
             int pct = maxProgress > 0 ? progress * 100 / maxProgress : 0;
-            g.renderTooltip(font, List.of(
-                Component.translatable("gui.neoecoae.integrated_working_station.progress_percent", pct)
-                    .getVisualOrderText()), mouseX, mouseY);
+            g.renderTooltip(
+                    font,
+                    List.of(Component.translatable("gui.neoecoae.integrated_working_station.progress_percent", pct)
+                            .getVisualOrderText()),
+                    mouseX,
+                    mouseY);
         }
     }
 
     private void renderUpgradeTooltip(GuiGraphics g, int mouseX, int mouseY) {
         int ux = leftPos + UPGRADE_PANEL_X;
         int uy = topPos + UPGRADE_PANEL_Y;
-        if (mouseX >= ux && mouseX < ux + UPGRADE_PANEL_W
-            && mouseY >= uy && mouseY < uy + UPGRADE_PANEL_H) {
-            g.renderTooltip(font, List.of(
-                Component.translatable("gui.neoecoae.integrated_working_station.available_upgrades")
-                    .getVisualOrderText(),
-                Component.translatable("gui.neoecoae.integrated_working_station.speed_card_upgrade", 4)
-                    .getVisualOrderText()), mouseX, mouseY);
+        if (mouseX >= ux && mouseX < ux + UPGRADE_PANEL_W && mouseY >= uy && mouseY < uy + UPGRADE_PANEL_H) {
+            g.renderTooltip(
+                    font,
+                    List.of(
+                            Component.translatable("gui.neoecoae.integrated_working_station.available_upgrades")
+                                    .getVisualOrderText(),
+                            Component.translatable("gui.neoecoae.integrated_working_station.speed_card_upgrade", 4)
+                                    .getVisualOrderText()),
+                    mouseX,
+                    mouseY);
         }
     }
 
@@ -136,8 +141,7 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         NENativeAe2StyleRenderer.drawAeMainPanel(g, x, y, PANEL_W, PANEL_H);
 
         // 2. Upgrade panel (right side, AE2 extra_panels.png)
-        NENativeAe2StyleRenderer.drawAeUpgradePanel(g,
-            x + UPGRADE_PANEL_X, y + UPGRADE_PANEL_Y, UPGRADE_COUNT);
+        NENativeAe2StyleRenderer.drawAeUpgradePanel(g, x + UPGRADE_PANEL_X, y + UPGRADE_PANEL_Y, UPGRADE_COUNT);
 
         // 3. Draw ordinary AE2 slots — no group panels, slots sit directly on main bg
         drawInputSlots(g, x, y);
@@ -150,9 +154,8 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         drawFluidTank(g, x + FLUID_OUT_X, y + FLUID_OUT_Y, FLUID_OUT_W, FLUID_OUT_H, false);
 
         // 5. Progress bar
-        NENativeAe2StyleRenderer.drawAeProgressBar(g,
-            x + PROGRESS_X, y + PROGRESS_Y, PROGRESS_W, PROGRESS_H,
-            menu.getProgress(), menu.getMaxProgress());
+        NENativeAe2StyleRenderer.drawAeProgressBar(
+                g, x + PROGRESS_X, y + PROGRESS_Y, PROGRESS_W, PROGRESS_H, menu.getProgress(), menu.getMaxProgress());
 
         // 6. Upgrade placeholders (empty upgrade slots → BACKGROUND_UPGRADE)
         drawUpgradePlaceholders(g, x, y);
@@ -167,36 +170,29 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     private void drawInputSlots(GuiGraphics g, int baseX, int baseY) {
         for (int row = 0; row < INPUT_ROWS; row++) {
             for (int col = 0; col < INPUT_COLS; col++) {
-                NENativeAe2StyleRenderer.drawAeSlot(g,
-                    baseX + INPUT_BG_X + col * SLOT_SIZE,
-                    baseY + INPUT_BG_Y + row * SLOT_SIZE);
+                NENativeAe2StyleRenderer.drawAeSlot(
+                        g, baseX + INPUT_BG_X + col * SLOT_SIZE, baseY + INPUT_BG_Y + row * SLOT_SIZE);
             }
         }
     }
 
     private void drawOutputSlot(GuiGraphics g, int baseX, int baseY) {
-        NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(g,
-            baseX + OUTPUT_FRAME_X,
-            baseY + OUTPUT_FRAME_Y,
-            OUTPUT_FRAME_W,
-            OUTPUT_FRAME_H);
+        NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(
+                g, baseX + OUTPUT_FRAME_X, baseY + OUTPUT_FRAME_Y, OUTPUT_FRAME_W, OUTPUT_FRAME_H);
     }
 
     private void drawPlayerInventorySlots(GuiGraphics g, int baseX, int baseY) {
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                NENativeAe2StyleRenderer.drawAeSlot(g,
-                    baseX + PLAYER_INV_BG_X + col * SLOT_SIZE,
-                    baseY + PLAYER_INV_BG_Y + row * SLOT_SIZE);
+                NENativeAe2StyleRenderer.drawAeSlot(
+                        g, baseX + PLAYER_INV_BG_X + col * SLOT_SIZE, baseY + PLAYER_INV_BG_Y + row * SLOT_SIZE);
             }
         }
     }
 
     private void drawHotbarSlots(GuiGraphics g, int baseX, int baseY) {
         for (int col = 0; col < 9; col++) {
-            NENativeAe2StyleRenderer.drawAeSlot(g,
-                baseX + HOTBAR_BG_X + col * SLOT_SIZE,
-                baseY + HOTBAR_BG_Y);
+            NENativeAe2StyleRenderer.drawAeSlot(g, baseX + HOTBAR_BG_X + col * SLOT_SIZE, baseY + HOTBAR_BG_Y);
         }
     }
 
@@ -216,8 +212,13 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
         g.drawString(font, title, TITLE_X, TITLE_Y, TXT_PRIMARY, false);
-        g.drawString(font, Component.translatable("gui.neoecoae.common.inventory"),
-            INV_LABEL_X, INV_LABEL_Y, TXT_HINT, false);
+        g.drawString(
+                font,
+                Component.translatable("gui.neoecoae.common.inventory"),
+                INV_LABEL_X,
+                INV_LABEL_Y,
+                TXT_HINT,
+                false);
     }
 
     // ── Fluid tank rendering ──
@@ -230,14 +231,11 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     }
 
     private void drawFluidHover(GuiGraphics g, int mouseX, int mouseY, int baseX, int baseY) {
-        drawFluidHoverFor(g, mouseX, mouseY, true,
-            baseX + FLUID_IN_X, baseY + FLUID_IN_Y, FLUID_IN_W, FLUID_IN_H);
-        drawFluidHoverFor(g, mouseX, mouseY, false,
-            baseX + FLUID_OUT_X, baseY + FLUID_OUT_Y, FLUID_OUT_W, FLUID_OUT_H);
+        drawFluidHoverFor(g, mouseX, mouseY, true, baseX + FLUID_IN_X, baseY + FLUID_IN_Y, FLUID_IN_W, FLUID_IN_H);
+        drawFluidHoverFor(g, mouseX, mouseY, false, baseX + FLUID_OUT_X, baseY + FLUID_OUT_Y, FLUID_OUT_W, FLUID_OUT_H);
     }
 
-    private void drawFluidHoverFor(GuiGraphics g, int mouseX, int mouseY,
-                                    boolean input, int x, int y, int w, int h) {
+    private void drawFluidHoverFor(GuiGraphics g, int mouseX, int mouseY, boolean input, int x, int y, int w, int h) {
         NEFluidTankUi.drawHover(g, mouseX, mouseY, x, y, w, h);
         if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h) {
             return;
@@ -249,19 +247,12 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
 
     // ── Clear fluid buttons (常显 8×8 bar + hover 5×5 X) ──
 
-    private void drawClearFluidButtons(GuiGraphics g, int baseX, int baseY,
-                                        int mouseX, int mouseY) {
-        boolean hoverIn = isMouseOverRect(mouseX, mouseY,
-            baseX + CLEAR_BTN_IN_X,
-            baseY + CLEAR_BTN_IN_Y,
-            CLEAR_BTN_W,
-            CLEAR_BTN_H);
+    private void drawClearFluidButtons(GuiGraphics g, int baseX, int baseY, int mouseX, int mouseY) {
+        boolean hoverIn = isMouseOverRect(
+                mouseX, mouseY, baseX + CLEAR_BTN_IN_X, baseY + CLEAR_BTN_IN_Y, CLEAR_BTN_W, CLEAR_BTN_H);
 
-        boolean hoverOut = isMouseOverRect(mouseX, mouseY,
-            baseX + CLEAR_BTN_OUT_X,
-            baseY + CLEAR_BTN_OUT_Y,
-            CLEAR_BTN_W,
-            CLEAR_BTN_H);
+        boolean hoverOut = isMouseOverRect(
+                mouseX, mouseY, baseX + CLEAR_BTN_OUT_X, baseY + CLEAR_BTN_OUT_Y, CLEAR_BTN_W, CLEAR_BTN_H);
 
         // 常显 bar
         drawClearBar(g, baseX + CLEAR_BTN_IN_X, baseY + CLEAR_BTN_IN_Y);
@@ -294,18 +285,18 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
     /** Draw a 5×5 X at the given position. */
     private void drawSmallX5(GuiGraphics g, int x, int y, int color) {
         // top-left to bottom-right
-        g.fill(x,     y,     x + 1, y + 1, color);
+        g.fill(x, y, x + 1, y + 1, color);
         g.fill(x + 1, y + 1, x + 2, y + 2, color);
         g.fill(x + 2, y + 2, x + 3, y + 3, color);
         g.fill(x + 3, y + 3, x + 4, y + 4, color);
         g.fill(x + 4, y + 4, x + 5, y + 5, color);
 
         // top-right to bottom-left
-        g.fill(x + 4, y,     x + 5, y + 1, color);
+        g.fill(x + 4, y, x + 5, y + 1, color);
         g.fill(x + 3, y + 1, x + 4, y + 2, color);
         g.fill(x + 2, y + 2, x + 3, y + 3, color);
         g.fill(x + 1, y + 3, x + 2, y + 4, color);
-        g.fill(x,     y + 4, x + 1, y + 5, color);
+        g.fill(x, y + 4, x + 1, y + 5, color);
     }
 
     // ── Mouse click handling ──
@@ -317,25 +308,25 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
             int my = (int) mouseY;
             // Clear input fluid
             if (mx >= leftPos + CLEAR_BTN_IN_X
-                && mx < leftPos + CLEAR_BTN_IN_X + CLEAR_BTN_SIZE
-                && my >= topPos + CLEAR_BTN_IN_Y
-                && my < topPos + CLEAR_BTN_IN_Y + CLEAR_BTN_SIZE) {
+                    && mx < leftPos + CLEAR_BTN_IN_X + CLEAR_BTN_SIZE
+                    && my >= topPos + CLEAR_BTN_IN_Y
+                    && my < topPos + CLEAR_BTN_IN_Y + CLEAR_BTN_SIZE) {
                 sendAction(NENetwork.IWSAction.CLEAR_INPUT_FLUID);
                 return true;
             }
             // Clear output fluid
             if (mx >= leftPos + CLEAR_BTN_OUT_X
-                && mx < leftPos + CLEAR_BTN_OUT_X + CLEAR_BTN_SIZE
-                && my >= topPos + CLEAR_BTN_OUT_Y
-                && my < topPos + CLEAR_BTN_OUT_Y + CLEAR_BTN_SIZE) {
+                    && mx < leftPos + CLEAR_BTN_OUT_X + CLEAR_BTN_SIZE
+                    && my >= topPos + CLEAR_BTN_OUT_Y
+                    && my < topPos + CLEAR_BTN_OUT_Y + CLEAR_BTN_SIZE) {
                 sendAction(NENetwork.IWSAction.CLEAR_OUTPUT_FLUID);
                 return true;
             }
             // Input fluid tank container click
             if (mx >= leftPos + FLUID_IN_X
-                && mx < leftPos + FLUID_IN_X + FLUID_IN_W
-                && my >= topPos + FLUID_IN_Y
-                && my < topPos + FLUID_IN_Y + FLUID_IN_H) {
+                    && mx < leftPos + FLUID_IN_X + FLUID_IN_W
+                    && my >= topPos + FLUID_IN_Y
+                    && my < topPos + FLUID_IN_Y + FLUID_IN_H) {
                 sendAction(NENetwork.IWSAction.INPUT_TANK_CONTAINER_CLICK);
                 return true;
             }
@@ -343,4 +334,3 @@ public class NEIntegratedWorkingStationScreen extends AbstractContainerScreen<NE
         return super.mouseClicked(mouseX, mouseY, button);
     }
 }
-

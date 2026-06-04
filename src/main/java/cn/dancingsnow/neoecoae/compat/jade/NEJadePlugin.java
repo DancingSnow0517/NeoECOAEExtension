@@ -24,7 +24,8 @@ public class NEJadePlugin implements IWailaPlugin {
         registration.registerBlockDataProvider(ECODriveProvider.INSTANCE, ECODriveBlockEntity.class);
         registration.registerBlockDataProvider(ECOCraftingWorkerProvider.INSTANCE, ECOCraftingWorkerBlockEntity.class);
         registration.registerBlockDataProvider(ECOCraftingSystemProvider.INSTANCE, ECOCraftingSystemBlockEntity.class);
-        registration.registerBlockDataProvider(ECOComputationSystemProvider.INSTANCE, ECOComputationSystemBlockEntity.class);
+        registration.registerBlockDataProvider(
+                ECOComputationSystemProvider.INSTANCE, ECOComputationSystemBlockEntity.class);
     }
 
     @Override

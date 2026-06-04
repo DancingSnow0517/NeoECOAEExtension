@@ -1,15 +1,14 @@
 package cn.dancingsnow.neoecoae.client.multiblock.preview;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 
 public final class MultiblockPreviewScene {
     private final MultiBlockDefinition definition;

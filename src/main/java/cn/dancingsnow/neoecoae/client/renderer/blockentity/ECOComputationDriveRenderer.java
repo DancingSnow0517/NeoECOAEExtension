@@ -8,6 +8,8 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBloc
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
@@ -20,13 +22,9 @@ import net.minecraftforge.registries.ForgeRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 public class ECOComputationDriveRenderer
-    implements
-    IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity>,
-    BlockEntityRenderer<ECOComputationDriveBlockEntity> {
+        implements IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity>,
+                BlockEntityRenderer<ECOComputationDriveBlockEntity> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
     private static final Set<String> LOGGED_RENDER_ENTRIES = ConcurrentHashMap.newKeySet();
@@ -35,24 +33,18 @@ public class ECOComputationDriveRenderer
     private static final Set<String> LOGGED_MISSING_CABLE_MAPPINGS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_RENDERED_CELL_MODELS = ConcurrentHashMap.newKeySet();
 
+    public ECOComputationDriveRenderer() {}
 
-    public ECOComputationDriveRenderer() {
-
-    }
-
-    public ECOComputationDriveRenderer(BlockEntityRendererProvider.Context context) {
-
-    }
+    public ECOComputationDriveRenderer(BlockEntityRendererProvider.Context context) {}
 
     @Override
     public void renderFixed(
-        ECOComputationDriveBlockEntity blockEntity,
-        float partialTick,
-        PoseStack poseStack,
-        MultiBufferSource bufferSource,
-        int packedLight,
-        int packedOverlay
-    ) {
+            ECOComputationDriveBlockEntity blockEntity,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight,
+            int packedOverlay) {
         ItemStack itemStack = blockEntity.getCellStack();
         BlockState blockState = blockEntity.getBlockState();
         Direction facing = blockState.getValue(ECOComputationDrive.FACING);
@@ -75,11 +67,7 @@ public class ECOComputationDriveRenderer
     }
 
     private static ComputationRenderModels selectModels(
-        ECOComputationDriveBlockEntity blockEntity,
-        ItemStack itemStack,
-        boolean formed,
-        IECOTier driveTier
-    ) {
+            ECOComputationDriveBlockEntity blockEntity, ItemStack itemStack, boolean formed, IECOTier driveTier) {
         ResourceLocation normalCellModel = null;
         ResourceLocation formedCellModel = null;
         ResourceLocation selectedCellModel = null;
@@ -87,9 +75,8 @@ public class ECOComputationDriveRenderer
         IECOTier itemTier = null;
         IECOTier cableTier = driveTier;
         boolean shouldCellWork = false;
-        boolean hasComputationCell = itemStack != null
-            && !itemStack.isEmpty()
-            && itemStack.getItem() instanceof ECOComputationCellItem;
+        boolean hasComputationCell =
+                itemStack != null && !itemStack.isEmpty() && itemStack.getItem() instanceof ECOComputationCellItem;
 
         if (hasComputationCell) {
             ECOComputationCellItem item = (ECOComputationCellItem) itemStack.getItem();
@@ -111,32 +98,30 @@ public class ECOComputationDriveRenderer
                 cableTier = itemTier;
             }
             cableModel = shouldCellWork
-                ? ECOComputationModels.getCableConnectedModel(cableTier)
-                : ECOComputationModels.getCableDisconnectedModel(cableTier);
+                    ? ECOComputationModels.getCableConnectedModel(cableTier)
+                    : ECOComputationModels.getCableDisconnectedModel(cableTier);
         }
 
         return new ComputationRenderModels(
-            normalCellModel,
-            formedCellModel,
-            selectedCellModel,
-            cableModel,
-            itemTier,
-            driveTier,
-            shouldCellWork,
-            blockEntity.isLowerDrive()
-        );
+                normalCellModel,
+                formedCellModel,
+                selectedCellModel,
+                cableModel,
+                itemTier,
+                driveTier,
+                shouldCellWork,
+                blockEntity.isLowerDrive());
     }
 
     private void renderComputationCell(
-        ECOComputationDriveBlockEntity blockEntity,
-        PoseStack poseStack,
-        MultiBufferSource bufferSource,
-        ComputationRenderModels models,
-        Direction facing,
-        boolean formed,
-        int packedLight,
-        int packedOverlay
-    ) {
+            ECOComputationDriveBlockEntity blockEntity,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            ComputationRenderModels models,
+            Direction facing,
+            boolean formed,
+            int packedLight,
+            int packedOverlay) {
         ResourceLocation cellModel = models.selectedCellModel();
         if (cellModel == null) {
             return;
@@ -148,13 +133,12 @@ public class ECOComputationDriveRenderer
     }
 
     private void renderComputationCable(
-        ECOComputationDriveBlockEntity blockEntity,
-        PoseStack poseStack,
-        MultiBufferSource bufferSource,
-        ComputationRenderModels models,
-        int packedLight,
-        int packedOverlay
-    ) {
+            ECOComputationDriveBlockEntity blockEntity,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            ComputationRenderModels models,
+            int packedLight,
+            int packedOverlay) {
         if (models.cableModel() == null) {
             logMissingCableModel(blockEntity, models);
             return;
@@ -181,74 +165,71 @@ public class ECOComputationDriveRenderer
     }
 
     private static void logRenderEntry(
-        ECOComputationDriveBlockEntity blockEntity,
-        ItemStack itemStack,
-        Direction facing,
-        boolean formed
-    ) {
+            ECOComputationDriveBlockEntity blockEntity, ItemStack itemStack, Direction facing, boolean formed) {
         // No-op: verbose debug logging removed.
     }
 
     private static void logMissingCableModel(
-        ECOComputationDriveBlockEntity blockEntity,
-        ComputationRenderModels models
-    ) {
+            ECOComputationDriveBlockEntity blockEntity, ComputationRenderModels models) {
         if (FMLEnvironment.production || !blockEntity.isFormed()) {
             return;
         }
         String key = blockEntity.getBlockPos()
-            + "|" + models.itemTier()
-            + "|" + models.driveTier()
-            + "|" + models.shouldCellWork()
-            + "|" + models.lowerDrive();
+                + "|" + models.itemTier()
+                + "|" + models.driveTier()
+                + "|" + models.shouldCellWork()
+                + "|" + models.lowerDrive();
         if (LOGGED_MISSING_CABLE_MAPPINGS.add(key)) {
             LOGGER.warn(
-                "Missing computation cable model mapping: pos={}, itemTier={}, driveTier={}, shouldCellWork={}, lowerDrive={}, clientSide={}",
-                blockEntity.getBlockPos(),
-                models.itemTier(),
-                models.driveTier(),
-                models.shouldCellWork(),
-                models.lowerDrive(),
-                blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide()
-            );
+                    "Missing computation cable model mapping: pos={}, itemTier={}, driveTier={}, shouldCellWork={}, lowerDrive={}, clientSide={}",
+                    blockEntity.getBlockPos(),
+                    models.itemTier(),
+                    models.driveTier(),
+                    models.shouldCellWork(),
+                    models.lowerDrive(),
+                    blockEntity.getLevel() != null && blockEntity.getLevel().isClientSide());
         }
     }
 
     private static void logComputationModels(
-        ECOComputationDriveBlockEntity blockEntity,
-        ItemStack itemStack,
-        ComputationRenderModels models,
-        Direction facing,
-        boolean formed,
-        IECOTier driveTier
-    ) {
+            ECOComputationDriveBlockEntity blockEntity,
+            ItemStack itemStack,
+            ComputationRenderModels models,
+            Direction facing,
+            boolean formed,
+            IECOTier driveTier) {
         // Check for missing model mappings (real issue, keep as warn)
-        ResourceLocation itemId = itemStack == null || itemStack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(itemStack.getItem());
+        ResourceLocation itemId =
+                itemStack == null || itemStack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(itemStack.getItem());
         if (itemId != null && models.selectedCellModel() == null) {
             String missingKey = itemId + "|" + formed + "|" + driveTier;
             if (LOGGED_MISSING_CELL_MAPPINGS.add(missingKey)) {
                 LOGGER.warn(
-                    "Missing computation cell model mapping: item={}, formed={}, tier={}",
-                    itemId,
-                    formed,
-                    driveTier
-                );
+                        "Missing computation cell model mapping: item={}, formed={}, tier={}",
+                        itemId,
+                        formed,
+                        driveTier);
             }
         }
     }
 
     private static void logRenderingCellModel(
-        ECOComputationDriveBlockEntity blockEntity,
-        ResourceLocation selectedCellModel,
-        ComputationRenderModels models,
-        Direction facing,
-        boolean formed
-    ) {
+            ECOComputationDriveBlockEntity blockEntity,
+            ResourceLocation selectedCellModel,
+            ComputationRenderModels models,
+            Direction facing,
+            boolean formed) {
         // No-op: verbose debug logging removed.
     }
 
     @Override
-    public void render(ECOComputationDriveBlockEntity driveBlockEntity, float v, PoseStack poseStack, MultiBufferSource multiBufferSource, int i, int i1) {
+    public void render(
+            ECOComputationDriveBlockEntity driveBlockEntity,
+            float v,
+            PoseStack poseStack,
+            MultiBufferSource multiBufferSource,
+            int i,
+            int i1) {
         renderFixed(driveBlockEntity, v, poseStack, multiBufferSource, i, i1);
     }
 
@@ -270,14 +251,12 @@ public class ECOComputationDriveRenderer
     }
 
     private record ComputationRenderModels(
-        ResourceLocation normalCellModel,
-        ResourceLocation formedCellModel,
-        ResourceLocation selectedCellModel,
-        ResourceLocation cableModel,
-        IECOTier itemTier,
-        IECOTier driveTier,
-        boolean shouldCellWork,
-        boolean lowerDrive
-    ) {
-    }
+            ResourceLocation normalCellModel,
+            ResourceLocation formedCellModel,
+            ResourceLocation selectedCellModel,
+            ResourceLocation cableModel,
+            IECOTier itemTier,
+            IECOTier driveTier,
+            boolean shouldCellWork,
+            boolean lowerDrive) {}
 }

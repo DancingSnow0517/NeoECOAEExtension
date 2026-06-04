@@ -15,8 +15,7 @@ import me.ramidzkh.mekae2.ae2.MekanismKeyType;
  */
 public final class AppMekCompat {
 
-    private AppMekCompat() {
-    }
+    private AppMekCompat() {}
 
     /**
      * Returns the Mekanism chemical {@link AEKeyType} registered by

@@ -18,23 +18,33 @@ public class NETextures {
     public static final ResourceLocation PATTERN_OVERLAY = NeoECOAE.id("textures/gui/widget/pattern_overlay.png");
     public static final ResourceLocation OUTPUTS = NeoECOAE.id("textures/gui/widget/outputs.png");
     public static final ResourceLocation COOLING_OFF = NeoECOAE.id("textures/gui/widget/crafting/cooling_off.png");
-    public static final ResourceLocation COOLING_OFF_DOWN = NeoECOAE.id("textures/gui/widget/crafting/cooling_off_down.png");
+    public static final ResourceLocation COOLING_OFF_DOWN =
+            NeoECOAE.id("textures/gui/widget/crafting/cooling_off_down.png");
     public static final ResourceLocation COOLING_ON = NeoECOAE.id("textures/gui/widget/crafting/cooling_on.png");
-    public static final ResourceLocation COOLING_ON_DOWN = NeoECOAE.id("textures/gui/widget/crafting/cooling_on_down.png");
+    public static final ResourceLocation COOLING_ON_DOWN =
+            NeoECOAE.id("textures/gui/widget/crafting/cooling_on_down.png");
     public static final ResourceLocation OVERCLOCK_OFF = NeoECOAE.id("textures/gui/widget/crafting/overclock_off.png");
-    public static final ResourceLocation OVERCLOCK_OFF_DOWN = NeoECOAE.id("textures/gui/widget/crafting/overclock_off_down.png");
+    public static final ResourceLocation OVERCLOCK_OFF_DOWN =
+            NeoECOAE.id("textures/gui/widget/crafting/overclock_off_down.png");
     public static final ResourceLocation OVERCLOCK_ON = NeoECOAE.id("textures/gui/widget/crafting/overclock_on.png");
-    public static final ResourceLocation OVERCLOCK_ON_DOWN = NeoECOAE.id("textures/gui/widget/crafting/overclock_on_down.png");
-    public static final ResourceLocation PROGRESS_BAR_COOLANT = NeoECOAE.id("textures/gui/crafting/coolant_progress.png");
-    public static final ResourceLocation PROGRESS_BAR_HOT_COOLANT = NeoECOAE.id("textures/gui/crafting/hot_coolant_progress.png");
-    public static final ResourceLocation PROGRESS_BAR_CRAFTING = NeoECOAE.id("textures/gui/crafting/crafting_progress.png");
+    public static final ResourceLocation OVERCLOCK_ON_DOWN =
+            NeoECOAE.id("textures/gui/widget/crafting/overclock_on_down.png");
+    public static final ResourceLocation PROGRESS_BAR_COOLANT =
+            NeoECOAE.id("textures/gui/crafting/coolant_progress.png");
+    public static final ResourceLocation PROGRESS_BAR_HOT_COOLANT =
+            NeoECOAE.id("textures/gui/crafting/hot_coolant_progress.png");
+    public static final ResourceLocation PROGRESS_BAR_CRAFTING =
+            NeoECOAE.id("textures/gui/crafting/crafting_progress.png");
     public static final ResourceLocation PROGRESS_BAR_LIMIT = NeoECOAE.id("textures/gui/crafting/limit_progress.png");
 
     public static class Crafting {
         public static final ResourceLocation BACKGROUND_DARK = NeoECOAE.id("textures/gui/crafting/background_dark.png");
-        public static final ResourceLocation BACKGROUND_LIGHT = NeoECOAE.id("textures/gui/crafting/background_light.png");
-        public static final ResourceLocation STATUS_BACKGROUND = NeoECOAE.id("textures/gui/crafting/status_background.png");
-        public static final ResourceLocation UNAVAILABLE_STATUS = NeoECOAE.id("textures/gui/crafting/unavailable_status.png");
+        public static final ResourceLocation BACKGROUND_LIGHT =
+                NeoECOAE.id("textures/gui/crafting/background_light.png");
+        public static final ResourceLocation STATUS_BACKGROUND =
+                NeoECOAE.id("textures/gui/crafting/status_background.png");
+        public static final ResourceLocation UNAVAILABLE_STATUS =
+                NeoECOAE.id("textures/gui/crafting/unavailable_status.png");
         public static final ResourceLocation F0 = NeoECOAE.id("textures/gui/crafting/f0.png");
         public static final ResourceLocation F4 = NeoECOAE.id("textures/gui/crafting/f4.png");
         public static final ResourceLocation F6 = NeoECOAE.id("textures/gui/crafting/f6.png");

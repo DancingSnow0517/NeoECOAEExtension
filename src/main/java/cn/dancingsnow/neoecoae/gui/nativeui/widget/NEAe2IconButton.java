@@ -57,9 +57,18 @@ public class NEAe2IconButton extends Button {
         }
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
-        g.blit(Icon.TEXTURE, getX(), getY(), width, height,
-            bg.x, bg.y, bg.width, bg.height,
-            Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
+        g.blit(
+                Icon.TEXTURE,
+                getX(),
+                getY(),
+                width,
+                height,
+                bg.x,
+                bg.y,
+                bg.width,
+                bg.height,
+                Icon.TEXTURE_WIDTH,
+                Icon.TEXTURE_HEIGHT);
         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
         Icon icon = useToggleIcons ? (toggled ? iconOn : iconOff) : iconOn;

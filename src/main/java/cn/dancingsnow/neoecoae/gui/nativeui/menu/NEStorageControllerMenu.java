@@ -25,8 +25,7 @@ public class NEStorageControllerMenu extends NEUiStateMachineMenu<NEStorageUiSta
     }
 
     @Override
-    @Nullable
-    protected NEStorageUiState createState(ServerPlayer player) {
+    @Nullable protected NEStorageUiState createState(ServerPlayer player) {
         BlockEntity be = player.level().getBlockEntity(machinePos);
         if (be instanceof ECOStorageSystemBlockEntity storage) {
             return storage.createStorageUiState();
@@ -37,8 +36,6 @@ public class NEStorageControllerMenu extends NEUiStateMachineMenu<NEStorageUiSta
     @Override
     protected void sendState(ServerPlayer player, NEStorageUiState state) {
         NENetwork.CHANNEL.send(
-            PacketDistributor.PLAYER.with(() -> player),
-            new NENetwork.NEStorageUiStatePacket(state)
-        );
+                PacketDistributor.PLAYER.with(() -> player), new NENetwork.NEStorageUiStatePacket(state));
     }
 }

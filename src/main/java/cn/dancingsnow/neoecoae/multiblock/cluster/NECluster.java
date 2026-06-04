@@ -3,13 +3,12 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import lombok.Getter;
-import net.minecraft.core.BlockPos;
-import org.jetbrains.annotations.MustBeInvokedByOverriders;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import lombok.Getter;
+import net.minecraft.core.BlockPos;
+import org.jetbrains.annotations.MustBeInvokedByOverriders;
 
 public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     private final BlockPos boundMin;
@@ -18,6 +17,7 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
 
     @Getter
     private boolean destroyed = false;
+
     @Getter
     private boolean mirrored = false;
 

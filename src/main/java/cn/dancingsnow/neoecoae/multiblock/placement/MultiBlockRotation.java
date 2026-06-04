@@ -9,8 +9,7 @@ import net.minecraft.world.level.block.state.properties.Property;
 public final class MultiBlockRotation {
     public static final BlockPos CONTROLLER_ANCHOR = new BlockPos(1, 1, 0);
 
-    private MultiBlockRotation() {
-    }
+    private MultiBlockRotation() {}
 
     public static BlockPos localToWorld(BlockPos localPos, BlockPos controllerPos, Direction facing) {
         return localToWorld(localPos, controllerPos, facing, false);

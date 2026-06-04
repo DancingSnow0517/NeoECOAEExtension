@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import net.minecraft.core.RegistryAccess;
@@ -15,15 +16,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidStack;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import net.minecraftforge.registries.ForgeRegistries;
 
 public record CoolingRecipe(
-        ResourceLocation id,
-        SizedFluidIngredient input,
-        FluidStack output,
-        int coolant,
-        int maxOverclock) implements Recipe<CoolingRecipe.Input> {
+        ResourceLocation id, SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock)
+        implements Recipe<CoolingRecipe.Input> {
 
     @Override
     public boolean matches(Input i, Level l) {
@@ -77,11 +74,11 @@ public record CoolingRecipe(
             } catch (JsonParseException e) {
                 throw new JsonParseException("Recipe " + id + " input " + e.getMessage(), e);
             }
-            FluidStack output = json.has("output")
-                    ? readFluidStack(id, json.getAsJsonObject("output"))
-                    : FluidStack.EMPTY;
+            FluidStack output =
+                    json.has("output") ? readFluidStack(id, json.getAsJsonObject("output")) : FluidStack.EMPTY;
             int coolant = json.get("coolant").getAsInt();
-            int maxOverclock = json.has("max_overclock") ? json.get("max_overclock").getAsInt() : 0;
+            int maxOverclock =
+                    json.has("max_overclock") ? json.get("max_overclock").getAsInt() : 0;
             return new CoolingRecipe(id, input, output, coolant, maxOverclock);
         }
 

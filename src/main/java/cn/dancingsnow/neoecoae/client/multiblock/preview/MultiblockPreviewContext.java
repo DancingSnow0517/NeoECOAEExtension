@@ -5,6 +5,10 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.function.BiFunction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -12,11 +16,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.function.BiFunction;
 
 public final class MultiblockPreviewContext extends MultiBlockContext {
     private static final Vec3 CONTROLLER_CENTER = new Vec3(1.5, 1.5, 0.5);
@@ -109,19 +108,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
 
     public MultiblockPreviewScene toScene(MultiBlockDefinition definition, int expand) {
         return new MultiblockPreviewScene(
-                definition,
-                expand,
-                formed,
-                blocks,
-                posList,
-                requiredItems,
-                minX,
-                minY,
-                minZ,
-                maxX,
-                maxY,
-                maxZ,
-                yMax);
+                definition, expand, formed, blocks, posList, requiredItems, minX, minY, minZ, maxX, maxY, maxZ, yMax);
     }
 
     private void addRequiredItem(ItemStack itemStack) {
@@ -159,8 +146,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
             state = state.setValue(NEBlock.FORMED, true);
         }
         if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
-            boolean invisible = isComputationSystem()
-                    || pos.getCenter().distanceToSqr(CONTROLLER_CENTER) <= 3.0D;
+            boolean invisible = isComputationSystem() || pos.getCenter().distanceToSqr(CONTROLLER_CENTER) <= 3.0D;
             state = state.setValue(ECOMachineCasing.INVISIBLE, invisible);
         }
         return state;

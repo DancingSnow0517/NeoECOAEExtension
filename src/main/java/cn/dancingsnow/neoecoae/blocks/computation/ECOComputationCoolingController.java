@@ -16,11 +16,11 @@ public class ECOComputationCoolingController extends NEBlock<ECOComputationCooli
 
     public ECOComputationCoolingController(Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(MIRRORED, false)
-            .setValue(FACING, Direction.NORTH)
-        );
+        registerDefaultState(getStateDefinition()
+                .any()
+                .setValue(FORMED, false)
+                .setValue(MIRRORED, false)
+                .setValue(FACING, Direction.NORTH));
     }
 
     @Override

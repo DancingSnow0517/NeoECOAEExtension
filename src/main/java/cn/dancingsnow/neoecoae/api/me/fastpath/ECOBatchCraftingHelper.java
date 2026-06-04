@@ -6,13 +6,11 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public final class ECOBatchCraftingHelper {
-    private ECOBatchCraftingHelper() {
-    }
+    private ECOBatchCraftingHelper() {}
 
     public static List<GenericStack> multiply(List<GenericStack> stacks, int multiplier) {
         if (multiplier <= 0 || stacks.isEmpty()) {
@@ -26,7 +24,8 @@ public final class ECOBatchCraftingHelper {
         return copyCounter(counter);
     }
 
-    public static int maxCraftsFromInventory(ListCraftingInventory inventory, List<GenericStack> perCraft, int requested) {
+    public static int maxCraftsFromInventory(
+            ListCraftingInventory inventory, List<GenericStack> perCraft, int requested) {
         int max = requested;
         for (GenericStack stack : perCraft) {
             if (stack.amount() <= 0) {

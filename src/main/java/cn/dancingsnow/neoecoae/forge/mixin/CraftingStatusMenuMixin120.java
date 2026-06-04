@@ -8,12 +8,11 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
+import java.util.ArrayList;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-
-import java.util.ArrayList;
 
 @Mixin(value = CraftingStatusMenu.class, remap = false)
 public abstract class CraftingStatusMenuMixin120 extends CraftingCPUMenu {
@@ -22,17 +21,17 @@ public abstract class CraftingStatusMenuMixin120 extends CraftingCPUMenu {
     }
 
     @WrapOperation(
-        method = "createCpuList",
-        at = @At(value = "INVOKE", target = "Ljava/util/ArrayList;add(Ljava/lang/Object;)Z")
-    )
+            method = "createCpuList",
+            at = @At(value = "INVOKE", target = "Ljava/util/ArrayList;add(Ljava/lang/Object;)Z"))
     private boolean neoecoae$setCpuOverlay(
-        ArrayList<CraftingStatusMenu.CraftingCpuListEntry> entries,
-        Object entry,
-        Operation<Boolean> original,
-        @Local ICraftingCPU cpu
-    ) {
-        if (entry instanceof CraftingStatusMenu.CraftingCpuListEntry listEntry && cpu instanceof ECOCraftingCPU ecoCpu) {
-            IOverlayTextureHolder.of(listEntry).neoecoae$setOverlay(ecoCpu.getTier().getCPUOverlayTexture());
+            ArrayList<CraftingStatusMenu.CraftingCpuListEntry> entries,
+            Object entry,
+            Operation<Boolean> original,
+            @Local ICraftingCPU cpu) {
+        if (entry instanceof CraftingStatusMenu.CraftingCpuListEntry listEntry
+                && cpu instanceof ECOCraftingCPU ecoCpu) {
+            IOverlayTextureHolder.of(listEntry)
+                    .neoecoae$setOverlay(ecoCpu.getTier().getCPUOverlayTexture());
         }
         return original.call(entries, entry);
     }

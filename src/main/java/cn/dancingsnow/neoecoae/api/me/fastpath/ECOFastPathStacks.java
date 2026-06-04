@@ -5,17 +5,15 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathStacks {
-    private ECOFastPathStacks() {
-    }
+    private ECOFastPathStacks() {}
 
     public static List<GenericStack> copyCounter(KeyCounter counter) {
         KeyCounter copy = new KeyCounter();
@@ -126,9 +124,8 @@ public final class ECOFastPathStacks {
                 stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
             }
         }
-        stacks.sort(Comparator
-            .comparing((GenericStack stack) -> keySortId(stack.what()))
-            .thenComparingLong(GenericStack::amount));
+        stacks.sort(Comparator.comparing((GenericStack stack) -> keySortId(stack.what()))
+                .thenComparingLong(GenericStack::amount));
         return List.copyOf(stacks);
     }
 

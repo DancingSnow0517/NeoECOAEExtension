@@ -6,13 +6,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
-import net.minecraft.data.CachedOutput;
-import net.minecraft.data.DataProvider;
-import net.minecraft.data.PackOutput;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforgespi.locating.IModFile;
-import org.slf4j.Logger;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +15,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import net.minecraft.data.CachedOutput;
+import net.minecraft.data.DataProvider;
+import net.minecraft.data.PackOutput;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforgespi.locating.IModFile;
+import org.slf4j.Logger;
 
 public class NELangMergerProvider implements DataProvider {
 
@@ -41,7 +40,10 @@ public class NELangMergerProvider implements DataProvider {
 
     @Override
     public CompletableFuture<?> run(CachedOutput output) {
-        Path langPath = packOutput.getOutputFolder(PackOutput.Target.RESOURCE_PACK).resolve(modid).resolve("lang");
+        Path langPath = packOutput
+                .getOutputFolder(PackOutput.Target.RESOURCE_PACK)
+                .resolve(modid)
+                .resolve("lang");
         Path path = langPath.resolve("en_us.json");
         JsonElement original;
         try (BufferedReader bfr = Files.newBufferedReader(path)) {
@@ -58,7 +60,8 @@ public class NELangMergerProvider implements DataProvider {
             LOGGER.info("Loading localization file: {}", pair.getFirst());
             JsonObject newElement = new JsonObject();
             int unlocalized = 0;
-            for (Map.Entry<String, JsonElement> entry : original.getAsJsonObject().entrySet()) {
+            for (Map.Entry<String, JsonElement> entry :
+                    original.getAsJsonObject().entrySet()) {
                 String key = entry.getKey();
                 String value = entry.getValue().getAsString();
                 if (localization.has(key)) {
@@ -69,7 +72,8 @@ public class NELangMergerProvider implements DataProvider {
                 }
             }
             if (unlocalized > 0) {
-                saveFutures.add(DataProvider.saveStable(output, newElement, langPath.resolve("unfinished").resolve(lang)));
+                saveFutures.add(DataProvider.saveStable(
+                        output, newElement, langPath.resolve("unfinished").resolve(lang)));
             }
         }
         return CompletableFuture.allOf(saveFutures.toArray(new CompletableFuture<?>[0]));
@@ -93,7 +97,6 @@ public class NELangMergerProvider implements DataProvider {
         } catch (IOException e) {
             LOGGER.error("Failed to list assets in lang file!", e);
         }
-
 
         return localizationFiles;
     }

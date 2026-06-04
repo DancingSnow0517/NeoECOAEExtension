@@ -1,9 +1,14 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.compat.crafting.FluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -14,40 +19,56 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
-import net.minecraftforge.fluids.FluidStack;
-import cn.dancingsnow.neoecoae.compat.crafting.FluidIngredient;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public record IntegratedWorkingStationRecipe(
-    ResourceLocation id,
-    List<SizedIngredient> inputItems,
-    SizedFluidIngredient inputFluid,
-    ItemStack itemOutput,
-    FluidStack fluidOutput,
-    int energy
-) implements Recipe<IntegratedWorkingStationRecipe.Input> {
+        ResourceLocation id,
+        List<SizedIngredient> inputItems,
+        SizedFluidIngredient inputFluid,
+        ItemStack itemOutput,
+        FluidStack fluidOutput,
+        int energy)
+        implements Recipe<IntegratedWorkingStationRecipe.Input> {
 
     public static Builder builder() {
         return new Builder();
     }
 
     public static class Builder {
-        public Builder require(Object ingredient) { return this; }
-        public Builder require(Object ingredient, int count) { return this; }
-        public Builder requireFluid(Object fluid, int amount) { return this; }
-        public Builder itemOutput(Object output) { return this; }
-        public Builder itemOutput(Object output, int count) { return this; }
-        public Builder fluidOutput(Object output, int amount) { return this; }
-        public Builder energy(int energy) { return this; }
+        public Builder require(Object ingredient) {
+            return this;
+        }
+
+        public Builder require(Object ingredient, int count) {
+            return this;
+        }
+
+        public Builder requireFluid(Object fluid, int amount) {
+            return this;
+        }
+
+        public Builder itemOutput(Object output) {
+            return this;
+        }
+
+        public Builder itemOutput(Object output, int count) {
+            return this;
+        }
+
+        public Builder fluidOutput(Object output, int amount) {
+            return this;
+        }
+
+        public Builder energy(int energy) {
+            return this;
+        }
+
         public void save(Object provider) {}
+
         public void save(Object provider, ResourceLocation id) {}
     }
 
@@ -64,7 +85,10 @@ public record IntegratedWorkingStationRecipe(
             int needed = req.count();
             for (int i = 0; i < provided.size() && needed > 0; i++) {
                 ItemStack stack = provided.get(i);
-                if (stack != null && !stack.isEmpty() && remaining[i] > 0 && req.ingredient().test(stack)) {
+                if (stack != null
+                        && !stack.isEmpty()
+                        && remaining[i] > 0
+                        && req.ingredient().test(stack)) {
                     int take = Math.min(remaining[i], needed);
                     remaining[i] -= take;
                     needed -= take;
@@ -143,18 +167,17 @@ public record IntegratedWorkingStationRecipe(
             SizedFluidIngredient inputFluid;
             try {
                 inputFluid = json.has("inputFluid")
-                    ? SizedFluidIngredient.fromJson(json.get("inputFluid"))
-                    : new SizedFluidIngredient(FluidIngredient.empty(), 0);
+                        ? SizedFluidIngredient.fromJson(json.get("inputFluid"))
+                        : new SizedFluidIngredient(FluidIngredient.empty(), 0);
             } catch (JsonParseException e) {
                 throw new JsonParseException("Recipe " + id + " inputFluid " + e.getMessage(), e);
             }
 
-            ItemStack itemOutput = json.has("itemOutput")
-                ? readItemStack(id, json.getAsJsonObject("itemOutput"))
-                : ItemStack.EMPTY;
+            ItemStack itemOutput =
+                    json.has("itemOutput") ? readItemStack(id, json.getAsJsonObject("itemOutput")) : ItemStack.EMPTY;
             FluidStack fluidOutput = json.has("fluidOutput")
-                ? readFluidStack(id, json.getAsJsonObject("fluidOutput"))
-                : FluidStack.EMPTY;
+                    ? readFluidStack(id, json.getAsJsonObject("fluidOutput"))
+                    : FluidStack.EMPTY;
             int energy = json.has("energy") ? json.get("energy").getAsInt() : 0;
             return new IntegratedWorkingStationRecipe(id, inputItems, inputFluid, itemOutput, fluidOutput, energy);
         }
@@ -201,13 +224,12 @@ public record IntegratedWorkingStationRecipe(
                 inputItems.add(SizedIngredient.fromNetwork(buffer));
             }
             return new IntegratedWorkingStationRecipe(
-                id,
-                inputItems,
-                SizedFluidIngredient.fromNetwork(buffer),
-                buffer.readItem(),
-                FluidStack.readFromPacket(buffer),
-                buffer.readVarInt()
-            );
+                    id,
+                    inputItems,
+                    SizedFluidIngredient.fromNetwork(buffer),
+                    buffer.readItem(),
+                    FluidStack.readFromPacket(buffer),
+                    buffer.readVarInt());
         }
 
         @Override
@@ -225,8 +247,8 @@ public record IntegratedWorkingStationRecipe(
 
     public static class Input extends SimpleContainer {
         private final List<ItemStack> inputs;
-        @Nullable
-        private final FluidStack fluid;
+
+        @Nullable private final FluidStack fluid;
 
         public Input(List<ItemStack> inputs, @Nullable FluidStack fluid) {
             super(inputs.toArray(ItemStack[]::new));
@@ -238,8 +260,7 @@ public record IntegratedWorkingStationRecipe(
             return inputs;
         }
 
-        @Nullable
-        public FluidStack fluid() {
+        @Nullable public FluidStack fluid() {
             return fluid;
         }
     }

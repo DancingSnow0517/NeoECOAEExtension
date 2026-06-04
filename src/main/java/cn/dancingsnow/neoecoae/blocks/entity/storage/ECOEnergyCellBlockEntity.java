@@ -16,6 +16,8 @@ import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import com.mojang.logging.LogUtils;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -24,45 +26,32 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkStatus;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
 
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
-    implements IExternalPowerSink, IGridTickable {
+        implements IExternalPowerSink, IGridTickable {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_POWER_CHANGES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_ENERGY_TICKS = ConcurrentHashMap.newKeySet();
 
-
     @Getter
     private final IECOTier tier;
+
     private byte currentDisplayLevel;
 
     private final StoredEnergyAmount energyStored;
 
     private boolean neighborChangePending = false;
 
-
-    public ECOEnergyCellBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
-    ) {
+    public ECOEnergyCellBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
-        getMainNode()
-            .addService(IAEPowerStorage.class, this)
-            .addService(IGridTickable.class, this);
+        getMainNode().addService(IAEPowerStorage.class, this).addService(IGridTickable.class, this);
         this.energyStored = new StoredEnergyAmount(0, tier.getPowerStorageSize(), this::emitPowerEvent);
         this.tier = tier;
     }
 
     private void emitPowerEvent(GridPowerStorageStateChanged.PowerEventType type) {
-        getMainNode().ifPresent(
-            grid -> grid.postEvent(new GridPowerStorageStateChanged(this, type)));
+        getMainNode().ifPresent(grid -> grid.postEvent(new GridPowerStorageStateChanged(this, type)));
     }
 
     @Override
@@ -156,12 +145,13 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         }
 
         var pos = getBlockPos();
-        var chunk = serverLevel.getChunkSource().getChunk(
-            SectionPos.blockToSectionCoord(pos.getX()),
-            SectionPos.blockToSectionCoord(pos.getZ()),
-            ChunkStatus.FULL,
-            false
-        );
+        var chunk = serverLevel
+                .getChunkSource()
+                .getChunk(
+                        SectionPos.blockToSectionCoord(pos.getX()),
+                        SectionPos.blockToSectionCoord(pos.getZ()),
+                        ChunkStatus.FULL,
+                        false);
         if (chunk != null) {
             chunk.setUnsaved(true);
         }
@@ -196,7 +186,8 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
             return;
         }
 
-        int storageLevel = getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
+        int storageLevel =
+                getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
         logEnergyTick("updateStateForPowerLevel:" + storageLevel);
 
         if (this.currentDisplayLevel != storageLevel) {
@@ -212,7 +203,8 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         // No-op: verbose debug logging removed.
     }
 
-    private void logPowerChange(String source, double requested, double moved, Actionable mode, double before, double after) {
+    private void logPowerChange(
+            String source, double requested, double moved, Actionable mode, double before, double after) {
         // No-op: verbose debug logging removed.
     }
 

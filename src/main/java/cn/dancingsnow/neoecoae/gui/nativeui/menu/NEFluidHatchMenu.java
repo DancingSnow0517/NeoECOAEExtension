@@ -10,8 +10,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 
 /**
@@ -28,25 +28,26 @@ public class NEFluidHatchMenu extends NEBaseMachineMenu {
         super(NENativeMenus.FLUID_HATCH.get(), containerId, playerInv, machinePos);
         boolean serverSide = !playerInv.player.level().isClientSide();
         FluidTank tank = serverSide ? getServerTank() : null;
-        this.data = tank == null ? new SimpleContainerData(DATA_COUNT) : new ContainerData() {
-            @Override
-            public int get(int index) {
-                return switch (index) {
-                    case DATA_TANK_AMOUNT -> tank.getFluidAmount();
-                    case DATA_TANK_CAPACITY -> tank.getCapacity();
-                    default -> 0;
+        this.data = tank == null
+                ? new SimpleContainerData(DATA_COUNT)
+                : new ContainerData() {
+                    @Override
+                    public int get(int index) {
+                        return switch (index) {
+                            case DATA_TANK_AMOUNT -> tank.getFluidAmount();
+                            case DATA_TANK_CAPACITY -> tank.getCapacity();
+                            default -> 0;
+                        };
+                    }
+
+                    @Override
+                    public void set(int index, int value) {}
+
+                    @Override
+                    public int getCount() {
+                        return DATA_COUNT;
+                    }
                 };
-            }
-
-            @Override
-            public void set(int index, int value) {
-            }
-
-            @Override
-            public int getCount() {
-                return DATA_COUNT;
-            }
-        };
         addDataSlots(this.data);
     }
 

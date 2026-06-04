@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
+import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
+
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
@@ -35,6 +37,7 @@ import cn.dancingsnow.neoecoae.util.BlockStateUtil;
 import cn.dancingsnow.neoecoae.util.LootTableUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.BlockEntry;
+import java.util.Locale;
 import net.minecraft.core.Direction;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
@@ -53,16 +56,15 @@ import net.minecraftforge.client.model.generators.ConfiguredModel;
 import net.minecraftforge.client.model.generators.ModelFile;
 import net.minecraftforge.common.Tags;
 
-import java.util.Locale;
-
-import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
-
 @SuppressWarnings("CodeBlock2Expr")
 public class NEBlocks {
     public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
             .block("aluminum_ore", Block::new)
             .initialProperties(() -> Blocks.IRON_ORE)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ORE,
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_IRON_TOOL,
+                    NETags.Blocks.ALUMINUM_ORE,
                     Tags.Blocks.ORES)
             .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_ALUMINUM_ORE.get())))
             .item()
@@ -73,7 +75,10 @@ public class NEBlocks {
     public static final BlockEntry<Block> RAW_ALUMINUM_BLOCK = REGISTRATE
             .block("raw_aluminum_block", Block::new)
             .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK,
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_IRON_TOOL,
+                    NETags.Blocks.RAW_ALUMINUM_STORAGE_BLOCK,
                     Tags.Blocks.STORAGE_BLOCKS)
             .loot((tables, block) -> tables.dropSelf(block))
             .recipe((ctx, prov) -> {
@@ -93,7 +98,10 @@ public class NEBlocks {
     public static final BlockEntry<Block> ALUMINUM_BLOCK = REGISTRATE
             .block("aluminum_block", Block::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_STORAGE_BLOCK,
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_IRON_TOOL,
+                    NETags.Blocks.ALUMINUM_STORAGE_BLOCK,
                     Tags.Blocks.STORAGE_BLOCKS)
             .loot((tables, block) -> tables.dropSelf(block))
             .recipe((ctx, prov) -> {
@@ -113,7 +121,10 @@ public class NEBlocks {
     public static final BlockEntry<Block> TUNGSTEN_ORE = REGISTRATE
             .block("tungsten_ore", Block::new)
             .initialProperties(() -> Blocks.IRON_ORE)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_DIAMOND_TOOL, NETags.Blocks.TUNGSTEN_ORE,
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_DIAMOND_TOOL,
+                    NETags.Blocks.TUNGSTEN_ORE,
                     Tags.Blocks.ORES)
             .loot((prov, block) -> prov.add(block, prov.createOreDrop(block, NEItems.RAW_TUNGSTEN_ORE.get())))
             .item()
@@ -124,8 +135,11 @@ public class NEBlocks {
     public static final BlockEntry<Block> RAW_TUNGSTEN_BLOCK = REGISTRATE
             .block("raw_tungsten_block", Block::new)
             .initialProperties(() -> Blocks.RAW_IRON_BLOCK)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_DIAMOND_TOOL,
-                    NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_DIAMOND_TOOL,
+                    NETags.Blocks.RAW_TUNGSTEN_STORAGE_BLOCK,
+                    Tags.Blocks.STORAGE_BLOCKS)
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                         .pattern("AAA")
@@ -143,7 +157,10 @@ public class NEBlocks {
     public static final BlockEntry<Block> TUNGSTEN_BLOCK = REGISTRATE
             .block("tungsten_block", Block::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.TUNGSTEN_STORAGE_BLOCK,
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_IRON_TOOL,
+                    NETags.Blocks.TUNGSTEN_STORAGE_BLOCK,
                     Tags.Blocks.STORAGE_BLOCKS)
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
@@ -162,7 +179,10 @@ public class NEBlocks {
     public static final BlockEntry<Block> ALUMINUM_ALLOY_BLOCK = REGISTRATE
             .block("aluminum_alloy_block", Block::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL, NETags.Blocks.ALUMINUM_ALLOY_STORAGE_BLOCK,
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_IRON_TOOL,
+                    NETags.Blocks.ALUMINUM_ALLOY_STORAGE_BLOCK,
                     Tags.Blocks.STORAGE_BLOCKS)
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
@@ -170,7 +190,8 @@ public class NEBlocks {
                         .pattern("AAA")
                         .pattern("AAA")
                         .define('A', NETags.Items.ALUMINUM_ALLOY_INGOT)
-                        .unlockedBy("has_aluminum_alloy_ingot",
+                        .unlockedBy(
+                                "has_aluminum_alloy_ingot",
                                 RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
                         .save(prov);
             })
@@ -198,10 +219,11 @@ public class NEBlocks {
                         .define('A', NETags.Items.ALUMINUM_ALLOY_INGOT)
                         .define('B', AEBlocks.QUARTZ_VIBRANT_GLASS)
                         .define('C', NEItems.CRYSTAL_INGOT)
-                        .unlockedBy("has_aluminum_alloy_ingot",
+                        .unlockedBy(
+                                "has_aluminum_alloy_ingot",
                                 RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
-                        .unlockedBy("has_quartz_vibrant_glass",
-                                RegistrateRecipeProvider.has(AEBlocks.QUARTZ_VIBRANT_GLASS))
+                        .unlockedBy(
+                                "has_quartz_vibrant_glass", RegistrateRecipeProvider.has(AEBlocks.QUARTZ_VIBRANT_GLASS))
                         .unlockedBy("has_crystal_ingot", RegistrateRecipeProvider.has(NEItems.CRYSTAL_INGOT))
                         .save(prov);
             })
@@ -211,15 +233,19 @@ public class NEBlocks {
     public static final BlockEntry<Block> BLACK_TUNGSTEN_ALLOY_BLOCK = REGISTRATE
             .block("black_tungsten_alloy_block", Block::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL,
-                    NETags.Blocks.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_IRON_TOOL,
+                    NETags.Blocks.BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK,
+                    Tags.Blocks.STORAGE_BLOCKS)
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get(), 1)
                         .pattern("AAA")
                         .pattern("AAA")
                         .pattern("AAA")
                         .define('A', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
-                        .unlockedBy("has_black_tungsten_alloy_ingot",
+                        .unlockedBy(
+                                "has_black_tungsten_alloy_ingot",
                                 RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
                         .save(prov);
             })
@@ -247,10 +273,11 @@ public class NEBlocks {
                         .define('A', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
                         .define('B', AEBlocks.QUARTZ_VIBRANT_GLASS)
                         .define('C', NEItems.CRYSTAL_INGOT)
-                        .unlockedBy("has_black_tungsten_ingot",
+                        .unlockedBy(
+                                "has_black_tungsten_ingot",
                                 RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
-                        .unlockedBy("has_quartz_vibrant_glass",
-                                RegistrateRecipeProvider.has(AEBlocks.QUARTZ_VIBRANT_GLASS))
+                        .unlockedBy(
+                                "has_quartz_vibrant_glass", RegistrateRecipeProvider.has(AEBlocks.QUARTZ_VIBRANT_GLASS))
                         .unlockedBy("has_crystal_ingot", RegistrateRecipeProvider.has(NEItems.CRYSTAL_INGOT))
                         .save(prov);
             })
@@ -260,15 +287,18 @@ public class NEBlocks {
     public static final BlockEntry<Block> ENERGIZED_CRYSTAL_BLOCK = REGISTRATE
             .block("energized_crystal_block", Block::new)
             .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL,
-                    NETags.Blocks.ENERGIZED_CRYSTAL_STORAGE_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_STONE_TOOL,
+                    NETags.Blocks.ENERGIZED_CRYSTAL_STORAGE_BLOCK,
+                    Tags.Blocks.STORAGE_BLOCKS)
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
                         .pattern("AA")
                         .pattern("AA")
                         .define('A', NETags.Items.ENERGIZED_CRYSTAL)
-                        .unlockedBy("has_energized_crystal",
-                                RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL))
+                        .unlockedBy(
+                                "has_energized_crystal", RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_CRYSTAL))
                         .save(prov);
             })
             .item()
@@ -286,7 +316,8 @@ public class NEBlocks {
                         .pattern("AAA")
                         .pattern("AAA")
                         .define('A', NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT)
-                        .unlockedBy("has_energized_superconductive_ingot",
+                        .unlockedBy(
+                                "has_energized_superconductive_ingot",
                                 RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT))
                         .save(prov);
             })
@@ -313,7 +344,8 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.QUARTZ_BLOCK)
             .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
             .loot((prov, block) -> {
-                prov.add(block,
+                prov.add(
+                        block,
                         prov.createSingleItemTableWithSilkTouch(block, NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL));
             })
             .recipe((ctx, prov) -> {
@@ -337,7 +369,8 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.QUARTZ_BLOCK)
             .properties(p -> p.randomTicks().mapColor(DyeColor.CYAN))
             .loot((prov, block) -> {
-                prov.add(block,
+                prov.add(
+                        block,
                         prov.createSingleItemTableWithSilkTouch(block, NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL));
             })
             .recipe((ctx, prov) -> {
@@ -384,7 +417,8 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
             .properties(p -> p.sound(SoundType.SMALL_AMETHYST_BUD).lightLevel(s -> 1))
             .blockstate((ctx, prov) -> {
-                BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName()))
+                BlockModelBuilder model = prov.models()
+                        .cross(ctx.getName(), prov.modLoc("block/" + ctx.getName()))
                         .renderType("cutout");
                 prov.directionalBlock(ctx.get(), model);
             })
@@ -401,7 +435,8 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
             .properties(p -> p.sound(SoundType.MEDIUM_AMETHYST_BUD).lightLevel(s -> 2))
             .blockstate((ctx, prov) -> {
-                BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName()))
+                BlockModelBuilder model = prov.models()
+                        .cross(ctx.getName(), prov.modLoc("block/" + ctx.getName()))
                         .renderType("cutout");
                 prov.directionalBlock(ctx.get(), model);
             })
@@ -418,7 +453,8 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
             .properties(p -> p.sound(SoundType.LARGE_AMETHYST_BUD).lightLevel(s -> 3))
             .blockstate((ctx, prov) -> {
-                BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName()))
+                BlockModelBuilder model = prov.models()
+                        .cross(ctx.getName(), prov.modLoc("block/" + ctx.getName()))
                         .renderType("cutout");
                 prov.directionalBlock(ctx.get(), model);
             })
@@ -435,7 +471,8 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
             .properties(p -> p.sound(SoundType.AMETHYST_CLUSTER).lightLevel(s -> 4))
             .blockstate((ctx, prov) -> {
-                BlockModelBuilder model = prov.models().cross(ctx.getName(), prov.modLoc("block/" + ctx.getName()))
+                BlockModelBuilder model = prov.models()
+                        .cross(ctx.getName(), prov.modLoc("block/" + ctx.getName()))
                         .renderType("cutout");
                 prov.directionalBlock(ctx.get(), model);
             })
@@ -450,14 +487,18 @@ public class NEBlocks {
     public static final BlockEntry<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = REGISTRATE
             .block("energized_fluix_crystal_block", Block::new)
             .initialProperties(() -> Blocks.QUARTZ_BLOCK)
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL,
-                    NETags.Blocks.ENERGIZED_FLUIX_CRYSTAL_BLOCK, Tags.Blocks.STORAGE_BLOCKS)
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_STONE_TOOL,
+                    NETags.Blocks.ENERGIZED_FLUIX_CRYSTAL_BLOCK,
+                    Tags.Blocks.STORAGE_BLOCKS)
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
                         .pattern("AA")
                         .pattern("AA")
                         .define('A', NETags.Items.ENERGIZED_FLUIX_CRYSTAL)
-                        .unlockedBy("has_energized_fluix_crystal",
+                        .unlockedBy(
+                                "has_energized_fluix_crystal",
                                 RegistrateRecipeProvider.has(NETags.Items.ENERGIZED_FLUIX_CRYSTAL))
                         .save(prov);
             })
@@ -472,17 +513,18 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/integrated_working_station"));
-                ModelFile modelFileWorking = prov.models()
-                        .getExistingFile(prov.modLoc("block/integrated_working_station_on"));
-                prov.getVariantBuilder(ctx.get())
-                        .forAllStates(s -> {
-                            boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
-                            return ConfiguredModel.builder()
-                                    .modelFile(working ? modelFileWorking : modelFile)
-                                    .rotationY(
-                                            ((int) s.getValue(ECOIntegratedWorkingStation.FACING).toYRot() + 180) % 360)
-                                    .build();
-                        });
+                ModelFile modelFileWorking =
+                        prov.models().getExistingFile(prov.modLoc("block/integrated_working_station_on"));
+                prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                    boolean working = s.getValue(ECOIntegratedWorkingStation.WORKING);
+                    return ConfiguredModel.builder()
+                            .modelFile(working ? modelFileWorking : modelFile)
+                            .rotationY(((int) s.getValue(ECOIntegratedWorkingStation.FACING)
+                                                    .toYRot()
+                                            + 180)
+                                    % 360)
+                            .build();
+                });
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -497,9 +539,11 @@ public class NEBlocks {
                         .define('F', AEBlocks.CONDENSER)
                         .define('G', AEBlocks.INSCRIBER)
                         .define('H', AEBlocks.CHARGER)
-                        .unlockedBy("has_superconducting_processor",
+                        .unlockedBy(
+                                "has_superconducting_processor",
                                 RegistrateRecipeProvider.has(NEItems.SUPERCONDUCTING_PROCESSOR))
-                        .unlockedBy("has_aluminum_alloy_casing",
+                        .unlockedBy(
+                                "has_aluminum_alloy_casing",
                                 RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
                         .save(prov);
             })
@@ -517,8 +561,8 @@ public class NEBlocks {
     // ************************************ //
 
     // region Storage System
-    public static final BlockEntry<ECOStorageSystemBlock> STORAGE_SYSTEM_L4 = createStorageSystem("l4",
-            Rarity.UNCOMMON);
+    public static final BlockEntry<ECOStorageSystemBlock> STORAGE_SYSTEM_L4 =
+            createStorageSystem("l4", Rarity.UNCOMMON);
     public static final BlockEntry<ECOStorageSystemBlock> STORAGE_SYSTEM_L6 = createStorageSystem("l6", Rarity.RARE);
     public static final BlockEntry<ECOStorageSystemBlock> STORAGE_SYSTEM_L9 = createStorageSystem("l9", Rarity.EPIC);
 
@@ -550,15 +594,20 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, provider) -> {
                 provider.getVariantBuilder(ctx.get())
-                        .forAllStatesExcept(state -> {
-                            int level = state.getValue(ECOEnergyCellBlock.LEVEL);
-                            return ConfiguredModel.builder()
-                                    .modelFile(provider.models().getExistingFile(
-                                            provider.modLoc("block/storage_energy_cell/cell_l4_%d".formatted(level))))
-                                    .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot()
-                                            + 180) % 360)
-                                    .build();
-                        }, ECOEnergyCellBlock.FORMED);
+                        .forAllStatesExcept(
+                                state -> {
+                                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
+                                    return ConfiguredModel.builder()
+                                            .modelFile(provider.models()
+                                                    .getExistingFile(provider.modLoc(
+                                                            "block/storage_energy_cell/cell_l4_%d".formatted(level))))
+                                            .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                                    .toYRot()
+                                                            + 180)
+                                                    % 360)
+                                            .build();
+                                },
+                                ECOEnergyCellBlock.FORMED);
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -585,15 +634,20 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, provider) -> {
                 provider.getVariantBuilder(ctx.get())
-                        .forAllStatesExcept(state -> {
-                            int level = state.getValue(ECOEnergyCellBlock.LEVEL);
-                            return ConfiguredModel.builder()
-                                    .modelFile(provider.models().getExistingFile(
-                                            provider.modLoc("block/storage_energy_cell/cell_l6_%d".formatted(level))))
-                                    .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot()
-                                            + 180) % 360)
-                                    .build();
-                        }, ECOEnergyCellBlock.FORMED);
+                        .forAllStatesExcept(
+                                state -> {
+                                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
+                                    return ConfiguredModel.builder()
+                                            .modelFile(provider.models()
+                                                    .getExistingFile(provider.modLoc(
+                                                            "block/storage_energy_cell/cell_l6_%d".formatted(level))))
+                                            .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                                    .toYRot()
+                                                            + 180)
+                                                    % 360)
+                                            .build();
+                                },
+                                ECOEnergyCellBlock.FORMED);
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -620,15 +674,20 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, provider) -> {
                 provider.getVariantBuilder(ctx.get())
-                        .forAllStatesExcept(state -> {
-                            int level = state.getValue(ECOEnergyCellBlock.LEVEL);
-                            return ConfiguredModel.builder()
-                                    .modelFile(provider.models().getExistingFile(
-                                            provider.modLoc("block/storage_energy_cell/cell_l9_%d".formatted(level))))
-                                    .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot()
-                                            + 180) % 360)
-                                    .build();
-                        }, ECOEnergyCellBlock.FORMED);
+                        .forAllStatesExcept(
+                                state -> {
+                                    int level = state.getValue(ECOEnergyCellBlock.LEVEL);
+                                    return ConfiguredModel.builder()
+                                            .modelFile(provider.models()
+                                                    .getExistingFile(provider.modLoc(
+                                                            "block/storage_energy_cell/cell_l9_%d".formatted(level))))
+                                            .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                                    .toYRot()
+                                                            + 180)
+                                                    % 360)
+                                            .build();
+                                },
+                                ECOEnergyCellBlock.FORMED);
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -656,12 +715,13 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, provider) -> {
                 ModelFile modelFile = provider.models().getExistingFile(provider.modLoc("block/eco_drive_empty"));
-                provider.getVariantBuilder(ctx.get())
-                        .forAllStates(state -> ConfiguredModel.builder()
-                                .modelFile(modelFile)
-                                .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                        % 360)
-                                .build());
+                provider.getVariantBuilder(ctx.get()).forAllStates(state -> ConfiguredModel.builder()
+                        .modelFile(modelFile)
+                        .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                .toYRot()
+                                        + 180)
+                                % 360)
+                        .build());
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -690,11 +750,14 @@ public class NEBlocks {
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
                 prov.getVariantBuilder(ctx.get())
-                        .forAllStatesExcept(s -> ConfiguredModel.builder()
-                                .modelFile(modelFile)
-                                .rotationY(
-                                        ((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
-                                .build(),
+                        .forAllStatesExcept(
+                                s -> ConfiguredModel.builder()
+                                        .modelFile(modelFile)
+                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                                .toYRot()
+                                                        + 180)
+                                                % 360)
+                                        .build(),
                                 ECOStorageVentBlock.FORMED);
             })
             .recipe((ctx, prov) -> {
@@ -726,7 +789,8 @@ public class NEBlocks {
                         .define('B', AEBlocks.SKY_STONE_BLOCK)
                         .define('C', AEItems.LOGIC_PROCESSOR)
                         .define('D', NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
-                        .unlockedBy("has_aluminum_alloy_casing",
+                        .unlockedBy(
+                                "has_aluminum_alloy_casing",
                                 RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
                         .save(prov);
             })
@@ -740,59 +804,41 @@ public class NEBlocks {
     // **************************************** //
 
     // region Computation System
-    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L4 = createComputationSystem(
-            "l4",
-            Rarity.UNCOMMON);
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L4 =
+            createComputationSystem("l4", Rarity.UNCOMMON);
 
-    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L6 = createComputationSystem(
-            "l6",
-            Rarity.RARE);
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L6 =
+            createComputationSystem("l6", Rarity.RARE);
 
-    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L9 = createComputationSystem(
-            "l9",
-            Rarity.EPIC);
+    public static final BlockEntry<ECOComputationSystem> COMPUTATION_SYSTEM_L9 =
+            createComputationSystem("l9", Rarity.EPIC);
 
-    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L4 = createComputationThreadingCore(
-            "l4",
-            ECOTier.L4,
-            Rarity.UNCOMMON);
+    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L4 =
+            createComputationThreadingCore("l4", ECOTier.L4, Rarity.UNCOMMON);
 
-    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L6 = createComputationThreadingCore(
-            "l6",
-            ECOTier.L6,
-            Rarity.RARE);
+    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L6 =
+            createComputationThreadingCore("l6", ECOTier.L6, Rarity.RARE);
 
-    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L9 = createComputationThreadingCore(
-            "l9",
-            ECOTier.L9,
-            Rarity.EPIC);
+    public static final BlockEntry<ECOComputationThreadingCore> COMPUTATION_THREADING_CORE_L9 =
+            createComputationThreadingCore("l9", ECOTier.L9, Rarity.EPIC);
 
-    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
-            "l4",
-            ECOTier.L4,
-            Rarity.UNCOMMON);
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L4 =
+            createComputationParallelCore("l4", ECOTier.L4, Rarity.UNCOMMON);
 
-    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L6 = createComputationParallelCore(
-            "l6",
-            ECOTier.L6,
-            Rarity.RARE);
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L6 =
+            createComputationParallelCore("l6", ECOTier.L6, Rarity.RARE);
 
-    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L9 = createComputationParallelCore(
-            "l9",
-            ECOTier.L9,
-            Rarity.EPIC);
+    public static final BlockEntry<ECOComputationParallelCore> COMPUTATION_PARALLEL_CORE_L9 =
+            createComputationParallelCore("l9", ECOTier.L9, Rarity.EPIC);
 
-    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L4 = createComputationCoolingController(
-            "l4",
-            Rarity.UNCOMMON);
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L4 =
+            createComputationCoolingController("l4", Rarity.UNCOMMON);
 
-    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L6 = createComputationCoolingController(
-            "l6",
-            Rarity.RARE);
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L6 =
+            createComputationCoolingController("l6", Rarity.RARE);
 
-    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L9 = createComputationCoolingController(
-            "l9",
-            Rarity.EPIC);
+    public static final BlockEntry<ECOComputationCoolingController> COMPUTATION_COOLING_CONTROLLER_L9 =
+            createComputationCoolingController("l9", Rarity.EPIC);
 
     public static final BlockEntry<ECOMachineInterface<NEComputationCluster>> COMPUTATION_INTERFACE = REGISTRATE
             .block("computation_interface", ECOMachineInterface<NEComputationCluster>::new)
@@ -820,21 +866,21 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .simpleItem()
             .blockstate((ctx, prov) -> {
-                prov.getVariantBuilder(ctx.get())
-                        .forAllStates(s -> {
-                            ModelFile modelFile;
-                            if (s.getValue(ECOComputationTransmitter.FORMED)) {
-                                modelFile = prov.models()
-                                        .getExistingFile(prov.modLoc("block/" + ctx.getName() + "_formed"));
-                            } else {
-                                modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
-                            }
-                            return ConfiguredModel.builder()
-                                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                            % 360)
-                                    .modelFile(modelFile)
-                                    .build();
-                        });
+                prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                    ModelFile modelFile;
+                    if (s.getValue(ECOComputationTransmitter.FORMED)) {
+                        modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName() + "_formed"));
+                    } else {
+                        modelFile = prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName()));
+                    }
+                    return ConfiguredModel.builder()
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                    .toYRot()
+                                            + 180)
+                                    % 360)
+                            .modelFile(modelFile)
+                            .build();
+                });
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -847,7 +893,8 @@ public class NEBlocks {
                         .define('D', AEBlocks.INTERFACE)
                         .define('E', AEItems.CALCULATION_PROCESSOR)
                         .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
-                        .unlockedBy("has_energized_superconductive_ingot",
+                        .unlockedBy(
+                                "has_energized_superconductive_ingot",
                                 RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT))
                         .save(prov);
             })
@@ -861,12 +908,13 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
                 ModelFile modelFileEmpty = prov.models().getExistingFile(prov.modLoc("block/computation_drive_empty"));
-                prov.getVariantBuilder(ctx.get())
-                        .forAllStates(s -> ConfiguredModel.builder()
-                                .rotationY(
-                                        ((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180) % 360)
-                                .modelFile(modelFileEmpty)
-                                .build());
+                prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
+                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                .toYRot()
+                                        + 180)
+                                % 360)
+                        .modelFile(modelFileEmpty)
+                        .build());
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -901,7 +949,8 @@ public class NEBlocks {
                         .define('B', AEBlocks.SKY_STONE_BLOCK)
                         .define('C', AEItems.CALCULATION_PROCESSOR)
                         .define('D', NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
-                        .unlockedBy("has_aluminum_alloy_casing",
+                        .unlockedBy(
+                                "has_aluminum_alloy_casing",
                                 RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
                         .save(prov);
             })
@@ -941,18 +990,12 @@ public class NEBlocks {
             .simpleItem()
             .register();
 
-    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L4 = createParallelCore(
-            "l4",
-            ECOTier.L4,
-            Rarity.UNCOMMON);
-    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L6 = createParallelCore(
-            "l6",
-            ECOTier.L6,
-            Rarity.RARE);
-    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L9 = createParallelCore(
-            "l9",
-            ECOTier.L9,
-            Rarity.EPIC);
+    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L4 =
+            createParallelCore("l4", ECOTier.L4, Rarity.UNCOMMON);
+    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L6 =
+            createParallelCore("l6", ECOTier.L6, Rarity.RARE);
+    public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L9 =
+            createParallelCore("l9", ECOTier.L9, Rarity.EPIC);
 
     public static final BlockEntry<ECOCraftingWorker> CRAFTING_WORKER = REGISTRATE
             .block("crafting_worker", ECOCraftingWorker::new)
@@ -979,24 +1022,23 @@ public class NEBlocks {
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_worker"));
                 ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/crafting_worker_formed"));
-                ModelFile modelFileWorking = prov.models()
-                        .getExistingFile(prov.modLoc("block/crafting_worker_working"));
-                prov.getVariantBuilder(ctx.get())
-                        .forAllStates(s -> {
-                            Direction facing = s.getValue(ECOCraftingWorker.FACING);
-                            boolean formed = s.getValue(ECOCraftingWorker.FORMED);
-                            boolean working = s.getValue(ECOCraftingWorker.WORKING);
-                            ConfiguredModel.Builder<?> builder = ConfiguredModel.builder()
-                                    .rotationY((int) ((facing.toYRot() + 180) % 360));
-                            if (working) {
-                                builder.modelFile(modelFileWorking);
-                            } else if (formed) {
-                                builder.modelFile(modelFileFormed);
-                            } else {
-                                builder.modelFile(modelFile);
-                            }
-                            return builder.build();
-                        });
+                ModelFile modelFileWorking =
+                        prov.models().getExistingFile(prov.modLoc("block/crafting_worker_working"));
+                prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                    Direction facing = s.getValue(ECOCraftingWorker.FACING);
+                    boolean formed = s.getValue(ECOCraftingWorker.FORMED);
+                    boolean working = s.getValue(ECOCraftingWorker.WORKING);
+                    ConfiguredModel.Builder<?> builder =
+                            ConfiguredModel.builder().rotationY((int) ((facing.toYRot() + 180) % 360));
+                    if (working) {
+                        builder.modelFile(modelFileWorking);
+                    } else if (formed) {
+                        builder.modelFile(modelFileFormed);
+                    } else {
+                        builder.modelFile(modelFile);
+                    }
+                    return builder.build();
+                });
             })
             .register();
 
@@ -1018,17 +1060,18 @@ public class NEBlocks {
             })
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_pattern_bus"));
-                ModelFile modelFileFormed = prov.models()
-                        .getExistingFile(prov.modLoc("block/crafting_pattern_bus_formed"));
-                prov.getVariantBuilder(ctx.get())
-                        .forAllStates(s -> {
-                            boolean formed = s.getValue(ECOCraftingPatternBus.FORMED);
-                            return ConfiguredModel.builder()
-                                    .modelFile(formed ? modelFileFormed : modelFile)
-                                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                            % 360)
-                                    .build();
-                        });
+                ModelFile modelFileFormed =
+                        prov.models().getExistingFile(prov.modLoc("block/crafting_pattern_bus_formed"));
+                prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                    boolean formed = s.getValue(ECOCraftingPatternBus.FORMED);
+                    return ConfiguredModel.builder()
+                            .modelFile(formed ? modelFileFormed : modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                    .toYRot()
+                                            + 180)
+                                    % 360)
+                            .build();
+                });
             })
             .item()
             .properties(p -> p.rarity(Rarity.RARE))
@@ -1084,17 +1127,16 @@ public class NEBlocks {
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_vent"));
                 ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/crafting_vent_formed"));
-                prov.getVariantBuilder(ctx.get())
-                        .forAllStates(
-                                s -> {
-                                    boolean formed = s.getValue(ECOCraftingVent.FORMED);
-                                    return ConfiguredModel.builder()
-                                            .modelFile(formed ? modelFileFormed : modelFile)
-                                            .rotationY(
-                                                    ((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot()
-                                                            + 180) % 360)
-                                            .build();
-                                });
+                prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                    boolean formed = s.getValue(ECOCraftingVent.FORMED);
+                    return ConfiguredModel.builder()
+                            .modelFile(formed ? modelFileFormed : modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                    .toYRot()
+                                            + 180)
+                                    % 360)
+                            .build();
+                });
             })
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -1123,17 +1165,17 @@ public class NEBlocks {
                         .define('B', AEBlocks.SKY_STONE_BLOCK)
                         .define('C', AEItems.ENGINEERING_PROCESSOR)
                         .define('D', NETags.Items.ENERGIZED_FLUIX_CRYSTAL_BLOCK)
-                        .unlockedBy("has_black_tungsten_alloy_casing",
+                        .unlockedBy(
+                                "has_black_tungsten_alloy_casing",
                                 RegistrateRecipeProvider.has(NEBlocks.BLACK_TUNGSTEN_ALLOY_CASING))
                         .save(prov);
             })
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_casing"));
                 ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/crafting_casing_formed"));
-                prov.getVariantBuilder(ctx.get())
-                        .forAllStates(s -> ConfiguredModel.builder()
-                                .modelFile(s.getValue(ECOMachineCasing.FORMED) ? modelFileFormed : modelFile)
-                                .build());
+                prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
+                        .modelFile(s.getValue(ECOMachineCasing.FORMED) ? modelFileFormed : modelFile)
+                        .build());
             })
             .simpleItem()
             .register();
@@ -1150,24 +1192,26 @@ public class NEBlocks {
                             .getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_off"));
                     ModelFile formedModel = prov.models()
                             .getExistingFile(prov.modLoc("block/storage_controller/controller_" + level + "_formed"));
-                    ModelFile formedMirroredModel = prov.models().getExistingFile(
-                            prov.modLoc("block/storage_controller/controller_" + level + "_formed_mirrored"));
-                    prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> {
-                                boolean formed = s.getValue(NEBlock.FORMED);
-                                boolean mirrored = s.getValue(NEBlock.MIRRORED);
-                                return ConfiguredModel.builder()
-                                        .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
-                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                                % 360)
-                                        .build();
-                            });
+                    ModelFile formedMirroredModel = prov.models()
+                            .getExistingFile(
+                                    prov.modLoc("block/storage_controller/controller_" + level + "_formed_mirrored"));
+                    prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                        boolean formed = s.getValue(NEBlock.FORMED);
+                        boolean mirrored = s.getValue(NEBlock.MIRRORED);
+                        return ConfiguredModel.builder()
+                                .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
+                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                        .toYRot()
+                                                + 180)
+                                        % 360)
+                                .build();
+                    });
                 })
                 .item()
                 .properties(p -> p.rarity(rarity))
                 .model((ctx, prov) -> {
-                    prov.withExistingParent(ctx.getName(),
-                            prov.modLoc("block/storage_controller/controller_" + level + "_off"));
+                    prov.withExistingParent(
+                            ctx.getName(), prov.modLoc("block/storage_controller/controller_" + level + "_off"));
                 })
                 .build()
                 .lang("ECO - %s Extensible Storage Subsystem Controller".formatted(level.toUpperCase(Locale.ROOT)))
@@ -1181,20 +1225,20 @@ public class NEBlocks {
                 .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
                 .loot((tables, block) -> tables.dropSelf(block))
                 .blockstate((ctx, prov) -> {
-                    ModelFile modelFile = prov.models()
-                            .getExistingFile(prov.modLoc("block/crafting_core/parallel_core_" + level));
+                    ModelFile modelFile =
+                            prov.models().getExistingFile(prov.modLoc("block/crafting_core/parallel_core_" + level));
                     ModelFile modelFileFormed = prov.models()
                             .getExistingFile(prov.modLoc("block/crafting_core/parallel_core_" + level + "_formed"));
-                    prov.getVariantBuilder(ctx.get())
-                            .forAllStatesExcept(
-                                    s -> {
-                                        Boolean formed = s.getValue(ECOCraftingParallelCore.FORMED);
-                                        return ConfiguredModel.builder()
-                                                .modelFile(formed ? modelFileFormed : modelFile)
-                                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
-                                                        .toYRot() + 180) % 360)
-                                                .build();
-                                    });
+                    prov.getVariantBuilder(ctx.get()).forAllStatesExcept(s -> {
+                        Boolean formed = s.getValue(ECOCraftingParallelCore.FORMED);
+                        return ConfiguredModel.builder()
+                                .modelFile(formed ? modelFileFormed : modelFile)
+                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                        .toYRot()
+                                                + 180)
+                                        % 360)
+                                .build();
+                    });
                 })
                 .item()
                 .properties(p -> p.rarity(rarity))
@@ -1203,7 +1247,8 @@ public class NEBlocks {
                 })
                 .build()
                 .lang("ECO - %s Parallel Core"
-                        .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "FT"))
+                        .formatted(level.toUpperCase(Locale.ROOT))
+                        .replace("L", "FT"))
                 .register();
     }
 
@@ -1218,28 +1263,31 @@ public class NEBlocks {
                             .getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_off"));
                     ModelFile formedModel = prov.models()
                             .getExistingFile(prov.modLoc("block/crafting_controller/controller_" + level + "_formed"));
-                    ModelFile formedMirroredModel = prov.models().getExistingFile(
-                            prov.modLoc("block/crafting_controller/controller_" + level + "_formed_mirrored"));
-                    prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> {
-                                boolean formed = s.getValue(NEBlock.FORMED);
-                                boolean mirrored = s.getValue(NEBlock.MIRRORED);
-                                return ConfiguredModel.builder()
-                                        .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
-                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                                % 360)
-                                        .build();
-                            });
+                    ModelFile formedMirroredModel = prov.models()
+                            .getExistingFile(
+                                    prov.modLoc("block/crafting_controller/controller_" + level + "_formed_mirrored"));
+                    prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                        boolean formed = s.getValue(NEBlock.FORMED);
+                        boolean mirrored = s.getValue(NEBlock.MIRRORED);
+                        return ConfiguredModel.builder()
+                                .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
+                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                        .toYRot()
+                                                + 180)
+                                        % 360)
+                                .build();
+                    });
                 })
                 .item()
                 .properties(p -> p.rarity(rarity))
                 .model((ctx, prov) -> {
-                    prov.withExistingParent(ctx.getName(),
-                            prov.modLoc("block/crafting_controller/controller_" + level + "_off"));
+                    prov.withExistingParent(
+                            ctx.getName(), prov.modLoc("block/crafting_controller/controller_" + level + "_off"));
                 })
                 .build()
-                .lang("ECO - %s Extensible Crafting Controller".formatted(
-                        level.toUpperCase(Locale.ROOT)).replace("L", "F"))
+                .lang("ECO - %s Extensible Crafting Controller"
+                        .formatted(level.toUpperCase(Locale.ROOT))
+                        .replace("L", "F"))
                 .register();
     }
 
@@ -1252,64 +1300,70 @@ public class NEBlocks {
                 .blockstate((ctx, prov) -> {
                     ModelFile modelFile = prov.models()
                             .getExistingFile(prov.modLoc("block/computation_controller/controller_" + level + "_off"));
-                    ModelFile formedModel = prov.models().getExistingFile(
-                            prov.modLoc("block/computation_controller/controller_" + level + "_formed"));
-                    ModelFile formedMirroredModel = prov.models().getExistingFile(
-                            prov.modLoc("block/computation_controller/controller_" + level + "_formed_mirrored"));
-                    prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> {
-                                boolean formed = s.getValue(NEBlock.FORMED);
-                                boolean mirrored = s.getValue(NEBlock.MIRRORED);
-                                return ConfiguredModel.builder()
-                                        .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
-                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                                % 360)
-                                        .build();
-                            });
+                    ModelFile formedModel = prov.models()
+                            .getExistingFile(
+                                    prov.modLoc("block/computation_controller/controller_" + level + "_formed"));
+                    ModelFile formedMirroredModel = prov.models()
+                            .getExistingFile(prov.modLoc(
+                                    "block/computation_controller/controller_" + level + "_formed_mirrored"));
+                    prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                        boolean formed = s.getValue(NEBlock.FORMED);
+                        boolean mirrored = s.getValue(NEBlock.MIRRORED);
+                        return ConfiguredModel.builder()
+                                .modelFile(formed ? (mirrored ? formedMirroredModel : formedModel) : modelFile)
+                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                        .toYRot()
+                                                + 180)
+                                        % 360)
+                                .build();
+                    });
                 })
                 .item()
                 .model((ctx, prov) -> {
-                    prov.withExistingParent(ctx.getName(),
-                            prov.modLoc("block/computation_controller/controller_" + level + "_off"));
+                    prov.withExistingParent(
+                            ctx.getName(), prov.modLoc("block/computation_controller/controller_" + level + "_off"));
                 })
                 .properties(p -> p.rarity(rarity))
                 .build()
-                .lang("ECO - %s Extensible Computation Subsystem Controller".formatted(
-                        level.toUpperCase(Locale.ROOT)).replace("L", "C"))
+                .lang("ECO - %s Extensible Computation Subsystem Controller"
+                        .formatted(level.toUpperCase(Locale.ROOT))
+                        .replace("L", "C"))
                 .register();
     }
 
-    private static BlockEntry<ECOComputationParallelCore> createComputationParallelCore(String level, IECOTier tier,
-            Rarity rarity) {
+    private static BlockEntry<ECOComputationParallelCore> createComputationParallelCore(
+            String level, IECOTier tier, Rarity rarity) {
         return REGISTRATE
                 .block("computation_parallel_core_" + level, p -> new ECOComputationParallelCore(p, tier))
                 .initialProperties(() -> Blocks.IRON_BLOCK)
                 .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
                 .loot((tables, block) -> tables.dropSelf(block))
                 .blockstate((ctx, prov) -> {
-                    ModelFile modelFile = prov.models()
-                            .getExistingFile(prov.modLoc("block/computation_core/parallel_core_" + level));
+                    ModelFile modelFile =
+                            prov.models().getExistingFile(prov.modLoc("block/computation_core/parallel_core_" + level));
                     ModelFile modelFileFormed = prov.models()
                             .getExistingFile(prov.modLoc("block/computation_core/parallel_core_" + level + "_formed"));
-                    prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> ConfiguredModel.builder()
-                                    .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? modelFileFormed : modelFile)
-                                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot() + 180)
-                                            % 360)
-                                    .build());
+                    prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
+                            .modelFile(s.getValue(ECOStorageSystemBlock.FORMED) ? modelFileFormed : modelFile)
+                            .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                    .toYRot()
+                                            + 180)
+                                    % 360)
+                            .build());
                 })
                 .item()
                 .properties(p -> p.rarity(rarity))
-                .model((ctx, prov) -> prov.withExistingParent(ctx.getName(),
-                        prov.modLoc("block/computation_core/parallel_core_" + level)))
+                .model((ctx, prov) -> prov.withExistingParent(
+                        ctx.getName(), prov.modLoc("block/computation_core/parallel_core_" + level)))
                 .build()
                 .lang("ECO - %s Parallel Core"
-                        .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "CT"))
+                        .formatted(level.toUpperCase(Locale.ROOT))
+                        .replace("L", "CT"))
                 .register();
     }
 
-    private static BlockEntry<ECOComputationThreadingCore> createComputationThreadingCore(String level, IECOTier tier,
-            Rarity rarity) {
+    private static BlockEntry<ECOComputationThreadingCore> createComputationThreadingCore(
+            String level, IECOTier tier, Rarity rarity) {
         return REGISTRATE
                 .block("computation_threading_core_" + level, p -> new ECOComputationThreadingCore(p, tier))
                 .initialProperties(() -> Blocks.IRON_BLOCK)
@@ -1320,80 +1374,87 @@ public class NEBlocks {
                             .getExistingFile(prov.modLoc("block/computation_core/threading_core_" + level));
                     ModelFile modelFileFormed = prov.models()
                             .getExistingFile(prov.modLoc("block/computation_core/threading_core_" + level + "_formed"));
-                    ModelFile modelFileWorking = prov.models().getExistingFile(
-                            prov.modLoc("block/computation_core/threading_core_" + level + "_working"));
-                    prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> {
-                                boolean formed = s.getValue(ECOComputationThreadingCore.FORMED);
-                                boolean working = s.getValue(ECOComputationThreadingCore.WORKING);
-                                ConfiguredModel.Builder<?> builder = ConfiguredModel.builder()
-                                        .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot()
-                                                + 180) % 360);
-                                if (working) {
-                                    builder.modelFile(modelFileWorking);
-                                } else {
-                                    if (formed) {
-                                        builder.modelFile(modelFileFormed);
-                                    } else {
-                                        builder.modelFile(modelFile);
-                                    }
-                                }
-                                return builder.build();
-                            });
+                    ModelFile modelFileWorking = prov.models()
+                            .getExistingFile(
+                                    prov.modLoc("block/computation_core/threading_core_" + level + "_working"));
+                    prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                        boolean formed = s.getValue(ECOComputationThreadingCore.FORMED);
+                        boolean working = s.getValue(ECOComputationThreadingCore.WORKING);
+                        ConfiguredModel.Builder<?> builder = ConfiguredModel.builder()
+                                .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                        .toYRot()
+                                                + 180)
+                                        % 360);
+                        if (working) {
+                            builder.modelFile(modelFileWorking);
+                        } else {
+                            if (formed) {
+                                builder.modelFile(modelFileFormed);
+                            } else {
+                                builder.modelFile(modelFile);
+                            }
+                        }
+                        return builder.build();
+                    });
                 })
                 .item()
                 .properties(p -> p.rarity(rarity))
-                .model((ctx, prov) -> prov.withExistingParent(ctx.getName(),
-                        prov.modLoc("block/computation_core/threading_core_" + level)))
+                .model((ctx, prov) -> prov.withExistingParent(
+                        ctx.getName(), prov.modLoc("block/computation_core/threading_core_" + level)))
                 .build()
                 .lang("ECO - %sA Threading Core"
-                        .formatted(level.toUpperCase(Locale.ROOT)).replace("L", "CM"))
+                        .formatted(level.toUpperCase(Locale.ROOT))
+                        .replace("L", "CM"))
                 .register();
     }
 
-    private static BlockEntry<ECOComputationCoolingController> createComputationCoolingController(String level,
-            Rarity rarity) {
+    private static BlockEntry<ECOComputationCoolingController> createComputationCoolingController(
+            String level, Rarity rarity) {
         return REGISTRATE
                 .block("computation_cooling_controller_" + level, ECOComputationCoolingController::new)
                 .initialProperties(() -> Blocks.IRON_BLOCK)
                 .properties(BlockBehaviour.Properties::noOcclusion)
                 .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
                 .blockstate((ctx, prov) -> {
-                    ModelFile modelFile = prov.models().getExistingFile(
-                            prov.modLoc("block/computation_cooling_controller/controller_" + level + "_off"));
-                    ModelFile modelFileFormed = prov.models().getExistingFile(
-                            prov.modLoc("block/computation_cooling_controller/controller_" + level + "_formed"));
-                    ModelFile modelFileFormedMirrored = prov.models().getExistingFile(
-                            prov.modLoc("block/computation_cooling_controller/controller_" + level + "_formed_mirrored"));
-                    prov.getVariantBuilder(ctx.get())
-                            .forAllStates(s -> {
-                                boolean formed = s.getValue(ECOComputationThreadingCore.FORMED);
-                                boolean mirrored = s.getValue(ECOComputationCoolingController.MIRRORED);
-                                ConfiguredModel.Builder<?> builder = ConfiguredModel.builder();
-                                if (formed) {
-                                    builder.modelFile(mirrored ? modelFileFormedMirrored : modelFileFormed)
-                                            .rotationY(
-                                                    ((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot()
-                                                            + 270) % 360);
-                                } else {
-                                    builder.modelFile(modelFile)
-                                            .rotationY(
-                                                    ((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING).toYRot()
-                                                            + 180) % 360);
-                                }
-                                return builder.build();
-                            });
+                    ModelFile modelFile = prov.models()
+                            .getExistingFile(
+                                    prov.modLoc("block/computation_cooling_controller/controller_" + level + "_off"));
+                    ModelFile modelFileFormed = prov.models()
+                            .getExistingFile(prov.modLoc(
+                                    "block/computation_cooling_controller/controller_" + level + "_formed"));
+                    ModelFile modelFileFormedMirrored = prov.models()
+                            .getExistingFile(prov.modLoc(
+                                    "block/computation_cooling_controller/controller_" + level + "_formed_mirrored"));
+                    prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
+                        boolean formed = s.getValue(ECOComputationThreadingCore.FORMED);
+                        boolean mirrored = s.getValue(ECOComputationCoolingController.MIRRORED);
+                        ConfiguredModel.Builder<?> builder = ConfiguredModel.builder();
+                        if (formed) {
+                            builder.modelFile(mirrored ? modelFileFormedMirrored : modelFileFormed)
+                                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                            .toYRot()
+                                                    + 270)
+                                            % 360);
+                        } else {
+                            builder.modelFile(modelFile)
+                                    .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
+                                                            .toYRot()
+                                                    + 180)
+                                            % 360);
+                        }
+                        return builder.build();
+                    });
                 })
                 .item()
                 .properties(p -> p.rarity(rarity))
-                .model((ctx, prov) -> prov.withExistingParent(ctx.getName(),
+                .model((ctx, prov) -> prov.withExistingParent(
+                        ctx.getName(),
                         prov.modLoc("block/computation_cooling_controller/controller_" + level + "_off")))
                 .build()
-                .lang("Cooling System Controller - %s".formatted(level.toUpperCase(Locale.ROOT).replace("L", "C")))
+                .lang("Cooling System Controller - %s"
+                        .formatted(level.toUpperCase(Locale.ROOT).replace("L", "C")))
                 .register();
     }
 
-    public static void register() {
-
-    }
+    public static void register() {}
 }

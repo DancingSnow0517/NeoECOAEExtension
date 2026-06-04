@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.data;
 
+import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.data.lang.NELangGenerator;
 import cn.dancingsnow.neoecoae.data.provider.NELangMergerProvider;
@@ -7,16 +9,13 @@ import cn.dancingsnow.neoecoae.data.provider.NERegistryProvider;
 import cn.dancingsnow.neoecoae.data.recipe.NERecipeGenerator;
 import cn.dancingsnow.neoecoae.data.tag.NETagGenerator;
 import com.tterrag.registrate.providers.ProviderType;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.data.PackOutput;
+import net.minecraftforge.data.event.GatherDataEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
-import net.minecraftforge.data.event.GatherDataEvent;
-
-import java.util.concurrent.CompletableFuture;
-
-import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEDataGen {

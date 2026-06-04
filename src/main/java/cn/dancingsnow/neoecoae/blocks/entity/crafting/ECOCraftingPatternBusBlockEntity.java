@@ -18,12 +18,14 @@ import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
-import lombok.Getter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.IntStream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -35,14 +37,8 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.IntStream;
-
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
-    implements InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
-
+        implements InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
 
     public static final int ROW_SIZE = 9;
     public static final int COL_SIZE = 7;
@@ -101,20 +97,17 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return false;
     }
 
-    @Nullable
-    public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
+    @Nullable public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
         if (execution.key() == null) {
             return null;
         }
         return findBatchFastPathOffer(execution.key(), execution, requestedBatchSize);
     }
 
-    @Nullable
-    private BatchFastPathOffer findBatchFastPathOffer(
-        cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey key,
-        @Nullable ECOExtractedPatternExecution execution,
-        int requestedBatchSize
-    ) {
+    @Nullable private BatchFastPathOffer findBatchFastPathOffer(
+            cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey key,
+            @Nullable ECOExtractedPatternExecution execution,
+            int requestedBatchSize) {
         if (cluster == null || requestedBatchSize <= 0) {
             return null;
         }
@@ -131,8 +124,8 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 continue;
             }
             ECOFastPathResult result = execution == null
-                ? worker.getFastPathCache().peek(key)
-                : worker.getVerifiedFastPathResult(execution);
+                    ? worker.getFastPathCache().peek(key)
+                    : worker.getVerifiedFastPathResult(execution);
             if (result == null || result.isNegative()) {
                 continue;
             }
@@ -178,22 +171,14 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         }
         long runningThreads = controller.getRunningThreadCount();
         long controllerRemaining = Math.max(0, controller.getThreadCount() - runningThreads);
-        long workerRemaining = Math.max(
-            0,
-            (long) controller.getThreadCountPerWorker() * controller.getWorkerCount() - runningThreads
-        );
+        long workerRemaining =
+                Math.max(0, (long) controller.getThreadCountPerWorker() * controller.getWorkerCount() - runningThreads);
         return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));
     }
 
-    public record BatchFastPathOffer(
-        ECOCraftingWorkerBlockEntity worker,
-        ECOFastPathResult result,
-        int maxBatchSize
-    ) {
-    }
+    public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {}
 
-    @Nullable
-    public ECOCraftingSystemBlockEntity getCraftingController() {
+    @Nullable public ECOCraftingSystemBlockEntity getCraftingController() {
         if (cluster != null) {
             return cluster.getController();
         }
@@ -215,18 +200,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster != null && cluster.getController() != null) {
             var block = cluster.getController().getBlockState().getBlock();
             if (block != Blocks.AIR) {
-                return new PatternContainerGroup(
-                    AEItemKey.of(block.asItem()),
-                    block.getName(),
-                    List.of()
-                );
+                return new PatternContainerGroup(AEItemKey.of(block.asItem()), block.getName(), List.of());
             }
         }
         return new PatternContainerGroup(
-            AEItemKey.of(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
-            NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),
-            List.of()
-        );
+                AEItemKey.of(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
+                NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),
+                List.of());
     }
 
     @Override
@@ -248,8 +228,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         this.inventory.setFilter(new AEEncodedPatternFilter());
         this.itemHandler = (IItemHandlerModifiable) inventory.toItemHandler();
         this.itemHandlerCap = LazyOptional.of(() -> this.itemHandler);
-        this.getMainNode().addService(ICraftingProvider.class, this)
-            .addService(IECOPatternStorage.class, this);
+        this.getMainNode().addService(ICraftingProvider.class, this).addService(IECOPatternStorage.class, this);
     }
 
     public void saveChangedInventory(AppEngInternalInventory inv) {
@@ -292,9 +271,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
         IntStream.range(0, ROW_SIZE * COL_SIZE)
-            .mapToObj(inventory::getStackInSlot)
-            .filter(s -> !s.isEmpty())
-            .forEach(drops::add);
+                .mapToObj(inventory::getStackInSlot)
+                .filter(s -> !s.isEmpty())
+                .forEach(drops::add);
     }
 
     @Override

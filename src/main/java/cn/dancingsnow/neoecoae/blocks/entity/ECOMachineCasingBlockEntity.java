@@ -8,14 +8,11 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
-public class ECOMachineCasingBlockEntity<C extends NECluster<C>> extends NEBlockEntity<C, ECOMachineCasingBlockEntity<C>> {
+public class ECOMachineCasingBlockEntity<C extends NECluster<C>>
+        extends NEBlockEntity<C, ECOMachineCasingBlockEntity<C>> {
 
     public ECOMachineCasingBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        NEClusterCalculator.Factory<C> factory
-    ) {
+            BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> factory) {
         super(type, pos, blockState, factory);
     }
 
@@ -37,11 +34,7 @@ public class ECOMachineCasingBlockEntity<C extends NECluster<C>> extends NEBlock
             }
         }
         if (!oldState.equals(newState)) {
-            level.setBlock(
-                worldPosition,
-                newState,
-                Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS
-            );
+            level.setBlock(worldPosition, newState, Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS);
         }
     }
 }

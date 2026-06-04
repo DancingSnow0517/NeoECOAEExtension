@@ -4,8 +4,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import org.joml.Matrix4f;
 
 final class PreviewScissor {
-    private PreviewScissor() {
-    }
+    private PreviewScissor() {}
 
     static void enable(GuiGraphics g, SceneViewport viewport) {
         Matrix4f matrix = g.pose().last().pose();

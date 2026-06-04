@@ -13,17 +13,14 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(value = IOPortBlockEntity.class, remap = false)
 public class IOPortBlockEntityMixin120 {
     @WrapOperation(
-        method = "tickingRequest",
-        at = @At(
-            value = "INVOKE",
-            target = "Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;"
-        )
-    )
+            method = "tickingRequest",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;"))
     private StorageCell neoecoae$getEcoCellInventory(
-        ItemStack stack,
-        ISaveProvider saveProvider,
-        Operation<StorageCell> original
-    ) {
+            ItemStack stack, ISaveProvider saveProvider, Operation<StorageCell> original) {
         StorageCell aeCell = original.call(stack, saveProvider);
         return aeCell != null ? aeCell : ECOStorageCells.getCellInventory(stack, saveProvider);
     }

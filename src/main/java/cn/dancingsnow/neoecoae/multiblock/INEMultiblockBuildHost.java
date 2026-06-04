@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
@@ -33,8 +32,7 @@ public interface INEMultiblockBuildHost {
      * Returns the multi-block definition for building, or {@code null}
      * if this host has no buildable structure.
      */
-    @Nullable
-    MultiBlockDefinition getBuildDefinition();
+    @Nullable MultiBlockDefinition getBuildDefinition();
 
     /**
      * Returns the currently selected build length (repeat count).
@@ -86,8 +84,7 @@ public interface INEMultiblockBuildHost {
         autoBuild(player, buildLength);
     }
 
-    default void dismantle(ServerPlayer player) {
-    }
+    default void dismantle(ServerPlayer player) {}
 
     // ── Deprecated (kept for backward compat) ──
 

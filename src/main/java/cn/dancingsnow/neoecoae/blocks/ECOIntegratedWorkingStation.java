@@ -5,12 +5,13 @@ import appeng.api.orientation.OrientationStrategies;
 import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
+import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -28,61 +29,62 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.network.NetworkHooks;
 
-import java.util.stream.Stream;
-
 public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegratedWorkingStationBlockEntity> {
     public static final Property<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final Property<Boolean> WORKING = BooleanProperty.create("working");
 
     private static final VoxelShape NORTH = Stream.of(
-        Block.box(4, 4, 1, 12, 15, 12),
-        Block.box(0, 0, 1, 16, 15, 16),
-        Block.box(0, 0, 0, 16, 4, 1),
-        Block.box(0, 4, 0, 4, 16, 1),
-        Block.box(12, 4, 0, 16, 16, 1),
-        Block.box(0, 15, 12, 16, 16, 16),
-        Block.box(12, 15, 1, 16, 16, 12),
-        Block.box(0, 15, 1, 4, 16, 12)
-    ).reduce((v1, v2) -> Shapes.join(v1, v2, BooleanOp.OR)).get();
+                    Block.box(4, 4, 1, 12, 15, 12),
+                    Block.box(0, 0, 1, 16, 15, 16),
+                    Block.box(0, 0, 0, 16, 4, 1),
+                    Block.box(0, 4, 0, 4, 16, 1),
+                    Block.box(12, 4, 0, 16, 16, 1),
+                    Block.box(0, 15, 12, 16, 16, 16),
+                    Block.box(12, 15, 1, 16, 16, 12),
+                    Block.box(0, 15, 1, 4, 16, 12))
+            .reduce((v1, v2) -> Shapes.join(v1, v2, BooleanOp.OR))
+            .get();
 
     private static final VoxelShape EAST = Stream.of(
-        Block.box(4, 4, 4, 15, 15, 12),
-        Block.box(0, 0, 0, 15, 15, 16),
-        Block.box(15, 0, 0, 16, 4, 16),
-        Block.box(15, 4, 0, 16, 16, 4),
-        Block.box(15, 4, 12, 16, 16, 16),
-        Block.box(0, 15, 0, 4, 16, 16),
-        Block.box(4, 15, 12, 15, 16, 16),
-        Block.box(4, 15, 0, 15, 16, 4)
-    ).reduce((v1, v2) -> Shapes.join(v1, v2, BooleanOp.OR)).get();
+                    Block.box(4, 4, 4, 15, 15, 12),
+                    Block.box(0, 0, 0, 15, 15, 16),
+                    Block.box(15, 0, 0, 16, 4, 16),
+                    Block.box(15, 4, 0, 16, 16, 4),
+                    Block.box(15, 4, 12, 16, 16, 16),
+                    Block.box(0, 15, 0, 4, 16, 16),
+                    Block.box(4, 15, 12, 15, 16, 16),
+                    Block.box(4, 15, 0, 15, 16, 4))
+            .reduce((v1, v2) -> Shapes.join(v1, v2, BooleanOp.OR))
+            .get();
 
     private static final VoxelShape SOUTH = Stream.of(
-        Block.box(4, 4, 4, 12, 15, 15),
-        Block.box(0, 0, 0, 16, 15, 15),
-        Block.box(0, 0, 15, 16, 4, 16),
-        Block.box(12, 4, 15, 16, 16, 16),
-        Block.box(0, 4, 15, 4, 16, 16),
-        Block.box(0, 15, 0, 16, 16, 4),
-        Block.box(0, 15, 4, 4, 16, 15),
-        Block.box(12, 15, 4, 16, 16, 15)
-    ).reduce((v1, v2) -> Shapes.join(v1, v2, BooleanOp.OR)).get();
+                    Block.box(4, 4, 4, 12, 15, 15),
+                    Block.box(0, 0, 0, 16, 15, 15),
+                    Block.box(0, 0, 15, 16, 4, 16),
+                    Block.box(12, 4, 15, 16, 16, 16),
+                    Block.box(0, 4, 15, 4, 16, 16),
+                    Block.box(0, 15, 0, 16, 16, 4),
+                    Block.box(0, 15, 4, 4, 16, 15),
+                    Block.box(12, 15, 4, 16, 16, 15))
+            .reduce((v1, v2) -> Shapes.join(v1, v2, BooleanOp.OR))
+            .get();
 
     private static final VoxelShape WEST = Stream.of(
-        Block.box(1, 4, 4, 12, 15, 12),
-        Block.box(1, 0, 0, 16, 15, 16),
-        Block.box(0, 0, 0, 1, 4, 16),
-        Block.box(0, 4, 12, 1, 16, 16),
-        Block.box(0, 4, 0, 1, 16, 4),
-        Block.box(12, 15, 0, 16, 16, 16),
-        Block.box(1, 15, 0, 12, 16, 4),
-        Block.box(1, 15, 12, 12, 16, 16)
-    ).reduce((v1, v2) -> Shapes.join(v1, v2, BooleanOp.OR)).get();
-    
-
+                    Block.box(1, 4, 4, 12, 15, 12),
+                    Block.box(1, 0, 0, 16, 15, 16),
+                    Block.box(0, 0, 0, 1, 4, 16),
+                    Block.box(0, 4, 12, 1, 16, 16),
+                    Block.box(0, 4, 0, 1, 16, 4),
+                    Block.box(12, 15, 0, 16, 16, 16),
+                    Block.box(1, 15, 0, 12, 16, 4),
+                    Block.box(1, 15, 12, 12, 16, 16))
+            .reduce((v1, v2) -> Shapes.join(v1, v2, BooleanOp.OR))
+            .get();
 
     public ECOIntegratedWorkingStation(Properties props) {
         super(props);
-        registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false));
+        registerDefaultState(
+                getStateDefinition().any().setValue(FACING, Direction.NORTH).setValue(WORKING, false));
     }
 
     @Override
@@ -97,21 +99,24 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
-                                  InteractionHand hand, BlockHitResult hitResult) {
+    public InteractionResult use(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Player player,
+            InteractionHand hand,
+            BlockHitResult hitResult) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer serverPlayer) {
             // Phase 4: Native UI for Integrated Working Station
             Component title = state.getBlock().getName();
-            NetworkHooks.openScreen(serverPlayer,
-                new SimpleMenuProvider(
-                    (windowId, inv, p) -> new NEIntegratedWorkingStationMenu(windowId, inv, pos),
-                    title
-                ),
-                buf -> buf.writeBlockPos(pos)
-            );
+            NetworkHooks.openScreen(
+                    serverPlayer,
+                    new SimpleMenuProvider(
+                            (windowId, inv, p) -> new NEIntegratedWorkingStationMenu(windowId, inv, pos), title),
+                    buf -> buf.writeBlockPos(pos));
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
@@ -124,8 +129,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
             case EAST -> EAST;
             case SOUTH -> SOUTH;
             case WEST -> WEST;
-            default ->  NORTH;
+            default -> NORTH;
         };
     }
-
 }

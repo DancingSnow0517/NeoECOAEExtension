@@ -1,19 +1,17 @@
 package cn.dancingsnow.neoecoae.compat.jade.provider;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.util.Locale;
-
 final class JadeText {
-    private static final DecimalFormat PERCENT_FORMAT = new DecimalFormat("0.##%",
-            DecimalFormatSymbols.getInstance(Locale.ROOT));
+    private static final DecimalFormat PERCENT_FORMAT =
+            new DecimalFormat("0.##%", DecimalFormatSymbols.getInstance(Locale.ROOT));
 
-    private JadeText() {
-    }
+    private JadeText() {}
 
     static String formatNumber(long value) {
         return String.format(Locale.ROOT, "%,d", value);
@@ -41,13 +39,11 @@ final class JadeText {
     }
 
     static Component energyLine(long energyPerTick) {
-        return label("耗能：")
-                .append(value(formatNumber(Math.max(0L, energyPerTick)) + " AE/t", ChatFormatting.AQUA));
+        return label("耗能：").append(value(formatNumber(Math.max(0L, energyPerTick)) + " AE/t", ChatFormatting.AQUA));
     }
 
     static Component timeMultiplierLine(double multiplier) {
-        return label("耗时倍率：")
-                .append(value(formatPercent(multiplier), ChatFormatting.AQUA));
+        return label("耗时倍率：").append(value(formatPercent(multiplier), ChatFormatting.AQUA));
     }
 
     static Component overclockLine(int effective, int theoretical) {
@@ -70,13 +66,11 @@ final class JadeText {
     }
 
     static Component runningLine(boolean running) {
-        return label("运行中：")
-                .append(value(running ? "是" : "否", running ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+        return label("运行中：").append(value(running ? "是" : "否", running ? ChatFormatting.GREEN : ChatFormatting.GRAY));
     }
 
     static Component recipesPerOperationLine(long recipes) {
-        return label("每次处理配方数量：")
-                .append(value(formatNumber(Math.max(0L, recipes)), ChatFormatting.AQUA));
+        return label("每次处理配方数量：").append(value(formatNumber(Math.max(0L, recipes)), ChatFormatting.AQUA));
     }
 
     static MutableComponent label(String text) {

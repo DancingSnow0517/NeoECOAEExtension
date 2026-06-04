@@ -20,10 +20,7 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
 
     public ECOMachineCasing(Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(INVISIBLE, false)
-        );
+        registerDefaultState(getStateDefinition().any().setValue(FORMED, false).setValue(INVISIBLE, false));
     }
 
     @Override

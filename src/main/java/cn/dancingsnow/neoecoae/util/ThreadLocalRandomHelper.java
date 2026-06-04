@@ -1,9 +1,8 @@
 package cn.dancingsnow.neoecoae.util;
 
-import net.minecraft.util.RandomSource;
-
 import java.util.IdentityHashMap;
 import java.util.Map;
+import net.minecraft.util.RandomSource;
 
 public class ThreadLocalRandomHelper {
     private static final Map<Thread, RandomSource> randomSourceMap = new IdentityHashMap<>();

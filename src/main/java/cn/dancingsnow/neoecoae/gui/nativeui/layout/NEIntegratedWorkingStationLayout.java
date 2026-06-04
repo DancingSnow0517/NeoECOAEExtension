@@ -122,6 +122,5 @@ public final class NEIntegratedWorkingStationLayout {
     public static final int INV_LABEL_X = AE2_PLAYER_SLOT_LEFT;
     public static final int INV_LABEL_Y = PANEL_H - AE2_INV_LABEL_BOTTOM;
 
-    private NEIntegratedWorkingStationLayout() {
-    }
+    private NEIntegratedWorkingStationLayout() {}
 }

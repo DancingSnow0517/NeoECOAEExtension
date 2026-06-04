@@ -19,6 +19,10 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.mojang.logging.LogUtils;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -28,38 +32,43 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-
 public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Getter
     private final List<ECOComputationDriveBlockEntity> upperDrives = new ArrayList<>();
+
     @Getter
     private final List<ECOComputationDriveBlockEntity> lowerDrives = new ArrayList<>();
+
     @Getter
     private final List<ECOComputationThreadingCoreBlockEntity> threadingCores = new ArrayList<>();
+
     @Getter
     private final List<ECOComputationParallelCoreBlockEntity> parallelCores = new ArrayList<>();
+
     @Getter
-    @Nullable
-    private ECOComputationSystemBlockEntity controller;
+    @Nullable private ECOComputationSystemBlockEntity controller;
+
     @Getter
-    @Nullable
-    private IActionSource actionSource;
+    @Nullable private IActionSource actionSource;
+
     private int accelerators = 0;
+
     @Getter
     private int maxThreads = 0;
+
     @Getter
     private long availableStorage = 0;
+
     @Getter
     private long totalStorageBytes = 0;
+
     private long activeJobBytes = 0;
+
     @Getter
     private int activeCpuCount = 0;
+
     @Getter
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
 
@@ -75,7 +84,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         super.addBlockEntity(blockEntity);
         if (blockEntity instanceof ECOComputationDriveBlockEntity driveBlockEntity) {
             Level level = driveBlockEntity.getLevel();
-            BlockState bottomBlock = level.getBlockState(driveBlockEntity.getBlockPos().relative(Direction.DOWN));
+            BlockState bottomBlock =
+                    level.getBlockState(driveBlockEntity.getBlockPos().relative(Direction.DOWN));
             if (bottomBlock.is(NEBlocks.COMPUTATION_TRANSMITTER.get())) {
                 upperDrives.add(driveBlockEntity);
             } else {
@@ -120,8 +130,11 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
         this.activeCpuCount = this.activeCpus.size();
         if (restored > 0) {
-            LOGGER.info("Restored {} ECO CPU(s) with {} job bytes into activeCpus (total active: {})",
-                    restored, restoredBytes, activeCpuCount);
+            LOGGER.info(
+                    "Restored {} ECO CPU(s) with {} job bytes into activeCpus (total active: {})",
+                    restored,
+                    restoredBytes,
+                    activeCpuCount);
         }
     }
 
@@ -131,9 +144,13 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (formed) {
             this.accelerators = blockEntities.stream()
                     .filter(it -> it instanceof ECOComputationParallelCoreBlockEntity)
-                    .mapToInt(it -> ((ECOComputationParallelCoreBlockEntity) it).getTier().getCPUAccelerators())
+                    .mapToInt(it -> ((ECOComputationParallelCoreBlockEntity) it)
+                            .getTier()
+                            .getCPUAccelerators())
                     .sum();
-            this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
+            this.maxThreads = threadingCores.stream()
+                    .mapToInt(it -> it.getTier().getCPUThreads())
+                    .sum();
 
             // Step 1: restore CPU NBT from each threading core's deferredInit
             for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
@@ -158,9 +175,11 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 }
             }
 
-            this.fakeCpu = new ECOCraftingCPU(this, availableStorage,
-                    controller != null ? controller.getTier() : ECOTier.L4);
-            this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
+            this.fakeCpu =
+                    new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
+            this.maxThreads = threadingCores.stream()
+                    .mapToInt(it -> it.getTier().getCPUThreads())
+                    .sum();
             LOGGER.debug(
                     "NE computation cluster formed: controller={} accelerators={} maxThreads={} availableStorage={}",
                     controller != null ? controller.getBlockPos() : null,
@@ -217,10 +236,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public ICraftingSubmitResult submitJob(
-            IGrid grid,
-            ICraftingPlan job,
-            IActionSource src,
-            ICraftingRequester requestingMachine) {
+            IGrid grid, ICraftingPlan job, IActionSource src, ICraftingRequester requestingMachine) {
         if (!this.isActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }
@@ -232,8 +248,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         boolean submitted = false;
         for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
             cpu = threadingCore.spawn(job);
-            if (cpu == null)
-                continue;
+            if (cpu == null) continue;
             result = cpu.getLogic().trySubmitJob(grid, job, src, requestingMachine);
             if (result.successful()) {
                 submitted = true;
@@ -278,7 +293,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 if (cpu != null && cpu.getLogic().isInRestoreGrace()) {
                     LOGGER.warn(
                             "Skipping kill of restored-in-grace ECO CPU (planBytes={} totalStorage={} activeJobBytes={})",
-                            plan.bytes(), totalStorageBytes, activeJobBytes);
+                            plan.bytes(),
+                            totalStorageBytes,
+                            activeJobBytes);
                     continue;
                 }
                 this.killCpu(plan, false, false);
@@ -291,7 +308,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 // It will be corrected once drives become available.
                 LOGGER.warn(
                         "ECO computation storage temporarily negative during restore: available={}, activeJobBytes={}, totalStorageBytes={}",
-                        this.availableStorage, this.activeJobBytes, this.totalStorageBytes);
+                        this.availableStorage,
+                        this.activeJobBytes,
+                        this.totalStorageBytes);
                 // Still sync controller stats and notify grid so the UI shows active CPUs
                 syncControllerStats();
                 postGridCpuChange();
@@ -353,8 +372,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public ECOCraftingCPU getFakeCPU() {
         if (this.fakeCpu == null || this.fakeCpu.getAvailableStorage() != this.availableStorage) {
-            this.fakeCpu = new ECOCraftingCPU(this, this.availableStorage,
-                    controller != null ? controller.getTier() : ECOTier.L4);
+            this.fakeCpu = new ECOCraftingCPU(
+                    this, this.availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
         }
         return fakeCpu;
     }

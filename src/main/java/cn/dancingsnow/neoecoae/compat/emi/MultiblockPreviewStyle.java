@@ -1,12 +1,11 @@
 package cn.dancingsnow.neoecoae.compat.emi;
 
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.network.chat.Component;
-
-import java.util.List;
 
 final class MultiblockPreviewStyle {
     static final int TEXT_COLOR = 0xFF404040;
@@ -17,8 +16,7 @@ final class MultiblockPreviewStyle {
     static final int BUTTON_BORDER = 0xFF303030;
     static final int SLOT_SIZE = 18;
 
-    private MultiblockPreviewStyle() {
-    }
+    private MultiblockPreviewStyle() {}
 
     static void drawPanel(GuiGraphics g, int width, int height) {
         g.fill(0, 0, width, height, PANEL_COLOR);

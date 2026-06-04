@@ -25,21 +25,21 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
 
     public ECOComputationDrive(Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
+        registerDefaultState(getStateDefinition()
+                .any()
                 .setValue(FORMED, false)
                 .setValue(HAS_CELL, false)
                 .setValue(FACING, Direction.NORTH));
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
-            BlockHitResult hit) {
+    public InteractionResult use(
+            BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         ItemStack heldItem = player.getItemInHand(hand);
         if (heldItem.getItem() instanceof ECOComputationCellItem) {
             if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity be) {
                 if (be.getCellStack() == null) {
-                    if (level.isClientSide)
-                        return InteractionResult.SUCCESS;
+                    if (level.isClientSide) return InteractionResult.SUCCESS;
                     be.setCellStack(heldItem.copyWithCount(1));
                     if (!player.getAbilities().instabuild) {
                         heldItem.shrink(1);
@@ -50,8 +50,7 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
         }
         if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
-                if (level.isClientSide)
-                    return InteractionResult.SUCCESS;
+                if (level.isClientSide) return InteractionResult.SUCCESS;
                 ItemStack cellStack = be.getCellStack();
                 be.setCellStack(null);
                 giveCellToPlayer(player, hand, cellStack);

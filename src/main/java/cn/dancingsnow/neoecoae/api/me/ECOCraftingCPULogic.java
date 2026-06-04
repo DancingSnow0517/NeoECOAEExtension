@@ -1,24 +1,5 @@
 package cn.dancingsnow.neoecoae.api.me;
 
-import java.util.Collections;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.Consumer;
-
-import com.google.common.base.Preconditions;
-
-import lombok.Getter;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.crafting.IPatternDetails;
@@ -42,13 +23,28 @@ import appeng.crafting.execution.*;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import com.google.common.base.Preconditions;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
+import lombok.Getter;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,12 +52,10 @@ public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_EXECUTION_STATS = Boolean.getBoolean("neoecoae.debugEcoCraftingExecution");
     private static final int ECO_PROVIDER_PUSH_BURST_LIMIT = 256;
-    private static final int ECO_BATCH_FAST_PATH_LIMIT = Math.max(
-            1,
-            Integer.getInteger("neoecoae.ecoBatchFastPathLimit", 64));
-    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT = Math.max(
-            1,
-            Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", 256));
+    private static final int ECO_BATCH_FAST_PATH_LIMIT =
+            Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathLimit", 64));
+    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT =
+            Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", 256));
 
     final ECOCraftingCPU cpu;
 
@@ -75,6 +69,7 @@ public class ECOCraftingCPULogic {
      */
     @Getter
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
+
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     /**
      * True if the CPU is currently trying to clear its inventory but is not able
@@ -82,6 +77,7 @@ public class ECOCraftingCPULogic {
      */
     @Getter
     private boolean cantStoreItems = false;
+
     @Getter
     private long statusRevision = 0L;
 
@@ -90,16 +86,20 @@ public class ECOCraftingCPULogic {
 
     @Getter
     private boolean markedForDeletion = false;
+
     private boolean batchingStatusChanges = false;
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
 
     // ── NBT restore state ──
     @Getter
     private boolean restoredFromNbt = false;
+
     private boolean restoreRebindAttempted = false;
     private boolean restoreRebindSuccessful = false;
+
     @Getter
     private int restoredCancelGraceTicks = 0;
+
     private boolean restoredLinkRebound = false;
     private static final int RESTORED_CANCEL_GRACE_INITIAL = 100;
     private static final int RESTORE_GRACE_LOG_INTERVAL = 20;
@@ -136,22 +136,17 @@ public class ECOCraftingCPULogic {
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
         // Already have a job.
-        if (this.job != null)
-            return CraftingSubmitResult.CPU_BUSY;
+        if (this.job != null) return CraftingSubmitResult.CPU_BUSY;
         // Check that the node is active.
-        if (!cpu.isActive())
-            return CraftingSubmitResult.CPU_OFFLINE;
+        if (!cpu.isActive()) return CraftingSubmitResult.CPU_OFFLINE;
         // Check bytes.
-        if (cpu.getAvailableStorage() < plan.bytes())
-            return CraftingSubmitResult.CPU_TOO_SMALL;
+        if (cpu.getAvailableStorage() < plan.bytes()) return CraftingSubmitResult.CPU_TOO_SMALL;
 
-        if (!inventory.list.isEmpty())
-            AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
+        if (!inventory.list.isEmpty()) AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
         // Try to extract required items.
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
-        if (missingIngredient != null)
-            return CraftingSubmitResult.missingIngredient(missingIngredient);
+        if (missingIngredient != null) return CraftingSubmitResult.missingIngredient(missingIngredient);
 
         // Set CPU link and job.
         var playerId = src.player()
@@ -208,8 +203,10 @@ public class ECOCraftingCPULogic {
             if (!restoreRebindSuccessful && restoredCancelGraceTicks > 0) {
                 restoredCancelGraceTicks--;
                 if (restoredCancelGraceTicks % RESTORE_GRACE_LOG_INTERVAL == 0) {
-                    LOGGER.info("ECO CPU waiting for link rebind: grace={} jobId={}",
-                            restoredCancelGraceTicks, job.link.getCraftingID());
+                    LOGGER.info(
+                            "ECO CPU waiting for link rebind: grace={} jobId={}",
+                            restoredCancelGraceTicks,
+                            job.link.getCraftingID());
                 }
                 return;
             }
@@ -221,8 +218,11 @@ public class ECOCraftingCPULogic {
 
         // ── Normal cancel check (only after restored path is resolved) ──
         if (job.link.isCanceled()) {
-            LOGGER.warn("ECO CPU job link canceled — canceling. cpu={} jobId={} wasRestored={}",
-                    cpu.getName(), job.link.getCraftingID(), restoredFromNbt);
+            LOGGER.warn(
+                    "ECO CPU job link canceled — canceling. cpu={} jobId={} wasRestored={}",
+                    cpu.getName(),
+                    job.link.getCraftingID(),
+                    restoredFromNbt);
             cancel();
             return;
         }
@@ -262,8 +262,11 @@ public class ECOCraftingCPULogic {
         UUID jobId = job.link.getCraftingID();
         boolean wasCanceledBefore = job.link.isCanceled();
 
-        LOGGER.info("ECO CPU onRestoredToGrid: jobId={} wasCanceledBefore={} cpu={}",
-                jobId, wasCanceledBefore, cpu.getName());
+        LOGGER.info(
+                "ECO CPU onRestoredToGrid: jobId={} wasCanceledBefore={} cpu={}",
+                jobId,
+                wasCanceledBefore,
+                cpu.getName());
 
         CraftingService craftingService = (CraftingService) grid.getCraftingService();
         craftingService.addLink(job.link);
@@ -278,8 +281,11 @@ public class ECOCraftingCPULogic {
             return true;
         }
 
-        LOGGER.warn("ECO CPU link still canceled after rebind. jobId={} cpu={} wasCanceledBefore={}",
-                jobId, cpu.getName(), wasCanceledBefore);
+        LOGGER.warn(
+                "ECO CPU link still canceled after rebind. jobId={} cpu={} wasCanceledBefore={}",
+                jobId,
+                cpu.getName(),
+                wasCanceledBefore);
         return false;
     }
 
@@ -288,12 +294,12 @@ public class ECOCraftingCPULogic {
      * Tries to recover items to network; does NOT silently drop the job.
      */
     private void safeAbortRestoredJob(String reason) {
-        if (job == null)
-            return;
+        if (job == null) return;
         UUID jobId = job.link.getCraftingID();
         LOGGER.warn(
                 "ECO CPU safeAbortRestoredJob: reason={} jobId={} finalOutput={} remainingAmount={} waitingForSize={} tasksSize={} cpu={}",
-                reason, jobId,
+                reason,
+                jobId,
                 job.finalOutput != null ? job.finalOutput.what().getClass().getSimpleName() : "null",
                 job.remainingAmount,
                 job.waitingFor.list.size(),
@@ -377,8 +383,7 @@ public class ECOCraftingCPULogic {
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         var job = this.job;
-        if (job == null)
-            return 0;
+        if (job == null) return 0;
 
         var pushedPatterns = 0;
         long executeStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
@@ -386,7 +391,8 @@ public class ECOCraftingCPULogic {
 
         try {
             var it = job.tasks.entrySet().iterator();
-            taskLoop: while (it.hasNext()) {
+            taskLoop:
+            while (it.hasNext()) {
                 var task = it.next();
                 if (task.getValue().value <= 0) {
                     postPatternOutputsChange(task.getKey());
@@ -408,8 +414,7 @@ public class ECOCraftingCPULogic {
                     if (DEBUG_EXECUTION_STATS) {
                         debugExtractPatternInputsCalls++;
                     }
-                    @Nullable
-                    var craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                    @Nullable var craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             details, inventory, level, expectedOutputs, expectedContainerItems);
                     if (DEBUG_EXECUTION_STATS) {
                         debugExtractPatternInputsNs += System.nanoTime() - extractStartNs;
@@ -452,8 +457,8 @@ public class ECOCraftingCPULogic {
                             continue;
                         }
 
-                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
-                                PowerMultiplier.CONFIG) < patternPower - 0.01) {
+                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                                < patternPower - 0.01) {
                             break;
                         }
 
@@ -534,8 +539,8 @@ public class ECOCraftingCPULogic {
         debugExecuteCraftingNs = 0;
     }
 
-    private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
-            IPatternDetails details) {
+    private List<ICraftingProvider> collectAvailableProviders(
+            CraftingService craftingService, IPatternDetails details) {
         List<ICraftingProvider> providers = new ArrayList<>();
         for (ICraftingProvider provider : craftingService.getProviders(details)) {
             if (!provider.isBusy()) {
@@ -591,10 +596,8 @@ public class ECOCraftingCPULogic {
         }
 
         int extraCrafts = batchSize - 1;
-        int availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
-                inventory,
-                execution.inputItems(),
-                extraCrafts);
+        int availableExtraCrafts =
+                ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(), extraCrafts);
         batchSize = Math.min(batchSize, availableExtraCrafts + 1);
         if (batchSize <= 1) {
             return 0;
@@ -607,8 +610,8 @@ public class ECOCraftingCPULogic {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
                 return 0;
             }
-            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE,
-                    PowerMultiplier.CONFIG) < patternPower * batchSize - 0.01) {
+            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                    < patternPower * batchSize - 0.01) {
                 return 0;
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
@@ -661,8 +664,8 @@ public class ECOCraftingCPULogic {
         int batchSize = requested;
         while (batchSize > 0) {
             double totalPower = patternPower * batchSize;
-            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE,
-                    PowerMultiplier.CONFIG) >= totalPower - 0.01) {
+            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                    >= totalPower - 0.01) {
                 return batchSize;
             }
             batchSize--;
@@ -678,9 +681,7 @@ public class ECOCraftingCPULogic {
         postGenericStackKeysChange(execution.expectedOutputs());
         for (var expectedContainerItem : execution.expectedContainerItems()) {
             job.waitingFor.insert(
-                    expectedContainerItem.what(),
-                    expectedContainerItem.amount() * multiplier,
-                    Actionable.MODULATE);
+                    expectedContainerItem.what(), expectedContainerItem.amount() * multiplier, Actionable.MODULATE);
             job.timeTracker.addMaxItems(
                     expectedContainerItem.amount() * multiplier,
                     expectedContainerItem.what().getType());
@@ -712,8 +713,7 @@ public class ECOCraftingCPULogic {
         // also stop accepting items when the job is complete, i.e. to prevent
         // re-insertion when pushing out
         // items during storeItems
-        if (what == null || job == null || amount <= 0)
-            return 0;
+        if (what == null || job == null || amount <= 0) return 0;
 
         // Only accept items we are waiting for.
         var waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
@@ -801,8 +801,7 @@ public class ECOCraftingCPULogic {
      */
     public void cancel() {
         // No job to cancel :P
-        if (job == null)
-            return;
+        if (job == null) return;
 
         UUID craftingJobId = job.link.getCraftingID();
         markStatusDirty();
@@ -828,18 +827,16 @@ public class ECOCraftingCPULogic {
     public void storeItems() {
         Preconditions.checkState(job == null, "CPU should not have a job to prevent re-insertion when dumping items");
         // Short-circuit if there is nothing to do.
-        if (this.inventory.list.isEmpty())
-            return;
+        if (this.inventory.list.isEmpty()) return;
 
         var g = cpu.getGrid();
-        if (g == null)
-            return;
+        if (g == null) return;
 
         var storage = g.getStorageService().getInventory();
 
         for (var entry : this.inventory.list) {
-            var inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE,
-                    cpu.getActionSource());
+            var inserted =
+                    storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, cpu.getActionSource());
 
             // The network was unable to receive all of the items, i.e. no or not enough
             // storage space left
@@ -946,8 +943,7 @@ public class ECOCraftingCPULogic {
         return this.job != null;
     }
 
-    @Nullable
-    public GenericStack getFinalJobOutput() {
+    @Nullable public GenericStack getFinalJobOutput() {
         return this.job != null ? this.job.finalOutput : null;
     }
 
@@ -965,8 +961,10 @@ public class ECOCraftingCPULogic {
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             markStatusDirty();
             if (this.job.finalOutput == null) {
-                LOGGER.warn("ECO CPU restored with null finalOutput (job NBT may be corrupted). "
-                        + "Dropping job and marking CPU for cleanup. cpu={}", cpu.getName());
+                LOGGER.warn(
+                        "ECO CPU restored with null finalOutput (job NBT may be corrupted). "
+                                + "Dropping job and marking CPU for cleanup. cpu={}",
+                        cpu.getName());
                 this.job = null;
                 markedForDeletion = true;
             } else {
@@ -976,10 +974,13 @@ public class ECOCraftingCPULogic {
                 this.restoreRebindSuccessful = false;
                 this.restoredLinkRebound = false;
                 this.restoredCancelGraceTicks = RESTORED_CANCEL_GRACE_INITIAL;
-                LOGGER.info("ECO CPU job restored from NBT. cpu={} jobId={} finalOutput={} remainingAmount={}",
+                LOGGER.info(
+                        "ECO CPU job restored from NBT. cpu={} jobId={} finalOutput={} remainingAmount={}",
                         cpu.getName(),
                         this.job.link.getCraftingID(),
-                        this.job.finalOutput != null ? this.job.finalOutput.what().getClass().getSimpleName() : "null",
+                        this.job.finalOutput != null
+                                ? this.job.finalOutput.what().getClass().getSimpleName()
+                                : "null",
                         this.job.remainingAmount);
             }
         }
@@ -1095,8 +1096,8 @@ public class ECOCraftingCPULogic {
             var jobId = job.link.getCraftingID();
             BasePacket message = new CraftingJobStatusPacket(
                     jobId, job.finalOutput.what(), job.finalOutput.amount(), job.remainingAmount, status);
-            connectedPlayer.connection
-                    .send(message.toPacket(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
+            connectedPlayer.connection.send(
+                    message.toPacket(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
         }
     }
 

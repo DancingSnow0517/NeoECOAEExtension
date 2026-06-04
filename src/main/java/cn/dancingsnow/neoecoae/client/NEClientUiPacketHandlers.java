@@ -19,8 +19,7 @@ import net.minecraftforge.fluids.capability.templates.FluidTank;
  */
 public final class NEClientUiPacketHandlers {
 
-    private NEClientUiPacketHandlers() {
-    }
+    private NEClientUiPacketHandlers() {}
 
     /**
      * Handles an incoming {@link NENetwork.NEStorageUiStatePacket} by pushing
@@ -70,7 +69,13 @@ public final class NEClientUiPacketHandlers {
     public static void handleStructureTerminalConfig(NENetwork.NEStructureTerminalConfigPacket pkt) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof NEStructureTerminalScreen screen) {
-            screen.setConfig(pkt.currentLength(), pkt.minLength(), pkt.maxLength(), pkt.hostType(), pkt.operationMode(), pkt.materials());
+            screen.setConfig(
+                    pkt.currentLength(),
+                    pkt.minLength(),
+                    pkt.maxLength(),
+                    pkt.hostType(),
+                    pkt.operationMode(),
+                    pkt.materials());
         }
     }
 

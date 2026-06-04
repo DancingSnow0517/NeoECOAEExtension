@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.integration.jei.categories.IntegrationWorkingStat
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.mojang.logging.LogUtils;
+import java.util.List;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
@@ -21,13 +22,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 
-import java.util.List;
-
 @JeiPlugin
 public class NeoECOAEJeiPlugin implements IModPlugin {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
     public static final RecipeType<RecipeHolder<CoolingRecipe>> COOLING_TYPE = createRecipeHolderType("cooling");
-    public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE = createRecipeHolderType("integrated_working_station");
+    public static final RecipeType<RecipeHolder<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_TYPE =
+            createRecipeHolderType("integrated_working_station");
 
     @Override
     public ResourceLocation getPluginUid() {
@@ -58,13 +58,12 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
-        registration.addGuiContainerHandler(NEIntegratedWorkingStationScreen.class,
-            new IGuiContainerHandler<>() {
-                @Override
-                public List<Rect2i> getGuiExtraAreas(NEIntegratedWorkingStationScreen screen) {
-                    return screen.getJeiExtraAreas();
-                }
-            });
+        registration.addGuiContainerHandler(NEIntegratedWorkingStationScreen.class, new IGuiContainerHandler<>() {
+            @Override
+            public List<Rect2i> getGuiExtraAreas(NEIntegratedWorkingStationScreen screen) {
+                return screen.getJeiExtraAreas();
+            }
+        });
     }
 
     public static <R extends Recipe<?>> RecipeType<RecipeHolder<R>> createRecipeHolderType(String name) {

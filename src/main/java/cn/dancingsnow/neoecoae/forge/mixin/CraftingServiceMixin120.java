@@ -17,6 +17,10 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -26,18 +30,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-
 @Mixin(value = CraftingService.class, remap = false)
 public abstract class CraftingServiceMixin120 {
-    @Unique
-    private static final Comparator<NEComputationCluster> NEOECOAE_FAST_FIRST = Comparator
-        .comparingInt(NEComputationCluster::getCPUAccelerators)
-        .reversed()
-        .thenComparingLong(NEComputationCluster::getAvailableStorage);
+    @Unique private static final Comparator<NEComputationCluster> NEOECOAE_FAST_FIRST = Comparator.comparingInt(
+                    NEComputationCluster::getCPUAccelerators)
+            .reversed()
+            .thenComparingLong(NEComputationCluster::getAvailableStorage);
 
     @Shadow
     @Final
@@ -60,7 +58,7 @@ public abstract class CraftingServiceMixin120 {
     @Inject(method = "addNode", at = @At("TAIL"))
     private void neoecoae$onAddNode(IGridNode gridNode, net.minecraft.nbt.CompoundTag savedData, CallbackInfo ci) {
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
-            && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
+                && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
             this.updateList = true;
         }
     }
@@ -68,7 +66,7 @@ public abstract class CraftingServiceMixin120 {
     @Inject(method = "removeNode", at = @At("TAIL"))
     private void neoecoae$onRemoveNode(IGridNode gridNode, CallbackInfo ci) {
         if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
-            && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
+                && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
             this.updateList = true;
         }
     }
@@ -112,13 +110,12 @@ public abstract class CraftingServiceMixin120 {
 
     @Inject(method = "submitJob", at = @At("HEAD"), cancellable = true)
     private void neoecoae$submitJob(
-        ICraftingPlan job,
-        ICraftingRequester requestingMachine,
-        ICraftingCPU target,
-        boolean prioritizePower,
-        IActionSource src,
-        CallbackInfoReturnable<ICraftingSubmitResult> cir
-    ) {
+            ICraftingPlan job,
+            ICraftingRequester requestingMachine,
+            ICraftingCPU target,
+            boolean prioritizePower,
+            IActionSource src,
+            CallbackInfoReturnable<ICraftingSubmitResult> cir) {
         if (target instanceof ECOCraftingCPU ecoCpu) {
             ICraftingSubmitResult result = ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine);
             if (result.successful()) {
@@ -180,10 +177,10 @@ public abstract class CraftingServiceMixin120 {
         }
     }
 
-    @Unique
-    private List<NEComputationCluster> neoecoae$getComputationClusters() {
+    @Unique private List<NEComputationCluster> neoecoae$getComputationClusters() {
         List<NEComputationCluster> clusters = new ArrayList<>();
-        for (ECOComputationSystemBlockEntity blockEntity : this.grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+        for (ECOComputationSystemBlockEntity blockEntity :
+                this.grid.getMachines(ECOComputationSystemBlockEntity.class)) {
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null && blockEntity.isFormed()) {
                 clusters.add(cluster);
@@ -192,13 +189,12 @@ public abstract class CraftingServiceMixin120 {
         return clusters;
     }
 
-    @Unique
-    private NEComputationCluster neoecoae$findSuitableComputationCluster(ICraftingPlan job, IActionSource src) {
+    @Unique private NEComputationCluster neoecoae$findSuitableComputationCluster(ICraftingPlan job, IActionSource src) {
         List<NEComputationCluster> candidates = new ArrayList<>();
         for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
             if (cluster.isActive()
-                && cluster.getAvailableStorage() >= job.bytes()
-                && cluster.canBeAutoSelectedFor(src)) {
+                    && cluster.getAvailableStorage() >= job.bytes()
+                    && cluster.canBeAutoSelectedFor(src)) {
                 candidates.add(cluster);
             }
         }

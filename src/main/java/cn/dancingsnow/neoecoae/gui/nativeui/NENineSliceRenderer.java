@@ -14,8 +14,7 @@ import net.minecraft.resources.ResourceLocation;
  */
 public final class NENineSliceRenderer {
 
-    private NENineSliceRenderer() {
-    }
+    private NENineSliceRenderer() {}
 
     /**
      * Draws a nine-slice panel.
@@ -33,10 +32,19 @@ public final class NENineSliceRenderer {
      * @param right       right border in texture px
      * @param bottom      bottom border in texture px
      */
-    public static void drawPanel(GuiGraphics guiGraphics, ResourceLocation texture,
-                                  int x, int y, int width, int height,
-                                  int texWidth, int texHeight,
-                                  int left, int top, int right, int bottom) {
+    public static void drawPanel(
+            GuiGraphics guiGraphics,
+            ResourceLocation texture,
+            int x,
+            int y,
+            int width,
+            int height,
+            int texWidth,
+            int texHeight,
+            int left,
+            int top,
+            int right,
+            int bottom) {
         int centerW = width - left - right;
         int centerH = height - top - bottom;
         int texCenterW = texWidth - left - right;
@@ -46,59 +54,142 @@ public final class NENineSliceRenderer {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         if (centerW <= 0 || centerH <= 0) {
             // Target area too small for nine-slice; draw as simple blit
-            guiGraphics.blit(texture, x, y, 0, 0, Math.min(width, texWidth), Math.min(height, texHeight), texWidth, texHeight);
+            guiGraphics.blit(
+                    texture, x, y, 0, 0, Math.min(width, texWidth), Math.min(height, texHeight), texWidth, texHeight);
             return;
         }
         // Top-left corner (no stretch)
         blit(guiGraphics, texture, x, y, left, top, 0, 0, left, top, texWidth, texHeight);
         // Top edge (stretch horizontally)
-        blit(guiGraphics, texture, x + left, y, centerW, top,
-            left, 0, texCenterW, top, texWidth, texHeight);
+        blit(guiGraphics, texture, x + left, y, centerW, top, left, 0, texCenterW, top, texWidth, texHeight);
         // Top-right corner
-        blit(guiGraphics, texture, x + left + centerW, y, right, top,
-            left + texCenterW, 0, right, top, texWidth, texHeight);
+        blit(
+                guiGraphics,
+                texture,
+                x + left + centerW,
+                y,
+                right,
+                top,
+                left + texCenterW,
+                0,
+                right,
+                top,
+                texWidth,
+                texHeight);
         // Left edge (stretch vertically)
-        blit(guiGraphics, texture, x, y + top, left, centerH,
-            0, top, left, texCenterH, texWidth, texHeight);
+        blit(guiGraphics, texture, x, y + top, left, centerH, 0, top, left, texCenterH, texWidth, texHeight);
         // Center (stretch both)
-        blit(guiGraphics, texture, x + left, y + top, centerW, centerH,
-            left, top, texCenterW, texCenterH, texWidth, texHeight);
+        blit(
+                guiGraphics,
+                texture,
+                x + left,
+                y + top,
+                centerW,
+                centerH,
+                left,
+                top,
+                texCenterW,
+                texCenterH,
+                texWidth,
+                texHeight);
         // Right edge
-        blit(guiGraphics, texture, x + left + centerW, y + top, right, centerH,
-            left + texCenterW, top, right, texCenterH, texWidth, texHeight);
+        blit(
+                guiGraphics,
+                texture,
+                x + left + centerW,
+                y + top,
+                right,
+                centerH,
+                left + texCenterW,
+                top,
+                right,
+                texCenterH,
+                texWidth,
+                texHeight);
         // Bottom-left corner
-        blit(guiGraphics, texture, x, y + top + centerH, left, bottom,
-            0, top + texCenterH, left, bottom, texWidth, texHeight);
+        blit(
+                guiGraphics,
+                texture,
+                x,
+                y + top + centerH,
+                left,
+                bottom,
+                0,
+                top + texCenterH,
+                left,
+                bottom,
+                texWidth,
+                texHeight);
         // Bottom edge
-        blit(guiGraphics, texture, x + left, y + top + centerH, centerW, bottom,
-            left, top + texCenterH, texCenterW, bottom, texWidth, texHeight);
+        blit(
+                guiGraphics,
+                texture,
+                x + left,
+                y + top + centerH,
+                centerW,
+                bottom,
+                left,
+                top + texCenterH,
+                texCenterW,
+                bottom,
+                texWidth,
+                texHeight);
         // Bottom-right corner
-        blit(guiGraphics, texture, x + left + centerW, y + top + centerH, right, bottom,
-            left + texCenterW, top + texCenterH, right, bottom, texWidth, texHeight);
+        blit(
+                guiGraphics,
+                texture,
+                x + left + centerW,
+                y + top + centerH,
+                right,
+                bottom,
+                left + texCenterW,
+                top + texCenterH,
+                right,
+                bottom,
+                texWidth,
+                texHeight);
     }
 
     /**
      * Draws a textured button using the appropriate state texture.
      */
-    public static void drawButton(GuiGraphics guiGraphics, ResourceLocation texture,
-                                   int x, int y, int width, int height,
-                                   int texWidth, int texHeight,
-                                   int left, int top, int right, int bottom) {
+    public static void drawButton(
+            GuiGraphics guiGraphics,
+            ResourceLocation texture,
+            int x,
+            int y,
+            int width,
+            int height,
+            int texWidth,
+            int texHeight,
+            int left,
+            int top,
+            int right,
+            int bottom) {
         drawPanel(guiGraphics, texture, x, y, width, height, texWidth, texHeight, left, top, right, bottom);
     }
 
     /**
      * Draws a single slot background (no nine-slice, simple blit).
      */
-    public static void drawSlot(GuiGraphics guiGraphics, ResourceLocation texture,
-                                 int x, int y, int texWidth, int texHeight) {
+    public static void drawSlot(
+            GuiGraphics guiGraphics, ResourceLocation texture, int x, int y, int texWidth, int texHeight) {
         guiGraphics.blit(texture, x, y, 0, 0, texWidth, texHeight, texWidth, texHeight);
     }
 
-    private static void blit(GuiGraphics guiGraphics, ResourceLocation texture,
-                              int x, int y, int width, int height,
-                              int u, int v, int uWidth, int vHeight,
-                              int texWidth, int texHeight) {
+    private static void blit(
+            GuiGraphics guiGraphics,
+            ResourceLocation texture,
+            int x,
+            int y,
+            int width,
+            int height,
+            int u,
+            int v,
+            int uWidth,
+            int vHeight,
+            int texWidth,
+            int texHeight) {
         guiGraphics.blit(texture, x, y, width, height, u, v, uWidth, vHeight, texWidth, texHeight);
     }
 }

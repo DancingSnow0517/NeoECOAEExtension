@@ -1,11 +1,11 @@
 package cn.dancingsnow.neoecoae.compat.jei;
 
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NENativeAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import java.util.List;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.forge.ForgeTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
@@ -23,14 +23,11 @@ import net.minecraftforge.fluids.FluidStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-
 /**
  * JEI recipe category for the ECO Integrated Working Station.
  * Uses 1.20.1 AE2-style rendering via {@link NENativeAe2StyleRenderer}.
  */
-public class IntegratedWorkingStationJeiCategory
-        implements IRecipeCategory<IntegratedWorkingStationRecipe> {
+public class IntegratedWorkingStationJeiCategory implements IRecipeCategory<IntegratedWorkingStationRecipe> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IntegratedWorkingStationJeiCategory.class);
 
@@ -116,22 +113,21 @@ public class IntegratedWorkingStationJeiCategory
     }
 
     @Override
-    public void setRecipe(IRecipeLayoutBuilder builder,
-            IntegratedWorkingStationRecipe recipe,
-            IFocusGroup focuses) {
+    public void setRecipe(IRecipeLayoutBuilder builder, IntegratedWorkingStationRecipe recipe, IFocusGroup focuses) {
 
         // ── Input fluid slot ──
         SizedFluidIngredient inputFluid = recipe.inputFluid();
         if (!inputFluid.ingredient().isEmpty()) {
             FluidStack[] rawFluids = inputFluid.getFluids();
             if (rawFluids == null || rawFluids.length == 0) {
-                LOGGER.warn("IWS JEI recipe {} has empty fluid ingredient: {}",
-                        recipe.getId(), inputFluid.ingredient().toJson());
+                LOGGER.warn(
+                        "IWS JEI recipe {} has empty fluid ingredient: {}",
+                        recipe.getId(),
+                        inputFluid.ingredient().toJson());
             } else {
                 List<FluidStack> stacks = new java.util.ArrayList<>();
                 for (FluidStack fs : rawFluids) {
-                    if (fs == null || fs.isEmpty())
-                        continue;
+                    if (fs == null || fs.isEmpty()) continue;
                     FluidStack copy = fs.copy();
                     copy.setAmount(inputFluid.amount());
                     stacks.add(copy);
@@ -141,8 +137,10 @@ public class IntegratedWorkingStationJeiCategory
                             .addIngredients(ForgeTypes.FLUID_STACK, stacks)
                             .setFluidRenderer(16000, false, FLUID_RENDER_W, FLUID_RENDER_H);
                 } else {
-                    LOGGER.warn("IWS JEI recipe {} has no valid fluid stacks: {}",
-                            recipe.getId(), inputFluid.ingredient().toJson());
+                    LOGGER.warn(
+                            "IWS JEI recipe {} has no valid fluid stacks: {}",
+                            recipe.getId(),
+                            inputFluid.ingredient().toJson());
                 }
             }
         }
@@ -161,35 +159,38 @@ public class IntegratedWorkingStationJeiCategory
 
             ItemStack[] rawStacks = input.ingredient().getItems();
             if (rawStacks == null || rawStacks.length == 0) {
-                LOGGER.warn("IWS JEI recipe {} has empty item ingredient at index {}: {}",
-                        recipe.getId(), i, input.ingredient().toJson());
+                LOGGER.warn(
+                        "IWS JEI recipe {} has empty item ingredient at index {}: {}",
+                        recipe.getId(),
+                        i,
+                        input.ingredient().toJson());
                 continue;
             }
 
             List<ItemStack> stacks = new java.util.ArrayList<>();
             for (ItemStack raw : rawStacks) {
-                if (raw == null || raw.isEmpty())
-                    continue;
+                if (raw == null || raw.isEmpty()) continue;
                 ItemStack copy = raw.copy();
                 copy.setCount(input.count());
                 stacks.add(copy);
             }
 
             if (stacks.isEmpty()) {
-                LOGGER.warn("IWS JEI recipe {} has no valid item stacks at index {}: {}",
-                        recipe.getId(), i, input.ingredient().toJson());
+                LOGGER.warn(
+                        "IWS JEI recipe {} has no valid item stacks at index {}: {}",
+                        recipe.getId(),
+                        i,
+                        input.ingredient().toJson());
                 continue;
             }
 
-            builder.addInputSlot(x, y)
-                    .addIngredients(VanillaTypes.ITEM_STACK, stacks);
+            builder.addInputSlot(x, y).addIngredients(VanillaTypes.ITEM_STACK, stacks);
         }
 
         // ── Output item slot ──
         ItemStack itemOutput = recipe.itemOutput();
         if (!itemOutput.isEmpty()) {
-            builder.addOutputSlot(OUTPUT_SLOT_X, OUTPUT_SLOT_Y)
-                    .addItemStack(itemOutput.copy());
+            builder.addOutputSlot(OUTPUT_SLOT_X, OUTPUT_SLOT_Y).addItemStack(itemOutput.copy());
         }
 
         // ── Output fluid slot ──
@@ -202,51 +203,43 @@ public class IntegratedWorkingStationJeiCategory
     }
 
     @Override
-    public void draw(IntegratedWorkingStationRecipe recipe,
-            IRecipeSlotsView slots, GuiGraphics g,
-            double mouseX, double mouseY) {
+    public void draw(
+            IntegratedWorkingStationRecipe recipe,
+            IRecipeSlotsView slots,
+            GuiGraphics g,
+            double mouseX,
+            double mouseY) {
 
         // 1. AE2 BackgroundGenerator main panel
         NENativeAe2StyleRenderer.drawAeMainPanel(g, 0, 0, WIDTH, HEIGHT);
 
         // 2. Input fluid tank background (empty — JEI renders actual fluid)
-        NENativeAe2StyleRenderer.drawAeFluidTank(g,
-                INPUT_FLUID_TANK_X, INPUT_FLUID_TANK_Y,
-                FLUID_TANK_W, FLUID_TANK_H,
-                FluidStack.EMPTY, 0, 16000);
+        NENativeAe2StyleRenderer.drawAeFluidTank(
+                g, INPUT_FLUID_TANK_X, INPUT_FLUID_TANK_Y, FLUID_TANK_W, FLUID_TANK_H, FluidStack.EMPTY, 0, 16000);
 
         // 3. Input item slot backgrounds — always all 9 slots
         for (int i = 0; i < INPUT_SLOT_COUNT; i++) {
             int col = i % INPUT_GRID_COLS;
             int row = i / INPUT_GRID_COLS;
-            NENativeAe2StyleRenderer.drawAeSlot(g,
-                    INPUT_GRID_X + col * SLOT_SPACING - 1,
-                    INPUT_GRID_Y + row * SLOT_SPACING - 1);
+            NENativeAe2StyleRenderer.drawAeSlot(
+                    g, INPUT_GRID_X + col * SLOT_SPACING - 1, INPUT_GRID_Y + row * SLOT_SPACING - 1);
         }
 
         // 4. Output item Inscriber-style frame
-        NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(g,
-                OUTPUT_FRAME_X, OUTPUT_FRAME_Y,
-                OUTPUT_FRAME_W, OUTPUT_FRAME_H);
+        NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(
+                g, OUTPUT_FRAME_X, OUTPUT_FRAME_Y, OUTPUT_FRAME_W, OUTPUT_FRAME_H);
 
         // 5. Output fluid tank background
-        NENativeAe2StyleRenderer.drawAeFluidTank(g,
-                OUTPUT_FLUID_TANK_X, OUTPUT_FLUID_TANK_Y,
-                FLUID_TANK_W, FLUID_TANK_H,
-                FluidStack.EMPTY, 0, 16000);
+        NENativeAe2StyleRenderer.drawAeFluidTank(
+                g, OUTPUT_FLUID_TANK_X, OUTPUT_FLUID_TANK_Y, FLUID_TANK_W, FLUID_TANK_H, FluidStack.EMPTY, 0, 16000);
 
         // 6. AE2 inscriber-style progress bar
         int progress = (int) ((System.currentTimeMillis() / 50) % 100);
-        NENativeAe2StyleRenderer.drawAeProgressBar(g,
-                PROGRESS_X, PROGRESS_Y,
-                PROGRESS_W, PROGRESS_H,
-                progress, 100);
+        NENativeAe2StyleRenderer.drawAeProgressBar(g, PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, progress, 100);
 
         // 7. Energy text
-        Component energyText = Component.translatable(
-                "gui.neoecoae.integrated_working_station.energy",
-                recipe.energy() / 1000);
-        g.drawString(Minecraft.getInstance().font, energyText,
-                ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
+        Component energyText =
+                Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
+        g.drawString(Minecraft.getInstance().font, energyText, ENERGY_TEXT_X, ENERGY_TEXT_Y, ENERGY_TEXT_COLOR, false);
     }
 }

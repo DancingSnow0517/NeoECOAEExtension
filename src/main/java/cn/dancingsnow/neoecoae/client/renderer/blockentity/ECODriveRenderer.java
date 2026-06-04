@@ -8,6 +8,8 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
@@ -18,28 +20,29 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec2;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import net.minecraftforge.registries.ForgeRegistries;
+import org.joml.Matrix4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.joml.Matrix4f;
 
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity>, IFixedBlockEntityRenderer<ECODriveBlockEntity> {
-    private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
+public class ECODriveRenderer
+        implements BlockEntityRenderer<ECODriveBlockEntity>, IFixedBlockEntityRenderer<ECODriveBlockEntity> {
+    private static final ThreadLocal<RandomSource> RNG =
+            ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
     private static final Set<ResourceLocation> LOGGED_CELL_ITEMS = ConcurrentHashMap.newKeySet();
 
-    public ECODriveRenderer() {
-    }
+    public ECODriveRenderer() {}
 
-    public ECODriveRenderer(BlockEntityRendererProvider.Context context) {
-    }
+    public ECODriveRenderer(BlockEntityRendererProvider.Context context) {}
 
     @Override
-    public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
+    public void render(
+            ECODriveBlockEntity blockEntity,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight,
+            int packedOverlay) {
         renderFixed(blockEntity, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
         if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
             return;
@@ -52,7 +55,8 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
             int blue = stateColor & 255;
 
             BlockState blockState = blockEntity.getBlockState();
-            Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
+            Direction face =
+                    blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
 
             poseStack.pushPose();
 
@@ -75,10 +79,16 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
             VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
 
-            consumer.vertex(matrix, xStart, 0, zStart).color(red, green, blue, 255).endVertex();
-            consumer.vertex(matrix, xEnd, 0, zStart).color(red, green, blue, 255).endVertex();
+            consumer.vertex(matrix, xStart, 0, zStart)
+                    .color(red, green, blue, 255)
+                    .endVertex();
+            consumer.vertex(matrix, xEnd, 0, zStart)
+                    .color(red, green, blue, 255)
+                    .endVertex();
             consumer.vertex(matrix, xEnd, 0, zEnd).color(red, green, blue, 255).endVertex();
-            consumer.vertex(matrix, xStart, 0, zEnd).color(red, green, blue, 255).endVertex();
+            consumer.vertex(matrix, xStart, 0, zEnd)
+                    .color(red, green, blue, 255)
+                    .endVertex();
 
             poseStack.popPose();
         }
@@ -86,13 +96,12 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
     @Override
     public void renderFixed(
-        ECODriveBlockEntity blockEntity,
-        float partialTick,
-        PoseStack poseStack,
-        MultiBufferSource bufferSource,
-        int packedLight,
-        int packedOverlay
-    ) {
+            ECODriveBlockEntity blockEntity,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight,
+            int packedOverlay) {
         ItemStack cellStack = blockEntity.getCellStack();
         if (cellStack == null || cellStack.isEmpty()) return;
         Direction facing = blockEntity.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
@@ -103,18 +112,12 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
         poseStack.translate(2 / 16f, 2 / 16f, 0 / 16f);
         ResourceLocation modelLocation = ECOCellModels.getModelLocation(cellStack.getItem());
         logCellModel(blockEntity, cellStack, modelLocation);
-        tessellateModel(
-            blockEntity,
-            poseStack,
-            bufferSource,
-            modelLocation,
-            packedLight,
-            packedOverlay
-        );
+        tessellateModel(blockEntity, poseStack, bufferSource, modelLocation, packedLight, packedOverlay);
         poseStack.popPose();
     }
 
-    private static void logCellModel(ECODriveBlockEntity blockEntity, ItemStack cellStack, ResourceLocation modelLocation) {
+    private static void logCellModel(
+            ECODriveBlockEntity blockEntity, ItemStack cellStack, ResourceLocation modelLocation) {
         // No-op: verbose debug logging removed.
     }
 

@@ -69,18 +69,18 @@ public enum StructureTerminalHostType {
             return null;
         }
         if (definition == NEMultiBlocks.CRAFTING_SYSTEM_L4
-            || definition == NEMultiBlocks.CRAFTING_SYSTEM_L6
-            || definition == NEMultiBlocks.CRAFTING_SYSTEM_L9) {
+                || definition == NEMultiBlocks.CRAFTING_SYSTEM_L6
+                || definition == NEMultiBlocks.CRAFTING_SYSTEM_L9) {
             return CRAFTING;
         }
         if (definition == NEMultiBlocks.STORAGE_SYSTEM_L4
-            || definition == NEMultiBlocks.STORAGE_SYSTEM_L6
-            || definition == NEMultiBlocks.STORAGE_SYSTEM_L9) {
+                || definition == NEMultiBlocks.STORAGE_SYSTEM_L6
+                || definition == NEMultiBlocks.STORAGE_SYSTEM_L9) {
             return STORAGE;
         }
         if (definition == NEMultiBlocks.COMPUTATION_SYSTEM_L4
-            || definition == NEMultiBlocks.COMPUTATION_SYSTEM_L6
-            || definition == NEMultiBlocks.COMPUTATION_SYSTEM_L9) {
+                || definition == NEMultiBlocks.COMPUTATION_SYSTEM_L6
+                || definition == NEMultiBlocks.COMPUTATION_SYSTEM_L9) {
             return COMPUTATION;
         }
         return null;
@@ -88,13 +88,13 @@ public enum StructureTerminalHostType {
 
     public static int tierFromDefinition(@Nullable MultiBlockDefinition definition) {
         if (definition == NEMultiBlocks.CRAFTING_SYSTEM_L6
-            || definition == NEMultiBlocks.STORAGE_SYSTEM_L6
-            || definition == NEMultiBlocks.COMPUTATION_SYSTEM_L6) {
+                || definition == NEMultiBlocks.STORAGE_SYSTEM_L6
+                || definition == NEMultiBlocks.COMPUTATION_SYSTEM_L6) {
             return 2;
         }
         if (definition == NEMultiBlocks.CRAFTING_SYSTEM_L9
-            || definition == NEMultiBlocks.STORAGE_SYSTEM_L9
-            || definition == NEMultiBlocks.COMPUTATION_SYSTEM_L9) {
+                || definition == NEMultiBlocks.STORAGE_SYSTEM_L9
+                || definition == NEMultiBlocks.COMPUTATION_SYSTEM_L9) {
             return 3;
         }
         return DEFAULT_TIER;

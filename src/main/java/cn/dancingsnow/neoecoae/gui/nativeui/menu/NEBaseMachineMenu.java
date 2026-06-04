@@ -20,8 +20,7 @@ public abstract class NEBaseMachineMenu extends AbstractContainerMenu {
     protected final BlockPos machinePos;
     protected final Player player;
 
-    protected NEBaseMachineMenu(@Nullable MenuType<?> type, int containerId,
-                                 Inventory playerInv, BlockPos machinePos) {
+    protected NEBaseMachineMenu(@Nullable MenuType<?> type, int containerId, Inventory playerInv, BlockPos machinePos) {
         super(type, containerId);
         this.machinePos = machinePos;
         this.player = playerInv.player;
@@ -36,10 +35,7 @@ public abstract class NEBaseMachineMenu extends AbstractContainerMenu {
         if (player.level().getBlockEntity(machinePos) == null) {
             return false;
         }
-        return player.distanceToSqr(
-            machinePos.getX() + 0.5,
-            machinePos.getY() + 0.5,
-            machinePos.getZ() + 0.5) <= 64.0;
+        return player.distanceToSqr(machinePos.getX() + 0.5, machinePos.getY() + 0.5, machinePos.getZ() + 0.5) <= 64.0;
     }
 
     /**

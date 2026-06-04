@@ -25,8 +25,7 @@ public class NEComputationControllerMenu extends NEUiStateMachineMenu<NEComputat
     }
 
     @Override
-    @Nullable
-    protected NEComputationUiState createState(ServerPlayer player) {
+    @Nullable protected NEComputationUiState createState(ServerPlayer player) {
         BlockEntity be = player.level().getBlockEntity(machinePos);
         if (be instanceof ECOComputationSystemBlockEntity comp) {
             return comp.createComputationUiState();
@@ -46,8 +45,6 @@ public class NEComputationControllerMenu extends NEUiStateMachineMenu<NEComputat
     @Override
     protected void sendState(ServerPlayer player, NEComputationUiState state) {
         NENetwork.CHANNEL.send(
-            PacketDistributor.PLAYER.with(() -> player),
-            new NENetwork.NEComputationUiStatePacket(state)
-        );
+                PacketDistributor.PLAYER.with(() -> player), new NENetwork.NEComputationUiStatePacket(state));
     }
 }

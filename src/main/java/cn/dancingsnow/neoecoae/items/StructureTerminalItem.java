@@ -77,8 +77,7 @@ public class StructureTerminalItem extends Item {
     }
 
     public static void setBuildLength(ItemStack stack, int length) {
-        stack.getOrCreateTag().putInt(TAG_BUILD_LENGTH,
-            Mth.clamp(length, MIN_BUILD_LENGTH, getMaxBuildLength(stack)));
+        stack.getOrCreateTag().putInt(TAG_BUILD_LENGTH, Mth.clamp(length, MIN_BUILD_LENGTH, getMaxBuildLength(stack)));
     }
 
     public static StructureTerminalHostType getHostType(ItemStack stack) {
@@ -220,12 +219,10 @@ public class StructureTerminalItem extends Item {
 
     private void openTerminalConfig(ServerPlayer player, InteractionHand hand) {
         NetworkHooks.openScreen(
-            player,
-            new SimpleMenuProvider(
-                (windowId, inv, p) -> new NEStructureTerminalMenu(windowId, inv, hand),
-                Component.translatable("item.neoecoae.structure_terminal")
-            ),
-            buf -> buf.writeEnum(hand)
-        );
+                player,
+                new SimpleMenuProvider(
+                        (windowId, inv, p) -> new NEStructureTerminalMenu(windowId, inv, hand),
+                        Component.translatable("item.neoecoae.structure_terminal")),
+                buf -> buf.writeEnum(hand));
     }
 }

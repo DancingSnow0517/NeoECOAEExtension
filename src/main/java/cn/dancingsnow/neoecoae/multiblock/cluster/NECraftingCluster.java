@@ -8,24 +8,28 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
+
     @Getter
     private final List<ECOCraftingWorkerBlockEntity> workers = new ArrayList<>();
+
     @Getter
     private final List<ECOCraftingPatternBusBlockEntity> patternBuses = new ArrayList<>();
+
     @Getter
     private ECOCraftingSystemBlockEntity controller = null;
+
     @Getter
     private ECOFluidInputHatchBlockEntity inputHatch = null;
+
     @Getter
     private ECOFluidOutputHatchBlockEntity outputHatch = null;
 

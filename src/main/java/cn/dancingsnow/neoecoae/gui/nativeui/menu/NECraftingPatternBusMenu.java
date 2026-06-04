@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.menu;
 
+import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NECraftingPatternBusLayout.*;
+
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
 import cn.dancingsnow.neoecoae.gui.nativeui.layout.NECraftingPatternBusLayout;
@@ -12,8 +14,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import org.jetbrains.annotations.NotNull;
-
-import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NECraftingPatternBusLayout.*;
 
 /**
  * Menu for the ECO Crafting Pattern Bus — 9×7 pattern slots (63) + player inventory + hotbar.
@@ -35,9 +35,11 @@ public class NECraftingPatternBusMenu extends NEBaseMachineMenu {
             // Pattern slots 9×7
             for (int row = 0; row < PATTERN_ROWS; row++) {
                 for (int col = 0; col < PATTERN_COLS; col++) {
-                    addSlot(new SlotItemHandler(handler, col + row * PATTERN_COLS,
-                        PATTERN_SLOT_X + col * SLOT_SIZE,
-                        PATTERN_SLOT_Y + row * SLOT_SIZE));
+                    addSlot(new SlotItemHandler(
+                            handler,
+                            col + row * PATTERN_COLS,
+                            PATTERN_SLOT_X + col * SLOT_SIZE,
+                            PATTERN_SLOT_Y + row * SLOT_SIZE));
                 }
             }
         }
@@ -45,16 +47,13 @@ public class NECraftingPatternBusMenu extends NEBaseMachineMenu {
         // Player inventory 3×9
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(playerInv, col + row * 9 + 9,
-                    INV_SLOT_X + col * SLOT_SIZE,
-                    INV_SLOT_Y + row * SLOT_SIZE));
+                addSlot(new Slot(
+                        playerInv, col + row * 9 + 9, INV_SLOT_X + col * SLOT_SIZE, INV_SLOT_Y + row * SLOT_SIZE));
             }
         }
         // Player hotbar 1×9
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(playerInv, col,
-                HOTBAR_SLOT_X + col * SLOT_SIZE,
-                HOTBAR_SLOT_Y));
+            addSlot(new Slot(playerInv, col, HOTBAR_SLOT_X + col * SLOT_SIZE, HOTBAR_SLOT_Y));
         }
     }
 

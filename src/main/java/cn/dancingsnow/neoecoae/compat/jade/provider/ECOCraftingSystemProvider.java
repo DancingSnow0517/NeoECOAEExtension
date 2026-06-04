@@ -34,22 +34,22 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
         int totalTicks = data.getInt(KEY_TOTAL_TICKS);
 
         if (running && currentTicks > 0 && totalTicks > 0) {
-            tooltip.add(tooltip.getElementHelper().progress(
-                    getProgressRatio(data),
-                    Component.literal(currentTicks + " / " + totalTicks + " t"),
-                    tooltip.getElementHelper()
-                            .progressStyle()
-                            .color(0xFF4FC3F7)
-                            .textColor(0xFFFFFFFF),
-                    BoxStyle.DEFAULT,
-                    true));
+            tooltip.add(tooltip.getElementHelper()
+                    .progress(
+                            getProgressRatio(data),
+                            Component.literal(currentTicks + " / " + totalTicks + " t"),
+                            tooltip.getElementHelper()
+                                    .progressStyle()
+                                    .color(0xFF4FC3F7)
+                                    .textColor(0xFFFFFFFF),
+                            BoxStyle.DEFAULT,
+                            true));
         }
 
         tooltip.add(JadeText.energyLine(data.getLong(KEY_ENERGY_PER_TICK)));
         tooltip.add(JadeText.timeMultiplierLine(data.getDouble(KEY_TIME_MULTIPLIER)));
-        tooltip.add(JadeText.overclockLine(
-                data.getInt(KEY_EFFECTIVE_OVERCLOCK),
-                data.getInt(KEY_THEORETICAL_OVERCLOCK)));
+        tooltip.add(
+                JadeText.overclockLine(data.getInt(KEY_EFFECTIVE_OVERCLOCK), data.getInt(KEY_THEORETICAL_OVERCLOCK)));
 
         // TODO: 显示"工作合成：xxx 个配方"。
         // 当前 ECOCraftingSystemBlockEntity 无法直接读取 ECOCraftingCPULogic.job.waitingFor。

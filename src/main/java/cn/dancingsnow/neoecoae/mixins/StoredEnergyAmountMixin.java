@@ -11,9 +11,11 @@ import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(value = StoredEnergyAmount.class, remap = false)
 public abstract class StoredEnergyAmountMixin implements INBTSerializable<DoubleTag> {
-    @Shadow public abstract void setStored(double amount);
+    @Shadow
+    public abstract void setStored(double amount);
 
-    @Shadow public abstract double getAmount();
+    @Shadow
+    public abstract double getAmount();
 
     @Unique private Runnable neoecoae$onContentsChanged = () -> {};
 

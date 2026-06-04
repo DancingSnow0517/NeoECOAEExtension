@@ -12,6 +12,8 @@ import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.Bounds;
 import dev.emi.emi.api.widget.Widget;
 import dev.emi.emi.api.widget.WidgetHolder;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -23,9 +25,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MultiblockEmiRecipe implements EmiRecipe {
     private final MultiBlockDefinition definition;
@@ -108,12 +107,17 @@ public class MultiblockEmiRecipe implements EmiRecipe {
 
             Font font = Minecraft.getInstance().font;
             MultiblockPreviewStyle.drawPanel(g, layout.width(), layout.height());
-            MultiblockPreviewStyle.drawFittedString(g, definition.getName(), 4, layout.titleY(), layout.width() - 8,
-                    MultiblockPreviewStyle.TEXT_COLOR);
+            MultiblockPreviewStyle.drawFittedString(
+                    g, definition.getName(), 4, layout.titleY(), layout.width() - 8, MultiblockPreviewStyle.TEXT_COLOR);
             renderButtons(g, mouseX, mouseY);
             renderScene(g, delta);
-            g.drawString(font, Component.translatable("emi.neoecoae.multiblock.requirements"), 4, layout.materialTitleY(),
-                    MultiblockPreviewStyle.TEXT_COLOR, false);
+            g.drawString(
+                    font,
+                    Component.translatable("emi.neoecoae.multiblock.requirements"),
+                    4,
+                    layout.materialTitleY(),
+                    MultiblockPreviewStyle.TEXT_COLOR,
+                    false);
             materialStrip.render(g, layout, mouseX, mouseY, delta);
         }
 
@@ -185,21 +189,50 @@ public class MultiblockEmiRecipe implements EmiRecipe {
 
         private void renderButtons(GuiGraphics g, int mouseX, int mouseY) {
             MultiblockPreviewStyle.drawButton(g, layout.expandButton(), "E:" + state.expand(), mouseX, mouseY);
-            MultiblockPreviewStyle.drawButton(g, layout.layerButton(), state.layer() < 0 ? "L:*" : "L:" + state.layer(), mouseX, mouseY);
+            MultiblockPreviewStyle.drawButton(
+                    g, layout.layerButton(), state.layer() < 0 ? "L:*" : "L:" + state.layer(), mouseX, mouseY);
             MultiblockPreviewStyle.drawButton(g, layout.formedButton(), state.formed() ? "F:Y" : "F:N", mouseX, mouseY);
         }
 
         private void renderScene(GuiGraphics g, float delta) {
             MultiblockPreviewLayout.Rect sceneRect = layout.scene();
             g.fill(sceneRect.x(), sceneRect.y(), sceneRect.right(), sceneRect.bottom(), 0xFFE9E9E9);
-            g.fill(sceneRect.x(), sceneRect.y(), sceneRect.right(), sceneRect.y() + 1, MultiblockPreviewStyle.PANEL_BORDER);
-            g.fill(sceneRect.x(), sceneRect.bottom() - 1, sceneRect.right(), sceneRect.bottom(), MultiblockPreviewStyle.PANEL_BORDER);
-            g.fill(sceneRect.x(), sceneRect.y(), sceneRect.x() + 1, sceneRect.bottom(), MultiblockPreviewStyle.PANEL_BORDER);
-            g.fill(sceneRect.right() - 1, sceneRect.y(), sceneRect.right(), sceneRect.bottom(), MultiblockPreviewStyle.PANEL_BORDER);
-            MultiblockPreviewScrollHandler.track(renderer, g, sceneRect.x() + 2, sceneRect.y() + 2,
-                    sceneRect.width() - 4, sceneRect.height() - 4);
-            renderer.render(g, state.scene(), renderedPositions(), sceneRect.x() + 2, sceneRect.y() + 2,
-                    sceneRect.width() - 4, sceneRect.height() - 4, delta, true);
+            g.fill(
+                    sceneRect.x(),
+                    sceneRect.y(),
+                    sceneRect.right(),
+                    sceneRect.y() + 1,
+                    MultiblockPreviewStyle.PANEL_BORDER);
+            g.fill(
+                    sceneRect.x(),
+                    sceneRect.bottom() - 1,
+                    sceneRect.right(),
+                    sceneRect.bottom(),
+                    MultiblockPreviewStyle.PANEL_BORDER);
+            g.fill(
+                    sceneRect.x(),
+                    sceneRect.y(),
+                    sceneRect.x() + 1,
+                    sceneRect.bottom(),
+                    MultiblockPreviewStyle.PANEL_BORDER);
+            g.fill(
+                    sceneRect.right() - 1,
+                    sceneRect.y(),
+                    sceneRect.right(),
+                    sceneRect.bottom(),
+                    MultiblockPreviewStyle.PANEL_BORDER);
+            MultiblockPreviewScrollHandler.track(
+                    renderer, g, sceneRect.x() + 2, sceneRect.y() + 2, sceneRect.width() - 4, sceneRect.height() - 4);
+            renderer.render(
+                    g,
+                    state.scene(),
+                    renderedPositions(),
+                    sceneRect.x() + 2,
+                    sceneRect.y() + 2,
+                    sceneRect.width() - 4,
+                    sceneRect.height() - 4,
+                    delta,
+                    true);
         }
 
         private List<BlockPos> renderedPositions() {

@@ -5,10 +5,9 @@ import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScene;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
-import net.minecraft.world.item.ItemStack;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.world.item.ItemStack;
 
 final class MultiblockPreviewState {
     static final int MATERIAL_PAGE_SIZE = 9;

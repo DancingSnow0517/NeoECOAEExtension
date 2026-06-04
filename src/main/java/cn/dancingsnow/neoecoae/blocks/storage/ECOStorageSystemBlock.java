@@ -5,14 +5,13 @@ import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
-import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.util.NEInteractionUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -31,11 +30,11 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
 
     public ECOStorageSystemBlock(BlockBehaviour.Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(MIRRORED, false)
-            .setValue(FACING, Direction.NORTH)
-        );
+        registerDefaultState(getStateDefinition()
+                .any()
+                .setValue(FORMED, false)
+                .setValue(MIRRORED, false)
+                .setValue(FACING, Direction.NORTH));
     }
 
     @Override
@@ -50,8 +49,13 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
-                                  InteractionHand hand, BlockHitResult hitResult) {
+    public InteractionResult use(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Player player,
+            InteractionHand hand,
+            BlockHitResult hitResult) {
         // If player is holding a special tool (Structure Terminal shift, wrench), pass through
         if (NEInteractionUtil.shouldPassBlockUseToHeldTool(player, hand)) {
             return InteractionResult.PASS;
@@ -62,16 +66,13 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
         if (player instanceof ServerPlayer serverPlayer) {
             // Phase 1: Native UI proof of concept for Storage Controller only
             Component title = state.getBlock().getName();
-            NetworkHooks.openScreen(serverPlayer,
-                new SimpleMenuProvider(
-                    (windowId, inv, p) -> new NEStorageControllerMenu(windowId, inv, pos),
-                    title
-                ),
-                buf -> buf.writeBlockPos(pos)
-            );
+            NetworkHooks.openScreen(
+                    serverPlayer,
+                    new SimpleMenuProvider(
+                            (windowId, inv, p) -> new NEStorageControllerMenu(windowId, inv, pos), title),
+                    buf -> buf.writeBlockPos(pos));
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
     }
 }
-

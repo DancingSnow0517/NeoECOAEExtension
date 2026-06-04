@@ -1,22 +1,20 @@
 package cn.dancingsnow.neoecoae.api.me.fastpath;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class ECOCraftingFastPathCache {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_STATS = Boolean.getBoolean("neoecoae.debugEcoFastPath");
     private static final int DEFAULT_LIMIT = Integer.getInteger("neoecoae.ecoFastPathCacheSize", 512);
-    private static final Set<ECOCraftingFastPathCache> LIVE_CACHES =
-        Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Set<ECOCraftingFastPathCache> LIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
 
     private final int limit;
     private final Map<ECOFastPathKey, ECOFastPathResult> entries;
@@ -57,8 +55,7 @@ public final class ECOCraftingFastPathCache {
         }
     }
 
-    @Nullable
-    public ECOFastPathResult get(ECOFastPathKey key, long tick) {
+    @Nullable public ECOFastPathResult get(ECOFastPathKey key, long tick) {
         ECOFastPathResult result = entries.get(key);
         if (result == null) {
             missCount++;
@@ -73,18 +70,16 @@ public final class ECOCraftingFastPathCache {
         return result;
     }
 
-    @Nullable
-    public ECOFastPathResult peek(ECOFastPathKey key) {
+    @Nullable public ECOFastPathResult peek(ECOFastPathKey key) {
         return entries.get(key);
     }
 
     public void putPositive(
-        ECOFastPathKey key,
-        java.util.List<appeng.api.stacks.GenericStack> outputs,
-        java.util.List<appeng.api.stacks.GenericStack> remaining,
-        java.util.List<appeng.api.stacks.GenericStack> inputs,
-        long tick
-    ) {
+            ECOFastPathKey key,
+            java.util.List<appeng.api.stacks.GenericStack> outputs,
+            java.util.List<appeng.api.stacks.GenericStack> remaining,
+            java.util.List<appeng.api.stacks.GenericStack> inputs,
+            long tick) {
         entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick));
         verifySuccessCount++;
     }
@@ -170,28 +165,27 @@ public final class ECOCraftingFastPathCache {
         long positiveLookups = hitCount + missCount + negativeHitCount;
         double hitRate = positiveLookups <= 0 ? 0.0D : (hitCount * 100.0D / positiveLookups);
         LOGGER.debug(
-            "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={} negativeHit={} verified={} rejected={} fallbackReason[disabled={} unverified={} expectedMismatch={} containerMismatch={} nonItemKey={} postCraftingEvent={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
-            owner,
-            size(),
-            limit,
-            hitCount,
-            missCount,
-            String.format(java.util.Locale.ROOT, "%.1f%%", hitRate),
-            negativeHitCount,
-            verifySuccessCount,
-            verifyRejectCount,
-            disabledCount,
-            fallbackSlowPathCount,
-            expectedMismatchCount,
-            containerMismatchCount,
-            nonItemKeyCount,
-            postCraftingEventCount,
-            keyBuildFailedCount,
-            exceptionCount,
-            fastPathAcceptedCount,
-            slowPathAcceptedCount,
-            coolantRejectCount,
-            noThreadRejectCount
-        );
+                "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={} negativeHit={} verified={} rejected={} fallbackReason[disabled={} unverified={} expectedMismatch={} containerMismatch={} nonItemKey={} postCraftingEvent={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
+                owner,
+                size(),
+                limit,
+                hitCount,
+                missCount,
+                String.format(java.util.Locale.ROOT, "%.1f%%", hitRate),
+                negativeHitCount,
+                verifySuccessCount,
+                verifyRejectCount,
+                disabledCount,
+                fallbackSlowPathCount,
+                expectedMismatchCount,
+                containerMismatchCount,
+                nonItemKeyCount,
+                postCraftingEventCount,
+                keyBuildFailedCount,
+                exceptionCount,
+                fastPathAcceptedCount,
+                slowPathAcceptedCount,
+                coolantRejectCount,
+                noThreadRejectCount);
     }
 }

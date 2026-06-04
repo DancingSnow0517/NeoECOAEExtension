@@ -10,34 +10,29 @@ import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
-import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.SimpleMenuProvider;
-import net.minecraftforge.fluids.capability.templates.FluidTank;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.NetworkHooks;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.InteractionHand;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.simple.SimpleChannel;
-
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.network.NetworkHooks;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.PacketDistributor;
+import net.minecraftforge.network.simple.SimpleChannel;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Unified mod network channel for UI state sync and future packets.
@@ -51,71 +46,78 @@ public final class NENetwork {
 
     private static final String PROTOCOL_VERSION = "1";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
-        new ResourceLocation(NeoECOAE.MOD_ID, "ui"),
-        () -> PROTOCOL_VERSION,
-        PROTOCOL_VERSION::equals,
-        PROTOCOL_VERSION::equals
-    );
+            new ResourceLocation(NeoECOAE.MOD_ID, "ui"),
+            () -> PROTOCOL_VERSION,
+            PROTOCOL_VERSION::equals,
+            PROTOCOL_VERSION::equals);
 
     private static int packetId = 0;
     private static final int MAX_STORAGE_UI_TYPES = 64;
     private static final int MAX_STRUCTURE_TERMINAL_MATERIALS = 64;
 
     public static void register() {
-        registerS2C(NEStorageUiStatePacket.class,
-            NEStorageUiStatePacket::encode,
-            NEStorageUiStatePacket::decode,
-            NEStorageUiStatePacket::handle);
+        registerS2C(
+                NEStorageUiStatePacket.class,
+                NEStorageUiStatePacket::encode,
+                NEStorageUiStatePacket::decode,
+                NEStorageUiStatePacket::handle);
 
-        registerS2C(NEComputationUiStatePacket.class,
-            NEComputationUiStatePacket::encode,
-            NEComputationUiStatePacket::decode,
-            NEComputationUiStatePacket::handle);
+        registerS2C(
+                NEComputationUiStatePacket.class,
+                NEComputationUiStatePacket::encode,
+                NEComputationUiStatePacket::decode,
+                NEComputationUiStatePacket::handle);
 
-        registerS2C(NECraftingUiStatePacket.class,
-            NECraftingUiStatePacket::encode,
-            NECraftingUiStatePacket::decode,
-            NECraftingUiStatePacket::handle);
+        registerS2C(
+                NECraftingUiStatePacket.class,
+                NECraftingUiStatePacket::encode,
+                NECraftingUiStatePacket::decode,
+                NECraftingUiStatePacket::handle);
 
-        registerC2S(NECraftingUiActionPacket.class,
-            NECraftingUiActionPacket::encode,
-            NECraftingUiActionPacket::decode,
-            NECraftingUiActionPacket::handle);
+        registerC2S(
+                NECraftingUiActionPacket.class,
+                NECraftingUiActionPacket::encode,
+                NECraftingUiActionPacket::decode,
+                NECraftingUiActionPacket::handle);
 
-        registerC2S(NEOpenCraftingUiPacket.class,
-            NEOpenCraftingUiPacket::encode,
-            NEOpenCraftingUiPacket::decode,
-            NEOpenCraftingUiPacket::handle);
+        registerC2S(
+                NEOpenCraftingUiPacket.class,
+                NEOpenCraftingUiPacket::encode,
+                NEOpenCraftingUiPacket::decode,
+                NEOpenCraftingUiPacket::handle);
 
-        registerS2C(NEStructureTerminalUiStatePacket.class,
-            NEStructureTerminalUiStatePacket::encode,
-            NEStructureTerminalUiStatePacket::decode,
-            NEStructureTerminalUiStatePacket::handle);
+        registerS2C(
+                NEStructureTerminalUiStatePacket.class,
+                NEStructureTerminalUiStatePacket::encode,
+                NEStructureTerminalUiStatePacket::decode,
+                NEStructureTerminalUiStatePacket::handle);
 
-        registerC2S(NEStructureTerminalActionPacket.class,
-            NEStructureTerminalActionPacket::encode,
-            NEStructureTerminalActionPacket::decode,
-            NEStructureTerminalActionPacket::handle);
+        registerC2S(
+                NEStructureTerminalActionPacket.class,
+                NEStructureTerminalActionPacket::encode,
+                NEStructureTerminalActionPacket::decode,
+                NEStructureTerminalActionPacket::handle);
 
-        registerS2C(NEStructureTerminalConfigPacket.class,
-            NEStructureTerminalConfigPacket::encode,
-            NEStructureTerminalConfigPacket::decode,
-            NEStructureTerminalConfigPacket::handle);
+        registerS2C(
+                NEStructureTerminalConfigPacket.class,
+                NEStructureTerminalConfigPacket::encode,
+                NEStructureTerminalConfigPacket::decode,
+                NEStructureTerminalConfigPacket::handle);
 
-        registerC2S(NEStructureTerminalConfigActionPacket.class,
-            NEStructureTerminalConfigActionPacket::encode,
-            NEStructureTerminalConfigActionPacket::decode,
-            NEStructureTerminalConfigActionPacket::handle);
+        registerC2S(
+                NEStructureTerminalConfigActionPacket.class,
+                NEStructureTerminalConfigActionPacket::encode,
+                NEStructureTerminalConfigActionPacket::decode,
+                NEStructureTerminalConfigActionPacket::handle);
 
-        registerC2S(NEIntegratedWorkingStationActionPacket.class,
-            NEIntegratedWorkingStationActionPacket::encode,
-            NEIntegratedWorkingStationActionPacket::decode,
-            NEIntegratedWorkingStationActionPacket::handle);
+        registerC2S(
+                NEIntegratedWorkingStationActionPacket.class,
+                NEIntegratedWorkingStationActionPacket::encode,
+                NEIntegratedWorkingStationActionPacket::decode,
+                NEIntegratedWorkingStationActionPacket::handle);
 
-        registerS2C(NEIWSStatePacket.class,
-            NEIWSStatePacket::encode,
-            NEIWSStatePacket::decode,
-            NEIWSStatePacket::handle);
+        registerS2C(
+                NEIWSStatePacket.class, NEIWSStatePacket::encode, NEIWSStatePacket::decode, NEIWSStatePacket::handle);
     }
 
     /**
@@ -126,25 +128,23 @@ public final class NENetwork {
      * </p>
      */
     @SuppressWarnings("SameParameterValue")
-    private static <MSG> void registerS2C(Class<MSG> clazz,
-                                           java.util.function.BiConsumer<MSG, FriendlyByteBuf> encoder,
-                                           java.util.function.Function<FriendlyByteBuf, MSG> decoder,
-                                           java.util.function.BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
+    private static <MSG> void registerS2C(
+            Class<MSG> clazz,
+            java.util.function.BiConsumer<MSG, FriendlyByteBuf> encoder,
+            java.util.function.Function<FriendlyByteBuf, MSG> decoder,
+            java.util.function.BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
         CHANNEL.registerMessage(
-            packetId++, clazz, encoder, decoder, handler,
-            Optional.of(NetworkDirection.PLAY_TO_CLIENT)
-        );
+                packetId++, clazz, encoder, decoder, handler, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     @SuppressWarnings("SameParameterValue")
-    private static <MSG> void registerC2S(Class<MSG> clazz,
-                                           java.util.function.BiConsumer<MSG, FriendlyByteBuf> encoder,
-                                           java.util.function.Function<FriendlyByteBuf, MSG> decoder,
-                                           java.util.function.BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
+    private static <MSG> void registerC2S(
+            Class<MSG> clazz,
+            java.util.function.BiConsumer<MSG, FriendlyByteBuf> encoder,
+            java.util.function.Function<FriendlyByteBuf, MSG> decoder,
+            java.util.function.BiConsumer<MSG, Supplier<NetworkEvent.Context>> handler) {
         CHANNEL.registerMessage(
-            packetId++, clazz, encoder, decoder, handler,
-            Optional.of(NetworkDirection.PLAY_TO_SERVER)
-        );
+                packetId++, clazz, encoder, decoder, handler, Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
     /**
@@ -194,19 +194,17 @@ public final class NENetwork {
                 long totalTypes = buf.readLong();
                 long usedBytes = buf.readLong();
                 long totalBytes = buf.readLong();
-                typeStates.add(new NEStorageUiTypeState(typeId, displayName,
-                    usedTypes, totalTypes, usedBytes, totalBytes));
+                typeStates.add(
+                        new NEStorageUiTypeState(typeId, displayName, usedTypes, totalTypes, usedBytes, totalBytes));
             }
 
-            return new NEStorageUiStatePacket(
-                new NEStorageUiState(pos, typeStates, storedEnergy, maxEnergy, formed)
-            );
+            return new NEStorageUiStatePacket(new NEStorageUiState(pos, typeStates, storedEnergy, maxEnergy, formed));
         }
 
         public static void handle(NEStorageUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
-            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> NEClientUiPacketHandlers.handleStorageUiState(pkt)));
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                    Dist.CLIENT, () -> () -> NEClientUiPacketHandlers.handleStorageUiState(pkt)));
             ctx.setPacketHandled(true);
         }
     }
@@ -245,16 +243,22 @@ public final class NENetwork {
             int parallelCount = buf.readInt();
             int accelerators = buf.readInt();
 
-            return new NEComputationUiStatePacket(
-                new NEComputationUiState(pos, formed, active, usedThreads, maxThreads,
-                    availableStorage, totalStorage, parallelCount, accelerators)
-            );
+            return new NEComputationUiStatePacket(new NEComputationUiState(
+                    pos,
+                    formed,
+                    active,
+                    usedThreads,
+                    maxThreads,
+                    availableStorage,
+                    totalStorage,
+                    parallelCount,
+                    accelerators));
         }
 
         public static void handle(NEComputationUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
-            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> NEClientUiPacketHandlers.handleComputationUiState(pkt)));
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                    Dist.CLIENT, () -> () -> NEClientUiPacketHandlers.handleComputationUiState(pkt)));
             ctx.setPacketHandled(true);
         }
     }
@@ -290,33 +294,32 @@ public final class NENetwork {
 
         public static NECraftingUiStatePacket decode(FriendlyByteBuf buf) {
             return new NECraftingUiStatePacket(new NECraftingUiState(
-                buf.readBlockPos(),
-                buf.readBoolean(),
-                buf.readBoolean(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readBoolean(),
-                buf.readBoolean(),
-                buf.readBoolean(),
-                buf.readInt(),
-                buf.readBoolean(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readUtf(256),
-                buf.readInt(),
-                buf.readInt()
-            ));
+                    buf.readBlockPos(),
+                    buf.readBoolean(),
+                    buf.readBoolean(),
+                    buf.readInt(),
+                    buf.readInt(),
+                    buf.readInt(),
+                    buf.readInt(),
+                    buf.readInt(),
+                    buf.readBoolean(),
+                    buf.readBoolean(),
+                    buf.readBoolean(),
+                    buf.readInt(),
+                    buf.readBoolean(),
+                    buf.readInt(),
+                    buf.readInt(),
+                    buf.readInt(),
+                    buf.readInt(),
+                    buf.readUtf(256),
+                    buf.readInt(),
+                    buf.readInt()));
         }
 
         public static void handle(NECraftingUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
-            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> NEClientUiPacketHandlers.handleCraftingUiState(pkt)));
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                    Dist.CLIENT, () -> () -> NEClientUiPacketHandlers.handleCraftingUiState(pkt)));
             ctx.setPacketHandled(true);
         }
     }
@@ -482,13 +485,10 @@ public final class NENetwork {
                 Component title = targetBe.getBlockState().getBlock().getName();
 
                 NetworkHooks.openScreen(
-                    (ServerPlayer) sender,
-                    new SimpleMenuProvider(
-                        (windowId, inv, p) -> new NECraftingControllerMenu(windowId, inv, targetPos),
-                        title
-                    ),
-                    buf -> buf.writeBlockPos(targetPos)
-                );
+                        (ServerPlayer) sender,
+                        new SimpleMenuProvider(
+                                (windowId, inv, p) -> new NECraftingControllerMenu(windowId, inv, targetPos), title),
+                        buf -> buf.writeBlockPos(targetPos));
             });
             ctx.setPacketHandled(true);
         }
@@ -545,23 +545,38 @@ public final class NENetwork {
             int arg2 = buf.readInt();
             int matCount = buf.readVarInt();
             if (matCount > MAX_STRUCTURE_TERMINAL_MATERIALS) {
-                throw new IllegalArgumentException("Structure Terminal material count exceeds protocol limit: " + matCount);
+                throw new IllegalArgumentException(
+                        "Structure Terminal material count exceeds protocol limit: " + matCount);
             }
             var mats = new java.util.ArrayList<NEStructureTerminalUiState.BuildMaterialEntry>(matCount);
             for (int i = 0; i < matCount; i++) {
                 mats.add(new NEStructureTerminalUiState.BuildMaterialEntry(
-                    buf.readItem(), buf.readInt(), buf.readInt()));
+                        buf.readItem(), buf.readInt(), buf.readInt()));
             }
             return new NEStructureTerminalUiStatePacket(new NEStructureTerminalUiState(
-                hostPos, structureName, formed, buildInProgress, buildLength,
-                minLen, maxLen, missing, conflicts, reused, required,
-                placed, total, statusKey, arg1, arg2, mats));
+                    hostPos,
+                    structureName,
+                    formed,
+                    buildInProgress,
+                    buildLength,
+                    minLen,
+                    maxLen,
+                    missing,
+                    conflicts,
+                    reused,
+                    required,
+                    placed,
+                    total,
+                    statusKey,
+                    arg1,
+                    arg2,
+                    mats));
         }
 
         public static void handle(NEStructureTerminalUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
-            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> NEClientUiPacketHandlers.handleStructureTerminalUiState(pkt)));
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                    Dist.CLIENT, () -> () -> NEClientUiPacketHandlers.handleStructureTerminalUiState(pkt)));
             ctx.setPacketHandled(true);
         }
     }
@@ -599,13 +614,12 @@ public final class NENetwork {
      * Structure Terminal config UI.
      */
     public record NEStructureTerminalConfigPacket(
-        int currentLength,
-        int minLength,
-        int maxLength,
-        StructureTerminalHostType hostType,
-        StructureTerminalMode operationMode,
-        List<NEStructureTerminalUiState.BuildMaterialEntry> materials
-    ) {
+            int currentLength,
+            int minLength,
+            int maxLength,
+            StructureTerminalHostType hostType,
+            StructureTerminalMode operationMode,
+            List<NEStructureTerminalUiState.BuildMaterialEntry> materials) {
 
         public static void encode(NEStructureTerminalConfigPacket pkt, FriendlyByteBuf buf) {
             buf.writeInt(pkt.currentLength());
@@ -633,20 +647,22 @@ public final class NENetwork {
             StructureTerminalMode operationMode = buf.readEnum(StructureTerminalMode.class);
             int matCount = buf.readVarInt();
             if (matCount > MAX_STRUCTURE_TERMINAL_MATERIALS) {
-                throw new IllegalArgumentException("Structure Terminal config material count exceeds protocol limit: " + matCount);
+                throw new IllegalArgumentException(
+                        "Structure Terminal config material count exceeds protocol limit: " + matCount);
             }
             var mats = new java.util.ArrayList<NEStructureTerminalUiState.BuildMaterialEntry>(matCount);
             for (int i = 0; i < matCount; i++) {
                 mats.add(new NEStructureTerminalUiState.BuildMaterialEntry(
-                    buf.readItem(), buf.readInt(), buf.readInt()));
+                        buf.readItem(), buf.readInt(), buf.readInt()));
             }
-            return new NEStructureTerminalConfigPacket(currentLength, minLength, maxLength, hostType, operationMode, mats);
+            return new NEStructureTerminalConfigPacket(
+                    currentLength, minLength, maxLength, hostType, operationMode, mats);
         }
 
         public static void handle(NEStructureTerminalConfigPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
-            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> NEClientUiPacketHandlers.handleStructureTerminalConfig(pkt)));
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                    Dist.CLIENT, () -> () -> NEClientUiPacketHandlers.handleStructureTerminalConfig(pkt)));
             ctx.setPacketHandled(true);
         }
     }
@@ -678,7 +694,8 @@ public final class NENetwork {
             return new NEStructureTerminalConfigActionPacket(buf.readEnum(Action.class));
         }
 
-        public static void handle(NEStructureTerminalConfigActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+        public static void handle(
+                NEStructureTerminalConfigActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
             var sender = ctx.getSender();
             if (sender == null) {
@@ -699,22 +716,29 @@ public final class NENetwork {
 
                 int current = StructureTerminalItem.getBuildLength(stack);
                 switch (pkt.action()) {
-                    case SELECT_CRAFTING -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.CRAFTING);
+                    case SELECT_CRAFTING -> StructureTerminalItem.setHostType(
+                            stack, StructureTerminalHostType.CRAFTING);
                     case SELECT_STORAGE -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.STORAGE);
-                    case SELECT_COMPUTATION -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.COMPUTATION);
-                    case SELECT_BUILD_MODE -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.BUILD);
-                    case SELECT_MIRRORED_BUILD_MODE -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.MIRRORED_BUILD);
-                    case SELECT_DISMANTLE_MODE -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.DISMANTLE);
+                    case SELECT_COMPUTATION -> StructureTerminalItem.setHostType(
+                            stack, StructureTerminalHostType.COMPUTATION);
+                    case SELECT_BUILD_MODE -> StructureTerminalItem.setOperationMode(
+                            stack, StructureTerminalMode.BUILD);
+                    case SELECT_MIRRORED_BUILD_MODE -> StructureTerminalItem.setOperationMode(
+                            stack, StructureTerminalMode.MIRRORED_BUILD);
+                    case SELECT_DISMANTLE_MODE -> StructureTerminalItem.setOperationMode(
+                            stack, StructureTerminalMode.DISMANTLE);
                     default -> {
-                        int newLength = switch (pkt.action()) {
-                            case INCREASE -> current + 1;
-                            case DECREASE -> current - 1;
-                            case RESET -> StructureTerminalItem.DEFAULT_BUILD_LENGTH;
-                            default -> current;
-                        };
+                        int newLength =
+                                switch (pkt.action()) {
+                                    case INCREASE -> current + 1;
+                                    case DECREASE -> current - 1;
+                                    case RESET -> StructureTerminalItem.DEFAULT_BUILD_LENGTH;
+                                    default -> current;
+                                };
                         StructureTerminalItem.setBuildLength(stack, newLength);
                     }
-                };
+                }
+                ;
 
                 // Sync fresh value from NBT (not cached value) to client
                 menu.syncToClient(sender);
@@ -745,7 +769,8 @@ public final class NENetwork {
             return new NEIntegratedWorkingStationActionPacket(buf.readBlockPos(), buf.readEnum(IWSAction.class));
         }
 
-        public static void handle(NEIntegratedWorkingStationActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+        public static void handle(
+                NEIntegratedWorkingStationActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
             var sender = ctx.getSender();
             if (sender == null) {
@@ -790,8 +815,8 @@ public final class NENetwork {
 
     // ── IWS state sync packet (S2C, sent after every IWSAction) ──
 
-    public record NEIWSStatePacket(BlockPos pos, CompoundTag inputTankTag, CompoundTag outputTankTag,
-                                    boolean autoExport) {
+    public record NEIWSStatePacket(
+            BlockPos pos, CompoundTag inputTankTag, CompoundTag outputTankTag, boolean autoExport) {
         public static void encode(NEIWSStatePacket pkt, FriendlyByteBuf buf) {
             buf.writeBlockPos(pkt.pos());
             buf.writeNbt(pkt.inputTankTag());
@@ -805,8 +830,8 @@ public final class NENetwork {
 
         public static void handle(NEIWSStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
             NetworkEvent.Context ctx = ctxSupplier.get();
-            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> NEClientUiPacketHandlers.handleIwsStatePacket(pkt)));
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                    Dist.CLIENT, () -> () -> NEClientUiPacketHandlers.handleIwsStatePacket(pkt)));
             ctx.setPacketHandled(true);
         }
     }
@@ -817,8 +842,7 @@ public final class NENetwork {
         iws.getInputTank().writeToNBT(inputTag);
         iws.getOutputTank().writeToNBT(outputTag);
         CHANNEL.send(
-            PacketDistributor.PLAYER.with(() -> player),
-            new NEIWSStatePacket(iws.getBlockPos(), inputTag, outputTag, iws.isShouldAutoExport())
-        );
+                PacketDistributor.PLAYER.with(() -> player),
+                new NEIWSStatePacket(iws.getBlockPos(), inputTag, outputTag, iws.isShouldAutoExport()));
     }
 }

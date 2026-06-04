@@ -8,13 +8,11 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 public final class AE2FastPathCompat {
-    private AE2FastPathCompat() {
-    }
+    private AE2FastPathCompat() {}
 
     @Mod.EventBusSubscriber(modid = NeoECOAE.MOD_ID)
     public static final class Events {
-        private Events() {
-        }
+        private Events() {}
 
         @SubscribeEvent
         public static void onServerStarted(ServerStartedEvent event) {

@@ -21,21 +21,18 @@ public class NEBiomeModifiers {
         HolderGetter<Biome> biomes = context.lookup(Registries.BIOME);
         HolderGetter<PlacedFeature> placedFeatures = context.lookup(Registries.PLACED_FEATURE);
         BiomeModifiers.AddFeaturesBiomeModifier oreBiomeModifier = new BiomeModifiers.AddFeaturesBiomeModifier(
-            HolderSet.direct(
-                biomes.getOrThrow(Biomes.THE_END),
-                biomes.getOrThrow(Biomes.END_HIGHLANDS),
-                biomes.getOrThrow(Biomes.END_MIDLANDS),
-                biomes.getOrThrow(Biomes.SMALL_END_ISLANDS),
-                biomes.getOrThrow(Biomes.END_BARRENS)
-            ),
-            HolderSet.direct(
-                placedFeatures.getOrThrow(NEPlacedFeatures.ORE_ALUMINUM),
-                placedFeatures.getOrThrow(NEPlacedFeatures.ORE_ALUMINUM_SMALL),
-                placedFeatures.getOrThrow(NEPlacedFeatures.ORE_TUNGSTEN),
-                placedFeatures.getOrThrow(NEPlacedFeatures.ORE_TUNGSTEN_SMALL)
-            ),
-            GenerationStep.Decoration.UNDERGROUND_ORES
-        );
+                HolderSet.direct(
+                        biomes.getOrThrow(Biomes.THE_END),
+                        biomes.getOrThrow(Biomes.END_HIGHLANDS),
+                        biomes.getOrThrow(Biomes.END_MIDLANDS),
+                        biomes.getOrThrow(Biomes.SMALL_END_ISLANDS),
+                        biomes.getOrThrow(Biomes.END_BARRENS)),
+                HolderSet.direct(
+                        placedFeatures.getOrThrow(NEPlacedFeatures.ORE_ALUMINUM),
+                        placedFeatures.getOrThrow(NEPlacedFeatures.ORE_ALUMINUM_SMALL),
+                        placedFeatures.getOrThrow(NEPlacedFeatures.ORE_TUNGSTEN),
+                        placedFeatures.getOrThrow(NEPlacedFeatures.ORE_TUNGSTEN_SMALL)),
+                GenerationStep.Decoration.UNDERGROUND_ORES);
         context.register(ORE_END, oreBiomeModifier);
     }
 

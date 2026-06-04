@@ -1,11 +1,10 @@
 package cn.dancingsnow.neoecoae.all;
 
 import com.google.common.base.Suppliers;
+import java.util.function.Supplier;
 import lombok.Getter;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.crafting.Ingredient;
-
-import java.util.function.Supplier;
 
 @Getter
 public enum NEToolTier implements Tier {
@@ -21,7 +20,13 @@ public enum NEToolTier implements Tier {
     private final int enchantmentValue;
     private final Supplier<Ingredient> ingredientSupplier;
 
-    NEToolTier(int level, int uses, float speed, float attackDamageBonus, int enchantmentValue, Supplier<Ingredient> ingredientSupplier) {
+    NEToolTier(
+            int level,
+            int uses,
+            float speed,
+            float attackDamageBonus,
+            int enchantmentValue,
+            Supplier<Ingredient> ingredientSupplier) {
         this.level = level;
         this.uses = uses;
         this.speed = speed;
@@ -29,7 +34,6 @@ public enum NEToolTier implements Tier {
         this.enchantmentValue = enchantmentValue;
         this.ingredientSupplier = Suppliers.memoize(ingredientSupplier::get);
     }
-
 
     @Override
     public Ingredient getRepairIngredient() {

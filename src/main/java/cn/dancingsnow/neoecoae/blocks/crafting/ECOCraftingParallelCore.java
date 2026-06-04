@@ -15,15 +15,13 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 
 public class ECOCraftingParallelCore extends NEBlock<ECOCraftingParallelCoreBlockEntity> {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+
     @Getter
     private final IECOTier tier;
 
     public ECOCraftingParallelCore(Properties properties, IECOTier tier) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(FACING, Direction.NORTH)
-        );
+        registerDefaultState(getStateDefinition().any().setValue(FORMED, false).setValue(FACING, Direction.NORTH));
         this.tier = tier;
     }
 

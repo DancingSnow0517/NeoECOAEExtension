@@ -6,21 +6,23 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOEnergyCellBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class NEStorageCluster extends NECluster<NEStorageCluster> {
 
     @Getter
     private ECOStorageSystemBlockEntity controller = null;
+
     @Getter
     private final List<ECODriveBlockEntity> drives = new ArrayList<>();
+
     @Getter
     private final List<ECOEnergyCellBlockEntity> energyCells = new ArrayList<>();
+
     private ECOMachineInterfaceBlockEntity<NEStorageCluster> theInterface = null;
     private final List<ECOMachineCasingBlockEntity<NEStorageCluster>> casings = new ArrayList<>();
 

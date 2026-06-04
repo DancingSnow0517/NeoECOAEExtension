@@ -2,11 +2,11 @@ package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.common.ForgeConfigSpec;
 
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEConfig {
@@ -17,61 +17,45 @@ public class NEConfig {
     private static final boolean DEFAULT_INCREASE_STORAGE_CELL_CAPACITY = isGtmLoaded();
 
     static {
-        BUILDER
-            .comment(
-                "Multiblock structure size limits."
-            )
-            .push("structure");
+        BUILDER.comment("Multiblock structure size limits.").push("structure");
     }
 
-    private static final ForgeConfigSpec.IntValue CRAFTING_SYSTEM_MAX_LENGTH = BUILDER
-        .comment(
-            "Maximum length (in blocks) allowed for the Crafting System multiblock.",
-            "Higher values allow longer expansions but may increase structure check cost."
-        )
-        .defineInRange("craftingSystemMaxLength", 15, CRAFTING_SYSTEM_MIN_LENGTH, Integer.MAX_VALUE);
+    private static final ForgeConfigSpec.IntValue CRAFTING_SYSTEM_MAX_LENGTH = BUILDER.comment(
+                    "Maximum length (in blocks) allowed for the Crafting System multiblock.",
+                    "Higher values allow longer expansions but may increase structure check cost.")
+            .defineInRange("craftingSystemMaxLength", 15, CRAFTING_SYSTEM_MIN_LENGTH, Integer.MAX_VALUE);
 
-    private static final ForgeConfigSpec.IntValue COMPUTATION_SYSTEM_MAX_LENGTH = BUILDER
-        .comment(
-            "Maximum length (in blocks) allowed for the Computation System multiblock.",
-            "Higher values allow longer expansions but may increase structure check cost."
-        )
-        .defineInRange("computationSystemMaxLength", 15, COMPUTATION_SYSTEM_MIN_LENGTH, Integer.MAX_VALUE);
+    private static final ForgeConfigSpec.IntValue COMPUTATION_SYSTEM_MAX_LENGTH = BUILDER.comment(
+                    "Maximum length (in blocks) allowed for the Computation System multiblock.",
+                    "Higher values allow longer expansions but may increase structure check cost.")
+            .defineInRange("computationSystemMaxLength", 15, COMPUTATION_SYSTEM_MIN_LENGTH, Integer.MAX_VALUE);
 
-    private static final ForgeConfigSpec.IntValue STORAGE_SYSTEM_MAX_LENGTH = BUILDER
-        .comment(
-            "Maximum length (in blocks) allowed for the Storage System multiblock.",
-            "Higher values allow longer expansions but may increase structure check cost."
-        )
-        .defineInRange("storageSystemMaxLength", 15, STORAGE_SYSTEM_MIN_LENGTH, Integer.MAX_VALUE);
+    private static final ForgeConfigSpec.IntValue STORAGE_SYSTEM_MAX_LENGTH = BUILDER.comment(
+                    "Maximum length (in blocks) allowed for the Storage System multiblock.",
+                    "Higher values allow longer expansions but may increase structure check cost.")
+            .defineInRange("storageSystemMaxLength", 15, STORAGE_SYSTEM_MIN_LENGTH, Integer.MAX_VALUE);
 
     static {
         BUILDER.pop();
     }
 
-    private static final ForgeConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER
-        .comment(
-            "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.",
-            "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
-        )
-        .define("postCraftingEvent", false);
+    private static final ForgeConfigSpec.BooleanValue POST_CRAFTING_EVENT = BUILDER.comment(
+                    "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.",
+                    "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed.")
+            .define("postCraftingEvent", false);
 
-    private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AE2_FAST_PATH = BUILDER
-        .comment(
-            "Enable the verified AE2-assisted fast path for ECO crafting workers.",
-            "Set JVM property -Dneoecoae.ecoFastPath=false to force-disable this optimization without editing the config."
-        )
-        .define("enableEcoAe2FastPath", true);
+    private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AE2_FAST_PATH = BUILDER.comment(
+                    "Enable the verified AE2-assisted fast path for ECO crafting workers.",
+                    "Set JVM property -Dneoecoae.ecoFastPath=false to force-disable this optimization without editing the config.")
+            .define("enableEcoAe2FastPath", true);
 
-    private static final ForgeConfigSpec.BooleanValue INCREASE_STORAGE_CELL_CAPACITY = BUILDER
-        .comment(
-            "Increase ECO Storage Matrix capacity.",
-            "Defaults to true when GregTech Modern/GTCEu is loaded, otherwise false.",
-            "false keeps the old capacity.",
-            "true changes ECO Storage Matrix capacity to L4=256MiB, L6=4GiB, L9=64GiB and multiplies computation flash capacity by 16.",
-            "Changing this config is fully applied after re-entering the world or restarting the server."
-        )
-        .define("increaseStorageCellCapacity", DEFAULT_INCREASE_STORAGE_CELL_CAPACITY);
+    private static final ForgeConfigSpec.BooleanValue INCREASE_STORAGE_CELL_CAPACITY = BUILDER.comment(
+                    "Increase ECO Storage Matrix capacity.",
+                    "Defaults to true when GregTech Modern/GTCEu is loaded, otherwise false.",
+                    "false keeps the old capacity.",
+                    "true changes ECO Storage Matrix capacity to L4=256MiB, L6=4GiB, L9=64GiB and multiplies computation flash capacity by 16.",
+                    "Changing this config is fully applied after re-entering the world or restarting the server.")
+            .define("increaseStorageCellCapacity", DEFAULT_INCREASE_STORAGE_CELL_CAPACITY);
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
@@ -88,11 +72,7 @@ public class NEConfig {
     }
 
     public static void applyClientConfig(
-        int craftingMaxLength,
-        int computationMaxLength,
-        int storageMaxLength,
-        boolean increaseCapacity
-    ) {
+            int craftingMaxLength, int computationMaxLength, int storageMaxLength, boolean increaseCapacity) {
         CRAFTING_SYSTEM_MAX_LENGTH.set(Math.max(CRAFTING_SYSTEM_MIN_LENGTH, craftingMaxLength));
         COMPUTATION_SYSTEM_MAX_LENGTH.set(Math.max(COMPUTATION_SYSTEM_MIN_LENGTH, computationMaxLength));
         STORAGE_SYSTEM_MAX_LENGTH.set(Math.max(STORAGE_SYSTEM_MIN_LENGTH, storageMaxLength));
@@ -151,8 +131,8 @@ public class NEConfig {
     private static boolean isGtmLoaded() {
         try {
             return ModList.get().isLoaded("gtceu")
-                || ModList.get().isLoaded("gtm")
-                || ModList.get().isLoaded("gregtech");
+                    || ModList.get().isLoaded("gtm")
+                    || ModList.get().isLoaded("gregtech");
         } catch (Throwable ignored) {
             return false;
         }

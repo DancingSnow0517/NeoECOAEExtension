@@ -23,9 +23,9 @@ Neo Eco AE Extension and Eco AE Extension are related only through an authorized
 
 Please do not submit issues, bug reports, or technical support requests related to Neo Eco AE Extension to the Eco AE Extension project. Such reports cannot be properly addressed and may cause unnecessary disruption to the maintenance and development work of the Eco AE Extension team.
 
-Project maintenance and development information:   
-Eco AE Extension is led and developed by **Hikari_Nova**;    
-Neo Eco AE Extension is led and developed by **DancingSnow0517**.    
+Project maintenance and development information:
+Eco AE Extension is led and developed by **Hikari_Nova**;
+Neo Eco AE Extension is led and developed by **DancingSnow0517**.
 
 ## Code style
 

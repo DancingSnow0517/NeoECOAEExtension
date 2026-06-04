@@ -12,6 +12,12 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.mojang.logging.LogUtils;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -21,21 +27,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
-    extends AENetworkBlockEntity implements IAEMultiBlock<C> {
+public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>> extends AENetworkBlockEntity
+        implements IAEMultiBlock<C> {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> LOGGED_FORMED_UPDATES = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_REBUILDS = ConcurrentHashMap.newKeySet();
@@ -47,16 +45,18 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     protected boolean formed = false;
 
     @Getter
-    @Nullable
-    protected C cluster;
+    @Nullable protected C cluster;
+
     @Getter
     protected final NEClusterCalculator<C> calculator;
 
-    public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
+    public NEBlockEntity(
+            BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
         super(type, pos, blockState);
         this.calculator = calculator.create(this);
-        getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
-            .addService(IGridMultiblock.class, this::getMultiblockNodes);
+        getMainNode()
+                .setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
+                .addService(IGridMultiblock.class, this::getMultiblockNodes);
         onGridConnectableSidesChanged();
     }
 
@@ -133,22 +133,17 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
         if (DEBUG_MIRROR_BUILD) {
             LOGGER.debug(
-                "NE multiblock updateState: pos={} block={} formed={} clusterPresent={} clusterMirrored={} oldState={} newState={}",
-                worldPosition,
-                ForgeRegistries.BLOCKS.getKey(oldState.getBlock()),
-                formed,
-                cluster != null,
-                cluster != null && cluster.isMirrored(),
-                oldState,
-                newState
-            );
+                    "NE multiblock updateState: pos={} block={} formed={} clusterPresent={} clusterMirrored={} oldState={} newState={}",
+                    worldPosition,
+                    ForgeRegistries.BLOCKS.getKey(oldState.getBlock()),
+                    formed,
+                    cluster != null,
+                    cluster != null && cluster.isMirrored(),
+                    oldState,
+                    newState);
         }
         if (!oldState.equals(newState)) {
-            level.setBlock(
-                worldPosition,
-                newState,
-                Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS
-            );
+            level.setBlock(worldPosition, newState, Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS);
         }
         if (updateExposed) {
             onGridConnectableSidesChanged();
@@ -174,7 +169,6 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             }
         }
         return nodes.listIterator();
-
     }
 
     public void updateCluster(@Nullable C cluster) {

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
+import java.util.Objects;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.minecraft.advancements.Criterion;
@@ -12,19 +14,19 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.fluids.FluidStack;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Objects;
 
 @Accessors(fluent = true, chain = true)
 public class CoolingRecipeBuilder implements RecipeBuilder {
 
     private SizedFluidIngredient input = null;
+
     @Setter
     private FluidStack output = FluidStack.EMPTY;
+
     @Setter
     private int coolant = 0;
+
     @Setter
     private int maxOverclock = 9;
 

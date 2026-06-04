@@ -9,9 +9,9 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
-import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
+import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -28,8 +28,6 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
         implements IStorageProvider, ICellHost {
 
@@ -37,24 +35,21 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> HANDLER);
     private final IBatchedECOCellSaveProvider cellSaveProvider = this::markCellContentDirty;
 
-    @Nullable
-    private ItemStack cellStack = null;
-    @Nullable
-    private IECOStorageCell cachedCellInventory = null;
-    @Nullable
-    private ItemStack cachedCellInventoryStack = null;
+    @Nullable private ItemStack cellStack = null;
+
+    @Nullable private IECOStorageCell cachedCellInventory = null;
+
+    @Nullable private ItemStack cachedCellInventoryStack = null;
 
     @Getter
     private boolean mounted = false;
+
     @Getter
     private boolean online = false;
-    @Nullable
-    private CellState lastSyncedCellState = null;
 
-    public ECODriveBlockEntity(
-            BlockEntityType<ECODriveBlockEntity> type,
-            BlockPos pos,
-            BlockState blockState) {
+    @Nullable private CellState lastSyncedCellState = null;
+
+    public ECODriveBlockEntity(BlockEntityType<ECODriveBlockEntity> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
         getMainNode().addService(IStorageProvider.class, this);
     }
@@ -79,8 +74,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         notifyControllerRefresh();
     }
 
-    @Nullable
-    @Override
+    @Nullable @Override
     public ItemStack getCellStack() {
         flushPendingCellContent();
         return cellStack;
@@ -122,8 +116,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         }
     }
 
-    @Nullable
-    public IECOStorageCell getCellInventory() {
+    @Nullable public IECOStorageCell getCellInventory() {
         if (cellStack == null) {
             invalidateCellInventoryCache();
             return null;
@@ -222,8 +215,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         logVisualSync("handleUpdateTag", tag);
     }
 
-    @Nullable
-    @Override
+    @Nullable @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
@@ -262,8 +254,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         this.lastSyncedCellState = getCurrentCellState();
     }
 
-    @Nullable
-    private CellState getCurrentCellState() {
+    @Nullable private CellState getCurrentCellState() {
         IECOStorageCell cellInventory = getCellInventory();
         return cellInventory == null ? null : cellInventory.getStatus();
     }
@@ -304,10 +295,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
      * executes on the server.
      */
     private void notifyControllerRefresh() {
-        if (level == null || level.isClientSide)
-            return;
-        if (cluster == null || cluster.getController() == null)
-            return;
+        if (level == null || level.isClientSide) return;
+        if (cluster == null || cluster.getController() == null) return;
         cluster.getController().refreshStorageUiState();
     }
 

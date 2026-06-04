@@ -18,8 +18,7 @@ public final class NEInteractionUtil {
 
     private static final TagKey<Item> WRENCH_TAG = ItemTags.create(new ResourceLocation("forge", "tools/wrench"));
 
-    private NEInteractionUtil() {
-    }
+    private NEInteractionUtil() {}
 
     public static boolean isHoldingStructureTerminal(Player player, InteractionHand hand) {
         return player.getItemInHand(hand).getItem() instanceof StructureTerminalItem;

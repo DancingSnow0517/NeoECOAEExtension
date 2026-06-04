@@ -27,18 +27,32 @@ public class NETexturedButton extends Button {
     private final int disabledTextColor;
     private final boolean drawShadow;
 
-    public NETexturedButton(int x, int y, int width, int height, Component message,
-                             OnPress onPress) {
+    public NETexturedButton(int x, int y, int width, int height, Component message, OnPress onPress) {
         this(x, y, width, height, message, onPress, 0xFF20232A, 0xFF808590, false);
     }
 
-    public NETexturedButton(int x, int y, int width, int height, Component message,
-                             OnPress onPress, int textColor, int disabledTextColor) {
+    public NETexturedButton(
+            int x,
+            int y,
+            int width,
+            int height,
+            Component message,
+            OnPress onPress,
+            int textColor,
+            int disabledTextColor) {
         this(x, y, width, height, message, onPress, textColor, disabledTextColor, false);
     }
 
-    public NETexturedButton(int x, int y, int width, int height, Component message,
-                             OnPress onPress, int textColor, int disabledTextColor, boolean drawShadow) {
+    public NETexturedButton(
+            int x,
+            int y,
+            int width,
+            int height,
+            Component message,
+            OnPress onPress,
+            int textColor,
+            int disabledTextColor,
+            boolean drawShadow) {
         super(x, y, width, height, message, onPress, DEFAULT_NARRATION);
         this.textColor = textColor;
         this.disabledTextColor = disabledTextColor;
@@ -56,10 +70,19 @@ public class NETexturedButton extends Button {
             tex = TEX_BUTTON;
         }
 
-        NENineSliceRenderer.drawButton(guiGraphics, tex,
-            getX(), getY(), width, height,
-            TEX_SIZE, TEX_SIZE,
-            BORDER_LEFT, BORDER_TOP, BORDER_RIGHT, BORDER_BOTTOM);
+        NENineSliceRenderer.drawButton(
+                guiGraphics,
+                tex,
+                getX(),
+                getY(),
+                width,
+                height,
+                TEX_SIZE,
+                TEX_SIZE,
+                BORDER_LEFT,
+                BORDER_TOP,
+                BORDER_RIGHT,
+                BORDER_BOTTOM);
 
         int color = active ? textColor : disabledTextColor;
         Component msg = getMessage();

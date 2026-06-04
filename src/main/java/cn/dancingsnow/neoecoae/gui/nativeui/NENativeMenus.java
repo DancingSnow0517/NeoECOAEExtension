@@ -23,87 +23,80 @@ import net.minecraftforge.registries.RegistryObject;
 public final class NENativeMenus {
 
     public static final DeferredRegister<MenuType<?>> MENUS =
-        DeferredRegister.create(ForgeRegistries.MENU_TYPES, NeoECOAE.MOD_ID);
+            DeferredRegister.create(ForgeRegistries.MENU_TYPES, NeoECOAE.MOD_ID);
 
     /**
      * Storage Controller menu — Phase 1 proof of concept.
      */
-    public static final RegistryObject<MenuType<NEStorageControllerMenu>> STORAGE_CONTROLLER =
-        MENUS.register("storage_controller",
-            () -> IForgeMenuType.create(
-                (windowId, inv, data) -> {
-                    BlockPos pos = data.readBlockPos();
-                    return new NEStorageControllerMenu(windowId, inv, pos);
-                }));
+    public static final RegistryObject<MenuType<NEStorageControllerMenu>> STORAGE_CONTROLLER = MENUS.register(
+            "storage_controller",
+            () -> IForgeMenuType.create((windowId, inv, data) -> {
+                BlockPos pos = data.readBlockPos();
+                return new NEStorageControllerMenu(windowId, inv, pos);
+            }));
 
     /**
      * Computation Controller menu — Phase 2 proof of concept.
      */
-    public static final RegistryObject<MenuType<NEComputationControllerMenu>> COMPUTATION_CONTROLLER =
-        MENUS.register("computation_controller",
-            () -> IForgeMenuType.create(
-                (windowId, inv, data) -> {
-                    BlockPos pos = data.readBlockPos();
-                    return new NEComputationControllerMenu(windowId, inv, pos);
-                }));
+    public static final RegistryObject<MenuType<NEComputationControllerMenu>> COMPUTATION_CONTROLLER = MENUS.register(
+            "computation_controller",
+            () -> IForgeMenuType.create((windowId, inv, data) -> {
+                BlockPos pos = data.readBlockPos();
+                return new NEComputationControllerMenu(windowId, inv, pos);
+            }));
 
     /**
      * Crafting Controller menu — Phase 3 proof of concept.
      */
-    public static final RegistryObject<MenuType<NECraftingControllerMenu>> CRAFTING_CONTROLLER =
-        MENUS.register("crafting_controller",
-            () -> IForgeMenuType.create(
-                (windowId, inv, data) -> {
-                    BlockPos pos = data.readBlockPos();
-                    return new NECraftingControllerMenu(windowId, inv, pos);
-                }));
+    public static final RegistryObject<MenuType<NECraftingControllerMenu>> CRAFTING_CONTROLLER = MENUS.register(
+            "crafting_controller",
+            () -> IForgeMenuType.create((windowId, inv, data) -> {
+                BlockPos pos = data.readBlockPos();
+                return new NECraftingControllerMenu(windowId, inv, pos);
+            }));
 
     /**
      * Integrated Working Station menu — Phase 4 proof of concept.
      */
     public static final RegistryObject<MenuType<NEIntegratedWorkingStationMenu>> INTEGRATED_WORKING_STATION =
-        MENUS.register("integrated_working_station",
-            () -> IForgeMenuType.create(
-                (windowId, inv, data) -> {
-                    BlockPos pos = data.readBlockPos();
-                    return new NEIntegratedWorkingStationMenu(windowId, inv, pos);
-                }));
+            MENUS.register(
+                    "integrated_working_station",
+                    () -> IForgeMenuType.create((windowId, inv, data) -> {
+                        BlockPos pos = data.readBlockPos();
+                        return new NEIntegratedWorkingStationMenu(windowId, inv, pos);
+                    }));
 
     /**
      * Crafting Pattern Bus menu — Phase 5 proof of concept.
      */
-    public static final RegistryObject<MenuType<NECraftingPatternBusMenu>> CRAFTING_PATTERN_BUS =
-        MENUS.register("crafting_pattern_bus",
-            () -> IForgeMenuType.create(
-                (windowId, inv, data) -> {
-                    BlockPos pos = data.readBlockPos();
-                    return new NECraftingPatternBusMenu(windowId, inv, pos);
-                }));
+    public static final RegistryObject<MenuType<NECraftingPatternBusMenu>> CRAFTING_PATTERN_BUS = MENUS.register(
+            "crafting_pattern_bus",
+            () -> IForgeMenuType.create((windowId, inv, data) -> {
+                BlockPos pos = data.readBlockPos();
+                return new NECraftingPatternBusMenu(windowId, inv, pos);
+            }));
 
     /**
      * Fluid Hatch menu (Input / Output) — Phase 6 proof of concept.
      * A single generic MenuType serves both input and output hatches.
      */
-    public static final RegistryObject<MenuType<NEFluidHatchMenu>> FLUID_HATCH =
-        MENUS.register("fluid_hatch",
-            () -> IForgeMenuType.create(
-                (windowId, inv, data) -> {
-                    BlockPos pos = data.readBlockPos();
-                    return new NEFluidHatchMenu(windowId, inv, pos);
-                }));
+    public static final RegistryObject<MenuType<NEFluidHatchMenu>> FLUID_HATCH = MENUS.register(
+            "fluid_hatch",
+            () -> IForgeMenuType.create((windowId, inv, data) -> {
+                BlockPos pos = data.readBlockPos();
+                return new NEFluidHatchMenu(windowId, inv, pos);
+            }));
 
     /**
      * Structure Terminal menu for build length configuration.
      * Bound to the item in the player's hand, not a BlockEntity.
      */
-    public static final RegistryObject<MenuType<NEStructureTerminalMenu>> STRUCTURE_TERMINAL =
-        MENUS.register("structure_terminal",
-            () -> IForgeMenuType.create(
-                (windowId, inv, data) -> {
-                    var hand = data.readEnum(InteractionHand.class);
-                    return new NEStructureTerminalMenu(windowId, inv, hand);
-                }));
+    public static final RegistryObject<MenuType<NEStructureTerminalMenu>> STRUCTURE_TERMINAL = MENUS.register(
+            "structure_terminal",
+            () -> IForgeMenuType.create((windowId, inv, data) -> {
+                var hand = data.readEnum(InteractionHand.class);
+                return new NEStructureTerminalMenu(windowId, inv, hand);
+            }));
 
-    private NENativeMenus() {
-    }
+    private NENativeMenus() {}
 }

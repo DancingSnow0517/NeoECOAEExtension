@@ -1,6 +1,11 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.compat.crafting.FluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.minecraft.advancements.Criterion;
@@ -13,14 +18,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
 import net.minecraftforge.fluids.FluidStack;
-import cn.dancingsnow.neoecoae.compat.crafting.FluidIngredient;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Accessors(fluent = true, chain = true)
 public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
@@ -28,6 +27,7 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     SizedFluidIngredient inputFluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
     ItemStack itemOutput = ItemStack.EMPTY;
     FluidStack fluidOutput = FluidStack.EMPTY;
+
     @Setter
     int energy = 1000;
 
@@ -125,7 +125,9 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     @Override
     public void save(RecipeOutput recipeOutput) {
-        save(recipeOutput, NeoECOAE.id(BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()));
+        save(
+                recipeOutput,
+                NeoECOAE.id(BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()));
     }
 
     @Override
@@ -138,7 +140,8 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
-        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(id, inputItems, inputFluid, itemOutput, fluidOutput, energy);
+        IntegratedWorkingStationRecipe recipe =
+                new IntegratedWorkingStationRecipe(id, inputItems, inputFluid, itemOutput, fluidOutput, energy);
         recipeOutput.accept(id, recipe, null);
     }
 }

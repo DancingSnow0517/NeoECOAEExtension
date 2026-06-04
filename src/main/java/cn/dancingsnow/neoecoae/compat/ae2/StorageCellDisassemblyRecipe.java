@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.compat.ae2;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import java.util.List;
+import java.util.Map;
 import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -11,9 +13,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.registries.ForgeRegistries;
-
-import java.util.List;
-import java.util.Map;
 
 public class StorageCellDisassemblyRecipe implements FinishedRecipe {
     private final Item output;
@@ -102,25 +101,33 @@ public class StorageCellDisassemblyRecipe implements FinishedRecipe {
     }
 
     private static final Map<String, DisassemblyParts> DISASSEMBLY_PARTS = Map.ofEntries(
-            Map.entry("eco_item_storage_cell_16m",
+            Map.entry(
+                    "eco_item_storage_cell_16m",
                     new DisassemblyParts("eco_item_cell_housing", "eco_cell_component_16m")),
-            Map.entry("eco_item_storage_cell_64m",
+            Map.entry(
+                    "eco_item_storage_cell_64m",
                     new DisassemblyParts("eco_item_cell_housing", "eco_cell_component_64m")),
-            Map.entry("eco_item_storage_cell_256m",
+            Map.entry(
+                    "eco_item_storage_cell_256m",
                     new DisassemblyParts("eco_item_cell_housing", "eco_cell_component_256m")),
-            Map.entry("eco_fluid_storage_cell_16m",
+            Map.entry(
+                    "eco_fluid_storage_cell_16m",
                     new DisassemblyParts("eco_fluid_cell_housing", "eco_cell_component_16m")),
-            Map.entry("eco_fluid_storage_cell_64m",
+            Map.entry(
+                    "eco_fluid_storage_cell_64m",
                     new DisassemblyParts("eco_fluid_cell_housing", "eco_cell_component_64m")),
-            Map.entry("eco_fluid_storage_cell_256m",
+            Map.entry(
+                    "eco_fluid_storage_cell_256m",
                     new DisassemblyParts("eco_fluid_cell_housing", "eco_cell_component_256m")),
-            Map.entry("eco_chemical_storage_cell_16m",
+            Map.entry(
+                    "eco_chemical_storage_cell_16m",
                     new DisassemblyParts("eco_chemical_cell_housing", "eco_cell_component_16m")),
-            Map.entry("eco_chemical_storage_cell_64m",
+            Map.entry(
+                    "eco_chemical_storage_cell_64m",
                     new DisassemblyParts("eco_chemical_cell_housing", "eco_cell_component_64m")),
-            Map.entry("eco_chemical_storage_cell_256m",
+            Map.entry(
+                    "eco_chemical_storage_cell_256m",
                     new DisassemblyParts("eco_chemical_cell_housing", "eco_cell_component_256m")));
 
-    private record DisassemblyParts(String housing, String component) {
-    }
+    private record DisassemblyParts(String housing, String component) {}
 }

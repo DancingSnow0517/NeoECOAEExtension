@@ -34,11 +34,14 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
     public void tick(Level level, BlockPos pos, BlockState state) {
         for (Direction face : Direction.values()) {
             BlockEntity blockEntity = level.getBlockEntity(pos.relative(face));
-            IFluidHandler sourceHandler = blockEntity == null ? null : blockEntity
-                .getCapability(ForgeCapabilities.FLUID_HANDLER, face.getOpposite())
-                .orElse(null);
+            IFluidHandler sourceHandler = blockEntity == null
+                    ? null
+                    : blockEntity
+                            .getCapability(ForgeCapabilities.FLUID_HANDLER, face.getOpposite())
+                            .orElse(null);
             if (sourceHandler != null) {
-                if (!FluidUtil.tryFluidTransfer(tank, sourceHandler, tank.getCapacity(), true).isEmpty()) {
+                if (!FluidUtil.tryFluidTransfer(tank, sourceHandler, tank.getCapacity(), true)
+                        .isEmpty()) {
                     return;
                 }
             }
@@ -73,8 +76,7 @@ public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<E
     }
 
     @Override
-    @Nullable
-    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+    @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
 

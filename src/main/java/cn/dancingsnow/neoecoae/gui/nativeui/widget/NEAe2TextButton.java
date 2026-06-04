@@ -15,13 +15,19 @@ public class NEAe2TextButton extends Button {
     private final int textColor;
     private final int disabledTextColor;
 
-    public NEAe2TextButton(int x, int y, int width, int height, Component message,
-                            OnPress onPress) {
+    public NEAe2TextButton(int x, int y, int width, int height, Component message, OnPress onPress) {
         this(x, y, width, height, message, onPress, 0xFF404040, 0xFF909090);
     }
 
-    public NEAe2TextButton(int x, int y, int width, int height, Component message,
-                            OnPress onPress, int textColor, int disabledTextColor) {
+    public NEAe2TextButton(
+            int x,
+            int y,
+            int width,
+            int height,
+            Component message,
+            OnPress onPress,
+            int textColor,
+            int disabledTextColor) {
         super(x, y, width, height, message, onPress, DEFAULT_NARRATION);
         this.textColor = textColor;
         this.disabledTextColor = disabledTextColor;
@@ -33,9 +39,18 @@ public class NEAe2TextButton extends Button {
         float alpha = active ? 1.0F : 0.5F;
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
-        g.blit(Icon.TEXTURE, getX(), getY(), width, height,
-            bg.x, bg.y, bg.width, bg.height,
-            Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
+        g.blit(
+                Icon.TEXTURE,
+                getX(),
+                getY(),
+                width,
+                height,
+                bg.x,
+                bg.y,
+                bg.width,
+                bg.height,
+                Icon.TEXTURE_WIDTH,
+                Icon.TEXTURE_HEIGHT);
         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
         int color = active ? textColor : disabledTextColor;

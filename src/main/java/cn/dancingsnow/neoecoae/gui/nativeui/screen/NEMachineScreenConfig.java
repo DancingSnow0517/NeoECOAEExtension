@@ -14,26 +14,20 @@ public record NEMachineScreenConfig(String testLogName, boolean showTestButton) 
     // ── Pre-defined configs ──
 
     /** Storage Controller — real status display, no Test button. */
-    public static final NEMachineScreenConfig STORAGE_CONTROLLER =
-        new NEMachineScreenConfig("Storage", false);
+    public static final NEMachineScreenConfig STORAGE_CONTROLLER = new NEMachineScreenConfig("Storage", false);
 
-    public static final NEMachineScreenConfig COMPUTATION_CONTROLLER =
-        new NEMachineScreenConfig("Computation", false);
+    public static final NEMachineScreenConfig COMPUTATION_CONTROLLER = new NEMachineScreenConfig("Computation", false);
 
-    public static final NEMachineScreenConfig CRAFTING_CONTROLLER =
-        new NEMachineScreenConfig("Crafting", false);
+    public static final NEMachineScreenConfig CRAFTING_CONTROLLER = new NEMachineScreenConfig("Crafting", false);
 
-    public static final NEMachineScreenConfig INTEGRATED_WORKING_STATION =
-        new NEMachineScreenConfig("IWS", false);
+    public static final NEMachineScreenConfig INTEGRATED_WORKING_STATION = new NEMachineScreenConfig("IWS", false);
 
-    public static final NEMachineScreenConfig CRAFTING_PATTERN_BUS =
-        new NEMachineScreenConfig("Pattern Bus", true);
+    public static final NEMachineScreenConfig CRAFTING_PATTERN_BUS = new NEMachineScreenConfig("Pattern Bus", true);
 
-    public static final NEMachineScreenConfig FLUID_HATCH =
-        new NEMachineScreenConfig("Fluid Hatch", false);
+    public static final NEMachineScreenConfig FLUID_HATCH = new NEMachineScreenConfig("Fluid Hatch", false);
 
     public static final NEMachineScreenConfig STRUCTURE_TERMINAL =
-        new NEMachineScreenConfig("Structure Terminal", false);
+            new NEMachineScreenConfig("Structure Terminal", false);
 
     // ── Log helpers ──
 

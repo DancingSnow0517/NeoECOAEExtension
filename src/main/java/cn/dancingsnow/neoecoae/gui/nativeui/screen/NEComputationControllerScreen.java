@@ -1,16 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.gui.nativeui.NENativeUiConstants;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEComputationControllerMenu;
 import cn.dancingsnow.neoecoae.network.NEComputationUiState;
+import java.text.NumberFormat;
+import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
-
-import java.text.NumberFormat;
-import java.util.Locale;
 
 /**
  * Screen for the ECO Computation Controller with live read-only status.
@@ -152,8 +150,8 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
         int textY = y + (h - font.lineHeight) / 2;
 
         g.drawString(font, label, textX, textY, DARK_TEXT_PRIMARY, false);
-        g.drawString(font, value, textX + font.width(label), textY,
-                formed ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR, false);
+        g.drawString(
+                font, value, textX + font.width(label), textY, formed ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR, false);
     }
 
     private void drawLine(GuiGraphics g, String text, int x, int y, int color) {

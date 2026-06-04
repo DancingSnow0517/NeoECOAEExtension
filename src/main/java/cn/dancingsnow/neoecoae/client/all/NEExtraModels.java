@@ -4,19 +4,17 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
-import net.minecraftforge.client.event.ModelEvent;
-
 import java.util.HashSet;
 import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 
 @EventBusSubscriber(value = Dist.CLIENT)
 public class NEExtraModels {
     private static final Set<ResourceLocation> MODELS = new HashSet<>();
-
 
     public static final ResourceLocation CABLE_L4 = id("block/compute/cable_l4");
     public static final ResourceLocation CABLE_L6 = id("block/compute/cable_l6");
@@ -34,7 +32,8 @@ public class NEExtraModels {
     public static final ResourceLocation COMPUTATION_CELL_L6_FORMED = id("block/compute/cell_l6_formed");
     public static final ResourceLocation COMPUTATION_CELL_L9_FORMED = id("block/compute/cell_l9_formed");
 
-    public static final ResourceLocation COMPUTATION_COOLING_CONTROLLER_GLASS = id("block/compute/computation_cooling_controller_glass");
+    public static final ResourceLocation COMPUTATION_COOLING_CONTROLLER_GLASS =
+            id("block/compute/computation_cooling_controller_glass");
 
     private static ResourceLocation id(String path) {
         ResourceLocation id = NeoECOAE.id(path);
@@ -55,19 +54,10 @@ public class NEExtraModels {
         ECOComputationModels.registerCableModel(ECOTier.L9, CABLE_L9_DISCONNECTED, CABLE_L9);
 
         ECOComputationModels.registerCellModel(
-            NEItems.ECO_COMPUTATION_CELL_L4,
-            COMPUTATION_CELL_L4,
-            COMPUTATION_CELL_L4_FORMED
-        );
+                NEItems.ECO_COMPUTATION_CELL_L4, COMPUTATION_CELL_L4, COMPUTATION_CELL_L4_FORMED);
         ECOComputationModels.registerCellModel(
-            NEItems.ECO_COMPUTATION_CELL_L6,
-            COMPUTATION_CELL_L6,
-            COMPUTATION_CELL_L6_FORMED
-        );
+                NEItems.ECO_COMPUTATION_CELL_L6, COMPUTATION_CELL_L6, COMPUTATION_CELL_L6_FORMED);
         ECOComputationModels.registerCellModel(
-            NEItems.ECO_COMPUTATION_CELL_L9,
-            COMPUTATION_CELL_L9,
-            COMPUTATION_CELL_L9_FORMED
-        );
+                NEItems.ECO_COMPUTATION_CELL_L9, COMPUTATION_CELL_L9, COMPUTATION_CELL_L9_FORMED);
     }
 }

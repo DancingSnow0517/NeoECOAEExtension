@@ -23,9 +23,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = PatternEncodingTermMenu.class, remap = false)
-public abstract class PatternEncodingTermMenuMixin120 extends MEStorageMenu implements PatternEncodingTermMenuExtension {
-    @Unique
-    private static final String NEOECOAE_ACTION_UPLOAD_PATTERN = "neoecoae:uploadPattern";
+public abstract class PatternEncodingTermMenuMixin120 extends MEStorageMenu
+        implements PatternEncodingTermMenuExtension {
+    @Unique private static final String NEOECOAE_ACTION_UPLOAD_PATTERN = "neoecoae:uploadPattern";
 
     @Shadow
     @Final
@@ -34,22 +34,22 @@ public abstract class PatternEncodingTermMenuMixin120 extends MEStorageMenu impl
     @Shadow
     public EncodingMode mode;
 
-    public PatternEncodingTermMenuMixin120(MenuType<?> menuType, int id, Inventory playerInventory, ITerminalHost host) {
+    public PatternEncodingTermMenuMixin120(
+            MenuType<?> menuType, int id, Inventory playerInventory, ITerminalHost host) {
         super(menuType, id, playerInventory, host);
     }
 
     @Inject(
-        method = "<init>(Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Lappeng/helpers/IPatternTerminalMenuHost;Z)V",
-        at = @At("RETURN")
-    )
+            method =
+                    "<init>(Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Lappeng/helpers/IPatternTerminalMenuHost;Z)V",
+            at = @At("RETURN"))
     private void neoecoae$registerUploadAction(
-        MenuType<?> menuType,
-        int id,
-        Inventory playerInventory,
-        IPatternTerminalMenuHost host,
-        boolean bindInventory,
-        CallbackInfo ci
-    ) {
+            MenuType<?> menuType,
+            int id,
+            Inventory playerInventory,
+            IPatternTerminalMenuHost host,
+            boolean bindInventory,
+            CallbackInfo ci) {
         registerClientAction(NEOECOAE_ACTION_UPLOAD_PATTERN, this::neoecoae$uploadPattern);
     }
 
@@ -73,7 +73,8 @@ public abstract class PatternEncodingTermMenuMixin120 extends MEStorageMenu impl
         if (pattern.isEmpty()) {
             return;
         }
-        if (!(PatternDetailsHelper.decodePattern(pattern, getPlayer().level()) instanceof IMolecularAssemblerSupportedPattern)) {
+        if (!(PatternDetailsHelper.decodePattern(pattern, getPlayer().level())
+                instanceof IMolecularAssemblerSupportedPattern)) {
             return;
         }
 

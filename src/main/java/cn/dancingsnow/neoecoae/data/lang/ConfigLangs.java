@@ -8,34 +8,29 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.structure.tooltip", "Multiblock structure size limits.");
         provider.add("neoecoae.configuration.craftingSystemMaxLength", "Max Length of Crafting System");
         provider.add(
-            "neoecoae.configuration.craftingSystemMaxLength.tooltip",
-            "Maximum length (in blocks) allowed for the Crafting System multiblock.\n" +
-                "Higher values allow longer expansions but may increase structure check cost."
-        );
+                "neoecoae.configuration.craftingSystemMaxLength.tooltip",
+                "Maximum length (in blocks) allowed for the Crafting System multiblock.\n"
+                        + "Higher values allow longer expansions but may increase structure check cost.");
         provider.add("neoecoae.configuration.computationSystemMaxLength", "Max Length of Computation System");
         provider.add(
-            "neoecoae.configuration.computationSystemMaxLength.tooltip",
-            "Maximum length (in blocks) allowed for the Computation System multiblock.\n" +
-                "Higher values allow longer expansions but may increase structure check cost."
-        );
+                "neoecoae.configuration.computationSystemMaxLength.tooltip",
+                "Maximum length (in blocks) allowed for the Computation System multiblock.\n"
+                        + "Higher values allow longer expansions but may increase structure check cost.");
         provider.add("neoecoae.configuration.storageSystemMaxLength", "Max Length of Storage System");
         provider.add(
-            "neoecoae.configuration.storageSystemMaxLength.tooltip",
-            "Maximum length (in blocks) allowed for the Storage System multiblock.\n" +
-                "Higher values allow longer expansions but may increase structure check cost."
-        );
+                "neoecoae.configuration.storageSystemMaxLength.tooltip",
+                "Maximum length (in blocks) allowed for the Storage System multiblock.\n"
+                        + "Higher values allow longer expansions but may increase structure check cost.");
         provider.add("neoecoae.configuration.postCraftingEvent", "Post Crafting Event");
         provider.add(
-            "neoecoae.configuration.postCraftingEvent.tooltip",
-            "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n" +
-                "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
-        );
+                "neoecoae.configuration.postCraftingEvent.tooltip",
+                "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n"
+                        + "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed.");
         provider.add("neoecoae.configuration.increaseStorageCellCapacity", "Increase ECO Capacity");
         provider.add(
-            "neoecoae.configuration.increaseStorageCellCapacity.tooltip",
-            "Increase ECO Storage Matrix capacity and multiply computation flash capacity by 16.\n" +
-                "Defaults to enabled when GregTech Modern/GTCEu is loaded.\n" +
-                "Changes are fully applied after re-entering the world or restarting the server."
-        );
+                "neoecoae.configuration.increaseStorageCellCapacity.tooltip",
+                "Increase ECO Storage Matrix capacity and multiply computation flash capacity by 16.\n"
+                        + "Defaults to enabled when GregTech Modern/GTCEu is loaded.\n"
+                        + "Changes are fully applied after re-entering the world or restarting the server.");
     }
 }

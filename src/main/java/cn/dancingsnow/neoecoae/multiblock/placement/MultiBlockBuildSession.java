@@ -1,13 +1,14 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
-import lombok.Getter;
-
 import java.util.List;
+import lombok.Getter;
 
 public class MultiBlockBuildSession {
     private final List<WorldPlannedBlock> pendingBlocks;
+
     @Getter
     private final int totalBlocks;
+
     private int nextBlockIndex;
     private int waitTicks;
 
@@ -45,5 +46,4 @@ public class MultiBlockBuildSession {
     public int getRemainingBlockCount() {
         return totalBlocks - nextBlockIndex;
     }
-
 }

@@ -23,19 +23,20 @@ import net.minecraftforge.fluids.FluidStack;
  */
 public final class NENativeAe2StyleRenderer {
 
-    private NENativeAe2StyleRenderer() {
-    }
+    private NENativeAe2StyleRenderer() {}
 
     // ── AE2 common resources ──
 
     /** AE2 extra_panels.png — upgrade panel atlas. */
-    public static final ResourceLocation AE_EXTRA_PANELS = ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/extra_panels.png");
+    public static final ResourceLocation AE_EXTRA_PANELS =
+            ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/extra_panels.png");
+
     public static final int EXTRA_TEX_W = 128;
     public static final int EXTRA_TEX_H = 128;
 
     /** AE2 inscriber.png — progress bar texture. */
     private static final ResourceLocation AE_INSCRIBER =
-        ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/inscriber.png");
+            ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/inscriber.png");
 
     private static final int INSCRIBER_PROGRESS_U = 135;
     private static final int INSCRIBER_PROGRESS_V = 177;
@@ -74,19 +75,28 @@ public final class NENativeAe2StyleRenderer {
     // ── Toolbar / button ──
 
     /** Draw an AE2-style toolbar button background using the official Icon. */
-    public static void drawAeToolbarButtonBackground(GuiGraphics g, int x, int y, int w, int h,
-                                                      boolean hovered, boolean active) {
+    public static void drawAeToolbarButtonBackground(
+            GuiGraphics g, int x, int y, int w, int h, boolean hovered, boolean active) {
         Icon icon = active
-            ? (hovered ? Icon.TOOLBAR_BUTTON_BACKGROUND : Icon.TOOLBAR_BUTTON_BACKGROUND)
-            : Icon.TOOLBAR_BUTTON_BACKGROUND;
+                ? (hovered ? Icon.TOOLBAR_BUTTON_BACKGROUND : Icon.TOOLBAR_BUTTON_BACKGROUND)
+                : Icon.TOOLBAR_BUTTON_BACKGROUND;
         // Stretch the 16×16 toolbar button icon to fill the requested size
         RenderSystem.enableBlend();
         if (!active) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 0.5F);
         }
-        g.blit(Icon.TEXTURE, x, y, w, h,
-            icon.x, icon.y, icon.width, icon.height,
-            Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
+        g.blit(
+                Icon.TEXTURE,
+                x,
+                y,
+                w,
+                h,
+                icon.x,
+                icon.y,
+                icon.width,
+                icon.height,
+                Icon.TEXTURE_WIDTH,
+                Icon.TEXTURE_HEIGHT);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
@@ -94,7 +104,7 @@ public final class NENativeAe2StyleRenderer {
 
     /** AE2 IO Port background texture, used as the source for baked player slots. */
     private static final ResourceLocation AE_IO_PORT =
-        ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/io_port.png");
+            ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/io_port.png");
 
     private static final int AE_MACHINE_TEX_W = 256;
     private static final int AE_MACHINE_TEX_H = 256;
@@ -113,11 +123,16 @@ public final class NENativeAe2StyleRenderer {
      * This matches the colour of AE2 machine GUIs exactly.
      */
     public static void drawAeSlot(GuiGraphics g, int x, int y) {
-        g.blit(AE_IO_PORT,
-            x, y,
-            AE_BAKED_SLOT_U, AE_BAKED_SLOT_V,
-            AE_BAKED_SLOT_SIZE, AE_BAKED_SLOT_SIZE,
-            AE_MACHINE_TEX_W, AE_MACHINE_TEX_H);
+        g.blit(
+                AE_IO_PORT,
+                x,
+                y,
+                AE_BAKED_SLOT_U,
+                AE_BAKED_SLOT_V,
+                AE_BAKED_SLOT_SIZE,
+                AE_BAKED_SLOT_SIZE,
+                AE_MACHINE_TEX_W,
+                AE_MACHINE_TEX_H);
     }
 
     // ── Icons ──
@@ -127,10 +142,7 @@ public final class NENativeAe2StyleRenderer {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
-        g.blit(Icon.TEXTURE, x, y,
-            icon.x, icon.y,
-            icon.width, icon.height,
-            Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
+        g.blit(Icon.TEXTURE, x, y, icon.x, icon.y, icon.width, icon.height, Icon.TEXTURE_WIDTH, Icon.TEXTURE_HEIGHT);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
@@ -159,7 +171,7 @@ public final class NENativeAe2StyleRenderer {
             int srcW = SLOT_SIZE;
             int srcH = SLOT_SIZE;
             // drawX/drawY = the blit destination top-left
-            int drawX = panelX + PADDING;  // slot visual starts at panelX + PADDING
+            int drawX = panelX + PADDING; // slot visual starts at panelX + PADDING
             int drawY = panelY + PADDING + i * SLOT_SIZE;
 
             boolean borderLeft = true;
@@ -168,7 +180,7 @@ public final class NENativeAe2StyleRenderer {
             boolean borderBottom = i == slotCount - 1;
 
             if (borderLeft) {
-                drawX = panelX;  // extend to panel left edge
+                drawX = panelX; // extend to panel left edge
                 srcX = 0;
                 srcW += PADDING;
             }
@@ -176,7 +188,7 @@ public final class NENativeAe2StyleRenderer {
                 srcW += PADDING;
             }
             if (borderTop) {
-                drawY = panelY;  // extend to panel top edge
+                drawY = panelY; // extend to panel top edge
                 srcY = 0;
                 srcH += PADDING;
             }
@@ -184,8 +196,7 @@ public final class NENativeAe2StyleRenderer {
                 srcH += PADDING;
             }
 
-            g.blit(AE_EXTRA_PANELS, drawX, drawY, srcX, srcY, srcW, srcH,
-                EXTRA_TEX_W, EXTRA_TEX_H);
+            g.blit(AE_EXTRA_PANELS, drawX, drawY, srcX, srcY, srcW, srcH, EXTRA_TEX_W, EXTRA_TEX_H);
         }
     }
 
@@ -219,8 +230,8 @@ public final class NENativeAe2StyleRenderer {
     /**
      * Draw a fluid tank with recessed AE2-style inset border and fluid texture tiling.
      */
-    public static void drawAeFluidTank(GuiGraphics g, int x, int y, int w, int h,
-                                        FluidStack stack, int amount, int capacity) {
+    public static void drawAeFluidTank(
+            GuiGraphics g, int x, int y, int w, int h, FluidStack stack, int amount, int capacity) {
         drawAeInsetRect(g, x, y, w, h, 0xFF8E8E8E);
 
         int ix = x + 2;
@@ -267,8 +278,7 @@ public final class NENativeAe2StyleRenderer {
      * Empty background is a recessed inset rect; the filled portion
      * uses the actual AE2 inscriber progress bar sprite.
      */
-    public static void drawAeProgressBar(GuiGraphics g, int x, int y, int w, int h,
-                                          int progress, int maxProgress) {
+    public static void drawAeProgressBar(GuiGraphics g, int x, int y, int w, int h, int progress, int maxProgress) {
         // draw a recessed empty background first
         drawAeInsetRect(g, x, y, w, h, 0xFF8E8E8E);
 
@@ -285,11 +295,16 @@ public final class NENativeAe2StyleRenderer {
 
         int dstX = x + (w - INSCRIBER_PROGRESS_W) / 2;
 
-        g.blit(AE_INSCRIBER,
-            dstX, dstY,
-            INSCRIBER_PROGRESS_U, srcY,
-            INSCRIBER_PROGRESS_W, fillH,
-            INSCRIBER_TEX_W, INSCRIBER_TEX_H);
+        g.blit(
+                AE_INSCRIBER,
+                dstX,
+                dstY,
+                INSCRIBER_PROGRESS_U,
+                srcY,
+                INSCRIBER_PROGRESS_W,
+                fillH,
+                INSCRIBER_TEX_W,
+                INSCRIBER_TEX_H);
     }
 
     // ── Fluid texture helpers ──
@@ -316,7 +331,8 @@ public final class NENativeAe2StyleRenderer {
         if (stillTexture == null) return;
 
         TextureAtlasSprite sprite = Minecraft.getInstance()
-            .getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(stillTexture);
+                .getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
+                .apply(stillTexture);
         int color = resolveFluidColor(stack);
         float r = ((color >>> 16) & 0xFF) / 255.0F;
         float gv = ((color >>> 8) & 0xFF) / 255.0F;

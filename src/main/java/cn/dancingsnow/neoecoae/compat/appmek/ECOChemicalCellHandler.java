@@ -15,8 +15,7 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOChemicalCellHandler implements IECOCellHandler {
     public static final ECOChemicalCellHandler INSTANCE = new ECOChemicalCellHandler();
 
-    private ECOChemicalCellHandler() {
-    }
+    private ECOChemicalCellHandler() {}
 
     @Override
     public boolean isCell(ItemStack stack) {
@@ -25,8 +24,7 @@ public final class ECOChemicalCellHandler implements IECOCellHandler {
             boolean chemicalCellType = cellType == NEAppMekCellTypes.CHEMICAL.get()
                     || cellType.id().equals(NeoECOAE.id("chemicals"));
             boolean chemicalItem = item instanceof ECOChemicalStorageCellItem;
-            return (chemicalItem || chemicalCellType)
-                    && item.getKeyType() == AppMekCompat.getChemicalKeyType();
+            return (chemicalItem || chemicalCellType) && item.getKeyType() == AppMekCompat.getChemicalKeyType();
         }
         return false;
     }

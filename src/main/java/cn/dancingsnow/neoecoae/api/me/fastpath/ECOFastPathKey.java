@@ -3,29 +3,28 @@ package cn.dancingsnow.neoecoae.api.me.fastpath;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.Level;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathKey {
     private final Object patternIdentity;
-    @Nullable
-    private final ResourceLocation dimension;
+
+    @Nullable private final ResourceLocation dimension;
+
     private final long reloadGeneration;
     private final List<SlotSignature> slots;
     private final int hash;
 
     private ECOFastPathKey(
-        Object patternIdentity,
-        @Nullable ResourceLocation dimension,
-        long reloadGeneration,
-        List<SlotSignature> slots
-    ) {
+            Object patternIdentity,
+            @Nullable ResourceLocation dimension,
+            long reloadGeneration,
+            List<SlotSignature> slots) {
         this.patternIdentity = patternIdentity;
         this.dimension = dimension;
         this.reloadGeneration = reloadGeneration;
@@ -34,16 +33,13 @@ public final class ECOFastPathKey {
     }
 
     public static Optional<ECOFastPathKey> of(
-        Object patternIdentity,
-        KeyCounter[] craftingContainer,
-        @Nullable Level level,
-        long reloadGeneration
-    ) {
+            Object patternIdentity, KeyCounter[] craftingContainer, @Nullable Level level, long reloadGeneration) {
         if (patternIdentity == null || craftingContainer == null) {
             return Optional.empty();
         }
         try {
-            ResourceLocation dimension = level == null ? null : level.dimension().location();
+            ResourceLocation dimension =
+                    level == null ? null : level.dimension().location();
             List<SlotSignature> slots = new ArrayList<>(craftingContainer.length);
             for (KeyCounter counter : craftingContainer) {
                 List<EntrySignature> entries = new ArrayList<>();
@@ -72,9 +68,9 @@ public final class ECOFastPathKey {
             return false;
         }
         return reloadGeneration == other.reloadGeneration
-            && Objects.equals(patternIdentity, other.patternIdentity)
-            && Objects.equals(dimension, other.dimension)
-            && slots.equals(other.slots);
+                && Objects.equals(patternIdentity, other.patternIdentity)
+                && Objects.equals(dimension, other.dimension)
+                && slots.equals(other.slots);
     }
 
     @Override

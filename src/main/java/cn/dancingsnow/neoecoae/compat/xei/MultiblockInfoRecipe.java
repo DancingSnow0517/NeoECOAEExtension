@@ -21,7 +21,9 @@ public final class MultiblockInfoRecipe {
     }
 
     public ResourceLocation id() {
-        return definition.getOwner().unwrapKey()
+        return definition
+                .getOwner()
+                .unwrapKey()
                 .map(key -> {
                     ResourceLocation ownerId = key.location();
                     return new ResourceLocation(ownerId.getNamespace(), "multiblock/" + ownerId.getPath());

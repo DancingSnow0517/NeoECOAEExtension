@@ -14,8 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = CraftingStatusMenu.CraftingCpuListEntry.class, remap = false)
 public abstract class CraftingCpuListEntryMixin120 implements IOverlayTextureHolder {
-    @Unique
-    private ResourceLocation neoecoae$overlayTexture;
+    @Unique private ResourceLocation neoecoae$overlayTexture;
 
     @Override
     public @Nullable ResourceLocation neoecoae$getOverlay() {
@@ -28,9 +27,11 @@ public abstract class CraftingCpuListEntryMixin120 implements IOverlayTextureHol
     }
 
     @Inject(method = "readFromPacket", at = @At("RETURN"))
-    private static void neoecoae$readOverlay(FriendlyByteBuf data, CallbackInfoReturnable<CraftingStatusMenu.CraftingCpuListEntry> cir) {
+    private static void neoecoae$readOverlay(
+            FriendlyByteBuf data, CallbackInfoReturnable<CraftingStatusMenu.CraftingCpuListEntry> cir) {
         String texture = data.readUtf();
-        IOverlayTextureHolder.of(cir.getReturnValue()).neoecoae$setOverlay(texture.isEmpty() ? null : ResourceLocation.parse(texture));
+        IOverlayTextureHolder.of(cir.getReturnValue())
+                .neoecoae$setOverlay(texture.isEmpty() ? null : ResourceLocation.parse(texture));
     }
 
     @Inject(method = "writeToPacket", at = @At("RETURN"))

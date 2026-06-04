@@ -15,43 +15,40 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
-import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.datagen.AAERecipeData;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import java.util.List;
 import lombok.Getter;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.packs.PackType;
-import net.minecraft.server.packs.repository.Pack;
-import net.minecraft.server.packs.repository.PackSource;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.AddPackFindersEvent;
-import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.registries.NewRegistryEvent;
 import net.minecraftforge.registries.RegistryBuilder;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 @Mod(NeoECOAE.MOD_ID)
 public class NeoECOAE {
     private final Logger logger = LoggerFactory.getLogger(MOD_ID);
+
     @Getter
     private static final IntegrationManager integrationManager = new IntegrationManager();
+
     public static final String MOD_ID = "neoecoae";
     public static IEventBus MOD_BUS = null;
 
@@ -112,8 +109,12 @@ public class NeoECOAE {
             Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
-                    NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
-                    NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M);
+                    NEItems.ECO_ITEM_CELL_16M,
+                    NEItems.ECO_ITEM_CELL_64M,
+                    NEItems.ECO_ITEM_CELL_256M,
+                    NEItems.ECO_FLUID_CELL_16M,
+                    NEItems.ECO_FLUID_CELL_64M,
+                    NEItems.ECO_FLUID_CELL_256M);
             for (ItemEntry<ECOStorageCellItem> cell : cells) {
                 Upgrades.add(AEItems.FUZZY_CARD, cell, 1, storageCellGroup);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);
@@ -130,12 +131,8 @@ public class NeoECOAE {
     }
 
     private static void newRegistry(NewRegistryEvent event) {
-        event.create(
-                RegistryBuilder.of(NERegistries.Keys.ECO_TIER.location())
-                        .setMaxID(256));
-        event.create(
-                RegistryBuilder.of(NERegistries.Keys.CELL_TYPE.location())
-                        .setMaxID(256));
+        event.create(RegistryBuilder.of(NERegistries.Keys.ECO_TIER.location()).setMaxID(256));
+        event.create(RegistryBuilder.of(NERegistries.Keys.CELL_TYPE.location()).setMaxID(256));
     }
 
     private static void addClassicPack(AddPackFindersEvent event) {

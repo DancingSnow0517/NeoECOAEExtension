@@ -1,10 +1,9 @@
 package cn.dancingsnow.neoecoae.multiblock.placement;
 
+import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.List;
 
 @Getter
 public class MultiBlockPlacementPlan {
@@ -15,12 +14,11 @@ public class MultiBlockPlacementPlan {
     private final int reusedBlockCount;
 
     public MultiBlockPlacementPlan(
-        List<WorldPlannedBlock> allBlocks,
-        List<WorldPlannedBlock> missingBlocks,
-        List<BlockPos> conflictPositions,
-        List<ItemStack> requiredItems,
-        int reusedBlockCount
-    ) {
+            List<WorldPlannedBlock> allBlocks,
+            List<WorldPlannedBlock> missingBlocks,
+            List<BlockPos> conflictPositions,
+            List<ItemStack> requiredItems,
+            int reusedBlockCount) {
         this.allBlocks = List.copyOf(allBlocks);
         this.missingBlocks = List.copyOf(missingBlocks);
         this.conflictPositions = List.copyOf(conflictPositions);

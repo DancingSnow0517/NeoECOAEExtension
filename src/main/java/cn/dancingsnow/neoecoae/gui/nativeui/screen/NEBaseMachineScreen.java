@@ -19,15 +19,13 @@ import org.slf4j.LoggerFactory;
  *
  * @param <T> the menu type
  */
-public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
-    extends AbstractContainerScreen<T> {
+public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu> extends AbstractContainerScreen<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(NENativeUiConstants.LOGGER_NAME);
 
     protected final NEMachineScreenConfig config;
 
-    protected NEBaseMachineScreen(T menu, Inventory playerInv, Component title,
-                                  NEMachineScreenConfig config) {
+    protected NEBaseMachineScreen(T menu, Inventory playerInv, Component title, NEMachineScreenConfig config) {
         super(menu, playerInv, title);
         this.config = config;
         this.imageWidth = NENativeUiConstants.UI_WIDTH;
@@ -46,13 +44,12 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
         super.init();
         if (config.showTestButton()) {
             addRenderableWidget(new NEAe2TextButton(
-                leftPos + NENativeUiConstants.BUTTON_X_OFFSET,
-                topPos + NENativeUiConstants.BUTTON_Y_OFFSET,
-                NENativeUiConstants.BUTTON_WIDTH,
-                NENativeUiConstants.BUTTON_HEIGHT,
-                Component.translatable("gui.neoecoae.machine.test"),
-                btn -> LOG.info(getTestLogMessage())
-            ));
+                    leftPos + NENativeUiConstants.BUTTON_X_OFFSET,
+                    topPos + NENativeUiConstants.BUTTON_Y_OFFSET,
+                    NENativeUiConstants.BUTTON_WIDTH,
+                    NENativeUiConstants.BUTTON_HEIGHT,
+                    Component.translatable("gui.neoecoae.machine.test"),
+                    btn -> LOG.info(getTestLogMessage())));
         }
     }
 
@@ -83,9 +80,13 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
             String truncated = font.plainSubstrByWidth(titleText, maxTitleWidth - 10) + "…";
             displayTitle = Component.literal(truncated);
         }
-        guiGraphics.drawString(font, displayTitle,
-            NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
-            NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
+        guiGraphics.drawString(
+                font,
+                displayTitle,
+                NENativeUiConstants.TITLE_X,
+                NENativeUiConstants.TITLE_Y,
+                NENativeUiConstants.MACHINE_TEXT_PRIMARY,
+                false);
         renderAdditionalLabels(guiGraphics, mouseX, mouseY);
     }
 
@@ -101,8 +102,13 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
         Component labelColon = label.copy().append(": ");
         g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
         int labelWidth = font.width(labelColon);
-        g.drawString(font, Component.literal(formatNumber(value)),
-            x + labelWidth, y, NENativeUiConstants.MACHINE_TEXT_VALUE, false);
+        g.drawString(
+                font,
+                Component.literal(formatNumber(value)),
+                x + labelWidth,
+                y,
+                NENativeUiConstants.MACHINE_TEXT_VALUE,
+                false);
     }
 
     /** Draw "label: current / max" — numbers in blue-violet, slash in light-gray. */
@@ -118,12 +124,13 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
         g.drawString(font, Component.literal(" / "), slashX, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
         int maxX = slashX + font.width(" / ");
         // max (blue-violet)
-        g.drawString(font, Component.literal(formatNumber(max)), maxX, y, NENativeUiConstants.MACHINE_TEXT_VALUE, false);
+        g.drawString(
+                font, Component.literal(formatNumber(max)), maxX, y, NENativeUiConstants.MACHINE_TEXT_VALUE, false);
     }
 
     /** Draw "label: current / max unit" — numbers blue-violet, slash/space/unit light-gray. */
-    protected void drawLabelNumberPairUnit(GuiGraphics g, Component label, long current, long max,
-                                           Component unit, int x, int y) {
+    protected void drawLabelNumberPairUnit(
+            GuiGraphics g, Component label, long current, long max, Component unit, int x, int y) {
         Component labelColon = label.copy().append(": ");
         g.drawString(font, labelColon, x, y, NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
         int curX = x + font.width(labelColon);
@@ -163,6 +170,5 @@ public abstract class NEBaseMachineScreen<T extends NEBaseMachineMenu>
         return java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(value);
     }
 
-    protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-    }
+    protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {}
 }

@@ -8,11 +8,10 @@ import appeng.crafting.pattern.AECraftingPattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.forge.mixin.ae2.AECraftingPatternAccessor;
+import java.util.Optional;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Optional;
 
 public final class AE2PatternIntrospection {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
@@ -22,8 +21,7 @@ public final class AE2PatternIntrospection {
     private static boolean warnedUnavailable = false;
     private static long reloadGeneration = 0L;
 
-    private AE2PatternIntrospection() {
-    }
+    private AE2PatternIntrospection() {}
 
     public static boolean isAvailable() {
         selfCheck();
@@ -51,20 +49,12 @@ public final class AE2PatternIntrospection {
     }
 
     public static Optional<ECOFastPathKey> buildFastPathKey(
-        IPatternDetails details,
-        KeyCounter[] craftingContainer,
-        Level level
-    ) {
+            IPatternDetails details, KeyCounter[] craftingContainer, Level level) {
         if (!isAvailable()) {
             return Optional.empty();
         }
         try {
-            return ECOFastPathKey.of(
-                getStablePatternIdentity(details),
-                craftingContainer,
-                level,
-                reloadGeneration
-            );
+            return ECOFastPathKey.of(getStablePatternIdentity(details), craftingContainer, level, reloadGeneration);
         } catch (Throwable e) {
             disableOnce(e);
             return Optional.empty();

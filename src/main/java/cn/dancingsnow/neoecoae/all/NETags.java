@@ -33,8 +33,8 @@ public class NETags {
         public static final TagKey<Item> ALUMINUM_ALLOY_INGOT = common("ingots/aluminum_alloy");
         public static final TagKey<Item> ALUMINUM_ALLOY_DUST = common("dusts/aluminum_alloy");
 
-        public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK = common(
-                "storage_blocks/black_tungsten_alloy");
+        public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK =
+                common("storage_blocks/black_tungsten_alloy");
         public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_INGOT = common("ingots/black_tungsten_alloy");
         public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_DUST = common("dusts/black_tungsten_alloy");
 
@@ -44,8 +44,8 @@ public class NETags {
 
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL = common("gems/energized_fluix_crystal");
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_DUST = common("dusts/energized_fluix_crystal");
-        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common(
-                "storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_BLOCK =
+                common("storage_blocks/energized_fluix_crystal");
         public static final TagKey<Item> BUDDING_BLOCKS = common("budding_blocks");
         public static final TagKey<Item> CLUSTERS = common("clusters");
 
@@ -73,12 +73,12 @@ public class NETags {
         public static final TagKey<Block> TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/tungsten");
 
         public static final TagKey<Block> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
-        public static final TagKey<Block> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK = common(
-                "storage_blocks/black_tungsten_alloy");
+        public static final TagKey<Block> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK =
+                common("storage_blocks/black_tungsten_alloy");
 
         public static final TagKey<Block> ENERGIZED_CRYSTAL_STORAGE_BLOCK = common("storage_blocks/energized_crystal");
-        public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common(
-                "storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK =
+                common("storage_blocks/energized_fluix_crystal");
         public static final TagKey<Block> BUDDING_BLOCKS = common("budding_blocks");
         public static final TagKey<Block> CLUSTERS = common("clusters");
 

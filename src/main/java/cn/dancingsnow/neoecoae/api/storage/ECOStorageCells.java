@@ -1,18 +1,16 @@
 package cn.dancingsnow.neoecoae.api.storage;
 
 import appeng.api.storage.cells.ISaveProvider;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ECOStorageCells {
     private static final List<IECOCellHandler> handlers = new ArrayList<>();
-
 
     public static void register(IECOCellHandler handler) {
         if (handlers.contains(handler)) {
@@ -33,8 +31,7 @@ public class ECOStorageCells {
         return false;
     }
 
-    @Nullable
-    public static synchronized IECOCellHandler getHandler(ItemStack stack) {
+    @Nullable public static synchronized IECOCellHandler getHandler(ItemStack stack) {
         if (stack.isEmpty()) {
             return null;
         }
@@ -46,8 +43,7 @@ public class ECOStorageCells {
         return null;
     }
 
-    @Nullable
-    public static synchronized IECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+    @Nullable public static synchronized IECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
         if (stack.isEmpty()) {
             return null;
         }

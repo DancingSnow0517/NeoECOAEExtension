@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks;
 
 import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.crafting.CraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
@@ -15,7 +14,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.HitResult;
-import org.jetbrains.annotations.Nullable;
 
 public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntityBlock<T> {
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
@@ -59,7 +57,13 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+    public void neighborChanged(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Block neighborBlock,
+            BlockPos neighborPos,
+            boolean movedByPiston) {
         final NEBlockEntity<?, T> be = this.getBlockEntity(level, pos);
         if (be != null) {
             be.updateMultiBlock(neighborPos);
@@ -71,8 +75,8 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
      * and pick-block. Returns empty for blocks without an item form.
      */
     @Override
-    public ItemStack getCloneItemStack(BlockState state, HitResult target, BlockGetter level,
-                                        BlockPos pos, Player player) {
+    public ItemStack getCloneItemStack(
+            BlockState state, HitResult target, BlockGetter level, BlockPos pos, Player player) {
         Item item = asItem();
         if (item == Items.AIR) {
             return ItemStack.EMPTY;

@@ -3,6 +3,11 @@ package cn.dancingsnow.neoecoae.client.multiblock.preview;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -17,12 +22,6 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 public final class NEMultiblockSceneRenderer {
     private static final Logger LOGGER = LoggerFactory.getLogger(NEMultiblockSceneRenderer.class);
@@ -41,15 +40,33 @@ public final class NEMultiblockSceneRenderer {
     private float pitch = DEFAULT_PITCH;
     private float zoom = DEFAULT_ZOOM;
 
-    public void render(GuiGraphics g, MultiblockPreviewScene scene, int x, int y, int width, int height, float partialTick) {
+    public void render(
+            GuiGraphics g, MultiblockPreviewScene scene, int x, int y, int width, int height, float partialTick) {
         render(g, scene, scene == null ? List.of() : scene.orderedPositions(), x, y, width, height, partialTick);
     }
 
-    public void render(GuiGraphics g, MultiblockPreviewScene scene, List<BlockPos> positions, int x, int y, int width, int height, float partialTick) {
+    public void render(
+            GuiGraphics g,
+            MultiblockPreviewScene scene,
+            List<BlockPos> positions,
+            int x,
+            int y,
+            int width,
+            int height,
+            float partialTick) {
         render(g, scene, positions, x, y, width, height, partialTick, true);
     }
 
-    public void render(GuiGraphics g, MultiblockPreviewScene scene, List<BlockPos> positions, int x, int y, int width, int height, float partialTick, boolean clip) {
+    public void render(
+            GuiGraphics g,
+            MultiblockPreviewScene scene,
+            List<BlockPos> positions,
+            int x,
+            int y,
+            int width,
+            int height,
+            float partialTick,
+            boolean clip) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || scene == null || scene.isEmpty()) {
             drawEmptyScene(g, x, y, width, height);

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.datagen;
 
+import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
+
 import appeng.core.definitions.AEItems;
 import appeng.datagen.providers.tags.ConventionTags;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -9,6 +11,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.tterrag.registrate.providers.ProviderType;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
+import java.util.List;
 import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -20,13 +23,8 @@ import net.minecraftforge.common.crafting.conditions.ICondition;
 import net.minecraftforge.common.crafting.conditions.ModLoadedCondition;
 import net.minecraftforge.registries.ForgeRegistries;
 
-import java.util.List;
-
-import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
-
 public final class AAERecipeData {
-    private AAERecipeData() {
-    }
+    private AAERecipeData() {}
 
     public static void register() {
         REGISTRATE.addDataGenerator(ProviderType.RECIPE, AAERecipeData::init);
@@ -36,41 +34,37 @@ public final class AAERecipeData {
         ICondition advancedAeInstalled = new ModLoadedCondition("advanced_ae");
 
         provider.accept(new ReactionChamberRecipe(
-            NeoECOAE.id("reaction_chamber/energized_crystal"),
-            advancedAeInstalled,
-            NEItems.ENERGIZED_CRYSTAL,
-            64,
-            500000,
-            500,
-            List.of(
-                ItemInput.item(AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED, 32),
-                ItemInput.tag(NETags.Items.ENERGIZED_CRYSTAL_DUST, 32)
-            )
-        ));
+                NeoECOAE.id("reaction_chamber/energized_crystal"),
+                advancedAeInstalled,
+                NEItems.ENERGIZED_CRYSTAL,
+                64,
+                500000,
+                500,
+                List.of(
+                        ItemInput.item(AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED, 32),
+                        ItemInput.tag(NETags.Items.ENERGIZED_CRYSTAL_DUST, 32))));
 
         provider.accept(new ReactionChamberRecipe(
-            NeoECOAE.id("reaction_chamber/energized_fluix_crystal"),
-            advancedAeInstalled,
-            NEItems.ENERGIZED_FLUIX_CRYSTAL,
-            64,
-            500000,
-            500,
-            List.of(
-                ItemInput.tag(NETags.Items.ENERGIZED_CRYSTAL_DUST, 64),
-                ItemInput.tag(ConventionTags.FLUIX_CRYSTAL, 64)
-            )
-        ));
+                NeoECOAE.id("reaction_chamber/energized_fluix_crystal"),
+                advancedAeInstalled,
+                NEItems.ENERGIZED_FLUIX_CRYSTAL,
+                64,
+                500000,
+                500,
+                List.of(
+                        ItemInput.tag(NETags.Items.ENERGIZED_CRYSTAL_DUST, 64),
+                        ItemInput.tag(ConventionTags.FLUIX_CRYSTAL, 64))));
     }
 
     private record ReactionChamberRecipe(
-        ResourceLocation id,
-        ICondition condition,
-        ItemLike output,
-        long outputAmount,
-        int energy,
-        int waterAmount,
-        List<ItemInput> inputs
-    ) implements FinishedRecipe {
+            ResourceLocation id,
+            ICondition condition,
+            ItemLike output,
+            long outputAmount,
+            int energy,
+            int waterAmount,
+            List<ItemInput> inputs)
+            implements FinishedRecipe {
         @Override
         public JsonObject serializeRecipe() {
             JsonObject json = new JsonObject();

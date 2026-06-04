@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.client.screen;
 
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -8,8 +9,6 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-
-import java.util.List;
 
 public class NEConfigScreen extends Screen {
     private static final int LABEL_WIDTH = 170;
@@ -43,18 +42,20 @@ public class NEConfigScreen extends Screen {
         addRenderableWidget(this.storageLength);
 
         this.capacityButton = Button.builder(capacityText(), button -> {
-            this.increaseCapacity = !this.increaseCapacity;
-            button.setMessage(capacityText());
-        }).bounds(x + LABEL_WIDTH, y + 84, FIELD_WIDTH, 20).build();
+                    this.increaseCapacity = !this.increaseCapacity;
+                    button.setMessage(capacityText());
+                })
+                .bounds(x + LABEL_WIDTH, y + 84, FIELD_WIDTH, 20)
+                .build();
         addRenderableWidget(this.capacityButton);
 
         int buttonY = this.height - 34;
         addRenderableWidget(Button.builder(Component.translatable("screen.neoecoae.config.save"), button -> save())
-            .bounds(this.width / 2 - 155, buttonY, 150, 20)
-            .build());
+                .bounds(this.width / 2 - 155, buttonY, 150, 20)
+                .build());
         addRenderableWidget(Button.builder(Component.translatable("screen.neoecoae.config.cancel"), button -> close())
-            .bounds(this.width / 2 + 5, buttonY, 150, 20)
-            .build());
+                .bounds(this.width / 2 + 5, buttonY, 150, 20)
+                .build());
     }
 
     @Override
@@ -63,9 +64,8 @@ public class NEConfigScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 15, 0xFFFFFFFF);
 
         List<FormattedCharSequence> notice = this.font.split(
-            Component.translatable("screen.neoecoae.config.restart_notice").withStyle(ChatFormatting.GOLD),
-            Math.max(120, this.width - 40)
-        );
+                Component.translatable("screen.neoecoae.config.restart_notice").withStyle(ChatFormatting.GOLD),
+                Math.max(120, this.width - 40));
         int noticeY = 30;
         for (FormattedCharSequence line : notice) {
             graphics.drawCenteredString(this.font, line, this.width / 2, noticeY, 0xFFFFD166);
@@ -100,13 +100,15 @@ public class NEConfigScreen extends Screen {
     }
 
     private void drawLabel(GuiGraphics graphics, String key, int x, int y) {
-        graphics.drawString(this.font, Component.translatable(key).withStyle(ChatFormatting.GRAY), x, y, 0xFFA0A0A0, false);
+        graphics.drawString(
+                this.font, Component.translatable(key).withStyle(ChatFormatting.GRAY), x, y, 0xFFA0A0A0, false);
     }
 
     private Component capacityText() {
         return Component.translatable(
-            this.increaseCapacity ? "screen.neoecoae.config.increaseCapacity.on" : "screen.neoecoae.config.increaseCapacity.off"
-        );
+                this.increaseCapacity
+                        ? "screen.neoecoae.config.increaseCapacity.on"
+                        : "screen.neoecoae.config.increaseCapacity.off");
     }
 
     private void save() {

@@ -18,14 +18,12 @@
 
 package cn.dancingsnow.neoecoae.api.me;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.util.Mth;
-
-import it.unimi.dsi.fastutil.objects.Reference2LongMap;
-import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
-
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import it.unimi.dsi.fastutil.objects.Reference2LongMap;
+import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.Mth;
 
 public class ElapsedTimeTracker {
     private static final String NBT_ELAPSED_TIME = "elapsedTime";
@@ -35,13 +33,10 @@ public class ElapsedTimeTracker {
     private long lastTime = System.nanoTime();
     private long elapsedTime = 0;
 
-    private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(
-            4);
-    private final Reference2LongMap<AEKeyType> completedWorkByType = new Reference2LongOpenHashMap<>(
-            4);
+    private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(4);
+    private final Reference2LongMap<AEKeyType> completedWorkByType = new Reference2LongOpenHashMap<>(4);
 
-    public ElapsedTimeTracker() {
-    }
+    public ElapsedTimeTracker() {}
 
     public ElapsedTimeTracker(CompoundTag data) {
         this.elapsedTime = data.getLong(NBT_ELAPSED_TIME);

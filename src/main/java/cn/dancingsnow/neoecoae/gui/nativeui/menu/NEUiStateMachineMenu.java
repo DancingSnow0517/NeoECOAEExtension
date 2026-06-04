@@ -21,12 +21,13 @@ import org.jetbrains.annotations.Nullable;
 public abstract class NEUiStateMachineMenu<S> extends NEBaseMachineMenu {
 
     private int tickCounter;
-    @Nullable
-    private S lastSentState;
+
+    @Nullable private S lastSentState;
+
     private long lastSentRevision = Long.MIN_VALUE;
 
-    protected NEUiStateMachineMenu(@Nullable MenuType<?> type, int containerId,
-                                    Inventory playerInv, BlockPos machinePos) {
+    protected NEUiStateMachineMenu(
+            @Nullable MenuType<?> type, int containerId, Inventory playerInv, BlockPos machinePos) {
         super(type, containerId, playerInv, machinePos);
     }
 
@@ -51,8 +52,7 @@ public abstract class NEUiStateMachineMenu<S> extends NEBaseMachineMenu {
      * Called on the server thread. May return {@code null} to skip this
      * tick (e.g. when the target block entity is missing or unformed).
      */
-    @Nullable
-    protected abstract S createState(ServerPlayer player);
+    @Nullable protected abstract S createState(ServerPlayer player);
 
     /**
      * Sends the state snapshot to a specific player via the mod network

@@ -7,15 +7,14 @@ import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.WidgetHolder;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * EMI recipe display for ECO Cooling recipes.
@@ -31,8 +30,8 @@ public class CoolingEmiRecipe implements EmiRecipe {
     private static final Logger LOGGER = LoggerFactory.getLogger(CoolingEmiRecipe.class);
 
     // ── Textures ──
-    private static final ResourceLocation TEX_PROGRESS_EMPTY = NeoECOAE
-            .id("textures/gui/jei/cooling_progress_empty.png");
+    private static final ResourceLocation TEX_PROGRESS_EMPTY =
+            NeoECOAE.id("textures/gui/jei/cooling_progress_empty.png");
     private static final ResourceLocation TEX_PROGRESS = NeoECOAE.id("textures/gui/jei/cooling_progress.png");
 
     // ── Layout constants ──
@@ -55,8 +54,9 @@ public class CoolingEmiRecipe implements EmiRecipe {
 
     // ── Instance state ──
     private final CoolingRecipe recipe;
-    @Nullable
-    private final EmiIngredient input;
+
+    @Nullable private final EmiIngredient input;
+
     private final List<EmiStack> outputs = new ArrayList<>();
 
     public CoolingEmiRecipe(CoolingRecipe recipe) {
@@ -67,14 +67,11 @@ public class CoolingEmiRecipe implements EmiRecipe {
         FluidStack[] rawInputs = recipe.input().getFluids();
         if (rawInputs != null) {
             for (FluidStack raw : rawInputs) {
-                if (raw == null || raw.isEmpty())
-                    continue;
+                if (raw == null || raw.isEmpty()) continue;
                 inputVariants.add(EmiStack.of(raw.getFluid(), recipe.inputAmount()));
             }
         }
-        this.input = inputVariants.isEmpty()
-                ? null
-                : EmiIngredient.of(inputVariants, recipe.inputAmount());
+        this.input = inputVariants.isEmpty() ? null : EmiIngredient.of(inputVariants, recipe.inputAmount());
 
         // ── Output fluid ──
         if (!recipe.output().isEmpty()) {
@@ -116,37 +113,43 @@ public class CoolingEmiRecipe implements EmiRecipe {
     public void addWidgets(WidgetHolder widgets) {
         // ── Input fluid tank ──
         if (input != null) {
-            widgets.addTank(input, INPUT_TANK_X, INPUT_TANK_Y, 18, 18,
-                    Math.max(recipe.inputAmount(), 1000));
+            widgets.addTank(input, INPUT_TANK_X, INPUT_TANK_Y, 18, 18, Math.max(recipe.inputAmount(), 1000));
         }
 
         // ── Cooling progress empty background ──
-        widgets.addTexture(TEX_PROGRESS_EMPTY,
-                PROGRESS_X, PROGRESS_Y, 30, 30,
-                0, 0, 30, 30, 30, 30);
+        widgets.addTexture(TEX_PROGRESS_EMPTY, PROGRESS_X, PROGRESS_Y, 30, 30, 0, 0, 30, 30, 30, 30);
 
         // ── Cooling progress animated overlay ──
-        widgets.addAnimatedTexture(TEX_PROGRESS,
-                PROGRESS_X, PROGRESS_Y, 30, 30,
-                0, 0, 30, 30, 30, 30,
-                2000, false, true, false);
+        widgets.addAnimatedTexture(
+                TEX_PROGRESS, PROGRESS_X, PROGRESS_Y, 30, 30, 0, 0, 30, 30, 30, 30, 2000, false, true, false);
 
         // ── Output fluid tank ──
         if (!recipe.output().isEmpty()) {
             widgets.addTank(
-                    EmiStack.of(recipe.output().getFluid(), recipe.output().getAmount()),
-                    OUTPUT_TANK_X, OUTPUT_TANK_Y, 18, 18,
-                    Math.max(recipe.outputAmount(), 1000)).recipeContext(this);
+                            EmiStack.of(
+                                    recipe.output().getFluid(), recipe.output().getAmount()),
+                            OUTPUT_TANK_X,
+                            OUTPUT_TANK_Y,
+                            18,
+                            18,
+                            Math.max(recipe.outputAmount(), 1000))
+                    .recipeContext(this);
         }
 
         // ── Coolant amount (line 1) ──
         widgets.addText(
                 Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()),
-                TEXT_X, COOLANT_TEXT_Y, TEXT_COLOR, false);
+                TEXT_X,
+                COOLANT_TEXT_Y,
+                TEXT_COLOR,
+                false);
 
         // ── Max overclock (line 2) ──
         widgets.addText(
                 Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()),
-                TEXT_X, OVERCLOCK_TEXT_Y, TEXT_COLOR, false);
+                TEXT_X,
+                OVERCLOCK_TEXT_Y,
+                TEXT_COLOR,
+                false);
     }
 }

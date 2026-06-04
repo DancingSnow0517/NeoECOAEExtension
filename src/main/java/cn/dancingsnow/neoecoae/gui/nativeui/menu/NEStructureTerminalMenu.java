@@ -11,7 +11,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,13 +78,12 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
     }
 
     public void setClientConfig(
-        int length,
-        int minLength,
-        int maxLength,
-        StructureTerminalHostType hostType,
-        StructureTerminalMode operationMode,
-        java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materials
-    ) {
+            int length,
+            int minLength,
+            int maxLength,
+            StructureTerminalHostType hostType,
+            StructureTerminalMode operationMode,
+            java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materials) {
         this.buildLength = length;
         this.minLength = minLength;
         this.maxLength = maxLength;
@@ -97,8 +95,7 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
     /**
      * Returns the Structure Terminal ItemStack this menu is bound to, or null.
      */
-    @Nullable
-    public ItemStack getTerminalStack(Player player) {
+    @Nullable public ItemStack getTerminalStack(Player player) {
         ItemStack stack = player.getItemInHand(hand);
         if (stack.getItem() instanceof StructureTerminalItem) {
             return stack;
@@ -122,15 +119,21 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
      */
     public void syncToClient(ServerPlayer player) {
         ItemStack stack = getTerminalStack(player);
-        int length = stack != null ? StructureTerminalItem.getBuildLength(stack) : StructureTerminalItem.DEFAULT_BUILD_LENGTH;
+        int length = stack != null
+                ? StructureTerminalItem.getBuildLength(stack)
+                : StructureTerminalItem.DEFAULT_BUILD_LENGTH;
         int min = StructureTerminalItem.MIN_BUILD_LENGTH;
-        int max = stack != null ? StructureTerminalItem.getMaxBuildLength(stack) : StructureTerminalItem.getGlobalMaxBuildLength();
-        StructureTerminalHostType target = stack != null ? StructureTerminalItem.getHostType(stack) : StructureTerminalHostType.DEFAULT;
-        StructureTerminalMode mode = stack != null ? StructureTerminalItem.getOperationMode(stack) : StructureTerminalMode.BUILD;
+        int max = stack != null
+                ? StructureTerminalItem.getMaxBuildLength(stack)
+                : StructureTerminalItem.getGlobalMaxBuildLength();
+        StructureTerminalHostType target =
+                stack != null ? StructureTerminalItem.getHostType(stack) : StructureTerminalHostType.DEFAULT;
+        StructureTerminalMode mode =
+                stack != null ? StructureTerminalItem.getOperationMode(stack) : StructureTerminalMode.BUILD;
         int tier = stack != null ? StructureTerminalItem.getHostTier(stack) : StructureTerminalHostType.DEFAULT_TIER;
         java.util.List<NEStructureTerminalUiState.BuildMaterialEntry> materialEntries = stack != null
-            ? StructureTerminalMaterialRequirements.collect(player, target, tier, length)
-            : java.util.List.of();
+                ? StructureTerminalMaterialRequirements.collect(player, target, tier, length)
+                : java.util.List.of();
         this.buildLength = length;
         this.minLength = min;
         this.maxLength = max;
@@ -138,8 +141,8 @@ public class NEStructureTerminalMenu extends AbstractContainerMenu {
         this.operationMode = mode;
         this.materials = materialEntries;
         cn.dancingsnow.neoecoae.network.NENetwork.CHANNEL.send(
-            net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-            new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(length, min, max, target, mode, materialEntries)
-        );
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
+                new cn.dancingsnow.neoecoae.network.NENetwork.NEStructureTerminalConfigPacket(
+                        length, min, max, target, mode, materialEntries));
     }
 }

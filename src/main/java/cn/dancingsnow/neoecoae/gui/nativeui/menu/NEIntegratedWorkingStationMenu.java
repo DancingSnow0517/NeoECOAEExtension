@@ -1,8 +1,9 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.menu;
 
+import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingStationLayout.*;
+
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
-import cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingStationLayout;
 import cn.dancingsnow.neoecoae.gui.nativeui.slot.NEInternalInventoryItemHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
@@ -17,8 +18,6 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import org.jetbrains.annotations.NotNull;
-
-import static cn.dancingsnow.neoecoae.gui.nativeui.layout.NEIntegratedWorkingStationLayout.*;
 
 /**
  * Menu for the ECO Integrated Working Station with real machine slots.
@@ -85,9 +84,8 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
-                addSlot(new SlotItemHandler(inputHandler, col + row * 3,
-                    INPUT_SLOT_X + col * SLOT_SIZE,
-                    INPUT_SLOT_Y + row * SLOT_SIZE));
+                addSlot(new SlotItemHandler(
+                        inputHandler, col + row * 3, INPUT_SLOT_X + col * SLOT_SIZE, INPUT_SLOT_Y + row * SLOT_SIZE));
             }
         }
 
@@ -100,9 +98,7 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
 
         for (int i = 0; i < UPGRADE_SLOTS; i++) {
             final int slotIdx = i;
-            addSlot(new SlotItemHandler(upgradeHandler, i,
-                UPGRADE_SLOT_X,
-                UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE) {
+            addSlot(new SlotItemHandler(upgradeHandler, i, UPGRADE_SLOT_X, UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE) {
                 @Override
                 public boolean mayPlace(@NotNull ItemStack stack) {
                     return be != null && be.getUpgradeItemHandler().isItemValid(slotIdx, stack);
@@ -114,16 +110,16 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(playerInv, col + row * 9 + 9,
-                    PLAYER_INV_SLOT_X + col * SLOT_SIZE,
-                    PLAYER_INV_SLOT_Y + row * SLOT_SIZE));
+                addSlot(new Slot(
+                        playerInv,
+                        col + row * 9 + 9,
+                        PLAYER_INV_SLOT_X + col * SLOT_SIZE,
+                        PLAYER_INV_SLOT_Y + row * SLOT_SIZE));
             }
         }
 
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(playerInv, col,
-                HOTBAR_SLOT_X + col * SLOT_SIZE,
-                HOTBAR_SLOT_Y));
+            addSlot(new Slot(playerInv, col, HOTBAR_SLOT_X + col * SLOT_SIZE, HOTBAR_SLOT_Y));
         }
     }
 
@@ -217,8 +213,13 @@ public class NEIntegratedWorkingStationMenu extends NEBaseMachineMenu {
 
     // ── Client-side fluid/state cache (updated via IWSStatePacket from server) ──
 
-    public FluidStack getClientInputFluid() { return clientInputFluid; }
-    public FluidStack getClientOutputFluid() { return clientOutputFluid; }
+    public FluidStack getClientInputFluid() {
+        return clientInputFluid;
+    }
+
+    public FluidStack getClientOutputFluid() {
+        return clientOutputFluid;
+    }
 
     public void updateClientState(FluidStack input, FluidStack output, boolean autoExport) {
         this.clientInputFluid = input;

@@ -6,6 +6,8 @@ import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
 import cn.dancingsnow.neoecoae.network.NENetwork;
+import java.util.List;
+import java.util.function.BooleanSupplier;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -13,9 +15,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
-
-import java.util.List;
-import java.util.function.BooleanSupplier;
 
 // NEStructureTerminalScreen 是结构终端的 GUI 界面类，负责显示和交互结构终端的相关信息和功能。
 // 这个界面分为两个主要区域：左侧的控制区和右侧的材料区。控制区显示当前的建造长度、模式和目标选择，并提供相应的按钮进行调整。
@@ -72,9 +71,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private static final int CONTROL_BUTTON_ROW2_Y = CONTROL_BUTTON_ROW1_Y + CONTROL_BUTTON_H + CONTROL_BUTTON_GAP;
 
     private static final int LENGTH_BUTTON_W = 22;
-    private static final int LENGTH_VALUE_W = CONTROL_BUTTON_ROW_W
-            - LENGTH_BUTTON_W * 2
-            - CONTROL_BUTTON_GAP * 2;
+    private static final int LENGTH_VALUE_W = CONTROL_BUTTON_ROW_W - LENGTH_BUTTON_W * 2 - CONTROL_BUTTON_GAP * 2;
 
     private static final int MODE_BUTTON_W = 31;
 
@@ -147,60 +144,86 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int plusX = valueBoxX + LENGTH_VALUE_W + CONTROL_BUTTON_GAP;
 
         // 第一行：- / x / +
-        addRenderableWidget(new NEInsetTextButton(minusX, row0Y, LENGTH_BUTTON_W, CONTROL_BUTTON_H,
+        addRenderableWidget(new NEInsetTextButton(
+                minusX,
+                row0Y,
+                LENGTH_BUTTON_W,
+                CONTROL_BUTTON_H,
                 Component.literal("-"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.DECREASE))));
 
-        addRenderableWidget(new NEInsetTextButton(plusX, row0Y, LENGTH_BUTTON_W, CONTROL_BUTTON_H,
+        addRenderableWidget(new NEInsetTextButton(
+                plusX,
+                row0Y,
+                LENGTH_BUTTON_W,
+                CONTROL_BUTTON_H,
                 Component.literal("+"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.INCREASE))));
 
         // 第二行：重置，整行居中并与第一行、第三行左右对齐
-        addRenderableWidget(new NEInsetTextButton(rowX, row1Y, CONTROL_BUTTON_ROW_W, CONTROL_BUTTON_H,
+        addRenderableWidget(new NEInsetTextButton(
+                rowX,
+                row1Y,
+                CONTROL_BUTTON_ROW_W,
+                CONTROL_BUTTON_H,
                 Component.translatable("gui.neoecoae.structure_terminal.reset"),
                 btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(
                         NENetwork.NEStructureTerminalConfigActionPacket.Action.RESET))));
 
         // 第三行：建造 / 镜像建造 / 拆除
-        addModeButton(StructureTerminalMode.BUILD, 0,
+        addModeButton(
+                StructureTerminalMode.BUILD,
+                0,
                 Component.translatable("gui.neoecoae.structure_terminal.mode.build"),
                 Component.translatable("gui.neoecoae.structure_terminal.mode.build.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_BUILD_MODE);
-        addModeButton(StructureTerminalMode.MIRRORED_BUILD, 1,
+        addModeButton(
+                StructureTerminalMode.MIRRORED_BUILD,
+                1,
                 Component.translatable("gui.neoecoae.structure_terminal.mode.mirrored_build"),
                 Component.translatable("gui.neoecoae.structure_terminal.mode.mirrored_build.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_MIRRORED_BUILD_MODE);
-        addModeButton(StructureTerminalMode.DISMANTLE, 2,
+        addModeButton(
+                StructureTerminalMode.DISMANTLE,
+                2,
                 Component.translatable("gui.neoecoae.structure_terminal.mode.dismantle"),
                 Component.translatable("gui.neoecoae.structure_terminal.mode.dismantle.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_DISMANTLE_MODE);
 
         // 目标选择按钮，居中于材料区，三者等宽排列
-        addTargetButton(StructureTerminalHostType.CRAFTING, 0,
+        addTargetButton(
+                StructureTerminalHostType.CRAFTING,
+                0,
                 Component.translatable("gui.neoecoae.structure_terminal.target.crafting"),
                 Component.translatable("gui.neoecoae.structure_terminal.target.crafting.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_CRAFTING);
-        addTargetButton(StructureTerminalHostType.STORAGE, 1,
+        addTargetButton(
+                StructureTerminalHostType.STORAGE,
+                1,
                 Component.translatable("gui.neoecoae.structure_terminal.target.storage"),
                 Component.translatable("gui.neoecoae.structure_terminal.target.storage.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_STORAGE);
-        addTargetButton(StructureTerminalHostType.COMPUTATION, 2,
+        addTargetButton(
+                StructureTerminalHostType.COMPUTATION,
+                2,
                 Component.translatable("gui.neoecoae.structure_terminal.target.computation"),
                 Component.translatable("gui.neoecoae.structure_terminal.target.computation.tooltip"),
                 NENetwork.NEStructureTerminalConfigActionPacket.Action.SELECT_COMPUTATION);
     }
     // 帮助去除重复代码的函数：添加模式选择按钮和目标选择按钮的函数。它们的实现非常相似，都是根据传入的参数创建一个 NEToggleTextButton，并设置相应的点击事件和工具提示。
-    private void addModeButton(StructureTerminalMode mode, int index, Component label, Component tooltip,
+    private void addModeButton(
+            StructureTerminalMode mode,
+            int index,
+            Component label,
+            Component tooltip,
             NENetwork.NEStructureTerminalConfigActionPacket.Action action) {
         int x = leftPos + CONTROL_BUTTON_ROW_X + index * (MODE_BUTTON_W + CONTROL_BUTTON_GAP);
         int y = topPos + CONTROL_BUTTON_ROW2_Y;
 
-        NEToggleTextButton button = new NEToggleTextButton(x, y, MODE_BUTTON_W, CONTROL_BUTTON_H,
-                label,
-                () -> selectedMode == mode,
-                btn -> {
+        NEToggleTextButton button = new NEToggleTextButton(
+                x, y, MODE_BUTTON_W, CONTROL_BUTTON_H, label, () -> selectedMode == mode, btn -> {
                     this.selectedMode = mode;
                     NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(action));
                 });
@@ -208,7 +231,11 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         addRenderableWidget(button);
     }
 
-    private void addTargetButton(StructureTerminalHostType target, int index, Component label, Component tooltip,
+    private void addTargetButton(
+            StructureTerminalHostType target,
+            int index,
+            Component label,
+            Component tooltip,
             NENetwork.NEStructureTerminalConfigActionPacket.Action action) {
         int buttonW = 52;
         int buttonH = 18;
@@ -216,10 +243,8 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         int totalW = buttonW * 3 + gap * 2;
         int x = leftPos + MATERIAL_X + (MATERIAL_W - totalW) / 2 + index * (buttonW + gap);
         int y = topPos + MATERIAL_Y + 20;
-        NEToggleTextButton button = new NEToggleTextButton(x, y, buttonW, buttonH,
-                label,
-                () -> hasActiveTarget && selectedTarget == target,
-                btn -> {
+        NEToggleTextButton button = new NEToggleTextButton(
+                x, y, buttonW, buttonH, label, () -> hasActiveTarget && selectedTarget == target, btn -> {
                     this.hasActiveTarget = true;
                     this.selectedTarget = target;
                     NENetwork.CHANNEL.sendToServer(new NENetwork.NEStructureTerminalConfigActionPacket(action));
@@ -246,20 +271,33 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         // 标题
-        guiGraphics.drawString(font, title,
-                NENativeUiConstants.TITLE_X, NENativeUiConstants.TITLE_Y,
-                NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
+        guiGraphics.drawString(
+                font,
+                title,
+                NENativeUiConstants.TITLE_X,
+                NENativeUiConstants.TITLE_Y,
+                NENativeUiConstants.MACHINE_TEXT_PRIMARY,
+                false);
 
         // 控制区标题和数值
         Component lengthLabel = Component.literal("可变长度: " + displayBuildLength);
-        guiGraphics.drawString(font, lengthLabel,
-                CONTROL_X + (CONTROL_W - font.width(lengthLabel)) / 2, CONTROL_Y + 8, DARK_TEXT_PRIMARY, false);
+        guiGraphics.drawString(
+                font,
+                lengthLabel,
+                CONTROL_X + (CONTROL_W - font.width(lengthLabel)) / 2,
+                CONTROL_Y + 8,
+                DARK_TEXT_PRIMARY,
+                false);
 
         // 最大长度提示
         Component maxLenLabel = Component.literal("(最大长度:" + maxLength + ")");
-        guiGraphics.drawString(font, maxLenLabel,
-                CONTROL_X + (CONTROL_W - font.width(maxLenLabel)) / 2, CONTROL_Y + 8 + font.lineHeight + 1,
-                DARK_TEXT_MUTED, false);
+        guiGraphics.drawString(
+                font,
+                maxLenLabel,
+                CONTROL_X + (CONTROL_W - font.width(maxLenLabel)) / 2,
+                CONTROL_Y + 8 + font.lineHeight + 1,
+                DARK_TEXT_MUTED,
+                false);
 
         // 中间的数值显示框
         String lengthValue = String.valueOf(displayBuildLength);
@@ -269,13 +307,15 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         guiGraphics.drawString(font, Component.literal(lengthValue), valueX, valueY, DARK_TEXT_VALUE, false);
 
         // 所需方块标题
-        guiGraphics.drawString(font, Component.literal("所需方块"),
-                MATERIAL_X + 10, MATERIAL_Y + 8, DARK_TEXT_PRIMARY, false);
+        guiGraphics.drawString(
+                font, Component.literal("所需方块"), MATERIAL_X + 10, MATERIAL_Y + 8, DARK_TEXT_PRIMARY, false);
         if (materials.size() > visibleMaterialSlots()) {
             int start = materialScrollOffset + 1;
             int end = Math.min(materialScrollOffset + visibleMaterialSlots(), materials.size());
             String pageText = start + "-" + end + "/" + materials.size();
-            guiGraphics.drawString(font, Component.literal(pageText),
+            guiGraphics.drawString(
+                    font,
+                    Component.literal(pageText),
                     MATERIAL_X + MATERIAL_W - 10 - font.width(pageText),
                     MATERIAL_Y + MATERIAL_H - 13,
                     DARK_TEXT_MUTED,
@@ -344,12 +384,15 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         }
         NEStructureTerminalUiState.BuildMaterialEntry entry = materials.get(index);
         int missing = Math.max(0, entry.required() - entry.available());
-        g.renderTooltip(font, List.of(
-                entry.item().getHoverName().getVisualOrderText(),
-                Component.literal("需要: " + entry.required()).getVisualOrderText(),
-                Component.literal("拥有: " + entry.available()).getVisualOrderText(),
-                Component.literal("缺少: " + missing).getVisualOrderText()),
-                mouseX, mouseY);
+        g.renderTooltip(
+                font,
+                List.of(
+                        entry.item().getHoverName().getVisualOrderText(),
+                        Component.literal("需要: " + entry.required()).getVisualOrderText(),
+                        Component.literal("拥有: " + entry.available()).getVisualOrderText(),
+                        Component.literal("缺少: " + missing).getVisualOrderText()),
+                mouseX,
+                mouseY);
     }
 
     // 鼠标滚轮滚动时，如果鼠标在材料区内且材料数量超过可见格数，则调整滚动偏移。
@@ -396,8 +439,7 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
     private boolean isInMaterialGrid(double mouseX, double mouseY) {
         int x = leftPos + MATERIAL_X;
         int y = topPos + materialGridY();
-        return mouseX >= x && mouseX < x + MATERIAL_W
-                && mouseY >= y && mouseY < y + MATERIAL_ROWS * MATERIAL_SLOT_SIZE;
+        return mouseX >= x && mouseX < x + MATERIAL_W && mouseY >= y && mouseY < y + MATERIAL_ROWS * MATERIAL_SLOT_SIZE;
     }
 
     private int materialSlotX(int visibleIndex) {
@@ -454,8 +496,8 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
 
     // ── Inset button drawing ──
 
-    private void drawInsetButton(GuiGraphics g, int x, int y, int w, int h,
-            boolean hover, boolean pressed, boolean selected) {
+    private void drawInsetButton(
+            GuiGraphics g, int x, int y, int w, int h, boolean hover, boolean pressed, boolean selected) {
         int outer = 0xFF0D0D11;
         int edge = hover ? 0xFFDAD5E8 : 0xFFC9C3D6;
         int mid = selected ? 0xFF3B3445 : 0xFF47434F;
@@ -523,8 +565,8 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
         private final BooleanSupplier selectedSupplier;
         private boolean pressed;
 
-        private NEToggleTextButton(int x, int y, int w, int h, Component message,
-                BooleanSupplier selectedSupplier, OnPress onPress) {
+        private NEToggleTextButton(
+                int x, int y, int w, int h, Component message, BooleanSupplier selectedSupplier, OnPress onPress) {
             super(x, y, w, h, message, onPress, DEFAULT_NARRATION);
             this.selectedSupplier = selectedSupplier;
         }
@@ -556,5 +598,4 @@ public class NEStructureTerminalScreen extends AbstractContainerScreen<NEStructu
             g.drawString(font, getMessage(), tx, ty, color, false);
         }
     }
-
 }

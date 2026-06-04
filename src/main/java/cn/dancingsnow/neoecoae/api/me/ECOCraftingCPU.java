@@ -22,19 +22,24 @@ import org.jetbrains.annotations.Nullable;
 public class ECOCraftingCPU implements ICraftingCPU {
 
     private long fakeStorage = 0;
+
     @Getter
     private final NEComputationCluster cluster;
+
     @Getter
     private ICraftingPlan plan;
+
     @Getter
     private final ECOCraftingCPULogic logic = new ECOCraftingCPULogic(this);
+
     @Getter
     private final ECOComputationThreadingCoreBlockEntity owner;
+
     @Getter
     private final IECOTier tier;
 
-    public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan,
-            ECOComputationThreadingCoreBlockEntity owner) {
+    public ECOCraftingCPU(
+            NEComputationCluster cluster, ICraftingPlan plan, ECOComputationThreadingCoreBlockEntity owner) {
         this.cluster = cluster;
         this.plan = plan;
         this.owner = owner;
@@ -60,8 +65,8 @@ public class ECOCraftingCPU implements ICraftingCPU {
         var finalOutput = logic.getFinalJobOutput();
         if (finalOutput != null) {
             var elapsedTimeTracker = logic.getElapsedTimeTracker();
-            var progress = Math.max(0,
-                    elapsedTimeTracker.getStartItemCount() - elapsedTimeTracker.getRemainingItemCount());
+            var progress =
+                    Math.max(0, elapsedTimeTracker.getStartItemCount() - elapsedTimeTracker.getRemainingItemCount());
             return new CraftingJobStatus(
                     finalOutput, elapsedTimeTracker.getStartItemCount(), progress, elapsedTimeTracker.getElapsedTime());
         } else {
@@ -122,8 +127,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return cluster.getController().getLevel();
     }
 
-    @Nullable
-    public IGrid getGrid() {
+    @Nullable public IGrid getGrid() {
         IGridNode gridNode = cluster.getController().getGridNode();
         return gridNode != null ? gridNode.getGrid() : null;
     }

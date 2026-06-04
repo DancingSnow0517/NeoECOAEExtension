@@ -4,8 +4,8 @@ import appeng.client.gui.me.common.MEStorageScreen;
 import appeng.client.gui.me.items.PatternEncodingTermScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.menu.me.items.PatternEncodingTermMenu;
-import cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.api.PatternEncodingTermMenuExtension;
 import cn.dancingsnow.neoecoae.gui.widget.UploadButton;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -28,10 +28,9 @@ public abstract class PatternEncodingTermScreenMixin120<C extends PatternEncodin
         int uploadY = top + this.imageHeight - 90;
 
         addRenderableWidget(new UploadButton(
-            uploadX,
-            uploadY,
-            new ItemStack(NEBlocks.CRAFTING_SYSTEM_L4.get()),
-            button -> ((PatternEncodingTermMenuExtension) this.getMenu()).neoecoae$uploadPattern()
-        ));
+                uploadX,
+                uploadY,
+                new ItemStack(NEBlocks.CRAFTING_SYSTEM_L4.get()),
+                button -> ((PatternEncodingTermMenuExtension) this.getMenu()).neoecoae$uploadPattern()));
     }
 }

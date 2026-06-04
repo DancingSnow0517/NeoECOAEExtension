@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.all;
 
-
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -9,24 +8,24 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.registries.RegistryObject;
 import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
 
 public class NERecipeTypes {
-    private static final DeferredRegister<RecipeType<?>> RECIPE_TYPE = DeferredRegister.create(Registries.RECIPE_TYPE, NeoECOAE.MOD_ID);
-    private static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZER = DeferredRegister.create(Registries.RECIPE_SERIALIZER, NeoECOAE.MOD_ID);
+    private static final DeferredRegister<RecipeType<?>> RECIPE_TYPE =
+            DeferredRegister.create(Registries.RECIPE_TYPE, NeoECOAE.MOD_ID);
+    private static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZER =
+            DeferredRegister.create(Registries.RECIPE_SERIALIZER, NeoECOAE.MOD_ID);
 
     public static final RegistryObject<RecipeType<CoolingRecipe>> COOLING = registerRecipe("cooling");
-    public static final RegistryObject<RecipeSerializer<CoolingRecipe>> COOLING_SERIALIZER = RECIPE_SERIALIZER.register(
-        "cooling",
-        CoolingRecipe.Serializer::new
-    );
+    public static final RegistryObject<RecipeSerializer<CoolingRecipe>> COOLING_SERIALIZER =
+            RECIPE_SERIALIZER.register("cooling", CoolingRecipe.Serializer::new);
 
-    public static final RegistryObject<RecipeType<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION = registerRecipe("integrated_working_station");
-    public static final RegistryObject<RecipeSerializer<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_SERIALIZER = RECIPE_SERIALIZER.register(
-        "integrated_working_station",
-        IntegratedWorkingStationRecipe.Serializer::new
-    );
+    public static final RegistryObject<RecipeType<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION =
+            registerRecipe("integrated_working_station");
+    public static final RegistryObject<RecipeSerializer<IntegratedWorkingStationRecipe>>
+            INTEGRATED_WORKING_STATION_SERIALIZER = RECIPE_SERIALIZER.register(
+                    "integrated_working_station", IntegratedWorkingStationRecipe.Serializer::new);
 
     private static <T extends Recipe<?>> RegistryObject<RecipeType<T>> registerRecipe(String name) {
         return RECIPE_TYPE.register(name, () -> new RecipeType<>() {

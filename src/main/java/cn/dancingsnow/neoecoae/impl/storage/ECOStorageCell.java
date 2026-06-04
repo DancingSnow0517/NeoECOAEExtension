@@ -24,6 +24,8 @@ import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -31,30 +33,33 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class ECOStorageCell implements IECOStorageCell {
-    @Nullable
-    private final ISaveProvider container;
+    @Nullable private final ISaveProvider container;
+
     private final IBasicECOCellItem cellType;
+
     @Getter
     private final AEKeyType keyType;
     // filter
     @Getter
     private final IPartitionList partitionList;
+
     @Getter
     private final IncludeExclude partitionListMode;
+
     private final boolean hasVoidUpgrade;
 
     private final ItemStack cellStack;
 
     private final int maxItemTypes;
     private int storedItems;
+
     @Getter
     private long storedItemCount;
+
     private Object2LongMap<AEKey> storedAmounts;
     private boolean isPersisted = true;
+
     @Getter
     private final IECOTier tier;
 
@@ -67,7 +72,8 @@ public class ECOStorageCell implements IECOStorageCell {
             maxItemTypes = c.getTotalTypes();
             var storedStacks = getStoredStacks();
             this.storedItems = storedStacks.size();
-            this.storedItemCount = storedStacks.stream().mapToLong(GenericStack::amount).sum();
+            this.storedItemCount =
+                    storedStacks.stream().mapToLong(GenericStack::amount).sum();
             this.storedAmounts = null;
             this.cellType = c;
             this.tier = c.getTier();
@@ -155,7 +161,7 @@ public class ECOStorageCell implements IECOStorageCell {
     private boolean canHoldNewItem() {
         final long bytesFree = this.getFreeBytes();
         return (bytesFree > this.getBytesPerType()
-                || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0)
+                        || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0)
                 && this.getRemainingItemTypes() > 0;
     }
 

@@ -13,11 +13,9 @@ import net.minecraft.resources.ResourceLocation;
  * </p>
  */
 public record NEStorageUiTypeState(
-    ResourceLocation typeId,
-    String displayName,
-    long usedTypes,
-    long totalTypes,
-    long usedBytes,
-    long totalBytes
-) {
-}
+        ResourceLocation typeId,
+        String displayName,
+        long usedTypes,
+        long totalTypes,
+        long usedBytes,
+        long totalBytes) {}

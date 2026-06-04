@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api.integration;
 
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import java.lang.annotation.ElementType;
 import lombok.extern.slf4j.Slf4j;
 import net.minecraftforge.fml.loading.LoadingModList;
 import net.minecraftforge.fml.loading.moddiscovery.ModFileInfo;
@@ -9,28 +10,27 @@ import net.minecraftforge.fml.loading.progress.ProgressMeter;
 import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
 import net.minecraftforge.forgespi.language.ModFileScanData;
 
-import java.lang.annotation.ElementType;
-
 @Slf4j
 public class IntegrationManager {
 
-    private final Multimap<String, IntegrationInstance> instances = MultimapBuilder.hashKeys().hashSetValues().build();
+    private final Multimap<String, IntegrationInstance> instances =
+            MultimapBuilder.hashKeys().hashSetValues().build();
 
-    public static final String INTEGRATION_NAME = "L" + Integration.class.getName().replace(".", "/") + ";";
+    public static final String INTEGRATION_NAME =
+            "L" + Integration.class.getName().replace(".", "/") + ";";
 
     public void compileContent() {
-        ProgressMeter meter = StartupNotificationManager.addProgressBar("Load Integrations", LoadingModList.get().getModFiles().size());
+        ProgressMeter meter = StartupNotificationManager.addProgressBar(
+                "Load Integrations", LoadingModList.get().getModFiles().size());
         for (ModFileInfo modFile : LoadingModList.get().getModFiles()) {
             meter.increment();
             ModFileScanData scanData = modFile.getFile().getScanResult();
             for (ModFileScanData.AnnotationData annotation : scanData.getAnnotations()) {
-                if (annotation.annotationType().getDescriptor().equals(INTEGRATION_NAME) && annotation.targetType() == ElementType.TYPE) {
+                if (annotation.annotationType().getDescriptor().equals(INTEGRATION_NAME)
+                        && annotation.targetType() == ElementType.TYPE) {
                     String modid = (String) annotation.annotationData().get("value");
                     log.info("Considering integration {} for {}", annotation.memberName(), modid);
-                    IntegrationInstance instance = new IntegrationInstance(
-                        modid,
-                        annotation.memberName()
-                    );
+                    IntegrationInstance instance = new IntegrationInstance(modid, annotation.memberName());
                     this.instances.put(modid, instance);
                 }
             }
@@ -56,7 +56,8 @@ public class IntegrationManager {
 
     public void loadAllIntegrations() {
         for (String key : instances.keys()) {
-            if (LoadingModList.get().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
+            if (LoadingModList.get().getMods().stream()
+                    .anyMatch(it -> it.getModId().equals(key))) {
                 load(key);
             }
         }
@@ -64,7 +65,8 @@ public class IntegrationManager {
 
     public void loadAllClientIntegrations() {
         for (String key : instances.keys()) {
-            if (LoadingModList.get().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
+            if (LoadingModList.get().getMods().stream()
+                    .anyMatch(it -> it.getModId().equals(key))) {
                 loadClient(key);
             }
         }

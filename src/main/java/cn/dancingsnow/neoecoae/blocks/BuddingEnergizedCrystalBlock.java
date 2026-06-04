@@ -46,13 +46,13 @@ public class BuddingEnergizedCrystalBlock extends AEBaseBlock {
         if (canClusterGrowAtState(targetState)) {
             newCluster = NEBlocks.SMALL_ENERGIZED_CRYSTAL_BUD.get();
         } else if (targetState.is(NEBlocks.SMALL_ENERGIZED_CRYSTAL_BUD.get())
-            && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
+                && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
             newCluster = NEBlocks.MEDIUM_ENERGIZED_CRYSTAL_BUD.get();
         } else if (targetState.is(NEBlocks.MEDIUM_ENERGIZED_CRYSTAL_BUD.get())
-            && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
+                && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
             newCluster = NEBlocks.LARGE_ENERGIZED_CRYSTAL_BUD.get();
         } else if (targetState.is(NEBlocks.LARGE_ENERGIZED_CRYSTAL_BUD.get())
-            && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
+                && targetState.getValue(AmethystClusterBlock.FACING) == direction) {
             newCluster = NEBlocks.ENERGIZED_CRYSTAL_CLUSTER.get();
         }
 
@@ -61,9 +61,12 @@ public class BuddingEnergizedCrystalBlock extends AEBaseBlock {
         }
 
         // Grow certus crystal
-        BlockState newClusterState = newCluster.defaultBlockState()
-            .setValue(AmethystClusterBlock.FACING, direction)
-            .setValue(AmethystClusterBlock.WATERLOGGED, targetState.getFluidState().getType() == Fluids.WATER);
+        BlockState newClusterState = newCluster
+                .defaultBlockState()
+                .setValue(AmethystClusterBlock.FACING, direction)
+                .setValue(
+                        AmethystClusterBlock.WATERLOGGED,
+                        targetState.getFluidState().getType() == Fluids.WATER);
         level.setBlockAndUpdate(targetPos, newClusterState);
 
         // Damage the budding certus block after a successful growth

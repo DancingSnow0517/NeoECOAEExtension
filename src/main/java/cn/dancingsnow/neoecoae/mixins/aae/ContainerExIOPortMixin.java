@@ -16,8 +16,24 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(ContainerExIOPort.class)
 @Pseudo
 public class ContainerExIOPortMixin {
-    @WrapOperation(method = "setupConfig", at = @At(value = "INVOKE", target = "Lcom/glodblock/github/extendedae/container/ContainerExIOPort;addSlot(Lnet/minecraft/world/inventory/Slot;Lappeng/menu/SlotSemantic;)Lnet/minecraft/world/inventory/Slot;", ordinal = 0))
-    private Slot wrapSlot(ContainerExIOPort instance, Slot slot, SlotSemantic slotSemantic, Operation<Slot> original, @Local(name = "cells") InternalInventory cells, @Local(name = "i") int i) {
-        return original.call(instance, new WithECORestrictedInputSlot(RestrictedInputSlot.PlacableItemType.STORAGE_CELLS, cells, i), slotSemantic);
+    @WrapOperation(
+            method = "setupConfig",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lcom/glodblock/github/extendedae/container/ContainerExIOPort;addSlot(Lnet/minecraft/world/inventory/Slot;Lappeng/menu/SlotSemantic;)Lnet/minecraft/world/inventory/Slot;",
+                            ordinal = 0))
+    private Slot wrapSlot(
+            ContainerExIOPort instance,
+            Slot slot,
+            SlotSemantic slotSemantic,
+            Operation<Slot> original,
+            @Local(name = "cells") InternalInventory cells,
+            @Local(name = "i") int i) {
+        return original.call(
+                instance,
+                new WithECORestrictedInputSlot(RestrictedInputSlot.PlacableItemType.STORAGE_CELLS, cells, i),
+                slotSemantic);
     }
 }

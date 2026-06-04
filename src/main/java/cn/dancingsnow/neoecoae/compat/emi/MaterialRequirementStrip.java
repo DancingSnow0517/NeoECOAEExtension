@@ -1,13 +1,12 @@
 package cn.dancingsnow.neoecoae.compat.emi;
 
 import dev.emi.emi.api.stack.EmiStack;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.network.chat.Component;
-
-import java.util.List;
 
 final class MaterialRequirementStrip {
     private final MultiblockPreviewState state;
@@ -21,7 +20,9 @@ final class MaterialRequirementStrip {
         g.fill(slots.x() - 2, slots.y() - 2, slots.right() + 2, slots.bottom() + 2, 0x66808080);
 
         int start = state.materialPage() * MultiblockPreviewState.MATERIAL_PAGE_SIZE;
-        int count = Math.min(MultiblockPreviewState.MATERIAL_PAGE_SIZE, Math.max(0, state.materialStacks().size() - start));
+        int count = Math.min(
+                MultiblockPreviewState.MATERIAL_PAGE_SIZE,
+                Math.max(0, state.materialStacks().size() - start));
         for (int i = 0; i < MultiblockPreviewState.MATERIAL_PAGE_SIZE; i++) {
             MultiblockPreviewLayout.Rect slot = layout.materialSlot(i);
             boolean hovered = slot.contains(mouseX, mouseY);
@@ -40,8 +41,13 @@ final class MaterialRequirementStrip {
             MultiblockPreviewStyle.drawButton(g, layout.nextPageButton(), ">", mouseX, mouseY);
             String page = (state.materialPage() + 1) + "/" + state.materialPages();
             Font font = Minecraft.getInstance().font;
-            g.drawString(font, page, layout.previousPageButton().x() - 4 - font.width(page), layout.materialTitleY(),
-                    MultiblockPreviewStyle.TEXT_COLOR, false);
+            g.drawString(
+                    font,
+                    page,
+                    layout.previousPageButton().x() - 4 - font.width(page),
+                    layout.materialTitleY(),
+                    MultiblockPreviewStyle.TEXT_COLOR,
+                    false);
         }
     }
 

@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.compat.appmek;
 
+import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
+
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -8,20 +10,17 @@ import cn.dancingsnow.neoecoae.compat.appmek.item.ECOChemicalStorageCellItem;
 import com.google.gson.JsonObject;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.ItemEntry;
+import java.util.List;
+import java.util.function.Consumer;
 import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
 import net.minecraft.world.item.Rarity;
+import net.minecraftforge.common.Tags;
 import net.minecraftforge.common.crafting.CraftingHelper;
 import net.minecraftforge.common.crafting.conditions.ICondition;
 import net.minecraftforge.common.crafting.conditions.ModLoadedCondition;
-import net.minecraftforge.common.Tags;
-
-import java.util.List;
-import java.util.function.Consumer;
-
-import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 /**
  * Registers Applied Mekanistics chemical storage cell housing and cells.
@@ -52,7 +51,8 @@ public class NEAppMekItems {
                         .define('C', NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT)
                         .unlockedBy("has_crystal_matrix", RegistrateRecipeProvider.has(NEItems.CRYSTAL_MATRIX))
                         .unlockedBy("has_redstone", RegistrateRecipeProvider.has(Tags.Items.DUSTS_REDSTONE))
-                        .unlockedBy("has_black_tungsten_alloy",
+                        .unlockedBy(
+                                "has_black_tungsten_alloy",
                                 RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
                         .save(appmekInstalled);
             })
@@ -64,9 +64,9 @@ public class NEAppMekItems {
     // ═══════════════════════════════════════════════════════════════
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE
-            .item("eco_chemical_storage_cell_16m", p -> new ECOChemicalStorageCellItem(
-                    p.stacksTo(1).rarity(Rarity.UNCOMMON),
-                    ECOTier.L4))
+            .item(
+                    "eco_chemical_storage_cell_16m",
+                    p -> new ECOChemicalStorageCellItem(p.stacksTo(1).rarity(Rarity.UNCOMMON), ECOTier.L4))
             .recipe((ctx, prov) -> {
                 Consumer<FinishedRecipe> appmekInstalled = appmekInstalled(prov);
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -76,16 +76,17 @@ public class NEAppMekItems {
                         .save(appmekInstalled);
                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
                         ctx.get(),
-                        List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
+                        List.of(
+                                NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
                                 NEItems.ECO_CELL_COMPONENT_16M.asStack()));
             })
             .lang("ECO - LE4 Storage Matrix (Chemical)")
             .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = REGISTRATE
-            .item("eco_chemical_storage_cell_64m", p -> new ECOChemicalStorageCellItem(
-                    p.stacksTo(1).rarity(Rarity.RARE),
-                    ECOTier.L6))
+            .item(
+                    "eco_chemical_storage_cell_64m",
+                    p -> new ECOChemicalStorageCellItem(p.stacksTo(1).rarity(Rarity.RARE), ECOTier.L6))
             .recipe((ctx, prov) -> {
                 Consumer<FinishedRecipe> appmekInstalled = appmekInstalled(prov);
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -95,16 +96,17 @@ public class NEAppMekItems {
                         .save(appmekInstalled);
                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
                         ctx.get(),
-                        List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
+                        List.of(
+                                NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
                                 NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             })
             .lang("ECO - LE6 Storage Matrix (Chemical)")
             .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = REGISTRATE
-            .item("eco_chemical_storage_cell_256m", p -> new ECOChemicalStorageCellItem(
-                    p.stacksTo(1).rarity(Rarity.EPIC),
-                    ECOTier.L9))
+            .item(
+                    "eco_chemical_storage_cell_256m",
+                    p -> new ECOChemicalStorageCellItem(p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9))
             .recipe((ctx, prov) -> {
                 Consumer<FinishedRecipe> appmekInstalled = appmekInstalled(prov);
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -114,14 +116,14 @@ public class NEAppMekItems {
                         .save(appmekInstalled);
                 StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
                         ctx.get(),
-                        List.of(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
+                        List.of(
+                                NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
                                 NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             })
             .lang("ECO - LE9 Storage Matrix (Chemical)")
             .register();
 
-    public static void register() {
-    }
+    public static void register() {}
 
     private static Consumer<FinishedRecipe> appmekInstalled(RegistrateRecipeProvider provider) {
         ICondition condition = new ModLoadedCondition("appmek");

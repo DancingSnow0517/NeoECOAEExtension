@@ -2,30 +2,29 @@ package cn.dancingsnow.neoecoae.multiblock.placement;
 
 import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.mojang.logging.LogUtils;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Containers;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandler;
 import org.slf4j.Logger;
-
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Set;
 
 public final class MultiBlockPlacementService {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -38,29 +37,28 @@ public final class MultiBlockPlacementService {
         BLOCKED
     }
 
-    private MultiBlockPlacementService() {
-    }
+    private MultiBlockPlacementService() {}
 
     public static MultiBlockPlacementPlan preview(
-        ServerLevel level,
-        BlockPos controllerPos,
-        BlockState controllerState,
-        MultiBlockDefinition definition,
-        int repeats
-    ) {
+            ServerLevel level,
+            BlockPos controllerPos,
+            BlockState controllerState,
+            MultiBlockDefinition definition,
+            int repeats) {
         return preview(level, controllerPos, controllerState, definition, repeats, false);
     }
 
     public static MultiBlockPlacementPlan preview(
-        ServerLevel level,
-        BlockPos controllerPos,
-        BlockState controllerState,
-        MultiBlockDefinition definition,
-        int repeats,
-        boolean mirrored
-    ) {
-        Direction facing = controllerState.getOptionalValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING)
-            .orElse(Direction.NORTH);
+            ServerLevel level,
+            BlockPos controllerPos,
+            BlockState controllerState,
+            MultiBlockDefinition definition,
+            int repeats,
+            boolean mirrored) {
+        Direction facing = controllerState
+                .getOptionalValue(
+                        net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING)
+                .orElse(Direction.NORTH);
         MultiBlockPlanContext context = new MultiBlockPlanContext(repeats);
         definition.createLevel(context);
 
@@ -74,21 +72,22 @@ public final class MultiBlockPlacementService {
             if (plannedBlock.relativePos().equals(MultiBlockRotation.CONTROLLER_ANCHOR)) {
                 continue;
             }
-            BlockPos worldPos = MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing, mirrored);
+            BlockPos worldPos =
+                    MultiBlockRotation.localToWorld(plannedBlock.relativePos(), controllerPos, facing, mirrored);
             BlockState targetState = MultiBlockRotation.rotateState(plannedBlock.targetState(), facing, mirrored);
             if (DEBUG_MIRROR_BUILD) {
                 LOGGER.debug(
-                    "NE multiblock preview: controllerPos={} controllerFacing={} mirrored={} relativePos={} worldPos={} sourceState={} targetState={}",
-                    controllerPos,
-                    facing,
-                    mirrored,
-                    plannedBlock.relativePos(),
-                    worldPos,
-                    plannedBlock.targetState(),
-                    targetState
-                );
+                        "NE multiblock preview: controllerPos={} controllerFacing={} mirrored={} relativePos={} worldPos={} sourceState={} targetState={}",
+                        controllerPos,
+                        facing,
+                        mirrored,
+                        plannedBlock.relativePos(),
+                        worldPos,
+                        plannedBlock.targetState(),
+                        targetState);
             }
-            WorldPlannedBlock worldBlock = new WorldPlannedBlock(worldPos, targetState, plannedBlock.requiredItem().copy());
+            WorldPlannedBlock worldBlock = new WorldPlannedBlock(
+                    worldPos, targetState, plannedBlock.requiredItem().copy());
             allBlocks.add(worldBlock);
 
             BlockState existingState = level.getBlockState(worldPos);
@@ -104,7 +103,8 @@ public final class MultiBlockPlacementService {
             conflictPositions.add(worldPos);
         }
 
-        return new MultiBlockPlacementPlan(allBlocks, missingBlocks, conflictPositions, requiredItems, reusedBlockCount);
+        return new MultiBlockPlacementPlan(
+                allBlocks, missingBlocks, conflictPositions, requiredItems, reusedBlockCount);
     }
 
     public static boolean dismantle(ServerLevel level, INEMultiblockBuildHost host, ServerPlayer player) {
@@ -133,7 +133,8 @@ public final class MultiBlockPlacementService {
                 continue;
             }
             BlockEntity blockEntity = level.getBlockEntity(pos);
-            List<ItemStack> drops = new ArrayList<>(Block.getDrops(state, level, pos, blockEntity, player, ItemStack.EMPTY));
+            List<ItemStack> drops =
+                    new ArrayList<>(Block.getDrops(state, level, pos, blockEntity, player, ItemStack.EMPTY));
             if (blockEntity instanceof AEBaseBlockEntity aeBlockEntity) {
                 aeBlockEntity.addAdditionalDrops(level, pos, drops);
             }
@@ -161,7 +162,8 @@ public final class MultiBlockPlacementService {
         return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay(level));
     }
 
-    public static PlacementTickResult tickBuild(ServerLevel level, MultiBlockBuildSession session, ServerPlayer player) {
+    public static PlacementTickResult tickBuild(
+            ServerLevel level, MultiBlockBuildSession session, ServerPlayer player) {
         if (session == null || session.isFinished()) {
             return PlacementTickResult.COMPLETED;
         }
@@ -171,7 +173,8 @@ public final class MultiBlockPlacementService {
 
         WorldPlannedBlock worldBlock = session.getCurrentBlock();
         BlockState existingState = level.getBlockState(worldBlock.worldPos());
-        if (!existingState.equals(worldBlock.targetState()) && !(existingState.isAir() || existingState.canBeReplaced())) {
+        if (!existingState.equals(worldBlock.targetState())
+                && !(existingState.isAir() || existingState.canBeReplaced())) {
             return PlacementTickResult.BLOCKED;
         }
 
@@ -199,7 +202,7 @@ public final class MultiBlockPlacementService {
     private static int countMatchingItems(Player player, ItemStack target) {
         Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         return countMatchingItems(player.getInventory().items, target, visitedHandlers)
-            + countMatchingItems(player.getInventory().offhand, target, visitedHandlers);
+                + countMatchingItems(player.getInventory().offhand, target, visitedHandlers);
     }
 
     private static boolean consumeRequiredItem(Player player, ItemStack requiredItem) {
@@ -230,7 +233,8 @@ public final class MultiBlockPlacementService {
         }
 
         int count = ItemStack.isSameItemSameTags(stack, target) ? stack.getCount() : 0;
-        IItemHandler itemHandler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
+        IItemHandler itemHandler =
+                stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
         if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
             return count;
         }
@@ -241,7 +245,8 @@ public final class MultiBlockPlacementService {
         return count;
     }
 
-    private static int consumeFromList(List<ItemStack> stacks, ItemStack target, int remaining, Set<IItemHandler> visitedHandlers) {
+    private static int consumeFromList(
+            List<ItemStack> stacks, ItemStack target, int remaining, Set<IItemHandler> visitedHandlers) {
         for (ItemStack stack : stacks) {
             if (remaining <= 0) {
                 return 0;
@@ -251,7 +256,8 @@ public final class MultiBlockPlacementService {
         return remaining;
     }
 
-    private static int consumeFromStack(ItemStack stack, ItemStack target, int remaining, Set<IItemHandler> visitedHandlers) {
+    private static int consumeFromStack(
+            ItemStack stack, ItemStack target, int remaining, Set<IItemHandler> visitedHandlers) {
         if (remaining <= 0 || stack.isEmpty()) {
             return remaining;
         }
@@ -265,7 +271,8 @@ public final class MultiBlockPlacementService {
             }
         }
 
-        IItemHandler itemHandler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
+        IItemHandler itemHandler =
+                stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
         if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
             return remaining;
         }
@@ -320,12 +327,11 @@ public final class MultiBlockPlacementService {
     private static void playPlacementSound(ServerLevel level, WorldPlannedBlock worldBlock) {
         SoundType soundType = worldBlock.targetState().getSoundType(level, worldBlock.worldPos(), null);
         level.playSound(
-            null,
-            worldBlock.worldPos(),
-            soundType.getPlaceSound(),
-            SoundSource.BLOCKS,
-            (soundType.getVolume() + 1.0F) / 2.0F,
-            soundType.getPitch() * 0.8F
-        );
+                null,
+                worldBlock.worldPos(),
+                soundType.getPlaceSound(),
+                SoundSource.BLOCKS,
+                (soundType.getVolume() + 1.0F) / 2.0F,
+                soundType.getPitch() * 0.8F);
     }
 }

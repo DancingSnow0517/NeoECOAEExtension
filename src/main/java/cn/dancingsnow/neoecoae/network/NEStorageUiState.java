@@ -1,9 +1,8 @@
 package cn.dancingsnow.neoecoae.network;
 
-import net.minecraft.core.BlockPos;
-
 import java.util.Collections;
 import java.util.List;
+import net.minecraft.core.BlockPos;
 
 /**
  * Read-only snapshot of Storage Controller UI state sent from server to client.
@@ -15,12 +14,7 @@ import java.util.List;
  * </p>
  */
 public record NEStorageUiState(
-    BlockPos pos,
-    List<NEStorageUiTypeState> typeStates,
-    long storedEnergy,
-    long maxEnergy,
-    boolean formed
-) {
+        BlockPos pos, List<NEStorageUiTypeState> typeStates, long storedEnergy, long maxEnergy, boolean formed) {
     public static NEStorageUiState empty(BlockPos pos) {
         return new NEStorageUiState(pos, Collections.emptyList(), 0, 0, false);
     }
@@ -28,28 +22,36 @@ public record NEStorageUiState(
     /** Aggregate used types across all cell types. */
     public long totalUsedTypes() {
         long sum = 0;
-        for (var ts : typeStates) { sum += ts.usedTypes(); }
+        for (var ts : typeStates) {
+            sum += ts.usedTypes();
+        }
         return sum;
     }
 
     /** Aggregate total types across all cell types. */
     public long totalTypes() {
         long sum = 0;
-        for (var ts : typeStates) { sum += ts.totalTypes(); }
+        for (var ts : typeStates) {
+            sum += ts.totalTypes();
+        }
         return sum;
     }
 
     /** Aggregate used bytes across all cell types. */
     public long totalUsedBytes() {
         long sum = 0;
-        for (var ts : typeStates) { sum += ts.usedBytes(); }
+        for (var ts : typeStates) {
+            sum += ts.usedBytes();
+        }
         return sum;
     }
 
     /** Aggregate total bytes across all cell types. */
     public long totalBytes() {
         long sum = 0;
-        for (var ts : typeStates) { sum += ts.totalBytes(); }
+        for (var ts : typeStates) {
+            sum += ts.totalBytes();
+        }
         return sum;
     }
 }

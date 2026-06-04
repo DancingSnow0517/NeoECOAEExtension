@@ -19,29 +19,29 @@ public class CoolingRecipes {
         RecipeOutput hasMekanism = provider.withConditions(mekanismLoaded);
 
         CoolingRecipe.builder()
-            .input(FluidTags.WATER, 100)
-            .coolant(1500)
-            .maxOverclock(2)
-            .save(notMekanism, NeoECOAE.id("cooling/water"));
+                .input(FluidTags.WATER, 100)
+                .coolant(1500)
+                .maxOverclock(2)
+                .save(notMekanism, NeoECOAE.id("cooling/water"));
 
         CoolingRecipe.builder()
-            .input(FluidTags.WATER, 100)
-            .output(MekanismFluids.STEAM, 100)
-            .coolant(1500)
-            .maxOverclock(2)
-            .save(hasMekanism, NeoECOAE.id("cooling/water_with_steam"));
+                .input(FluidTags.WATER, 100)
+                .output(MekanismFluids.STEAM, 100)
+                .coolant(1500)
+                .maxOverclock(2)
+                .save(hasMekanism, NeoECOAE.id("cooling/water_with_steam"));
 
         CoolingRecipe.builder()
-            .input(MekanismTags.Fluids.SODIUM, 100)
-            .output(MekanismFluids.SUPERHEATED_SODIUM, 100)
-            .coolant(5000)
-            .maxOverclock(6)
-            .save(hasMekanism, NeoECOAE.id("cooling/sodium"));
+                .input(MekanismTags.Fluids.SODIUM, 100)
+                .output(MekanismFluids.SUPERHEATED_SODIUM, 100)
+                .coolant(5000)
+                .maxOverclock(6)
+                .save(hasMekanism, NeoECOAE.id("cooling/sodium"));
 
         CoolingRecipe.builder()
-            .input(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 100)
-            .coolant(12000)
-            .maxOverclock(9)
-            .save(provider, NeoECOAE.id("cooling/cryotheum_solution"));
+                .input(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 100)
+                .coolant(12000)
+                .maxOverclock(9)
+                .save(provider, NeoECOAE.id("cooling/cryotheum_solution"));
     }
 }

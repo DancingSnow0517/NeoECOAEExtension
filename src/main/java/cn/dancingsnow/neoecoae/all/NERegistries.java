@@ -22,14 +22,12 @@ public class NERegistries {
 
     /** @deprecated Kept for LDLib accessor compatibility; prefer {@link #cellTypeRegistry()}. */
     @Deprecated
-    public static final Registry<IECOTier> ECO_TIER = new MappedRegistry<>(
-        Keys.ECO_TIER,
-        Lifecycle.stable()
-    );
+    public static final Registry<IECOTier> ECO_TIER = new MappedRegistry<>(Keys.ECO_TIER, Lifecycle.stable());
 
     public static class Keys {
-        public static final ResourceKey<Registry<ECOCellType>> CELL_TYPE = ResourceKey.createRegistryKey(NeoECOAE.id("cell_type"));
-        public static final ResourceKey<Registry<IECOTier>> ECO_TIER = ResourceKey.createRegistryKey(NeoECOAE.id("eco_tier"));
+        public static final ResourceKey<Registry<ECOCellType>> CELL_TYPE =
+                ResourceKey.createRegistryKey(NeoECOAE.id("cell_type"));
+        public static final ResourceKey<Registry<IECOTier>> ECO_TIER =
+                ResourceKey.createRegistryKey(NeoECOAE.id("eco_tier"));
     }
 }
-

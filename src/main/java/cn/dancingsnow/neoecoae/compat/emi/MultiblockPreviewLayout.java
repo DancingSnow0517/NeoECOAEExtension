@@ -71,7 +71,8 @@ final class MultiblockPreviewLayout {
     }
 
     Rect scene() {
-        return new Rect(SCENE_PAD, SCENE_Y, width - SCENE_PAD * 2, Math.max(54, height - SCENE_Y - 4 - MATERIAL_BLOCK_H));
+        return new Rect(
+                SCENE_PAD, SCENE_Y, width - SCENE_PAD * 2, Math.max(54, height - SCENE_Y - 4 - MATERIAL_BLOCK_H));
     }
 
     int materialTitleY() {

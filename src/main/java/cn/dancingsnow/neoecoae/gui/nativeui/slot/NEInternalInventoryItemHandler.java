@@ -20,10 +20,11 @@ public class NEInternalInventoryItemHandler implements IItemHandlerModifiable {
     private final boolean allowInsert;
     private final boolean allowExtract;
 
-    public NEInternalInventoryItemHandler(InternalInventory inv,
-                                          ECOIntegratedWorkingStationBlockEntity owner,
-                                          boolean allowInsert,
-                                          boolean allowExtract) {
+    public NEInternalInventoryItemHandler(
+            InternalInventory inv,
+            ECOIntegratedWorkingStationBlockEntity owner,
+            boolean allowInsert,
+            boolean allowExtract) {
         this.inv = inv;
         this.owner = owner;
         this.allowInsert = allowInsert;

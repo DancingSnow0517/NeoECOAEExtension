@@ -4,6 +4,11 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
 import cn.dancingsnow.neoecoae.network.NEStorageUiState;
 import cn.dancingsnow.neoecoae.network.NEStorageUiTypeState;
+import java.text.NumberFormat;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
@@ -12,12 +17,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.fml.ModList;
-
-import java.text.NumberFormat;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
 
 /**
  * Screen for the ECO Storage Controller with live read-only status.
@@ -133,16 +132,18 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         drawStorageTextLines(guiGraphics, metrics, chemicalMode);
 
         if (chemicalMode) {
-            drawBoundMetricColumns(guiGraphics,
-                    new Metric[] { metrics.items(), metrics.fluids(), metrics.chemicals() },
-                    new double[] { animatedItemPct, animatedFluidPct, animatedChemicalPct });
+            drawBoundMetricColumns(
+                    guiGraphics,
+                    new Metric[] {metrics.items(), metrics.fluids(), metrics.chemicals()},
+                    new double[] {animatedItemPct, animatedFluidPct, animatedChemicalPct});
         } else {
-            drawBoundMetricColumns(guiGraphics,
-                    new Metric[] { metrics.items(), metrics.fluids() },
-                    new double[] { animatedItemPct, animatedFluidPct });
+            drawBoundMetricColumns(guiGraphics, new Metric[] {metrics.items(), metrics.fluids()}, new double[] {
+                animatedItemPct, animatedFluidPct
+            });
         }
 
-        drawFormedStatusBar(guiGraphics,
+        drawFormedStatusBar(
+                guiGraphics,
                 s.formed(),
                 LEFT_PANEL_X,
                 FORMED_BAR_Y,
@@ -163,12 +164,15 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             NEStorageUiTypeState fallbackType = new NEStorageUiTypeState(
                     ResourceLocation.fromNamespaceAndPath("neoecoae", "legacy"),
                     "Storage",
-                    be.getTotalUsedTypes(), be.getTotalTypes(),
-                    be.getTotalUsedBytes(), be.getTotalBytes());
+                    be.getTotalUsedTypes(),
+                    be.getTotalTypes(),
+                    be.getTotalUsedBytes(),
+                    be.getTotalBytes());
             return new NEStorageUiState(
                     menu.getMachinePos(),
                     Collections.singletonList(fallbackType),
-                    be.getStoredEnergy(), be.getMaxEnergy(),
+                    be.getStoredEnergy(),
+                    be.getMaxEnergy(),
                     be.isFormed());
         }
         return this.storageState;
@@ -180,12 +184,7 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         NEStorageUiTypeState fluidState = findTypeState(types, "fluid");
         NEStorageUiTypeState chemicalState = findChemicalTypeState(types);
 
-        Metric energy = new Metric(
-                Component.literal("能量"),
-                s.storedEnergy(), s.maxEnergy(),
-                0, 0,
-                0xFF8377FF,
-                false);
+        Metric energy = new Metric(Component.literal("能量"), s.storedEnergy(), s.maxEnergy(), 0, 0, 0xFF8377FF, false);
         Metric items = createTypeMetric(itemState, Component.literal("物品"), 0xFF43B678);
         Metric fluids = createTypeMetric(fluidState, Component.literal("流体"), 0xFF3A8FD6);
         Metric chemicals = createTypeMetric(chemicalState, Component.literal("化学品"), 0xFF9A6AE8);
@@ -198,8 +197,10 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         }
         return new Metric(
                 fallbackLabel,
-                state.usedBytes(), state.totalBytes(),
-                state.usedTypes(), state.totalTypes(),
+                state.usedBytes(),
+                state.totalBytes(),
+                state.usedTypes(),
+                state.totalTypes(),
                 accentColor,
                 true);
     }
@@ -210,7 +211,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
 
         drawPlainLine(g, metrics.energy().label(), x, y, DARK_TEXT_PRIMARY);
         y += TEXT_LINE_STEP;
-        drawPrefixedUsedTotalLine(g, "能量存储: ", metrics.energy().used(), metrics.energy().max(), "", x, y);
+        drawPrefixedUsedTotalLine(
+                g, "能量存储: ", metrics.energy().used(), metrics.energy().max(), "", x, y);
         y += TEXT_LINE_STEP;
 
         y = drawStorageTypeBlock(g, metrics.items(), x, y);
@@ -229,8 +231,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         return y + TEXT_LINE_STEP;
     }
 
-    private void drawPrefixedUsedTotalLine(GuiGraphics g, String prefix, long used, long max, String suffix, int x,
-            int y) {
+    private void drawPrefixedUsedTotalLine(
+            GuiGraphics g, String prefix, long used, long max, String suffix, int x, int y) {
         int cursor = drawSegment(g, prefix, x, y, DARK_TEXT_MUTED);
         cursor += drawSegment(g, formatMetricNumber(used), x + cursor, y, usedValueColor(used, max));
         cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
@@ -254,8 +256,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         drawUsedTotalLine(g, usedText, maxText, used, max, suffix, x, y);
     }
 
-    private void drawUsedTotalLine(GuiGraphics g, String usedText, String maxText, long used, long max, String suffix,
-            int x, int y) {
+    private void drawUsedTotalLine(
+            GuiGraphics g, String usedText, String maxText, long used, long max, String suffix, int x, int y) {
         int cursor = drawSegment(g, usedText, x, y, usedValueColor(used, max));
         cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
         cursor += drawSegment(g, maxText, x + cursor, y, DARK_TEXT_VALUE);
@@ -337,11 +339,11 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         boolean chemicalMode = hasChemicalStorageIntegration();
         StorageMetrics metrics = buildStorageMetrics(resolveStorageState());
         Metric[] columns = chemicalMode
-                ? new Metric[] { metrics.items(), metrics.fluids(), metrics.chemicals() }
-                : new Metric[] { metrics.items(), metrics.fluids() };
+                ? new Metric[] {metrics.items(), metrics.fluids(), metrics.chemicals()}
+                : new Metric[] {metrics.items(), metrics.fluids()};
         String[] tooltipKeys = chemicalMode
-                ? new String[] { TOOLTIP_ITEMS_USED, TOOLTIP_FLUIDS_USED, TOOLTIP_CHEMICALS_USED }
-                : new String[] { TOOLTIP_ITEMS_USED, TOOLTIP_FLUIDS_USED };
+                ? new String[] {TOOLTIP_ITEMS_USED, TOOLTIP_FLUIDS_USED, TOOLTIP_CHEMICALS_USED}
+                : new String[] {TOOLTIP_ITEMS_USED, TOOLTIP_FLUIDS_USED};
 
         int count = columns.length;
         int columnW = count == 3 ? 30 : 38;
@@ -355,12 +357,17 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
             Rect2i rect = new Rect2i(x, columnY, columnW, COLUMN_H);
             if (rect.contains(mouseX, mouseY)) {
                 Metric metric = columns[i];
-                g.renderTooltip(font, List.of(
-                        Component.translatable(tooltipKeys[i], formatPercent(metric.percent())),
-                        Component.translatable(TOOLTIP_USED_TOTAL,
-                                formatStorageBytes(metric.used()),
-                                formatStorageBytes(metric.max()))),
-                        Optional.empty(), mouseX, mouseY);
+                g.renderTooltip(
+                        font,
+                        List.of(
+                                Component.translatable(tooltipKeys[i], formatPercent(metric.percent())),
+                                Component.translatable(
+                                        TOOLTIP_USED_TOTAL,
+                                        formatStorageBytes(metric.used()),
+                                        formatStorageBytes(metric.max()))),
+                        Optional.empty(),
+                        mouseX,
+                        mouseY);
                 return;
             }
         }
@@ -380,8 +387,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         int textY = y + (h - font.lineHeight) / 2;
 
         g.drawString(font, label, textX, textY, DARK_TEXT_PRIMARY, false);
-        g.drawString(font, value, textX + font.width(label), textY,
-                formed ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR, false);
+        g.drawString(
+                font, value, textX + font.width(label), textY, formed ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR, false);
     }
 
     private void drawDarkInsetRect(GuiGraphics g, int x, int y, int w, int h) {
@@ -403,8 +410,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         g.drawString(font, Component.literal(text), x + (w - font.width(text)) / 2, y, color, false);
     }
 
-    private void drawCenteredScaledString(GuiGraphics g, String text, int boxX, int boxY, int boxW, int boxH,
-            int color, float scale) {
+    private void drawCenteredScaledString(
+            GuiGraphics g, String text, int boxX, int boxY, int boxW, int boxH, int color, float scale) {
         var pose = g.pose();
         float scaledTextW = font.width(text) * scale;
         float scaledTextH = font.lineHeight * scale;
@@ -461,8 +468,8 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
     }
 
     private static NEStorageUiTypeState findChemicalTypeState(List<NEStorageUiTypeState> types) {
-        String[] needles = new String[] { "chemical", "chem", "gas", "infuse", "infusion", "pigment", "slurry",
-                "mekanism" };
+        String[] needles =
+                new String[] {"chemical", "chem", "gas", "infuse", "infusion", "pigment", "slurry", "mekanism"};
         for (String needle : needles) {
             NEStorageUiTypeState state = findTypeState(types, needle);
             if (state != null) {
@@ -567,11 +574,10 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         return menu;
     }
 
-    private record StorageMetrics(Metric energy, Metric items, Metric fluids, Metric chemicals) {
-    }
+    private record StorageMetrics(Metric energy, Metric items, Metric fluids, Metric chemicals) {}
 
-    private record Metric(Component label, long used, long max, long usedTypes, long totalTypes,
-            int accentColor, boolean byteBased) {
+    private record Metric(
+            Component label, long used, long max, long usedTypes, long totalTypes, int accentColor, boolean byteBased) {
         private double percent() {
             return NEStorageControllerScreen.percent(used, max);
         }

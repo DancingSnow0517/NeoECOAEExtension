@@ -9,6 +9,5 @@ public interface ICellHost {
 
     boolean isItemValid(ItemStack stack);
 
-    default void notifyPersistence() {
-    }
+    default void notifyPersistence() {}
 }

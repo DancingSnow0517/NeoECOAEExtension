@@ -18,16 +18,6 @@
 
 package cn.dancingsnow.neoecoae.api.me;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
@@ -39,6 +29,13 @@ import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
+import java.util.HashMap;
+import java.util.Map;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import org.jetbrains.annotations.Nullable;
 
 public class ExecutingCraftingJob {
     private static final String NBT_LINK = "link";
@@ -57,8 +54,9 @@ public class ExecutingCraftingJob {
     final ElapsedTimeTracker timeTracker;
     GenericStack finalOutput;
     long remainingAmount;
-    @Nullable
-    Integer playerId;
+
+    @Nullable Integer playerId;
+
     boolean suspended;
 
     @FunctionalInterface
@@ -66,7 +64,10 @@ public class ExecutingCraftingJob {
         void onCraftingDifference(AEKey what);
     }
 
-    ExecutingCraftingJob(ICraftingPlan plan, CraftingDifferenceListener postCraftingDifference, CraftingLink link,
+    ExecutingCraftingJob(
+            ICraftingPlan plan,
+            CraftingDifferenceListener postCraftingDifference,
+            CraftingLink link,
             @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
         this.remainingAmount = this.finalOutput.amount();
@@ -90,8 +91,11 @@ public class ExecutingCraftingJob {
         this.suspended = false;
     }
 
-    ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
-            CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic logic) {
+    ExecutingCraftingJob(
+            CompoundTag data,
+            HolderLookup.Provider registries,
+            CraftingDifferenceListener postCraftingDifference,
+            ECOCraftingCPULogic logic) {
         this.link = new CraftingLink(data.getCompound(NBT_LINK), logic.cpu);
         IGrid grid = logic.cpu.getGrid();
         if (grid != null) {

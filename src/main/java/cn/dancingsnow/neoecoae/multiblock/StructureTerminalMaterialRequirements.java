@@ -3,50 +3,38 @@ package cn.dancingsnow.neoecoae.multiblock;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlanContext;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.items.IItemHandler;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.items.IItemHandler;
 
 public final class StructureTerminalMaterialRequirements {
-    private StructureTerminalMaterialRequirements() {
-    }
+    private StructureTerminalMaterialRequirements() {}
 
     public static List<NEStructureTerminalUiState.BuildMaterialEntry> collect(
-        Player player,
-        StructureTerminalHostType hostType,
-        int tier,
-        int buildLength
-    ) {
+            Player player, StructureTerminalHostType hostType, int tier, int buildLength) {
         MultiBlockDefinition definition = hostType.definitionForTier(tier);
         return collect(player, definition, buildLength);
     }
 
     public static List<NEStructureTerminalUiState.BuildMaterialEntry> collect(
-        Player player,
-        MultiBlockDefinition definition,
-        int buildLength
-    ) {
+            Player player, MultiBlockDefinition definition, int buildLength) {
         List<ItemStack> requiredItems = collectRequiredItems(definition, buildLength);
         List<NEStructureTerminalUiState.BuildMaterialEntry> entries = new ArrayList<>(requiredItems.size());
         for (ItemStack required : requiredItems) {
             int requiredCount = required.getCount();
             int availableCount = clampInt(countMatchingItems(player, required));
             entries.add(new NEStructureTerminalUiState.BuildMaterialEntry(
-                required.copyWithCount(1),
-                requiredCount,
-                availableCount
-            ));
+                    required.copyWithCount(1), requiredCount, availableCount));
         }
-        entries.sort(Comparator
-            .comparingInt(NEStructureTerminalUiState.BuildMaterialEntry::missing).reversed()
-            .thenComparing(entry -> entry.item().getHoverName().getString()));
+        entries.sort(Comparator.comparingInt(NEStructureTerminalUiState.BuildMaterialEntry::missing)
+                .reversed()
+                .thenComparing(entry -> entry.item().getHoverName().getString()));
         return entries;
     }
 
@@ -84,10 +72,11 @@ public final class StructureTerminalMaterialRequirements {
     private static long countMatchingItems(Player player, ItemStack target) {
         Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         return countMatchingItems(player.getInventory().items, target, visitedHandlers)
-            + countMatchingItems(player.getInventory().offhand, target, visitedHandlers);
+                + countMatchingItems(player.getInventory().offhand, target, visitedHandlers);
     }
 
-    private static long countMatchingItems(List<ItemStack> stacks, ItemStack target, Set<IItemHandler> visitedHandlers) {
+    private static long countMatchingItems(
+            List<ItemStack> stacks, ItemStack target, Set<IItemHandler> visitedHandlers) {
         long count = 0;
         for (ItemStack stack : stacks) {
             count += countMatchingItems(stack, target, visitedHandlers);
@@ -101,7 +90,8 @@ public final class StructureTerminalMaterialRequirements {
         }
 
         long count = ItemStack.isSameItemSameTags(stack, target) ? stack.getCount() : 0;
-        IItemHandler itemHandler = stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
+        IItemHandler itemHandler =
+                stack.getCapability(ForgeCapabilities.ITEM_HANDLER).orElse(null);
         if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
             return count;
         }

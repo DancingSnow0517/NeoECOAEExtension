@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.compat.crafting;
 
-import com.google.gson.JsonParseException;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -47,7 +47,11 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
             return fromJson(object.get("ingredient"));
         }
         if (object.has("tag")) {
-            return new FluidIngredient(null, TagKey.create(Registries.FLUID, new ResourceLocation(object.get("tag").getAsString())));
+            return new FluidIngredient(
+                    null,
+                    TagKey.create(
+                            Registries.FLUID,
+                            new ResourceLocation(object.get("tag").getAsString())));
         }
         String field = object.has("fluid") ? "fluid" : object.has("id") ? "id" : null;
         if (field == null) {
@@ -106,13 +110,13 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
     /** Returns FluidStack array for JEI/EMI display. Tags are expanded to matching fluids. */
     public FluidStack[] getFluids() {
         if (fluid != null) {
-            return new FluidStack[]{new FluidStack(fluid, 1000)};
+            return new FluidStack[] {new FluidStack(fluid, 1000)};
         }
         if (tag != null) {
             return ForgeRegistries.FLUIDS.getValues().stream()
-                .filter(f -> f != Fluids.EMPTY && f.builtInRegistryHolder().is(tag))
-                .map(f -> new FluidStack(f, 1000))
-                .toArray(FluidStack[]::new);
+                    .filter(f -> f != Fluids.EMPTY && f.builtInRegistryHolder().is(tag))
+                    .map(f -> new FluidStack(f, 1000))
+                    .toArray(FluidStack[]::new);
         }
         return new FluidStack[0];
     }

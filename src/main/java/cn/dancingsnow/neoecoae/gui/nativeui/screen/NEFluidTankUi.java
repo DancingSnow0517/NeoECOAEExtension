@@ -1,19 +1,17 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import java.text.NumberFormat;
+import java.util.List;
+import java.util.Locale;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.fluids.FluidStack;
 
-import java.text.NumberFormat;
-import java.util.List;
-import java.util.Locale;
-
 final class NEFluidTankUi {
     private static final int HOVER_COLOR = 0x40FFFFFF;
 
-    private NEFluidTankUi() {
-    }
+    private NEFluidTankUi() {}
 
     static void draw(GuiGraphics g, int x, int y, int w, int h, FluidStack stack, int amount, int capacity) {
         NENativeAe2StyleRenderer.drawAeFluidTank(g, x, y, w, h, stack, amount, capacity);
@@ -25,20 +23,27 @@ final class NEFluidTankUi {
         }
     }
 
-    static boolean renderTooltip(GuiGraphics g, Font font, FluidStack stack, int amount, int capacity,
-            int x, int y, int w, int h, int mouseX, int mouseY) {
+    static boolean renderTooltip(
+            GuiGraphics g,
+            Font font,
+            FluidStack stack,
+            int amount,
+            int capacity,
+            int x,
+            int y,
+            int w,
+            int h,
+            int mouseX,
+            int mouseY) {
         if (!contains(mouseX, mouseY, x, y, w, h)) {
             return false;
         }
 
         int displayedAmount = Math.max(0, amount);
-        Component name = stack.isEmpty()
-                ? Component.translatable("gui.neoecoae.fluid_tank.empty")
-                : stack.getDisplayName();
+        Component name =
+                stack.isEmpty() ? Component.translatable("gui.neoecoae.fluid_tank.empty") : stack.getDisplayName();
         Component volume = Component.translatable(
-                "gui.neoecoae.fluid_tank.amount",
-                format(displayedAmount),
-                format(Math.max(0, capacity)));
+                "gui.neoecoae.fluid_tank.amount", format(displayedAmount), format(Math.max(0, capacity)));
 
         g.renderComponentTooltip(font, List.of(name, volume), mouseX, mouseY);
         return true;
@@ -46,9 +51,7 @@ final class NEFluidTankUi {
 
     static Component amountText(int amount, int capacity) {
         return Component.translatable(
-                "gui.neoecoae.fluid_tank.amount",
-                format(Math.max(0, amount)),
-                format(Math.max(0, capacity)));
+                "gui.neoecoae.fluid_tank.amount", format(Math.max(0, amount)), format(Math.max(0, capacity)));
     }
 
     private static boolean contains(int mouseX, int mouseY, int x, int y, int w, int h) {

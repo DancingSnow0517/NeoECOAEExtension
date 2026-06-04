@@ -13,6 +13,8 @@ import com.tterrag.registrate.util.entry.BlockEntry;
 import com.tterrag.registrate.util.entry.RegistryEntry;
 import com.tterrag.registrate.util.nullness.NonNullFunction;
 import com.tterrag.registrate.util.nullness.NonNullSupplier;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.BlockPos;
@@ -26,16 +28,12 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.registries.RegistryObject;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-
 public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends BlockEntityBuilder<T, P> {
     private BlockEntry<? extends NEBlock<T>> blockEntry;
-    @Nullable
-    private BlockEntityTicker<T> clientTicker;
 
-    @Nullable
-    private BlockEntityTicker<T> serverTicker;
+    @Nullable private BlockEntityTicker<T> clientTicker;
+
+    @Nullable private BlockEntityTicker<T> serverTicker;
 
     public interface ClusterBlockEntityFactory<T extends NEBlockEntity<C, T>, C extends NECluster<C>> {
         T create(BlockEntityType<T> type, BlockPos pos, BlockState state, NEClusterCalculator.Factory<C> tcFactory);
@@ -45,7 +43,12 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
         T create(BlockEntityType<T> type, BlockPos pos, BlockState state, IECOTier tier);
     }
 
-    protected NEBlockEntityBuilder(AbstractRegistrate<?> owner, P parent, String name, BuilderCallback callback, BlockEntityFactory<T> factory) {
+    protected NEBlockEntityBuilder(
+            AbstractRegistrate<?> owner,
+            P parent,
+            String name,
+            BuilderCallback callback,
+            BlockEntityFactory<T> factory) {
         super(owner, parent, name, callback, factory);
     }
 
@@ -85,21 +88,23 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
     }
 
     public static <T extends NEBlockEntity<?, T>, P> NEBlockEntityBuilder<T, P> createMy(
-        AbstractRegistrate<?> owner,
-        P parent,
-        String name,
-        BuilderCallback callback,
-        BlockEntityFactory<T> factory
-    ) {
+            AbstractRegistrate<?> owner,
+            P parent,
+            String name,
+            BuilderCallback callback,
+            BlockEntityFactory<T> factory) {
         return new NEBlockEntityBuilder<>(owner, parent, name, callback, factory);
     }
 
     @Override
-    public NEBlockEntityBuilder<T, P> renderer(NonNullSupplier<NonNullFunction<BlockEntityRendererProvider.Context, BlockEntityRenderer<? super T>>> renderer) {
+    public NEBlockEntityBuilder<T, P> renderer(
+            NonNullSupplier<NonNullFunction<BlockEntityRendererProvider.Context, BlockEntityRenderer<? super T>>>
+                    renderer) {
         return (NEBlockEntityBuilder<T, P>) super.renderer(renderer);
     }
 
-    public NEBlockEntityBuilder<T, P> registerCapability(Consumer<CapabilityRegistrationEvent> registerCapabilitiesEvent) {
+    public NEBlockEntityBuilder<T, P> registerCapability(
+            Consumer<CapabilityRegistrationEvent> registerCapabilitiesEvent) {
         // Forge 1.20.1 exposes block-entity capabilities through getCapability,
         // not NeoForge's RegisterCapabilitiesEvent#registerBlockEntity API.
         // Keep the builder chain source-compatible while the actual providers
@@ -124,11 +129,8 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     public static class CapabilityRegistrationEvent {
         public <C, BE extends BlockEntity> void registerBlockEntity(
-            Capability<C> capability,
-            BlockEntityType<BE> blockEntityType,
-            BiFunction<BE, @Nullable Direction, C> provider
-        ) {
-        }
+                Capability<C> capability,
+                BlockEntityType<BE> blockEntityType,
+                BiFunction<BE, @Nullable Direction, C> provider) {}
     }
-
 }

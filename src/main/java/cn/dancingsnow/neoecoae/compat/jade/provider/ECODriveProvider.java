@@ -23,9 +23,11 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
         if (data.contains("mounted")) {
             boolean mounted = data.getBoolean("mounted");
             if (mounted) {
-                tooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
+                tooltip.add(
+                        Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
             } else {
-                tooltip.add(Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
+                tooltip.add(
+                        Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
                 return;
             }
         }

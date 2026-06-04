@@ -22,34 +22,28 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 public final class ChemicalCellValidation {
     private static final long CHEMICAL_AMOUNT = 1_000L;
 
-    private ChemicalCellValidation() {
-    }
+    private ChemicalCellValidation() {}
 
     public static void registerCommand(RegisterCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal("neoecoae_validate_chemical_cells")
-                .requires(source -> source.hasPermission(2))
-                .executes(context -> {
-                    try {
-                        String summary = run();
-                        context.getSource().sendSuccess(() -> Component.literal(summary), true);
-                        return Command.SINGLE_SUCCESS;
-                    } catch (IllegalStateException e) {
-                        context.getSource().sendFailure(Component.literal(e.getMessage()));
-                        return 0;
-                    }
-                }));
+        event.getDispatcher()
+                .register(Commands.literal("neoecoae_validate_chemical_cells")
+                        .requires(source -> source.hasPermission(2))
+                        .executes(context -> {
+                            try {
+                                String summary = run();
+                                context.getSource().sendSuccess(() -> Component.literal(summary), true);
+                                return Command.SINGLE_SUCCESS;
+                            } catch (IllegalStateException e) {
+                                context.getSource().sendFailure(Component.literal(e.getMessage()));
+                                return 0;
+                            }
+                        }));
     }
 
     public static String run() {
-        IECOStorageCell chemicalCell = requireCell(
-                NEAppMekItems.ECO_CHEMICAL_CELL_16M.asStack(),
-                "chemical");
-        IECOStorageCell itemCell = requireCell(
-                NEItems.ECO_ITEM_CELL_16M.asStack(),
-                "item");
-        IECOStorageCell fluidCell = requireCell(
-                NEItems.ECO_FLUID_CELL_16M.asStack(),
-                "fluid");
+        IECOStorageCell chemicalCell = requireCell(NEAppMekItems.ECO_CHEMICAL_CELL_16M.asStack(), "chemical");
+        IECOStorageCell itemCell = requireCell(NEItems.ECO_ITEM_CELL_16M.asStack(), "item");
+        IECOStorageCell fluidCell = requireCell(NEItems.ECO_FLUID_CELL_16M.asStack(), "fluid");
 
         validateInsertMatrix(chemicalCell, itemCell, fluidCell);
         return "NeoECOAE chemical cell validation passed: item keys rejected by chemical cells, "
@@ -57,41 +51,31 @@ public final class ChemicalCellValidation {
     }
 
     public static String runInsertMatrixOnly() {
-        IECOStorageCell chemicalCell = requireInventory(
-                NEAppMekItems.ECO_CHEMICAL_CELL_16M.asStack(),
-                "chemical");
-        IECOStorageCell itemCell = requireInventory(
-                NEItems.ECO_ITEM_CELL_16M.asStack(),
-                "item");
-        IECOStorageCell fluidCell = requireInventory(
-                NEItems.ECO_FLUID_CELL_16M.asStack(),
-                "fluid");
+        IECOStorageCell chemicalCell = requireInventory(NEAppMekItems.ECO_CHEMICAL_CELL_16M.asStack(), "chemical");
+        IECOStorageCell itemCell = requireInventory(NEItems.ECO_ITEM_CELL_16M.asStack(), "item");
+        IECOStorageCell fluidCell = requireInventory(NEItems.ECO_FLUID_CELL_16M.asStack(), "fluid");
 
         validateInsertMatrix(chemicalCell, itemCell, fluidCell);
         return "NeoECOAE chemical insert matrix validation passed.";
     }
 
-    private static void validateInsertMatrix(IECOStorageCell chemicalCell, IECOStorageCell itemCell,
-            IECOStorageCell fluidCell) {
+    private static void validateInsertMatrix(
+            IECOStorageCell chemicalCell, IECOStorageCell itemCell, IECOStorageCell fluidCell) {
         AEItemKey itemKey = AEItemKey.of(Items.STONE);
         MekanismKey chemicalKey = MekanismKey.of(new GasStack(MekanismGases.HYDROGEN, CHEMICAL_AMOUNT));
         IActionSource source = IActionSource.empty();
 
         long itemIntoChemical = chemicalCell.insert(itemKey, 1, Actionable.SIMULATE, source);
-        require(itemIntoChemical == 0,
-                "Chemical cell accepted an AE item key: inserted=" + itemIntoChemical);
+        require(itemIntoChemical == 0, "Chemical cell accepted an AE item key: inserted=" + itemIntoChemical);
 
         long chemicalIntoChemical = chemicalCell.insert(chemicalKey, CHEMICAL_AMOUNT, Actionable.SIMULATE, source);
-        require(chemicalIntoChemical > 0,
-                "Chemical cell rejected a valid Mekanism chemical key");
+        require(chemicalIntoChemical > 0, "Chemical cell rejected a valid Mekanism chemical key");
 
         long chemicalIntoItem = itemCell.insert(chemicalKey, CHEMICAL_AMOUNT, Actionable.SIMULATE, source);
-        require(chemicalIntoItem == 0,
-                "Item cell accepted a Mekanism chemical key: inserted=" + chemicalIntoItem);
+        require(chemicalIntoItem == 0, "Item cell accepted a Mekanism chemical key: inserted=" + chemicalIntoItem);
 
         long chemicalIntoFluid = fluidCell.insert(chemicalKey, CHEMICAL_AMOUNT, Actionable.SIMULATE, source);
-        require(chemicalIntoFluid == 0,
-                "Fluid cell accepted a Mekanism chemical key: inserted=" + chemicalIntoFluid);
+        require(chemicalIntoFluid == 0, "Fluid cell accepted a Mekanism chemical key: inserted=" + chemicalIntoFluid);
     }
 
     private static IECOStorageCell requireCell(ItemStack stack, String label) {

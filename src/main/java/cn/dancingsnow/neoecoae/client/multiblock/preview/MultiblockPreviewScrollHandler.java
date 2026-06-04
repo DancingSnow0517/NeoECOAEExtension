@@ -17,8 +17,7 @@ public final class MultiblockPreviewScrollHandler {
     private static int activeH;
     private static long lastTrackNanos;
 
-    private MultiblockPreviewScrollHandler() {
-    }
+    private MultiblockPreviewScrollHandler() {}
 
     public static void track(NEMultiblockSceneRenderer renderer, GuiGraphics g, int x, int y, int width, int height) {
         Matrix4f matrix = g.pose().last().pose();

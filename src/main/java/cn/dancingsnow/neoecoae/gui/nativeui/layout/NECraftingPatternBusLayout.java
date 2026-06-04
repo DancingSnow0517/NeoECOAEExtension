@@ -65,6 +65,5 @@ public final class NECraftingPatternBusLayout {
     public static final int INV_LABEL_X = AE2_PLAYER_SLOT_LEFT;
     public static final int INV_LABEL_Y = GUI_H - AE2_INV_LABEL_BOTTOM;
 
-    private NECraftingPatternBusLayout() {
-    }
+    private NECraftingPatternBusLayout() {}
 }

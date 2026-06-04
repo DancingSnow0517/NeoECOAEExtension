@@ -1,10 +1,10 @@
 package cn.dancingsnow.neoecoae.compat.appmek;
 
+import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import com.tterrag.registrate.util.entry.RegistryEntry;
-
-import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 /**
  * Registers ECO cell types for Applied Mekanistics chemical storage.
@@ -12,11 +12,12 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 public class NEAppMekCellTypes {
 
     public static final RegistryEntry<ECOCellType> CHEMICAL = REGISTRATE
-            .cellType("chemicals", () -> new ECOCellType(
-                    NeoECOAE.id("chemicals"),
-                    AppMekCompat.getChemicalKeyType().getDescription()))
+            .cellType(
+                    "chemicals",
+                    () -> new ECOCellType(
+                            NeoECOAE.id("chemicals"),
+                            AppMekCompat.getChemicalKeyType().getDescription()))
             .register();
 
-    public static void register() {
-    }
+    public static void register() {}
 }

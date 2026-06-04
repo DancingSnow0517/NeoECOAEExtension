@@ -1,7 +1,7 @@
 # NeoECOAEExtension 技术审计报告
 
-**审计日期**：2026-05-30  
-**审计范围**：`e:\Minecraft Project\NeoECOAEExtension-main` 全仓库  
+**审计日期**：2026-05-30
+**审计范围**：`e:\Minecraft Project\NeoECOAEExtension-main` 全仓库
 **审计深度**：源码级（build.gradle、Java 源码、Mixin 配置、资源文件、mods.toml、语言文件）
 
 ---

@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.widget;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
@@ -32,11 +31,7 @@ public class NEClearFluidButton extends Button {
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         // Button background
         int texY = isHoveredOrFocused() ? TEX_SIZE : 0;
-        g.blit(TEX_BUTTON,
-            getX(), getY(),
-            0, texY,
-            width, height,
-            TEX_SIZE, TEX_SIZE);
+        g.blit(TEX_BUTTON, getX(), getY(), 0, texY, width, height, TEX_SIZE, TEX_SIZE);
 
         // Thin 'x' centred in 8×8
         int cx = getX();
@@ -56,5 +51,4 @@ public class NEClearFluidButton extends Button {
         g.fill(cx + 2, cy + 5, cx + 3, cy + 6, lineColor);
         g.fill(cx + 1, cy + 6, cx + 2, cy + 7, lineColor);
     }
-
 }

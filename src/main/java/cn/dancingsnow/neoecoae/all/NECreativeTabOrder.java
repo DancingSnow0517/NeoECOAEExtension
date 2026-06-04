@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import java.util.function.Supplier;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -8,11 +9,8 @@ import net.minecraft.world.level.ItemLike;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.registries.ForgeRegistries;
 
-import java.util.function.Supplier;
-
 public final class NECreativeTabOrder {
-    private NECreativeTabOrder() {
-    }
+    private NECreativeTabOrder() {}
 
     public static void acceptAll(CreativeModeTab.ItemDisplayParameters params, CreativeModeTab.Output output) {
         acceptMachines(output);

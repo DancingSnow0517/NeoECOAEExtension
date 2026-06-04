@@ -10,8 +10,7 @@ public final class NETextFormat {
 
     private static final String[] UNITS = {"B", "K", "M", "G", "T", "P", "E"};
 
-    private NETextFormat() {
-    }
+    private NETextFormat() {}
 
     /**
      * Format a byte count into a human-readable string.

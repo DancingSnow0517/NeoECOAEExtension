@@ -13,18 +13,17 @@ import net.minecraft.core.BlockPos;
  * </p>
  */
 public record NEComputationUiState(
-    BlockPos pos,
-    boolean formed,
-    boolean active,
-    int usedThreads,
-    int maxThreads,
-    long availableStorage,
-    long totalStorage,
-    /** Number of parallel core blocks in the cluster. */
-    int parallelCount,
-    /** Sum of accelerators across all parallel cores (from tier data). */
-    int accelerators
-) {
+        BlockPos pos,
+        boolean formed,
+        boolean active,
+        int usedThreads,
+        int maxThreads,
+        long availableStorage,
+        long totalStorage,
+        /** Number of parallel core blocks in the cluster. */
+        int parallelCount,
+        /** Sum of accelerators across all parallel cores (from tier data). */
+        int accelerators) {
     public static NEComputationUiState empty(BlockPos pos) {
         return new NEComputationUiState(pos, false, false, 0, 0, 0, 0, 0, 0);
     }

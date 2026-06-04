@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.compat.jei;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import java.util.ArrayList;
+import java.util.List;
 import mezz.jei.api.forge.ForgeTypes;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
@@ -20,9 +22,6 @@ import net.minecraftforge.fluids.FluidStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * JEI recipe category for ECO Cooling recipes.
  * <p>
@@ -38,8 +37,8 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
     private static final Logger LOGGER = LoggerFactory.getLogger(CoolingJeiCategory.class);
 
     // ── Textures ──
-    private static final ResourceLocation TEX_PROGRESS_EMPTY = NeoECOAE
-            .id("textures/gui/jei/cooling_progress_empty.png");
+    private static final ResourceLocation TEX_PROGRESS_EMPTY =
+            NeoECOAE.id("textures/gui/jei/cooling_progress_empty.png");
     private static final ResourceLocation TEX_PROGRESS = NeoECOAE.id("textures/gui/jei/cooling_progress.png");
 
     // ── Layout constants ──
@@ -114,8 +113,7 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
         FluidStack[] rawInputs = recipe.input().getFluids();
         if (rawInputs != null) {
             for (FluidStack raw : rawInputs) {
-                if (raw == null || raw.isEmpty())
-                    continue;
+                if (raw == null || raw.isEmpty()) continue;
                 FluidStack copy = raw.copy();
                 copy.setAmount(recipe.inputAmount());
                 inputs.add(copy);
@@ -148,16 +146,20 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
         progress.draw(g, PROGRESS_X, PROGRESS_Y);
 
         // ── Coolant amount (line 1) ──
-        g.drawString(mc.font,
+        g.drawString(
+                mc.font,
                 Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()),
-                TEXT_X, COOLANT_TEXT_Y,
+                TEXT_X,
+                COOLANT_TEXT_Y,
                 TEXT_COLOR,
                 false);
 
         // ── Max overclock (line 2) ──
-        g.drawString(mc.font,
+        g.drawString(
+                mc.font,
                 Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()),
-                TEXT_X, OVERCLOCK_TEXT_Y,
+                TEXT_X,
+                OVERCLOCK_TEXT_Y,
                 TEXT_COLOR,
                 false);
     }

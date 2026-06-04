@@ -7,8 +7,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -27,21 +27,23 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
-                                  InteractionHand hand, BlockHitResult hitResult) {
+    public InteractionResult use(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Player player,
+            InteractionHand hand,
+            BlockHitResult hitResult) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer serverPlayer) {
             // Phase 6: Native UI for Fluid Hatch
             Component title = state.getBlock().getName();
-            NetworkHooks.openScreen(serverPlayer,
-                new SimpleMenuProvider(
-                    (windowId, inv, p) -> new NEFluidHatchMenu(windowId, inv, pos),
-                    title
-                ),
-                buf -> buf.writeBlockPos(pos)
-            );
+            NetworkHooks.openScreen(
+                    serverPlayer,
+                    new SimpleMenuProvider((windowId, inv, p) -> new NEFluidHatchMenu(windowId, inv, pos), title),
+                    buf -> buf.writeBlockPos(pos));
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
@@ -74,5 +76,4 @@ public class ECOFluidInputHatchBlock extends NEBlock<ECOFluidInputHatchBlockEnti
     public boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
         return state.getValue(FORMED);
     }
-
 }

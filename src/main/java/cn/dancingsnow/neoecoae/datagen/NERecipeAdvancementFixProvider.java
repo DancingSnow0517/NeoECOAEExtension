@@ -5,14 +5,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.minecraft.data.CachedOutput;
-import net.minecraft.data.DataGenerator;
-import net.minecraft.data.DataProvider;
-import net.minecraft.data.PackOutput;
-import net.minecraftforge.data.event.GatherDataEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
@@ -20,6 +12,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import net.minecraft.data.CachedOutput;
+import net.minecraft.data.DataGenerator;
+import net.minecraft.data.DataProvider;
+import net.minecraft.data.PackOutput;
+import net.minecraftforge.data.event.GatherDataEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = NeoECOAE.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class NERecipeAdvancementFixProvider implements DataProvider {
@@ -77,9 +76,10 @@ public class NERecipeAdvancementFixProvider implements DataProvider {
     }
 
     private static boolean fixInventoryChangedCriteria(JsonObject advancement) {
-        JsonObject criteria = advancement.has("criteria") && advancement.get("criteria").isJsonObject()
-                ? advancement.getAsJsonObject("criteria")
-                : null;
+        JsonObject criteria =
+                advancement.has("criteria") && advancement.get("criteria").isJsonObject()
+                        ? advancement.getAsJsonObject("criteria")
+                        : null;
         if (criteria == null) {
             return false;
         }
@@ -88,7 +88,8 @@ public class NERecipeAdvancementFixProvider implements DataProvider {
         for (String criterionName : criteria.keySet()) {
             JsonObject criterion = criteria.getAsJsonObject(criterionName);
             if (!criterion.has("trigger")
-                    || !"minecraft:inventory_changed".equals(criterion.get("trigger").getAsString())
+                    || !"minecraft:inventory_changed"
+                            .equals(criterion.get("trigger").getAsString())
                     || !criterion.has("conditions")
                     || !criterion.get("conditions").isJsonObject()) {
                 continue;
@@ -109,7 +110,8 @@ public class NERecipeAdvancementFixProvider implements DataProvider {
     }
 
     private static boolean fixItemPredicate(JsonObject predicate) {
-        if (!predicate.has("items") || !predicate.get("items").isJsonPrimitive()
+        if (!predicate.has("items")
+                || !predicate.get("items").isJsonPrimitive()
                 || !predicate.get("items").getAsJsonPrimitive().isString()) {
             return false;
         }

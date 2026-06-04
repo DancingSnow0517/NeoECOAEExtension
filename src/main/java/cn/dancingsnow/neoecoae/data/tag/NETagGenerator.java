@@ -7,12 +7,10 @@ import net.minecraft.world.item.Items;
 public class NETagGenerator {
 
     public static void itemTag(RegistrateItemTagsProvider provider) {
-        provider.addTag(NETags.Items.CRYSTAL_INGOT_BASE)
-            .add(Items.DIAMOND)
-            .add(Items.EMERALD);
+        provider.addTag(NETags.Items.CRYSTAL_INGOT_BASE).add(Items.DIAMOND).add(Items.EMERALD);
 
         provider.addTag(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE)
-            .add(Items.DIAMOND)
-            .add(Items.EMERALD);
+                .add(Items.DIAMOND)
+                .add(Items.EMERALD);
     }
 }

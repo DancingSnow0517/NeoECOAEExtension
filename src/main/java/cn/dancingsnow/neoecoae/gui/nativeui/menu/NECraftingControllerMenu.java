@@ -25,8 +25,7 @@ public class NECraftingControllerMenu extends NEUiStateMachineMenu<NECraftingUiS
     }
 
     @Override
-    @Nullable
-    protected NECraftingUiState createState(ServerPlayer player) {
+    @Nullable protected NECraftingUiState createState(ServerPlayer player) {
         BlockEntity be = player.level().getBlockEntity(machinePos);
         if (be instanceof ECOCraftingSystemBlockEntity crafting) {
             return crafting.createCraftingUiState();
@@ -46,8 +45,6 @@ public class NECraftingControllerMenu extends NEUiStateMachineMenu<NECraftingUiS
     @Override
     protected void sendState(ServerPlayer player, NECraftingUiState state) {
         NENetwork.CHANNEL.send(
-            PacketDistributor.PLAYER.with(() -> player),
-            new NENetwork.NECraftingUiStatePacket(state)
-        );
+                PacketDistributor.PLAYER.with(() -> player), new NENetwork.NECraftingUiStatePacket(state));
     }
 }

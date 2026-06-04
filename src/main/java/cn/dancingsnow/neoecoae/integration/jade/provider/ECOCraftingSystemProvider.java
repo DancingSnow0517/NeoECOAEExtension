@@ -20,10 +20,9 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
         if (data.contains("overclocked") && data.getBoolean("overclocked")) {
             iTooltip.add(Component.translatable("jade.neoecoae.overclocked"));
             iTooltip.add(Component.translatable(
-                "jade.neoecoae.overclock_status",
-                data.getInt("theoreticalOverclock"),
-                data.getInt("effectiveOverclock")
-            ));
+                    "jade.neoecoae.overclock_status",
+                    data.getInt("theoreticalOverclock"),
+                    data.getInt("effectiveOverclock")));
         }
         if (data.contains("activeCooling") && data.getBoolean("activeCooling")) {
             iTooltip.add(Component.translatable("jade.neoecoae.activeCooling"));

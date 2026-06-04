@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiFunction;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -9,10 +12,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.BiFunction;
 
 public abstract class MultiBlockContext {
     @Getter
@@ -36,8 +35,10 @@ public abstract class MultiBlockContext {
         private final Level dummyWorld;
         private final List<ItemStack> itemStacks = new ArrayList<>(16);
         private final List<BlockPos> posList = new ArrayList<>();
+
         @Getter
         private int yMax = 0;
+
         @Setter
         @Getter
         private boolean formed = false;
@@ -60,7 +61,7 @@ public abstract class MultiBlockContext {
         @Override
         public void setBlockEntity(BlockPos pos, BiFunction<BlockPos, BlockState, BlockEntity> sup) {
             BlockEntity be = sup.apply(pos, getLevel().getBlockState(pos));
-            if (be instanceof NEBlockEntity<?,?>){
+            if (be instanceof NEBlockEntity<?, ?>) {
                 ((NEBlockEntity<?, ?>) be).setFormed(formed);
             }
             be.setLevel(dummyWorld);

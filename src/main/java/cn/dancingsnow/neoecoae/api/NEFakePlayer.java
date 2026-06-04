@@ -1,11 +1,10 @@
 package cn.dancingsnow.neoecoae.api;
 
 import com.mojang.authlib.GameProfile;
+import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.common.util.FakePlayerFactory;
-
-import java.util.UUID;
 
 public class NEFakePlayer {
     private static final UUID DEFAULT_UUID = UUID.fromString("90892e60-608b-4b30-9b4a-73ebbb2594e8");

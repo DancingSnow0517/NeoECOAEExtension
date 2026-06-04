@@ -22,19 +22,14 @@ import appeng.api.storage.MEStorage;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.UpgradeInventories;
-import appeng.api.upgrades.Upgrades;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.blockentity.grid.AENetworkPowerBlockEntity;
 import appeng.client.gui.Icon;
-import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
-import appeng.core.localization.ButtonToolTips;
-import appeng.core.localization.GuiText;
 import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
-import appeng.util.SettingsFrom;
 import appeng.util.ConfigManager;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
@@ -43,47 +38,9 @@ import appeng.util.inv.filter.AEItemFilters;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
-import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.NETextures;
-import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
-import guideme.GuidesCommon;
-import guideme.PageAnchor;
-import lombok.Getter;
-import lombok.Setter;
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ContainerData;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.state.BlockState;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
-import net.minecraftforge.fluids.FluidActionResult;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.fluids.capability.templates.FluidTank;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.IItemHandlerModifiable;
-import org.jetbrains.annotations.Nullable;
-
+import cn.dancingsnow.neoecoae.gui.AETextures;
+import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -91,8 +48,32 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import lombok.Getter;
+import lombok.Setter;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.FluidActionResult;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.items.IItemHandler;
+import org.jetbrains.annotations.Nullable;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
         implements IGridTickable, IUpgradeableObject, IConfigurableObject {
@@ -111,10 +92,10 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     private final AppEngInternalInventory outputInv = new AppEngInternalInventory(this, 1, 64);
     private final InternalInventory inv = new CombinedInternalInventory(this.inputInv, this.outputInv);
 
-    private final FilteredInternalInventory inputExposed = new FilteredInternalInventory(this.inputInv,
-            AEItemFilters.INSERT_ONLY);
-    private final FilteredInternalInventory outputExposed = new FilteredInternalInventory(this.outputInv,
-            AEItemFilters.EXTRACT_ONLY);
+    private final FilteredInternalInventory inputExposed =
+            new FilteredInternalInventory(this.inputInv, AEItemFilters.INSERT_ONLY);
+    private final FilteredInternalInventory outputExposed =
+            new FilteredInternalInventory(this.outputInv, AEItemFilters.EXTRACT_ONLY);
     private final InternalInventory invExposed = new CombinedInternalInventory(this.inputExposed, this.outputExposed);
     private final IItemHandler exposedItemHandler = (IItemHandler) this.invExposed.toItemHandler();
 
@@ -178,6 +159,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             return outputTank.drain(maxDrain, action);
         }
     };
+
     private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> exposedItemHandler);
     private final LazyOptional<IFluidHandler> fluidHandlerCap = LazyOptional.of(() -> fluidCombined);
 
@@ -209,8 +191,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         this.getMainNode().setIdlePowerUsage(0).addService(IGridTickable.class, this);
         this.setInternalMaxPower(MAX_POWER_STORAGE);
 
-        this.upgrades = UpgradeInventories.forMachine(NEBlocks.INTEGRATED_WORKING_STATION, 4,
-                this::onUpgradeInventoryChanged);
+        this.upgrades =
+                UpgradeInventories.forMachine(NEBlocks.INTEGRATED_WORKING_STATION, 4, this::onUpgradeInventoryChanged);
         this.configManager = new ConfigManager(this::onConfigChanged);
         this.configManager.registerSetting(Settings.AUTO_EXPORT, YesNo.NO);
 
@@ -363,8 +345,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
     }
 
-    @Nullable
-    @Override
+    @Nullable @Override
     public InternalInventory getSubInventory(ResourceLocation id) {
         if (id.equals(ISegmentedInventory.STORAGE)) {
             return this.getInternalInventory();
@@ -418,13 +399,15 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     private boolean hasAutoExportWork() {
         return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES
-                && (!this.outputInv.getStackInSlot(0).isEmpty() || !this.outputTank.getFluid().isEmpty());
+                && (!this.outputInv.getStackInSlot(0).isEmpty()
+                        || !this.outputTank.getFluid().isEmpty());
     }
 
     private boolean hasCraftWork() {
         var task = this.getTask();
         if (task != null) {
-            if (task.hasItemOutput() && outputInv.insertItem(0, task.itemOutput(), true).isEmpty()) {
+            if (task.hasItemOutput()
+                    && outputInv.insertItem(0, task.itemOutput(), true).isEmpty()) {
                 return true;
             }
             if (task.hasFluidOutput()) {
@@ -432,7 +415,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 if (outputTank.fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE) == fluidOutput.getAmount()) {
                     return true;
                 }
-
             }
         }
 
@@ -440,8 +422,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         return this.isWorking();
     }
 
-    @Nullable
-    public IntegratedWorkingStationRecipe getTask() {
+    @Nullable public IntegratedWorkingStationRecipe getTask() {
         ensureRecipeCached();
         return this.cachedTask;
     }
@@ -454,9 +435,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     private void refreshRecipeCache() {
         IntegratedWorkingStationRecipe newTask = level == null ? null : findRecipe(level);
-        if (!Objects.equals(
-                cachedTask == null ? null : cachedTask.getId(),
-                newTask == null ? null : newTask.getId())) {
+        if (!Objects.equals(cachedTask == null ? null : cachedTask.getId(), newTask == null ? null : newTask.getId())) {
             this.setProcessingTime(0);
         }
         this.cachedTask = newTask;
@@ -472,10 +451,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         for (var x = 0; x < this.inputInv.size(); x++) {
             inputs.add(this.inputInv.getStackInSlot(x));
         }
-        return level.getRecipeManager().getRecipeFor(
-                NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
-                new IntegratedWorkingStationRecipe.Input(inputs, this.inputTank.getFluid()),
-                level).orElse(null);
+        return level.getRecipeManager()
+                .getRecipeFor(
+                        NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
+                        new IntegratedWorkingStationRecipe.Input(inputs, this.inputTank.getFluid()),
+                        level)
+                .orElse(null);
     }
 
     @Override
@@ -495,14 +476,15 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 IEnergyService eg = grid.getEnergyService();
                 IEnergySource src = this;
 
-                final int speedFactor = switch (this.upgrades.getInstalledUpgrades(AEItems.SPEED_CARD)) {
-                    case 0 -> 2; // 100 ticks
-                    case 1 -> 3; // 66 ticks
-                    case 2 -> 5; // 40 ticks
-                    case 3 -> 10; // 20 ticks
-                    case 4 -> 50; // 4 ticks
-                    default -> 2; // 100 ticks
-                };
+                final int speedFactor =
+                        switch (this.upgrades.getInstalledUpgrades(AEItems.SPEED_CARD)) {
+                            case 0 -> 2; // 100 ticks
+                            case 1 -> 3; // 66 ticks
+                            case 2 -> 5; // 40 ticks
+                            case 3 -> 10; // 20 ticks
+                            case 4 -> 50; // 4 ticks
+                            default -> 2; // 100 ticks
+                        };
 
                 final int progressReq = MAX_PROCESSING_STEPS - this.getProcessingTime();
                 final float powerRatio = progressReq < speedFactor ? (float) progressReq / speedFactor : 1;
@@ -555,12 +537,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                     boolean fluidCanInsert = true;
 
                     if (!itemOut.isEmpty()) {
-                        itemCanInsert = this.outputInv.insertItem(0, itemOut, true).isEmpty();
+                        itemCanInsert =
+                                this.outputInv.insertItem(0, itemOut, true).isEmpty();
                     }
 
                     if (!fluidOut.isEmpty()) {
-                        fluidCanInsert = this.outputTank.fill(fluidOut,
-                                IFluidHandler.FluidAction.SIMULATE) >= fluidOut.getAmount() - 0.01;
+                        fluidCanInsert = this.outputTank.fill(fluidOut, IFluidHandler.FluidAction.SIMULATE)
+                                >= fluidOut.getAmount() - 0.01;
                     }
 
                     // Only execute if both outputs can be placed; otherwise keep progress to retry
@@ -571,7 +554,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                         boolean fluidInserted = true;
 
                         if (!itemOut.isEmpty()) {
-                            itemInserted = this.outputInv.insertItem(0, itemOut, false).isEmpty();
+                            itemInserted =
+                                    this.outputInv.insertItem(0, itemOut, false).isEmpty();
                         }
 
                         if (!fluidOut.isEmpty()) {
@@ -604,7 +588,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
                             FluidStack fluidStack = this.inputTank.getFluid();
                             if (out.inputFluid().test(fluidStack)) {
-                                inputTank.drain(new FluidStack(fluidStack, out.inputFluid().amount()),
+                                inputTank.drain(
+                                        new FluidStack(
+                                                fluidStack, out.inputFluid().amount()),
                                         IFluidHandler.FluidAction.EXECUTE);
                             }
 
@@ -624,7 +610,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             return TickRateModulation.URGENT;
         }
 
-        return this.hasCraftWork() ? TickRateModulation.URGENT
+        return this.hasCraftWork()
+                ? TickRateModulation.URGENT
                 : this.hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
     }
 
@@ -642,8 +629,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 var genStack = GenericStack.fromItemStack(this.outputInv.getStackInSlot(0));
                 if (genStack != null && genStack.what() != null) {
                     var extractedStack = this.outputInv.extractItem(0, 64, false);
-                    var inserted = target.insert(genStack.what(), extractedStack.getCount(), Actionable.MODULATE,
-                            source);
+                    var inserted =
+                            target.insert(genStack.what(), extractedStack.getCount(), Actionable.MODULATE, source);
                     extractedStack.setCount(extractedStack.getCount() - (int) inserted);
                     this.outputInv.insertItem(0, extractedStack, false);
                     movedStacks |= inserted > 0;
@@ -652,13 +639,14 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 FluidStack outFluid = this.outputTank.getFluid();
                 GenericStack fluid = GenericStack.fromFluidStack(outFluid);
                 if (fluid != null && fluid.what() != null) {
-                    var extracted = this.outputTank.drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
+                    var extracted = this.outputTank
+                            .drain(outFluid, IFluidHandler.FluidAction.EXECUTE)
+                            .getAmount();
                     var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    this.outputTank.fill(new FluidStack(outFluid, (int) (extracted - inserted)),
-                            IFluidHandler.FluidAction.EXECUTE);
+                    this.outputTank.fill(
+                            new FluidStack(outFluid, (int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
 
-                    if (this.outputTank.getFluidAmount() == 0)
-                        clearFluidOut();
+                    if (this.outputTank.getFluidAmount() == 0) clearFluidOut();
 
                     movedStacks |= inserted > 0;
                 }
@@ -676,14 +664,15 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     private @Nullable CompositeStorage getTarget(Direction dir) {
         if (this.exportStrategies.get(dir) == null) {
             var be = this.getBlockEntity();
-            this.exportStrategies.put(dir, StackWorldBehaviors.createExternalStorageStrategies(
-                    (ServerLevel) be.getLevel(), be.getBlockPos().relative(dir), dir.getOpposite()));
+            this.exportStrategies.put(
+                    dir,
+                    StackWorldBehaviors.createExternalStorageStrategies(
+                            (ServerLevel) be.getLevel(), be.getBlockPos().relative(dir), dir.getOpposite()));
         }
 
         var externalStorages = new IdentityHashMap<AEKeyType, MEStorage>(2);
         for (var entry : exportStrategies.get(dir).entrySet()) {
-            var wrapper = entry.getValue().createWrapper(false, () -> {
-            });
+            var wrapper = entry.getValue().createWrapper(false, () -> {});
             if (wrapper != null) {
                 externalStorages.put(entry.getKey(), wrapper);
             }
@@ -755,11 +744,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
      * if that fails, tries to fill an empty container from the input tank.
      */
     public void handleInputTankContainerClick(ServerPlayer player) {
-        if (level == null || level.isClientSide)
-            return;
+        if (level == null || level.isClientSide) return;
         ItemStack carried = player.containerMenu.getCarried();
-        if (carried.isEmpty())
-            return;
+        if (carried.isEmpty()) return;
 
         int BUCKET_VOLUME = 1000;
         // Try to empty held container into input tank
@@ -798,8 +785,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     @Override
-    @Nullable
-    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+    @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
 
@@ -812,16 +798,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     private void readUiSyncTag(CompoundTag tag) {
-        if (tag.contains("neo_inputTank"))
-            inputTank.readFromNBT(tag.getCompound("neo_inputTank"));
-        if (tag.contains("neo_outputTank"))
-            outputTank.readFromNBT(tag.getCompound("neo_outputTank"));
-        if (tag.contains("neo_processingTime"))
-            processingTime = tag.getInt("neo_processingTime");
-        if (tag.contains("neo_working"))
-            working = tag.getBoolean("neo_working");
-        if (tag.contains("neo_autoExport"))
-            shouldAutoExport = tag.getBoolean("neo_autoExport");
+        if (tag.contains("neo_inputTank")) inputTank.readFromNBT(tag.getCompound("neo_inputTank"));
+        if (tag.contains("neo_outputTank")) outputTank.readFromNBT(tag.getCompound("neo_outputTank"));
+        if (tag.contains("neo_processingTime")) processingTime = tag.getInt("neo_processingTime");
+        if (tag.contains("neo_working")) working = tag.getBoolean("neo_working");
+        if (tag.contains("neo_autoExport")) shouldAutoExport = tag.getBoolean("neo_autoExport");
     }
 
     @Override
