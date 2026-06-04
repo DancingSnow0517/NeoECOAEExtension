@@ -767,8 +767,13 @@ public class ECOCraftingCPULogic {
      * @param success True if the job is complete, false if it was cancelled.
      */
     private void finishJob(boolean success) {
+        if (this.job == null) {
+            return;
+        }
+
         Set<AEKey> waitingKeys = collectWaitingKeys();
         Set<AEKey> pendingKeys = collectPendingOutputKeys();
+        Set<AEKey> storedKeys = collectStoredKeys();
 
         if (success) {
             job.link.markDone();
@@ -782,6 +787,7 @@ public class ECOCraftingCPULogic {
         postKeysChange(waitingKeys);
         // Notify opened menus of cancelled scheduled tasks.
         postKeysChange(pendingKeys);
+        postKeysChange(storedKeys);
 
         notifyJobOwner(
                 job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
@@ -789,11 +795,18 @@ public class ECOCraftingCPULogic {
         // Finish job.
         this.job = null;
         restoredLinkRebound = false;
+        markedForDeletion = true;
         markStatusDirty();
-        cpu.getCluster().updateGridForChangedCpu(cpu.getCluster());
 
         // Store all remaining items.
         this.storeItems();
+        postKeysChange(storedKeys);
+        setCantStoreItems(!this.inventory.list.isEmpty());
+
+        cpu.getCluster().updateGridForChangedCpu(cpu.getCluster());
+        if (this.inventory.list.isEmpty()) {
+            cpu.deactivate();
+        }
     }
 
     /**
@@ -929,6 +942,14 @@ public class ECOCraftingCPULogic {
                     keys.add(output.what());
                 }
             }
+        }
+        return keys;
+    }
+
+    private Set<AEKey> collectStoredKeys() {
+        Set<AEKey> keys = new HashSet<>();
+        for (var entry : this.inventory.list) {
+            keys.add(entry.getKey());
         }
         return keys;
     }

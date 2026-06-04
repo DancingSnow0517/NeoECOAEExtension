@@ -10,6 +10,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
+import appeng.me.service.CraftingService;
 import appeng.menu.AutoCraftingMenu;
 import cn.dancingsnow.neoecoae.api.NEFakePlayer;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
@@ -385,12 +386,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private boolean ejectOutputs() {
         IGrid grid = worker.getMainNode().getGrid();
         if (grid != null) {
+            CraftingService craftingService = (CraftingService) grid.getCraftingService();
             MEStorage storage = grid.getStorageService().getInventory();
             KeyCounter outputs = collectOutputItems();
-            if (!canInsertAll(storage, outputs)) {
+            if (!canEjectAll(craftingService, storage, outputs)) {
                 return false;
             }
-            insertAll(storage, outputs);
+            ejectAll(craftingService, storage, outputs);
             if (NEConfig.postCraftingEvent) {
                 MinecraftForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
                         NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()), firstOutputItem(), craftingInv));
@@ -427,6 +429,32 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             }
         }
         return true;
+    }
+
+    private boolean canEjectAll(CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
+        for (Object2LongMap.Entry<AEKey> entry : stacks) {
+            long remaining = entry.getLongValue();
+            remaining -= craftingService.insertIntoCpus(entry.getKey(), remaining, Actionable.SIMULATE);
+            if (remaining <= 0) {
+                continue;
+            }
+
+            long inserted = storage.insert(entry.getKey(), remaining, Actionable.SIMULATE, actionSource);
+            if (inserted != remaining) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void ejectAll(CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
+        for (Object2LongMap.Entry<AEKey> entry : stacks) {
+            long remaining = entry.getLongValue();
+            remaining -= craftingService.insertIntoCpus(entry.getKey(), remaining, Actionable.MODULATE);
+            if (remaining > 0) {
+                storage.insert(entry.getKey(), remaining, Actionable.MODULATE, actionSource);
+            }
+        }
     }
 
     private void insertAll(MEStorage storage, KeyCounter stacks) {

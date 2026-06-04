@@ -87,7 +87,17 @@ public abstract class CraftingServiceMixin120 {
     private void neoecoae$tickComputationCpus(CallbackInfo ci) {
         for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
             for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+                boolean wasBusy = cpu.isBusy();
+                boolean hadRemainingItems = cpu.hasRemainingItems();
+
                 cpu.getLogic().tickCraftingLogic(this.energyGrid, (CraftingService) (Object) this);
+
+                boolean isBusy = cpu.isBusy();
+                boolean hasRemainingItems = cpu.hasRemainingItems();
+                if (wasBusy != isBusy || hadRemainingItems != hasRemainingItems) {
+                    this.updateList = true;
+                }
+
                 cpu.getLogic().getAllWaitingFor(this.currentlyCrafting);
             }
         }
