@@ -27,8 +27,8 @@ public class IOPortMenuMixin120 {
         Slot slot,
         SlotSemantic slotSemantic,
         Operation<Slot> original,
-        @Local(name = "cells") InternalInventory cells,
-        @Local(name = "i") int index
+        @Local(ordinal = 0) InternalInventory cells,
+        @Local(ordinal = 0) int index
     ) {
         return original.call(
             menu,
