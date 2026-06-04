@@ -189,7 +189,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         loadDriveVisualState(data);
         invalidateCellInventoryCache();
         pendingContentSave = false;
-        pendingPersistenceFlush = false;
         pendingControllerStatsDirty = false;
     }
 
@@ -301,11 +300,10 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     private boolean pendingContentSave = false;
-    private boolean pendingPersistenceFlush = false;
     private boolean pendingControllerStatsDirty = false;
 
     private void markCellContentDirty() {
-        if (!(level instanceof ServerLevel serverLevel) || isRemoved()) {
+        if (!(level instanceof ServerLevel) || isRemoved()) {
             return;
         }
 
@@ -315,21 +313,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (firstDirty) {
             setChanged();
         }
-
-        CellState currentState = getCurrentCellState();
-        if (currentState != lastSyncedCellState) {
-            lastSyncedCellState = currentState;
-            markForUpdate();
-        }
-
-        if (!pendingPersistenceFlush) {
-            pendingPersistenceFlush = true;
-            serverLevel.getServer().executeIfPossible(this::flushPendingContentChanges);
-        }
     }
 
     private void flushPendingContentChanges() {
-        pendingPersistenceFlush = false;
         flushPendingCellContent();
         if (pendingControllerStatsDirty) {
             pendingControllerStatsDirty = false;
@@ -345,7 +331,19 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             cachedCellInventory.persist();
         }
         pendingContentSave = false;
+        CellState currentState = getCurrentCellState();
+        if (currentState != lastSyncedCellState) {
+            lastSyncedCellState = currentState;
+            markForUpdate();
+        }
         setChanged();
+    }
+
+    public void tick(Level level, BlockPos pos, BlockState state) {
+        if (!(level instanceof ServerLevel) || isRemoved()) {
+            return;
+        }
+        flushPendingContentChanges();
     }
 
     private void invalidateCellInventoryCache() {

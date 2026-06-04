@@ -47,17 +47,19 @@ public final class ECOExtractedPatternExecution {
             Level level) {
         List<GenericStack> outputs = ECOFastPathStacks.copyCounter(expectedOutputs);
         List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
-        List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
-        Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
-        boolean eligible = key.isPresent()
-                && NEConfig.isEcoAe2FastPathEnabled()
+        boolean canBuildFastPath = NEConfig.isEcoAe2FastPathEnabled()
                 && !NEConfig.postCraftingEvent
                 && AE2PatternIntrospection.isAvailable()
                 && AE2PatternIntrospection.isKnownSafePatternType(details)
                 && outputs.size() == 1
                 && ECOFastPathStacks.isSafeForFastPath(outputs, false)
-                && ECOFastPathStacks.isSafeForFastPath(containers, false)
-                && ECOFastPathStacks.isSafeForFastPath(inputs, true);
+                && ECOFastPathStacks.isSafeForFastPath(containers, false);
+
+        List<GenericStack> inputs = canBuildFastPath ? ECOFastPathStacks.copyCounters(craftingContainer) : List.of();
+        Optional<ECOFastPathKey> key = canBuildFastPath
+                ? AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level)
+                : Optional.empty();
+        boolean eligible = key.isPresent() && ECOFastPathStacks.isSafeForFastPath(inputs, true);
         return new ECOExtractedPatternExecution(
                 details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible);
     }

@@ -93,6 +93,7 @@ public class NEBlockEntities {
             .blockEntityBlockLinked("eco_drive", ECODriveBlockEntity::new)
             .forBlock(NEBlocks.ECO_DRIVE)
             .validBlock(NEBlocks.ECO_DRIVE)
+            .serverTicker(ECODriveBlockEntity::tick)
             .registerCapability(event -> event.registerBlockEntity(
                     ForgeCapabilities.ITEM_HANDLER, NEBlockEntities.ECO_DRIVE.get(), (be, side) -> be.HANDLER))
             .register();

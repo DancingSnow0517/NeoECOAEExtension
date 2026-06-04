@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.datagen.AAERecipeData;
@@ -29,6 +30,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AddPackFindersEvent;
+import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -96,6 +98,7 @@ public class NeoECOAE {
             cn.dancingsnow.neoecoae.client.NeoECOAEClient.init(modBus);
         }
         MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
+        MinecraftForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
     }
 
     public static ResourceLocation id(String path) {
@@ -138,5 +141,9 @@ public class NeoECOAE {
     private static void addClassicPack(AddPackFindersEvent event) {
         // TODO 1.20.1: Recreate the built-in client resource pack via
         // AddPackFindersEvent#addRepositorySource.
+    }
+
+    private static void onTagsUpdated(TagsUpdatedEvent event) {
+        AE2PatternIntrospection.onRecipeReloadOrServerReload();
     }
 }
