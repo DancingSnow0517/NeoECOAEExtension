@@ -70,6 +70,11 @@ public class ECOCraftingCPULogic {
     @Getter
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
 
+    /**
+     * Used crafting operations over the last 3 ticks.
+     */
+    private final int[] usedOps = new int[3];
+
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     /**
      * True if the CPU is currently trying to clear its inventory but is not able
@@ -155,6 +160,7 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        resetUsedOps();
         markStatusDirty();
 
         // Crafting Monitor unsupported
@@ -231,7 +237,8 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        var remainingOperations = getOperationLimit(cc);
+        var remainingOperations = getOperationLimit(cc) - getRecentlyUsedOps();
+        final var started = remainingOperations;
 
         if (remainingOperations > 0) {
             do {
@@ -244,6 +251,9 @@ public class ECOCraftingCPULogic {
                 }
             } while (remainingOperations > 0);
         }
+        this.usedOps[2] = this.usedOps[1];
+        this.usedOps[1] = this.usedOps[0];
+        this.usedOps[0] = Math.max(0, started - remainingOperations);
     }
 
     /**
@@ -372,6 +382,16 @@ public class ECOCraftingCPULogic {
         }
 
         return Math.max(baseLimit, Math.min(ecoSlots, ECO_PROVIDER_PUSH_BURST_LIMIT));
+    }
+
+    private int getRecentlyUsedOps() {
+        return this.usedOps[0] + this.usedOps[1] + this.usedOps[2];
+    }
+
+    private void resetUsedOps() {
+        this.usedOps[0] = 0;
+        this.usedOps[1] = 0;
+        this.usedOps[2] = 0;
     }
 
     /**
@@ -726,20 +746,17 @@ public class ECOCraftingCPULogic {
             amount = waitingFor;
         }
 
+        if (type == Actionable.MODULATE) {
+            job.timeTracker.decrementItems(amount, what.getType());
+            job.waitingFor.extract(what, amount, Actionable.MODULATE);
+            cpu.markDirty();
+        }
+
         if (what.matches(job.finalOutput)) {
             long accepted = job.link.insert(what, amount, type);
-            accepted = Math.max(0, Math.min(accepted, amount));
-            if (accepted <= 0) {
-                return 0;
-            }
-
             if (type == Actionable.MODULATE) {
-                job.timeTracker.decrementItems(accepted, what.getType());
-                job.waitingFor.extract(what, accepted, Actionable.MODULATE);
                 postChange(what);
-                job.remainingAmount = Math.max(0, job.remainingAmount - accepted);
-                cpu.markDirty();
-
+                job.remainingAmount = Math.max(0, job.remainingAmount - amount);
                 if (job.remainingAmount <= 0) {
                     finishJob(true);
                 }
@@ -749,10 +766,7 @@ public class ECOCraftingCPULogic {
         }
 
         if (type == Actionable.MODULATE) {
-            job.timeTracker.decrementItems(amount, what.getType());
-            job.waitingFor.extract(what, amount, Actionable.MODULATE);
             postChange(what);
-            cpu.markDirty();
             inventory.insert(what, amount, Actionable.MODULATE);
             // Explicitly notify stored count changed in addition to inventory callback
             postChange(what);
