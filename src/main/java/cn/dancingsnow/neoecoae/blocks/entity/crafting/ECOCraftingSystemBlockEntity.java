@@ -7,6 +7,7 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
@@ -56,9 +57,12 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, IGridTickable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
@@ -133,6 +137,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public void onReady() {
         super.onReady();
         getMainNode().setIdlePowerUsage(64);
+        updateInfo();
     }
 
     @Override
@@ -199,8 +204,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateInfo() {
-        updateThreadCount();
         updateCount();
+        updateThreadCount();
         updateOverlockTimes();
     }
 
@@ -214,9 +219,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 threadCountPerWorker = 32;
             }
             threadCount = cluster.getParallelCores().size() * perCore;
-            runningThreadCount = cluster.getWorkers().stream().mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
+            recalculateRunningThreadCountFromWorkers();
         } else {
             threadCount = 0;
+            threadCountPerWorker = 0;
+            runningThreadCount = 0;
         }
     }
 
@@ -230,6 +237,41 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             patternBusCount = 0;
             workerCount = 0;
         }
+    }
+
+    public int getWorkerCount() {
+        if (cluster != null) {
+            return cluster.getWorkers().size();
+        }
+        return workerCount;
+    }
+
+    public void onWorkerThreadCountChanged(int delta) {
+        int before = runningThreadCount;
+        runningThreadCount += delta;
+        if (runningThreadCount < 0) {
+            LOGGER.warn(
+                "ECO controller runningThreadCount underflow: controller={} delta={} before correction previous={}",
+                getBlockPos(),
+                delta,
+                before
+            );
+            runningThreadCount = 0;
+        }
+        setChanged();
+        markForUpdate();
+    }
+
+    public void recalculateRunningThreadCountFromWorkers() {
+        if (cluster == null) {
+            runningThreadCount = 0;
+            return;
+        }
+
+        runningThreadCount = cluster.getWorkers()
+            .stream()
+            .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
+            .sum();
     }
 
     private void updateOverlockTimes() {
@@ -256,6 +298,19 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         setChanged();
         markForUpdate();
         return true;
+    }
+
+    public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
+        if (!activeCooling || requestedCrafts <= 0) {
+            return Math.max(0, requestedCrafts);
+        }
+        if (coolantPerCraft <= 0) {
+            return Math.max(0, requestedCrafts);
+        }
+        if (requiredOverclock > 0 && coolantMaxOverclock < requiredOverclock) {
+            return 0;
+        }
+        return Math.min(requestedCrafts, coolant / coolantPerCraft);
     }
 
     public int getEffectiveOverclockTimes() {

@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETooltips;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -37,6 +38,7 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.registries.NewRegistryEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,6 +81,7 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::newRegistry);
         modBus.addListener(NeoECOAE::addClassicPack);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
+        NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
     }
 
     public static ResourceLocation id(String path) {
@@ -123,5 +126,9 @@ public class NeoECOAE {
             false,
             Pack.Position.TOP
         );
+    }
+
+    private static void onTagsUpdated(TagsUpdatedEvent event) {
+        AE2PatternIntrospection.onRecipeReloadOrServerReload();
     }
 }

@@ -16,6 +16,7 @@ import appeng.api.upgrades.IUpgradeInventory;
 import appeng.core.definitions.AEItems;
 import appeng.util.ConfigInventory;
 import appeng.util.prioritylist.IPartitionList;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
@@ -31,14 +32,18 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ECOStorageCell implements IECOStorageCell {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+
     @Nullable
     private final ISaveProvider container;
     private final IBasicECOCellItem cellType;
     @Getter
     private final AEKeyType keyType;
-    // filter
+    // 过滤器
     @Getter
     private final IPartitionList partitionList;
     @Getter
@@ -70,7 +75,7 @@ public class ECOStorageCell implements IECOStorageCell {
             this.cellType = c;
             this.tier = c.getTier();
 
-            // Updates the partition list and mode based on installed upgrades and the configured filter.
+            // 根据已安装的升级和配置的过滤器更新分区列表和模式。
             var builder = IPartitionList.builder();
 
             var upgrades = getUpgradesInventory();
@@ -151,7 +156,9 @@ public class ECOStorageCell implements IECOStorageCell {
 
     private boolean canHoldNewItem() {
         final long bytesFree = this.getFreeBytes();
-        return (bytesFree > this.getBytesPerType() || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0) && this.getRemainingItemTypes() > 0;
+        return (bytesFree > this.getBytesPerType()
+                || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0)
+                && this.getRemainingItemTypes() > 0;
     }
 
     public long getStoredItemTypes() {
@@ -207,19 +214,21 @@ public class ECOStorageCell implements IECOStorageCell {
             cellStack.set(AEComponents.STORAGE_CELL_INV, stacks);
         }
 
-        this.storedItems = (short) this.storedAmounts.size();
+        int actualTypes = this.storedAmounts.size();
+        if (actualTypes > this.maxItemTypes) {
+            LOGGER.warn(
+                    "ECO storage cell contains more types than allowed: actual={} max={} stack={}",
+                    actualTypes,
+                    this.maxItemTypes,
+                    cellStack);
+        }
+        this.storedItems = actualTypes;
 
         this.storedItemCount = itemCount;
         this.isPersisted = true;
     }
 
     protected void saveChanges() {
-        this.storedItems = (short) this.storedAmounts.size();
-        this.storedItemCount = 0;
-        for (var storedAmount : this.storedAmounts.values()) {
-            this.storedItemCount += storedAmount;
-        }
-
         this.isPersisted = false;
         if (this.container != null) {
             this.container.saveChanges();
@@ -242,11 +251,10 @@ public class ECOStorageCell implements IECOStorageCell {
             return 0;
         }
 
-        // Run regular insert logic and then apply void upgrade to the returned value.
+        // 执行常规插入逻辑，然后对返回值应用虚空升级效果。
         long inserted = innerInsert(what, amount, mode);
 
-        // In the event that a void card is being used on a (full) unformatted cell, ensure it doesn't void any items
-        // that the cell isn't even storing and cannot store to begin with
+        // 当虚空卡用于（已满的）未格式化元件时，确保不会虚空掉元件未存储且无法存储的物品。
         if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
             return getCellItems().containsKey(what) ? amount : inserted;
         }
@@ -269,7 +277,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
         if (currentAmount <= 0) {
             if (!canHoldNewItem()) {
-                // No space for more types
+                // 无更多类型空间
                 return 0;
             }
 
@@ -284,9 +292,17 @@ public class ECOStorageCell implements IECOStorageCell {
         if (amount > remainingItemCount) {
             amount = remainingItemCount;
         }
+        if (amount <= 0) {
+            return 0;
+        }
 
         if (mode == Actionable.MODULATE) {
-            getCellItems().put(what, currentAmount + amount);
+            long newAmount = currentAmount + amount;
+            getCellItems().put(what, newAmount);
+            if (currentAmount <= 0) {
+                storedItems++;
+            }
+            storedItemCount = saturatedAdd(storedItemCount, amount);
             this.saveChanges();
         }
 
@@ -300,6 +316,8 @@ public class ECOStorageCell implements IECOStorageCell {
             if (amount >= currentAmount) {
                 if (mode == Actionable.MODULATE) {
                     getCellItems().remove(what, currentAmount);
+                    storedItems = Math.max(0, storedItems - 1);
+                    storedItemCount = Math.max(0, storedItemCount - currentAmount);
                     this.saveChanges();
                 }
 
@@ -307,6 +325,7 @@ public class ECOStorageCell implements IECOStorageCell {
             } else {
                 if (mode == Actionable.MODULATE) {
                     getCellItems().put(what, currentAmount - amount);
+                    storedItemCount = Math.max(0, storedItemCount - amount);
                     this.saveChanges();
                 }
 
@@ -352,5 +371,10 @@ public class ECOStorageCell implements IECOStorageCell {
 
     public ConfigInventory getConfigInventory() {
         return ((ECOStorageCellItem) cellStack.getItem()).getConfigInventory(cellStack);
+    }
+
+    private static long saturatedAdd(long a, long b) {
+        long result = a + b;
+        return result < 0 ? Long.MAX_VALUE : result;
     }
 }
