@@ -11,10 +11,13 @@
     "CraftingStatusMenuMixin120",
     "IOPortBlockEntityMixin120",
     "IOPortMenuMixin120",
+    "LightningBoltMixin120",
+    "PatternEncodingTermMenuMixin120",
     "ae2.AECraftingPatternAccessor"
   ],
   "client": [
-    "CPUSelectionListMixin120"
+    "CPUSelectionListMixin120",
+    "PatternEncodingTermScreenMixin120"
   ],
   "server": [],
   "injectors": {

@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.mixins;
+package cn.dancingsnow.neoecoae.forge.mixin;
 
 import appeng.api.networking.IGridNode;
 import appeng.api.storage.ITerminalHost;
@@ -20,55 +20,62 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(PatternEncodingTermMenu.class)
-public class PatternEncodingTermMenuMixin extends MEStorageMenu implements PatternEncodingTermMenuExtension {
+@Mixin(value = PatternEncodingTermMenu.class, remap = false)
+public abstract class PatternEncodingTermMenuMixin120 extends MEStorageMenu implements PatternEncodingTermMenuExtension {
+    @Unique
+    private static final String NEOECOAE_ACTION_UPLOAD_PATTERN = "neoecoae:uploadPattern";
+
     @Shadow
     @Final
     private RestrictedInputSlot encodedPatternSlot;
-    @Shadow
-    private EncodingMode currentMode;
-    @Unique
-    private final String ACTION_UPLOAD_PATTERN = "neoecoae:uploadPattern";
 
-    public PatternEncodingTermMenuMixin(MenuType<?> menuType, int id, Inventory playerInventory, ITerminalHost host) {
+    @Shadow
+    public EncodingMode mode;
+
+    public PatternEncodingTermMenuMixin120(MenuType<?> menuType, int id, Inventory playerInventory, ITerminalHost host) {
         super(menuType, id, playerInventory, host);
     }
 
     @Inject(
         method = "<init>(Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Lappeng/helpers/IPatternTerminalMenuHost;Z)V",
-        at = @At(
-            value = "INVOKE",
-            target = "Lappeng/menu/me/items/PatternEncodingTermMenu;registerClientAction(Ljava/lang/String;Ljava/lang/Runnable;)V",
-            ordinal = 0
-        )
+        at = @At("RETURN")
     )
-    void onRegisterClientActions(
+    private void neoecoae$registerUploadAction(
         MenuType<?> menuType,
         int id,
-        Inventory ip,
+        Inventory playerInventory,
         IPatternTerminalMenuHost host,
         boolean bindInventory,
         CallbackInfo ci
     ) {
-        registerClientAction(ACTION_UPLOAD_PATTERN, this::neoecoae$uploadPattern);
+        registerClientAction(NEOECOAE_ACTION_UPLOAD_PATTERN, this::neoecoae$uploadPattern);
     }
 
     @Override
     public void neoecoae$uploadPattern() {
         if (isClientSide()) {
-            sendClientAction(ACTION_UPLOAD_PATTERN);
+            sendClientAction(NEOECOAE_ACTION_UPLOAD_PATTERN);
             return;
         }
-        IGridNode node = getGridNode();
-        if (node == null) return;
-        if (!getLinkStatus().connected()) return;
-        if (currentMode == EncodingMode.PROCESSING) return;
-        ItemStack itemStack = encodedPatternSlot.getItem();
+
+        IGridNode node = getNetworkNode();
+        if (node == null || !node.isActive() || !canInteractWithGrid()) {
+            return;
+        }
+
+        if (this.mode == EncodingMode.PROCESSING) {
+            return;
+        }
+
+        ItemStack pattern = this.encodedPatternSlot.getItem();
+        if (pattern.isEmpty()) {
+            return;
+        }
+
         IECOPatternStorageService service = node.getGrid().getService(IECOPatternStorageService.class);
-        if (service != null) {
-            if (service.getPatternStorage().insertPattern(itemStack.copy())) {
-                encodedPatternSlot.clearStack();
-            }
+        if (service != null && service.getPatternStorage().insertPattern(pattern.copy())) {
+            this.encodedPatternSlot.set(ItemStack.EMPTY);
+            this.encodedPatternSlot.setChanged();
         }
     }
 }
