@@ -8,11 +8,13 @@
     "CraftingServiceMixin120",
     "CraftingCPUMenuMixin120",
     "CraftingCpuListEntryMixin120",
-    "CPUSelectionListMixin120",
+    "CraftingStatusMenuMixin120",
+    "IOPortBlockEntityMixin120",
+    "IOPortMenuMixin120",
     "ae2.AECraftingPatternAccessor"
   ],
   "client": [
-    "CraftingStatusMenuMixin120"
+    "CPUSelectionListMixin120"
   ],
   "server": [],
   "injectors": {
