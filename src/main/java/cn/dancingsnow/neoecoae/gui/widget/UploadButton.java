@@ -16,8 +16,8 @@ public class UploadButton extends Button {
         super(
             x,
             y,
-            18,
             20,
+            22,
             Component.empty(),
             onPress,
             unused -> Component.empty()
@@ -28,13 +28,15 @@ public class UploadButton extends Button {
 
     @Override
     protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        int yOffset = isHovered() ? 1 : 0;
-        Icon bgIcon = Icon.TOOLBAR_BUTTON_BACKGROUND;
-        bgIcon.getBlitter()
-            .dest(getX() - 1, getY() + yOffset, 18, 20)
+        Icon background = isHoveredOrFocused() ? Icon.HORIZONTAL_TAB_FOCUS : Icon.HORIZONTAL_TAB;
+        background.getBlitter()
+            .dest(getX(), getY())
             .blit(guiGraphics);
 
-        guiGraphics.renderItem(this.iconStack, getX(), getY() + 2 + yOffset);
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0.0F, 0.0F, 100.0F);
+        guiGraphics.renderItem(this.iconStack, getX() + 1, getY() + 3);
+        guiGraphics.pose().popPose();
 
         if (isHovered()) {
             guiGraphics.renderComponentTooltip(

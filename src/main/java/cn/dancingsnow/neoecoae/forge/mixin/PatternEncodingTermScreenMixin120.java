@@ -24,8 +24,8 @@ public abstract class PatternEncodingTermScreenMixin120<C extends PatternEncodin
 
         int left = (this.width - this.imageWidth) / 2;
         int top = (this.height - this.imageHeight) / 2;
-        int uploadX = left + this.imageWidth + 4;
-        int uploadY = top + this.imageHeight - 24;
+        int uploadX = left + this.imageWidth - 22;
+        int uploadY = top + this.imageHeight - 90;
 
         addRenderableWidget(new UploadButton(
             uploadX,
