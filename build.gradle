@@ -4,6 +4,7 @@ plugins {
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
     id 'io.freefair.lombok' version '8.7.1'
+    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 tasks.named('wrapper', Wrapper).configure {
@@ -90,6 +91,37 @@ repositories {
         }
     }
     maven { url "https://maven.shedaniel.me/" }
+}
+
+spotless {
+    java {
+        target 'src/**/*.java'
+        targetExclude 'build/**', 'run/**', 'src/generated/**'
+
+        importOrder()
+        removeUnusedImports()
+        palantirJavaFormat('2.28.0')
+        formatAnnotations()
+    }
+
+    groovyGradle {
+        target '*.gradle', 'gradle/**/*.gradle'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    format 'json', {
+        target 'src/main/resources/**/*.json'
+        targetExclude 'src/generated/**'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    format 'misc', {
+        target '*.md', '.gitignore', '.gitattributes'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }
 
 minecraft {

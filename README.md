@@ -26,3 +26,12 @@ Please do not submit issues, bug reports, or technical support requests related 
 Project maintenance and development information:   
 Eco AE Extension is led and developed by **Hikari_Nova**;    
 Neo Eco AE Extension is led and developed by **DancingSnow0517**.    
+
+## Code style
+
+Before submitting a PR, run:
+
+```bash
+./gradlew spotlessApply
+./gradlew clean compileJava
+```
