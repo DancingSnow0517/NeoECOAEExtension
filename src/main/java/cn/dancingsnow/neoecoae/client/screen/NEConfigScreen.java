@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.client.screen;
 
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.util.NETextFormat;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -84,6 +87,10 @@ public class NEConfigScreen extends Screen {
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);
+
+        if (this.capacityButton != null && this.capacityButton.isMouseOver(mouseX, mouseY)) {
+            graphics.renderComponentTooltip(this.font, capacityTooltip(), mouseX, mouseY);
+        }
     }
 
     @Override
@@ -109,6 +116,29 @@ public class NEConfigScreen extends Screen {
                 this.increaseCapacity
                         ? "screen.neoecoae.config.increaseCapacity.on"
                         : "screen.neoecoae.config.increaseCapacity.off");
+    }
+
+    private List<Component> capacityTooltip() {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("screen.neoecoae.config.increaseCapacity.tooltip.title")
+                .withStyle(ChatFormatting.GRAY));
+
+        for (ECOTier tier : ECOTier.values()) {
+            long originalBytes = tier.getStorageTotalBytes();
+            long expandedBytes = NEConfig.getExpandedEcoStorageCellCapacity(tier, originalBytes);
+            lines.add(Component.translatable(
+                            "screen.neoecoae.config.increaseCapacity.tooltip.storage",
+                            formatStorageTier(tier),
+                            NETextFormat.formatBytes(originalBytes),
+                            NETextFormat.formatBytes(expandedBytes))
+                    .withStyle(ChatFormatting.AQUA));
+        }
+
+        return lines;
+    }
+
+    private static String formatStorageTier(ECOTier tier) {
+        return "LE" + tier.name().substring(1);
     }
 
     private void save() {

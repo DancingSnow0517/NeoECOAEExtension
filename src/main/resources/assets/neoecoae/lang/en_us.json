@@ -45,6 +45,8 @@
   "screen.neoecoae.config.increaseCapacity": "Increase Capacity",
   "screen.neoecoae.config.increaseCapacity.on": "Enabled",
   "screen.neoecoae.config.increaseCapacity.off": "Disabled",
+  "screen.neoecoae.config.increaseCapacity.tooltip.title": "Storage cell capacity after enabling:",
+  "screen.neoecoae.config.increaseCapacity.tooltip.storage": "%s storage cells: %s -> %s",
   "screen.neoecoae.config.save": "Save",
   "screen.neoecoae.config.cancel": "Cancel",
   "screen.neoecoae.config.invalid": "Enter positive whole numbers."

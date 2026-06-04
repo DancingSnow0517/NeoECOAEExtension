@@ -388,6 +388,8 @@
   "screen.neoecoae.config.increaseCapacity": "增加容量",
   "screen.neoecoae.config.increaseCapacity.on": "开启",
   "screen.neoecoae.config.increaseCapacity.off": "关闭",
+  "screen.neoecoae.config.increaseCapacity.tooltip.title": "开启后存储元件容量：",
+  "screen.neoecoae.config.increaseCapacity.tooltip.storage": "%s 存储元件：从原来的 %s 提升到 %s",
   "screen.neoecoae.config.save": "保存",
   "screen.neoecoae.config.cancel": "取消",
   "screen.neoecoae.config.invalid": "请输入正整数。"

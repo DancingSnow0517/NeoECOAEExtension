@@ -99,7 +99,15 @@ public class NEConfig {
     }
 
     public static long getEcoStorageCellCapacity(IECOTier tier, long fallbackBytes) {
-        if (!increaseStorageCellCapacity) {
+        return getEcoStorageCellCapacity(tier, fallbackBytes, increaseStorageCellCapacity);
+    }
+
+    public static long getExpandedEcoStorageCellCapacity(IECOTier tier, long fallbackBytes) {
+        return getEcoStorageCellCapacity(tier, fallbackBytes, true);
+    }
+
+    private static long getEcoStorageCellCapacity(IECOTier tier, long fallbackBytes, boolean increaseCapacity) {
+        if (!increaseCapacity) {
             return fallbackBytes;
         }
 
