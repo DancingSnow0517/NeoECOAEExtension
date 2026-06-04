@@ -171,8 +171,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         }
         long runningThreads = controller.getRunningThreadCount();
         long controllerRemaining = Math.max(0, controller.getThreadCount() - runningThreads);
-        long workerRemaining =
-                Math.max(0, (long) controller.getThreadCountPerWorker() * controller.getWorkerCount() - runningThreads);
+        long workerRemaining = cluster.getWorkers().stream()
+                .mapToLong(ECOCraftingWorkerBlockEntity::getAvailableThreadSlots)
+                .sum();
         return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));
     }
 

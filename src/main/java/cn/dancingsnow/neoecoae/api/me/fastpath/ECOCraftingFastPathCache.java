@@ -14,7 +14,7 @@ public final class ECOCraftingFastPathCache {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_STATS = Boolean.getBoolean("neoecoae.debugEcoFastPath");
     private static final int DEFAULT_LIMIT = Integer.getInteger("neoecoae.ecoFastPathCacheSize", 512);
-    private static final Set<ECOCraftingFastPathCache> LIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Set<ECOCraftingFastPathCache> ACTIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
 
     private final int limit;
     private final Map<ECOFastPathKey, ECOFastPathResult> entries;
@@ -50,8 +50,8 @@ public final class ECOCraftingFastPathCache {
                 return size() > ECOCraftingFastPathCache.this.limit;
             }
         };
-        synchronized (LIVE_CACHES) {
-            LIVE_CACHES.add(this);
+        synchronized (ACTIVE_CACHES) {
+            ACTIVE_CACHES.add(this);
         }
     }
 
@@ -94,8 +94,8 @@ public final class ECOCraftingFastPathCache {
     }
 
     public static void clearAllCaches() {
-        synchronized (LIVE_CACHES) {
-            for (ECOCraftingFastPathCache cache : LIVE_CACHES) {
+        synchronized (ACTIVE_CACHES) {
+            for (ECOCraftingFastPathCache cache : ACTIVE_CACHES) {
                 cache.clear();
             }
         }

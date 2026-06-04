@@ -61,12 +61,19 @@ public final class ECOBatchCraftingHelper {
                 extractedStacks.add(stack);
             }
         } catch (RuntimeException e) {
-            insertAll(inventory, extractedStacks);
+            insertAllOrThrow(inventory, extractedStacks);
             throw e;
         }
     }
 
     public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
+        insertAllOrThrow(inventory, stacks);
+    }
+
+    public static void insertAllOrThrow(ListCraftingInventory inventory, List<GenericStack> stacks) {
+        // ListCraftingInventory is an internal CPU inventory without a capacity
+        // limit. This insert is expected to be lossless. If AE2 changes this
+        // invariant, this method must be changed to verify the inserted amount.
         for (GenericStack stack : stacks) {
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
         }

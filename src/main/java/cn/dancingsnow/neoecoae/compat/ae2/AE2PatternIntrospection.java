@@ -6,6 +6,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.pattern.AECraftingPattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.forge.mixin.ae2.AECraftingPatternAccessor;
 import java.util.Optional;
@@ -67,6 +68,7 @@ public final class AE2PatternIntrospection {
 
     public static void onRecipeReloadOrServerReload() {
         reloadGeneration++;
+        ECOCraftingFastPathCache.clearAllCaches();
     }
 
     private static void selfCheck() {
@@ -87,7 +89,7 @@ public final class AE2PatternIntrospection {
         available = false;
         if (!warnedUnavailable) {
             warnedUnavailable = true;
-            LOGGER.warn("ECO AE2 fast path disabled: incompatible AE2 internals", e);
+            LOGGER.warn("ECO AE2 fast path disabled: incompatible AE2 internals or accessor failure", e);
         }
     }
 }

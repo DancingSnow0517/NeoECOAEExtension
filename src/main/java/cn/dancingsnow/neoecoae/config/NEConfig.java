@@ -46,8 +46,9 @@ public class NEConfig {
 
     private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AE2_FAST_PATH = BUILDER.comment(
                     "Enable the verified AE2-assisted fast path for ECO crafting workers.",
+                    "FastPath remains disabled by default until recipe/tag reload invalidation is verified.",
                     "Set JVM property -Dneoecoae.ecoFastPath=false to force-disable this optimization without editing the config.")
-            .define("enableEcoAe2FastPath", true);
+            .define("ecoAe2FastPathEnabled", false);
 
     private static final ForgeConfigSpec.BooleanValue INCREASE_STORAGE_CELL_CAPACITY = BUILDER.comment(
                     "Increase ECO Storage Matrix capacity.",

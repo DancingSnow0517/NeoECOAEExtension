@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
+import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -24,9 +25,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import org.slf4j.Logger;
 
 public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingWorkerBlockEntity>
         implements IGridTickable {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
@@ -106,7 +109,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                     return true;
                 }
-                return false;
+                // Continue trying other free threads.
             }
         }
 
@@ -145,7 +148,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                     return true;
                 }
-                return false;
+                // Continue trying other free threads.
             }
         }
 
@@ -249,6 +252,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         int slots = Math.max(1, occupiedThreadSlots);
         runningThreads -= slots;
         if (runningThreads < 0) {
+            LOGGER.warn(
+                    "ECO worker runningThreads underflow: worker={} releasedSlots={} correctedToZero=true",
+                    getBlockPos(),
+                    slots);
             runningThreads = 0;
         }
         if (cluster != null && cluster.getController() != null) {
@@ -327,7 +334,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
         for (ECOCraftingThread thread : craftingThreads) {
-            thread.addRecoverableDrops(drops);
+            thread.dropRecoverablesAndClear(drops);
         }
     }
 }

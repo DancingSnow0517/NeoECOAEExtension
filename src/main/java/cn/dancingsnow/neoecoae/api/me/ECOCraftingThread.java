@@ -24,6 +24,7 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +41,10 @@ import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnknownNullability;
+import org.slf4j.Logger;
 
 public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
+    private static final Logger LOGGER = LogUtils.getLogger();
     public static final int MAX_PROGRESS = 100;
 
     private final ECOCraftingWorkerBlockEntity worker;
@@ -63,6 +66,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private int progress = 0;
     private int occupiedThreadSlots = 1;
     private boolean outputsReady = false;
+    private RecoveryState recoveryState = RecoveryState.CLEARED;
 
     private final TransientCraftingContainer craftingInv;
 
@@ -342,6 +346,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         copyStacks(remaining, remainingItems);
         worker.onThreadWork(this.occupiedThreadSlots);
         isBusy = true;
+        recoveryState = RecoveryState.ACTIVE;
         reboot = true;
         setChanged();
     }
@@ -385,23 +390,27 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private boolean ejectOutputs() {
         IGrid grid = worker.getMainNode().getGrid();
-        if (grid != null) {
-            CraftingService craftingService = (CraftingService) grid.getCraftingService();
-            MEStorage storage = grid.getStorageService().getInventory();
-            KeyCounter outputs = collectOutputItems();
-            if (!canEjectAll(craftingService, storage, outputs)) {
-                return false;
-            }
-            ejectAll(craftingService, storage, outputs);
-            if (NEConfig.postCraftingEvent) {
-                MinecraftForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
-                        NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()), firstOutputItem(), craftingInv));
-            }
-            clearWork();
-            return true;
-        } else {
+        if (grid == null) {
             return false;
         }
+
+        CraftingService craftingService = (CraftingService) grid.getCraftingService();
+        MEStorage storage = grid.getStorageService().getInventory();
+        KeyCounter outputs = collectOutputItems();
+
+        KeyCounter remainder = ejectAllAndCollectRemainder(craftingService, storage, outputs);
+        if (!isEmpty(remainder)) {
+            retainRemainderForRetry(remainder);
+            return false;
+        }
+
+        if (NEConfig.postCraftingEvent) {
+            MinecraftForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(
+                    NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()), firstOutputItem(), craftingInv));
+        }
+
+        clearWork();
+        return true;
     }
 
     private KeyCounter collectOutputItems() {
@@ -421,46 +430,87 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    private boolean canInsertAll(MEStorage storage, KeyCounter stacks) {
-        for (Object2LongMap.Entry<AEKey> entry : stacks) {
-            long inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.SIMULATE, actionSource);
-            if (inserted != entry.getLongValue()) {
-                return false;
-            }
-        }
-        return true;
-    }
+    private KeyCounter ejectAllAndCollectRemainder(
+            CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
+        KeyCounter remainder = new KeyCounter();
 
-    private boolean canEjectAll(CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
         for (Object2LongMap.Entry<AEKey> entry : stacks) {
+            AEKey key = entry.getKey();
             long remaining = entry.getLongValue();
-            remaining -= craftingService.insertIntoCpus(entry.getKey(), remaining, Actionable.SIMULATE);
-            if (remaining <= 0) {
-                continue;
-            }
+            long insertedIntoCpus = craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE);
+            remaining -= insertedIntoCpus;
 
-            long inserted = storage.insert(entry.getKey(), remaining, Actionable.SIMULATE, actionSource);
-            if (inserted != remaining) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private void ejectAll(CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
-        for (Object2LongMap.Entry<AEKey> entry : stacks) {
-            long remaining = entry.getLongValue();
-            remaining -= craftingService.insertIntoCpus(entry.getKey(), remaining, Actionable.MODULATE);
             if (remaining > 0) {
-                storage.insert(entry.getKey(), remaining, Actionable.MODULATE, actionSource);
+                long insertedIntoStorage = storage.insert(key, remaining, Actionable.MODULATE, actionSource);
+                remaining -= insertedIntoStorage;
+            }
+
+            if (remaining > 0) {
+                remainder.add(key, remaining);
             }
         }
+
+        return remainder;
     }
 
-    private void insertAll(MEStorage storage, KeyCounter stacks) {
-        for (Object2LongMap.Entry<AEKey> entry : stacks) {
-            storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, actionSource);
+    private static boolean isEmpty(KeyCounter counter) {
+        for (var ignored : counter) {
+            return false;
         }
+        return true;
+    }
+
+    private void retainRemainderForRetry(KeyCounter remainder) {
+        List<ItemStack> retained = toItemStacksOrLog(remainder, "output");
+        if (retained == null) {
+            clearUnretainableRemainder();
+            return;
+        }
+
+        outputItems.clear();
+        outputItems.addAll(retained);
+        remainingItems.clear();
+        outputsReady = true;
+        isBusy = true;
+        setChanged();
+    }
+
+    @Nullable private List<ItemStack> toItemStacksOrLog(KeyCounter remainder, String kind) {
+        List<ItemStack> retained = new ArrayList<>();
+
+        for (Object2LongMap.Entry<AEKey> entry : remainder) {
+            if (!(entry.getKey() instanceof AEItemKey itemKey)) {
+                LOGGER.error(
+                        "ECO crafting {} could not be retained because it is not an item key: key={} amount={}",
+                        kind,
+                        entry.getKey(),
+                        entry.getLongValue());
+                return null;
+            }
+
+            long amount = entry.getLongValue();
+            while (amount > 0) {
+                int stackSize = (int) Math.min(Integer.MAX_VALUE, amount);
+                ItemStack stack = itemKey.toStack(stackSize);
+                retained.add(stack);
+                amount -= stackSize;
+            }
+        }
+
+        return retained;
+    }
+
+    private KeyCounter insertAllAndCollectRemainder(MEStorage storage, KeyCounter stacks) {
+        KeyCounter remainder = new KeyCounter();
+        for (Object2LongMap.Entry<AEKey> entry : stacks) {
+            long remaining = entry.getLongValue();
+            long inserted = storage.insert(entry.getKey(), remaining, Actionable.MODULATE, actionSource);
+            remaining -= inserted;
+            if (remaining > 0) {
+                remainder.add(entry.getKey(), remaining);
+            }
+        }
+        return remainder;
     }
 
     public boolean belongsToJob(UUID jobId) {
@@ -468,7 +518,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     public boolean recoverInputsToNetwork(MEStorage storage) {
-        if (!isBusy) {
+        if (!isBusy || recoveryState != RecoveryState.ACTIVE) {
             return true;
         }
         List<ItemStack> recoverable = outputsReady ? outputAndRemainingItems() : inputItems;
@@ -476,18 +526,42 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return false;
         }
         KeyCounter stacks = collectStacks(recoverable);
-        if (!canInsertAll(storage, stacks)) {
+        KeyCounter remainder = insertAllAndCollectRemainder(storage, stacks);
+        if (!isEmpty(remainder)) {
+            List<ItemStack> retained = toItemStacksOrLog(remainder, outputsReady ? "output" : "input");
+            if (retained != null) {
+                if (outputsReady) {
+                    outputItems.clear();
+                    outputItems.addAll(retained);
+                    remainingItems.clear();
+                } else {
+                    inputItems.clear();
+                    inputItems.addAll(retained);
+                }
+                isBusy = true;
+                setChanged();
+            } else {
+                clearUnretainableRemainder();
+            }
             return false;
         }
-        insertAll(storage, stacks);
+        recoveryState = RecoveryState.RECOVERED_TO_NETWORK;
         worker.onThreadStop(occupiedThreadSlots);
         clearWork();
         setChanged();
         return true;
     }
 
-    public void addRecoverableDrops(List<ItemStack> drops) {
-        if (!isBusy) {
+    private void clearUnretainableRemainder() {
+        if (isBusy) {
+            worker.onThreadStop(occupiedThreadSlots);
+        }
+        clearWork();
+        setChanged();
+    }
+
+    public void dropRecoverablesAndClear(List<ItemStack> drops) {
+        if (!isBusy || recoveryState != RecoveryState.ACTIVE) {
             return;
         }
         List<ItemStack> recoverable = outputsReady ? outputAndRemainingItems() : inputItems;
@@ -496,6 +570,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 drops.add(stack.copy());
             }
         }
+
+        recoveryState = RecoveryState.DROPPED_TO_WORLD;
+        worker.onThreadStop(occupiedThreadSlots);
+        clearWork();
+        setChanged();
     }
 
     private static KeyCounter collectStacks(List<ItemStack> stacks) {
@@ -523,6 +602,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         progress = 0;
         occupiedThreadSlots = 1;
         outputsReady = false;
+        recoveryState = RecoveryState.CLEARED;
     }
 
     private ItemStack firstOutputItem() {
@@ -546,6 +626,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         tag.putInt("neoecoae_version", 2);
         tag.putInt("occupiedThreadSlots", occupiedThreadSlots);
         tag.putBoolean("outputsReady", outputsReady);
+        tag.putString("recoveryState", recoveryState.name());
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
         }
@@ -576,6 +657,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         this.occupiedThreadSlots =
                 Math.max(1, nbt.contains("occupiedThreadSlots") ? nbt.getInt("occupiedThreadSlots") : 1);
         this.outputsReady = nbt.getBoolean("outputsReady");
+        this.recoveryState = readRecoveryState(nbt);
         outputItems.clear();
         ListTag outputs = nbt.getList("outputItems", Tag.TAG_COMPOUND);
         if (!outputs.isEmpty()) {
@@ -602,6 +684,24 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         for (int i = 0; i < remaining.size(); i++) {
             remainingItems.add(ItemStack.of(remaining.getCompound(i)));
         }
+    }
+
+    private RecoveryState readRecoveryState(CompoundTag nbt) {
+        if (!nbt.contains("recoveryState")) {
+            return this.isBusy ? RecoveryState.ACTIVE : RecoveryState.CLEARED;
+        }
+        try {
+            return RecoveryState.valueOf(nbt.getString("recoveryState"));
+        } catch (IllegalArgumentException e) {
+            return this.isBusy ? RecoveryState.ACTIVE : RecoveryState.CLEARED;
+        }
+    }
+
+    private enum RecoveryState {
+        ACTIVE,
+        RECOVERED_TO_NETWORK,
+        DROPPED_TO_WORLD,
+        CLEARED
     }
 
     private record FastPathWork(ItemStack output, List<ItemStack> inputs, List<ItemStack> remaining) {}

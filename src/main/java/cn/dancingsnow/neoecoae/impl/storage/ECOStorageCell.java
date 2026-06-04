@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -32,8 +33,11 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 public class ECOStorageCell implements IECOStorageCell {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     @Nullable private final ISaveProvider container;
 
     private final IBasicECOCellItem cellType;
@@ -229,7 +233,15 @@ public class ECOStorageCell implements IECOStorageCell {
         }
         cellStack.getOrCreateTag().put("eco_cell_contents", list);
 
-        this.storedItems = (short) this.storedAmounts.size();
+        int actualTypes = this.storedAmounts.size();
+        if (actualTypes > this.maxItemTypes) {
+            LOGGER.warn(
+                    "ECO storage cell contains more types than allowed: actual={} max={} stack={}",
+                    actualTypes,
+                    this.maxItemTypes,
+                    cellStack);
+        }
+        this.storedItems = actualTypes;
 
         this.storedItemCount = itemCount;
         this.isPersisted = true;

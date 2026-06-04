@@ -88,6 +88,8 @@ public class ECOCraftingCPULogic {
 
     private boolean batchingStatusChanges = false;
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
+    private boolean batchedAnyStatusChange = false;
+    private boolean batchedFullStatusChange = false;
 
     // ── NBT restore state ──
     @Getter
@@ -470,7 +472,7 @@ public class ECOCraftingCPULogic {
                 }
             }
         } finally {
-            endStatusChangeBatch();
+            endStatusChangeBatchSafely();
             if (DEBUG_EXECUTION_STATS) {
                 debugPushedPatterns += pushedPatterns;
                 debugExecuteCraftingNs += System.nanoTime() - executeStartNs;
@@ -579,7 +581,6 @@ public class ECOCraftingCPULogic {
         }
 
         var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
-        var inputTotal = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize);
         boolean extraInputsExtracted = false;
         try {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
@@ -603,7 +604,7 @@ public class ECOCraftingCPULogic {
                 debugPushPatternCalls++;
             }
             if (!selectedPatternBus.pushBatch(request)) {
-                ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
                 return -1;
             }
             energyService.extractAEPower(patternPower * batchSize, Actionable.MODULATE, PowerMultiplier.CONFIG);
@@ -612,13 +613,24 @@ public class ECOCraftingCPULogic {
             return batchSize;
         } catch (RuntimeException e) {
             LOGGER.warn("ECO batch fast path failed, reinjecting inputs and falling back to the slow path", e);
-            if (extraInputsExtracted) {
-                ECOBatchCraftingHelper.insertAll(inventory, inputTotal);
-            } else {
-                CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
-            }
+            rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             selectedOffer.worker().getFastPathCache().recordException();
             return -1;
+        }
+    }
+
+    private void rollbackBatchInputs(
+            ListCraftingInventory inventory,
+            KeyCounter[] firstCraftingContainer,
+            List<GenericStack> extraInputs,
+            boolean firstInputsOwned,
+            boolean extraInputsExtracted) {
+        if (firstInputsOwned) {
+            CraftingCpuHelper.reinjectPatternInputs(inventory, firstCraftingContainer);
+        }
+
+        if (extraInputsExtracted) {
+            ECOBatchCraftingHelper.insertAllOrThrow(inventory, extraInputs);
         }
     }
 
@@ -830,9 +842,12 @@ public class ECOCraftingCPULogic {
         cpu.markDirty();
     }
 
-    private void postChange(AEKey what) {
+    private void postChange(@Nullable AEKey what) {
         if (batchingStatusChanges) {
-            if (what != null) {
+            batchedAnyStatusChange = true;
+            if (what == null) {
+                batchedFullStatusChange = true;
+            } else {
                 batchedStatusChanges.add(what);
             }
             return;
@@ -847,21 +862,57 @@ public class ECOCraftingCPULogic {
     private void beginStatusChangeBatch() {
         batchingStatusChanges = true;
         batchedStatusChanges.clear();
+        batchedAnyStatusChange = false;
+        batchedFullStatusChange = false;
     }
 
     private void endStatusChangeBatch() {
         batchingStatusChanges = false;
-        if (batchedStatusChanges.isEmpty()) {
+        if (!batchedAnyStatusChange) {
             return;
         }
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
         markStatusDirty();
-        for (AEKey key : batchedStatusChanges) {
+
+        if (batchedFullStatusChange) {
+            batchedStatusChanges.clear();
+            batchedAnyStatusChange = false;
+            batchedFullStatusChange = false;
+
+            for (var listener : listeners) {
+                listener.accept(null);
+            }
+            return;
+        }
+
+        var changedKeys = List.copyOf(batchedStatusChanges);
+        batchedStatusChanges.clear();
+        batchedAnyStatusChange = false;
+        batchedFullStatusChange = false;
+
+        for (AEKey key : changedKeys) {
             for (var listener : listeners) {
                 listener.accept(key);
             }
         }
-        batchedStatusChanges.clear();
+    }
+
+    private void endStatusChangeBatchSafely() {
+        try {
+            endStatusChangeBatch();
+        } catch (RuntimeException e) {
+            batchingStatusChanges = false;
+            batchedStatusChanges.clear();
+            batchedAnyStatusChange = false;
+            batchedFullStatusChange = false;
+            throw e;
+        } catch (Error e) {
+            batchingStatusChanges = false;
+            batchedStatusChanges.clear();
+            batchedAnyStatusChange = false;
+            batchedFullStatusChange = false;
+            throw e;
+        }
     }
 
     private void markStatusDirty() {

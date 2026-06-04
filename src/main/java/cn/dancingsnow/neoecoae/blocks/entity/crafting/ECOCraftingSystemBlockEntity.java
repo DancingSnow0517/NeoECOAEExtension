@@ -221,14 +221,23 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 threadCountPerWorker = 32;
             }
             threadCount = parallelCount * perCore;
-            runningThreadCount = cluster.getWorkers().stream()
-                    .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
-                    .sum();
+            recalculateRunningThreadCountFromWorkers();
         } else {
             threadCount = 0;
             threadCountPerWorker = 0;
             runningThreadCount = 0;
         }
+    }
+
+    public void recalculateRunningThreadCountFromWorkers() {
+        if (cluster == null) {
+            runningThreadCount = 0;
+            return;
+        }
+
+        runningThreadCount = cluster.getWorkers().stream()
+                .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
+                .sum();
     }
 
     private void updateCount() {
@@ -448,7 +457,16 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public void onWorkerThreadCountChanged(int delta) {
-        runningThreadCount = Math.max(0, runningThreadCount + delta);
+        int previous = runningThreadCount;
+        runningThreadCount += delta;
+        if (runningThreadCount < 0) {
+            LOGGER.warn(
+                    "ECO controller runningThreadCount underflow: controller={} delta={} previous={} correctedToZero=true",
+                    getBlockPos(),
+                    delta,
+                    previous);
+            runningThreadCount = 0;
+        }
         markUiStateDirty();
     }
 
