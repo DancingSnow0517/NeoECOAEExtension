@@ -275,6 +275,8 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 jar {
+    finalizedBy 'reobfJar'
+
     manifest {
         attributes([
                 "Specification-Title"     : mod_id,
@@ -286,6 +288,64 @@ jar {
                 "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
                 "MixinConfigs"            : "${mod_id}.mixins.json"
         ])
+    }
+}
+
+tasks.register('verifyReleaseJar') {
+    group = 'verification'
+    description = 'Verifies that the distributable jar is reobfuscated and contains the expected production mixins.'
+    dependsOn 'reobfJar'
+
+    doLast {
+        def jarFile = tasks.named('jar', Jar).get().archiveFile.get().asFile
+        def zip = new java.util.zip.ZipFile(jarFile)
+
+        try {
+            def creativeTabsEntry = zip.getEntry('cn/dancingsnow/neoecoae/all/NECreativeTabs.class')
+            if (creativeTabsEntry == null) {
+                throw new GradleException("Release jar is missing NECreativeTabs.class: ${jarFile}")
+            }
+
+            def creativeTabsClass = new String(
+                    zip.getInputStream(creativeTabsEntry).bytes,
+                    java.nio.charset.StandardCharsets.ISO_8859_1)
+            if (creativeTabsClass.contains('CREATIVE_MODE_TAB')) {
+                throw new GradleException(
+                        "Release jar is not reobfuscated. Run reobfJar before distributing: ${jarFile}")
+            }
+
+            if (zip.getEntry('cn/dancingsnow/neoecoae/forge/mixin/StorageCellsMixin120.class') == null) {
+                throw new GradleException("Release jar is missing StorageCellsMixin120.class: ${jarFile}")
+            }
+
+            if (zip.getEntry('cn/dancingsnow/neoecoae/forge/mixin/IOPortBlockEntityMixin120.class') != null) {
+                throw new GradleException("Release jar still contains the removed IO port ticking mixin: ${jarFile}")
+            }
+
+            def mixinConfigEntry = zip.getEntry("${mod_id}.mixins.json")
+            if (mixinConfigEntry == null) {
+                throw new GradleException("Release jar is missing ${mod_id}.mixins.json: ${jarFile}")
+            }
+        } finally {
+            zip.close()
+        }
+    }
+}
+
+tasks.register('release', Copy) {
+    group = 'build'
+    description = 'Builds the production reobfuscated mod jar and copies it to build/release.'
+    dependsOn 'verifyReleaseJar'
+
+    from(tasks.named('jar', Jar).flatMap { it.archiveFile })
+    into(layout.buildDirectory.dir('release'))
+
+    doFirst {
+        delete layout.buildDirectory.dir('release')
+    }
+
+    doLast {
+        logger.lifecycle("Release jar written to ${destinationDir}")
     }
 }
 

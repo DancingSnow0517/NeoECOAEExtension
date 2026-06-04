@@ -15,8 +15,10 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.compat.advancedae.AdvancedAECraftingCompat;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
+import com.llamalad7.mixinextras.sugar.Local;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -104,9 +106,8 @@ public abstract class CraftingServiceMixin120 {
     }
 
     @Inject(method = "getCpus", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$getCpus(CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir) {
-        ImmutableSet.Builder<ICraftingCPU> cpus = ImmutableSet.builder();
-        cpus.addAll(cir.getReturnValue());
+    private void neoecoae$getCpus(
+            CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir, @Local ImmutableSet.Builder<ICraftingCPU> cpus) {
         List<NEComputationCluster> clusters = neoecoae$getComputationClusters();
         for (NEComputationCluster cluster : clusters) {
             List<ECOCraftingCPU> activeCpus = cluster.getActiveCPUs();
@@ -115,6 +116,7 @@ public abstract class CraftingServiceMixin120 {
                 cpus.add(cluster.getFakeCPU());
             }
         }
+        AdvancedAECraftingCompat.addCpus(this.grid, cpus);
         cir.setReturnValue(cpus.build());
     }
 
