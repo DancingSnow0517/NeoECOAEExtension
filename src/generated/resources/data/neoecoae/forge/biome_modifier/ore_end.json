@@ -1,5 +1,14 @@
 {
   "type": "forge:add_features",
+  "conditions": [
+    {
+      "type": "forge:not",
+      "value": {
+        "type": "forge:mod_loaded",
+        "modid": "gtceu"
+      }
+    }
+  ],
   "biomes": [
     "minecraft:the_end",
     "minecraft:end_highlands",

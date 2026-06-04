@@ -24,25 +24,25 @@ public class NEConfiguredFeatures {
                 ORE_ALUMINUM,
                 Feature.ORE,
                 new OreConfiguration(
-                        new TagMatchTest(Tags.Blocks.END_STONES), NEBlocks.ALUMINUM_ORE.getDefaultState(), 9));
+                        new TagMatchTest(Tags.Blocks.END_STONES), NEBlocks.ALUMINUM_ORE.getDefaultState(), 12));
         FeatureUtils.register(
                 context,
                 ORE_ALUMINUM_SMALL,
                 Feature.ORE,
                 new OreConfiguration(
-                        new TagMatchTest(Tags.Blocks.END_STONES), NEBlocks.ALUMINUM_ORE.getDefaultState(), 4));
+                        new TagMatchTest(Tags.Blocks.END_STONES), NEBlocks.ALUMINUM_ORE.getDefaultState(), 6));
         FeatureUtils.register(
                 context,
                 ORE_TUNGSTEN,
                 Feature.ORE,
                 new OreConfiguration(
-                        new TagMatchTest(Tags.Blocks.END_STONES), NEBlocks.TUNGSTEN_ORE.getDefaultState(), 9));
+                        new TagMatchTest(Tags.Blocks.END_STONES), NEBlocks.TUNGSTEN_ORE.getDefaultState(), 12));
         FeatureUtils.register(
                 context,
                 ORE_TUNGSTEN_SMALL,
                 Feature.ORE,
                 new OreConfiguration(
-                        new TagMatchTest(Tags.Blocks.END_STONES), NEBlocks.TUNGSTEN_ORE.getDefaultState(), 4));
+                        new TagMatchTest(Tags.Blocks.END_STONES), NEBlocks.TUNGSTEN_ORE.getDefaultState(), 6));
     }
 
     private static ResourceKey<ConfiguredFeature<?, ?>> key(String id) {
