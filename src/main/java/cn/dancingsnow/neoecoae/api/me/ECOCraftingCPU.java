@@ -76,12 +76,12 @@ public class ECOCraftingCPU implements ICraftingCPU {
 
     @Override
     public void cancelJob() {
-        if (this.plan == null) {
+        if (this.isAllocationProxy()) {
             return;
         }
 
         logic.cancel();
-        this.cluster.cancelJob(plan);
+        this.cluster.cancelJob(this);
     }
 
     @Override
@@ -119,8 +119,14 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return cluster.isActive();
     }
 
+    public boolean isAllocationProxy() {
+        return this.owner == null;
+    }
+
     public void deactivate() {
-        this.cluster.deactivate(this.plan);
+        if (!this.isAllocationProxy()) {
+            this.cluster.deactivate(this);
+        }
     }
 
     public Level getLevel() {

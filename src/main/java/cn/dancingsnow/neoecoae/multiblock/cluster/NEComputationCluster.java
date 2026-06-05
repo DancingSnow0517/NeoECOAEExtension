@@ -72,7 +72,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     @Getter
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
 
-    private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
+    private final Map<ECOCraftingCPU, ICraftingPlan> activeCpus = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
 
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
@@ -107,9 +107,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public void pickup(ICraftingPlan plan, ECOCraftingCPU cpu) {
-        this.activeCpus.put(plan, cpu);
-        this.activeJobBytes += plan.bytes();
-        this.activeCpuCount = this.activeCpus.size();
+        if (this.activeCpus.put(cpu, plan) == null) {
+            this.activeJobBytes += plan.bytes();
+            this.activeCpuCount = this.activeCpus.size();
+        }
     }
 
     public void restoreActiveCpusFromThreadingCores() {
@@ -120,8 +121,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 if (cpu == null || cpu.getPlan() == null || !cpu.getLogic().hasJob()) {
                     continue;
                 }
-                if (!activeCpus.containsKey(cpu.getPlan())) {
-                    this.activeCpus.put(cpu.getPlan(), cpu);
+                if (!activeCpus.containsKey(cpu)) {
+                    this.activeCpus.put(cpu, cpu.getPlan());
                     this.activeJobBytes += cpu.getPlan().bytes();
                     restored++;
                     restoredBytes += cpu.getPlan().bytes();
@@ -165,7 +166,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             IGrid grid = node != null ? node.getGrid() : null;
             if (grid != null && activeCpuCount > 0) {
                 int rebound = 0;
-                for (ECOCraftingCPU cpu : activeCpus.values()) {
+                for (ECOCraftingCPU cpu : activeCpus.keySet()) {
                     if (cpu.getLogic().onRestoredToGrid(grid)) {
                         rebound++;
                     }
@@ -240,6 +241,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (!this.isActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }
+        if (!this.hasFreeThread()) {
+            return CraftingSubmitResult.CPU_BUSY;
+        }
         if (this.availableStorage < job.bytes()) {
             return CraftingSubmitResult.CPU_TOO_SMALL;
         }
@@ -262,7 +266,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         // Ensure the threading core is marked dirty so the CPU job is saved to disk.
         // (trySubmitJob already calls cpu.markDirty(), but belt-and-suspenders.)
         cpu.markDirty();
-        if (this.activeCpus.put(job, cpu) == null) {
+        if (this.activeCpus.put(cpu, job) == null) {
             this.activeJobBytes += job.bytes();
             this.activeCpuCount = this.activeCpus.size();
         }
@@ -277,7 +281,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
         this.activeJobBytes = 0L;
 
-        for (ICraftingPlan plan : this.activeCpus.keySet()) {
+        for (ICraftingPlan plan : this.activeCpus.values()) {
             this.activeJobBytes += plan.bytes();
         }
         this.activeCpuCount = this.activeCpus.size();
@@ -288,8 +292,11 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             // They may have been loaded before drives finished initializing;
             // killing them now would permanently lose the crafting job.
             boolean killedAny = false;
-            for (ICraftingPlan plan : new ArrayList<>(this.activeCpus.keySet())) {
-                ECOCraftingCPU cpu = this.activeCpus.get(plan);
+            for (ECOCraftingCPU cpu : new ArrayList<>(this.activeCpus.keySet())) {
+                ICraftingPlan plan = this.activeCpus.get(cpu);
+                if (plan == null) {
+                    continue;
+                }
                 if (cpu != null && cpu.getLogic().isInRestoreGrace()) {
                     LOGGER.warn(
                             "Skipping kill of restored-in-grace ECO CPU (planBytes={} totalStorage={} activeJobBytes={})",
@@ -298,7 +305,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                             activeJobBytes);
                     continue;
                 }
-                this.killCpu(plan, false, false);
+                this.killCpu(cpu, false, false);
                 killedAny = true;
             }
             if (killedAny) {
@@ -343,31 +350,39 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     public List<ECOCraftingCPU> getActiveCPUs() {
         pruneInactiveCpus();
         List<ECOCraftingCPU> cpus = new ArrayList<>();
-        for (ECOCraftingCPU cpu : activeCpus.values()) {
+        for (ECOCraftingCPU cpu : activeCpus.keySet()) {
             cpus.add(cpu);
         }
         return cpus;
     }
 
     public void pruneInactiveCpus() {
-        List<ICraftingPlan> killList = new ArrayList<>();
-        for (Map.Entry<ICraftingPlan, ECOCraftingCPU> entry : activeCpus.entrySet()) {
-            ECOCraftingCPU cpu = entry.getValue();
+        List<ECOCraftingCPU> killList = new ArrayList<>();
+        for (ECOCraftingCPU cpu : activeCpus.keySet()) {
             // Never prune a CPU that is still waiting for NBT-restore rebind
             if (cpu.getLogic().isInRestoreGrace()) {
                 continue;
             }
             if (!cpu.getLogic().hasJob() && !cpu.getLogic().isMarkedForDeletion() && !cpu.hasRemainingItems()) {
-                killList.add(entry.getKey());
+                killList.add(cpu);
             }
         }
-        for (ICraftingPlan iCraftingPlan : killList) {
-            killCpu(iCraftingPlan, true);
+        for (ECOCraftingCPU cpu : killList) {
+            killCpu(cpu, true);
         }
     }
 
     public int getActiveCpuCountCached() {
         return activeCpuCount;
+    }
+
+    public boolean hasFreeThread() {
+        for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
+            if (threadingCore.hasFreeCpuSlot()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public ECOCraftingCPU getFakeCPU() {
@@ -378,9 +393,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return fakeCpu;
     }
 
-    public void deactivate(ICraftingPlan plan) {
-        ECOCraftingCPU cpu = this.activeCpus.remove(plan);
-        if (cpu != null) {
+    public void deactivate(ECOCraftingCPU cpu) {
+        ICraftingPlan plan = this.activeCpus.remove(cpu);
+        if (plan != null) {
             this.activeJobBytes = Math.max(0L, this.activeJobBytes - plan.bytes());
             this.activeCpuCount = this.activeCpus.size();
             cpu.getOwner().deactivate(cpu);
@@ -389,24 +404,24 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
-    public void cancelJob(ICraftingPlan plan) {
-        if (this.activeCpus.get(plan) != null) {
-            this.killCpu(plan, true);
+    public void cancelJob(ECOCraftingCPU cpu) {
+        if (this.activeCpus.containsKey(cpu)) {
+            this.killCpu(cpu, true);
         }
     }
 
-    private void killCpu(ICraftingPlan plan, boolean update) {
-        killCpu(plan, update, true);
+    private void killCpu(ECOCraftingCPU cpu, boolean update) {
+        killCpu(cpu, update, true);
     }
 
-    private void killCpu(ICraftingPlan plan, boolean update, boolean recalculate) {
-        ECOCraftingCPU cpu = activeCpus.get(plan);
-        if (cpu == null) {
+    private void killCpu(ECOCraftingCPU cpu, boolean update, boolean recalculate) {
+        ICraftingPlan plan = activeCpus.get(cpu);
+        if (plan == null) {
             // CPU may have already been removed by another call (e.g., from
             // recalculateRemainingStorage)
             return;
         }
-        activeCpus.remove(plan);
+        activeCpus.remove(cpu);
         activeJobBytes = Math.max(0L, activeJobBytes - plan.bytes());
         activeCpuCount = activeCpus.size();
         cpu.getLogic().cancel();

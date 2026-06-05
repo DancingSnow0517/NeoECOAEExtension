@@ -11,6 +11,7 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingLink;
+import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -112,7 +113,7 @@ public abstract class CraftingServiceMixin120 {
         for (NEComputationCluster cluster : clusters) {
             List<ECOCraftingCPU> activeCpus = cluster.getActiveCPUs();
             cpus.addAll(activeCpus);
-            if (cluster.isActive() && activeCpus.size() < cluster.getMaxThreads()) {
+            if (cluster.isActive() && cluster.hasFreeThread()) {
                 cpus.add(cluster.getFakeCPU());
             }
         }
@@ -129,7 +130,9 @@ public abstract class CraftingServiceMixin120 {
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir) {
         if (target instanceof ECOCraftingCPU ecoCpu) {
-            ICraftingSubmitResult result = ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine);
+            ICraftingSubmitResult result = ecoCpu.isAllocationProxy()
+                    ? ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine)
+                    : CraftingSubmitResult.CPU_BUSY;
             if (result.successful()) {
                 this.updateList = true;
             }
@@ -176,7 +179,7 @@ public abstract class CraftingServiceMixin120 {
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void neoecoae$hasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
         for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
-            if (cluster.getFakeCPU() == cpu) {
+            if (cluster.hasFreeThread() && cluster.getFakeCPU() == cpu) {
                 cir.setReturnValue(true);
                 return;
             }
@@ -205,6 +208,7 @@ public abstract class CraftingServiceMixin120 {
         List<NEComputationCluster> candidates = new ArrayList<>();
         for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
             if (cluster.isActive()
+                    && cluster.hasFreeThread()
                     && cluster.getAvailableStorage() >= job.bytes()
                     && cluster.canBeAutoSelectedFor(src)) {
                 candidates.add(cluster);

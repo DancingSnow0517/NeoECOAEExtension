@@ -55,6 +55,15 @@ public class ECOComputationThreadingCoreBlockEntity
         return null;
     }
 
+    public boolean hasFreeCpuSlot() {
+        for (ECOCraftingCPU cpu : cpus) {
+            if (cpu == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean isWorking() {
         for (ECOCraftingCPU cpu : cpus) {
             if (cpu == null) continue;
