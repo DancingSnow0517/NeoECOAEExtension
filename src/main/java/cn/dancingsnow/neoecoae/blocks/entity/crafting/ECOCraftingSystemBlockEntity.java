@@ -12,40 +12,36 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostMetric;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostSwitchRow;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import cn.dancingsnow.neoecoae.util.ComponentUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import lombok.Getter;
+import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -57,6 +53,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -120,6 +117,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
+    @Setter
     private boolean mirrored;
 
     public ECOCraftingSystemBlockEntity(
@@ -167,10 +165,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (updateExposed) {
             updateInfo();
         }
-    }
-
-    public void setMirrored(boolean mirrored) {
-        this.mirrored = mirrored;
     }
 
     @Override
@@ -276,6 +270,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateOverlockTimes() {
         int overflow = threadCount - threadCountPerWorker * workerCount;
+        if (overflow <= 0) {
+            overlockTimes = 0;
+            return;
+        }
         float radio = (float) threadCount / overflow;
         overlockTimes = Math.clamp(Math.round(radio / 0.05f), 0, 9);
     }
@@ -291,8 +289,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return false;
         }
         coolant -= amount;
-        if (coolant <= 0) {
-            coolant = 0;
+        if (coolant == 0) {
             coolantMaxOverclock = -1;
         }
         setChanged();
@@ -338,13 +335,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         markForUpdate();
     }
 
-    private double getOverflowThreadsPercentage() {
-        double totalThread = threadCount;
-        return totalThread > 0 ? getOverflowThreads() / totalThread : 0.0;
-    }
-
     private int getOverflowThreads() {
-        return Math.min(0, threadCount - getAvailableThreads());
+        return Math.max(0, threadCount - getAvailableThreads());
     }
 
     private int getAvailableThreads() {
@@ -396,9 +388,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (requiredPerTick <= 0) {
             return 0;
         }
-        long target = (long) requiredPerTick * 20L;
-        target = Math.max(target, 1000L);
-        return (int) Math.min(MAX_COOLANT, target);
+        return MAX_COOLANT;
     }
 
     private int refillCoolant(CoolingRecipe recipe, int deficit) {
@@ -476,9 +466,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
 
         switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
-            case WAITING -> {
-            }
-            case ADVANCED -> {
+            case WAITING, ADVANCED -> {
             }
             case COMPLETED -> {
                 buildSession = null;
@@ -500,113 +488,92 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
         UIElement buildWindow = buildPanel(holder);
 
-        ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
-        textPanel.addScrollViewChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
+        UIElement details = ECOHostWidgets.detailArea(false);
+        ECOHostWidgets.addDetailChild(details, ECOHostWidgets.sectionTitle("gui.neoecoae.host.crafting.overclock_cooling"));
+        ECOHostWidgets.addDetailChild(details, createOverclockCoolingCard());
 
-        textPanel.addScrollViewChildren(
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.pattern_bus_count", patternBusCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.parallel_core_count", parallelCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.worker_count", workerCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-                .layout(layout -> layout.marginBottom(10))
+        UIElement root = ECOHostWidgets.hostPanel(
+            () -> getItemFromBlockEntity().getDescription(),
+            () -> Component.translatable("gui.neoecoae.host.crafting.subtitle"),
+            () -> Component.translatable(buildInProgress ? "gui.neoecoae.host.status.running" : "gui.neoecoae.host.status.online"),
+            List.of(
+                ECOHostMetric.ratio(
+                    () -> Component.translatable("gui.neoecoae.host.crafting.working_threads"),
+                    () -> ComponentUtil.coloredNumberPair(runningThreadCount, getAvailableThreads(), false),
+                    () -> ECOHostStyles.ratio(runningThreadCount, getAvailableThreads())
+                ),
+                ECOHostMetric.scalar(
+                    () -> Component.translatable("gui.neoecoae.host.crafting.overflow"),
+                    () -> Component.literal(String.valueOf(getOverflowThreads()))
+                ),
+                ECOHostMetric.scalar(
+                    () -> Component.translatable("gui.neoecoae.host.crafting.max_energy_usage"),
+                    () -> Tooltips.ofNumber(getMaxEnergyUsage()).append(" AE")
+                )
+            ),
+            details,
+            () -> Component.translatable("gui.neoecoae.host.crafting.footer"),
+            buildWindow
         );
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.working_threads", runningThreadCount, getAvailableThreads(), (int) ((float) runningThreadCount / getAvailableThreads() * 100))))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.total_parallelism", threadCount)))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.total_parallelism.overflow", getOverflowThreads(), (int) (getOverflowThreadsPercentage() * 100))))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.max_energy_usage", Tooltips.ofNumber(getMaxEnergyUsage()))))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(this::buildOverclockStatusComponent))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER))
-            .addChildren(
-                new TextElement()
-                    .setText(Component.translatable("gui.neoecoae.crafting.enable_overlock"))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Switch()
-                    .bind(DataBindingBuilder.bool(() -> overclocked, b -> overclocked = b).build()))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
-                e.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.crafting.overclocked.tooltip")),
-                    null,
-                    null,
-                    null
-                );
-            }));
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER))
-            .addChildren(
-                new TextElement()
-                    .setText(Component.translatable("gui.neoecoae.crafting.enable_active_cooling"))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Switch()
-                    .bind(DataBindingBuilder.bool(() -> activeCooling, b -> activeCooling = b).build()))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
-                e.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip")),
-                    null,
-                    null,
-                    null
-                );
-            }));
-
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4))
-            .addChildren(
-                new Label()
-                    .bindDataSource(SupplierDataSource.of(this::buildCoolantSupportComponent))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Button()
-                    .setText("gui.neoecoae.crafting.clear_coolant", true)
-                    .setOnServerClick(event -> clearCoolant())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.crafting.clear_coolant.tooltip")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(42).height(16))));
-
-        textPanel.layout(layout -> layout.height(160).width(220));
-
-        UIElement buildButtonPanel = MultiblockBuilderUI.createOpenButton(buildWindow);
-
-        root.addChild(textPanel);
-        root.addChild(buildButtonPanel);
-        root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private UIElement createOverclockCoolingCard() {
+        UIElement card = ECOHostWidgets.card();
+        card.addChild(new Label()
+            .bindDataSource(SupplierDataSource.of(this::buildOverclockSummaryComponent))
+            .textStyle(ECOHostStyles::compactHintText));
+        card.addChild(ECOHostWidgets.statLine(
+            "gui.neoecoae.host.crafting.coolant",
+            () -> ComponentUtil.coloredNumberPair(coolant, MAX_COOLANT, true),
+            () -> ECOHostStyles.ratio(coolant, MAX_COOLANT)
+        ));
+        card.addChild(createControls());
+        return card;
+    }
+
+    private UIElement createControls() {
+        UIElement controls = new UIElement().layout(layout -> layout
+            .flexDirection(FlexDirection.COLUMN)
+            .gapAll(2)
+            .height(29)
+        );
+        controls.addChildren(
+            new ECOHostSwitchRow(
+                Component.translatable("gui.neoecoae.crafting.enable_overlock"),
+                Component.translatable("gui.neoecoae.crafting.overclocked.tooltip"),
+                () -> overclocked,
+                value -> overclocked = value
+            ).layout(layout -> layout.width(190)),
+            new ECOHostSwitchRow(
+                Component.translatable("gui.neoecoae.crafting.enable_active_cooling"),
+                Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip"),
+                () -> activeCooling,
+                value -> activeCooling = value
+            ).layout(layout -> layout.width(190))
+        );
+        return controls;
+    }
+
+    private UIElement createScalarLine(String key, Supplier<Component> value) {
+        UIElement row = new UIElement().layout(layout -> {
+            layout.flexDirection(FlexDirection.ROW);
+            layout.alignItems(AlignItems.CENTER);
+            layout.gapAll(4);
+            layout.height(9);
+        }).addClass("eco-host-stat-line");
+        row.addChild(new Label()
+            .setText(Component.translatable(key))
+            .textStyle(ECOHostStyles::compactLabelText)
+            .layout(layout -> layout.width(42)));
+        row.addChild(new UIElement().layout(layout -> layout.width(58).height(4)));
+        row.addChild(new Label()
+            .bindDataSource(SupplierDataSource.of(value))
+            .textStyle(ECOHostStyles::compactValueText)
+            .layout(layout -> layout.width(60)));
+        return row;
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
@@ -720,32 +687,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength, mirrorBuild);
     }
 
-    private Component buildCoolantSupportComponent() {
+    private Component buildOverclockSummaryComponent() {
         int displayedMaxOverclock = getCurrentCoolingMaxOverclock();
-        if (displayedMaxOverclock < 0) {
-            return Component.translatable("gui.neoecoae.crafting.coolant_max_overclock.none");
-        }
-        return Component.translatable("gui.neoecoae.crafting.coolant_max_overclock", displayedMaxOverclock);
-    }
-
-    private Component buildOverclockStatusComponent() {
-        if (!overclocked) {
-            return Component.translatable("gui.neoecoae.crafting.overclock_status.disabled");
-        }
         return Component.translatable(
-            "gui.neoecoae.crafting.overclock_status",
+            "gui.neoecoae.host.crafting.overclock_summary",
             overlockTimes,
-            getEffectiveOverclockTimes()
+            getEffectiveOverclockTimes(),
+            displayedMaxOverclock < 0 ? "-" : Tooltips.ofNumber(displayedMaxOverclock)
         );
-    }
-
-    private int getDisplayedCoolingRecipeMaxOverclock() {
-        CoolingRecipe recipe = getCoolingRecipe();
-        return recipe == null ? -1 : recipe.maxOverclock();
-    }
-
-    private static void textStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xadb0c4).textShadow(false);
     }
 }
 

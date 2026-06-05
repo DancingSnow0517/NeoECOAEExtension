@@ -6,27 +6,26 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostMetric;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.util.ComponentUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
 import lombok.Getter;
+import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -37,6 +36,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,6 +48,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Getter
     private final IECOTier tier;
 
+    @DescSynced
     private int usedThread;
     @DescSynced
     private int totalThread;
@@ -67,6 +68,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
+    @Setter
     private boolean mirrored;
 
     public ECOComputationSystemBlockEntity(
@@ -97,10 +99,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
     }
 
-    public void setMirrored(boolean mirrored) {
-        this.mirrored = mirrored;
-    }
-
     public void updateInfos() {
         if (cluster != null) {
             availableBytes = cluster.getAvailableStorage();
@@ -122,6 +120,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             totalThread = cluster.getMaxThreads();
             parallelCount = cluster.getParallelCores().stream().mapToInt(e -> e.getTier().getCPUAccelerators()).sum();
         } else {
+            usedThread = 0;
             totalThread = 0;
             parallelCount = 0;
             availableBytes = 0;
@@ -169,40 +168,57 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll( 4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
         UIElement buildWindow = buildPanel(holder);
 
-        ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
-        textPanel.addScrollViewChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOComputationSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
+        UIElement details = ECOHostWidgets.detailArea(false);
+        ECOHostWidgets.addDetailChild(details, ECOHostWidgets.sectionTitle("gui.neoecoae.host.computation.capacity"));
+        ECOHostWidgets.addDetailChild(details, ECOHostWidgets.tileRow(List.of(
+            ECOHostWidgets.tile("gui.neoecoae.host.computation.active_vcpu", () -> Component.literal(String.valueOf(usedThread))),
+            ECOHostWidgets.tile("gui.neoecoae.host.computation.max_vcpu", () -> Component.literal(String.valueOf(totalThread))),
+            ECOHostWidgets.tile("gui.neoecoae.host.computation.parallel_count", () -> Component.literal(String.valueOf(parallelCount))),
+            ECOHostWidgets.tile("gui.neoecoae.host.computation.free_memory", () -> {
+                Tooltips.Amount byteAmount = Tooltips.getByteAmount(Math.max(availableBytes, 0));
+                return Component.literal(byteAmount.digit()+byteAmount.unit());
+            }
+        ))));
 
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.computation.thread_info", usedThread, totalThread)))
-            .textStyle(ECOComputationSystemBlockEntity::textStyle));
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.computation.parallel_info", parallelCount)))
-            .textStyle(ECOComputationSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(10)));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.computation.storage_info", Tooltips.ofBytes(availableBytes), Tooltips.ofBytes(totalBytes))))
-            .textStyle(ECOComputationSystemBlockEntity::textStyle));
-
-        textPanel.layout(layout -> layout.height(160).width(220));
-
-        UIElement buildButtonPanel = MultiblockBuilderUI.createOpenButton(buildWindow);
-
-        root.addChild(textPanel);
-        root.addChild(buildButtonPanel);
-        root.addChild(buildWindow);
+        UIElement root = ECOHostWidgets.hostPanel(
+            () -> getItemFromBlockEntity().getDescription(),
+            () -> Component.translatable("gui.neoecoae.host.computation.subtitle"),
+            () -> Component.translatable(buildInProgress ? "gui.neoecoae.host.status.running" : "gui.neoecoae.host.status.online"),
+            List.of(
+                ECOHostMetric.ratio(
+                    () -> Component.translatable("gui.neoecoae.host.computation.cpu_storage"),
+                    () -> ComponentUtil.coloredBytesPair(getUsedComputationBytes(), totalBytes, false),
+                    () -> ECOHostStyles.ratio(getUsedComputationBytes(), totalBytes)
+                ),
+                ECOHostMetric.ratio(
+                    () -> Component.translatable("gui.neoecoae.host.computation.thread_usage"),
+                    () -> ComponentUtil.coloredNumberPair(usedThread, totalThread, false),
+                    () -> ECOHostStyles.ratio(usedThread, totalThread)
+                ),
+                ECOHostMetric.scalar(
+                    () -> Component.translatable("gui.neoecoae.host.computation.parallel_count"),
+                    () -> Component.literal(String.valueOf(parallelCount))
+                )
+            ),
+            details,
+            () -> Component.translatable("gui.neoecoae.host.computation.footer"),
+            buildWindow
+        );
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private long getUsedComputationBytes() {
+        return Math.max(totalBytes - availableBytes, 0);
+    }
+
+    private static Component numberPair(long used, long total) {
+        return Component.literal(used + " / " + total);
+    }
+
+    private static Component bytesPair(long used, long total) {
+        return Component.literal(Tooltips.ofBytes(used).getString() + " / " + Tooltips.ofBytes(total).getString());
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
@@ -288,7 +304,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         serverPlayer.closeContainer();
     }
 
-    private MultiBlockDefinition getBuildDefinition() {
+    private @Nullable MultiBlockDefinition getBuildDefinition() {
         return NEMultiBlocks.getComputationSystemDefinition(tier);
     }
 
@@ -311,7 +327,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         markForUpdate();
     }
 
-    private MultiBlockPlacementPlan createLocalPreviewPlan() {
+    private @Nullable MultiBlockPlacementPlan createLocalPreviewPlan() {
         if (level == null || formed) {
             return null;
         }
@@ -321,9 +337,5 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
         int buildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength, mirrorBuild);
-    }
-
-    private static void textStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xadb0c4).textShadow(false);
     }
 }

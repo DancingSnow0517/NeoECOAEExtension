@@ -9,7 +9,7 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 public class NEAppMekCellTypes {
 
     public static final RegistryEntry<ECOCellType, ECOCellType> MEKANISM = REGISTRATE
-        .cellType("mekanism", () -> new ECOCellType(MekanismKeyType.TYPE.getDescription()))
+        .cellType("mekanism", () -> new ECOCellType(MekanismKeyType.TYPE.getDescription().copy().withColor(0x37f89e)))
         .register();
 
     public static void register() {}

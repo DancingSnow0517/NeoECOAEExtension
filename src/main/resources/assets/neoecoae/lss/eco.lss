@@ -54,3 +54,48 @@ fluid-slot {
 .__progress-bar_bar__ {
   background: built-in(ui-eco:BAR);
 }
+
+// unified ECO host UI
+.eco-host-panel {
+  background: built-in(ui-eco:BACKGROUND);
+}
+
+.eco-host-header {
+  padding-bottom: 4;
+}
+
+.eco-host-status {
+  background: #143c4620;
+}
+
+.eco-host-metric, .eco-host-card, .eco-host-tile {
+  background: built-in(ui-eco:CARD_BACKGROUND);
+}
+
+.eco-host-scroll-port {
+  background: #00000000;
+}
+
+.eco-host-card {
+  padding-all: 6;
+}
+
+.eco-host-tile {
+  padding-all: 5;
+}
+
+.eco-host-metric-spacer {
+  background: #00000000;
+}
+
+.eco-host-progress .__progress-bar_bar-container__ {
+  background: #1f2f3428;
+}
+
+.eco-host-progress .__progress-bar_bar__ {
+  background: #26a6bd;
+}
+
+.eco-host-footer {
+  padding-top: 2;
+}

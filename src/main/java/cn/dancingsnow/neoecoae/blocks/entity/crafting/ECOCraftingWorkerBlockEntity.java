@@ -137,7 +137,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        if (request.batchSize() > getAvailableThreadSlots()) {
+        if (request.batchSize() > getAvailableThreadSlots()
+            || request.batchSize() > getControllerAvailableThreadSlots(controller)) {
             fastPathCache.recordNoThreadReject();
             return false;
         }
@@ -206,6 +207,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
         }
         return 0;
+    }
+
+    private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
+        return Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
     }
 
     public void onThreadWork() {

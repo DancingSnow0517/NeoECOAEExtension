@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui;
 
+import appeng.core.AppEng;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
 import com.lowdragmc.lowdraglib2.editor.resource.BuiltinResourceProvider;
@@ -18,23 +19,37 @@ public class NETextures {
     public static final IGuiTexture BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(2, 2, 2, 4);
-    public static final IGuiTexture INVENTORY_BORDER =
-        SpriteTexture.of(NeoECOAE.id("textures/gui/inventory_border.png"))
-            .setSpriteSize(Size.of(16, 16))
-            .setBorder(1, 1, 1, 1);
+    public static final IGuiTexture INVENTORY_BORDER = SpriteTexture.of(NeoECOAE.id("textures/gui/inventory_border.png"))
+        .setSpriteSize(Size.of(16, 16))
+        .setBorder(1, 1, 1, 1);
+    public static final IGuiTexture CARD_BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/card_background.png"))
+        .setSpriteSize(Size.of(16, 16))
+        .setBorder(3, 3, 3, 3);
 
     public static final IGuiTexture BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/button.png"))
         .setSpriteSize(Size.of(20, 20))
-        .setBorder(2,2,2,4);
+        .setBorder(2, 2, 2, 5);
     public static final IGuiTexture BUTTON_DISABLED = SpriteTexture.of(NeoECOAE.id("textures/gui/button_disabled.png"))
         .setSpriteSize(Size.of(20, 20))
-        .setBorder(2,4,2,4);
+        .setBorder(2, 4, 2, 5);
     public static final IGuiTexture BUTTON_HOVER = SpriteTexture.of(NeoECOAE.id("textures/gui/button_hover.png"))
         .setSpriteSize(Size.of(20, 20))
-        .setBorder(2,3,2,4);
+        .setBorder(2, 3, 2, 5);
     public static final IGuiTexture BUTTON_HIGHLIGHTED = SpriteTexture.of(NeoECOAE.id("textures/gui/button_highlighted.png"))
         .setSpriteSize(Size.of(20, 20))
-        .setBorder(2,3,2,4);
+        .setBorder(2, 3, 2, 5);
+
+    public static IGuiTexture SWITCH_OFF = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
+        .setSprite(0,28, 22, 12);
+    public static IGuiTexture SWITCH_OFF_HOVER = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
+        .setSprite(22, 28, 22, 12);
+    public static IGuiTexture SWITCH_ON = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
+        .setSprite(0, 40, 22, 12);
+    public static IGuiTexture SWITCH_ON_HOVER = SpriteTexture.of(AppEng.makeId("textures/guis/checkbox.png"))
+        .setSprite(22, 40, 22, 12);
+
+    public static IGuiTexture AE_SCROLLBAR_TRACK = CARD_BACKGROUND;
+    public static IGuiTexture AE_SCROLLBAR_THUMB = BUTTON;
 
     public static final IGuiTexture ITEM_SLOT = SpriteTexture.of(NeoECOAE.id("textures/gui/slot.png"))
         .setSpriteSize(Size.of(18, 18))
@@ -61,13 +76,13 @@ public class NETextures {
     public static final IGuiTexture OVERCLOCK_ON_DOWN = widgetTexture("crafting/overclock_on_down.png");
 
     public static final IGuiTexture PROGRESS_BAR_COOLANT =
-            SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/coolant_progress.png"));
+        SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/coolant_progress.png"));
     public static final IGuiTexture PROGRESS_BAR_HOT_COOLANT =
-            SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/hot_coolant_progress.png"));
+        SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/hot_coolant_progress.png"));
     public static final IGuiTexture PROGRESS_BAR_CRAFTING =
-            SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/crafting_progress.png"));
+        SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/crafting_progress.png"));
     public static final IGuiTexture PROGRESS_BAR_LIMIT =
-            SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/limit_progress.png"));
+        SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/limit_progress.png"));
 
     private static IGuiTexture widgetTexture(String path) {
         return SpriteTexture.of(NeoECOAE.id("textures/gui/widget/" + path));
@@ -83,9 +98,9 @@ public class NETextures {
                 .setSpriteSize(Size.of(32, 32))
                 .setBorder(6, 12, 6, 6);
         public static final IGuiTexture STATUS_BACKGROUND =
-                SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/status_background.png"));
+            SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/status_background.png"));
         public static final IGuiTexture UNAVAILABLE_STATUS =
-                SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/unavailable_status.png"));
+            SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/unavailable_status.png"));
 
 
         public static final IGuiTexture F0 = SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/f0.png"));
@@ -113,7 +128,8 @@ public class NETextures {
                     System.out.println("Registering builtin texture: " + path);
                     IGuiTexture builtinTexture = new UIResourceTexture(path);
                     field.set(null, builtinTexture);
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
             }
         }
         for (Class<?> declaredClass : cls.getDeclaredClasses()) {

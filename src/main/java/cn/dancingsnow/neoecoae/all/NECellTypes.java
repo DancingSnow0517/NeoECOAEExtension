@@ -9,11 +9,11 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 public class NECellTypes {
 
     public static final RegistryEntry<ECOCellType, ECOCellType> ITEM = REGISTRATE
-        .cellType("items", () -> new ECOCellType(AEKeyType.items().getDescription()))
+        .cellType("items", () -> new ECOCellType(AEKeyType.items().getDescription().copy().withColor(0xf89737)))
         .register();
 
     public static final RegistryEntry<ECOCellType, ECOCellType> FLUID = REGISTRATE
-        .cellType("fluids", () -> new ECOCellType(AEKeyType.fluids().getDescription()))
+        .cellType("fluids", () -> new ECOCellType(AEKeyType.fluids().getDescription().copy().withColor(0x9bc9fe)))
         .register();
 
     public static void register() {
