@@ -80,6 +80,14 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     @Override
+    public void onStructureBroken() {
+        if (controller == null || controller.getLevel() == null || controller.getLevel().isClientSide) {
+            return;
+        }
+        cancelActiveCpusForStructureBreak();
+    }
+
+    @Override
     public void addBlockEntity(NEBlockEntity<NEComputationCluster, ?> blockEntity) {
         super.addBlockEntity(blockEntity);
         if (blockEntity instanceof ECOComputationDriveBlockEntity driveBlockEntity) {
@@ -200,6 +208,67 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                     controller != null ? controller.getBlockPos() : null);
         }
         updateGridForChangedCpu(this);
+    }
+
+    private void cancelActiveCpusForStructureBreak() {
+        List<ECOCraftingCPU> cpusToCancel = new ArrayList<>(activeCpus.keySet());
+        int deferredCleared = 0;
+
+        for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
+            deferredCleared += threadingCore.clearDeferredCpuData();
+            for (ECOCraftingCPU cpu : threadingCore.getCpus()) {
+                if (cpu != null && !cpusToCancel.contains(cpu)) {
+                    cpusToCancel.add(cpu);
+                }
+            }
+        }
+
+        if (cpusToCancel.isEmpty() && deferredCleared == 0) {
+            return;
+        }
+
+        if (!cpusToCancel.isEmpty()) {
+            LOGGER.info(
+                    "Cancelling {} ECO CPU job(s) because the computation multiblock was broken",
+                    cpusToCancel.size());
+        }
+        if (deferredCleared > 0) {
+            LOGGER.info(
+                    "Cleared {} deferred ECO CPU restore tag(s) because the computation multiblock was broken",
+                    deferredCleared);
+        }
+
+        activeCpus.clear();
+        activeJobBytes = 0L;
+        activeCpuCount = 0;
+
+        for (ECOCraftingCPU cpu : cpusToCancel) {
+            cancelCpuForStructureBreak(cpu);
+        }
+
+        updateAvailableStorageFromCounters(false);
+        updateGridForChangedCpu(this);
+    }
+
+    private void cancelCpuForStructureBreak(ECOCraftingCPU cpu) {
+        if (cpu == null || cpu.isAllocationProxy()) {
+            return;
+        }
+
+        if (cpu.getLogic().hasJob()) {
+            cpu.getLogic().cancel();
+        } else {
+            cpu.getLogic().storeItems();
+        }
+
+        if (cpu.hasRemainingItems() && cpu.getOwner() != null) {
+            cpu.getOwner().dropCpuInventory(cpu);
+        }
+
+        cpu.getLogic().markForDeletion();
+        if (cpu.getOwner() != null) {
+            cpu.getOwner().deactivate(cpu);
+        }
     }
 
     private long collectStorage(List<ECOComputationDriveBlockEntity> driveBlockEntities) {

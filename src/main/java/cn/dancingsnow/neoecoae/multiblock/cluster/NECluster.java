@@ -42,6 +42,8 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         }
     }
 
+    public void onStructureBroken() {}
+
     public void setMirrored(boolean mirrored) {
         this.mirrored = mirrored;
     }

@@ -16,6 +16,7 @@
     "ae2.AECraftingPatternAccessor"
   ],
   "client": [
+    "CraftingCPUScreenMixin120",
     "CPUSelectionListMixin120",
     "PatternEncodingTermScreenMixin120"
   ],

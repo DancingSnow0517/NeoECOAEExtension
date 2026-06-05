@@ -196,6 +196,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     public void breakCluster() {
         if (this.cluster != null) {
+            cluster.onStructureBroken();
             cluster.destroy();
         }
     }

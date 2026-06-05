@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -16,6 +17,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.server.ServerLifecycleHooks;
@@ -225,19 +227,58 @@ public class ECOComputationThreadingCoreBlockEntity
         super.addAdditionalDrops(level, pos, drops);
         for (ECOCraftingCPU cpu : cpus) {
             if (cpu == null) continue;
-            ListCraftingInventory inventory = cpu.getLogic().getInventory();
-            for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
-                if (entry.getKey() instanceof AEItemKey itemKey) {
-                    long amount = entry.getLongValue();
-                    while (amount > 0) {
-                        long taken = Math.min(amount, itemKey.getMaxStackSize());
-                        amount -= taken;
-                        drops.add(itemKey.toStack((int) taken));
-                    }
-                    continue;
-                }
-                entry.getKey().addDrops(entry.getLongValue(), drops, level, worldPosition);
+            addCpuInventoryDrops(cpu, level, pos, drops);
+        }
+    }
+
+    public void dropCpuInventory(ECOCraftingCPU cpu) {
+        if (this.level == null || this.level.isClientSide || cpu == null || !cpu.hasRemainingItems()) {
+            return;
+        }
+
+        List<ItemStack> drops = new ArrayList<>();
+        addCpuInventoryDrops(cpu, this.level, this.worldPosition, drops);
+        for (ItemStack drop : drops) {
+            if (!drop.isEmpty()) {
+                Block.popResource(this.level, this.worldPosition, drop);
             }
+        }
+        if (!drops.isEmpty()) {
+            cpu.getLogic().getInventory().clear();
+            markForUpdate();
+            saveChanges();
+        }
+    }
+
+    public int clearDeferredCpuData() {
+        int cleared = 0;
+        for (int i = 0; i < deferredInit.length; i++) {
+            if (deferredInit[i] != null) {
+                deferredInit[i] = null;
+                cleared++;
+            }
+        }
+        if (cleared > 0) {
+            markForUpdate();
+            saveChanges();
+        }
+        return cleared;
+    }
+
+    private static void addCpuInventoryDrops(
+            ECOCraftingCPU cpu, Level level, BlockPos pos, List<ItemStack> drops) {
+        ListCraftingInventory inventory = cpu.getLogic().getInventory();
+        for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
+            if (entry.getKey() instanceof AEItemKey itemKey) {
+                long amount = entry.getLongValue();
+                while (amount > 0) {
+                    long taken = Math.min(amount, itemKey.getMaxStackSize());
+                    amount -= taken;
+                    drops.add(itemKey.toStack((int) taken));
+                }
+                continue;
+            }
+            entry.getKey().addDrops(entry.getLongValue(), drops, level, pos);
         }
     }
 
