@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.gui.widget;
 
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
@@ -29,17 +28,17 @@ public class ECOHostSwitchRow extends UIElement {
             .flexDirection(FlexDirection.ROW)
             .justifyContent(AlignContent.SPACE_BETWEEN)
             .alignItems(AlignItems.CENTER)
-            .gapAll(6)
-            .height(26)
+            .gapAll(4)
+            .height(13)
         );
         addChildren(
             new TextElement()
                 .setText(label)
-                .textStyle(ECOHostStyles::valueText)
-                .layout(layout -> layout.width(160)),
-            new Switch()
-                .bind(DataBindingBuilder.bool(getter::get, setter::accept).build())
-                .layout(layout -> layout.width(34).height(18))
+                .textStyle(ECOHostStyles::compactValueText)
+                .layout(layout -> layout.width(150).height(11)),
+            new ECOHostSwitch()
+                .bind(DataBindingBuilder.bool(getter, setter).build())
+                .layout(layout -> layout.width(24).height(11))
         );
 
         if (!Component.empty().equals(tooltip)) {

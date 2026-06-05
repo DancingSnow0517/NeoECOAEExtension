@@ -69,7 +69,11 @@ fluid-slot {
 }
 
 .eco-host-metric, .eco-host-card, .eco-host-tile {
-  background: built-in(ui-eco:INVENTORY_BORDER);
+  background: built-in(ui-eco:CARD_BACKGROUND);
+}
+
+.eco-host-scroll-port {
+  background: #00000000;
 }
 
 .eco-host-card {
@@ -84,6 +88,14 @@ fluid-slot {
   background: #00000000;
 }
 
+.eco-host-progress .__progress-bar_bar-container__ {
+  background: #1f2f3428;
+}
+
+.eco-host-progress .__progress-bar_bar__ {
+  background: #26a6bd;
+}
+
 .eco-host-footer {
-  padding-top: 4;
+  padding-top: 2;
 }

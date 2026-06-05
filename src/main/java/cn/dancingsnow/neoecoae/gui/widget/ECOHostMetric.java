@@ -19,20 +19,20 @@ public class ECOHostMetric extends UIElement {
     public ECOHostMetric(Supplier<Component> label, Supplier<Component> value, Supplier<Float> ratio) {
         addClass("eco-host-metric");
         layout(layout -> layout
-            .width(132)
-            .height(72)
-            .paddingAll(5)
-            .gapAll(4)
+            .widthPercent(100)
+            .height(29)
+            .paddingAll(3)
+            .gapAll(1)
         );
         addChildren(
             new Label()
                 .bindDataSource(SupplierDataSource.of(label))
-                .textStyle(ECOHostStyles::labelText)
-                .layout(layout -> layout.height(18)),
+                .textStyle(ECOHostStyles::compactLabelText)
+                .layout(layout -> layout.height(8)),
             new Label()
                 .bindDataSource(SupplierDataSource.of(value))
-                .textStyle(ECOHostStyles::valueText)
-                .layout(layout -> layout.height(30)),
+                .textStyle(ECOHostStyles::compactValueText)
+                .layout(layout -> layout.height(9)),
             ratio == null ? spacer() : progress(ratio)
         );
     }
@@ -48,14 +48,15 @@ public class ECOHostMetric extends UIElement {
     private static UIElement spacer() {
         return new UIElement()
             .addClass("eco-host-metric-spacer")
-            .layout(layout -> layout.height(5).widthPercent(100));
+            .layout(layout -> layout.height(3).widthPercent(100));
     }
 
     private static UIElement progress(Supplier<Float> ratio) {
         return new ProgressBar()
             .label(label -> label.setText(""))
             .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
-            .bind(DataBindingBuilder.floatValS2C(ratio::get).build())
-            .layout(layout -> layout.height(5).widthPercent(100));
+            .bind(DataBindingBuilder.floatValS2C(ratio).build())
+            .layout(layout -> layout.height(4).widthPercent(100))
+            .addClass("eco-host-progress");
     }
 }

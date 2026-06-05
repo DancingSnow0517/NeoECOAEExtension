@@ -4,22 +4,22 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 
 public final class ECOHostStyles {
-    public static final int PANEL_WIDTH = 460;
-    public static final int PANEL_HEIGHT = 380;
+    public static final int PANEL_WIDTH = 208;
+    public static final int PANEL_HEIGHT = 214;
+    public static final int STORAGE_PANEL_HEIGHT = 238;
+    public static final int DETAIL_HEIGHT = 86;
+    public static final int STORAGE_DETAIL_HEIGHT = 110;
 
     public static final int TEXT = 0x263238;
-    public static final int MUTED = 0x627178;
+    public static final int MUTED = 0xffffff;
     public static final int SOFT = 0x7d8a91;
-    public static final int ACCENT = 0x1f8ea3;
-    public static final int GREEN = 0x3c9f68;
-    public static final int AMBER = 0xbd8128;
-    public static final int RED = 0xbd4b62;
+    public static final int ACCENT = 0x403e53;
 
     private ECOHostStyles() {
     }
 
     public static void titleText(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(TEXT).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.HOVER_ROLL).textColor(TEXT).textShadow(false);
     }
 
     public static void subtitleText(TextElement.TextStyle style) {
@@ -38,8 +38,20 @@ public final class ECOHostStyles {
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(TEXT).textShadow(false);
     }
 
+    public static void compactValueText(TextElement.TextStyle style) {
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).fontSize(9.0f).textColor(TEXT).textShadow(false);
+    }
+
+    public static void compactLabelText(TextElement.TextStyle style) {
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).fontSize(9.0f).textColor(MUTED).textShadow(false);
+    }
+
     public static void hintText(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(SOFT).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(ACCENT).textShadow(false);
+    }
+
+    public static void compactHintText(TextElement.TextStyle style) {
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).fontSize(8.5f).textColor(ACCENT).textShadow(false);
     }
 
     public static float ratio(long used, long total) {
@@ -55,4 +67,5 @@ public final class ECOHostStyles {
         }
         return Math.clamp((int) ((double) used / (double) total * 100.0), 0, 100);
     }
+
 }
