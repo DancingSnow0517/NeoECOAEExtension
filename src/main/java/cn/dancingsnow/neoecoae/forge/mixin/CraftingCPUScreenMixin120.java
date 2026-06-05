@@ -33,6 +33,11 @@ public abstract class CraftingCPUScreenMixin120 {
 
     @ModifyVariable(method = "postUpdate", at = @At("HEAD"), argsOnly = true)
     private CraftingStatus neoecoae$smoothActiveAmount(CraftingStatus update) {
+        if (neoecoae$isTerminalUpdate(update)) {
+            this.neoecoae$clearHeldActiveAmounts();
+            return update;
+        }
+
         if (NEOECOAE_ACTIVE_HOLD_TICKS <= 0 || this.status == null || update.isFullStatus()) {
             this.neoecoae$clearHeldActiveAmounts();
             return update;
@@ -164,6 +169,10 @@ public abstract class CraftingCPUScreenMixin120 {
     @Unique private static long neoecoae$currentClientTick() {
         Minecraft minecraft = Minecraft.getInstance();
         return minecraft.level != null ? minecraft.level.getGameTime() : 0L;
+    }
+
+    @Unique private static boolean neoecoae$isTerminalUpdate(CraftingStatus update) {
+        return update.getStartItemCount() == 0 && update.getRemainingItemCount() == 0;
     }
 
     @Unique private void neoecoae$clearHeldActiveAmounts() {

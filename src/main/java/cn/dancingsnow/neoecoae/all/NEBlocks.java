@@ -333,9 +333,13 @@ public class NEBlocks {
             .loot((prov, block) -> {
                 prov.add(block, prov.createSingleItemTable(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL));
             })
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING_BLOCKS)
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_STONE_TOOL,
+                    NETags.Blocks.BUDDING,
+                    NETags.Blocks.BUDDING_BLOCKS)
             .item()
-            .tag(NETags.Items.BUDDING_BLOCKS)
+            .tag(NETags.Items.BUDDING, NETags.Items.BUDDING_BLOCKS)
             .build()
             .register();
 
@@ -358,9 +362,13 @@ public class NEBlocks {
                         Ingredient.of(NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL),
                         Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL));
             })
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING_BLOCKS)
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_STONE_TOOL,
+                    NETags.Blocks.BUDDING,
+                    NETags.Blocks.BUDDING_BLOCKS)
             .item()
-            .tag(NETags.Items.BUDDING_BLOCKS)
+            .tag(NETags.Items.BUDDING, NETags.Items.BUDDING_BLOCKS)
             .build()
             .register();
 
@@ -383,9 +391,13 @@ public class NEBlocks {
                         Ingredient.of(NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL),
                         Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL));
             })
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING_BLOCKS)
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_STONE_TOOL,
+                    NETags.Blocks.BUDDING,
+                    NETags.Blocks.BUDDING_BLOCKS)
             .item()
-            .tag(NETags.Items.BUDDING_BLOCKS)
+            .tag(NETags.Items.BUDDING, NETags.Items.BUDDING_BLOCKS)
             .build()
             .register();
 
@@ -406,9 +418,13 @@ public class NEBlocks {
                         Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL_BLOCK),
                         Ingredient.of(NETags.Items.ENERGIZED_CRYSTAL));
             })
-            .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL, NETags.Blocks.BUDDING_BLOCKS)
+            .tag(
+                    BlockTags.MINEABLE_WITH_PICKAXE,
+                    BlockTags.NEEDS_STONE_TOOL,
+                    NETags.Blocks.BUDDING,
+                    NETags.Blocks.BUDDING_BLOCKS)
             .item()
-            .tag(NETags.Items.BUDDING_BLOCKS)
+            .tag(NETags.Items.BUDDING, NETags.Items.BUDDING_BLOCKS)
             .build()
             .register();
 

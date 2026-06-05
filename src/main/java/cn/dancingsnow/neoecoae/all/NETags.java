@@ -46,6 +46,7 @@ public class NETags {
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_DUST = common("dusts/energized_fluix_crystal");
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_BLOCK =
                 common("storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Item> BUDDING = common("budding");
         public static final TagKey<Item> BUDDING_BLOCKS = common("budding_blocks");
         public static final TagKey<Item> CLUSTERS = common("clusters");
 
@@ -79,6 +80,7 @@ public class NETags {
         public static final TagKey<Block> ENERGIZED_CRYSTAL_STORAGE_BLOCK = common("storage_blocks/energized_crystal");
         public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK =
                 common("storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Block> BUDDING = common("budding");
         public static final TagKey<Block> BUDDING_BLOCKS = common("budding_blocks");
         public static final TagKey<Block> CLUSTERS = common("clusters");
 
