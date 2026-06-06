@@ -51,6 +51,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private enum RecoveryState {
         ACTIVE,
+        RECOVERING_INPUTS,
+        RECOVERING_OUTPUTS,
         RECOVERED_TO_NETWORK,
         DROPPED_TO_WORLD,
         CLEARED
@@ -95,6 +97,20 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         this.reboot = false;
+        if (isRecoveringToNetwork()) {
+            if (retryRecoveryToNetwork()) {
+                setChanged();
+            }
+            return TickRateModulation.URGENT;
+        }
+
+        if (outputsReady) {
+            if (ejectOutputs()) {
+                setChanged();
+            }
+            return TickRateModulation.URGENT;
+        }
+
         int bonusValue = Math.min(10 + overlockTimes * 10, 100);
         progress += userPower(ticksSinceLastCall, bonusValue, powerMultiply);
 
@@ -404,7 +420,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         KeyCounter remainder = ejectAllAndCollectRemainder(craftingService, storage, outputs);
         if (!isEmpty(remainder)) {
-            retainRemainderForRetry(remainder);
+            retainRemainderForRetry(remainder, RecoveryState.ACTIVE);
             return false;
         }
 
@@ -500,21 +516,38 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     public boolean recoverInputsToNetwork(MEStorage storage) {
-        if (!isBusy || recoveryState != RecoveryState.ACTIVE) {
+        if (!isRecoverableState()) {
             return true;
         }
-        List<ItemStack> recoverable = outputsReady ? outputAndRemainingItems() : inputItems;
-        if (recoverable.isEmpty()) {
+        return recoverItemsToNetwork(storage, shouldRecoverOutputs());
+    }
+
+    private boolean retryRecoveryToNetwork() {
+        IGrid grid = worker.getMainNode().getGrid();
+        if (grid == null) {
             return false;
+        }
+        return recoverItemsToNetwork(grid.getStorageService().getInventory(), shouldRecoverOutputs());
+    }
+
+    private boolean recoverItemsToNetwork(MEStorage storage, boolean recoverOutputs) {
+        List<ItemStack> recoverable = recoverOutputs ? outputAndRemainingItems() : inputItems;
+        if (recoverable.isEmpty()) {
+            recoveryState = RecoveryState.RECOVERED_TO_NETWORK;
+            worker.onThreadStop(occupiedThreadSlots);
+            clearWork();
+            setChanged();
+            return true;
         }
         KeyCounter stacks = collectStacks(recoverable);
         if (!canInsertAll(storage, stacks)) {
+            markRecoveryPending(recoverOutputs);
             return false;
         }
         KeyCounter remainder = insertAllAndCollectRemainder(storage, stacks);
         if (!isEmpty(remainder)) {
-            if (outputsReady) {
-                retainRemainderForRetry(remainder);
+            if (recoverOutputs) {
+                retainRemainderForRetry(remainder, RecoveryState.RECOVERING_OUTPUTS);
             } else {
                 retainInputRemainderForRetry(remainder);
             }
@@ -528,10 +561,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     public void dropRecoverablesAndClear(List<ItemStack> drops) {
-        if (!isBusy || recoveryState != RecoveryState.ACTIVE) {
+        if (!isRecoverableState()) {
             return;
         }
-        List<ItemStack> recoverable = outputsReady ? outputAndRemainingItems() : inputItems;
+        List<ItemStack> recoverable = shouldRecoverOutputs() ? outputAndRemainingItems() : inputItems;
         for (ItemStack stack : recoverable) {
             if (!stack.isEmpty()) {
                 drops.add(stack.copy());
@@ -540,6 +573,38 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         recoveryState = RecoveryState.DROPPED_TO_WORLD;
         worker.onThreadStop(occupiedThreadSlots);
         clearWork();
+        setChanged();
+    }
+
+    private boolean isRecoveringToNetwork() {
+        return recoveryState == RecoveryState.RECOVERING_INPUTS
+            || recoveryState == RecoveryState.RECOVERING_OUTPUTS;
+    }
+
+    private boolean isRecoverableState() {
+        return isBusy
+            && (recoveryState == RecoveryState.ACTIVE
+                || recoveryState == RecoveryState.RECOVERING_INPUTS
+                || recoveryState == RecoveryState.RECOVERING_OUTPUTS);
+    }
+
+    private boolean shouldRecoverOutputs() {
+        return outputsReady || recoveryState == RecoveryState.RECOVERING_OUTPUTS;
+    }
+
+    private void markRecoveryPending(boolean recoverOutputs) {
+        isBusy = true;
+        reboot = true;
+        if (recoverOutputs) {
+            inputItems.clear();
+            outputsReady = true;
+            recoveryState = RecoveryState.RECOVERING_OUTPUTS;
+        } else {
+            outputItems.clear();
+            remainingItems.clear();
+            outputsReady = false;
+            recoveryState = RecoveryState.RECOVERING_INPUTS;
+        }
         setChanged();
     }
 
@@ -572,7 +637,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         recoveryState = RecoveryState.CLEARED;
     }
 
-    private void retainRemainderForRetry(KeyCounter remainder) {
+    private void retainRemainderForRetry(KeyCounter remainder, RecoveryState nextState) {
         List<ItemStack> stacks = keyCounterToItemStacks(remainder);
         if (stacks.isEmpty() && !isEmpty(remainder)) {
             LOGGER.error(
@@ -590,7 +655,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         inputItems.clear();
         isBusy = true;
         outputsReady = true;
-        recoveryState = RecoveryState.ACTIVE;
+        recoveryState = nextState;
         setChanged();
     }
 
@@ -612,7 +677,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         remainingItems.clear();
         isBusy = true;
         outputsReady = false;
-        recoveryState = RecoveryState.ACTIVE;
+        recoveryState = RecoveryState.RECOVERING_INPUTS;
         setChanged();
     }
 
