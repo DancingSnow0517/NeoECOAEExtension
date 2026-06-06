@@ -60,7 +60,7 @@ jobs:
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
 
           game-versions: |
-            1.21.1
+            1.20.1
 
           files: |
             build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}.jar

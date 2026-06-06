@@ -115,11 +115,15 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         if (!neighborChangePending) {
             neighborChangePending = true;
             getMainNode().ifPresent((grid, node) -> {
+                if (!node.isActive()) {
+                    neighborChangePending = false;
+                    return;
+                }
                 try {
                     grid.getTickManager().alertDevice(node);
                 } catch (IllegalArgumentException ignored) {
-                    // Node not yet alertable (e.g. during initial power injection before grid is
-                    // ready)
+                    // Node not yet alertable — retry on next energy change
+                    neighborChangePending = false;
                 }
             });
         }
