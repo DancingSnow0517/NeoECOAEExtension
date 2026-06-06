@@ -47,10 +47,10 @@ public class NEConfig {
 
     private static final ModConfigSpec.BooleanValue ECO_AE2_FAST_PATH_ENABLED = BUILDER
             .comment(
-                    "启用实验性 ECO AE2 快速路径批量合成缓存。",
-                    "可大幅减少重复 pattern 执行开销，但在验证完毕前应保持默认关闭。",
-                    "在配方/标签重载失效机制验证通过之前，FastPath 默认保持禁用状态。")
-            .define("ecoAe2FastPathEnabled", false);
+                    "启用 ECO AE2 快速路径批量合成缓存。",
+                    "可大幅减少重复 pattern 执行开销；如遇到特定整合包配方兼容问题，可关闭此选项回退到慢速路径。",
+                    "启用原版合成事件 postCraftingEvent 时，FastPath 会自动禁用以保留事件语义。")
+            .define("ecoAe2FastPathEnabled", true);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 

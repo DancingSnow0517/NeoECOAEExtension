@@ -205,7 +205,7 @@ SIMULATE 检查存储空间 → 通过？→ MODULATE 插入 → 忽略返回值
 | `AE2PatternIntrospection` | AE2 兼容层：检查 `AECraftingPattern` 类型安全、配方重载时清空所有缓存并递增 `reloadGeneration` |
 
 **FastPath 安全策略**：
-- `NEConfig.ecoAe2FastPathEnabled` 默认 `false`，需用户手动开启
+- `NEConfig.ecoAe2FastPathEnabled` 默认 `true`，保留配置项用于兼容性回退
 - `isKnownSafePatternType()` 仅放行 `instanceof AECraftingPattern`
 - `postCraftingEvent` 开启时禁用 FastPath（事件可能改变合成结果）
 - 缓存验证：慢速路径计算出结果后与预期对比，不一致时存为 negative cache
@@ -259,7 +259,7 @@ SIMULATE 检查存储空间 → 通过？→ MODULATE 插入 → 忽略返回值
 
 | 配置 | 默认值 | 说明 |
 |------|--------|------|
-| `NEConfig.ecoAe2FastPathEnabled` | `false` | FastPath 批量缓存总开关 |
+| `NEConfig.ecoAe2FastPathEnabled` | `true` | FastPath 批量缓存总开关 |
 | `neoecoae.ecoCpuPushTickLimit` | `Integer.MAX_VALUE` | 每 tick 最大 pattern 推送数 |
 | `neoecoae.ecoBatchFastPathLimit` | `64` | 单次批量合成最大数量 |
 | `neoecoae.ecoBatchFastPathTickLimit` | `256` | 每 tick 批量合成总上限 |
