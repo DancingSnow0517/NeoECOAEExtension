@@ -131,7 +131,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        int controllerAvailableSlots = Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
+        int controllerAvailableSlots = controller.getCurrentBatchSlots();
         if (!ECOFastPathLimits.canAcceptBatch(
                 request.batchSize(), getAvailableThreadSlots(), controllerAvailableSlots)) {
             fastPathCache.recordNoThreadReject();

@@ -596,6 +596,12 @@ public class ECOCraftingCPULogic {
         int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
         batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
         batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
+        // Enforce F host maximum in-flight capacity (live slot check)
+        int controllerBatchSlots = controller.getCurrentBatchSlots();
+        batchSize = Math.min(batchSize, Math.max(1, controllerBatchSlots));
+        if (DEBUG_EXECUTION_STATS) {
+            logBatchCapacity(controller, batchSize, controllerBatchSlots);
+        }
         if (batchSize <= 1) {
             return 0;
         }
@@ -676,6 +682,22 @@ public class ECOCraftingCPULogic {
                 && execution.fastPathEligible()
                 && NEConfig.isEcoAe2FastPathEnabled()
                 && !NEConfig.postCraftingEvent;
+    }
+
+    private void logBatchCapacity(
+            ECOCraftingSystemBlockEntity controller, int batchSize, int controllerBatchSlots) {
+        LOGGER.debug(
+                "ECO batch capacity: buildLength={} workers={} parallel={} threadCount={} runningThreads={} "
+                        + "threadCountPerWorker={} availableThreads={} controllerBatchSlots={} batchSize={}",
+                controller.getSelectedBuildLength(),
+                controller.getWorkerCount(),
+                controller.getParallelCount(),
+                controller.getThreadCount(),
+                controller.getLiveRunningThreadCount(),
+                controller.getThreadCountPerWorker(),
+                controller.getAvailableThreads(),
+                controllerBatchSlots,
+                batchSize);
     }
 
     private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {

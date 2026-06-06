@@ -123,7 +123,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (controller == null) {
             return null;
         }
-        int controllerAvailableSlots = Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
+        int controllerAvailableSlots = controller.getCurrentBatchSlots();
         if (controllerAvailableSlots <= 0) {
             return null;
         }

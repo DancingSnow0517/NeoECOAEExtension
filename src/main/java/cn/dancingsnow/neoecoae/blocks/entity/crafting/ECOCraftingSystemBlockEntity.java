@@ -373,15 +373,34 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return runningThreadCount;
     }
 
+    /**
+     * Live (uncached) running thread count, recalculated from workers every call.
+     * Use this for capacity checks within the same tick to avoid stale cache.
+     */
+    public int getLiveRunningThreadCount() {
+        recalculateRunningThreadCountFromWorkers();
+        return runningThreadCount;
+    }
+
     public boolean isRunning() {
         return getRunningThreadCount() > 0;
     }
 
     public int getCurrentBatchSlots() {
         ensureCraftingStatsCurrent();
-        int controllerSlots = Math.max(0, threadCount - runningThreadCount);
-        int workerQueueSlots = Math.max(0, threadCountPerWorker * workerCount - runningThreadCount);
+        int liveRunning = getLiveRunningThreadCount();
+        int controllerSlots = Math.max(0, threadCount - liveRunning);
+        int workerQueueSlots = Math.max(0, threadCountPerWorker * workerCount - liveRunning);
         return Math.min(controllerSlots, workerQueueSlots);
+    }
+
+    /**
+     * Theoretical maximum in-flight crafts for this controller.
+     * For length N, this should equal threadCountPerWorker * workerCount * outputMultiplier.
+     */
+    public int getMaxInFlightCrafts() {
+        ensureCraftingStatsCurrent();
+        return threadCountPerWorker * workerCount;
     }
 
     public int getProgressPerTick() {
