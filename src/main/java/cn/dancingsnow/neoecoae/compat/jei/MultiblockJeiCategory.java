@@ -310,8 +310,8 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
 
         private void rebuild() {
             scene = MultiblockPreviewContext.createScene(recipe.definition(), expand, formed);
-            materials =
-                    copyItems(StructureTerminalMaterialRequirements.collectRequiredItems(recipe.definition(), expand));
+            materials = copyItems(
+                    StructureTerminalMaterialRequirements.collectRequiredItems(recipe.definition(), expand));
             if (scene != null && layer > scene.yMax()) {
                 layer = -1;
             }

@@ -1,7 +1,8 @@
 package cn.dancingsnow.neoecoae.client.multiblock.preview;
 
 final class CameraFit {
-    private CameraFit() {}
+    private CameraFit() {
+    }
 
     /**
      * Calculate a stable scale based solely on the scene's bounding sphere radius,
@@ -18,7 +19,8 @@ final class CameraFit {
 
     /**
      * @deprecated Use {@link #calculateStableScale} for multiblock previews.
-     * This method depends on yaw/pitch and causes scale breathing during rotation.
+     *             This method depends on yaw/pitch and causes scale breathing
+     *             during rotation.
      */
     @Deprecated
     static float calculateScale(SceneBounds bounds, float yaw, float pitch, int width, int height, float padding) {
@@ -37,9 +39,9 @@ final class CameraFit {
         float minScreenY = Float.POSITIVE_INFINITY;
         float maxScreenY = Float.NEGATIVE_INFINITY;
 
-        for (float cornerX : new float[] {bounds.minX(), bounds.maxX() + 1.0F}) {
-            for (float cornerY : new float[] {bounds.minY(), bounds.maxY() + 1.0F}) {
-                for (float cornerZ : new float[] {bounds.minZ(), bounds.maxZ() + 1.0F}) {
+        for (float cornerX : new float[] { bounds.minX(), bounds.maxX() + 1.0F }) {
+            for (float cornerY : new float[] { bounds.minY(), bounds.maxY() + 1.0F }) {
+                for (float cornerZ : new float[] { bounds.minZ(), bounds.maxZ() + 1.0F }) {
                     float localX = cornerX - centerX;
                     float localY = cornerY - centerY;
                     float localZ = cornerZ - centerZ;
