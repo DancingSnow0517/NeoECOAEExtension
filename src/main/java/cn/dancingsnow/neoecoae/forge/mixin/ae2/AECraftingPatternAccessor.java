@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.forge.mixin.ae2;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.crafting.pattern.AECraftingPattern;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
@@ -9,4 +10,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface AECraftingPatternAccessor {
     @Accessor("definition")
     AEItemKey neoecoae$getDefinitionKey();
+
+    @Accessor("recipe")
+    CraftingRecipe neoecoae$getRecipe();
 }

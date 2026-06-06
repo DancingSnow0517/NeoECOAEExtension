@@ -10,6 +10,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -29,6 +31,8 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
     private static final float GHOST_ALPHA = 0.10f;
 
     private final ItemStack ghostPattern;
+    private Button previousPageButton;
+    private Button nextPageButton;
 
     /** Cache decoded pattern outputs keyed by "itemRegistryKey|nbt". Avoids repeated AE2 decoding each frame. */
     private final Map<String, ItemStack> patternDisplayCache = new HashMap<>();
@@ -38,6 +42,21 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
         this.imageWidth = GUI_W;
         this.imageHeight = GUI_H;
         this.ghostPattern = AEItems.BLANK_PATTERN.stack();
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        this.previousPageButton = addRenderableWidget(Button.builder(
+                        Component.literal("<"), button -> changePage(NECraftingPatternBusMenu.BUTTON_PREVIOUS_PAGE))
+                .bounds(leftPos + 126, topPos + 4, 12, 14)
+                .tooltip(Tooltip.create(Component.translatable("gui.neoecoae.pattern_bus.previous_page")))
+                .build());
+        this.nextPageButton = addRenderableWidget(
+                Button.builder(Component.literal(">"), button -> changePage(NECraftingPatternBusMenu.BUTTON_NEXT_PAGE))
+                        .bounds(leftPos + 158, topPos + 4, 12, 14)
+                        .tooltip(Tooltip.create(Component.translatable("gui.neoecoae.pattern_bus.next_page")))
+                        .build());
     }
 
     @Override
@@ -60,6 +79,7 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
             }
         }
 
+        updatePageButtons();
         super.render(g, mouseX, mouseY, partialTick);
 
         // Restore original encoded-pattern ItemStacks
@@ -118,7 +138,32 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        g.drawString(font, title, TITLE_X, TITLE_Y, NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
+        boolean paged = menu.getPageCount() > 1;
+        Component displayTitle = title;
+        if (paged && font.width(title) > 112) {
+            displayTitle = Component.literal(font.plainSubstrByWidth(title.getString(), 104) + "...");
+        }
+        g.drawString(font, displayTitle, TITLE_X, TITLE_Y, NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
+        if (paged) {
+            String pageText = (menu.getCurrentPage() + 1) + " / " + menu.getPageCount();
+            g.drawCenteredString(font, pageText, 148, TITLE_Y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+        }
+    }
+
+    private void changePage(int buttonId) {
+        if (minecraft != null && minecraft.gameMode != null) {
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, buttonId);
+        }
+    }
+
+    private void updatePageButtons() {
+        int pages = menu.getPageCount();
+        int page = menu.getCurrentPage();
+        boolean visible = pages > 1;
+        previousPageButton.visible = visible;
+        nextPageButton.visible = visible;
+        previousPageButton.active = visible && page > 0;
+        nextPageButton.active = visible && page + 1 < pages;
     }
 
     /**

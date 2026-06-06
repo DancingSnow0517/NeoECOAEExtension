@@ -229,8 +229,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
         if (!cpusToCancel.isEmpty()) {
             LOGGER.info(
-                    "Cancelling {} ECO CPU job(s) because the computation multiblock was broken",
-                    cpusToCancel.size());
+                    "Cancelling {} ECO CPU job(s) because the computation multiblock was broken", cpusToCancel.size());
         }
         if (deferredCleared > 0) {
             LOGGER.info(

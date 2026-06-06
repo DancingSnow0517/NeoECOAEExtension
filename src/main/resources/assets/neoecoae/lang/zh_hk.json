@@ -246,7 +246,7 @@
   "tooltip.neoecoae.crafting_jobs_l9": "Store Crafting Jobs: x%d [L9]",
   "tooltip.neoecoae.crafting_parallels": "Parallel core provides parallel count to the crafting subsystem",
   "tooltip.neoecoae.crafting_pattern_bus.0": "ECO - FD Smart Pattern Bus is the main part of the crafting subsystem",
-  "tooltip.neoecoae.crafting_pattern_bus.1": "Each bus can store 63 patten",
+  "tooltip.neoecoae.crafting_pattern_bus.1": "Each configured page stores 63 patterns",
   "tooltip.neoecoae.crafting_pattern_bus.2": "When encoding patten on the ME Encoding Terminal, you can use the adjacent button to quickly upload them",
   "tooltip.neoecoae.crafting_system": "The core of the crafting subsystem",
   "tooltip.neoecoae.crafting_worker.0": "ECO - FX Worker is the main part of the crafting subsystem",

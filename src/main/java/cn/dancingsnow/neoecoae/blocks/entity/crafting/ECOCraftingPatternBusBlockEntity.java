@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
+import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -17,7 +18,9 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathLimits;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -42,12 +45,17 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     public static final int ROW_SIZE = 9;
     public static final int COL_SIZE = 7;
+    public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
+    private static final String NBT_PATTERN_INVENTORY = "patternInventory";
+    private static final String NBT_PATTERN_INVENTORY_PAGES = "patternInventoryPages";
 
     private final AppEngInternalInventory inventory;
+    private final InternalInventory effectiveInventory = new EffectivePatternInventory();
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;
     private final LazyOptional<IItemHandlerModifiable> itemHandlerCap;
     private int nextWorkerIndex = 0;
+    private int activePages = NEConfig.getCraftingPatternBusPages();
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -111,6 +119,14 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster == null || requestedBatchSize <= 0) {
             return null;
         }
+        ECOCraftingSystemBlockEntity controller = getCraftingController();
+        if (controller == null) {
+            return null;
+        }
+        int controllerAvailableSlots = Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
+        if (controllerAvailableSlots <= 0) {
+            return null;
+        }
         List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
         if (workers.isEmpty()) {
             return null;
@@ -129,7 +145,8 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             if (result == null || result.isNegative()) {
                 continue;
             }
-            int maxBatchSize = Math.min(requestedBatchSize, availableSlots);
+            int maxBatchSize =
+                    ECOFastPathLimits.limitBatchSize(requestedBatchSize, availableSlots, controllerAvailableSlots);
             if (maxBatchSize > 0) {
                 return new BatchFastPathOffer(worker, result, maxBatchSize);
             }
@@ -193,7 +210,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public InternalInventory getTerminalPatternInventory() {
-        return inventory;
+        return effectiveInventory;
     }
 
     @Override
@@ -212,7 +229,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean insertPattern(ItemStack itemStack) {
-        ItemStack result = inventory.addItems(itemStack.copy());
+        ItemStack result = effectiveInventory.addItems(itemStack.copy());
         return result.isEmpty();
     }
 
@@ -225,9 +242,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     public ECOCraftingPatternBusBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
-        this.inventory = new AppEngInternalInventory(this, ROW_SIZE * COL_SIZE);
+        this.inventory = new AppEngInternalInventory(this, NEConfig.getMaxCraftingPatternBusSlotCount());
         this.inventory.setFilter(new AEEncodedPatternFilter());
-        this.itemHandler = (IItemHandlerModifiable) inventory.toItemHandler();
+        this.itemHandler = (IItemHandlerModifiable) effectiveInventory.toItemHandler();
         this.itemHandlerCap = LazyOptional.of(() -> this.itemHandler);
         this.getMainNode().addService(ICraftingProvider.class, this).addService(IECOPatternStorage.class, this);
     }
@@ -250,7 +267,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     private void updatePatternDetails() {
         patternDetails.clear();
-        for (ItemStack itemStack : this.inventory) {
+        for (ItemStack itemStack : this.effectiveInventory) {
             IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, this.level);
             if (details != null) {
                 patternDetails.add(details);
@@ -271,7 +288,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        IntStream.range(0, ROW_SIZE * COL_SIZE)
+        IntStream.range(0, inventory.size())
                 .mapToObj(inventory::getStackInSlot)
                 .filter(s -> !s.isEmpty())
                 .forEach(drops::add);
@@ -280,13 +297,18 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void saveAdditional(CompoundTag data) {
         super.saveAdditional(data);
-        inventory.writeToNBT(data, "patternInventory");
+        inventory.writeToNBT(data, NBT_PATTERN_INVENTORY);
+        data.putInt(NBT_PATTERN_INVENTORY_PAGES, activePages);
     }
 
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
-        inventory.readFromNBT(data, "patternInventory");
+        inventory.clear();
+        inventory.readFromNBT(data, NBT_PATTERN_INVENTORY);
+        int savedPages = data.contains(NBT_PATTERN_INVENTORY_PAGES) ? data.getInt(NBT_PATTERN_INVENTORY_PAGES) : 1;
+        activePages = clampPages(
+                Math.max(NEConfig.getCraftingPatternBusPages(), Math.max(savedPages, getHighestOccupiedPage())));
     }
 
     @Override
@@ -301,5 +323,55 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public void invalidateCaps() {
         super.invalidateCaps();
         itemHandlerCap.invalidate();
+    }
+
+    public int getPageCount() {
+        return activePages;
+    }
+
+    public int getPatternSlotCount() {
+        return activePages * SLOTS_PER_PAGE;
+    }
+
+    private int getHighestOccupiedPage() {
+        int highestSlot = -1;
+        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
+            if (!inventory.getStackInSlot(slot).isEmpty()) {
+                highestSlot = slot;
+                break;
+            }
+        }
+        return highestSlot < 0 ? 1 : highestSlot / SLOTS_PER_PAGE + 1;
+    }
+
+    private static int clampPages(int pages) {
+        return Math.max(NEConfig.PATTERN_BUS_MIN_PAGES, Math.min(NEConfig.PATTERN_BUS_MAX_PAGES, pages));
+    }
+
+    private final class EffectivePatternInventory extends BaseInternalInventory {
+        @Override
+        public int size() {
+            return getPatternSlotCount();
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return inventory.getSlotLimit(slot);
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return inventory.getStackInSlot(slot);
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            inventory.setItemDirect(slot, stack);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return slot >= 0 && slot < size() && inventory.isItemValid(slot, stack);
+        }
     }
 }

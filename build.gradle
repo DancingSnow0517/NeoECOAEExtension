@@ -188,6 +188,9 @@ minecraft {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
+    testImplementation platform("org.junit:junit-bom:5.10.2")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+
     implementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
     jarJar(fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")) {
         jarJar.ranged(it, "[${registrate_version},)")
@@ -364,6 +367,10 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
 }
 
 tasks.named('compileJava', JavaCompile).configure {

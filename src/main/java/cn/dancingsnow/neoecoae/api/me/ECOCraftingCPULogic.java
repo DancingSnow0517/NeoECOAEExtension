@@ -233,10 +233,11 @@ public class ECOCraftingCPULogic {
         }
 
         var remainingOperations = getOperationLimit();
+        var batchBudget = new FastPathBatchBudget(ECO_BATCH_FAST_PATH_TICK_LIMIT);
 
         if (remainingOperations > 0) {
             do {
-                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel());
+                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel(), batchBudget);
 
                 if (pushedPatterns > 0) {
                     remainingOperations -= pushedPatterns;
@@ -359,6 +360,20 @@ public class ECOCraftingCPULogic {
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        return executeCrafting(
+                maxPatterns,
+                craftingService,
+                energyService,
+                level,
+                new FastPathBatchBudget(ECO_BATCH_FAST_PATH_TICK_LIMIT));
+    }
+
+    private int executeCrafting(
+            int maxPatterns,
+            CraftingService craftingService,
+            IEnergyService energyService,
+            Level level,
+            FastPathBatchBudget batchBudget) {
         var job = this.job;
         if (job == null) return 0;
 
@@ -411,8 +426,10 @@ public class ECOCraftingCPULogic {
                             energyService,
                             patternPower,
                             task.getValue().value,
-                            maxPatterns - pushedPatterns);
+                            maxPatterns - pushedPatterns,
+                            batchBudget.remaining());
                     if (batchResult > 0) {
+                        batchBudget.consume(batchResult);
                         pushedPatterns += batchResult;
                         task.getValue().value -= batchResult;
                         postPatternOutputsChange(details);
@@ -535,14 +552,18 @@ public class ECOCraftingCPULogic {
             IEnergyService energyService,
             double patternPower,
             long taskRemaining,
-            int tickBudgetRemaining) {
-        if (!canAttemptBatchFastPath(execution) || taskRemaining <= 1 || tickBudgetRemaining <= 1) {
+            int operationBudgetRemaining,
+            int batchBudgetRemaining) {
+        if (!canAttemptBatchFastPath(execution)
+                || taskRemaining <= 1
+                || operationBudgetRemaining <= 1
+                || batchBudgetRemaining <= 1) {
             return 0;
         }
 
         int requested = (int) Math.min(
-                Math.min(taskRemaining, tickBudgetRemaining),
-                Math.min(ECO_BATCH_FAST_PATH_LIMIT, ECO_BATCH_FAST_PATH_TICK_LIMIT));
+                Math.min(taskRemaining, operationBudgetRemaining),
+                Math.min(ECO_BATCH_FAST_PATH_LIMIT, batchBudgetRemaining));
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         for (ICraftingProvider provider : providers) {
@@ -582,6 +603,7 @@ public class ECOCraftingCPULogic {
 
         var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
         boolean extraInputsExtracted = false;
+        boolean batchAccepted = false;
         try {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
                 return 0;
@@ -604,14 +626,22 @@ public class ECOCraftingCPULogic {
                 debugPushPatternCalls++;
             }
             if (!selectedPatternBus.pushBatch(request)) {
-                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
-                return -1;
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, false, extraInputsExtracted);
+                return 0;
             }
+            batchAccepted = true;
             energyService.extractAEPower(patternPower * batchSize, Actionable.MODULATE, PowerMultiplier.CONFIG);
             recordPushedPattern(execution, batchSize);
             recordAcceptedCrafts(batchSize, true);
             return batchSize;
         } catch (RuntimeException e) {
+            if (batchAccepted) {
+                LOGGER.error(
+                        "ECO batch fast path was accepted but post-accept accounting failed; preserving transferred inputs",
+                        e);
+                selectedOffer.worker().getFastPathCache().recordException();
+                return batchSize;
+            }
             LOGGER.warn("ECO batch fast path failed, reinjecting inputs and falling back to the slow path", e);
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             selectedOffer.worker().getFastPathCache().recordException();
@@ -912,6 +942,25 @@ public class ECOCraftingCPULogic {
             batchedAnyStatusChange = false;
             batchedFullStatusChange = false;
             throw e;
+        }
+    }
+
+    static final class FastPathBatchBudget {
+        private int remaining;
+
+        FastPathBatchBudget(int limit) {
+            this.remaining = Math.max(0, limit);
+        }
+
+        int remaining() {
+            return remaining;
+        }
+
+        void consume(int amount) {
+            if (amount < 0 || amount > remaining) {
+                throw new IllegalArgumentException("Invalid fast-path batch budget consumption: " + amount);
+            }
+            remaining -= amount;
         }
     }
 

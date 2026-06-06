@@ -29,6 +29,7 @@ public abstract class CraftingCPUScreenMixin120 {
     private CraftingStatus status;
 
     @Unique private final Map<Long, Long> neoecoae$heldZeroSinceTicks = new HashMap<>();
+
     @Unique private final Map<Long, CraftingStatusEntry> neoecoae$heldZeroEntries = new HashMap<>();
 
     @ModifyVariable(method = "postUpdate", at = @At("HEAD"), argsOnly = true)
@@ -141,12 +142,14 @@ public abstract class CraftingCPUScreenMixin120 {
                 if (zeroEntry.isDeleted()) {
                     entries.remove(i);
                 } else {
-                    entries.set(i, new CraftingStatusEntry(
-                            serial,
-                            current.getWhat(),
-                            zeroEntry.getStoredAmount(),
-                            zeroEntry.getActiveAmount(),
-                            zeroEntry.getPendingAmount()));
+                    entries.set(
+                            i,
+                            new CraftingStatusEntry(
+                                    serial,
+                                    current.getWhat(),
+                                    zeroEntry.getStoredAmount(),
+                                    zeroEntry.getActiveAmount(),
+                                    zeroEntry.getPendingAmount()));
                 }
                 changed = true;
                 break;

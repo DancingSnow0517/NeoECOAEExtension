@@ -105,8 +105,7 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
     }
 
     @Override
-    public void createRecipeExtras(
-            IRecipeExtrasBuilder builder, MultiblockInfoRecipe recipe, IFocusGroup focuses) {
+    public void createRecipeExtras(IRecipeExtrasBuilder builder, MultiblockInfoRecipe recipe, IFocusGroup focuses) {
         PreviewState state = state(recipe);
         builder.addInputHandler(new IJeiInputHandler() {
             @Override
@@ -117,8 +116,7 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
             @Override
             public boolean handleInput(double mouseX, double mouseY, IJeiUserInput input) {
                 InputConstants.Key key = input.getKey();
-                return key.getType() == InputConstants.Type.MOUSE
-                        && key.getValue() == GLFW.GLFW_MOUSE_BUTTON_LEFT;
+                return key.getType() == InputConstants.Type.MOUSE && key.getValue() == GLFW.GLFW_MOUSE_BUTTON_LEFT;
             }
 
             @Override
@@ -132,11 +130,7 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
 
             @Override
             public boolean handleMouseDragged(
-                    double mouseX,
-                    double mouseY,
-                    InputConstants.Key mouseKey,
-                    double dragX,
-                    double dragY) {
+                    double mouseX, double mouseY, InputConstants.Key mouseKey, double dragX, double dragY) {
                 if (mouseKey.getType() != InputConstants.Type.MOUSE
                         || mouseKey.getValue() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                     return false;

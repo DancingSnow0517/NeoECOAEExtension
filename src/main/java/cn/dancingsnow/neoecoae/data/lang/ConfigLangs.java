@@ -26,6 +26,11 @@ public class ConfigLangs {
                 "neoecoae.configuration.postCraftingEvent.tooltip",
                 "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n"
                         + "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed.");
+        provider.add("neoecoae.configuration.craftingPatternBusPages", "Smart Pattern Bus Pages");
+        provider.add(
+                "neoecoae.configuration.craftingPatternBusPages.tooltip",
+                "Number of 63-slot pages in each smart crafting pattern bus. Range: 1-8.\n"
+                        + "Changes are fully applied after re-entering the world or restarting the server.");
         provider.add("neoecoae.configuration.increaseStorageCellCapacity", "Increase ECO Capacity");
         provider.add(
                 "neoecoae.configuration.increaseStorageCellCapacity.tooltip",

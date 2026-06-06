@@ -137,8 +137,7 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
         if (!output.isEmpty()) {
             builder.addOutputSlot(OUTPUT_TANK_X + 1, OUTPUT_TANK_Y + 1)
                     .addIngredient(ForgeTypes.FLUID_STACK, output.copy())
-                    .setFluidRenderer(
-                            Math.max(output.getAmount(), 1000), false, FLUID_RENDER_SIZE, FLUID_RENDER_SIZE);
+                    .setFluidRenderer(Math.max(output.getAmount(), 1000), false, FLUID_RENDER_SIZE, FLUID_RENDER_SIZE);
         }
     }
 

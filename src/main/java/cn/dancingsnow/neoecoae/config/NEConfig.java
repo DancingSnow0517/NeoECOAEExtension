@@ -13,6 +13,9 @@ public class NEConfig {
     private static final int CRAFTING_SYSTEM_MIN_LENGTH = 5;
     private static final int COMPUTATION_SYSTEM_MIN_LENGTH = 5;
     private static final int STORAGE_SYSTEM_MIN_LENGTH = 4;
+    public static final int PATTERN_BUS_SLOTS_PER_PAGE = 63;
+    public static final int PATTERN_BUS_MIN_PAGES = 1;
+    public static final int PATTERN_BUS_MAX_PAGES = 8;
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
     private static final boolean DEFAULT_INCREASE_STORAGE_CELL_CAPACITY = isGtmLoaded();
 
@@ -49,6 +52,11 @@ public class NEConfig {
                     "Set JVM property -Dneoecoae.ecoFastPath=false to force-disable this optimization without editing the config.")
             .define("ecoAe2FastPathEnabled", true);
 
+    private static final ForgeConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER.comment(
+                    "Number of 63-slot pages available in each smart crafting pattern bus.",
+                    "Range: 1-8. Changes are fully applied after re-entering the world or restarting the server.")
+            .defineInRange("craftingPatternBusPages", 2, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
+
     private static final ForgeConfigSpec.BooleanValue INCREASE_STORAGE_CELL_CAPACITY = BUILDER.comment(
                     "Increase ECO Storage Matrix capacity.",
                     "Defaults to true when GregTech Modern/GTCEu is loaded, otherwise false.",
@@ -64,6 +72,7 @@ public class NEConfig {
     public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
     public static boolean enableEcoAe2FastPath;
+    public static int craftingPatternBusPages = 2;
     public static boolean increaseStorageCellCapacity;
 
     @SubscribeEvent
@@ -72,10 +81,16 @@ public class NEConfig {
     }
 
     public static void applyClientConfig(
-            int craftingMaxLength, int computationMaxLength, int storageMaxLength, boolean increaseCapacity) {
+            int craftingMaxLength,
+            int computationMaxLength,
+            int storageMaxLength,
+            int patternBusPages,
+            boolean increaseCapacity) {
         CRAFTING_SYSTEM_MAX_LENGTH.set(Math.max(CRAFTING_SYSTEM_MIN_LENGTH, craftingMaxLength));
         COMPUTATION_SYSTEM_MAX_LENGTH.set(Math.max(COMPUTATION_SYSTEM_MIN_LENGTH, computationMaxLength));
         STORAGE_SYSTEM_MAX_LENGTH.set(Math.max(STORAGE_SYSTEM_MIN_LENGTH, storageMaxLength));
+        CRAFTING_PATTERN_BUS_PAGES.set(
+                Math.max(PATTERN_BUS_MIN_PAGES, Math.min(PATTERN_BUS_MAX_PAGES, patternBusPages)));
         INCREASE_STORAGE_CELL_CAPACITY.set(increaseCapacity);
         SPEC.save();
         syncValues();
@@ -87,6 +102,7 @@ public class NEConfig {
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         enableEcoAe2FastPath = ENABLE_ECO_AE2_FAST_PATH.get();
+        craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
     }
 
@@ -96,6 +112,18 @@ public class NEConfig {
 
     public static boolean isIncreaseStorageCellCapacity() {
         return increaseStorageCellCapacity;
+    }
+
+    public static int getCraftingPatternBusPages() {
+        return Math.max(PATTERN_BUS_MIN_PAGES, Math.min(PATTERN_BUS_MAX_PAGES, craftingPatternBusPages));
+    }
+
+    public static int getCraftingPatternBusSlotCount() {
+        return PATTERN_BUS_SLOTS_PER_PAGE * getCraftingPatternBusPages();
+    }
+
+    public static int getMaxCraftingPatternBusSlotCount() {
+        return PATTERN_BUS_SLOTS_PER_PAGE * PATTERN_BUS_MAX_PAGES;
     }
 
     public static long getEcoStorageCellCapacity(IECOTier tier, long fallbackBytes) {

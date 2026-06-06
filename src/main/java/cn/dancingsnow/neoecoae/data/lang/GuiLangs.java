@@ -34,6 +34,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.common.close", "Close");
         provider.add("gui.neoecoae.pattern_bus.patterns", "Patterns");
         provider.add("gui.neoecoae.pattern_bus.patterns_page", "Patterns %d - %d");
+        provider.add("gui.neoecoae.pattern_bus.previous_page", "Previous page");
+        provider.add("gui.neoecoae.pattern_bus.next_page", "Next page");
+        provider.add("gui.neoecoae.pattern_bus.page", "Page %s / %s");
 
         // short controller titles (LDLib2-style three-zone layout)
         provider.add("gui.neoecoae.ui.storage_system.short", "ECO - %s Storage System");

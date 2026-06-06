@@ -265,8 +265,7 @@ public class ECOComputationThreadingCoreBlockEntity
         return cleared;
     }
 
-    private static void addCpuInventoryDrops(
-            ECOCraftingCPU cpu, Level level, BlockPos pos, List<ItemStack> drops) {
+    private static void addCpuInventoryDrops(ECOCraftingCPU cpu, Level level, BlockPos pos, List<ItemStack> drops) {
         ListCraftingInventory inventory = cpu.getLogic().getInventory();
         for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
             if (entry.getKey() instanceof AEItemKey itemKey) {

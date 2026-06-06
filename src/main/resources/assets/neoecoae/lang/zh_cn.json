@@ -360,7 +360,7 @@
   "tooltip.neoecoae.crafting_jobs_l9": "§7§o存储合成任务: x%d [L9]",
   "tooltip.neoecoae.crafting_parallels": "§7§o并行核心为合成子系统提供并行处理数量",
   "tooltip.neoecoae.crafting_pattern_bus.0": "§7§oECO - FD 智能样板总线是合成子系统的主要部分",
-  "tooltip.neoecoae.crafting_pattern_bus.1": "§7§o每个总线可存储63个样板",
+  "tooltip.neoecoae.crafting_pattern_bus.1": "§7§o每页可存储63个样板，页数可在配置中设置",
   "tooltip.neoecoae.crafting_pattern_bus.2": "§7§o在ME编码终端上编码样板时，可使用相邻按钮快速上传",
   "tooltip.neoecoae.crafting_system": "§7§o合成子系统的核心",
   "tooltip.neoecoae.crafting_worker.0": "§7§oECO - FX工作核心是合成子系统的主要部分",
@@ -380,11 +380,15 @@
   "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑钨合金升级"
   ,"neoecoae.configuration.increaseStorageCellCapacity": "增加 ECO 容量",
   "neoecoae.configuration.increaseStorageCellCapacity.tooltip": "增加 ECO 存储矩阵容量，并将计算闪存容量扩大 16 倍。\n检测到 GregTech Modern/GTCEu 时默认开启。\n修改配置后建议重进世界或重启服务器后完全生效。",
+  "neoecoae.configuration.craftingPatternBusPages": "智能样板总线页数",
+  "neoecoae.configuration.craftingPatternBusPages.tooltip": "每个智能样板总线可用的 63 槽页面数量，范围 1-8。\n修改后需重进世界或重启服务器才能完全生效。",
   "screen.neoecoae.config.title": "Neo ECO AE Extension 配置",
   "screen.neoecoae.config.restart_notice": "修改配置后建议重进世界或重启服务器后完全生效。",
   "screen.neoecoae.config.craftingSystemMaxLength": "合成主机最大长度",
   "screen.neoecoae.config.computationSystemMaxLength": "计算主机最大长度",
   "screen.neoecoae.config.storageSystemMaxLength": "存储主机最大长度",
+  "screen.neoecoae.config.craftingPatternBusPages": "智能样板总线页数（1-8）",
+  "screen.neoecoae.config.craftingPatternBusPages.capacity": "%s 页 = %s 个样板",
   "screen.neoecoae.config.increaseCapacity": "增加容量",
   "screen.neoecoae.config.increaseCapacity.on": "开启",
   "screen.neoecoae.config.increaseCapacity.off": "关闭",
@@ -392,5 +396,8 @@
   "screen.neoecoae.config.increaseCapacity.tooltip.storage": "%s 存储元件：从原来的 %s 提升到 %s",
   "screen.neoecoae.config.save": "保存",
   "screen.neoecoae.config.cancel": "取消",
-  "screen.neoecoae.config.invalid": "请输入正整数。"
+  "screen.neoecoae.config.invalid": "请输入正整数；智能样板总线页数必须为 1-8。",
+  "gui.neoecoae.pattern_bus.previous_page": "上一页",
+  "gui.neoecoae.pattern_bus.next_page": "下一页",
+  "gui.neoecoae.pattern_bus.page": "第 %s / %s 页"
 }

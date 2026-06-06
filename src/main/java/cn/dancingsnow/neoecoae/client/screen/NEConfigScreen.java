@@ -21,6 +21,7 @@ public class NEConfigScreen extends Screen {
     private EditBox craftingLength;
     private EditBox computationLength;
     private EditBox storageLength;
+    private EditBox patternBusPages;
     private Button capacityButton;
     private boolean increaseCapacity;
     private Component error = Component.empty();
@@ -39,16 +40,18 @@ public class NEConfigScreen extends Screen {
         this.craftingLength = createIntBox(x + LABEL_WIDTH, y, NEConfig.craftingSystemMaxLength);
         this.computationLength = createIntBox(x + LABEL_WIDTH, y + 28, NEConfig.computationSystemMaxLength);
         this.storageLength = createIntBox(x + LABEL_WIDTH, y + 56, NEConfig.storageSystemMaxLength);
+        this.patternBusPages = createIntBox(x + LABEL_WIDTH, y + 84, NEConfig.getCraftingPatternBusPages());
 
         addRenderableWidget(this.craftingLength);
         addRenderableWidget(this.computationLength);
         addRenderableWidget(this.storageLength);
+        addRenderableWidget(this.patternBusPages);
 
         this.capacityButton = Button.builder(capacityText(), button -> {
                     this.increaseCapacity = !this.increaseCapacity;
                     button.setMessage(capacityText());
                 })
-                .bounds(x + LABEL_WIDTH, y + 84, FIELD_WIDTH, 20)
+                .bounds(x + LABEL_WIDTH, y + 112, FIELD_WIDTH, 20)
                 .build();
         addRenderableWidget(this.capacityButton);
 
@@ -80,7 +83,8 @@ public class NEConfigScreen extends Screen {
         drawLabel(graphics, "screen.neoecoae.config.craftingSystemMaxLength", x, y);
         drawLabel(graphics, "screen.neoecoae.config.computationSystemMaxLength", x, y + 28);
         drawLabel(graphics, "screen.neoecoae.config.storageSystemMaxLength", x, y + 56);
-        drawLabel(graphics, "screen.neoecoae.config.increaseCapacity", x, y + 84);
+        drawLabel(graphics, "screen.neoecoae.config.craftingPatternBusPages", x, y + 84);
+        drawLabel(graphics, "screen.neoecoae.config.increaseCapacity", x, y + 112);
 
         if (!this.error.getString().isEmpty()) {
             graphics.drawCenteredString(this.font, this.error, this.width / 2, this.height - 48, 0xFFFF5555);
@@ -90,6 +94,11 @@ public class NEConfigScreen extends Screen {
 
         if (this.capacityButton != null && this.capacityButton.isMouseOver(mouseX, mouseY)) {
             graphics.renderComponentTooltip(this.font, capacityTooltip(), mouseX, mouseY);
+        } else if (this.patternBusPages != null && this.patternBusPages.isMouseOver(mouseX, mouseY)) {
+            Component capacity = patternBusCapacityText();
+            if (capacity != null) {
+                graphics.renderComponentTooltip(this.font, List.of(capacity), mouseX, mouseY);
+            }
         }
     }
 
@@ -116,6 +125,19 @@ public class NEConfigScreen extends Screen {
                 this.increaseCapacity
                         ? "screen.neoecoae.config.increaseCapacity.on"
                         : "screen.neoecoae.config.increaseCapacity.off");
+    }
+
+    private Component patternBusCapacityText() {
+        try {
+            int pages = parsePatternBusPages(this.patternBusPages.getValue());
+            return Component.translatable(
+                            "screen.neoecoae.config.craftingPatternBusPages.capacity",
+                            pages,
+                            pages * NEConfig.PATTERN_BUS_SLOTS_PER_PAGE)
+                    .withStyle(ChatFormatting.GRAY);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private List<Component> capacityTooltip() {
@@ -146,7 +168,8 @@ public class NEConfigScreen extends Screen {
             int crafting = parsePositiveInt(this.craftingLength.getValue());
             int computation = parsePositiveInt(this.computationLength.getValue());
             int storage = parsePositiveInt(this.storageLength.getValue());
-            NEConfig.applyClientConfig(crafting, computation, storage, this.increaseCapacity);
+            int pages = parsePatternBusPages(this.patternBusPages.getValue());
+            NEConfig.applyClientConfig(crafting, computation, storage, pages, this.increaseCapacity);
             close();
         } catch (NumberFormatException ignored) {
             this.error = Component.translatable("screen.neoecoae.config.invalid");
@@ -162,6 +185,14 @@ public class NEConfigScreen extends Screen {
             throw new NumberFormatException("non-positive");
         }
         return parsed;
+    }
+
+    private static int parsePatternBusPages(String value) {
+        int pages = parsePositiveInt(value);
+        if (pages < NEConfig.PATTERN_BUS_MIN_PAGES || pages > NEConfig.PATTERN_BUS_MAX_PAGES) {
+            throw new NumberFormatException("pattern bus pages out of range");
+        }
+        return pages;
     }
 
     private void close() {

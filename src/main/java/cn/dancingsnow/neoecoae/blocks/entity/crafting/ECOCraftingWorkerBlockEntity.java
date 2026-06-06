@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathLimits;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
@@ -130,7 +131,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        if (request.batchSize() > getAvailableThreadSlots()) {
+        int controllerAvailableSlots = Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
+        if (!ECOFastPathLimits.canAcceptBatch(
+                request.batchSize(), getAvailableThreadSlots(), controllerAvailableSlots)) {
             fastPathCache.recordNoThreadReject();
             return false;
         }

@@ -321,8 +321,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         }
     }
 
-    @Unique private NeoEcoEntrySnapshot neoecoae$smoothActiveAmount(
-            AEKey key, NeoEcoEntrySnapshot current, boolean hasJob) {
+    @Unique private NeoEcoEntrySnapshot neoecoae$smoothActiveAmount(AEKey key, NeoEcoEntrySnapshot current, boolean hasJob) {
         if (!hasJob || current.activeAmount() > 0 || NEOECOAE_ECO_STATUS_ACTIVE_HOLD_TICKS <= 0) {
             this.neoecoae$activeZeroSinceTicks.remove(key);
             return current;
@@ -387,7 +386,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         ArrayList<AEKey> deletedKeys = new ArrayList<>();
 
         for (AEKey what : changes) {
-            CraftingStatusEntry entry = neoecoae$createEntry(changes, logic, what, full, neoecoae$lastEcoEntrySnapshots);
+            CraftingStatusEntry entry =
+                    neoecoae$createEntry(changes, logic, what, full, neoecoae$lastEcoEntrySnapshots);
             entries.add(entry);
             trackedKeys.add(what);
             if (entry.isDeleted()) {

@@ -37,11 +37,15 @@
   "neoecoae.tooltip.upload_pattern": "Upload Pattern",
   "neoecoae.configuration.increaseStorageCellCapacity": "Increase ECO Capacity",
   "neoecoae.configuration.increaseStorageCellCapacity.tooltip": "Increase ECO Storage Matrix capacity and multiply computation flash capacity by 16.\nDefaults to enabled when GregTech Modern/GTCEu is loaded.\nChanges are fully applied after re-entering the world or restarting the server.",
+  "neoecoae.configuration.craftingPatternBusPages": "Smart Pattern Bus Pages",
+  "neoecoae.configuration.craftingPatternBusPages.tooltip": "Number of 63-slot pages in each smart crafting pattern bus. Range: 1-8.\nChanges are fully applied after re-entering the world or restarting the server.",
   "screen.neoecoae.config.title": "Neo ECO AE Extension Config",
   "screen.neoecoae.config.restart_notice": "Changes are fully applied after re-entering the world or restarting the server.",
   "screen.neoecoae.config.craftingSystemMaxLength": "Crafting System Max Length",
   "screen.neoecoae.config.computationSystemMaxLength": "Computation System Max Length",
   "screen.neoecoae.config.storageSystemMaxLength": "Storage System Max Length",
+  "screen.neoecoae.config.craftingPatternBusPages": "Smart Pattern Bus Pages (1-8)",
+  "screen.neoecoae.config.craftingPatternBusPages.capacity": "%s pages = %s patterns",
   "screen.neoecoae.config.increaseCapacity": "Increase Capacity",
   "screen.neoecoae.config.increaseCapacity.on": "Enabled",
   "screen.neoecoae.config.increaseCapacity.off": "Disabled",
@@ -49,5 +53,9 @@
   "screen.neoecoae.config.increaseCapacity.tooltip.storage": "%s storage cells: %s -> %s",
   "screen.neoecoae.config.save": "Save",
   "screen.neoecoae.config.cancel": "Cancel",
-  "screen.neoecoae.config.invalid": "Enter positive whole numbers."
+  "screen.neoecoae.config.invalid": "Enter positive whole numbers; pattern bus pages must be 1-8.",
+  "gui.neoecoae.pattern_bus.previous_page": "Previous page",
+  "gui.neoecoae.pattern_bus.next_page": "Next page",
+  "gui.neoecoae.pattern_bus.page": "Page %s / %s",
+  "tooltip.neoecoae.crafting_pattern_bus.1": "Each bus has 63 pattern slots per configured page."
 }

@@ -46,7 +46,16 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
-        return details instanceof AECraftingPattern;
+        if (!(details instanceof AECraftingPattern) || !(details instanceof AECraftingPatternAccessor accessor)) {
+            return false;
+        }
+        try {
+            var recipe = accessor.neoecoae$getRecipe();
+            return recipe != null && !recipe.isSpecial();
+        } catch (Throwable e) {
+            disableOnce(e);
+            return false;
+        }
     }
 
     public static Optional<ECOFastPathKey> buildFastPathKey(
