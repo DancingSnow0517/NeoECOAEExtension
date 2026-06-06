@@ -15,6 +15,10 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
@@ -47,6 +51,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
@@ -63,6 +68,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final AppEngInternalInventory inventory;
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;
+    private int nextWorkerIndex = 0;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -71,12 +77,28 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
-        if (!(patternDetails instanceof IMolecularAssemblerSupportedPattern supportedPattern)) {
+        return pushPattern(patternDetails, inputHolder, null);
+    }
+
+    public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder, @Nullable UUID craftingJobId) {
+        return pushPattern(ECOExtractedPatternExecution.slow(patternDetails, inputHolder), craftingJobId);
+    }
+
+    public boolean pushPattern(ECOExtractedPatternExecution execution, @Nullable UUID craftingJobId) {
+        if (execution.molecularPattern() == null) {
             return false;
         }
         if (cluster != null) {
-            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                if (worker.pushPattern(supportedPattern, inputHolder)) {
+            List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+            if (workers.isEmpty()) {
+                return false;
+            }
+            int start = Math.floorMod(nextWorkerIndex, workers.size());
+            for (int offset = 0; offset < workers.size(); offset++) {
+                int index = (start + offset) % workers.size();
+                ECOCraftingWorkerBlockEntity worker = workers.get(index);
+                if (worker.pushPattern(execution, craftingJobId)) {
+                    nextWorkerIndex = (index + 1) % Math.max(1, workers.size());
                     return true;
                 }
             }
@@ -84,27 +106,127 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return false;
     }
 
+    public boolean pushBatch(ECOBatchCraftingRequest request) {
+        BatchFastPathOffer offer = findBatchFastPathOffer(request.key(), null, request.batchSize());
+        if (offer == null) {
+            return false;
+        }
+        if (offer.worker().pushBatch(request)) {
+            nextWorkerIndex = nextWorkerIndexAfter(offer.worker());
+            return true;
+        }
+        return false;
+    }
+
+    @Nullable
+    public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
+        if (execution.key() == null) {
+            return null;
+        }
+        return findBatchFastPathOffer(execution.key(), execution, requestedBatchSize);
+    }
+
+    @Nullable
+    private BatchFastPathOffer findBatchFastPathOffer(
+        ECOFastPathKey key,
+        @Nullable ECOExtractedPatternExecution execution,
+        int requestedBatchSize
+    ) {
+        if (cluster == null || requestedBatchSize <= 0) {
+            return null;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+        if (workers.isEmpty()) {
+            return null;
+        }
+        int globalAvailableSlots = getAvailableThreadSlots();
+        if (globalAvailableSlots <= 0) {
+            return null;
+        }
+        int start = Math.floorMod(nextWorkerIndex, workers.size());
+        for (int offset = 0; offset < workers.size(); offset++) {
+            int index = (start + offset) % workers.size();
+            ECOCraftingWorkerBlockEntity worker = workers.get(index);
+            int availableSlots = worker.getAvailableThreadSlots();
+            if (availableSlots <= 0) {
+                continue;
+            }
+            ECOFastPathResult result = execution == null
+                ? worker.getFastPathCache().peek(key)
+                : worker.getVerifiedFastPathResult(execution);
+            if (result == null || result.isNegative()) {
+                continue;
+            }
+            int maxBatchSize = Math.min(requestedBatchSize, Math.min(availableSlots, globalAvailableSlots));
+            if (maxBatchSize > 0) {
+                return new BatchFastPathOffer(worker, result, maxBatchSize);
+            }
+        }
+        return null;
+    }
+
+    private int nextWorkerIndexAfter(ECOCraftingWorkerBlockEntity acceptedWorker) {
+        if (cluster == null) {
+            return nextWorkerIndex;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+        int index = workers.indexOf(acceptedWorker);
+        return index < 0 ? nextWorkerIndex : (index + 1) % Math.max(1, workers.size());
+    }
+
+    public boolean recoverJobToNetwork(UUID craftingJobId, appeng.api.storage.MEStorage storage) {
+        if (cluster == null) {
+            return false;
+        }
+        boolean recoveredAll = true;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            if (!worker.recoverJobToNetwork(craftingJobId, storage)) {
+                recoveredAll = false;
+            }
+        }
+        return recoveredAll;
+    }
+
+    public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {}
+
     @Override
     public boolean isBusy() {
-        if (cluster != null && cluster.getController() != null) {
-            ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (getRunningThread() >= controller.getThreadCount()) {
-                return true;
-            }
-            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                if (!worker.isBusy()) {
-                    return false;
-                }
+        if (getAvailableThreadSlots() <= 0) {
+            return true;
+        }
+        if (cluster == null) {
+            return true;
+        }
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            if (worker.getAvailableThreadSlots() > 0 || !worker.isBusy()) {
+                return false;
             }
         }
         return true;
     }
 
-    private long getRunningThread() {
-        if (cluster != null) {
-            return cluster.getWorkers().stream().mapToLong(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
+    public int getAvailableThreadSlots() {
+        ECOCraftingSystemBlockEntity controller = getCraftingController();
+        if (cluster == null || controller == null) {
+            return 0;
         }
-        return 0;
+
+        long runningThreads = controller.getRunningThreadCount();
+        long controllerRemaining = Math.max(0, controller.getThreadCount() - runningThreads);
+        long workerRemaining = Math.max(
+            0,
+            (long) controller.getThreadCountPerWorker() * controller.getWorkerCount() - runningThreads
+        );
+
+        return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));
+    }
+
+    @Nullable
+    public ECOCraftingSystemBlockEntity getCraftingController() {
+        if (cluster != null) {
+            return cluster.getController();
+        }
+        return null;
     }
 
     @Override
