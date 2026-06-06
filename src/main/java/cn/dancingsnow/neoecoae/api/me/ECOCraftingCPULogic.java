@@ -49,12 +49,12 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_EXECUTION_STATS = Boolean.getBoolean("neoecoae.debugEcoCraftingExecution");
-    private static final int ECO_CPU_PUSH_TICK_LIMIT =
-            Math.max(1, Integer.getInteger("neoecoae.ecoCpuPushTickLimit", Integer.MAX_VALUE));
-    private static final int ECO_BATCH_FAST_PATH_LIMIT =
-            Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathLimit", 64));
-    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT =
-            Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", 256));
+    private static final int ECO_CPU_PUSH_TICK_LIMIT = Math.max(1,
+            Integer.getInteger("neoecoae.ecoCpuPushTickLimit", Integer.MAX_VALUE));
+    private static final int ECO_BATCH_FAST_PATH_LIMIT = Math.max(1,
+            Integer.getInteger("neoecoae.ecoBatchFastPathLimit", 64));
+    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT = Math.max(1,
+            Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", 256));
 
     final ECOCraftingCPU cpu;
 
@@ -137,17 +137,22 @@ public class ECOCraftingCPULogic {
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
         // Already have a job.
-        if (this.job != null) return CraftingSubmitResult.CPU_BUSY;
+        if (this.job != null)
+            return CraftingSubmitResult.CPU_BUSY;
         // Check that the node is active.
-        if (!cpu.isActive()) return CraftingSubmitResult.CPU_OFFLINE;
+        if (!cpu.isActive())
+            return CraftingSubmitResult.CPU_OFFLINE;
         // Check bytes.
-        if (cpu.getAvailableStorage() < plan.bytes()) return CraftingSubmitResult.CPU_TOO_SMALL;
+        if (cpu.getAvailableStorage() < plan.bytes())
+            return CraftingSubmitResult.CPU_TOO_SMALL;
 
-        if (!inventory.list.isEmpty()) AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
+        if (!inventory.list.isEmpty())
+            AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
         // Try to extract required items.
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
-        if (missingIngredient != null) return CraftingSubmitResult.missingIngredient(missingIngredient);
+        if (missingIngredient != null)
+            return CraftingSubmitResult.missingIngredient(missingIngredient);
 
         // Set CPU link and job.
         var playerId = src.player()
@@ -296,7 +301,8 @@ public class ECOCraftingCPULogic {
      * Tries to recover items to network; does NOT silently drop the job.
      */
     private void safeAbortRestoredJob(String reason) {
-        if (job == null) return;
+        if (job == null)
+            return;
         UUID jobId = job.link.getCraftingID();
         LOGGER.warn(
                 "ECO CPU safeAbortRestoredJob: reason={} jobId={} finalOutput={} remainingAmount={} waitingForSize={} tasksSize={} cpu={}",
@@ -375,7 +381,8 @@ public class ECOCraftingCPULogic {
             Level level,
             FastPathBatchBudget batchBudget) {
         var job = this.job;
-        if (job == null) return 0;
+        if (job == null)
+            return 0;
 
         var pushedPatterns = 0;
         long executeStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
@@ -383,8 +390,7 @@ public class ECOCraftingCPULogic {
 
         try {
             var it = job.tasks.entrySet().iterator();
-            taskLoop:
-            while (it.hasNext()) {
+            taskLoop: while (it.hasNext()) {
                 var task = it.next();
                 if (task.getValue().value <= 0) {
                     postPatternOutputsChange(task.getKey());
@@ -406,7 +412,8 @@ public class ECOCraftingCPULogic {
                     if (DEBUG_EXECUTION_STATS) {
                         debugExtractPatternInputsCalls++;
                     }
-                    @Nullable var craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                    @Nullable
+                    var craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             details, inventory, level, expectedOutputs, expectedContainerItems);
                     if (DEBUG_EXECUTION_STATS) {
                         debugExtractPatternInputsNs += System.nanoTime() - extractStartNs;
@@ -451,8 +458,8 @@ public class ECOCraftingCPULogic {
                             continue;
                         }
 
-                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                                < patternPower - 0.01) {
+                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
+                                PowerMultiplier.CONFIG) < patternPower - 0.01) {
                             break;
                         }
 
@@ -594,8 +601,8 @@ public class ECOCraftingCPULogic {
         }
 
         int extraCrafts = batchSize - 1;
-        int availableExtraCrafts =
-                ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(), extraCrafts);
+        int availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(),
+                extraCrafts);
         batchSize = Math.min(batchSize, availableExtraCrafts + 1);
         if (batchSize <= 1) {
             return 0;
@@ -608,8 +615,8 @@ public class ECOCraftingCPULogic {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
                 return 0;
             }
-            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                    < patternPower * batchSize - 0.01) {
+            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE,
+                    PowerMultiplier.CONFIG) < patternPower * batchSize - 0.01) {
                 return 0;
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
@@ -681,8 +688,8 @@ public class ECOCraftingCPULogic {
         int batchSize = requested;
         while (batchSize > 0) {
             double totalPower = patternPower * batchSize;
-            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                    >= totalPower - 0.01) {
+            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG) >= totalPower
+                    - 0.01) {
                 return batchSize;
             }
             batchSize--;
@@ -730,7 +737,8 @@ public class ECOCraftingCPULogic {
         // also stop accepting items when the job is complete, i.e. to prevent
         // re-insertion when pushing out
         // items during storeItems
-        if (what == null || job == null || amount <= 0) return 0;
+        if (what == null || job == null || amount <= 0)
+            return 0;
 
         // Only accept items we are waiting for.
         var waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
@@ -825,7 +833,8 @@ public class ECOCraftingCPULogic {
      */
     public void cancel() {
         // No job to cancel :P
-        if (job == null) return;
+        if (job == null)
+            return;
 
         UUID craftingJobId = job.link.getCraftingID();
         markStatusDirty();
@@ -851,16 +860,18 @@ public class ECOCraftingCPULogic {
     public void storeItems() {
         Preconditions.checkState(job == null, "CPU should not have a job to prevent re-insertion when dumping items");
         // Short-circuit if there is nothing to do.
-        if (this.inventory.list.isEmpty()) return;
+        if (this.inventory.list.isEmpty())
+            return;
 
         var g = cpu.getGrid();
-        if (g == null) return;
+        if (g == null)
+            return;
 
         var storage = g.getStorageService().getInventory();
 
         for (var entry : this.inventory.list) {
-            var inserted =
-                    storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, cpu.getActionSource());
+            var inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE,
+                    cpu.getActionSource());
 
             // The network was unable to receive all of the items, i.e. no or not enough
             // storage space left
@@ -1033,7 +1044,8 @@ public class ECOCraftingCPULogic {
         return this.job != null;
     }
 
-    @Nullable public GenericStack getFinalJobOutput() {
+    @Nullable
+    public GenericStack getFinalJobOutput() {
         return this.job != null ? this.job.finalOutput : null;
     }
 
