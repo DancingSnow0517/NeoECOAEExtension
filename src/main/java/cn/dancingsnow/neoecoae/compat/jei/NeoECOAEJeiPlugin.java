@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.compat.jei;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.compat.xei.MultiblockInfoRecipe;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEIntegratedWorkingStationScreen;
@@ -43,10 +44,18 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
                 registration.getJeiHelpers().getGuiHelper()));
         registration.addRecipeCategories(
                 new CoolingJeiCategory(registration.getJeiHelpers().getGuiHelper()));
+        registration.addRecipeCategories(
+                new MultiblockJeiCategory(registration.getJeiHelpers().getGuiHelper()));
     }
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
+        registration.addRecipes(
+                MULTIBLOCK_RECIPE_TYPE,
+                NEMultiBlocks.DEFINITIONS.stream()
+                        .map(MultiblockInfoRecipe::new)
+                        .toList());
+
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) {
             return;
@@ -68,6 +77,11 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
         registration.addRecipeCatalyst(NEBlocks.CRAFTING_SYSTEM_L4.asStack(), COOLING_RECIPE_TYPE);
         registration.addRecipeCatalyst(NEBlocks.CRAFTING_SYSTEM_L6.asStack(), COOLING_RECIPE_TYPE);
         registration.addRecipeCatalyst(NEBlocks.CRAFTING_SYSTEM_L9.asStack(), COOLING_RECIPE_TYPE);
+
+        for (var definition : NEMultiBlocks.DEFINITIONS) {
+            registration.addRecipeCatalyst(
+                    definition.getOwner().value().asItem().getDefaultInstance(), MULTIBLOCK_RECIPE_TYPE);
+        }
     }
 
     @Override
