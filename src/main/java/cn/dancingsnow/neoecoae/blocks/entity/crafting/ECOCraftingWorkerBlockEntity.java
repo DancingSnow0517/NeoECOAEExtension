@@ -331,7 +331,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return runningThreads > 0;
     }
 
-    public record ThreadProgressSummary(int busyThreadCount, int occupiedSlots, int maxProgress, int averageProgress) {}
+    public record ThreadProgressSummary(int busyThreadCount, int occupiedSlots, int maxProgress, int averageProgress) {
+    }
 
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {

@@ -105,14 +105,16 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return false;
     }
 
-    @Nullable public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
+    @Nullable
+    public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
         if (execution.key() == null) {
             return null;
         }
         return findBatchFastPathOffer(execution.key(), execution, requestedBatchSize);
     }
 
-    @Nullable private BatchFastPathOffer findBatchFastPathOffer(
+    @Nullable
+    private BatchFastPathOffer findBatchFastPathOffer(
             cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey key,
             @Nullable ECOExtractedPatternExecution execution,
             int requestedBatchSize) {
@@ -145,8 +147,8 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             if (result == null || result.isNegative()) {
                 continue;
             }
-            int maxBatchSize =
-                    ECOFastPathLimits.limitBatchSize(requestedBatchSize, availableSlots, controllerAvailableSlots);
+            int maxBatchSize = ECOFastPathLimits.limitBatchSize(requestedBatchSize, availableSlots,
+                    controllerAvailableSlots);
             if (maxBatchSize > 0) {
                 return new BatchFastPathOffer(worker, result, maxBatchSize);
             }
@@ -194,9 +196,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));
     }
 
-    public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {}
+    public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {
+    }
 
-    @Nullable public ECOCraftingSystemBlockEntity getCraftingController() {
+    @Nullable
+    public ECOCraftingSystemBlockEntity getCraftingController() {
         if (cluster != null) {
             return cluster.getController();
         }
