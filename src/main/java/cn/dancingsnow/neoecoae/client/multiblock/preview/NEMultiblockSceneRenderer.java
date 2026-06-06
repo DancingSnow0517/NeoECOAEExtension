@@ -35,6 +35,10 @@ public final class NEMultiblockSceneRenderer {
     private static final float MAX_ZOOM = 1.80F;
     private static final float ZOOM_STEP = 0.10F;
     private static final float FIT_PADDING = 0.68F;
+    private static final float MOUSE_YAW_SPEED = 0.6F;
+    private static final float MOUSE_PITCH_SPEED = 0.45F;
+    private static final float PITCH_MIN = -75.0F;
+    private static final float PITCH_MAX = 75.0F;
 
     private float yaw = DEFAULT_YAW;
     private float pitch = DEFAULT_PITCH;
@@ -91,7 +95,7 @@ public final class NEMultiblockSceneRenderer {
         PoseStack pose = g.pose();
         pose.pushPose();
         try {
-            float scale = CameraFit.calculateScale(cameraBounds, yaw, pitch, width, height, FIT_PADDING) * zoom;
+            float scale = CameraFit.calculateStableScale(cameraBounds, width, height, FIT_PADDING) * zoom;
             pose.translate(x + width * 0.5F, y + height * 0.50F, 240.0F);
             pose.scale(scale, -scale, scale);
             pose.mulPose(Axis.XP.rotationDegrees(pitch));
@@ -145,7 +149,15 @@ public final class NEMultiblockSceneRenderer {
 
     public void rotate(float yawDelta, float pitchDelta) {
         this.yaw += yawDelta;
-        this.pitch = Math.max(-75.0F, Math.min(75.0F, this.pitch + pitchDelta));
+        this.pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, this.pitch + pitchDelta));
+    }
+
+    /**
+     * Unified mouse-drag rotation for JEI and EMI multiblock previews.
+     * Applies sensitivity internally so callers don't need to multiply.
+     */
+    public void rotateFromMouseDrag(double dragX, double dragY) {
+        rotate((float) dragX * MOUSE_YAW_SPEED, (float) dragY * MOUSE_PITCH_SPEED);
     }
 
     private static void renderBlock(

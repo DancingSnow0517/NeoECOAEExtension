@@ -255,7 +255,7 @@ public class MultiblockEmiRecipe implements EmiRecipe {
             int dx = mouseX - lastMouseX;
             int dy = mouseY - lastMouseY;
             if (dx != 0 || dy != 0) {
-                renderer.rotate(dx * 0.8F, dy * 0.55F);
+                renderer.rotateFromMouseDrag(dx, dy);
                 lastMouseX = mouseX;
                 lastMouseY = mouseY;
             }

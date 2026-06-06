@@ -118,7 +118,8 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
                 try {
                     grid.getTickManager().alertDevice(node);
                 } catch (IllegalArgumentException ignored) {
-                    // Node not yet alertable (e.g. during initial power injection before grid is ready)
+                    // Node not yet alertable (e.g. during initial power injection before grid is
+                    // ready)
                 }
             });
         }
@@ -192,8 +193,8 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
             return;
         }
 
-        int storageLevel =
-                getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
+        int storageLevel = getStorageLevelFromFillFactor(
+                this.energyStored.getAmount() / this.energyStored.getMaximum());
         logEnergyTick("updateStateForPowerLevel:" + storageLevel);
 
         if (this.currentDisplayLevel != storageLevel) {

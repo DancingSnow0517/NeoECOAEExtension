@@ -135,7 +135,7 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
                         || mouseKey.getValue() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                     return false;
                 }
-                state.renderer().rotate((float) dragX * 0.8F, (float) dragY * 0.55F);
+                state.renderer().rotateFromMouseDrag(dragX, dragY);
                 return true;
             }
         });
