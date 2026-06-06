@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.compat.jei;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.gui.nativeui.screen.NENativeAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +48,8 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
 
     private static final int INPUT_TANK_X = 12;
     private static final int INPUT_TANK_Y = 12;
+    private static final int TANK_SIZE = 18;
+    private static final int FLUID_RENDER_SIZE = 16;
 
     private static final int PROGRESS_X = 60;
     private static final int PROGRESS_Y = 6;
@@ -121,9 +124,10 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
         }
 
         if (!inputs.isEmpty()) {
-            builder.addInputSlot(INPUT_TANK_X, INPUT_TANK_Y)
+            builder.addInputSlot(INPUT_TANK_X + 1, INPUT_TANK_Y + 1)
                     .addIngredients(ForgeTypes.FLUID_STACK, inputs)
-                    .setFluidRenderer(Math.max(recipe.inputAmount(), 1000), false, 16, 16);
+                    .setFluidRenderer(
+                            Math.max(recipe.inputAmount(), 1000), false, FLUID_RENDER_SIZE, FLUID_RENDER_SIZE);
         } else {
             LOGGER.warn("CoolingRecipe {} has no input fluids", recipe.getId());
         }
@@ -131,15 +135,21 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
         // ── Output fluid ──
         FluidStack output = recipe.output();
         if (!output.isEmpty()) {
-            builder.addOutputSlot(OUTPUT_TANK_X, OUTPUT_TANK_Y)
+            builder.addOutputSlot(OUTPUT_TANK_X + 1, OUTPUT_TANK_Y + 1)
                     .addIngredient(ForgeTypes.FLUID_STACK, output.copy())
-                    .setFluidRenderer(Math.max(output.getAmount(), 1000), false, 16, 16);
+                    .setFluidRenderer(
+                            Math.max(output.getAmount(), 1000), false, FLUID_RENDER_SIZE, FLUID_RENDER_SIZE);
         }
     }
 
     @Override
     public void draw(CoolingRecipe recipe, IRecipeSlotsView slots, GuiGraphics g, double mouseX, double mouseY) {
         Minecraft mc = Minecraft.getInstance();
+
+        NENativeAe2StyleRenderer.drawAeFluidTank(
+                g, INPUT_TANK_X, INPUT_TANK_Y, TANK_SIZE, TANK_SIZE, FluidStack.EMPTY, 0, 1000);
+        NENativeAe2StyleRenderer.drawAeFluidTank(
+                g, OUTPUT_TANK_X, OUTPUT_TANK_Y, TANK_SIZE, TANK_SIZE, FluidStack.EMPTY, 0, 1000);
 
         // ── Cooling progress animation ──
         progressEmpty.draw(g, PROGRESS_X, PROGRESS_Y);

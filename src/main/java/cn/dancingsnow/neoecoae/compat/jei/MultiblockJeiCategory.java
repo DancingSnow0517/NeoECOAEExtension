@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.compat.jei;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewContext;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScene;
-import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScrollHandler;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.NEMultiblockSceneRenderer;
 import cn.dancingsnow.neoecoae.compat.xei.MultiblockInfoRecipe;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMaterialRequirements;
@@ -17,6 +16,9 @@ import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.gui.ingredient.IRecipeSlotDrawable;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
+import mezz.jei.api.gui.inputs.IJeiInputHandler;
+import mezz.jei.api.gui.inputs.IJeiUserInput;
+import mezz.jei.api.gui.widgets.IRecipeExtrasBuilder;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.recipe.IFocusGroup;
 import mezz.jei.api.recipe.RecipeIngredientRole;
@@ -25,6 +27,7 @@ import mezz.jei.api.recipe.category.IRecipeCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -102,6 +105,49 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
     }
 
     @Override
+    public void createRecipeExtras(
+            IRecipeExtrasBuilder builder, MultiblockInfoRecipe recipe, IFocusGroup focuses) {
+        PreviewState state = state(recipe);
+        builder.addInputHandler(new IJeiInputHandler() {
+            @Override
+            public ScreenRectangle getArea() {
+                return new ScreenRectangle(SCENE.x(), SCENE.y(), SCENE.width(), SCENE.height());
+            }
+
+            @Override
+            public boolean handleInput(double mouseX, double mouseY, IJeiUserInput input) {
+                InputConstants.Key key = input.getKey();
+                return key.getType() == InputConstants.Type.MOUSE
+                        && key.getValue() == GLFW.GLFW_MOUSE_BUTTON_LEFT;
+            }
+
+            @Override
+            public boolean handleMouseScrolled(double mouseX, double mouseY, double scrollDelta) {
+                if (scrollDelta == 0.0D) {
+                    return false;
+                }
+                state.renderer().adjustZoom(scrollDelta);
+                return true;
+            }
+
+            @Override
+            public boolean handleMouseDragged(
+                    double mouseX,
+                    double mouseY,
+                    InputConstants.Key mouseKey,
+                    double dragX,
+                    double dragY) {
+                if (mouseKey.getType() != InputConstants.Type.MOUSE
+                        || mouseKey.getValue() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                    return false;
+                }
+                state.renderer().rotate((float) dragX * 0.8F, (float) dragY * 0.55F);
+                return true;
+            }
+        });
+    }
+
+    @Override
     public void onDisplayedIngredientsUpdate(
             MultiblockInfoRecipe recipe, List<IRecipeSlotDrawable> recipeSlots, IFocusGroup focuses) {
         state(recipe).bindSlots(recipeSlots);
@@ -133,9 +179,6 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
                         SCENE.width(),
                         SCENE.height(),
                         Minecraft.getInstance().getFrameTime());
-        MultiblockPreviewScrollHandler.track(
-                state.renderer(), graphics, SCENE.x(), SCENE.y(), SCENE.width(), SCENE.height());
-
         graphics.drawString(
                 font,
                 Component.translatable("emi.neoecoae.multiblock.requirements"),

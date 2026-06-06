@@ -2,17 +2,24 @@
   "conditions": [
     {
       "type": "forge:mod_loaded",
-      "modid": "extendedae"
+      "modid": "expatternprovider"
     }
   ],
-  "type": "extendedae:circuit_cutter",
-  "input": {
+  "type": "expatternprovider:circuit_cutter",
+  "item_input": {
     "ingredient": {
       "item": "neoecoae:energized_superconductive_block"
-    }
+    },
+    "amount": 1
+  },
+  "fluid_input": {
+    "ingredient": {
+      "fluid": "minecraft:water"
+    },
+    "amount": 100
   },
   "output": {
     "count": 9,
-    "id": "neoecoae:superconducting_processor_print"
+    "item": "neoecoae:superconducting_processor_print"
   }
 }

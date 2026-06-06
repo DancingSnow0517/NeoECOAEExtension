@@ -208,7 +208,7 @@ dependencies {
     compileOnly("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
     runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
     compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
-    runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
+    // runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
     annotationProcessor "dev.emi:emi-forge:${emi_version}"
 
     compileOnly fg.deobf("maven.modrinth:jade:${jade_version}")

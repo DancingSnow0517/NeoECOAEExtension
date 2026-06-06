@@ -54,6 +54,18 @@ public final class AAERecipeData {
                 List.of(
                         ItemInput.tag(NETags.Items.ENERGIZED_CRYSTAL_DUST, 64),
                         ItemInput.tag(ConventionTags.FLUIX_CRYSTAL, 64))));
+
+        provider.accept(new ReactionChamberRecipe(
+                NeoECOAE.id("reaction_chamber/superconducting_processor"),
+                advancedAeInstalled,
+                NEItems.SUPERCONDUCTING_PROCESSOR,
+                4,
+                20000,
+                100,
+                List.of(
+                        ItemInput.item(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT, 4),
+                        ItemInput.item(NEItems.CRYSTAL_MATRIX, 4),
+                        ItemInput.item(AEItems.SILICON_PRINT, 4))));
     }
 
     private record ReactionChamberRecipe(

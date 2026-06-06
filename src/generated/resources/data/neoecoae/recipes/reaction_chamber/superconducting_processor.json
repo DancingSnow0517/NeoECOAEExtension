@@ -1,11 +1,18 @@
 {
+  "type": "advanced_ae:reaction",
   "conditions": [
     {
       "type": "forge:mod_loaded",
-      "modid": "extendedae"
+      "modid": "advanced_ae"
     }
   ],
-  "type": "extendedae:crystal_assembler",
+  "energy": 20000,
+  "fluid": {
+    "fluidStack": {
+      "Amount": 100,
+      "FluidName": "minecraft:water"
+    }
+  },
   "input_items": [
     {
       "amount": 4,
@@ -27,7 +34,8 @@
     }
   ],
   "output": {
-    "count": 4,
+    "#": 4,
+    "#c": "ae2:i",
     "id": "neoecoae:superconducting_processor"
   }
 }

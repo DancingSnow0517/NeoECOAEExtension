@@ -106,6 +106,9 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
             Player player,
             InteractionHand hand,
             BlockHitResult hitResult) {
+        if (player.isShiftKeyDown()) {
+            return InteractionResult.PASS;
+        }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }

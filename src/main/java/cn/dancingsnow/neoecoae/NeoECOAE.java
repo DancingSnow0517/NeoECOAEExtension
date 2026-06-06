@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.datagen.AAERecipeData;
+import cn.dancingsnow.neoecoae.datagen.EAERecipeData;
 import cn.dancingsnow.neoecoae.gui.nativeui.NENativeMenus;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.network.NENetwork;
@@ -69,6 +70,7 @@ public class NeoECOAE {
         // Datagen uses newer 1.21 recipe/provider APIs. Keep runtime registration
         // independent while the 1.20.1 data providers are rewritten.
         AAERecipeData.register();
+        EAERecipeData.register();
         NEGridServices.register();
         NEEcoTiers.register();
         NECellTypes.register();
