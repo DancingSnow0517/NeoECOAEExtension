@@ -4,7 +4,5 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
         maven { url = 'https://maven.minecraftforge.net' }
-        maven { url = 'https://maven.aliyun.com/repository/public' }
-        maven { url = 'https://maven.aliyun.com/repository/central' }
     }
 }
