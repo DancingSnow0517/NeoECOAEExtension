@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 import appeng.client.gui.Icon;
 import appeng.client.gui.style.BackgroundGenerator;
 import com.mojang.blaze3d.systems.RenderSystem;
+import java.util.Collections;
+import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -249,6 +251,19 @@ public final class NENativeAe2StyleRenderer {
      */
     public static void drawAeFluidTank(
             GuiGraphics g, int x, int y, int w, int h, FluidStack stack, int amount, int capacity) {
+        drawAeFluidTank(g, x, y, w, h, stack, amount, capacity, Collections.emptyMap());
+    }
+
+    public static void drawAeFluidTank(
+            GuiGraphics g,
+            int x,
+            int y,
+            int w,
+            int h,
+            FluidStack stack,
+            int amount,
+            int capacity,
+            Map<String, Integer> colors) {
         // ── 1. Outer frame (AE2 dark gray) ──
         g.fill(x, y, x + w, y + h, GAUGE_OUTER);
 

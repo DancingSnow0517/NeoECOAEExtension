@@ -165,7 +165,7 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
         widgets.addDrawable(0, 0, WIDTH, HEIGHT, (g, mouseX, mouseY, delta) -> {
 
             // 1.a Input fluid tank background
-            NENativeAe2StyleRenderer.drawAeFluidTank(
+            NENativeAe2StyleRenderer.drawAeFluidTankSimple(
                     g, INPUT_FLUID_TANK_X, INPUT_FLUID_TANK_Y, FLUID_TANK_W, FLUID_TANK_H, FluidStack.EMPTY, 0, 16000);
 
             // 1.b Input item slot backgrounds — always all 9 slots
@@ -181,7 +181,7 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
                     g, OUTPUT_FRAME_X, OUTPUT_FRAME_Y, OUTPUT_FRAME_W, OUTPUT_FRAME_H);
 
             // 1.d Output fluid tank background
-            NENativeAe2StyleRenderer.drawAeFluidTank(
+            NENativeAe2StyleRenderer.drawAeFluidTankSimple(
                     g,
                     OUTPUT_FLUID_TANK_X,
                     OUTPUT_FLUID_TANK_Y,

@@ -145,9 +145,9 @@ public class CoolingJeiCategory implements IRecipeCategory<CoolingRecipe> {
     public void draw(CoolingRecipe recipe, IRecipeSlotsView slots, GuiGraphics g, double mouseX, double mouseY) {
         Minecraft mc = Minecraft.getInstance();
 
-        NENativeAe2StyleRenderer.drawAeFluidTank(
+        NENativeAe2StyleRenderer.drawAeFluidTankSimple(
                 g, INPUT_TANK_X, INPUT_TANK_Y, TANK_SIZE, TANK_SIZE, FluidStack.EMPTY, 0, 1000);
-        NENativeAe2StyleRenderer.drawAeFluidTank(
+        NENativeAe2StyleRenderer.drawAeFluidTankSimple(
                 g, OUTPUT_TANK_X, OUTPUT_TANK_Y, TANK_SIZE, TANK_SIZE, FluidStack.EMPTY, 0, 1000);
 
         // ── Cooling progress animation ──

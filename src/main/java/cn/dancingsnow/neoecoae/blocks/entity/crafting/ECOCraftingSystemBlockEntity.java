@@ -674,6 +674,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
      * </p>
      */
     public NECraftingUiState createCraftingUiState() {
+        // Ensure stats are current before reading ANY field;
+        // otherwise threadCount could be stale while getAvailableThreads()
+        // triggers a recalculation, making effParallel inconsistent.
+        ensureCraftingStatsCurrent();
+
         int totalParallelism = threadCount; // FT 理论并行
         int availThreads = getAvailableThreads(); // FX 工作核心承载上限
         int effParallel = Math.min(totalParallelism, availThreads); // 实际有效并行
