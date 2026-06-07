@@ -375,6 +375,7 @@ tasks.named('test', Test).configure {
 
 tasks.named('compileJava', JavaCompile).configure {
     dependsOn 'createMcpToSrg'
+    dependsOn 'spotlessApply'
     def refmapFile = layout.buildDirectory.file("generated/refmap/${mod_id}.refmap.json").get().asFile
     def tsrgFile = layout.buildDirectory.file('createMcpToSrg/output.tsrg').get().asFile
     options.compilerArgs += [

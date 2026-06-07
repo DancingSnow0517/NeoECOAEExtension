@@ -296,6 +296,9 @@ public final class NENetwork {
             buf.writeUtf(s.previewStatusKey(), 256);
             buf.writeInt(s.previewStatusArg1());
             buf.writeInt(s.previewStatusArg2());
+            buf.writeVarLong(s.energyUsage());
+            buf.writeVarLong(s.coolantAmount());
+            buf.writeVarLong(s.coolantCapacity());
         }
 
         public static NECraftingUiStatePacket decode(FriendlyByteBuf buf) {
@@ -319,7 +322,10 @@ public final class NENetwork {
                     buf.readInt(),
                     buf.readUtf(256),
                     buf.readInt(),
-                    buf.readInt()));
+                    buf.readInt(),
+                    buf.readVarLong(),
+                    buf.readVarLong(),
+                    buf.readVarLong()));
         }
 
         public static void handle(NECraftingUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {

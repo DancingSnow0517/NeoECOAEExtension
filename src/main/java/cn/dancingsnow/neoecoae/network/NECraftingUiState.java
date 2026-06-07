@@ -32,7 +32,10 @@ public record NECraftingUiState(
         int previewRequiredItems,
         String previewStatusKey,
         int previewStatusArg1,
-        int previewStatusArg2) {
+        int previewStatusArg2,
+        long energyUsage,
+        long coolantAmount,
+        long coolantCapacity) {
     public static NECraftingUiState empty(BlockPos pos) {
         return new NECraftingUiState(
                 pos,
@@ -54,6 +57,9 @@ public record NECraftingUiState(
                 0,
                 "gui.neoecoae.multiblock.status.idle",
                 0,
-                0);
+                0,
+                0L,
+                0L,
+                0L);
     }
 }

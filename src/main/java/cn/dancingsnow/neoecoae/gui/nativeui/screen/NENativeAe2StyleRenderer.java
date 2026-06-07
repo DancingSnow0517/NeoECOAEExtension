@@ -227,70 +227,72 @@ public final class NENativeAe2StyleRenderer {
         g.fill(x + 2, y + 2, x + w - 2, y + h - 2, fillColor);
     }
 
-    // ── Fluid tank ──
+    // ── Fluid tank gauge ──
 
-    private static final int TANK_BORDER = 0xFF3F3F3F;
-    private static final int TANK_GLASS_BG = 0xFFBEBEBE;
-    private static final int TANK_GLASS_OVERLAY = 0x18FFFFFF;
-    private static final int TANK_MAJOR_TICK = 0xFF4A4A4A;
-    private static final int TANK_MINOR_TICK = 0xFF7A7A7A;
-    private static final int TICK_AREA_WIDTH = 7;
-    private static final int TANK_INNER_PAD = 3;
+    private static final int GAUGE_OUTER = 0xFF4A4A4A;
+    private static final int GAUGE_INNER_BORDER = 0xFF707070;
+    private static final int GAUGE_BG = 0xFF8E8E8E;
+    private static final int GAUGE_MAJOR_TICK = 0xFF5A5A5A;
+    private static final int GAUGE_MINOR_TICK = 0xFF777777;
 
     /**
-     * Draw a vertical storage-tank-style fluid gauge with:
+     * Draw a compact vertical fluid gauge styled as a glass sight-glass.
      * <ul>
-     * <li>Dark outer border — the tank shell</li>
-     * <li>Light-gray glass interior</li>
-     * <li>Fluid still-texture fill from bottom to top, clipped inside the
-     * glass area</li>
-     * <li>Hardcoded tick marks on the left side (4 major + 4 minor, no PNG)</li>
-     * <li>A subtle glass reflection overlay</li>
+     * <li>AE2-style dark-gray outer frame + inner border</li>
+     * <li>Fluid still-texture fill from bottom to top, clipped inside
+     * the inner glass area</li>
+     * <li>Tick marks on the <b>left outside</b> of the tank — never
+     * overlapping the fluid texture</li>
+     * <li>Glass highlight and shadow overlays to soften the tiled
+     * fluid texture, avoiding the "texture wall" look</li>
      * </ul>
      */
     public static void drawAeFluidTank(
             GuiGraphics g, int x, int y, int w, int h, FluidStack stack, int amount, int capacity) {
-        // ── 1. Outer tank shell (1 px dark border) ──
-        g.fill(x, y, x + w, y + 1, TANK_BORDER);
-        g.fill(x, y + h - 1, x + w, y + h, TANK_BORDER);
-        g.fill(x, y, x + 1, y + h, TANK_BORDER);
-        g.fill(x + w - 1, y, x + w, y + h, TANK_BORDER);
+        // ── 1. Outer frame (AE2 dark gray) ──
+        g.fill(x, y, x + w, y + h, GAUGE_OUTER);
 
-        // ── 2. Glass interior background ──
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, TANK_GLASS_BG);
+        // ── 2. Inner border ──
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, GAUGE_INNER_BORDER);
 
-        // ── 3. Compute geometry ──
-        int tickLeft = x + 1;
-        int tickMajorRight = x + 1 + TICK_AREA_WIDTH;
-        int tickMinorRight = x + 1 + TICK_AREA_WIDTH / 2 + 1;
-        int fluidLeft = x + 1 + TICK_AREA_WIDTH + 1;
-        int fluidRight = x + w - 1 - TANK_INNER_PAD + 1;
-        int fluidTop = y + TANK_INNER_PAD;
-        int fluidBottom = y + h - TANK_INNER_PAD;
-        int fluidWidth = fluidRight - fluidLeft;
-        int fluidHeight = fluidBottom - fluidTop;
+        // ── 3. Interior background ──
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, GAUGE_BG);
 
-        // ── 4. Tick marks (5 major, 4 minor; 4 equal divisions) ──
+        // ── 4. Fluid area (inset 4 px) ──
+        int ix = x + 4;
+        int iy = y + 4;
+        int iw = w - 8;
+        int ih = h - 8;
+
+        // ── 5. Tick marks on the left outside of the tank ──
+        int tickX0 = x - 8;
+        int tickX1 = x - 2;
+        int tickBottom = y + h - 4;
+        int tickTop = y + 4;
+        int tickRange = tickBottom - tickTop;
+
         for (int i = 0; i <= 4; i++) {
-            int tickY = fluidBottom - i * fluidHeight / 4;
-            g.fill(tickLeft, tickY, tickMajorRight, tickY + 1, TANK_MAJOR_TICK);
+            int tickY = tickBottom - i * tickRange / 4;
+            g.fill(tickX0, tickY, tickX1, tickY + 1, GAUGE_MAJOR_TICK);
         }
-        for (int i = 0; i < 4; i++) {
-            int tickY = fluidBottom - (i * 2 + 1) * fluidHeight / 8;
-            g.fill(tickLeft, tickY, tickMinorRight, tickY + 1, TANK_MINOR_TICK);
+        for (int i = 0; i <= 8; i++) {
+            int tickY = tickBottom - i * tickRange / 8;
+            g.fill(tickX0, tickY, tickX0 + 3, tickY + 1, GAUGE_MINOR_TICK);
         }
 
-        // ── 5. Fluid fill (bottom → top, clipped inside fluid area) ──
-        if (amount > 0 && !stack.isEmpty() && capacity > 0 && fluidHeight > 0) {
-            int barH = Mth.clamp((int) ((long) amount * fluidHeight / capacity), 1, fluidHeight);
-            int fillY = fluidBottom - barH;
-            g.enableScissor(fluidLeft, fillY, fluidLeft + fluidWidth, fluidBottom);
-            drawFluidTextureFull(g, fluidLeft, fluidTop, fluidWidth, fluidHeight, stack, fluidBottom);
+        // ── 6. Fluid fill (bottom → top, scissor-clipped) ──
+        if (amount > 0 && !stack.isEmpty() && capacity > 0 && ih > 0) {
+            int barH = Mth.clamp((int) ((long) amount * ih / capacity), 1, ih);
+            int fillY = iy + ih - barH;
+            g.enableScissor(ix, fillY, ix + iw, iy + ih);
+            drawFluidTextureFull(g, ix, iy, iw, ih, stack, iy + ih);
             g.disableScissor();
         }
 
-        // ── 6. Glass reflection overlay (subtle white sheen) ──
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, TANK_GLASS_OVERLAY);
+        // ── 7. Glass overlays — soften the tiled fluid texture ──
+        g.fill(ix, iy, ix + iw, iy + ih, 0x22FFFFFF);
+        g.fill(ix + 1, iy + 1, ix + 3, iy + ih - 1, 0x30FFFFFF);
+        g.fill(ix + iw - 3, iy + 1, ix + iw - 1, iy + ih - 1, 0x18000000);
     }
 
     /**

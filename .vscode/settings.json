@@ -1,4 +1,9 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.format.enabled": false,
+    "editor.formatOnSave": false,
+    "[java]": {
+        "editor.formatOnSave": false
+    }
 }

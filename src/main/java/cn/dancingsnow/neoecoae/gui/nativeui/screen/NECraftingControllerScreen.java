@@ -14,6 +14,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
@@ -36,13 +37,32 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     private static final int DARK_TEXT_SUCCESS = 0xFF6CFFA0;
     private static final int DARK_TEXT_WARNING = 0xFFFFD65A;
     private static final int DARK_TEXT_ERROR = 0xFFFF6A75;
+    private static final int DARK_TEXT_BLUE = 0xFF3FD6FF;
+
+    private static final long MAX_ENERGY_USAGE = 563200L;
+
+    // ── Crafting module textures ──
+    private static final ResourceLocation MODULE_CORE_SIDE =
+            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/block/crafting/core/core_side.png");
+
+    private static final ResourceLocation MODULE_PARALLEL_CORE_FRONT =
+            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/block/crafting/core/parallel_core_north.png");
+
+    private static final ResourceLocation MODULE_PARALLEL_CORE_LIGHT_L4 =
+            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/block/crafting/core/parallel_core_light_a.png");
+
+    private static final ResourceLocation MODULE_PARALLEL_CORE_LIGHT_L6 =
+            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/block/crafting/core/parallel_core_light_b.png");
+
+    private static final ResourceLocation MODULE_PARALLEL_CORE_LIGHT_L9 =
+            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/block/crafting/core/parallel_core_light_c.png");
 
     private static final int PANEL_MARGIN = 7;
 
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
     private static final int MAIN_PANEL_Y = 24;
     private static final int MAIN_PANEL_W = 358;
-    private static final int MAIN_PANEL_H = 184;
+    private static final int MAIN_PANEL_H = 176;
 
     /*
      * Keep the original three toolbar buttons at exactly the same relative
@@ -50,8 +70,8 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
      *
      * Old values:
      * main panel: (7, 24)
-     * toolbar:    (-22, 3)
-     * relative:   (-29, -21)
+     * toolbar: (-22, 3)
+     * relative: (-29, -21)
      */
     private static final int TOOLBAR_TO_MAIN_PANEL_X = -29;
     private static final int TOOLBAR_TO_MAIN_PANEL_Y = -21;
@@ -64,7 +84,7 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     private static final int MODULE_AREA_X = MAIN_PANEL_X + 7;
     private static final int MODULE_AREA_Y = MAIN_PANEL_Y + 7;
     private static final int MODULE_AREA_W = MAIN_PANEL_W - 14;
-    private static final int MODULE_AREA_H = 62;
+    private static final int MODULE_AREA_H = 84;
 
     private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 8;
 
@@ -82,11 +102,6 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     private static final int GAUGE_AREA_Y = MIDDLE_AREA_Y;
     private static final int GAUGE_AREA_W = MODULE_AREA_X + MODULE_AREA_W - GAUGE_AREA_X;
     private static final int GAUGE_AREA_H = 70;
-
-    private static final int RESERVED_AREA_X = MODULE_AREA_X;
-    private static final int RESERVED_AREA_Y = STATUS_AREA_Y + STATUS_AREA_H + 7;
-    private static final int RESERVED_AREA_W = MODULE_AREA_W;
-    private static final int RESERVED_AREA_H = MAIN_PANEL_Y + MAIN_PANEL_H - RESERVED_AREA_Y - 6;
 
     private static final int FORMED_BAR_H = 25;
     private static final int FORMED_BAR_BOTTOM_GAP = 7;
@@ -110,7 +125,7 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     public NECraftingControllerScreen(NECraftingControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.CRAFTING_CONTROLLER);
         this.imageWidth = 372;
-        this.imageHeight = 248;
+        this.imageHeight = 240;
         this.craftingState = NECraftingUiState.empty(menu.getMachinePos());
     }
 
@@ -165,6 +180,7 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         updateToolbarButtons(resolveCraftingState());
         super.render(guiGraphics, mouseX, mouseY, partialTick);
+        renderGaugeTooltips(guiGraphics, mouseX, mouseY);
     }
 
     @Override
@@ -177,7 +193,6 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         drawStatusArea(guiGraphics, s);
         drawStatsArea(guiGraphics, s);
         drawGaugeArea(guiGraphics, s);
-        drawReservedArea(guiGraphics);
 
         drawFormedStatusBar(guiGraphics, s.formed(), imageWidth, imageHeight);
     }
@@ -188,90 +203,92 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         drawLine(g, "结构模块预览", MODULE_AREA_X + 8, MODULE_AREA_Y + 5, DARK_TEXT_PRIMARY);
         drawRightAlignedLine(
                 g,
-                "FD " + fmt(s.patternBusCount()) + "   FT " + fmt(s.parallelCount()) + "   FX " + fmt(s.workerCount()),
+                "FT " + fmt(s.parallelCount()) + "   FX " + fmt(s.workerCount()),
                 MODULE_AREA_X + MODULE_AREA_W - 8,
                 MODULE_AREA_Y + 5,
                 DARK_TEXT_VALUE);
 
-        int cols = 12;
-        int slotSize = 20;
-        int gap = 6;
+        int cols = 14;
+        int slotSize = 18;
+        int gap = 0;
+        int rowGap = 0;
         int totalW = cols * slotSize + (cols - 1) * gap;
         int startX = MODULE_AREA_X + (MODULE_AREA_W - totalW) / 2;
-        int row1Y = MODULE_AREA_Y + 20;
-        int row2Y = row1Y + slotSize + 4;
+
+        int topY = MODULE_AREA_Y + 16;
+        int middleY = topY + slotSize + rowGap;
+        int bottomY = middleY + slotSize + rowGap;
+
+        ResourceLocation tierLight = resolveParallelCoreLightTexture();
 
         for (int col = 0; col < cols; col++) {
             int x = startX + col * (slotSize + gap);
-            drawModuleSlot(g, x, row1Y, slotSize, moduleLabelForTopRow(col), moduleColorForTopRow(col));
-            drawModuleSlot(g, x, row2Y, slotSize, moduleLabelForBottomRow(col), moduleColorForBottomRow(col));
+
+            boolean activeTop = col < visibleParallelSlots(s.parallelCount());
+            boolean activeMiddle = col < visibleCoreSlots(s.patternBusCount(), s.workerCount());
+            boolean activeBottom = col < visibleParallelSlots(s.parallelCount());
+
+            drawTexturedModuleSlot(g, x, topY, slotSize, MODULE_PARALLEL_CORE_FRONT, tierLight, activeTop);
+            drawTexturedModuleSlot(g, x, middleY, slotSize, MODULE_CORE_SIDE, null, activeMiddle);
+            drawTexturedModuleSlot(g, x, bottomY, slotSize, MODULE_PARALLEL_CORE_FRONT, tierLight, activeBottom);
         }
     }
 
-    private void drawModuleSlot(GuiGraphics g, int x, int y, int size, String label, int color) {
+    private void drawTexturedModuleSlot(
+            GuiGraphics g,
+            int x,
+            int y,
+            int size,
+            ResourceLocation baseTexture,
+            ResourceLocation overlayTexture,
+            boolean active) {
         drawDarkInsetRect(g, x, y, size, size);
 
-        int inner = size - 8;
-        int ix = x + 4;
-        int iy = y + 4;
-        g.fill(ix, iy, ix + inner, iy + inner, 0xAA17141E);
+        int innerX = x + 2;
+        int innerY = y + 2;
+        int innerSize = size - 4;
 
-        if (!label.isEmpty()) {
-            g.fill(ix + 2, iy + inner - 4, ix + inner - 2, iy + inner - 2, color);
-            drawCenteredLine(g, label, x, y + 6, size, color);
+        g.fill(innerX, innerY, innerX + innerSize, innerY + innerSize, 0xAA17141E);
+
+        if (baseTexture != null) {
+            g.blit(baseTexture, innerX, innerY, innerSize, innerSize, 0, 0, 16, 16, 16, 16);
         }
+
+        if (overlayTexture != null) {
+            g.blit(overlayTexture, innerX, innerY, innerSize, innerSize, 0, 0, 16, 16, 16, 16);
+        }
+
+        // if (!active) {
+        // g.fill(innerX, innerY, innerX + innerSize, innerY + innerSize, 0x99000000);
+        // } else {
+        // g.fill(innerX, innerY + innerSize - 2, innerX + innerSize, innerY + innerSize, 0x703FD6FF);
+        // }
     }
 
-    private String moduleLabelForTopRow(int col) {
-        if (col < 4) {
-            return "FD";
+    private ResourceLocation resolveParallelCoreLightTexture() {
+        String titleText = title.getString().toUpperCase(Locale.ROOT);
+        if (titleText.contains("F9")) {
+            return MODULE_PARALLEL_CORE_LIGHT_L9;
         }
-        if (col < 8) {
-            return "FT";
+        if (titleText.contains("F6")) {
+            return MODULE_PARALLEL_CORE_LIGHT_L6;
         }
-        if (col < 11) {
-            return "FX";
-        }
-        return "";
+        return MODULE_PARALLEL_CORE_LIGHT_L4;
     }
 
-    private String moduleLabelForBottomRow(int col) {
-        if (col < 4) {
-            return "FT";
+    private static int visibleParallelSlots(int parallelCount) {
+        if (parallelCount <= 0) {
+            return 0;
         }
-        if (col < 8) {
-            return "FX";
-        }
-        if (col < 11) {
-            return "·";
-        }
-        return "";
+        return Math.max(1, Math.min(14, parallelCount));
     }
 
-    private int moduleColorForTopRow(int col) {
-        if (col < 4) {
-            return DARK_TEXT_MUTED;
+    private static int visibleCoreSlots(int patternBusCount, int workerCount) {
+        int count = Math.max(patternBusCount, workerCount);
+        if (count <= 0) {
+            return 0;
         }
-        if (col < 8) {
-            return DARK_TEXT_VALUE;
-        }
-        if (col < 11) {
-            return DARK_TEXT_SUCCESS;
-        }
-        return DARK_TEXT_MUTED;
-    }
-
-    private int moduleColorForBottomRow(int col) {
-        if (col < 4) {
-            return DARK_TEXT_MUTED;
-        }
-        if (col < 8) {
-            return DARK_TEXT_VALUE;
-        }
-        if (col < 11) {
-            return DARK_TEXT_SUCCESS;
-        }
-        return DARK_TEXT_MUTED;
+        return Math.max(1, Math.min(14, count));
     }
 
     private void drawStatusArea(GuiGraphics g, NECraftingUiState s) {
@@ -280,11 +297,11 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         drawLine(g, "状态", STATUS_AREA_X + 8, STATUS_AREA_Y + 5, DARK_TEXT_PRIMARY);
 
         int y = STATUS_AREA_Y + 21;
-        drawStatusRow(g, "超频", s.overclocked(), STATUS_AREA_X + 8, y);
+        drawStatusRow(g, "超频", s.overclocked(), STATUS_AREA_X + 4, y);
         y += 15;
-        drawStatusRow(g, "冷却", s.activeCooling(), STATUS_AREA_X + 8, y);
+        drawStatusRow(g, "冷却", s.activeCooling(), STATUS_AREA_X + 4, y);
         y += 15;
-        drawStatusRow(g, "清废", s.autoClearCoolingWaste(), STATUS_AREA_X + 8, y);
+        drawStatusRow(g, "清废", s.autoClearCoolingWaste(), STATUS_AREA_X + 4, y);
     }
 
     private void drawStatsArea(GuiGraphics g, NECraftingUiState s) {
@@ -298,11 +315,11 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         drawCompactPairLine(g, "线程", s.runningThreadCount(), s.threadCount(), x, y);
         drawThreadUsageBar(g, x, y + 12, STATS_AREA_W - 16, 9, s.runningThreadCount(), s.threadCount());
 
-        y += 27;
+        y += 23;
         drawInlineValueLine(g, "样板", s.patternBusCount(), x, y);
         drawInlineValueLine(g, "并行", s.parallelCount(), x + 76, y);
 
-        y += 13;
+        y += 9;
         drawInlineValueLine(g, "工作", s.workerCount(), x, y);
         drawInlineValueLine(g, "总并行", s.parallelCount(), x + 76, y);
     }
@@ -312,42 +329,25 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
         drawLine(g, "能耗 / 冷却", GAUGE_AREA_X + 8, GAUGE_AREA_Y + 5, DARK_TEXT_PRIMARY);
 
-        int gaugeY = GAUGE_AREA_Y + 22;
+        int gaugeY = GAUGE_AREA_Y + 16;
         int gaugeH = 34;
         int gaugeW = 25;
         int energyX = GAUGE_AREA_X + 13;
         int coolantX = GAUGE_AREA_X + GAUGE_AREA_W - 13 - gaugeW;
 
-        drawVerticalReserveGauge(g, energyX, gaugeY, gaugeW, gaugeH, "AE", DARK_TEXT_WARNING, 0.32D);
-        drawVerticalReserveGauge(
-                g,
-                coolantX,
-                gaugeY,
-                gaugeW,
-                gaugeH,
-                "CL",
-                s.activeCooling() ? DARK_TEXT_SUCCESS : DARK_TEXT_MUTED,
-                s.activeCooling() ? 0.55D : 0.18D);
+        long energyUsage = s.energyUsage();
+        double energyRatio = clampRatio(energyUsage, MAX_ENERGY_USAGE);
+        int energyColor = energyGaugeColor(energyRatio);
 
-        drawCenteredLine(g, "能耗", energyX - 8, gaugeY + gaugeH + 5, gaugeW + 16, DARK_TEXT_MUTED);
-        drawCenteredLine(g, "冷却", coolantX - 8, gaugeY + gaugeH + 5, gaugeW + 16, DARK_TEXT_MUTED);
-    }
+        long coolantAmount = s.coolantAmount();
+        long coolantCapacity = s.coolantCapacity();
+        double coolantRatio = clampRatio(coolantAmount, coolantCapacity);
 
-    private void drawReservedArea(GuiGraphics g) {
-        drawDarkInsetRect(g, RESERVED_AREA_X, RESERVED_AREA_Y, RESERVED_AREA_W, RESERVED_AREA_H);
+        drawVerticalReserveGauge(g, energyX, gaugeY, gaugeW, gaugeH, "", energyColor, energyRatio);
+        drawVerticalReserveGauge(g, coolantX, gaugeY, gaugeW, gaugeH, "", DARK_TEXT_BLUE, coolantRatio);
 
-        int slotSize = 20;
-        int gap = 6;
-        int slotCount = 9;
-        int totalW = slotCount * slotSize + (slotCount - 1) * gap;
-        int startX = RESERVED_AREA_X + 9;
-        int y = RESERVED_AREA_Y + (RESERVED_AREA_H - slotSize) / 2;
-
-        for (int i = 0; i < slotCount; i++) {
-            drawModuleSlot(g, startX + i * (slotSize + gap), y, slotSize, "", DARK_TEXT_MUTED);
-        }
-
-        drawLine(g, "任务队列", startX + totalW + 14, RESERVED_AREA_Y + 9, DARK_TEXT_MUTED);
+        drawCenteredLine(g, "能耗", energyX - 8, gaugeY + gaugeH + 1, gaugeW + 16, DARK_TEXT_MUTED);
+        drawCenteredLine(g, "冷却", coolantX - 8, gaugeY + gaugeH + 1, gaugeW + 16, DARK_TEXT_MUTED);
     }
 
     private void drawStatusRow(GuiGraphics g, String label, boolean enabled, int x, int y) {
@@ -378,8 +378,6 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
             g.fill(ix, fillY, ix + iw, iy + ih, accentColor);
             g.fill(ix, fillY, ix + iw, Math.min(fillY + 2, iy + ih), 0x70FFFFFF);
         }
-
-        drawCenteredLine(g, label, x, y + 3, w, DARK_TEXT_PRIMARY);
     }
 
     private void drawThreadUsageBar(GuiGraphics g, int x, int y, int w, int h, long current, long max) {
@@ -529,6 +527,53 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
     private static String fmt(long value) {
         return NUMBER_FORMAT.format(value);
+    }
+
+    // ── Gauge helpers ──
+
+    private static double clampRatio(long value, long max) {
+        if (value <= 0 || max <= 0) {
+            return 0.0D;
+        }
+        return Math.max(0.0D, Math.min(1.0D, (double) value / (double) max));
+    }
+
+    private static int energyGaugeColor(double ratio) {
+        if (ratio >= 0.9D) {
+            return DARK_TEXT_ERROR;
+        }
+        if (ratio >= 0.5D) {
+            return DARK_TEXT_WARNING;
+        }
+        return DARK_TEXT_SUCCESS;
+    }
+
+    private static boolean isMouseInRect(int mouseX, int mouseY, int x, int y, int w, int h) {
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+    }
+
+    private void renderGaugeTooltips(GuiGraphics g, int mouseX, int mouseY) {
+        NECraftingUiState s = resolveCraftingState();
+
+        int gaugeY = GAUGE_AREA_Y + 16;
+        int gaugeH = 34;
+        int gaugeW = 25;
+        int energyX = GAUGE_AREA_X + 13;
+        int coolantX = GAUGE_AREA_X + GAUGE_AREA_W - 13 - gaugeW;
+
+        int screenEnergyX = leftPos + energyX;
+        int screenCoolantX = leftPos + coolantX;
+        int screenGaugeY = topPos + gaugeY;
+
+        if (isMouseInRect(mouseX, mouseY, screenEnergyX, screenGaugeY, gaugeW, gaugeH)) {
+            String tip = "当前能耗：" + fmt(s.energyUsage());
+            g.renderTooltip(font, Component.literal(tip), mouseX, mouseY);
+        }
+
+        if (isMouseInRect(mouseX, mouseY, screenCoolantX, screenGaugeY, gaugeW, gaugeH)) {
+            String tip = "冷却液还剩：" + fmt(s.coolantAmount()) + " / " + fmt(s.coolantCapacity()) + " mB";
+            g.renderTooltip(font, Component.literal(tip), mouseX, mouseY);
+        }
     }
 
     public NECraftingControllerMenu getMenu() {

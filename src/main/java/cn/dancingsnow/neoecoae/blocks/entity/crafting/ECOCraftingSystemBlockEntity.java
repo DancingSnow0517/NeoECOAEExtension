@@ -668,6 +668,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
      * </p>
      */
     public NECraftingUiState createCraftingUiState() {
+        // Read coolant amount from input hatch fluid tank; fall back to zero
+        long currentCoolantAmount = 0L;
+        long currentCoolantCapacity = 0L;
+        if (cluster != null && cluster.getInputHatch() != null) {
+            FluidTank inputTank = cluster.getInputHatch().tank;
+            currentCoolantAmount = inputTank.getFluidAmount();
+            currentCoolantCapacity = inputTank.getCapacity();
+        }
+
         return new NECraftingUiState(
                 worldPosition,
                 formed,
@@ -688,7 +697,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 getPreviewRequiredItems(),
                 previewStatusKey,
                 previewStatusArg1,
-                previewStatusArg2);
+                previewStatusArg2,
+                getCurrentEnergyPerTick(),
+                currentCoolantAmount,
+                currentCoolantCapacity);
     }
 
     private long getMaxEnergyUsage() {
