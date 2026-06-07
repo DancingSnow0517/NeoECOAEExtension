@@ -208,7 +208,12 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
                 MODULE_AREA_Y + 5,
                 DARK_TEXT_VALUE);
 
-        int cols = 14;
+        int cols = visibleWorkerColumns(s.workerCount());
+        if (cols <= 0) {
+            drawCenteredLine(g, "未检测到工作核心", MODULE_AREA_X, MODULE_AREA_Y + 39, MODULE_AREA_W, DARK_TEXT_MUTED);
+            return;
+        }
+
         int slotSize = 18;
         int gap = 0;
         int rowGap = 0;
@@ -221,12 +226,16 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
         ResourceLocation tierLight = resolveParallelCoreLightTexture();
 
+        int parallelSlots = Math.max(0, s.parallelCount());
+        int activeTopFtSlots = Math.min(parallelSlots, cols);
+        int activeBottomFtSlots = Math.min(Math.max(0, parallelSlots - cols), cols);
+
         for (int col = 0; col < cols; col++) {
             int x = startX + col * (slotSize + gap);
 
-            boolean activeTop = col < visibleParallelSlots(s.parallelCount());
-            boolean activeMiddle = col < visibleCoreSlots(s.patternBusCount(), s.workerCount());
-            boolean activeBottom = col < visibleParallelSlots(s.parallelCount());
+            boolean activeTop = col < activeTopFtSlots;
+            boolean activeMiddle = col < s.workerCount();
+            boolean activeBottom = col < activeBottomFtSlots;
 
             drawTexturedModuleSlot(g, x, topY, slotSize, MODULE_PARALLEL_CORE_FRONT, tierLight, activeTop);
             drawTexturedModuleSlot(g, x, middleY, slotSize, MODULE_CORE_SIDE, null, activeMiddle);
@@ -258,11 +267,9 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
             g.blit(overlayTexture, innerX, innerY, innerSize, innerSize, 0, 0, 16, 16, 16, 16);
         }
 
-        // if (!active) {
-        // g.fill(innerX, innerY, innerX + innerSize, innerY + innerSize, 0x99000000);
-        // } else {
-        // g.fill(innerX, innerY + innerSize - 2, innerX + innerSize, innerY + innerSize, 0x703FD6FF);
-        // }
+        if (!active) {
+            g.fill(innerX, innerY, innerX + innerSize, innerY + innerSize, 0x99000000);
+        }
     }
 
     private ResourceLocation resolveParallelCoreLightTexture() {
@@ -276,19 +283,11 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         return MODULE_PARALLEL_CORE_LIGHT_L4;
     }
 
-    private static int visibleParallelSlots(int parallelCount) {
-        if (parallelCount <= 0) {
+    private static int visibleWorkerColumns(int workerCount) {
+        if (workerCount <= 0) {
             return 0;
         }
-        return Math.max(1, Math.min(14, parallelCount));
-    }
-
-    private static int visibleCoreSlots(int patternBusCount, int workerCount) {
-        int count = Math.max(patternBusCount, workerCount);
-        if (count <= 0) {
-            return 0;
-        }
-        return Math.max(1, Math.min(14, count));
+        return Math.min(16, workerCount);
     }
 
     private void drawStatusArea(GuiGraphics g, NECraftingUiState s) {

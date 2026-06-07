@@ -46,10 +46,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     /**
      * Internal coolant cache maximum — the crafting controller's own cooling
-     * buffer, <em>not</em> the fluid hatch tank capacity.  Aligned with the
-     * 1.12.2 {@code EFabricatorController.MAX_COOLANT_CACHE}.
+     * buffer, <em>not</em> the fluid hatch tank capacity.
+     * Maintains the 1.21.1 value of 1,000,000.
      */
-    public static final int MAX_COOLANT = 100_000;
+    public static final int MAX_COOLANT = 1_000_000;
 
     private static final int COOLANT_PER_CRAFT = 5;
 
@@ -776,9 +776,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return 0;
         }
 
-        long requiredInput = ((long) deficit * inputAmount + recipe.coolant() - 1L) / recipe.coolant();
-        long drainAmount = Math.min(requiredInput, inputHatch.getFluidAmount());
-        drainAmount = Math.min(drainAmount, getMaxDrainByOutput(recipe, outputHatch));
+        long drainAmount = Math.min(inputHatch.getFluidAmount(), getMaxDrainByOutput(recipe, outputHatch));
         if (drainAmount <= 0) {
             return 0;
         }
