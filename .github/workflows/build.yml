@@ -37,7 +37,7 @@ jobs:
         run: ./gradlew copyGuidebook
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon --retry 3
+        run: ./gradlew build --no-daemon
 
       - name: Read Properties
         id: 'properties'
