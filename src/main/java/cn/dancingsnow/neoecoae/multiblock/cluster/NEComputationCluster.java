@@ -193,9 +193,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             }
             recalculateRemainingStorage();
         }
-        if (controller != null) {
-            controller.updateInfos();
-        }
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {

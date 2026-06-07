@@ -48,16 +48,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Getter
     private final IECOTier tier;
 
-    @DescSynced
-    private int usedThread;
-    @DescSynced
-    private int totalThread;
-    @DescSynced
-    private int parallelCount;
-    @DescSynced
-    private long availableBytes;
-    @DescSynced
-    private long totalBytes;
     @Persisted
     @DescSynced
     private int selectedBuildLength = 1;
@@ -94,39 +84,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 );
             }
         }
-        if (updateExposed) {
-            updateInfos();
-        }
-    }
-
-    public void updateInfos() {
-        if (cluster != null) {
-            availableBytes = cluster.getAvailableStorage();
-            totalBytes = 0;
-            for (ECOComputationDriveBlockEntity drive : cluster.getUpperDrives()) {
-                ItemStack cellStack = drive.getCellStack();
-                if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    totalBytes += cellItem.getTier().getCPUTotalBytes();
-                }
-            }
-            for (ECOComputationDriveBlockEntity drive : cluster.getLowerDrives()) {
-                ItemStack cellStack = drive.getCellStack();
-                if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    totalBytes += cellItem.getTier().getCPUTotalBytes();
-                }
-            }
-
-            usedThread = cluster.getActiveCPUs().size();
-            totalThread = cluster.getMaxThreads();
-            parallelCount = cluster.getParallelCores().stream().mapToInt(e -> e.getTier().getCPUAccelerators()).sum();
-        } else {
-            usedThread = 0;
-            totalThread = 0;
-            parallelCount = 0;
-            availableBytes = 0;
-            totalBytes = 0;
-        }
-        setChanged();
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
@@ -173,11 +130,11 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         UIElement details = ECOHostWidgets.detailArea(false);
         ECOHostWidgets.addDetailChild(details, ECOHostWidgets.sectionTitle("gui.neoecoae.host.computation.capacity"));
         ECOHostWidgets.addDetailChild(details, ECOHostWidgets.tileRow(List.of(
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.active_vcpu", () -> Component.literal(String.valueOf(usedThread))),
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.max_vcpu", () -> Component.literal(String.valueOf(totalThread))),
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.parallel_count", () -> Component.literal(String.valueOf(parallelCount))),
+            ECOHostWidgets.tile("gui.neoecoae.host.computation.active_vcpu", () -> Component.literal(String.valueOf(getUsedThread()))),
+            ECOHostWidgets.tile("gui.neoecoae.host.computation.max_vcpu", () -> Component.literal(String.valueOf(getTotalThread()))),
+            ECOHostWidgets.tile("gui.neoecoae.host.computation.parallel_count", () -> Component.literal(String.valueOf(getParallelCount()))),
             ECOHostWidgets.tile("gui.neoecoae.host.computation.free_memory", () -> {
-                Tooltips.Amount byteAmount = Tooltips.getByteAmount(Math.max(availableBytes, 0));
+                Tooltips.Amount byteAmount = Tooltips.getByteAmount(Math.max(getAvailableBytes(), 0));
                 return Component.literal(byteAmount.digit()+byteAmount.unit());
             }
         ))));
@@ -189,17 +146,17 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             List.of(
                 ECOHostMetric.ratio(
                     () -> Component.translatable("gui.neoecoae.host.computation.cpu_storage"),
-                    () -> ComponentUtil.coloredBytesPair(getUsedComputationBytes(), totalBytes, false),
-                    () -> ECOHostStyles.ratio(getUsedComputationBytes(), totalBytes)
+                    () -> ComponentUtil.coloredBytesPair(getUsedComputationBytes(), getTotalBytes(), false),
+                    () -> ECOHostStyles.ratio(getUsedComputationBytes(), getTotalBytes())
                 ),
                 ECOHostMetric.ratio(
                     () -> Component.translatable("gui.neoecoae.host.computation.thread_usage"),
-                    () -> ComponentUtil.coloredNumberPair(usedThread, totalThread, false),
-                    () -> ECOHostStyles.ratio(usedThread, totalThread)
+                    () -> ComponentUtil.coloredNumberPair(getUsedThread(), getTotalThread(), false),
+                    () -> ECOHostStyles.ratio(getUsedThread(), getTotalThread())
                 ),
                 ECOHostMetric.scalar(
                     () -> Component.translatable("gui.neoecoae.host.computation.parallel_count"),
-                    () -> Component.literal(String.valueOf(parallelCount))
+                    () -> Component.literal(String.valueOf(getParallelCount()))
                 )
             ),
             details,
@@ -210,15 +167,45 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     private long getUsedComputationBytes() {
-        return Math.max(totalBytes - availableBytes, 0);
+        return Math.max(getTotalBytes() - getAvailableBytes(), 0);
     }
 
-    private static Component numberPair(long used, long total) {
-        return Component.literal(used + " / " + total);
+    private int getUsedThread() {
+        return cluster == null ? 0 : cluster.getActiveCPUs().size();
     }
 
-    private static Component bytesPair(long used, long total) {
-        return Component.literal(Tooltips.ofBytes(used).getString() + " / " + Tooltips.ofBytes(total).getString());
+    private int getTotalThread() {
+        return cluster == null ? 0 : cluster.getMaxThreads();
+    }
+
+    private int getParallelCount() {
+        return cluster == null ? 0 : cluster.getParallelCores().stream().mapToInt(e -> e.getTier().getCPUAccelerators()).sum();
+    }
+
+    private long getAvailableBytes() {
+        return cluster == null ? 0 : cluster.getAvailableStorage();
+    }
+
+    private long getTotalBytes() {
+        if (cluster == null) {
+            return 0;
+        }
+        long total = 0;
+        for (ECOComputationDriveBlockEntity drive : cluster.getUpperDrives()) {
+            total += getDriveBytes(drive);
+        }
+        for (ECOComputationDriveBlockEntity drive : cluster.getLowerDrives()) {
+            total += getDriveBytes(drive);
+        }
+        return total;
+    }
+
+    private static long getDriveBytes(ECOComputationDriveBlockEntity drive) {
+        ItemStack cellStack = drive.getCellStack();
+        if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
+            return cellItem.getTier().getCPUTotalBytes();
+        }
+        return 0;
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {

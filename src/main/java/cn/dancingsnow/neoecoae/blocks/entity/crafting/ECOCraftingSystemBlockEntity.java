@@ -5,9 +5,9 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.core.localization.Tooltips;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
-import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
@@ -23,7 +23,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.ComponentUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -33,7 +33,6 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import lombok.Getter;
 import lombok.Setter;
@@ -50,12 +49,11 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Supplier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, IGridTickable {
@@ -72,40 +70,31 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Getter
     @Persisted
-    @DescSynced
     private boolean overclocked = false;
 
     @Getter
     @Persisted
-    @DescSynced
     private boolean activeCooling = false;
 
     @Getter
     @Persisted
-    @DescSynced
     private int coolant = 0;
     @Getter
     @Persisted
-    @DescSynced
     private int coolantMaxOverclock = -1;
 
-    @DescSynced
     private int patternBusCount, parallelCount, workerCount = 0;
 
     @Getter
-    @DescSynced
     private int runningThreadCount = 0;
 
     @Getter
-    @DescSynced
     private int threadCount = 0;
 
     @Getter
-    @DescSynced
     private int threadCountPerWorker = 0;
 
     @Getter
-    @DescSynced
     private int overlockTimes = 0;
     @Persisted
     @DescSynced
@@ -253,7 +242,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             runningThreadCount = 0;
         }
         setChanged();
-        markForUpdate();
     }
 
     public void recalculateRunningThreadCountFromWorkers() {
@@ -293,7 +281,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             coolantMaxOverclock = -1;
         }
         setChanged();
-        markForUpdate();
         return true;
     }
 
@@ -332,7 +319,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         coolant = 0;
         coolantMaxOverclock = -1;
         setChanged();
-        markForUpdate();
     }
 
     private int getOverflowThreads() {
@@ -429,7 +415,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         coolant = Math.min(MAX_COOLANT, coolant + coolantGain);
         coolantMaxOverclock = recipe.maxOverclock();
         setChanged();
-        markForUpdate();
         return coolantGain;
     }
 
@@ -522,9 +507,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private UIElement createOverclockCoolingCard() {
         UIElement card = ECOHostWidgets.card();
-        card.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(this::buildOverclockSummaryComponent))
-            .textStyle(ECOHostStyles::compactHintText));
+        Label summary = new Label();
+        summary.bind(DataBindingBuilder.componentS2C(this::buildOverclockSummaryComponent).build());
+        summary.textStyle(ECOHostStyles::compactHintText);
+        card.addChild(summary);
         card.addChild(ECOHostWidgets.statLine(
             "gui.neoecoae.host.crafting.coolant",
             () -> ComponentUtil.coloredNumberPair(coolant, MAX_COOLANT, true),
@@ -545,35 +531,33 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 Component.translatable("gui.neoecoae.crafting.enable_overlock"),
                 Component.translatable("gui.neoecoae.crafting.overclocked.tooltip"),
                 () -> overclocked,
-                value -> overclocked = value
+                this::setOverclocked
             ).layout(layout -> layout.width(190)),
             new ECOHostSwitchRow(
                 Component.translatable("gui.neoecoae.crafting.enable_active_cooling"),
                 Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip"),
                 () -> activeCooling,
-                value -> activeCooling = value
+                this::setActiveCooling
             ).layout(layout -> layout.width(190))
         );
         return controls;
     }
 
-    private UIElement createScalarLine(String key, Supplier<Component> value) {
-        UIElement row = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(4);
-            layout.height(9);
-        }).addClass("eco-host-stat-line");
-        row.addChild(new Label()
-            .setText(Component.translatable(key))
-            .textStyle(ECOHostStyles::compactLabelText)
-            .layout(layout -> layout.width(42)));
-        row.addChild(new UIElement().layout(layout -> layout.width(58).height(4)));
-        row.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(value))
-            .textStyle(ECOHostStyles::compactValueText)
-            .layout(layout -> layout.width(60)));
-        return row;
+    private void setOverclocked(boolean overclocked) {
+        if (this.overclocked == overclocked) {
+            return;
+        }
+        this.overclocked = overclocked;
+        updateInfo();
+        setChanged();
+    }
+
+    private void setActiveCooling(boolean activeCooling) {
+        if (this.activeCooling == activeCooling) {
+            return;
+        }
+        this.activeCooling = activeCooling;
+        setChanged();
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {

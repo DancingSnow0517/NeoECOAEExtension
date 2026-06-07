@@ -29,10 +29,7 @@ public class ECOHostMetric extends UIElement {
                 .bindDataSource(SupplierDataSource.of(label))
                 .textStyle(ECOHostStyles::compactLabelText)
                 .layout(layout -> layout.height(8)),
-            new Label()
-                .bindDataSource(SupplierDataSource.of(value))
-                .textStyle(ECOHostStyles::compactValueText)
-                .layout(layout -> layout.height(9)),
+            syncedValueLabel(value),
             ratio == null ? spacer() : progress(ratio)
         );
     }
@@ -43,6 +40,14 @@ public class ECOHostMetric extends UIElement {
 
     public static ECOHostMetric scalar(Supplier<Component> label, Supplier<Component> value) {
         return new ECOHostMetric(label, value, null);
+    }
+
+    private static Label syncedValueLabel(Supplier<Component> value) {
+        Label label = new Label();
+        label.bind(DataBindingBuilder.componentS2C(value).build());
+        label.textStyle(ECOHostStyles::compactValueText);
+        label.layout(layout -> layout.height(9));
+        return label;
     }
 
     private static UIElement spacer() {

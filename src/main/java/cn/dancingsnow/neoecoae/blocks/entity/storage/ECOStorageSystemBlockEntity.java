@@ -1,9 +1,5 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
-import appeng.api.networking.IGridNode;
-import appeng.api.networking.ticking.IGridTickable;
-import appeng.api.networking.ticking.TickRateModulation;
-import appeng.api.networking.ticking.TickingRequest;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -47,26 +43,13 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
-public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity, IGridTickable {
+public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
     @Getter
     private final IECOTier tier;
 
-    @DescSynced
-    private long[] usedTypes;
-    @DescSynced
-    private long[] totalTypes;
-    @DescSynced
-    private long[] usedBytes;
-    @DescSynced
-    private long[] totalBytes;
-
-    @DescSynced
-    private long storedEnergy;
-    @DescSynced
-    private long maxEnergy;
     @Persisted
     @DescSynced
     private int selectedBuildLength = 1;
@@ -88,9 +71,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     ) {
         super(type, pos, blockState);
         this.tier = tier;
-        resetStorageInfos();
-
-        getMainNode().addService(IGridTickable.class, this);
     }
 
     public static ECOStorageSystemBlockEntity createL4(
@@ -136,67 +116,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 );
             }
         }
-        if (updateExposed) {
-            updateInfos();
-        }
-    }
-
-    @Override
-    public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(20, 20, false);
-    }
-
-
-    @Override
-    public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        updateInfos();
-        return TickRateModulation.URGENT;
-    }
-
-    private void resetStorageInfos() {
-        int typeCount = getCellTypeCount();
-        usedTypes = new long[typeCount];
-        totalTypes = new long[typeCount];
-        usedBytes = new long[typeCount];
-        totalBytes = new long[typeCount];
-        storedEnergy = 0;
-        maxEnergy = 0;
-    }
-
-    @SuppressWarnings("UnstableApiUsage")
-    private void updateInfos() {
-        if (cluster != null) {
-            storedEnergy = 0;
-            maxEnergy = 0;
-            for (ECOEnergyCellBlockEntity energyCell : cluster.getEnergyCells()) {
-                storedEnergy += (long) energyCell.getAECurrentPower();
-                maxEnergy += (long) energyCell.getAEMaxPower();
-            }
-
-            int typeCount = getCellTypeCount();
-            usedTypes = new long[typeCount];
-            totalTypes = new long[typeCount];
-            usedBytes = new long[typeCount];
-            totalBytes = new long[typeCount];
-            for (ECODriveBlockEntity drive : cluster.getDrives()) {
-                IECOStorageCell inv = drive.getCellInventory();
-                if (inv != null) {
-                    ECOCellType cellType = inv.getCellType();
-                    int id = NERegistries.CELL_TYPE.getId(cellType);
-                    if (id < 0 || id >= typeCount) {
-                        continue;
-                    }
-                    usedTypes[id] += inv.getStoredItemTypes();
-                    totalTypes[id] += inv.getTotalItemTypes();
-                    usedBytes[id] += inv.getUsedBytes();
-                    totalBytes[id] += inv.getTotalBytes();
-                }
-            }
-            setChanged();
-        } else {
-            resetStorageInfos();
-            setChanged();
-        }
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
@@ -236,7 +155,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        resetStorageInfosIfNeeded();
         UIElement buildWindow = buildPanel(holder);
 
         ScrollerView channelList = ECOHostWidgets.scrollList(ECOHostStyles.STORAGE_DETAIL_HEIGHT - 13);
@@ -264,8 +182,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 ),
                 ECOHostMetric.ratio(
                     () -> Component.translatable("gui.neoecoae.host.storage.energy_buffer"),
-                    () -> ComponentUtil.coloredNumberPair(storedEnergy, maxEnergy, true),
-                    () -> ECOHostStyles.ratio(storedEnergy, maxEnergy)
+                    () -> ComponentUtil.coloredNumberPair(getStoredEnergy(), getMaxEnergy(), true),
+                    () -> ECOHostStyles.ratio(getStoredEnergy(), getMaxEnergy())
                 )
             ),
             details,
@@ -277,30 +195,88 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private long getTotalUsedTypes() {
-        return sumArray(usedTypes);
+        return getTotalStorageValue(StorageValue.USED_TYPES);
     }
 
     private long getTotalTypes() {
-        return sumArray(totalTypes);
+        return getTotalStorageValue(StorageValue.TOTAL_TYPES);
     }
 
     private long getTotalUsedBytes() {
-        return sumArray(usedBytes);
+        return getTotalStorageValue(StorageValue.USED_BYTES);
     }
 
     private long getTotalBytes() {
-        return sumArray(totalBytes);
+        return getTotalStorageValue(StorageValue.TOTAL_BYTES);
     }
 
-    private static long sumArray(long[] array) {
-        if (array == null) {
+    @SuppressWarnings("UnstableApiUsage")
+    private long getStoredEnergy() {
+        if (cluster == null) {
             return 0;
         }
         long total = 0;
-        for (long value : array) {
-            total += value;
+        for (ECOEnergyCellBlockEntity energyCell : cluster.getEnergyCells()) {
+            total += (long) energyCell.getAECurrentPower();
         }
         return total;
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    private long getMaxEnergy() {
+        if (cluster == null) {
+            return 0;
+        }
+        long total = 0;
+        for (ECOEnergyCellBlockEntity energyCell : cluster.getEnergyCells()) {
+            total += (long) energyCell.getAEMaxPower();
+        }
+        return total;
+    }
+
+    private long getTotalStorageValue(StorageValue value) {
+        if (cluster == null) {
+            return 0;
+        }
+        long total = 0;
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell inv = drive.getCellInventory();
+            if (inv != null) {
+                total += getCellValue(inv, value);
+            }
+        }
+        return total;
+    }
+
+    private long getStorageValue(int cellTypeId, StorageValue value) {
+        if (cluster == null || cellTypeId < 0) {
+            return 0;
+        }
+        long total = 0;
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell inv = drive.getCellInventory();
+            if (inv == null || NERegistries.CELL_TYPE.getId(inv.getCellType()) != cellTypeId) {
+                continue;
+            }
+            total += getCellValue(inv, value);
+        }
+        return total;
+    }
+
+    private static long getCellValue(IECOStorageCell inv, StorageValue value) {
+        return switch (value) {
+            case USED_TYPES -> inv.getStoredItemTypes();
+            case TOTAL_TYPES -> inv.getTotalItemTypes();
+            case USED_BYTES -> inv.getUsedBytes();
+            case TOTAL_BYTES -> inv.getTotalBytes();
+        };
+    }
+
+    private enum StorageValue {
+        USED_TYPES,
+        TOTAL_TYPES,
+        USED_BYTES,
+        TOTAL_BYTES
     }
 
     private UIElement createStorageChannelCard(ECOCellType cellType, int id) {
@@ -310,37 +286,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             .textStyle(ECOHostStyles::valueText));
         card.addChild(ECOHostWidgets.statLine(
             "gui.neoecoae.host.metric.types",
-            () -> ComponentUtil.coloredNumberPair(getArrayValue(usedTypes, id), getArrayValue(totalTypes, id), false),
-            () -> ECOHostStyles.ratio(getArrayValue(usedTypes, id), getArrayValue(totalTypes, id))
+            () -> ComponentUtil.coloredNumberPair(getStorageValue(id, StorageValue.USED_TYPES), getStorageValue(id, StorageValue.TOTAL_TYPES), false),
+            () -> ECOHostStyles.ratio(getStorageValue(id, StorageValue.USED_TYPES), getStorageValue(id, StorageValue.TOTAL_TYPES))
         ));
         card.addChild(ECOHostWidgets.statLine(
             "gui.neoecoae.host.metric.bytes",
-            () -> ComponentUtil.coloredBytesPair(getArrayValue(usedBytes, id), getArrayValue(totalBytes, id), false),
-            () -> ECOHostStyles.ratio(getArrayValue(usedBytes, id), getArrayValue(totalBytes, id))
+            () -> ComponentUtil.coloredBytesPair(getStorageValue(id, StorageValue.USED_BYTES), getStorageValue(id, StorageValue.TOTAL_BYTES), false),
+            () -> ECOHostStyles.ratio(getStorageValue(id, StorageValue.USED_BYTES), getStorageValue(id, StorageValue.TOTAL_BYTES))
         ));
         return card;
-    }
-
-    private void resetStorageInfosIfNeeded() {
-        int typeCount = getCellTypeCount();
-        if (usedTypes == null || totalTypes == null || usedBytes == null || totalBytes == null) {
-            resetStorageInfos();
-            return;
-        }
-        if (usedTypes.length != typeCount || totalTypes.length != typeCount || usedBytes.length != typeCount || totalBytes.length != typeCount) {
-            resetStorageInfos();
-        }
-    }
-
-    private int getCellTypeCount() {
-        return Math.max(NERegistries.CELL_TYPE.size(), 1);
-    }
-
-    private static long getArrayValue(long[] array, int index) {
-        if (array == null || index < 0 || index >= array.length) {
-            return 0;
-        }
-        return array[index];
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {

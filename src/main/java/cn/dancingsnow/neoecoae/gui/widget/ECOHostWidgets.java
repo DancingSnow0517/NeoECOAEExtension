@@ -196,9 +196,10 @@ public final class ECOHostWidgets {
         tile.addChild(new Label()
             .setText(Component.translatable(key))
             .textStyle(ECOHostStyles::compactLabelText));
-        tile.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(value))
-            .textStyle(ECOHostStyles::compactValueText));
+        Label valueLabel = new Label();
+        valueLabel.bind(DataBindingBuilder.componentS2C(value).build());
+        valueLabel.textStyle(ECOHostStyles::compactValueText);
+        tile.addChild(valueLabel);
         return tile;
     }
 
@@ -240,10 +241,11 @@ public final class ECOHostWidgets {
             .bind(DataBindingBuilder.floatValS2C(ratio::get).build())
             .layout(layout -> layout.width(58).height(4))
             .addClass("eco-host-progress"));
-        row.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(value))
-            .textStyle(ECOHostStyles::compactValueText)
-            .layout(layout -> layout.width(60)));
+        Label valueLabel = new Label();
+        valueLabel.bind(DataBindingBuilder.componentS2C(value).build());
+        valueLabel.textStyle(ECOHostStyles::compactValueText);
+        valueLabel.layout(layout -> layout.width(60));
+        row.addChild(valueLabel);
         return row;
     }
 
