@@ -35,7 +35,9 @@ public record NECraftingUiState(
         int previewStatusArg2,
         long energyUsage,
         long coolantAmount,
-        long coolantCapacity) {
+        long coolantCapacity,
+        int availableThreads,
+        int effectiveParallel) {
     public static NECraftingUiState empty(BlockPos pos) {
         return new NECraftingUiState(
                 pos,
@@ -60,6 +62,8 @@ public record NECraftingUiState(
                 0,
                 0L,
                 0L,
-                0L);
+                0L,
+                0,
+                0);
     }
 }

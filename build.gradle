@@ -273,6 +273,7 @@ sourceSets.main.resources.srcDir generateModMetadata
 
 processResources.dependsOn generateModMetadata
 processResources.dependsOn compileJava
+processResources.dependsOn 'copyGuidebook'
 tasks.named('processResources', ProcessResources).configure {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

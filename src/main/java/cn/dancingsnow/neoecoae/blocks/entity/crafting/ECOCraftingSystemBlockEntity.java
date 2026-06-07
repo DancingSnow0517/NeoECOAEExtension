@@ -44,7 +44,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_THREAD_COUNT = Boolean.getBoolean("neoecoae.debugEcoCraftingThreadCount");
 
-    public static final int MAX_COOLANT = 1_000_000;
+    /**
+     * Internal coolant cache maximum — the crafting controller's own cooling
+     * buffer, <em>not</em> the fluid hatch tank capacity.  Aligned with the
+     * 1.12.2 {@code EFabricatorController.MAX_COOLANT_CACHE}.
+     */
+    public static final int MAX_COOLANT = 100_000;
+
     private static final int COOLANT_PER_CRAFT = 5;
 
     @Getter
@@ -668,14 +674,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
      * </p>
      */
     public NECraftingUiState createCraftingUiState() {
-        // Read coolant amount from input hatch fluid tank; fall back to zero
-        long currentCoolantAmount = 0L;
-        long currentCoolantCapacity = 0L;
-        if (cluster != null && cluster.getInputHatch() != null) {
-            FluidTank inputTank = cluster.getInputHatch().tank;
-            currentCoolantAmount = inputTank.getFluidAmount();
-            currentCoolantCapacity = inputTank.getCapacity();
-        }
+        int totalParallelism = threadCount; // FT 理论并行
+        int availThreads = getAvailableThreads(); // FX 工作核心承载上限
+        int effParallel = Math.min(totalParallelism, availThreads); // 实际有效并行
 
         return new NECraftingUiState(
                 worldPosition,
@@ -684,7 +685,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 workerCount,
                 parallelCount,
                 patternBusCount,
-                threadCount,
+                totalParallelism,
                 runningThreadCount,
                 isOverclocked(),
                 isActiveCooling(),
@@ -699,8 +700,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 previewStatusArg1,
                 previewStatusArg2,
                 getCurrentEnergyPerTick(),
-                currentCoolantAmount,
-                currentCoolantCapacity);
+                coolant,
+                MAX_COOLANT,
+                availThreads,
+                effParallel);
     }
 
     private long getMaxEnergyUsage() {

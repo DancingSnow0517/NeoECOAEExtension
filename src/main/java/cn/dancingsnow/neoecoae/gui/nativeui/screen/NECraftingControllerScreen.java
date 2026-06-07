@@ -312,16 +312,15 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         int x = STATS_AREA_X + 8;
         int y = STATS_AREA_Y + 19;
 
-        drawCompactPairLine(g, "线程", s.runningThreadCount(), s.threadCount(), x, y);
-        drawThreadUsageBar(g, x, y + 12, STATS_AREA_W - 16, 9, s.runningThreadCount(), s.threadCount());
+        drawCompactPairLine(g, "并行", s.runningThreadCount(), s.availableThreads(), x, y);
+        drawThreadUsageBar(g, x, y + 12, STATS_AREA_W - 16, 9, s.runningThreadCount(), s.availableThreads());
 
-        y += 23;
+        y += 25;
+        drawInlineValueLine(g, "最大上限并行", s.threadCount(), x, y);
+
+        y += 11;
         drawInlineValueLine(g, "样板", s.patternBusCount(), x, y);
-        drawInlineValueLine(g, "并行", s.parallelCount(), x + 76, y);
-
-        y += 9;
-        drawInlineValueLine(g, "工作", s.workerCount(), x, y);
-        drawInlineValueLine(g, "总并行", s.parallelCount(), x + 76, y);
+        drawInlineValueLine(g, "工作", s.workerCount(), x + 76, y);
     }
 
     private void drawGaugeArea(GuiGraphics g, NECraftingUiState s) {
