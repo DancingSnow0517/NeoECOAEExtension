@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.network.NECraftingUiState;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.Getter;
@@ -29,6 +30,7 @@ import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -683,6 +685,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         int availThreads = getAvailableThreads(); // FX 工作核心承载上限
         int effParallel = Math.min(totalParallelism, availThreads); // 实际有效并行
 
+        // Collect active craft outputs from each worker
+        List<ItemStack> craftOutputs = new ArrayList<>();
+        if (cluster != null) {
+            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+                craftOutputs.add(worker.getActiveCraftOutput());
+            }
+        }
+
         return new NECraftingUiState(
                 worldPosition,
                 formed,
@@ -708,7 +718,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 coolant,
                 MAX_COOLANT,
                 availThreads,
-                effParallel);
+                effParallel,
+                craftOutputs);
     }
 
     private long getMaxEnergyUsage() {

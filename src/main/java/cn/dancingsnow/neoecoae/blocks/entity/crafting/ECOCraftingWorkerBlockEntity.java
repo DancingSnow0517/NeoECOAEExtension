@@ -223,6 +223,20 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return List.copyOf(snapshots);
     }
 
+    /**
+     * Returns the output ItemStack of the first active (non-free) craft thread,
+     * or {@link ItemStack#EMPTY} if this worker is idle.
+     */
+    public ItemStack getActiveCraftOutput() {
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree()) {
+                ECOCraftingThread.Snapshot snapshot = thread.createSnapshot();
+                return snapshot.outputItem().copy();
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
     public ThreadProgressSummary getThreadProgressSummary() {
         int busyThreadCount = 0;
         int occupiedSlots = 0;

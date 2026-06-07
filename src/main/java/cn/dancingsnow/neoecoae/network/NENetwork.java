@@ -301,35 +301,74 @@ public final class NENetwork {
             buf.writeVarLong(s.coolantCapacity());
             buf.writeVarInt(s.availableThreads());
             buf.writeVarInt(s.effectiveParallel());
+
+            List<net.minecraft.world.item.ItemStack> outputs = s.workerCraftOutputs();
+            buf.writeVarInt(outputs.size());
+            for (net.minecraft.world.item.ItemStack stack : outputs) {
+                buf.writeItem(stack);
+            }
         }
 
         public static NECraftingUiStatePacket decode(FriendlyByteBuf buf) {
+            var pos = buf.readBlockPos();
+            var formed = buf.readBoolean();
+            var active = buf.readBoolean();
+            var workerCount = buf.readInt();
+            var parallelCount = buf.readInt();
+            var patternBusCount = buf.readInt();
+            var threadCount = buf.readInt();
+            var runningThreadCount = buf.readInt();
+            var overclocked = buf.readBoolean();
+            var activeCooling = buf.readBoolean();
+            var autoClearCoolingWaste = buf.readBoolean();
+            var selectedBuildLength = buf.readInt();
+            var buildInProgress = buf.readBoolean();
+            var previewMissingBlocks = buf.readInt();
+            var previewConflictBlocks = buf.readInt();
+            var previewReusedBlocks = buf.readInt();
+            var previewRequiredItems = buf.readInt();
+            var previewStatusKey = buf.readUtf(256);
+            var previewStatusArg1 = buf.readInt();
+            var previewStatusArg2 = buf.readInt();
+            var energyUsage = buf.readVarLong();
+            var coolantAmount = buf.readVarLong();
+            var coolantCapacity = buf.readVarLong();
+            var availableThreads = buf.readVarInt();
+            var effectiveParallel = buf.readVarInt();
+
+            int outputCount = buf.readVarInt();
+            java.util.List<net.minecraft.world.item.ItemStack> outputs = new java.util.ArrayList<>(outputCount);
+            for (int i = 0; i < outputCount; i++) {
+                outputs.add(buf.readItem());
+            }
+
             return new NECraftingUiStatePacket(new NECraftingUiState(
-                    buf.readBlockPos(),
-                    buf.readBoolean(),
-                    buf.readBoolean(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readBoolean(),
-                    buf.readBoolean(),
-                    buf.readBoolean(),
-                    buf.readInt(),
-                    buf.readBoolean(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readUtf(256),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readVarLong(),
-                    buf.readVarLong(),
-                    buf.readVarLong(),
-                    buf.readVarInt(),
-                    buf.readVarInt()));
+                    pos,
+                    formed,
+                    active,
+                    workerCount,
+                    parallelCount,
+                    patternBusCount,
+                    threadCount,
+                    runningThreadCount,
+                    overclocked,
+                    activeCooling,
+                    autoClearCoolingWaste,
+                    selectedBuildLength,
+                    buildInProgress,
+                    previewMissingBlocks,
+                    previewConflictBlocks,
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    previewStatusKey,
+                    previewStatusArg1,
+                    previewStatusArg2,
+                    energyUsage,
+                    coolantAmount,
+                    coolantCapacity,
+                    availableThreads,
+                    effectiveParallel,
+                    outputs));
         }
 
         public static void handle(NECraftingUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {

@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.network;
 
+import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Read-only snapshot of Crafting Controller UI state sent from server to client.
@@ -37,7 +39,8 @@ public record NECraftingUiState(
         long coolantAmount,
         long coolantCapacity,
         int availableThreads,
-        int effectiveParallel) {
+        int effectiveParallel,
+        List<ItemStack> workerCraftOutputs) {
     public static NECraftingUiState empty(BlockPos pos) {
         return new NECraftingUiState(
                 pos,
@@ -64,6 +67,7 @@ public record NECraftingUiState(
                 0L,
                 0L,
                 0,
-                0);
+                0,
+                List.of());
     }
 }

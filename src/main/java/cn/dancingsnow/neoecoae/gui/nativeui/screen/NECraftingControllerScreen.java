@@ -181,6 +181,7 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         updateToolbarButtons(resolveCraftingState());
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         renderGaugeTooltips(guiGraphics, mouseX, mouseY);
+        renderModuleTooltips(guiGraphics, mouseX, mouseY);
     }
 
     @Override
@@ -288,6 +289,59 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
             return 0;
         }
         return Math.min(16, workerCount);
+    }
+
+    private void renderModuleTooltips(GuiGraphics g, int mouseX, int mouseY) {
+        NECraftingUiState s = resolveCraftingState();
+
+        int cols = visibleWorkerColumns(s.workerCount());
+        if (cols <= 0) {
+            return;
+        }
+
+        int slotSize = 18;
+        int gap = 0;
+        int rowGap = 0;
+        int totalW = cols * slotSize + (cols - 1) * gap;
+        int startX = leftPos + MODULE_AREA_X + (MODULE_AREA_W - totalW) / 2;
+
+        int topY = topPos + MODULE_AREA_Y + 16;
+        int middleY = topY + slotSize + rowGap;
+        int bottomY = middleY + slotSize + rowGap;
+
+        if (isMouseInRect(mouseX, mouseY, startX, topY, totalW, slotSize)
+                || isMouseInRect(mouseX, mouseY, startX, bottomY, totalW, slotSize)) {
+            g.renderTooltip(font, getParallelPerCoreTooltip(s.overclocked()), mouseX, mouseY);
+            return;
+        }
+
+        if (isMouseInRect(mouseX, mouseY, startX, middleY, totalW, slotSize)) {
+            int col = (mouseX - startX) / (slotSize + gap);
+            if (col >= 0 && col < s.workerCraftOutputs().size()) {
+                net.minecraft.world.item.ItemStack crafting =
+                        s.workerCraftOutputs().get(col);
+                if (!crafting.isEmpty()) {
+                    List<Component> lines =
+                            net.minecraft.client.gui.screens.Screen.getTooltipFromItem(minecraft, crafting);
+                    g.renderTooltip(font, lines, crafting.getTooltipImage(), crafting, mouseX, mouseY);
+                    return;
+                }
+            }
+            g.renderTooltip(font, Component.translatable("block.neoecoae.crafting_worker"), mouseX, mouseY);
+        }
+    }
+
+    private Component getParallelPerCoreTooltip(boolean overclocked) {
+        String titleText = title.getString().toUpperCase(Locale.ROOT);
+        int parallel;
+        if (titleText.contains("F9")) {
+            parallel = overclocked ? 384 : 256;
+        } else if (titleText.contains("F6")) {
+            parallel = overclocked ? 96 : 72;
+        } else {
+            parallel = overclocked ? 32 : 24;
+        }
+        return Component.literal("并行: " + parallel);
     }
 
     private void drawStatusArea(GuiGraphics g, NECraftingUiState s) {
