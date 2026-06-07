@@ -24,6 +24,8 @@ jarJar.enable()
 
 repositories {
     mavenLocal()
+    mavenCentral()
+    maven { url = 'https://maven.minecraftforge.net' }
     maven {
         name = "Aliyun Public"
         url = "https://maven.aliyun.com/repository/public"
@@ -32,8 +34,6 @@ repositories {
         name = "Aliyun Central"
         url = "https://maven.aliyun.com/repository/central"
     }
-    mavenCentral()
-    maven { url = 'https://maven.minecraftforge.net' }
     maven {
         name = "Modrinth Maven"
         url = "https://api.modrinth.com/maven"
