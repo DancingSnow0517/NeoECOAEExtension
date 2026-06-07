@@ -89,6 +89,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+
     api("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
     jarJar("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
 
@@ -180,6 +182,11 @@ sourceSets.main.resources {
     srcDirs 'src/generated/resources', 'src/guidebook/resources'
 }
 
+sourceSets.test {
+    compileClasspath += sourceSets.main.compileClasspath
+    runtimeClasspath += sourceSets.main.runtimeClasspath
+}
+
 configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
@@ -223,6 +230,10 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
 }
 
 tasks.register('copyGuidebook', Copy) {

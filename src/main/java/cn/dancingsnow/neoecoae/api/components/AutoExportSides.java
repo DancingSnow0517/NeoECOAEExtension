@@ -7,6 +7,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -14,9 +15,16 @@ public record AutoExportSides(Set<RelativeSide> sides) {
 
     public static final Codec<AutoExportSides> CODEC = Codec.list(CodecUtils.RELATIVE_SIDE_CODEC, 0, 6)
         .xmap(
-            from -> new AutoExportSides(EnumSet.copyOf(from)),
+            from -> new AutoExportSides(toEnumSet(from)),
             to -> to.sides.stream().toList()
         );
+
+    private static EnumSet<RelativeSide> toEnumSet(List<RelativeSide> sides) {
+        if (sides.isEmpty()) {
+            return EnumSet.noneOf(RelativeSide.class);
+        }
+        return EnumSet.copyOf(sides);
+    }
 
     public static final StreamCodec<FriendlyByteBuf, AutoExportSides> STREAM_CODEC = StreamCodec.of(
         (buf, autoExportSides) -> {
