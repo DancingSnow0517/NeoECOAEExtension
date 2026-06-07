@@ -205,17 +205,46 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
                         || currentTick - this.neoecoae$lastEcoUpdateTick >= NEOECOAE_ECO_STATUS_UPDATE_INTERVAL);
         boolean finishedJob = this.neoecoae$lastEcoJobPresent && !hasJob;
 
-        if (hasJob || !this.neoecoae$trackedEcoKeys.isEmpty()) {
-            this.neoecoae$queueDynamicEcoStatusChanges(logic);
-        } else {
+        // When there is no active job, force a full client-side reset to
+        // eliminate any ghost "计划合成" entries from a previously
+        // completed job.  Without this, the incremental-update protocol
+        // can leave stale active/pending counts on the client.
+        if (!hasJob) {
+            this.incrementalUpdateHelper.reset();
+            this.neoecoae$trackedEcoKeys.clear();
             this.neoecoae$lastEcoEntrySnapshots.clear();
             this.neoecoae$activeZeroSinceTicks.clear();
             this.neoecoae$resetEcoHeaderSnapshot();
+
+            // Re-populate tracked keys from the current inventory only
+            // (no waiting-for / pending-output keys when job is null).
+            KeyCounter currentItems = new KeyCounter();
+            logic.getAllItems(currentItems);
+            for (Object2LongMap.Entry<AEKey> entry : currentItems) {
+                if (entry.getLongValue() > 0) {
+                    this.neoecoae$trackedEcoKeys.add(entry.getKey());
+                }
+            }
+
+            for (AEKey key : this.neoecoae$trackedEcoKeys) {
+                this.incrementalUpdateHelper.addChange(key);
+            }
+
+            CraftingStatus status =
+                    neoecoae$createStatus(this.incrementalUpdateHelper, logic, this.neoecoae$trackedEcoKeys);
+            this.incrementalUpdateHelper.commitChanges();
+            this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
+            this.neoecoae$logEcoStatus("send-clean", logic, currentTick, true);
+            this.neoecoae$rememberEcoHeader(status);
+            this.neoecoae$rememberEcoStatus(logic, currentTick);
+            return;
         }
 
         if (this.neoecoae$forceEcoStatusUpdate && !this.incrementalUpdateHelper.hasChanges()) {
             this.neoecoae$queueTrackedEcoKeys();
         }
+
+        this.neoecoae$queueDynamicEcoStatusChanges(logic);
 
         if (statusStateChanged || periodicRefresh || finishedJob) {
             this.neoecoae$queueTrackedEcoKeys();
@@ -235,7 +264,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             return;
         }
 
-        if (hasJob && this.neoecoae$hasEcoHeaderChanged(logic)) {
+        if (this.neoecoae$hasEcoHeaderChanged(logic)) {
             CraftingStatus status = neoecoae$createHeaderOnlyStatus(logic);
             this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
             this.neoecoae$logEcoStatus("send-header", logic, currentTick, true);

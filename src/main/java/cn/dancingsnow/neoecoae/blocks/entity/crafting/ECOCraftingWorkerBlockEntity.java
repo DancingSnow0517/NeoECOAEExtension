@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
 import appeng.api.config.Actionable;
+import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.security.IActionSource;
@@ -73,9 +74,31 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
             }
             int overlockTimes = controller.getEffectiveOverclockTimes();
+            int bonusValue = Math.min(10 + overlockTimes * 10, 100);
+
+            // ── Phase 1 aggregation: extract AE power once for all threads ──
+            double totalSafePower = 0.0;
+            for (ECOCraftingThread thread : craftingThreads) {
+                totalSafePower += thread.computePowerNeed(ticksSinceLastCall, bonusValue, powerMultiply);
+            }
+
+            double totalExtracted = 0.0;
+            if (totalSafePower > 0.0) {
+                IGrid grid = getMainNode().getGrid();
+                if (grid != null) {
+                    totalExtracted = grid.getEnergyService()
+                            .extractAEPower(totalSafePower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                }
+            }
+            double powerRatio = totalSafePower > 0.0 ? totalExtracted / totalSafePower : 0.0;
+            // ── End aggregation ──
+
             TickRateModulation rate = TickRateModulation.IDLE;
             for (ECOCraftingThread thread : craftingThreads) {
-                TickRateModulation r = thread.tick(overlockTimes, powerMultiply, ticksSinceLastCall);
+                double threadNeed = thread.computePowerNeed(ticksSinceLastCall, bonusValue, powerMultiply);
+                double allocatedPower = threadNeed * powerRatio;
+                TickRateModulation r =
+                        thread.tickAggregated(overlockTimes, powerMultiply, ticksSinceLastCall, allocatedPower);
                 if (r.ordinal() > rate.ordinal()) {
                     rate = r;
                 }
@@ -320,15 +343,21 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void flushCompletedOutputs() {
+        // ── Collect per-thread outputs (keep separate to avoid starvation) ──
+        List<ECOCraftingThread> readyThreads = new ArrayList<>();
+        List<KeyCounter> perThreadOutputs = new ArrayList<>();
         KeyCounter combinedOutputs = new KeyCounter();
-        boolean hasReadyOutputs = false;
         for (ECOCraftingThread thread : craftingThreads) {
             if (thread.isOutputReady()) {
-                thread.appendReadyOutputs(combinedOutputs);
-                hasReadyOutputs = true;
+                KeyCounter threadOutput = thread.collectOutputItems();
+                readyThreads.add(thread);
+                perThreadOutputs.add(threadOutput);
+                for (Object2LongMap.Entry<AEKey> entry : threadOutput) {
+                    combinedOutputs.add(entry.getKey(), entry.getLongValue());
+                }
             }
         }
-        if (!hasReadyOutputs) {
+        if (readyThreads.isEmpty()) {
             return;
         }
 
@@ -337,9 +366,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
 
+        // ── Batch-insert all outputs into AE2 storage once ──
         CraftingService craftingService = (CraftingService) grid.getCraftingService();
         MEStorage storage = grid.getStorageService().getInventory();
-        KeyCounter acceptedOutputs = new KeyCounter();
+        KeyCounter totalAcceptedOutputs = new KeyCounter();
         for (Object2LongMap.Entry<AEKey> entry : combinedOutputs) {
             AEKey key = entry.getKey();
             long requested = entry.getLongValue();
@@ -348,13 +378,73 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 accepted += storage.insert(key, requested - accepted, Actionable.MODULATE, actionSource);
             }
             if (accepted > 0) {
-                acceptedOutputs.add(key, accepted);
+                totalAcceptedOutputs.add(key, accepted);
             }
         }
 
-        for (ECOCraftingThread thread : craftingThreads) {
-            if (thread.isOutputReady()) {
-                thread.applyOutputFlush(acceptedOutputs);
+        // ── Fair proportional allocation across threads ──
+        // Track remainder per key to distribute rounding leftovers
+        java.util.Map<AEKey, Long> remainingAccepted = new java.util.HashMap<>();
+        for (Object2LongMap.Entry<AEKey> entry : totalAcceptedOutputs) {
+            remainingAccepted.put(entry.getKey(), entry.getLongValue());
+        }
+
+        for (int i = 0; i < readyThreads.size(); i++) {
+            ECOCraftingThread thread = readyThreads.get(i);
+            KeyCounter threadOutput = perThreadOutputs.get(i);
+            KeyCounter allocation = new KeyCounter();
+
+            for (Object2LongMap.Entry<AEKey> entry : threadOutput) {
+                AEKey key = entry.getKey();
+                long threadAmount = entry.getLongValue();
+                long totalForKey = combinedOutputs.get(key);
+                long acceptedForKey = totalAcceptedOutputs.get(key);
+
+                if (totalForKey <= 0 || acceptedForKey <= 0 || threadAmount <= 0) {
+                    continue;
+                }
+
+                long fairShare;
+                if (totalForKey <= acceptedForKey) {
+                    // All output for this key was accepted — allocate fully
+                    fairShare = threadAmount;
+                } else {
+                    // Proportional: threadAmount * acceptedForKey / totalForKey (floor)
+                    fairShare = threadAmount * acceptedForKey / totalForKey;
+                }
+
+                // Clamp to remaining accepted for this key (handles rounding leftovers)
+                long remaining = remainingAccepted.getOrDefault(key, 0L);
+                if (fairShare > remaining) {
+                    fairShare = remaining;
+                }
+
+                if (fairShare > 0) {
+                    allocation.add(key, fairShare);
+                    remainingAccepted.put(key, remaining - fairShare);
+                }
+            }
+
+            thread.applyOutputFlush(allocation);
+        }
+
+        // ── Distribute rounding leftovers ──
+        // Integer division in fairShare can leave a remainder that was
+        // accepted by AE2 but not allocated to any thread.  Find a thread
+        // that still has outputsReady for each leftover key and give it there.
+        for (java.util.Map.Entry<AEKey, Long> entry : remainingAccepted.entrySet()) {
+            long leftover = entry.getValue();
+            if (leftover <= 0) continue;
+            AEKey key = entry.getKey();
+            for (int i = 0; i < readyThreads.size(); i++) {
+                ECOCraftingThread thread = readyThreads.get(i);
+                if (!thread.isOutputReady()) continue;
+                if (perThreadOutputs.get(i).get(key) > 0) {
+                    KeyCounter topUp = new KeyCounter();
+                    topUp.add(key, leftover);
+                    thread.applyOutputFlush(topUp);
+                    break;
+                }
             }
         }
     }

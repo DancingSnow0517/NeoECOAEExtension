@@ -104,6 +104,53 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return TickRateModulation.URGENT;
     }
 
+    /**
+     * Compute the AE power this thread would request from the grid
+     * <em>without</em> actually extracting it.
+     * Used by the worker to aggregate power extraction across all threads.
+     *
+     * @return the {@code safePower} value this thread would pass to
+     *         {@code extractAEPower}, or 0 if idle / output-ready.
+     */
+    public int computePowerNeed(int ticksSinceLastCall, int bonusValue, double acceleratorTax) {
+        if (!isBusy || outputsReady) {
+            return 0;
+        }
+        int effectiveTicks = this.reboot ? 1 : ticksSinceLastCall;
+        double slotScaledTax = acceleratorTax * Math.max(1, occupiedThreadSlots);
+        return (int) Math.min(effectiveTicks * bonusValue * slotScaledTax, 500_000);
+    }
+
+    /**
+     * Tick variant that uses a pre-extracted power budget instead of
+     * calling {@code grid.getEnergyService().extractAEPower()} individually.
+     *
+     * @param extractedPower the AE power already extracted from the grid
+     *                       on behalf of this thread (after proportional scaling).
+     */
+    public TickRateModulation tickAggregated(
+            int overlockTimes, int powerMultiply, int ticksSinceLastCall, double extractedPower) {
+        if (!isBusy) {
+            return TickRateModulation.SLEEP;
+        }
+        if (outputsReady) {
+            return TickRateModulation.URGENT;
+        }
+        if (this.reboot) {
+            ticksSinceLastCall = 1;
+        }
+        this.reboot = false;
+        double slotScaledTax = powerMultiply * Math.max(1, occupiedThreadSlots);
+        progress += (int) (extractedPower / slotScaledTax);
+
+        if (this.progress >= MAX_PROGRESS) {
+            outputsReady = true;
+            setChanged();
+            return TickRateModulation.URGENT;
+        }
+        return TickRateModulation.URGENT;
+    }
+
     public boolean isFree() {
         return !isBusy;
     }
@@ -427,7 +474,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         setChanged();
     }
 
-    private KeyCounter collectOutputItems() {
+    public KeyCounter collectOutputItems() {
         KeyCounter outputs = new KeyCounter();
         for (ItemStack outputItem : outputItems) {
             addStack(outputs, outputItem);
