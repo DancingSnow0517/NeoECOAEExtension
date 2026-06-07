@@ -30,12 +30,14 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/1.20.1' }}
 
       - name: Copy Guide Book
         run: ./gradlew copyGuidebook
 
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew build --no-daemon --retry 3
 
       - name: Read Properties
         id: 'properties'

@@ -307,6 +307,12 @@ public final class NENetwork {
             for (net.minecraft.world.item.ItemStack stack : outputs) {
                 buf.writeItem(stack);
             }
+
+            List<Integer> tiers = s.parallelCoreTiers();
+            buf.writeVarInt(tiers.size());
+            for (int tier : tiers) {
+                buf.writeVarInt(tier);
+            }
         }
 
         public static NECraftingUiStatePacket decode(FriendlyByteBuf buf) {
@@ -342,6 +348,12 @@ public final class NENetwork {
                 outputs.add(buf.readItem());
             }
 
+            int tierCount = buf.readVarInt();
+            java.util.List<Integer> coreTiers = new java.util.ArrayList<>(tierCount);
+            for (int i = 0; i < tierCount; i++) {
+                coreTiers.add(buf.readVarInt());
+            }
+
             return new NECraftingUiStatePacket(new NECraftingUiState(
                     pos,
                     formed,
@@ -368,7 +380,8 @@ public final class NENetwork {
                     coolantCapacity,
                     availableThreads,
                     effectiveParallel,
-                    outputs));
+                    outputs,
+                    coreTiers));
         }
 
         public static void handle(NECraftingUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {

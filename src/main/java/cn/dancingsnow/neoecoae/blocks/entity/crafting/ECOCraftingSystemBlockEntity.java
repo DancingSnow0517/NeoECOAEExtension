@@ -687,9 +687,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
         // Collect active craft outputs from each worker
         List<ItemStack> craftOutputs = new ArrayList<>();
+        // Collect tier level (1/2/3 = L4/L6/L9) for each parallel core
+        List<Integer> coreTiers = new ArrayList<>();
         if (cluster != null) {
             for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
                 craftOutputs.add(worker.getActiveCraftOutput());
+            }
+            for (ECOCraftingParallelCoreBlockEntity core : cluster.getParallelCores()) {
+                coreTiers.add(core.getTier().getTier());
             }
         }
 
@@ -719,7 +724,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 MAX_COOLANT,
                 availThreads,
                 effParallel,
-                craftOutputs);
+                craftOutputs,
+                coreTiers);
     }
 
     private long getMaxEnergyUsage() {

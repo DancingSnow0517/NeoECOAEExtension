@@ -225,8 +225,9 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         int middleY = topY + slotSize + rowGap;
         int bottomY = middleY + slotSize + rowGap;
 
-        ResourceLocation tierLight = resolveParallelCoreLightTexture();
+        ResourceLocation controllerLight = resolveParallelCoreLightTexture();
 
+        List<Integer> coreTiers = s.parallelCoreTiers();
         int parallelSlots = Math.max(0, s.parallelCount());
         int activeTopFtSlots = Math.min(parallelSlots, cols);
         int activeBottomFtSlots = Math.min(Math.max(0, parallelSlots - cols), cols);
@@ -238,10 +239,22 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
             boolean activeMiddle = col < s.workerCount();
             boolean activeBottom = col < activeBottomFtSlots;
 
-            drawTexturedModuleSlot(g, x, topY, slotSize, MODULE_PARALLEL_CORE_FRONT, tierLight, activeTop);
+            ResourceLocation topLight = col < coreTiers.size() ? lightForTier(coreTiers.get(col)) : controllerLight;
+            ResourceLocation bottomLight =
+                    col + cols < coreTiers.size() ? lightForTier(coreTiers.get(col + cols)) : controllerLight;
+
+            drawTexturedModuleSlot(g, x, topY, slotSize, MODULE_PARALLEL_CORE_FRONT, topLight, activeTop);
             drawTexturedModuleSlot(g, x, middleY, slotSize, MODULE_CORE_SIDE, null, activeMiddle);
-            drawTexturedModuleSlot(g, x, bottomY, slotSize, MODULE_PARALLEL_CORE_FRONT, tierLight, activeBottom);
+            drawTexturedModuleSlot(g, x, bottomY, slotSize, MODULE_PARALLEL_CORE_FRONT, bottomLight, activeBottom);
         }
+    }
+
+    private static ResourceLocation lightForTier(int tier) {
+        return switch (tier) {
+            case 3 -> MODULE_PARALLEL_CORE_LIGHT_L9;
+            case 2 -> MODULE_PARALLEL_CORE_LIGHT_L6;
+            default -> MODULE_PARALLEL_CORE_LIGHT_L4;
+        };
     }
 
     private void drawTexturedModuleSlot(

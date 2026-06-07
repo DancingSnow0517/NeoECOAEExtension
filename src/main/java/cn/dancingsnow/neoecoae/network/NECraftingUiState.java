@@ -40,7 +40,8 @@ public record NECraftingUiState(
         long coolantCapacity,
         int availableThreads,
         int effectiveParallel,
-        List<ItemStack> workerCraftOutputs) {
+        List<ItemStack> workerCraftOutputs,
+        List<Integer> parallelCoreTiers) {
     public static NECraftingUiState empty(BlockPos pos) {
         return new NECraftingUiState(
                 pos,
@@ -68,6 +69,7 @@ public record NECraftingUiState(
                 0L,
                 0,
                 0,
+                List.of(),
                 List.of());
     }
 }
