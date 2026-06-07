@@ -28,6 +28,9 @@ run-data
 repo
 
 src/generated/resources/.cache/
+
+# logs
+logs/
 /src/guidebook/
 
 # vs code
