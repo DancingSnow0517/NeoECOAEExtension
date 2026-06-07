@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -14,7 +15,20 @@ final class NEFluidTankUi {
     private NEFluidTankUi() {}
 
     static void draw(GuiGraphics g, int x, int y, int w, int h, FluidStack stack, int amount, int capacity) {
-        NENativeAe2StyleRenderer.drawAeFluidTank(g, x, y, w, h, stack, amount, capacity);
+        NENativeAe2StyleRenderer.drawAeFluidTankSimple(g, x, y, w, h, stack, amount, capacity);
+    }
+
+    static void draw(
+            GuiGraphics g,
+            int x,
+            int y,
+            int w,
+            int h,
+            FluidStack stack,
+            int amount,
+            int capacity,
+            Map<String, Integer> colors) {
+        NENativeAe2StyleRenderer.drawAeFluidTank(g, x, y, w, h, stack, amount, capacity, colors);
     }
 
     static void drawHover(GuiGraphics g, int mouseX, int mouseY, int x, int y, int w, int h) {

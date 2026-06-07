@@ -403,4 +403,31 @@ public final class NENativeAe2StyleRenderer {
     private static int resolveFluidColor(FluidStack stack) {
         return resolveFluidColor(stack, 0xFFFFFFFF);
     }
+
+    // ── Simple fluid tank (no ticks, no glass — for IWS / JEI / EMI) ──
+
+    /**
+     * Draw a plain fluid tank with recessed AE2-style inset border and
+     * fluid texture fill, without tick marks or glass overlays.
+     * Used by the Integrated Working Station and recipe viewers.
+     */
+    public static void drawAeFluidTankSimple(
+            GuiGraphics g, int x, int y, int w, int h, FluidStack stack, int amount, int capacity) {
+        drawAeInsetRect(g, x, y, w, h, 0xFF8E8E8E);
+
+        int ix = x + 2;
+        int iy = y + 2;
+        int iw = w - 4;
+        int ih = h - 4;
+
+        if (amount <= 0 || stack.isEmpty() || capacity <= 0) {
+            return;
+        }
+
+        int barH = Mth.clamp((int) ((long) amount * ih / capacity), 1, ih);
+        int fillY = iy + ih - barH;
+        g.enableScissor(ix, fillY, ix + iw, iy + ih);
+        drawFluidTextureFull(g, ix, iy, iw, ih, stack, iy + ih);
+        g.disableScissor();
+    }
 }
