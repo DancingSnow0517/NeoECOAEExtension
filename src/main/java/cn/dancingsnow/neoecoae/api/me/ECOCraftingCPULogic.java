@@ -596,12 +596,8 @@ public class ECOCraftingCPULogic {
         int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
         batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
         batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
-        // Enforce F host maximum in-flight capacity (live slot check)
         int controllerBatchSlots = controller.getCurrentBatchSlots();
-        batchSize = Math.min(batchSize, Math.max(1, controllerBatchSlots));
-        if (DEBUG_EXECUTION_STATS) {
-            logBatchCapacity(controller, batchSize, controllerBatchSlots);
-        }
+        batchSize = Math.min(batchSize, controllerBatchSlots);
         if (batchSize <= 1) {
             return 0;
         }
@@ -646,6 +642,9 @@ public class ECOCraftingCPULogic {
             energyService.extractAEPower(patternPower * batchSize, Actionable.MODULATE, PowerMultiplier.CONFIG);
             recordPushedPattern(execution, batchSize);
             recordAcceptedCrafts(batchSize, true);
+            if (DEBUG_EXECUTION_STATS) {
+                logBatchCapacity(controller, requested, batchSize, controllerBatchSlots, execution);
+            }
             return batchSize;
         } catch (RuntimeException e) {
             if (batchAccepted) {
@@ -685,19 +684,63 @@ public class ECOCraftingCPULogic {
     }
 
     private void logBatchCapacity(
-            ECOCraftingSystemBlockEntity controller, int batchSize, int controllerBatchSlots) {
+            ECOCraftingSystemBlockEntity controller,
+            int requestedBatchSize,
+            int acceptedBatchSize,
+            int controllerBatchSlots,
+            ECOExtractedPatternExecution execution) {
+        long expectedOutputsPerCraft = totalAmount(execution.expectedOutputs());
+        long expectedContainerItemsPerCraft = totalAmount(execution.expectedContainerItems());
+        long waitingForDelta = saturatedMultiply(
+                saturatedAdd(expectedOutputsPerCraft, expectedContainerItemsPerCraft),
+                acceptedBatchSize);
         LOGGER.debug(
-                "ECO batch capacity: buildLength={} workers={} parallel={} threadCount={} runningThreads={} "
-                        + "threadCountPerWorker={} availableThreads={} controllerBatchSlots={} batchSize={}",
+                "ECO batch capacity: selectedBuildLength={} structureBuildLength={} workerCount={} parallelCount={} "
+                        + "threadCount={} runningThreadCount={} threadCountPerWorker={} availableThreads={} "
+                        + "maxInFlightCrafts={} currentBatchSlotsBefore={} currentBatchSlotsAfter={} "
+                        + "requestedBatchSize={} acceptedBatchSize={} expectedOutputsPerCraft={} "
+                        + "expectedContainerItemsPerCraft={} waitingForDelta={}",
                 controller.getSelectedBuildLength(),
+                controller.getStructureBuildLength(),
                 controller.getWorkerCount(),
                 controller.getParallelCount(),
                 controller.getThreadCount(),
                 controller.getLiveRunningThreadCount(),
                 controller.getThreadCountPerWorker(),
                 controller.getAvailableThreads(),
+                controller.getMaxInFlightCrafts(),
                 controllerBatchSlots,
-                batchSize);
+                controller.getCurrentBatchSlots(),
+                requestedBatchSize,
+                acceptedBatchSize,
+                expectedOutputsPerCraft,
+                expectedContainerItemsPerCraft,
+                waitingForDelta);
+    }
+
+    private static long totalAmount(List<GenericStack> stacks) {
+        long total = 0L;
+        for (GenericStack stack : stacks) {
+            total = saturatedAdd(total, stack.amount());
+        }
+        return total;
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        if (right > 0L && left > Long.MAX_VALUE - right) {
+            return Long.MAX_VALUE;
+        }
+        return left + right;
+    }
+
+    private static long saturatedMultiply(long value, int multiplier) {
+        if (value <= 0L || multiplier <= 0) {
+            return 0L;
+        }
+        if (value > Long.MAX_VALUE / multiplier) {
+            return Long.MAX_VALUE;
+        }
+        return value * multiplier;
     }
 
     private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {

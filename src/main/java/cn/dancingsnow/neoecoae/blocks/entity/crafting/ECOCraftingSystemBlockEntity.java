@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -391,19 +392,23 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public int getCurrentBatchSlots() {
         ensureCraftingStatsCurrent();
         int liveRunning = getLiveRunningThreadCount();
-        int controllerSlots = Math.max(0, threadCount - liveRunning);
-        int workerQueueSlots = Math.max(0, threadCountPerWorker * workerCount - liveRunning);
-        return Math.min(controllerSlots, workerQueueSlots);
+        return ECOCraftingCapacity.availableCraftSlots(getMaxInFlightCrafts(), liveRunning);
     }
 
     /**
-     * Theoretical maximum in-flight crafts for this controller.
-     * For length N, this should equal threadCountPerWorker * workerCount *
-     * outputMultiplier.
+     * Maximum pattern executions that may be in flight at once.
+     * The formed structure length is the number of worker segments, while the
+     * parallel cores may impose a lower thread limit.
      */
     public int getMaxInFlightCrafts() {
         ensureCraftingStatsCurrent();
-        return threadCountPerWorker * workerCount;
+        return ECOCraftingCapacity.maxInFlightCrafts(
+                threadCount, getStructureBuildLength(), threadCountPerWorker);
+    }
+
+    public int getStructureBuildLength() {
+        ensureCraftingStatsCurrent();
+        return workerCount;
     }
 
     public int getProgressPerTick() {

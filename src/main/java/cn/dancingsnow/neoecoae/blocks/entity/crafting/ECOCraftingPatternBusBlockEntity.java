@@ -188,12 +188,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster == null || controller == null) {
             return 0;
         }
-        long runningThreads = controller.getRunningThreadCount();
-        long controllerRemaining = Math.max(0, controller.getThreadCount() - runningThreads);
         long workerRemaining = cluster.getWorkers().stream()
                 .mapToLong(ECOCraftingWorkerBlockEntity::getAvailableThreadSlots)
                 .sum();
-        return (int) Math.min(Integer.MAX_VALUE, Math.min(controllerRemaining, workerRemaining));
+        return (int) Math.min(
+                Integer.MAX_VALUE,
+                Math.min(controller.getCurrentBatchSlots(), workerRemaining));
     }
 
     public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {
