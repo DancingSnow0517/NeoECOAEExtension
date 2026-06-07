@@ -1,12 +1,17 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import appeng.api.config.Actionable;
+import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
+import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
@@ -14,6 +19,7 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathLimits;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import com.mojang.logging.LogUtils;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +40,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
+    private final IActionSource actionSource;
 
     @Getter
     private int runningThreads = 0;
@@ -42,6 +49,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public ECOCraftingWorkerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
+        this.actionSource = IActionSource.ofMachine(this);
         getMainNode().addService(IGridTickable.class, this);
     }
 
@@ -72,7 +80,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     rate = r;
                 }
             }
-            setChanged();
+            flushCompletedOutputs();
             return rate;
         } else {
             return TickRateModulation.IDLE;
@@ -190,7 +198,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public ECOCraftingFastPathCache getFastPathCache() {
-        return fastPathCache;
+        return cluster == null ? fastPathCache : cluster.getFastPathCache();
     }
 
     public boolean isBusy() {
@@ -297,6 +305,46 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
     }
 
+    private void flushCompletedOutputs() {
+        KeyCounter combinedOutputs = new KeyCounter();
+        boolean hasReadyOutputs = false;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.isOutputReady()) {
+                thread.appendReadyOutputs(combinedOutputs);
+                hasReadyOutputs = true;
+            }
+        }
+        if (!hasReadyOutputs) {
+            return;
+        }
+
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return;
+        }
+
+        CraftingService craftingService = (CraftingService) grid.getCraftingService();
+        MEStorage storage = grid.getStorageService().getInventory();
+        KeyCounter acceptedOutputs = new KeyCounter();
+        for (Object2LongMap.Entry<AEKey> entry : combinedOutputs) {
+            AEKey key = entry.getKey();
+            long requested = entry.getLongValue();
+            long accepted = craftingService.insertIntoCpus(key, requested, Actionable.MODULATE);
+            if (accepted < requested) {
+                accepted += storage.insert(key, requested - accepted, Actionable.MODULATE, actionSource);
+            }
+            if (accepted > 0) {
+                acceptedOutputs.add(key, accepted);
+            }
+        }
+
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.isOutputReady()) {
+                thread.applyOutputFlush(acceptedOutputs);
+            }
+        }
+    }
+
     @Override
     public void saveAdditional(CompoundTag data) {
         super.saveAdditional(data);
@@ -331,8 +379,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return runningThreads > 0;
     }
 
-    public record ThreadProgressSummary(int busyThreadCount, int occupiedSlots, int maxProgress, int averageProgress) {
-    }
+    public record ThreadProgressSummary(int busyThreadCount, int occupiedSlots, int maxProgress, int averageProgress) {}
 
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {

@@ -128,17 +128,14 @@ public class MultiblockEmiRecipe implements EmiRecipe {
             }
             if (layout.expandButton().contains(mouseX, mouseY)) {
                 state.nextExpand();
-                renderer.resetView();
                 return true;
             }
             if (layout.layerButton().contains(mouseX, mouseY)) {
                 state.nextLayer();
-                renderer.resetView();
                 return true;
             }
             if (layout.formedButton().contains(mouseX, mouseY)) {
                 state.toggleFormed();
-                renderer.resetView();
                 return true;
             }
             if (materialStrip.mouseClicked(layout, mouseX, mouseY)) {

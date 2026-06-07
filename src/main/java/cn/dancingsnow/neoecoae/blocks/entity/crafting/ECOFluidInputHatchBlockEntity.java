@@ -18,7 +18,9 @@ import org.jetbrains.annotations.Nullable;
 
 public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidInputHatchBlockEntity> {
 
-    public FluidTank tank = new FluidTank(16000) {
+    private static final int TANK_CAPACITY = 64000;
+
+    public FluidTank tank = new FluidTank(TANK_CAPACITY) {
         @Override
         protected void onContentsChanged() {
             setChanged();

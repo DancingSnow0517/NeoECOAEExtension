@@ -29,31 +29,68 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
     private static final NumberFormat NUMBER_FORMAT = NumberFormat.getNumberInstance(Locale.US);
 
-    // ── Dark panel colours (shared with Storage / Computation) ──
-    private static final int DARK_PANEL_OUTER = 0xFF17141E;
-    private static final int DARK_PANEL_MIDDLE = 0xFF2B2834;
-    private static final int DARK_PANEL_INNER = 0xFF665F6D;
-    private static final int DARK_PANEL_LIGHT_EDGE = 0xFFC9C3D6;
-
+    // ── Dark panel colours ──
     private static final int DARK_TEXT_PRIMARY = 0xFFD6D0E0;
     private static final int DARK_TEXT_VALUE = 0xFF8377FF;
     private static final int DARK_TEXT_MUTED = 0xFFAAA4B2;
     private static final int DARK_TEXT_SUCCESS = 0xFF6CFFA0;
+    private static final int DARK_TEXT_WARNING = 0xFFFFD65A;
     private static final int DARK_TEXT_ERROR = 0xFFFF6A75;
 
     private static final int PANEL_MARGIN = 7;
+
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
     private static final int MAIN_PANEL_Y = 24;
-    private static final int MAIN_PANEL_W = 286;
-    private static final int MAIN_PANEL_H = 112;
+    private static final int MAIN_PANEL_W = 358;
+    private static final int MAIN_PANEL_H = 184;
 
-    private static final int FORMED_BAR_X = PANEL_MARGIN;
-    private static final int FORMED_BAR_H = 25;
-    private static final int FORMED_BAR_BOTTOM_GAP = 7;
-    private static final int TOOLBAR_X_OFFSET = -22;
-    private static final int TOOLBAR_Y = 3;
+    /*
+     * Keep the original three toolbar buttons at exactly the same relative
+     * distance from the main panel.
+     *
+     * Old values:
+     * main panel: (7, 24)
+     * toolbar:    (-22, 3)
+     * relative:   (-29, -21)
+     */
+    private static final int TOOLBAR_TO_MAIN_PANEL_X = -29;
+    private static final int TOOLBAR_TO_MAIN_PANEL_Y = -21;
+    private static final int TOOLBAR_X = MAIN_PANEL_X + TOOLBAR_TO_MAIN_PANEL_X;
+    private static final int TOOLBAR_Y = MAIN_PANEL_Y + TOOLBAR_TO_MAIN_PANEL_Y;
     private static final int TOOLBAR_BUTTON_SIZE = 14;
     private static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 7;
+    private static final int TOOLBAR_BUTTON_AREA_H = TOOLBAR_BUTTON_SIZE * 3 + 7 * 2;
+
+    private static final int MODULE_AREA_X = MAIN_PANEL_X + 7;
+    private static final int MODULE_AREA_Y = MAIN_PANEL_Y + 7;
+    private static final int MODULE_AREA_W = MAIN_PANEL_W - 14;
+    private static final int MODULE_AREA_H = 62;
+
+    private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 8;
+
+    private static final int STATUS_AREA_X = MODULE_AREA_X;
+    private static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
+    private static final int STATUS_AREA_W = 74;
+    private static final int STATUS_AREA_H = 70;
+
+    private static final int STATS_AREA_X = STATUS_AREA_X + STATUS_AREA_W + 7;
+    private static final int STATS_AREA_Y = MIDDLE_AREA_Y;
+    private static final int STATS_AREA_W = 168;
+    private static final int STATS_AREA_H = 70;
+
+    private static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + 7;
+    private static final int GAUGE_AREA_Y = MIDDLE_AREA_Y;
+    private static final int GAUGE_AREA_W = MODULE_AREA_X + MODULE_AREA_W - GAUGE_AREA_X;
+    private static final int GAUGE_AREA_H = 70;
+
+    private static final int RESERVED_AREA_X = MODULE_AREA_X;
+    private static final int RESERVED_AREA_Y = STATUS_AREA_Y + STATUS_AREA_H + 7;
+    private static final int RESERVED_AREA_W = MODULE_AREA_W;
+    private static final int RESERVED_AREA_H = MAIN_PANEL_Y + MAIN_PANEL_H - RESERVED_AREA_Y - 6;
+
+    private static final int FORMED_BAR_H = 25;
+    private static final int FORMED_BAR_BOTTOM_GAP = 7;
+
     private static final String OVERCLOCK_KEY = "gui.neoecoae.crafting.overclock";
     private static final String OVERCLOCK_ON_KEY = "gui.neoecoae.crafting.overclock.on";
     private static final String OVERCLOCK_OFF_KEY = "gui.neoecoae.crafting.overclock.off";
@@ -72,8 +109,8 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
     public NECraftingControllerScreen(NECraftingControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.CRAFTING_CONTROLLER);
-        this.imageWidth = 300;
-        this.imageHeight = 170;
+        this.imageWidth = 372;
+        this.imageHeight = 248;
         this.craftingState = NECraftingUiState.empty(menu.getMachinePos());
     }
 
@@ -89,7 +126,8 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     @Override
     protected void init() {
         super.init();
-        int x = leftPos + TOOLBAR_X_OFFSET;
+
+        int x = leftPos + TOOLBAR_X;
         int y = topPos + TOOLBAR_Y;
 
         overclockButton = new NEAe2IconButton(
@@ -133,32 +171,234 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
     protected void renderAdditionalLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         NECraftingUiState s = resolveCraftingState();
 
-        // ── Main dark panel ──
         drawDarkInsetRect(guiGraphics, MAIN_PANEL_X, MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
 
-        int x = MAIN_PANEL_X + 8;
-        int y = MAIN_PANEL_Y + 8;
-        int line = 11;
+        drawModuleArea(guiGraphics, s);
+        drawStatusArea(guiGraphics, s);
+        drawStatsArea(guiGraphics, s);
+        drawGaugeArea(guiGraphics, s);
+        drawReservedArea(guiGraphics);
 
-        drawLine(guiGraphics, "样板总线: " + fmt(s.patternBusCount()), x, y, DARK_TEXT_PRIMARY);
-        y += line;
-        drawLine(guiGraphics, "并行核心: " + fmt(s.parallelCount()), x, y, DARK_TEXT_PRIMARY);
-        y += line;
-        drawLine(guiGraphics, "工作核心: " + fmt(s.workerCount()), x, y, DARK_TEXT_PRIMARY);
-        y += line;
-
-        drawPairLine(guiGraphics, "工作线程: ", s.runningThreadCount(), s.threadCount(), "", x, y);
-        y += line;
-        drawLine(guiGraphics, "总并行数: " + fmt(s.parallelCount()), x, y, DARK_TEXT_PRIMARY);
-        y += line;
-        drawBooleanLine(guiGraphics, "超频: ", s.overclocked(), x, y);
-        y += line;
-        drawBooleanLine(guiGraphics, "主动冷却: ", s.activeCooling(), x, y);
-        y += line;
-        drawBooleanLine(guiGraphics, "自动清废液: ", s.autoClearCoolingWaste(), x, y);
-
-        // ── Formed status bar ──
         drawFormedStatusBar(guiGraphics, s.formed(), imageWidth, imageHeight);
+    }
+
+    private void drawModuleArea(GuiGraphics g, NECraftingUiState s) {
+        drawDarkInsetRect(g, MODULE_AREA_X, MODULE_AREA_Y, MODULE_AREA_W, MODULE_AREA_H);
+
+        drawLine(g, "结构模块预览", MODULE_AREA_X + 8, MODULE_AREA_Y + 5, DARK_TEXT_PRIMARY);
+        drawRightAlignedLine(
+                g,
+                "FD " + fmt(s.patternBusCount()) + "   FT " + fmt(s.parallelCount()) + "   FX " + fmt(s.workerCount()),
+                MODULE_AREA_X + MODULE_AREA_W - 8,
+                MODULE_AREA_Y + 5,
+                DARK_TEXT_VALUE);
+
+        int cols = 12;
+        int slotSize = 20;
+        int gap = 6;
+        int totalW = cols * slotSize + (cols - 1) * gap;
+        int startX = MODULE_AREA_X + (MODULE_AREA_W - totalW) / 2;
+        int row1Y = MODULE_AREA_Y + 20;
+        int row2Y = row1Y + slotSize + 4;
+
+        for (int col = 0; col < cols; col++) {
+            int x = startX + col * (slotSize + gap);
+            drawModuleSlot(g, x, row1Y, slotSize, moduleLabelForTopRow(col), moduleColorForTopRow(col));
+            drawModuleSlot(g, x, row2Y, slotSize, moduleLabelForBottomRow(col), moduleColorForBottomRow(col));
+        }
+    }
+
+    private void drawModuleSlot(GuiGraphics g, int x, int y, int size, String label, int color) {
+        drawDarkInsetRect(g, x, y, size, size);
+
+        int inner = size - 8;
+        int ix = x + 4;
+        int iy = y + 4;
+        g.fill(ix, iy, ix + inner, iy + inner, 0xAA17141E);
+
+        if (!label.isEmpty()) {
+            g.fill(ix + 2, iy + inner - 4, ix + inner - 2, iy + inner - 2, color);
+            drawCenteredLine(g, label, x, y + 6, size, color);
+        }
+    }
+
+    private String moduleLabelForTopRow(int col) {
+        if (col < 4) {
+            return "FD";
+        }
+        if (col < 8) {
+            return "FT";
+        }
+        if (col < 11) {
+            return "FX";
+        }
+        return "";
+    }
+
+    private String moduleLabelForBottomRow(int col) {
+        if (col < 4) {
+            return "FT";
+        }
+        if (col < 8) {
+            return "FX";
+        }
+        if (col < 11) {
+            return "·";
+        }
+        return "";
+    }
+
+    private int moduleColorForTopRow(int col) {
+        if (col < 4) {
+            return DARK_TEXT_MUTED;
+        }
+        if (col < 8) {
+            return DARK_TEXT_VALUE;
+        }
+        if (col < 11) {
+            return DARK_TEXT_SUCCESS;
+        }
+        return DARK_TEXT_MUTED;
+    }
+
+    private int moduleColorForBottomRow(int col) {
+        if (col < 4) {
+            return DARK_TEXT_MUTED;
+        }
+        if (col < 8) {
+            return DARK_TEXT_VALUE;
+        }
+        if (col < 11) {
+            return DARK_TEXT_SUCCESS;
+        }
+        return DARK_TEXT_MUTED;
+    }
+
+    private void drawStatusArea(GuiGraphics g, NECraftingUiState s) {
+        drawDarkInsetRect(g, STATUS_AREA_X, STATUS_AREA_Y, STATUS_AREA_W, STATUS_AREA_H);
+
+        drawLine(g, "状态", STATUS_AREA_X + 8, STATUS_AREA_Y + 5, DARK_TEXT_PRIMARY);
+
+        int y = STATUS_AREA_Y + 21;
+        drawStatusRow(g, "超频", s.overclocked(), STATUS_AREA_X + 8, y);
+        y += 15;
+        drawStatusRow(g, "冷却", s.activeCooling(), STATUS_AREA_X + 8, y);
+        y += 15;
+        drawStatusRow(g, "清废", s.autoClearCoolingWaste(), STATUS_AREA_X + 8, y);
+    }
+
+    private void drawStatsArea(GuiGraphics g, NECraftingUiState s) {
+        drawDarkInsetRect(g, STATS_AREA_X, STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H);
+
+        drawLine(g, "合成统计", STATS_AREA_X + 8, STATS_AREA_Y + 5, DARK_TEXT_PRIMARY);
+
+        int x = STATS_AREA_X + 8;
+        int y = STATS_AREA_Y + 19;
+
+        drawCompactPairLine(g, "线程", s.runningThreadCount(), s.threadCount(), x, y);
+        drawThreadUsageBar(g, x, y + 12, STATS_AREA_W - 16, 9, s.runningThreadCount(), s.threadCount());
+
+        y += 27;
+        drawInlineValueLine(g, "样板", s.patternBusCount(), x, y);
+        drawInlineValueLine(g, "并行", s.parallelCount(), x + 76, y);
+
+        y += 13;
+        drawInlineValueLine(g, "工作", s.workerCount(), x, y);
+        drawInlineValueLine(g, "总并行", s.parallelCount(), x + 76, y);
+    }
+
+    private void drawGaugeArea(GuiGraphics g, NECraftingUiState s) {
+        drawDarkInsetRect(g, GAUGE_AREA_X, GAUGE_AREA_Y, GAUGE_AREA_W, GAUGE_AREA_H);
+
+        drawLine(g, "能耗 / 冷却", GAUGE_AREA_X + 8, GAUGE_AREA_Y + 5, DARK_TEXT_PRIMARY);
+
+        int gaugeY = GAUGE_AREA_Y + 22;
+        int gaugeH = 34;
+        int gaugeW = 25;
+        int energyX = GAUGE_AREA_X + 13;
+        int coolantX = GAUGE_AREA_X + GAUGE_AREA_W - 13 - gaugeW;
+
+        drawVerticalReserveGauge(g, energyX, gaugeY, gaugeW, gaugeH, "AE", DARK_TEXT_WARNING, 0.32D);
+        drawVerticalReserveGauge(
+                g,
+                coolantX,
+                gaugeY,
+                gaugeW,
+                gaugeH,
+                "CL",
+                s.activeCooling() ? DARK_TEXT_SUCCESS : DARK_TEXT_MUTED,
+                s.activeCooling() ? 0.55D : 0.18D);
+
+        drawCenteredLine(g, "能耗", energyX - 8, gaugeY + gaugeH + 5, gaugeW + 16, DARK_TEXT_MUTED);
+        drawCenteredLine(g, "冷却", coolantX - 8, gaugeY + gaugeH + 5, gaugeW + 16, DARK_TEXT_MUTED);
+    }
+
+    private void drawReservedArea(GuiGraphics g) {
+        drawDarkInsetRect(g, RESERVED_AREA_X, RESERVED_AREA_Y, RESERVED_AREA_W, RESERVED_AREA_H);
+
+        int slotSize = 20;
+        int gap = 6;
+        int slotCount = 9;
+        int totalW = slotCount * slotSize + (slotCount - 1) * gap;
+        int startX = RESERVED_AREA_X + 9;
+        int y = RESERVED_AREA_Y + (RESERVED_AREA_H - slotSize) / 2;
+
+        for (int i = 0; i < slotCount; i++) {
+            drawModuleSlot(g, startX + i * (slotSize + gap), y, slotSize, "", DARK_TEXT_MUTED);
+        }
+
+        drawLine(g, "任务队列", startX + totalW + 14, RESERVED_AREA_Y + 9, DARK_TEXT_MUTED);
+    }
+
+    private void drawStatusRow(GuiGraphics g, String label, boolean enabled, int x, int y) {
+        drawDarkInsetRect(g, x, y - 3, 13, 13);
+
+        int light = enabled ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR;
+        g.fill(x + 4, y + 1, x + 9, y + 6, light);
+
+        drawLine(g, label, x + 18, y, DARK_TEXT_MUTED);
+        drawLine(g, enabled ? "启用" : "关闭", x + 44, y, enabled ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR);
+    }
+
+    private void drawVerticalReserveGauge(
+            GuiGraphics g, int x, int y, int w, int h, String label, int accentColor, double fillRatio) {
+        drawDarkInsetRect(g, x, y, w, h);
+
+        int ix = x + 7;
+        int iy = y + 7;
+        int iw = w - 14;
+        int ih = h - 14;
+
+        int fillH = (int) Math.round(ih * Math.max(0.0D, Math.min(1.0D, fillRatio)));
+        int fillY = iy + ih - fillH;
+
+        g.fill(ix, iy, ix + iw, iy + ih, 0xAA17141E);
+
+        if (fillH > 0) {
+            g.fill(ix, fillY, ix + iw, iy + ih, accentColor);
+            g.fill(ix, fillY, ix + iw, Math.min(fillY + 2, iy + ih), 0x70FFFFFF);
+        }
+
+        drawCenteredLine(g, label, x, y + 3, w, DARK_TEXT_PRIMARY);
+    }
+
+    private void drawThreadUsageBar(GuiGraphics g, int x, int y, int w, int h, long current, long max) {
+        drawDarkInsetRect(g, x, y, w, h);
+
+        int ix = x + 3;
+        int iy = y + 3;
+        int iw = Math.max(0, w - 6);
+        int ih = Math.max(0, h - 6);
+        int fillW = ratioWidth(current, max, iw);
+
+        if (iw <= 0 || ih <= 0) {
+            return;
+        }
+
+        g.fill(ix, iy, ix + iw, iy + ih, 0xAA17141E);
+        if (fillW > 0) {
+            g.fill(ix, iy, ix + fillW, iy + ih, DARK_TEXT_SUCCESS);
+        }
     }
 
     private NECraftingUiState resolveCraftingState() {
@@ -193,10 +433,10 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
     @Override
     public boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int mouseButton) {
-        if (mouseX >= guiLeft + TOOLBAR_X_OFFSET
-                && mouseX < guiLeft + TOOLBAR_X_OFFSET + TOOLBAR_BUTTON_SIZE
+        if (mouseX >= guiLeft + TOOLBAR_X
+                && mouseX < guiLeft + TOOLBAR_X + TOOLBAR_BUTTON_SIZE
                 && mouseY >= guiTop + TOOLBAR_Y
-                && mouseY < guiTop + TOOLBAR_Y + TOOLBAR_BUTTON_SIZE * 3 + 7 * 2) {
+                && mouseY < guiTop + TOOLBAR_Y + TOOLBAR_BUTTON_AREA_H) {
             return false;
         }
         return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, mouseButton);
@@ -204,8 +444,7 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
 
     public List<Rect2i> getJeiExtraAreas() {
         List<Rect2i> areas = new ArrayList<>();
-        areas.add(new Rect2i(
-                leftPos + TOOLBAR_X_OFFSET, topPos + TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE * 3 + 7 * 2));
+        areas.add(new Rect2i(leftPos + TOOLBAR_X, topPos + TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_AREA_H));
         return areas;
     }
 
@@ -255,24 +494,37 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         g.drawString(font, Component.literal(text), x, y, color, false);
     }
 
-    private void drawPairLine(GuiGraphics g, String prefix, long current, long max, String suffix, int x, int y) {
-        int cursor = drawSegment(g, prefix, x, y, DARK_TEXT_MUTED);
-        cursor += drawSegment(g, fmt(current), x + cursor, y, DARK_TEXT_SUCCESS);
-        cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
-        cursor += drawSegment(g, fmt(max), x + cursor, y, DARK_TEXT_VALUE);
-        if (!suffix.isEmpty()) {
-            drawSegment(g, suffix, x + cursor, y, DARK_TEXT_MUTED);
-        }
+    private void drawCenteredLine(GuiGraphics g, String text, int x, int y, int w, int color) {
+        g.drawString(font, Component.literal(text), x + (w - font.width(text)) / 2, y, color, false);
     }
 
-    private void drawBooleanLine(GuiGraphics g, String prefix, boolean value, int x, int y) {
-        int cursor = drawSegment(g, prefix, x, y, DARK_TEXT_MUTED);
-        drawSegment(g, value ? "是" : "否", x + cursor, y, value ? DARK_TEXT_SUCCESS : DARK_TEXT_ERROR);
+    private void drawRightAlignedLine(GuiGraphics g, String text, int rightX, int y, int color) {
+        g.drawString(font, Component.literal(text), rightX - font.width(text), y, color, false);
+    }
+
+    private void drawInlineValueLine(GuiGraphics g, String label, long value, int x, int y) {
+        int cursor = drawSegment(g, label + ": ", x, y, DARK_TEXT_MUTED);
+        drawSegment(g, fmt(value), x + cursor, y, DARK_TEXT_VALUE);
+    }
+
+    private void drawCompactPairLine(GuiGraphics g, String label, long current, long max, int x, int y) {
+        int cursor = drawSegment(g, label + ": ", x, y, DARK_TEXT_MUTED);
+        cursor += drawSegment(g, fmt(current), x + cursor, y, DARK_TEXT_SUCCESS);
+        cursor += drawSegment(g, " / ", x + cursor, y, DARK_TEXT_MUTED);
+        drawSegment(g, fmt(max), x + cursor, y, DARK_TEXT_VALUE);
     }
 
     private int drawSegment(GuiGraphics g, String text, int x, int y, int color) {
         g.drawString(font, Component.literal(text), x, y, color, false);
         return font.width(text);
+    }
+
+    private static int ratioWidth(long current, long max, int fullWidth) {
+        if (fullWidth <= 0 || max <= 0 || current <= 0) {
+            return 0;
+        }
+        long clamped = Math.max(0L, Math.min(current, max));
+        return (int) Math.max(1L, Math.min(fullWidth, clamped * fullWidth / max));
     }
 
     private static String fmt(long value) {

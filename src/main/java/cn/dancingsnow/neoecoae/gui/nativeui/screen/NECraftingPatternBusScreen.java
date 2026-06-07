@@ -25,7 +25,17 @@ import net.minecraft.world.item.ItemStack;
  */
 public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECraftingPatternBusMenu> {
 
-    // ── Text colors ── (uses NENativeUiConstants.MACHINE_TEXT_PRIMARY)
+    // ── Pagination ──
+    private static final int PAGE_BUTTON_Y = 4;
+    private static final int PAGE_BUTTON_W = 12;
+    private static final int PAGE_BUTTON_H = 14;
+
+    private static final int PAGE_PREV_BUTTON_X = GUI_W - 34;
+    private static final int PAGE_NEXT_BUTTON_X = GUI_W - 16;
+    private static final int PAGE_TEXT_RIGHT_X = PAGE_PREV_BUTTON_X - 5;
+
+    // Brighter page text for readability on AE2-style gray panel.
+    private static final int PAGE_TEXT_COLOR = 0xFFFFD24A;
 
     // Ghost
     private static final float GHOST_ALPHA = 0.10f;
@@ -47,14 +57,16 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
     @Override
     protected void init() {
         super.init();
+
         this.previousPageButton = addRenderableWidget(Button.builder(
                         Component.literal("<"), button -> changePage(NECraftingPatternBusMenu.BUTTON_PREVIOUS_PAGE))
-                .bounds(leftPos + 126, topPos + 4, 12, 14)
+                .bounds(leftPos + PAGE_PREV_BUTTON_X, topPos + PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H)
                 .tooltip(Tooltip.create(Component.translatable("gui.neoecoae.pattern_bus.previous_page")))
                 .build());
+
         this.nextPageButton = addRenderableWidget(
                 Button.builder(Component.literal(">"), button -> changePage(NECraftingPatternBusMenu.BUTTON_NEXT_PAGE))
-                        .bounds(leftPos + 158, topPos + 4, 12, 14)
+                        .bounds(leftPos + PAGE_NEXT_BUTTON_X, topPos + PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H)
                         .tooltip(Tooltip.create(Component.translatable("gui.neoecoae.pattern_bus.next_page")))
                         .build());
     }
@@ -139,15 +151,41 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
         boolean paged = menu.getPageCount() > 1;
-        Component displayTitle = title;
-        if (paged && font.width(title) > 112) {
-            displayTitle = Component.literal(font.plainSubstrByWidth(title.getString(), 104) + "...");
-        }
-        g.drawString(font, displayTitle, TITLE_X, TITLE_Y, NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
+        String pageText = paged ? (menu.getCurrentPage() + 1) + " / " + menu.getPageCount() : "";
+
+        int titleMaxWidth;
         if (paged) {
-            String pageText = (menu.getCurrentPage() + 1) + " / " + menu.getPageCount();
-            g.drawCenteredString(font, pageText, 148, TITLE_Y, NENativeUiConstants.MACHINE_TEXT_PRIMARY);
+            int pageTextX = PAGE_TEXT_RIGHT_X - font.width(pageText);
+            titleMaxWidth = Math.max(0, pageTextX - TITLE_X - 6);
+        } else {
+            titleMaxWidth = GUI_W - TITLE_X - 8;
         }
+
+        Component displayTitle = truncateTitle(title, titleMaxWidth);
+        g.drawString(font, displayTitle, TITLE_X, TITLE_Y, NENativeUiConstants.MACHINE_TEXT_PRIMARY, false);
+
+        if (paged) {
+            int pageTextX = PAGE_TEXT_RIGHT_X - font.width(pageText);
+            g.drawString(font, pageText, pageTextX, TITLE_Y, PAGE_TEXT_COLOR, true);
+        }
+    }
+
+    private Component truncateTitle(Component text, int maxWidth) {
+        String raw = text.getString();
+        if (maxWidth <= 0) {
+            return Component.empty();
+        }
+        if (font.width(raw) <= maxWidth) {
+            return text;
+        }
+
+        String ellipsis = "...";
+        int ellipsisWidth = font.width(ellipsis);
+        if (maxWidth <= ellipsisWidth) {
+            return Component.literal(font.plainSubstrByWidth(raw, maxWidth));
+        }
+
+        return Component.literal(font.plainSubstrByWidth(raw, maxWidth - ellipsisWidth) + ellipsis);
     }
 
     private void changePage(int buttonId) {
@@ -160,8 +198,10 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
         int pages = menu.getPageCount();
         int page = menu.getCurrentPage();
         boolean visible = pages > 1;
+
         previousPageButton.visible = visible;
         nextPageButton.visible = visible;
+
         previousPageButton.active = visible && page > 0;
         nextPageButton.active = visible && page + 1 < pages;
     }
@@ -176,10 +216,14 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
         if (!(patternStack.getItem() instanceof EncodedPatternItem patternItem)) {
             return ItemStack.EMPTY;
         }
+
         String tagKey = patternStack.getTag() != null ? patternStack.getTag().toString() : "{}";
         String key = BuiltInRegistries.ITEM.getKey(patternStack.getItem()) + "|" + tagKey;
         ItemStack cached = patternDisplayCache.get(key);
-        if (cached != null) return cached.copy();
+        if (cached != null) {
+            return cached.copy();
+        }
+
         try {
             ItemStack output = patternItem.getOutput(patternStack);
             if (!output.isEmpty()) {
@@ -189,6 +233,7 @@ public class NECraftingPatternBusScreen extends AbstractContainerScreen<NECrafti
         } catch (Exception ignored) {
             // Broken or unparseable pattern — fall back to showing the pattern item itself
         }
+
         return ItemStack.EMPTY;
     }
 }

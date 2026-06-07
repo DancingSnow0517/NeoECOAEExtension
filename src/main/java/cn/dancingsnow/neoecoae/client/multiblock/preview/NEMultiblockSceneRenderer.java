@@ -31,7 +31,7 @@ public final class NEMultiblockSceneRenderer {
     private static final float DEFAULT_YAW = -38.0F;
     private static final float DEFAULT_PITCH = 28.0F;
     private static final float DEFAULT_ZOOM = 0.90F;
-    private static final float MIN_ZOOM = 0.55F;
+    private static final float MIN_ZOOM = 0.15F;
     private static final float MAX_ZOOM = 1.80F;
     private static final float ZOOM_STEP = 0.10F;
     private static final float FIT_PADDING = 0.68F;

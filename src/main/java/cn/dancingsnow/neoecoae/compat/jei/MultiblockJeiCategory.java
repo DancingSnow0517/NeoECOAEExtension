@@ -310,8 +310,8 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
 
         private void rebuild() {
             scene = MultiblockPreviewContext.createScene(recipe.definition(), expand, formed);
-            materials = copyItems(
-                    StructureTerminalMaterialRequirements.collectRequiredItems(recipe.definition(), expand));
+            materials =
+                    copyItems(StructureTerminalMaterialRequirements.collectRequiredItems(recipe.definition(), expand));
             if (scene != null && layer > scene.yMax()) {
                 layer = -1;
             }
@@ -366,7 +366,6 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
             if (formed) {
                 formed = false;
             }
-            renderer.resetView();
             rebuild();
         }
 
@@ -377,12 +376,10 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
                 formed = false;
                 rebuild();
             }
-            renderer.resetView();
         }
 
         private void toggleFormed() {
             formed = !formed;
-            renderer.resetView();
             rebuild();
         }
 

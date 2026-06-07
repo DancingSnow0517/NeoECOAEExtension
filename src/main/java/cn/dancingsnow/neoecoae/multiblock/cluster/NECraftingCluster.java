@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
@@ -15,6 +16,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
+    @Getter
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
+
     @Getter
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
 

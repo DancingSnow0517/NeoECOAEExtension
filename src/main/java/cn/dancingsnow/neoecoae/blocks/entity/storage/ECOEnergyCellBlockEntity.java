@@ -197,8 +197,8 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
             return;
         }
 
-        int storageLevel = getStorageLevelFromFillFactor(
-                this.energyStored.getAmount() / this.energyStored.getMaximum());
+        int storageLevel =
+                getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
         logEnergyTick("updateStateForPowerLevel:" + storageLevel);
 
         if (this.currentDisplayLevel != storageLevel) {

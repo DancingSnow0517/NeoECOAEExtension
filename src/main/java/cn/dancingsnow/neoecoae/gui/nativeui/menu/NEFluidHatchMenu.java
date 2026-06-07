@@ -29,6 +29,7 @@ public class NEFluidHatchMenu extends NEBaseMachineMenu {
 
     private final ContainerData data;
     private FluidStack clientFluid = FluidStack.EMPTY;
+
     @Nullable private CompoundTag lastSentTankTag;
 
     public NEFluidHatchMenu(int containerId, Inventory playerInv, BlockPos machinePos) {

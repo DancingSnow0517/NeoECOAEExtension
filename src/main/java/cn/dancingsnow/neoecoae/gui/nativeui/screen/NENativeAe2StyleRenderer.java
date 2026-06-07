@@ -102,7 +102,9 @@ public final class NENativeAe2StyleRenderer {
 
     // ── AE2 IO Port background — baked slot patch ──
 
-    /** AE2 IO Port background texture, used as the source for baked player slots. */
+    /**
+     * AE2 IO Port background texture, used as the source for baked player slots.
+     */
     private static final ResourceLocation AE_IO_PORT =
             ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/io_port.png");
 
@@ -111,7 +113,7 @@ public final class NENativeAe2StyleRenderer {
 
     // AE2 IO Port background: 176×166
     // common/player_inventory.json: PLAYER_INVENTORY slot left=8, bottom=82
-    // slotY = 166 - 82 = 84  →  bgY = 83
+    // slotY = 166 - 82 = 84 → bgY = 83
     private static final int AE_BAKED_SLOT_U = 7;
     private static final int AE_BAKED_SLOT_V = 83;
     private static final int AE_BAKED_SLOT_SIZE = 18;
@@ -227,25 +229,98 @@ public final class NENativeAe2StyleRenderer {
 
     // ── Fluid tank ──
 
+    private static final int TANK_BORDER = 0xFF3F3F3F;
+    private static final int TANK_GLASS_BG = 0xFFBEBEBE;
+    private static final int TANK_GLASS_OVERLAY = 0x18FFFFFF;
+    private static final int TANK_MAJOR_TICK = 0xFF4A4A4A;
+    private static final int TANK_MINOR_TICK = 0xFF7A7A7A;
+    private static final int TICK_AREA_WIDTH = 7;
+    private static final int TANK_INNER_PAD = 3;
+
     /**
-     * Draw a fluid tank with recessed AE2-style inset border and fluid texture tiling.
+     * Draw a vertical storage-tank-style fluid gauge with:
+     * <ul>
+     * <li>Dark outer border — the tank shell</li>
+     * <li>Light-gray glass interior</li>
+     * <li>Fluid still-texture fill from bottom to top, clipped inside the
+     * glass area</li>
+     * <li>Hardcoded tick marks on the left side (4 major + 4 minor, no PNG)</li>
+     * <li>A subtle glass reflection overlay</li>
+     * </ul>
      */
     public static void drawAeFluidTank(
             GuiGraphics g, int x, int y, int w, int h, FluidStack stack, int amount, int capacity) {
-        drawAeInsetRect(g, x, y, w, h, 0xFF8E8E8E);
+        // ── 1. Outer tank shell (1 px dark border) ──
+        g.fill(x, y, x + w, y + 1, TANK_BORDER);
+        g.fill(x, y + h - 1, x + w, y + h, TANK_BORDER);
+        g.fill(x, y, x + 1, y + h, TANK_BORDER);
+        g.fill(x + w - 1, y, x + w, y + h, TANK_BORDER);
 
-        int ix = x + 2;
-        int iy = y + 2;
-        int iw = w - 4;
-        int ih = h - 4;
+        // ── 2. Glass interior background ──
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, TANK_GLASS_BG);
 
-        if (amount <= 0 || stack.isEmpty() || capacity <= 0) {
-            return;
+        // ── 3. Compute geometry ──
+        int tickLeft = x + 1;
+        int tickMajorRight = x + 1 + TICK_AREA_WIDTH;
+        int tickMinorRight = x + 1 + TICK_AREA_WIDTH / 2 + 1;
+        int fluidLeft = x + 1 + TICK_AREA_WIDTH + 1;
+        int fluidRight = x + w - 1 - TANK_INNER_PAD + 1;
+        int fluidTop = y + TANK_INNER_PAD;
+        int fluidBottom = y + h - TANK_INNER_PAD;
+        int fluidWidth = fluidRight - fluidLeft;
+        int fluidHeight = fluidBottom - fluidTop;
+
+        // ── 4. Tick marks (5 major, 4 minor; 4 equal divisions) ──
+        for (int i = 0; i <= 4; i++) {
+            int tickY = fluidBottom - i * fluidHeight / 4;
+            g.fill(tickLeft, tickY, tickMajorRight, tickY + 1, TANK_MAJOR_TICK);
+        }
+        for (int i = 0; i < 4; i++) {
+            int tickY = fluidBottom - (i * 2 + 1) * fluidHeight / 8;
+            g.fill(tickLeft, tickY, tickMinorRight, tickY + 1, TANK_MINOR_TICK);
         }
 
-        int barH = Mth.clamp((int) ((long) amount * ih / capacity), 1, ih);
-        int fillY = iy + ih - barH;
-        drawFluidTexture(g, ix, fillY, iw, barH, stack);
+        // ── 5. Fluid fill (bottom → top, clipped inside fluid area) ──
+        if (amount > 0 && !stack.isEmpty() && capacity > 0 && fluidHeight > 0) {
+            int barH = Mth.clamp((int) ((long) amount * fluidHeight / capacity), 1, fluidHeight);
+            int fillY = fluidBottom - barH;
+            g.enableScissor(fluidLeft, fillY, fluidLeft + fluidWidth, fluidBottom);
+            drawFluidTextureFull(g, fluidLeft, fluidTop, fluidWidth, fluidHeight, stack, fluidBottom);
+            g.disableScissor();
+        }
+
+        // ── 6. Glass reflection overlay (subtle white sheen) ──
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, TANK_GLASS_OVERLAY);
+    }
+
+    /**
+     * Draw fluid texture tiling without its own scissor — caller must set
+     * scissor for the visible portion. Renders the full column from topY
+     * to bottomY so that the bottom-aligned fill is seamless.
+     */
+    private static void drawFluidTextureFull(
+            GuiGraphics g, int x, int topY, int w, int h, FluidStack stack, int bottomY) {
+        if (stack.isEmpty() || stack.getFluid() == null) return;
+        IClientFluidTypeExtensions ext = IClientFluidTypeExtensions.of(stack.getFluid());
+        ResourceLocation stillTexture = ext.getStillTexture(stack);
+        if (stillTexture == null) return;
+
+        TextureAtlasSprite sprite = Minecraft.getInstance()
+                .getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
+                .apply(stillTexture);
+        int color = resolveFluidColor(stack);
+        float r = ((color >>> 16) & 0xFF) / 255.0F;
+        float gv = ((color >>> 8) & 0xFF) / 255.0F;
+        float b = (color & 0xFF) / 255.0F;
+        float a = ((color >>> 24) & 0xFF) / 255.0F;
+
+        RenderSystem.setShaderColor(r, gv, b, a);
+        for (int ty = topY; ty < bottomY; ty += 16) {
+            for (int tx = x; tx < x + w; tx += 16) {
+                g.blit(tx, ty, 0, 16, 16, sprite);
+            }
+        }
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     // ── Output frame (Inscriber-style large frame) ──
@@ -309,7 +384,10 @@ public final class NENativeAe2StyleRenderer {
 
     // ── Fluid texture helpers ──
 
-    /** Resolve a tint color for a fluid stack. Public for Screen-side hover rendering. */
+    /**
+     * Resolve a tint color for a fluid stack. Public for Screen-side hover
+     * rendering.
+     */
     public static int resolveFluidColor(FluidStack stack, int fallbackColor) {
         if (stack.isEmpty() || stack.getFluid() == null) return fallbackColor;
         if (stack.getFluid() == Fluids.WATER || stack.getFluid() == Fluids.FLOWING_WATER) return 0xFF3A7FD6;
@@ -322,31 +400,5 @@ public final class NENativeAe2StyleRenderer {
 
     private static int resolveFluidColor(FluidStack stack) {
         return resolveFluidColor(stack, 0xFFFFFFFF);
-    }
-
-    private static void drawFluidTexture(GuiGraphics g, int x, int y, int w, int h, FluidStack stack) {
-        if (stack.isEmpty() || stack.getFluid() == null) return;
-        IClientFluidTypeExtensions ext = IClientFluidTypeExtensions.of(stack.getFluid());
-        ResourceLocation stillTexture = ext.getStillTexture(stack);
-        if (stillTexture == null) return;
-
-        TextureAtlasSprite sprite = Minecraft.getInstance()
-                .getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
-                .apply(stillTexture);
-        int color = resolveFluidColor(stack);
-        float r = ((color >>> 16) & 0xFF) / 255.0F;
-        float gv = ((color >>> 8) & 0xFF) / 255.0F;
-        float b = (color & 0xFF) / 255.0F;
-        float a = ((color >>> 24) & 0xFF) / 255.0F;
-
-        RenderSystem.setShaderColor(r, gv, b, a);
-        g.enableScissor(x, y, x + w, y + h);
-        for (int ty = y; ty < y + h; ty += 16) {
-            for (int tx = x; tx < x + w; tx += 16) {
-                g.blit(tx, ty, 0, 16, 16, sprite);
-            }
-        }
-        g.disableScissor();
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 }

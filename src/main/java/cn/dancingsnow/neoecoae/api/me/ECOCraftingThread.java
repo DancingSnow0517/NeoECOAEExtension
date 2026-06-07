@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
-import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.stacks.AEItemKey;
@@ -10,7 +9,6 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import appeng.me.service.CraftingService;
 import appeng.menu.AutoCraftingMenu;
 import cn.dancingsnow.neoecoae.api.NEFakePlayer;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
@@ -85,9 +83,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
      */
     public TickRateModulation tick(int overlockTimes, int powerMultiply, int ticksSinceLastCall) {
         if (!isBusy) {
-            progress = 0;
-            setChanged();
             return TickRateModulation.SLEEP;
+        }
+        if (outputsReady) {
+            return TickRateModulation.URGENT;
         }
         if (this.reboot) {
             ticksSinceLastCall = 1;
@@ -99,15 +98,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         if (this.progress >= MAX_PROGRESS) {
             outputsReady = true;
-            int slotsToRelease = occupiedThreadSlots;
-            if (ejectOutputs()) {
-                worker.onThreadStop(slotsToRelease);
-                isBusy = false;
-                setChanged();
-            }
+            setChanged();
             return TickRateModulation.URGENT;
         }
-        setChanged();
         return TickRateModulation.URGENT;
     }
 
@@ -388,20 +381,39 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    private boolean ejectOutputs() {
-        IGrid grid = worker.getMainNode().getGrid();
-        if (grid == null) {
-            return false;
+    public boolean isOutputReady() {
+        return isBusy && outputsReady;
+    }
+
+    public void appendReadyOutputs(KeyCounter outputs) {
+        if (!isOutputReady()) {
+            return;
+        }
+        for (Object2LongMap.Entry<AEKey> entry : collectOutputItems()) {
+            outputs.add(entry.getKey(), entry.getLongValue());
+        }
+    }
+
+    public void applyOutputFlush(KeyCounter acceptedOutputs) {
+        if (!isOutputReady()) {
+            return;
         }
 
-        CraftingService craftingService = (CraftingService) grid.getCraftingService();
-        MEStorage storage = grid.getStorageService().getInventory();
-        KeyCounter outputs = collectOutputItems();
+        KeyCounter remainder = new KeyCounter();
+        for (Object2LongMap.Entry<AEKey> entry : collectOutputItems()) {
+            long accepted = Math.min(entry.getLongValue(), acceptedOutputs.get(entry.getKey()));
+            if (accepted > 0) {
+                acceptedOutputs.remove(entry.getKey(), accepted);
+            }
+            long remaining = entry.getLongValue() - accepted;
+            if (remaining > 0) {
+                remainder.add(entry.getKey(), remaining);
+            }
+        }
 
-        KeyCounter remainder = ejectAllAndCollectRemainder(craftingService, storage, outputs);
         if (!isEmpty(remainder)) {
             retainRemainderForRetry(remainder);
-            return false;
+            return;
         }
 
         if (NEConfig.postCraftingEvent) {
@@ -409,8 +421,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                     NEFakePlayer.getFakePlayer((ServerLevel) worker.getLevel()), firstOutputItem(), craftingInv));
         }
 
+        int slotsToRelease = occupiedThreadSlots;
         clearWork();
-        return true;
+        worker.onThreadStop(slotsToRelease);
+        setChanged();
     }
 
     private KeyCounter collectOutputItems() {
@@ -430,29 +444,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
     }
 
-    private KeyCounter ejectAllAndCollectRemainder(
-            CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
-        KeyCounter remainder = new KeyCounter();
-
-        for (Object2LongMap.Entry<AEKey> entry : stacks) {
-            AEKey key = entry.getKey();
-            long remaining = entry.getLongValue();
-            long insertedIntoCpus = craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE);
-            remaining -= insertedIntoCpus;
-
-            if (remaining > 0) {
-                long insertedIntoStorage = storage.insert(key, remaining, Actionable.MODULATE, actionSource);
-                remaining -= insertedIntoStorage;
-            }
-
-            if (remaining > 0) {
-                remainder.add(key, remaining);
-            }
-        }
-
-        return remainder;
-    }
-
     private static boolean isEmpty(KeyCounter counter) {
         for (var ignored : counter) {
             return false;
@@ -467,12 +458,15 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return;
         }
 
+        boolean changed = !outputsReady || !outputItems.equals(retained) || !remainingItems.isEmpty();
         outputItems.clear();
         outputItems.addAll(retained);
         remainingItems.clear();
         outputsReady = true;
         isBusy = true;
-        setChanged();
+        if (changed) {
+            setChanged();
+        }
     }
 
     @Nullable private List<ItemStack> toItemStacksOrLog(KeyCounter remainder, String kind) {

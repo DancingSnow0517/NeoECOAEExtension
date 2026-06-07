@@ -49,12 +49,14 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_EXECUTION_STATS = Boolean.getBoolean("neoecoae.debugEcoCraftingExecution");
-    private static final int ECO_CPU_PUSH_TICK_LIMIT = Math.max(1,
-            Integer.getInteger("neoecoae.ecoCpuPushTickLimit", Integer.MAX_VALUE));
-    private static final int ECO_BATCH_FAST_PATH_LIMIT = Math.max(1,
-            Integer.getInteger("neoecoae.ecoBatchFastPathLimit", 64));
-    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT = Math.max(1,
-            Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", 256));
+    static final int DEFAULT_BATCH_FAST_PATH_LIMIT = 5632;
+    static final int DEFAULT_BATCH_FAST_PATH_TICK_LIMIT = 5632;
+    private static final int ECO_CPU_PUSH_TICK_LIMIT =
+            Math.max(1, Integer.getInteger("neoecoae.ecoCpuPushTickLimit", Integer.MAX_VALUE));
+    private static final int ECO_BATCH_FAST_PATH_LIMIT =
+            Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathLimit", DEFAULT_BATCH_FAST_PATH_LIMIT));
+    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT =
+            Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", DEFAULT_BATCH_FAST_PATH_TICK_LIMIT));
 
     final ECOCraftingCPU cpu;
 
@@ -125,6 +127,7 @@ public class ECOCraftingCPULogic {
     private long debugAcceptedCraftCount;
     private long debugAcceptedBatchCount;
     private long debugAcceptedBatchCraftCount;
+    private long debugSlowFallbackCount;
     private long debugMaxBatchSize;
     private long debugExtractPatternInputsNs;
     private long debugExecuteCraftingNs;
@@ -137,22 +140,17 @@ public class ECOCraftingCPULogic {
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
         // Already have a job.
-        if (this.job != null)
-            return CraftingSubmitResult.CPU_BUSY;
+        if (this.job != null) return CraftingSubmitResult.CPU_BUSY;
         // Check that the node is active.
-        if (!cpu.isActive())
-            return CraftingSubmitResult.CPU_OFFLINE;
+        if (!cpu.isActive()) return CraftingSubmitResult.CPU_OFFLINE;
         // Check bytes.
-        if (cpu.getAvailableStorage() < plan.bytes())
-            return CraftingSubmitResult.CPU_TOO_SMALL;
+        if (cpu.getAvailableStorage() < plan.bytes()) return CraftingSubmitResult.CPU_TOO_SMALL;
 
-        if (!inventory.list.isEmpty())
-            AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
+        if (!inventory.list.isEmpty()) AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
         // Try to extract required items.
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
-        if (missingIngredient != null)
-            return CraftingSubmitResult.missingIngredient(missingIngredient);
+        if (missingIngredient != null) return CraftingSubmitResult.missingIngredient(missingIngredient);
 
         // Set CPU link and job.
         var playerId = src.player()
@@ -237,20 +235,10 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        var remainingOperations = getOperationLimit();
+        int slowPatternBudget = getOperationLimit();
         var batchBudget = new FastPathBatchBudget(ECO_BATCH_FAST_PATH_TICK_LIMIT);
-
-        if (remainingOperations > 0) {
-            do {
-                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel(), batchBudget);
-
-                if (pushedPatterns > 0) {
-                    remainingOperations -= pushedPatterns;
-                } else {
-                    break;
-                }
-            } while (remainingOperations > 0);
-        }
+        int totalPatternBudget = totalPatternBudget(slowPatternBudget, batchBudget.remaining());
+        executeCrafting(slowPatternBudget, totalPatternBudget, cc, eg, cpu.getLevel(), batchBudget);
     }
 
     /**
@@ -301,8 +289,7 @@ public class ECOCraftingCPULogic {
      * Tries to recover items to network; does NOT silently drop the job.
      */
     private void safeAbortRestoredJob(String reason) {
-        if (job == null)
-            return;
+        if (job == null) return;
         UUID jobId = job.link.getCraftingID();
         LOGGER.warn(
                 "ECO CPU safeAbortRestoredJob: reason={} jobId={} finalOutput={} remainingAmount={} waitingForSize={} tasksSize={} cpu={}",
@@ -368,29 +355,36 @@ public class ECOCraftingCPULogic {
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         return executeCrafting(
                 maxPatterns,
+                maxPatterns,
                 craftingService,
                 energyService,
                 level,
-                new FastPathBatchBudget(ECO_BATCH_FAST_PATH_TICK_LIMIT));
+                new FastPathBatchBudget(Math.min(ECO_BATCH_FAST_PATH_TICK_LIMIT, maxPatterns)));
+    }
+
+    static int totalPatternBudget(int slowPatternBudget, int batchPatternBudget) {
+        return Math.max(Math.max(0, slowPatternBudget), Math.max(0, batchPatternBudget));
     }
 
     private int executeCrafting(
-            int maxPatterns,
+            int slowPatternBudget,
+            int totalPatternBudget,
             CraftingService craftingService,
             IEnergyService energyService,
             Level level,
             FastPathBatchBudget batchBudget) {
         var job = this.job;
-        if (job == null)
-            return 0;
+        if (job == null) return 0;
 
-        var pushedPatterns = 0;
+        int pushedPatterns = 0;
+        int slowPushedPatterns = 0;
         long executeStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
         beginStatusChangeBatch();
 
         try {
             var it = job.tasks.entrySet().iterator();
-            taskLoop: while (it.hasNext()) {
+            taskLoop:
+            while (it.hasNext()) {
                 var task = it.next();
                 if (task.getValue().value <= 0) {
                     postPatternOutputsChange(task.getKey());
@@ -399,9 +393,17 @@ public class ECOCraftingCPULogic {
                 }
 
                 var details = task.getKey();
-                while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
-                    List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
-                    if (providers.isEmpty()) {
+                ProviderSelection providers = collectProviders(craftingService, details);
+                if (providers.all().isEmpty()) {
+                    debugExtractSkippedBecauseProvidersBusy++;
+                    continue;
+                }
+
+                while (task.getValue().value > 0 && pushedPatterns < totalPatternBudget) {
+                    if (batchBudget.remaining() <= 0 && slowPushedPatterns >= slowPatternBudget) {
+                        break taskLoop;
+                    }
+                    if (!hasPotentialProvider(providers)) {
                         debugExtractSkippedBecauseProvidersBusy++;
                         continue taskLoop;
                     }
@@ -412,8 +414,7 @@ public class ECOCraftingCPULogic {
                     if (DEBUG_EXECUTION_STATS) {
                         debugExtractPatternInputsCalls++;
                     }
-                    @Nullable
-                    var craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                    @Nullable var craftingContainer = CraftingCpuHelper.extractPatternInputs(
                             details, inventory, level, expectedOutputs, expectedContainerItems);
                     if (DEBUG_EXECUTION_STATS) {
                         debugExtractPatternInputsNs += System.nanoTime() - extractStartNs;
@@ -429,11 +430,11 @@ public class ECOCraftingCPULogic {
                             details,
                             execution,
                             craftingContainer,
-                            providers,
+                            providers.batchBuses(),
                             energyService,
                             patternPower,
                             task.getValue().value,
-                            maxPatterns - pushedPatterns,
+                            totalPatternBudget - pushedPatterns,
                             batchBudget.remaining());
                     if (batchResult > 0) {
                         batchBudget.consume(batchResult);
@@ -444,7 +445,7 @@ public class ECOCraftingCPULogic {
                             it.remove();
                             continue taskLoop;
                         }
-                        if (pushedPatterns == maxPatterns) {
+                        if (pushedPatterns == totalPatternBudget) {
                             break taskLoop;
                         }
                         continue;
@@ -452,14 +453,22 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
+                    if (slowPushedPatterns >= slowPatternBudget) {
+                        CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+                        continue taskLoop;
+                    }
+
+                    if (DEBUG_EXECUTION_STATS) {
+                        debugSlowFallbackCount++;
+                    }
                     boolean pushed = false;
-                    for (ICraftingProvider provider : providers) {
+                    for (ICraftingProvider provider : providers.all()) {
                         if (provider.isBusy()) {
                             continue;
                         }
 
-                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
-                                PowerMultiplier.CONFIG) < patternPower - 0.01) {
+                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                                < patternPower - 0.01) {
                             break;
                         }
 
@@ -473,6 +482,7 @@ public class ECOCraftingCPULogic {
                         if (pushed) {
                             energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
                             pushedPatterns++;
+                            slowPushedPatterns++;
                             recordPushedPattern(execution, 1);
                             recordAcceptedCrafts(1, false);
 
@@ -482,7 +492,7 @@ public class ECOCraftingCPULogic {
                                 it.remove();
                                 continue taskLoop;
                             }
-                            if (pushedPatterns == maxPatterns) {
+                            if (pushedPatterns == totalPatternBudget) {
                                 break taskLoop;
                             }
                             break;
@@ -516,16 +526,24 @@ public class ECOCraftingCPULogic {
         double averageBatchSize = debugAcceptedBatchCount <= 0
                 ? 0.0D
                 : (double) debugAcceptedBatchCraftCount / (double) debugAcceptedBatchCount;
+        double acceptedBatchCraftRatio =
+                debugPushedPatterns <= 0 ? 0.0D : (double) debugAcceptedBatchCraftCount / (double) debugPushedPatterns;
         LOGGER.debug(
-                "ECO executeCrafting: pushedPatterns={} extractSkippedBecauseProvidersBusy={} extractPatternInputsCalls={} pushPatternCalls={} acceptedCraftCount={} acceptedBatchCount={} averageBatchSize={} maxBatchSize={} extractPatternInputsNs={} executeCraftingNs={}",
+                "ECO executeCrafting: pushedPatterns={} acceptedBatchCraftCount={} acceptedBatchCount={} "
+                        + "acceptedBatchCraftRatio={} averageBatchSize={} maxBatchSize={} slowFallbackCount={} "
+                        + "extractSkippedBecauseProvidersBusy={} extractPatternInputsCalls={} pushPatternCalls={} "
+                        + "acceptedCraftCount={} extractPatternInputsNs={} executeCraftingNs={}",
                 debugPushedPatterns,
+                debugAcceptedBatchCraftCount,
+                debugAcceptedBatchCount,
+                String.format(java.util.Locale.ROOT, "%.4f", acceptedBatchCraftRatio),
+                String.format(java.util.Locale.ROOT, "%.2f", averageBatchSize),
+                debugMaxBatchSize,
+                debugSlowFallbackCount,
                 debugExtractSkippedBecauseProvidersBusy,
                 debugExtractPatternInputsCalls,
                 debugPushPatternCalls,
                 debugAcceptedCraftCount,
-                debugAcceptedBatchCount,
-                String.format(java.util.Locale.ROOT, "%.2f", averageBatchSize),
-                debugMaxBatchSize,
                 debugExtractPatternInputsNs,
                 debugExecuteCraftingNs);
         debugPushedPatterns = 0;
@@ -535,48 +553,59 @@ public class ECOCraftingCPULogic {
         debugAcceptedCraftCount = 0;
         debugAcceptedBatchCount = 0;
         debugAcceptedBatchCraftCount = 0;
+        debugSlowFallbackCount = 0;
         debugMaxBatchSize = 0;
         debugExtractPatternInputsNs = 0;
         debugExecuteCraftingNs = 0;
     }
 
-    private List<ICraftingProvider> collectAvailableProviders(
-            CraftingService craftingService, IPatternDetails details) {
+    private ProviderSelection collectProviders(CraftingService craftingService, IPatternDetails details) {
         List<ICraftingProvider> providers = new ArrayList<>();
+        List<ECOCraftingPatternBusBlockEntity> batchBuses = new ArrayList<>();
         for (ICraftingProvider provider : craftingService.getProviders(details)) {
-            if (!provider.isBusy()) {
-                providers.add(provider);
+            providers.add(provider);
+            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
+                batchBuses.add(patternBus);
             }
         }
-        return providers;
+        return new ProviderSelection(List.copyOf(providers), List.copyOf(batchBuses));
+    }
+
+    private boolean hasPotentialProvider(ProviderSelection providers) {
+        if (!providers.batchBuses().isEmpty()) {
+            return true;
+        }
+        for (ICraftingProvider provider : providers.all()) {
+            if (!provider.isBusy()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int tryPushVerifiedFastPathBatch(
             IPatternDetails details,
             ECOExtractedPatternExecution execution,
             KeyCounter[] firstCraftingContainer,
-            List<ICraftingProvider> providers,
+            List<ECOCraftingPatternBusBlockEntity> patternBuses,
             IEnergyService energyService,
             double patternPower,
             long taskRemaining,
-            int operationBudgetRemaining,
+            int totalBudgetRemaining,
             int batchBudgetRemaining) {
         if (!canAttemptBatchFastPath(execution)
                 || taskRemaining <= 1
-                || operationBudgetRemaining <= 1
+                || totalBudgetRemaining <= 1
                 || batchBudgetRemaining <= 1) {
             return 0;
         }
 
         int requested = (int) Math.min(
-                Math.min(taskRemaining, operationBudgetRemaining),
+                Math.min(taskRemaining, totalBudgetRemaining),
                 Math.min(ECO_BATCH_FAST_PATH_LIMIT, batchBudgetRemaining));
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
-        for (ICraftingProvider provider : providers) {
-            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)) {
-                continue;
-            }
+        for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             var offer = patternBus.findBatchFastPathOffer(execution, requested);
             if (offer != null && offer.maxBatchSize() > 1) {
                 selectedPatternBus = patternBus;
@@ -603,8 +632,8 @@ public class ECOCraftingCPULogic {
         }
 
         int extraCrafts = batchSize - 1;
-        int availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(),
-                extraCrafts);
+        int availableExtraCrafts =
+                ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(), extraCrafts);
         batchSize = Math.min(batchSize, availableExtraCrafts + 1);
         if (batchSize <= 1) {
             return 0;
@@ -617,8 +646,8 @@ public class ECOCraftingCPULogic {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
                 return 0;
             }
-            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE,
-                    PowerMultiplier.CONFIG) < patternPower * batchSize - 0.01) {
+            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                    < patternPower * batchSize - 0.01) {
                 return 0;
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
@@ -634,7 +663,7 @@ public class ECOCraftingCPULogic {
             if (DEBUG_EXECUTION_STATS) {
                 debugPushPatternCalls++;
             }
-            if (!selectedPatternBus.pushBatch(request)) {
+            if (!selectedPatternBus.pushBatch(request, selectedOffer)) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, false, extraInputsExtracted);
                 return 0;
             }
@@ -692,8 +721,7 @@ public class ECOCraftingCPULogic {
         long expectedOutputsPerCraft = totalAmount(execution.expectedOutputs());
         long expectedContainerItemsPerCraft = totalAmount(execution.expectedContainerItems());
         long waitingForDelta = saturatedMultiply(
-                saturatedAdd(expectedOutputsPerCraft, expectedContainerItemsPerCraft),
-                acceptedBatchSize);
+                saturatedAdd(expectedOutputsPerCraft, expectedContainerItemsPerCraft), acceptedBatchSize);
         LOGGER.debug(
                 "ECO batch capacity: selectedBuildLength={} structureBuildLength={} workerCount={} parallelCount={} "
                         + "threadCount={} runningThreadCount={} threadCountPerWorker={} availableThreads={} "
@@ -750,16 +778,24 @@ public class ECOCraftingCPULogic {
         if (patternPower <= 0.0D) {
             return requested;
         }
-        int batchSize = requested;
-        while (batchSize > 0) {
-            double totalPower = patternPower * batchSize;
-            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG) >= totalPower
-                    - 0.01) {
-                return batchSize;
-            }
-            batchSize--;
+        double requestedPower = patternPower * requested;
+        if (energyService.extractAEPower(requestedPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                >= requestedPower - 0.01) {
+            return requested;
         }
-        return 0;
+        int low = 0;
+        int high = requested - 1;
+        while (low < high) {
+            int middle = low + (high - low + 1) / 2;
+            double totalPower = patternPower * middle;
+            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                    >= totalPower - 0.01) {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
+        }
+        return low;
     }
 
     private void recordPushedPattern(ECOExtractedPatternExecution execution, int craftCount) {
@@ -802,8 +838,7 @@ public class ECOCraftingCPULogic {
         // also stop accepting items when the job is complete, i.e. to prevent
         // re-insertion when pushing out
         // items during storeItems
-        if (what == null || job == null || amount <= 0)
-            return 0;
+        if (what == null || job == null || amount <= 0) return 0;
 
         // Only accept items we are waiting for.
         var waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
@@ -898,8 +933,7 @@ public class ECOCraftingCPULogic {
      */
     public void cancel() {
         // No job to cancel :P
-        if (job == null)
-            return;
+        if (job == null) return;
 
         UUID craftingJobId = job.link.getCraftingID();
         markStatusDirty();
@@ -925,18 +959,16 @@ public class ECOCraftingCPULogic {
     public void storeItems() {
         Preconditions.checkState(job == null, "CPU should not have a job to prevent re-insertion when dumping items");
         // Short-circuit if there is nothing to do.
-        if (this.inventory.list.isEmpty())
-            return;
+        if (this.inventory.list.isEmpty()) return;
 
         var g = cpu.getGrid();
-        if (g == null)
-            return;
+        if (g == null) return;
 
         var storage = g.getStorageService().getInventory();
 
         for (var entry : this.inventory.list) {
-            var inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE,
-                    cpu.getActionSource());
+            var inserted =
+                    storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, cpu.getActionSource());
 
             // The network was unable to receive all of the items, i.e. no or not enough
             // storage space left
@@ -1040,6 +1072,8 @@ public class ECOCraftingCPULogic {
         }
     }
 
+    private record ProviderSelection(List<ICraftingProvider> all, List<ECOCraftingPatternBusBlockEntity> batchBuses) {}
+
     private void markStatusDirty() {
         statusRevision++;
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
@@ -1109,8 +1143,7 @@ public class ECOCraftingCPULogic {
         return this.job != null;
     }
 
-    @Nullable
-    public GenericStack getFinalJobOutput() {
+    @Nullable public GenericStack getFinalJobOutput() {
         return this.job != null ? this.job.finalOutput : null;
     }
 

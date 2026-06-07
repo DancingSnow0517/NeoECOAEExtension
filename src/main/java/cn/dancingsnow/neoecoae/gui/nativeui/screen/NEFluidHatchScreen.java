@@ -12,10 +12,10 @@ import net.minecraftforge.fluids.FluidStack;
  */
 public class NEFluidHatchScreen extends NEBaseMachineScreen<NEFluidHatchMenu> {
     private static final int TANK_W = 52;
-    private static final int TANK_H = 52;
+    private static final int TANK_H = 74;
     private static final int TANK_X = (NENativeUiConstants.UI_WIDTH - TANK_W) / 2;
-    private static final int TANK_Y = 28;
-    private static final int AMOUNT_Y = TANK_Y + TANK_H + 7;
+    private static final int TANK_Y = 22;
+    private static final int AMOUNT_Y = TANK_Y + TANK_H + 8;
 
     public NEFluidHatchScreen(NEFluidHatchMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.FLUID_HATCH);
