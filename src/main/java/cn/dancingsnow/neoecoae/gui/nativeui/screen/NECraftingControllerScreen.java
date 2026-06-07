@@ -322,9 +322,23 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         int middleY = topY + slotSize + rowGap;
         int bottomY = middleY + slotSize + rowGap;
 
-        if (isMouseInRect(mouseX, mouseY, startX, topY, totalW, slotSize)
-                || isMouseInRect(mouseX, mouseY, startX, bottomY, totalW, slotSize)) {
-            g.renderTooltip(font, getParallelPerCoreTooltip(s.overclocked()), mouseX, mouseY);
+        if (isMouseInRect(mouseX, mouseY, startX, topY, totalW, slotSize)) {
+            int col = (mouseX - startX) / (slotSize + gap);
+            g.renderTooltip(
+                    font,
+                    getParallelPerCoreTooltip(tierAt(s.parallelCoreTiers(), col), s.overclocked()),
+                    mouseX,
+                    mouseY);
+            return;
+        }
+
+        if (isMouseInRect(mouseX, mouseY, startX, bottomY, totalW, slotSize)) {
+            int col = (mouseX - startX) / (slotSize + gap);
+            g.renderTooltip(
+                    font,
+                    getParallelPerCoreTooltip(tierAt(s.parallelCoreTiers(), col + cols), s.overclocked()),
+                    mouseX,
+                    mouseY);
             return;
         }
 
@@ -344,16 +358,17 @@ public class NECraftingControllerScreen extends NEBaseMachineScreen<NECraftingCo
         }
     }
 
-    private Component getParallelPerCoreTooltip(boolean overclocked) {
-        String titleText = title.getString().toUpperCase(Locale.ROOT);
-        int parallel;
-        if (titleText.contains("F9")) {
-            parallel = overclocked ? 384 : 256;
-        } else if (titleText.contains("F6")) {
-            parallel = overclocked ? 96 : 72;
-        } else {
-            parallel = overclocked ? 32 : 24;
-        }
+    private static int tierAt(List<Integer> tiers, int index) {
+        return index >= 0 && index < tiers.size() ? tiers.get(index) : 1;
+    }
+
+    private static Component getParallelPerCoreTooltip(int tier, boolean overclocked) {
+        int parallel =
+                switch (tier) {
+                    case 3 -> overclocked ? 384 : 256;
+                    case 2 -> overclocked ? 96 : 72;
+                    default -> overclocked ? 32 : 24;
+                };
         return Component.literal("并行: " + parallel);
     }
 
