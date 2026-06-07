@@ -1,5 +1,29 @@
 # 更新日志
 
+## 1.0.5+mc1.20.1 (2026-06-08)
+
+能耗 / 冷却 UI 全面重构，基于真实机器状态实时显示能耗柱和冷却液柱
+能耗柱颜色按比例分段：绿色(<50%)、黄色(50%-90%)、红色(>=90%)
+冷却液改为蓝色固定颜色，数值来自控制器内部冷却缓存
+能耗柱 tooltip 显示当前能耗：xxx
+冷却液柱 tooltip 显示冷却液还剩：xxx / 1,000,000 mB
+并行数值语义修正：显示实际运行线程 / FX 承载上限，最大上限并行显示 FT 理论值
+修复 createCraftingUiState 中读序问题，消除并行值 3104/5632 跳变
+冷却液补充逻辑改为全量猛灌，不再按 deficit 精算限速
+MAX_COOLANT 保持 1,000,000，对齐 1.21.1 数值设计
+流体槽风格分离：Fluid Hatch 界面用刻度版，综合工作站/JEI/EMI 用简洁版
+结构模块预览区域新增 hover tooltip，上/下排显示 FT 并行核心等级及并行数，中排显示 FX 工作核心
+FT 并行核心光效贴图按每个核心实际等级渲染，混合 F4/F6/F9 时各显示各的
+中排 worker tooltip 显示当前合成任务物品图标及名称
+新增 NECraftingUiState 字段：energyUsage、coolantAmount、coolantCapacity、availableThreads、effectiveParallel、workerCraftOutputs、parallelCoreTiers
+NENetwork 编解码同步所有新增字段
+修复 NEConfig.onLoad 监听所有 ModConfigEvent 导致启动崩溃
+NECluster 新增 getController 默认方法修复存储泛型编译
+恢复 GuideME 指南书：copyGuidebook 挂接到 processResources
+Debug 键位翻译补充中文
+移除 Aliyun Maven 镜像修复 CI 502 错误
+CI workflow 启用 Gradle 缓存
+
 ## 1.0.4+mc1.20.1 (2026-06-06)
 
 ### 新增
