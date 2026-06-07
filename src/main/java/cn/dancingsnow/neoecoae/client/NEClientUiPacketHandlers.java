@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client;
 
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEFluidHatchMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEComputationControllerScreen;
 import cn.dancingsnow.neoecoae.gui.nativeui.screen.NECraftingControllerScreen;
@@ -103,5 +104,17 @@ public final class NEClientUiPacketHandlers {
         if (pkt.inputTankTag() != null) inputTank.readFromNBT(pkt.inputTankTag());
         if (pkt.outputTankTag() != null) outputTank.readFromNBT(pkt.outputTankTag());
         menu.updateClientState(inputTank.getFluid(), outputTank.getFluid(), pkt.autoExport());
+    }
+
+    /** Handles the Fluid Hatch tank state sync packet from server to client. */
+    public static void handleFluidHatchStatePacket(NENetwork.NEFluidHatchStatePacket pkt) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        if (!(mc.player.containerMenu instanceof NEFluidHatchMenu menu)) return;
+        if (!menu.getMachinePos().equals(pkt.pos())) return;
+
+        var tank = new FluidTank(menu.getTankCapacity());
+        if (pkt.tankTag() != null) tank.readFromNBT(pkt.tankTag());
+        menu.updateClientFluid(tank.getFluid());
     }
 }

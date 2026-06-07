@@ -118,6 +118,12 @@ public final class NENetwork {
 
         registerS2C(
                 NEIWSStatePacket.class, NEIWSStatePacket::encode, NEIWSStatePacket::decode, NEIWSStatePacket::handle);
+
+        registerS2C(
+                NEFluidHatchStatePacket.class,
+                NEFluidHatchStatePacket::encode,
+                NEFluidHatchStatePacket::decode,
+                NEFluidHatchStatePacket::handle);
     }
 
     /**
@@ -844,5 +850,23 @@ public final class NENetwork {
         CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
                 new NEIWSStatePacket(iws.getBlockPos(), inputTag, outputTag, iws.isShouldAutoExport()));
+    }
+
+    public record NEFluidHatchStatePacket(BlockPos pos, CompoundTag tankTag) {
+        public static void encode(NEFluidHatchStatePacket pkt, FriendlyByteBuf buf) {
+            buf.writeBlockPos(pkt.pos());
+            buf.writeNbt(pkt.tankTag());
+        }
+
+        public static NEFluidHatchStatePacket decode(FriendlyByteBuf buf) {
+            return new NEFluidHatchStatePacket(buf.readBlockPos(), buf.readNbt());
+        }
+
+        public static void handle(NEFluidHatchStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(
+                    Dist.CLIENT, () -> () -> NEClientUiPacketHandlers.handleFluidHatchStatePacket(pkt)));
+            ctx.setPacketHandled(true);
+        }
     }
 }
