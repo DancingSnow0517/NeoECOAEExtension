@@ -48,13 +48,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.config.NEConfig;
 
 public class ECOCraftingCPULogic {
-    private static final int ECO_CPU_PUSH_TICK_LIMIT = Math.max(1,
-            Integer.getInteger("neoecoae.ecoCpuPushTickLimit", Integer.MAX_VALUE));
-    private static final int ECO_BATCH_FAST_PATH_LIMIT = Math.max(1,
-            Integer.getInteger("neoecoae.ecoBatchFastPathLimit", 64));
-    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT = Math.max(1,
-            Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", 256));
-
     final ECOCraftingCPU cpu;
 
     /**
@@ -184,7 +177,7 @@ public class ECOCraftingCPULogic {
 
     private int getOperationLimit() {
         int baseLimit = Math.max(1, cpu.getCoProcessors() + 1);
-        return Math.min(baseLimit, ECO_CPU_PUSH_TICK_LIMIT);
+        return Math.min(baseLimit, NEConfig.ecoCpuPushTickLimit);
     }
 
     /**
@@ -332,7 +325,7 @@ public class ECOCraftingCPULogic {
 
         int requested = (int) Math.min(
                 Math.min(taskRemaining, tickBudgetRemaining),
-                Math.min(ECO_BATCH_FAST_PATH_LIMIT, ECO_BATCH_FAST_PATH_TICK_LIMIT));
+                Math.min(NEConfig.ecoBatchFastPathLimit, NEConfig.ecoBatchFastPathTickLimit));
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         for (ICraftingProvider provider : providers) {
@@ -426,7 +419,7 @@ public class ECOCraftingCPULogic {
     private boolean canAttemptBatchFastPath(ECOExtractedPatternExecution execution) {
         return execution.key() != null
                 && execution.fastPathEligible()
-                && NEConfig.isEcoAe2FastPathEnabled()
+                && NEConfig.ecoAe2FastPathEnabled
                 && !NEConfig.postCraftingEvent;
     }
 

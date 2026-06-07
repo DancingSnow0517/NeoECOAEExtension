@@ -255,7 +255,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private boolean canUseFastPath(ECOExtractedPatternExecution execution, @Nullable ECOFastPathKey key) {
         return key != null
             && execution.fastPathEligible()
-            && NEConfig.isEcoAe2FastPathEnabled()
+            && NEConfig.ecoAe2FastPathEnabled
             && !NEConfig.postCraftingEvent;
     }
 

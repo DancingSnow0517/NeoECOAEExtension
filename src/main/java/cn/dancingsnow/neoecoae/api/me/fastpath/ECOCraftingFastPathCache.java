@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.api.me.fastpath;
 
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,8 +15,6 @@ import org.slf4j.LoggerFactory;
 
 public final class ECOCraftingFastPathCache {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
-    private static final boolean DEBUG_STATS = Boolean.getBoolean("neoecoae.debugEcoFastPath");
-    private static final int DEFAULT_LIMIT = Integer.getInteger("neoecoae.ecoFastPathCacheSize", 512);
     private static final Set<ECOCraftingFastPathCache> ACTIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
 
     private final int limit;
@@ -41,7 +40,7 @@ public final class ECOCraftingFastPathCache {
     private long lastStatsLogTick = Long.MIN_VALUE;
 
     public ECOCraftingFastPathCache() {
-        this(DEFAULT_LIMIT);
+        this(NEConfig.ecoFastPathCacheSize);
     }
 
     public ECOCraftingFastPathCache(int limit) {
@@ -160,7 +159,7 @@ public final class ECOCraftingFastPathCache {
     }
 
     public void maybeLogStats(String owner, long tick) {
-        if (!DEBUG_STATS || tick - lastStatsLogTick < 100) {
+        if (!NEConfig.debugEcoFastPath || tick - lastStatsLogTick < 100) {
             return;
         }
         lastStatsLogTick = tick;

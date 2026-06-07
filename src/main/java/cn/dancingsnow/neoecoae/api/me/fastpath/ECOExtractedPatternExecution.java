@@ -53,7 +53,7 @@ public final class ECOExtractedPatternExecution {
         List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
         Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
         boolean eligible = key.isPresent()
-            && NEConfig.isEcoAe2FastPathEnabled()
+            && NEConfig.ecoAe2FastPathEnabled
             && !NEConfig.postCraftingEvent
             && AE2PatternIntrospection.isAvailable()
             && AE2PatternIntrospection.isKnownSafePatternType(details)
