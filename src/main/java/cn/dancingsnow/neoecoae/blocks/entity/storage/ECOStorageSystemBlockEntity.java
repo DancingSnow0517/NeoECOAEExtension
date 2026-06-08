@@ -32,7 +32,6 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -44,7 +43,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.network.NetworkHooks;
-import org.jetbrains.annotations.Nullable;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
         implements IGridTickable, INEMultiblockBuildHost, IPriorityHost {
@@ -734,6 +732,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private void syncPreview(
             int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {
         syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, 0, 0);
+    }
+
+    @Override
+    public void markPreviewDirty() {
+        setChanged();
+        markForUpdate();
     }
 
     @Override

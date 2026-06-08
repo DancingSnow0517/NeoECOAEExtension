@@ -259,9 +259,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 mode);
     }
 
-    public Component getPreviewStatusComponent() {
-        return buildPreviewStatusComponent();
-    }
+    // getPreviewStatusComponent() — provided by INEMultiblockBuildHost default
 
     // ── INEMultiblockBuildHost interface ──
 
@@ -541,6 +539,14 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         previewStatusKey = statusKey;
         previewStatusArg1 = statusArg1;
         previewStatusArg2 = statusArg2;
+        // Keep BuildPreviewState in sync
+        buildPreview.syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, statusArg1, statusArg2);
+        setChanged();
+        markUiStateDirty();
+    }
+
+    @Override
+    public void markPreviewDirty() {
         setChanged();
         markUiStateDirty();
     }

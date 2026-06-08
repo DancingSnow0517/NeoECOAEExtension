@@ -94,6 +94,18 @@ public interface INEMultiblockBuildHost {
     /** Resets the preview status to idle and persists. */
     void resetPreview(String statusKey);
 
+    /**
+     * Called when preview state changes. Implementations should call
+     * {@code setChanged()} plus either {@code markForUpdate()} (Storage)
+     * or {@code markUiStateDirty()} (Crafting, Computation).
+     */
+    void markPreviewDirty();
+
+    /** Delegates to {@link #buildPreviewStatusComponent()} so subclasses don't duplicate. */
+    default Component getPreviewStatusComponent() {
+        return buildPreviewStatusComponent();
+    }
+
     // ── Shared builder-length controls ──
 
     /** Increases the selected build length by one, clamped to valid range. */
