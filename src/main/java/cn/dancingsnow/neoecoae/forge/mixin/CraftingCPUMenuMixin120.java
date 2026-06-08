@@ -61,6 +61,38 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
 
     @Unique private final Map<AEKey, Long> neoecoae$activeZeroSinceTicks = new HashMap<>();
 
+    /**
+     * Suppresses the N ↔ N-1 flutter on actively running tasks.  When a
+     * Worker completes a pattern (waitingFor −1) and the CPU immediately
+     * replenishes it (waitingFor +1), the UI must not flicker between
+     * the two values before the replenish cycle settles.
+     */
+    @Unique private final Map<AEKey, ActiveFlutterDebounce> neoecoae$activeFlutterDebounce = new HashMap<>();
+
+    @Unique private record ActiveFlutterDebounce(long lastDisplayed, long pendingRaw, long pendingSinceTick) {
+        static final long DEBOUNCE_TICKS = 1L;
+
+        ActiveFlutterDebounce apply(long rawActive, long currentTick) {
+            if (rawActive == this.lastDisplayed) {
+                // Returned to the stable value — accept immediately.
+                return new ActiveFlutterDebounce(rawActive, 0, 0);
+            }
+            if (rawActive == this.pendingRaw && this.pendingRaw != 0) {
+                // Same pending value seen again — accept if stable long enough.
+                if (currentTick - this.pendingSinceTick >= DEBOUNCE_TICKS) {
+                    return new ActiveFlutterDebounce(rawActive, 0, 0);
+                }
+                return this; // Still debouncing.
+            }
+            // Different value — start a new debounce period.
+            return new ActiveFlutterDebounce(this.lastDisplayed, rawActive, currentTick);
+        }
+
+        long displayValue() {
+            return lastDisplayed;
+        }
+    }
+
     @Unique private long neoecoae$lastEcoElapsedTime = Long.MIN_VALUE;
 
     @Unique private long neoecoae$lastEcoRemainingItems = Long.MIN_VALUE;
@@ -214,6 +246,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             this.neoecoae$trackedEcoKeys.clear();
             this.neoecoae$lastEcoEntrySnapshots.clear();
             this.neoecoae$activeZeroSinceTicks.clear();
+            this.neoecoae$activeFlutterDebounce.clear();
             this.neoecoae$resetEcoHeaderSnapshot();
 
             // Re-populate tracked keys from the current inventory only
@@ -299,6 +332,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         this.neoecoae$trackedEcoKeys.clear();
         this.neoecoae$lastEcoEntrySnapshots.clear();
         this.neoecoae$activeZeroSinceTicks.clear();
+        this.neoecoae$activeFlutterDebounce.clear();
         this.neoecoae$resetEcoHeaderSnapshot();
         this.neoecoae$resetEcoStatusSnapshot();
         this.neoecoae$forceEcoStatusUpdate = false;
@@ -351,23 +385,50 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
     }
 
     @Unique private NeoEcoEntrySnapshot neoecoae$smoothActiveAmount(AEKey key, NeoEcoEntrySnapshot current, boolean hasJob) {
-        if (!hasJob || current.activeAmount() > 0 || NEOECOAE_ECO_STATUS_ACTIVE_HOLD_TICKS <= 0) {
+        // ── Active→0 hold: keep the previous non-zero count visible for a few ticks
+        //     so brief gaps between pattern completions don't flash "0".
+        if (hasJob && current.activeAmount() <= 0 && NEOECOAE_ECO_STATUS_ACTIVE_HOLD_TICKS > 0) {
+            NeoEcoEntrySnapshot previous = this.neoecoae$lastEcoEntrySnapshots.get(key);
+            if (previous != null && previous.activeAmount() > 0) {
+                long currentTick = TickHandler.instance().getCurrentTick();
+                long zeroSince = this.neoecoae$activeZeroSinceTicks.computeIfAbsent(key, ignored -> currentTick);
+                if (currentTick - zeroSince <= NEOECOAE_ECO_STATUS_ACTIVE_HOLD_TICKS) {
+                    this.neoecoae$activeFlutterDebounce.remove(key);
+                    return current.withActiveAmount(previous.activeAmount());
+                }
+                this.neoecoae$activeZeroSinceTicks.remove(key);
+            }
+        }
+        if (current.activeAmount() > 0) {
             this.neoecoae$activeZeroSinceTicks.remove(key);
-            return current;
         }
 
-        NeoEcoEntrySnapshot previous = this.neoecoae$lastEcoEntrySnapshots.get(key);
-        if (previous == null || previous.activeAmount() <= 0) {
-            return current;
+        // ── N ↔ N−1 flutter debounce:  when a Worker outputs a pattern
+        //     (waitingFor −1) and the CPU immediately replenishes (waitingFor +1),
+        //     keep the display at the last-stable value for 1 tick so the UI
+        //     never flashes the intermediate N−1.
+        if (hasJob && current.activeAmount() > 0) {
+            long currentTick = TickHandler.instance().getCurrentTick();
+            ActiveFlutterDebounce debounce = this.neoecoae$activeFlutterDebounce.get(key);
+            NeoEcoEntrySnapshot previous = this.neoecoae$lastEcoEntrySnapshots.get(key);
+            long lastDisplayed = previous != null ? previous.activeAmount() : current.activeAmount();
+
+            if (debounce == null || debounce.lastDisplayed() != lastDisplayed) {
+                debounce = new ActiveFlutterDebounce(lastDisplayed, 0, 0);
+            }
+            ActiveFlutterDebounce next = debounce.apply(current.activeAmount(), currentTick);
+            this.neoecoae$activeFlutterDebounce.put(key, next);
+
+            if (next.displayValue() != current.activeAmount()) {
+                return current.withActiveAmount(next.displayValue());
+            }
+        } else {
+            this.neoecoae$activeFlutterDebounce.remove(key);
         }
 
-        long currentTick = TickHandler.instance().getCurrentTick();
-        long zeroSince = this.neoecoae$activeZeroSinceTicks.computeIfAbsent(key, ignored -> currentTick);
-        if (currentTick - zeroSince <= NEOECOAE_ECO_STATUS_ACTIVE_HOLD_TICKS) {
-            return current.withActiveAmount(previous.activeAmount());
+        if (!hasJob) {
+            this.neoecoae$activeZeroSinceTicks.remove(key);
         }
-
-        this.neoecoae$activeZeroSinceTicks.remove(key);
         return current;
     }
 
