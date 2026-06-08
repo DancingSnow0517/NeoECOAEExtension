@@ -383,9 +383,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return _synTotalTypes;
     }
 
-    public Component getPreviewStatusComponent() {
-        return buildPreviewStatusComponent();
-    }
+    // getPreviewStatusComponent() — provided by INEMultiblockBuildHost default
 
     // ── INEMultiblockBuildHost interface ──
 

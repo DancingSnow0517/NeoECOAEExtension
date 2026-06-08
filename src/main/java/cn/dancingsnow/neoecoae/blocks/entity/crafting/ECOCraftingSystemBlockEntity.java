@@ -546,9 +546,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return workerCount;
     }
 
-    public Component getPreviewStatusComponent() {
-        return buildPreviewStatusComponent();
-    }
+    // getPreviewStatusComponent() — provided by INEMultiblockBuildHost default
 
     // ── INEMultiblockBuildHost implementation ──
 
