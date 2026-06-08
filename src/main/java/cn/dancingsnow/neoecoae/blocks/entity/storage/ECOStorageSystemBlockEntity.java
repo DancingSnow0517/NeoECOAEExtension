@@ -198,7 +198,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private void updateInfos() {
         if (ensureStorageStatsCurrent()) {
             setChanged();
-            syncUiToClient();
         }
     }
 
@@ -509,6 +508,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         markStorageStatsDirty();
     }
 
+    /**
+     * Marks the cached storage stats (per-type used/total bytes and types)
+     * as stale. The next call to {@link #ensureStorageStatsCurrent()} will
+     * recalculate from cluster drives and trigger a UI state push.
+     */
     public void markStorageStatsDirty() {
         storageStatsDirty = true;
     }
@@ -797,12 +801,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    private void syncUiToClient() {
-        if (level != null && !level.isClientSide && getBlockPos() != null) {
-            level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 3);
-        }
     }
 
     private void writeUiSyncTag(CompoundTag tag) {

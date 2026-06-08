@@ -199,15 +199,22 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         ensureCraftingStatsCurrent();
     }
 
+    /**
+     * Marks the cached crafting structure stats (worker/thread/parallel counts)
+     * as stale and increments the UI revision to trigger a menu state resync.
+     * Call this when the multiblock cluster changes or workers are added/removed.
+     */
     public void markStructureStatsDirty() {
         structureStatsDirty = true;
         markUiStateDirty();
     }
 
+    /** Returns a monotonically increasing revision for UI state duplicate suppression. */
     public long getUiRevision() {
         return uiRevision;
     }
 
+    /** Increments the UI revision so the next menu tick will push a fresh state. */
     private void markUiStateDirty() {
         uiRevision++;
     }

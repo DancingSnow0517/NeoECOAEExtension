@@ -172,7 +172,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     private final EnumSet<RelativeSide> allowOutputs = EnumSet.allOf(RelativeSide.class);
 
-    private boolean dirty = false;
+    /** Set to true when inventory/fluid changes invalidate the cached recipe. */
+    private boolean recipeCacheDirty = false;
 
     private boolean recipeCacheValid = false;
 
@@ -372,7 +373,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     private void invalidateRecipeCache() {
         this.recipeCacheValid = false;
-        this.dirty = true;
+        this.recipeCacheDirty = true;
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
     }
 
@@ -440,7 +441,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         }
         this.cachedTask = newTask;
         this.recipeCacheValid = true;
-        this.dirty = false;
+        this.recipeCacheDirty = false;
         if (this.cachedTask == null) {
             this.setWorking(false);
         }
@@ -466,7 +467,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     @Override
     public TickRateModulation tickingRequest(IGridNode iGridNode, int ticksSinceLastCall) {
-        if (this.dirty) {
+        if (this.recipeCacheDirty) {
             refreshRecipeCache();
         }
 

@@ -98,15 +98,22 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
     }
 
+    /**
+     * Marks the cached computation stats (thread/byte/accelerator counts)
+     * as stale and increments the UI revision to trigger a menu state resync.
+     * Call this when the multiblock cluster changes or threading cores update.
+     */
     public void markComputationStatsDirty() {
         computationStatsDirty = true;
         markUiStateDirty();
     }
 
+    /** Returns a monotonically increasing revision for UI state duplicate suppression. */
     public long getUiRevision() {
         return uiRevision;
     }
 
+    /** Increments the UI revision so the next menu tick will push a fresh state. */
     private void markUiStateDirty() {
         uiRevision++;
     }
@@ -122,7 +129,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     public void updateInfos() {
         ensureStatsCurrent();
         setChanged();
-        syncUiToClient();
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
@@ -598,12 +604,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     public void handleUpdateTag(CompoundTag tag) {
         super.handleUpdateTag(tag);
         readUiSyncTag(tag);
-    }
-
-    private void syncUiToClient() {
-        if (level != null && !level.isClientSide && getBlockPos() != null) {
-            level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 3);
-        }
     }
 
     private void writeUiSyncTag(CompoundTag tag) {
