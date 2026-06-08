@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
+import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -83,6 +84,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private int overlockTimes = 0;
     private boolean structureStatsDirty = true;
+    /** Shared preview/build state, delegates NBT sync to {@link BuildPreviewState}. */
+    private final BuildPreviewState buildPreview = new BuildPreviewState();
+
     private long uiRevision = 0L;
     private int selectedBuildLength = 1;
     private int previewMissingBlocks;
@@ -1146,16 +1150,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         tag.putInt("workerCount", workerCount);
         tag.putInt("threadCount", threadCount);
         tag.putInt("runningThreadCount", runningThreadCount);
-        tag.putInt("previewMissingBlocks", previewMissingBlocks);
-        tag.putInt("previewConflictBlocks", previewConflictBlocks);
-        tag.putInt("previewReusedBlocks", previewReusedBlocks);
-        tag.putInt("previewRequiredItems", previewRequiredItems);
-        tag.putString(
-                "previewStatusKey",
-                previewStatusKey != null ? previewStatusKey : "gui.neoecoae.multiblock.status.idle");
-        tag.putInt("previewStatusArg1", previewStatusArg1);
-        tag.putInt("previewStatusArg2", previewStatusArg2);
-        tag.putBoolean("buildInProgress", buildInProgress && buildSession != null);
+        // Build/preview state — delegated to BuildPreviewState
+        // Note: individual preview fields still exist alongside buildPreview;
+        // syncPreview()/resetPreview() update both.
+        buildPreview.writeToTag(tag);
     }
 
     private void readUiSyncTag(CompoundTag tag) {
@@ -1171,6 +1169,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (tag.contains("workerCount")) workerCount = tag.getInt("workerCount");
         if (tag.contains("threadCount")) threadCount = tag.getInt("threadCount");
         if (tag.contains("runningThreadCount")) runningThreadCount = tag.getInt("runningThreadCount");
+        // Build/preview state — delegated to BuildPreviewState
+        // Keep individual field reads for backward compat; buildPreview syncs alongside.
+        buildPreview.readFromTag(tag);
         if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
         if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");
         if (tag.contains("previewReusedBlocks")) previewReusedBlocks = tag.getInt("previewReusedBlocks");

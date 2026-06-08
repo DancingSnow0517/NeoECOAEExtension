@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
+import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
@@ -60,6 +61,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     /** Storage priority for AE2 network insertion/extraction ordering. */
     private int priority = 0;
+
+    /** Shared preview/build state, delegates NBT sync to {@link BuildPreviewState}. */
+    private final BuildPreviewState buildPreview = new BuildPreviewState();
 
     private long storedEnergy;
     private long maxEnergy;
@@ -815,18 +819,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
         if (totalBytes != null) tag.putLongArray("neo_totalBytes", totalBytes);
-        // Build/preview state
-        tag.putInt("selectedBuildLength", selectedBuildLength);
-        tag.putInt("previewMissingBlocks", previewMissingBlocks);
-        tag.putInt("previewConflictBlocks", previewConflictBlocks);
-        tag.putInt("previewReusedBlocks", previewReusedBlocks);
-        tag.putInt("previewRequiredItems", previewRequiredItems);
-        tag.putString(
-                "previewStatusKey",
-                previewStatusKey != null ? previewStatusKey : "gui.neoecoae.multiblock.status.idle");
-        tag.putInt("previewStatusArg1", previewStatusArg1);
-        tag.putInt("previewStatusArg2", previewStatusArg2);
-        tag.putBoolean("buildInProgress", buildInProgress);
+        // Build/preview state — delegated to BuildPreviewState
+        // Note: individual fields (selectedBuildLength, preview*, buildInProgress)
+        // still exist alongside buildPreview; syncPreview()/resetPreview() update both.
+        buildPreview.writeToTag(tag);
     }
 
     private void readUiSyncTag(CompoundTag tag) {
@@ -841,7 +837,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");
         if (tag.contains("neo_totalBytes")) totalBytes = tag.getLongArray("neo_totalBytes");
-        // Build/preview state
+        // Build/preview state — delegated to BuildPreviewState
+        // Keep individual field reads for backward compat; buildPreview syncs alongside.
+        buildPreview.readFromTag(tag);
         if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");
         if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
         if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");

@@ -4,6 +4,7 @@ import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGridNodeListener;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
@@ -41,6 +42,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private CpuSelectionMode cpuSelectionMode = CpuSelectionMode.ANY;
 
     private boolean computationStatsDirty = true;
+    /** Shared preview/build state, delegates NBT sync to {@link BuildPreviewState}. */
+    private final BuildPreviewState buildPreview = new BuildPreviewState();
+
     private long uiRevision = 0L;
     private int selectedBuildLength = 1;
     private int previewMissingBlocks;
@@ -612,18 +616,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         tag.putInt("neo_parallelCount", parallelCount);
         tag.putLong("neo_availableBytes", availableBytes);
         tag.putLong("neo_totalBytes", totalBytes);
-        // Build/preview state
-        tag.putInt("selectedBuildLength", selectedBuildLength);
-        tag.putInt("previewMissingBlocks", previewMissingBlocks);
-        tag.putInt("previewConflictBlocks", previewConflictBlocks);
-        tag.putInt("previewReusedBlocks", previewReusedBlocks);
-        tag.putInt("previewRequiredItems", previewRequiredItems);
-        tag.putString(
-                "previewStatusKey",
-                previewStatusKey != null ? previewStatusKey : "gui.neoecoae.multiblock.status.idle");
-        tag.putInt("previewStatusArg1", previewStatusArg1);
-        tag.putInt("previewStatusArg2", previewStatusArg2);
-        tag.putBoolean("buildInProgress", buildInProgress);
+        // Build/preview state — delegated to BuildPreviewState
+        // Note: individual preview fields still exist alongside buildPreview;
+        // syncPreview()/resetPreview() update both.
+        buildPreview.writeToTag(tag);
     }
 
     private void readUiSyncTag(CompoundTag tag) {
@@ -632,7 +628,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         if (tag.contains("neo_parallelCount")) parallelCount = tag.getInt("neo_parallelCount");
         if (tag.contains("neo_availableBytes")) availableBytes = tag.getLong("neo_availableBytes");
         if (tag.contains("neo_totalBytes")) totalBytes = tag.getLong("neo_totalBytes");
-        // Build/preview state
+        // Build/preview state — delegated to BuildPreviewState
+        // Keep individual field reads for backward compat; buildPreview syncs alongside.
+        buildPreview.readFromTag(tag);
         if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");
         if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
         if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");
