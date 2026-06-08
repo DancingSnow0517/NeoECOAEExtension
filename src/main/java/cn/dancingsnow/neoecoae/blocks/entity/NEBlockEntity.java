@@ -23,6 +23,7 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -150,10 +151,32 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
+    // ── UI sync template methods ──
+    // Subclasses override writeUiSyncTag/readUiSyncTag without needing to
+    // duplicate getUpdateTag/handleUpdateTag/getUpdatePacket boilerplate.
+
+    /** Override to include UI state in the chunk-sync update tag. */
+    protected void writeUiSyncTag(CompoundTag tag) {}
+
+    /** Override to read UI state from a received chunk-sync update tag. */
+    protected void readUiSyncTag(CompoundTag tag) {}
+
     @Override
     public CompoundTag getUpdateTag() {
-        // Subclasses override writeUiSyncTag to include UI state in the update tag.
-        return super.getUpdateTag();
+        var tag = super.getUpdateTag();
+        writeUiSyncTag(tag);
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        readUiSyncTag(tag);
+    }
+
+    @Override
+    @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {

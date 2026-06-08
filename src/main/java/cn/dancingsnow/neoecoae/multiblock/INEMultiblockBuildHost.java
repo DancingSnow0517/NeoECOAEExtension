@@ -2,7 +2,9 @@ package cn.dancingsnow.neoecoae.multiblock;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,6 +67,11 @@ public interface INEMultiblockBuildHost {
     boolean isFormed();
 
     /**
+     * Returns the shared {@link BuildPreviewState} for this controller.
+     */
+    BuildPreviewState getBuildPreview();
+
+    /**
      * Runs a structure preview using the given build length.
      * This is called server-side only.
      */
@@ -82,6 +89,36 @@ public interface INEMultiblockBuildHost {
 
     default void autoBuild(ServerPlayer player, int buildLength, boolean mirrored) {
         autoBuild(player, buildLength);
+    }
+
+    /** Resets the preview status to idle and persists. */
+    void resetPreview(String statusKey);
+
+    // ── Shared builder-length controls ──
+
+    /** Increases the selected build length by one, clamped to valid range. */
+    default void increaseBuildLength() {
+        if (isBuildInProgress()) {
+            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
+            return;
+        }
+        setSelectedBuildLength(Mth.clamp(getSelectedBuildLength() + 1, getMinBuildLength(), getMaxBuildLength()));
+        resetPreview("gui.neoecoae.multiblock.status.length_updated");
+    }
+
+    /** Decreases the selected build length by one, clamped to valid range. */
+    default void decreaseBuildLength() {
+        if (isBuildInProgress()) {
+            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
+            return;
+        }
+        setSelectedBuildLength(Mth.clamp(getSelectedBuildLength() - 1, getMinBuildLength(), getMaxBuildLength()));
+        resetPreview("gui.neoecoae.multiblock.status.length_updated");
+    }
+
+    /** Builds a translatable status component from the shared preview state. */
+    default Component buildPreviewStatusComponent() {
+        return getBuildPreview().buildStatusComponent();
     }
 
     default void dismantle(ServerPlayer player) {}

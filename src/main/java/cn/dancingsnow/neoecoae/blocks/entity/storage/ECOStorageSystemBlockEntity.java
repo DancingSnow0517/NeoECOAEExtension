@@ -574,24 +574,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return result;
     }
 
-    public void increaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        selectedBuildLength =
-                net.minecraft.util.Mth.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
-    }
+    // increaseBuildLength / decreaseBuildLength — provided by INEMultiblockBuildHost default
 
-    public void decreaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        selectedBuildLength =
-                net.minecraft.util.Mth.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
+    @Override
+    public BuildPreviewState getBuildPreview() {
+        return buildPreview;
     }
 
     public void previewStructure(Player player) {
@@ -749,16 +736,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, 0, 0);
     }
 
-    private void resetPreview(String statusKey) {
+    @Override
+    public void resetPreview(String statusKey) {
         syncPreview(0, 0, 0, 0, statusKey);
     }
 
-    private Component buildPreviewStatusComponent() {
-        if ("gui.neoecoae.multiblock.status.building".equals(previewStatusKey)) {
-            return Component.translatable(previewStatusKey, previewStatusArg1, previewStatusArg2);
-        }
-        return Component.translatable(previewStatusKey);
-    }
+    // buildPreviewStatusComponent() — provided by INEMultiblockBuildHost default
 
     // ── NBT persistence ──
 
@@ -786,28 +769,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         previewStatusArg2 = 0;
     }
 
-    // ── Native UI fallback sync via BE update tags (chunk load / block update) ──
-    // Primary runtime UI sync uses the NENetwork S2C channel.
+    // ── UI sync (Layer 1: chunk-load NBT) ──
+    // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
+    // We only need to override writeUiSyncTag/readUiSyncTag.
 
     @Override
-    public CompoundTag getUpdateTag() {
-        var tag = super.getUpdateTag();
-        writeUiSyncTag(tag);
-        return tag;
-    }
-
-    @Override
-    public void handleUpdateTag(CompoundTag tag) {
-        super.handleUpdateTag(tag);
-        readUiSyncTag(tag);
-    }
-
-    @Override
-    @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    private void writeUiSyncTag(CompoundTag tag) {
+    protected void writeUiSyncTag(CompoundTag tag) {
         tag.putLong("neo_storedEnergy", storedEnergy);
         tag.putLong("neo_maxEnergy", maxEnergy);
         tag.putBoolean("neo_formed", formed);
@@ -825,7 +792,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         buildPreview.writeToTag(tag);
     }
 
-    private void readUiSyncTag(CompoundTag tag) {
+    @Override
+    protected void readUiSyncTag(CompoundTag tag) {
         if (tag.contains("neo_storedEnergy")) storedEnergy = tag.getLong("neo_storedEnergy");
         if (tag.contains("neo_maxEnergy")) maxEnergy = tag.getLong("neo_maxEnergy");
         if (tag.contains("neo_formed")) formed = tag.getBoolean("neo_formed");

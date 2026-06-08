@@ -909,22 +909,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    public void increaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        setSelectedBuildLength(selectedBuildLength + 1);
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
-    }
+    // increaseBuildLength / decreaseBuildLength — provided by INEMultiblockBuildHost default
 
-    public void decreaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        setSelectedBuildLength(selectedBuildLength - 1);
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
+    @Override
+    public BuildPreviewState getBuildPreview() {
+        return buildPreview;
     }
 
     @Override
@@ -1062,7 +1051,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return NEMultiBlocks.getCraftingSystemDefinition(tier);
     }
 
-    private void resetPreview(String statusKey) {
+    @Override
+    public void resetPreview(String statusKey) {
         syncPreview(0, 0, 0, 0, statusKey);
     }
 
@@ -1090,12 +1080,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         markUiStateDirty();
     }
 
-    private Component buildPreviewStatusComponent() {
-        if ("gui.neoecoae.multiblock.status.building".equals(previewStatusKey)) {
-            return Component.translatable(previewStatusKey, previewStatusArg1, previewStatusArg2);
-        }
-        return Component.translatable(previewStatusKey);
-    }
+    // buildPreviewStatusComponent() — provided by INEMultiblockBuildHost default
 
     private Component buildCoolantSupportComponent() {
         int displayedMaxOverclock = getCurrentCoolingMaxOverclock();
@@ -1118,27 +1103,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return recipe == null ? -1 : recipe.maxOverclock();
     }
 
-    // ── Client sync via BE update tags (chunk load / block update) ──
+    // ── UI sync (Layer 1: chunk-load NBT) ──
+    // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
 
     @Override
-    public CompoundTag getUpdateTag() {
-        var tag = super.getUpdateTag();
-        writeUiSyncTag(tag);
-        return tag;
-    }
-
-    @Override
-    public void handleUpdateTag(CompoundTag tag) {
-        super.handleUpdateTag(tag);
-        readUiSyncTag(tag);
-    }
-
-    @Override
-    @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    private void writeUiSyncTag(CompoundTag tag) {
+    protected void writeUiSyncTag(CompoundTag tag) {
         tag.putBoolean("overclocked", overclocked);
         tag.putBoolean("activeCooling", activeCooling);
         tag.putBoolean("autoClearCoolingWaste", autoClearCoolingWaste);
@@ -1156,7 +1125,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         buildPreview.writeToTag(tag);
     }
 
-    private void readUiSyncTag(CompoundTag tag) {
+    @Override
+    protected void readUiSyncTag(CompoundTag tag) {
         if (tag.contains("overclocked")) overclocked = tag.getBoolean("overclocked");
         if (tag.contains("activeCooling")) activeCooling = tag.getBoolean("activeCooling");
         if (tag.contains("autoClearCoolingWaste")) autoClearCoolingWaste = tag.getBoolean("autoClearCoolingWaste");

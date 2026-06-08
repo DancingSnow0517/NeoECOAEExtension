@@ -378,24 +378,11 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     // Multi-block builder methods (called from native Screen buttons)
     // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
 
-    public void increaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        selectedBuildLength =
-                net.minecraft.util.Mth.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
-    }
+    // increaseBuildLength / decreaseBuildLength — provided by INEMultiblockBuildHost default
 
-    public void decreaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        selectedBuildLength =
-                net.minecraft.util.Mth.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
+    @Override
+    public BuildPreviewState getBuildPreview() {
+        return buildPreview;
     }
 
     public void previewStructure(Player player) {
@@ -529,7 +516,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 buildSession.getTotalBlocks());
     }
 
-    private void resetPreview(String statusKey) {
+    @Override
+    public void resetPreview(String statusKey) {
         syncPreview(0, 0, 0, 0, statusKey);
     }
 
@@ -557,12 +545,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         markUiStateDirty();
     }
 
-    private Component buildPreviewStatusComponent() {
-        if ("gui.neoecoae.multiblock.status.building".equals(previewStatusKey)) {
-            return Component.translatable(previewStatusKey, previewStatusArg1, previewStatusArg2);
-        }
-        return Component.translatable(previewStatusKey);
-    }
+    // buildPreviewStatusComponent() — provided by INEMultiblockBuildHost default
 
     // ── NBT persistence ──
 
@@ -595,22 +578,11 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         previewStatusArg2 = 0;
     }
 
-    // ── Client sync via BE update tags (chunk load / block update) ──
+    // ── UI sync (Layer 1: chunk-load NBT) ──
+    // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
 
     @Override
-    public CompoundTag getUpdateTag() {
-        var tag = super.getUpdateTag();
-        writeUiSyncTag(tag);
-        return tag;
-    }
-
-    @Override
-    public void handleUpdateTag(CompoundTag tag) {
-        super.handleUpdateTag(tag);
-        readUiSyncTag(tag);
-    }
-
-    private void writeUiSyncTag(CompoundTag tag) {
+    protected void writeUiSyncTag(CompoundTag tag) {
         tag.putInt("neo_usedThread", usedThread);
         tag.putInt("neo_totalThread", totalThread);
         tag.putInt("neo_parallelCount", parallelCount);
@@ -622,7 +594,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         buildPreview.writeToTag(tag);
     }
 
-    private void readUiSyncTag(CompoundTag tag) {
+    @Override
+    protected void readUiSyncTag(CompoundTag tag) {
         if (tag.contains("neo_usedThread")) usedThread = tag.getInt("neo_usedThread");
         if (tag.contains("neo_totalThread")) totalThread = tag.getInt("neo_totalThread");
         if (tag.contains("neo_parallelCount")) parallelCount = tag.getInt("neo_parallelCount");
