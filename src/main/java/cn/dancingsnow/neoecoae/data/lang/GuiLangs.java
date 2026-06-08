@@ -73,6 +73,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.storage.energy_buffer", "Energy Buffer");
         provider.add("gui.neoecoae.host.storage.channels", "Storage Channels");
         provider.add("gui.neoecoae.host.storage.footer", "Dynamic by ECOCellType registry; storage channels scroll when expanded.");
+        provider.add("gui.neoecoae.storage_priority.title", "Priority");
+        provider.add("gui.neoecoae.storage_priority.open", "Open priority panel");
+        provider.add("gui.neoecoae.storage_priority.close", "Close priority panel");
+        provider.add("gui.neoecoae.storage_priority.insert_hint", "When inserting: higher-priority storage is preferred.");
+        provider.add("gui.neoecoae.storage_priority.extract_hint", "When extracting: lower-priority storage is preferred.");
         provider.add("gui.neoecoae.host.metric.types", "Types");
         provider.add("gui.neoecoae.host.metric.bytes", "Bytes");
 

@@ -9,6 +9,8 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.StoragePriority;
+import cn.dancingsnow.neoecoae.gui.StoragePriorityUI;
 import cn.dancingsnow.neoecoae.gui.widget.ECOHostMetric;
 import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
 import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
@@ -28,6 +30,7 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import appeng.api.storage.IStorageProvider;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -56,6 +59,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Persisted
     @DescSynced
     private boolean mirrorBuild;
+    @Getter
+    @Persisted
+    @DescSynced
+    private int storagePriority;
     @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
@@ -156,6 +163,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
+        UIElement priorityWindow = priorityPanel(holder);
 
         ScrollerView channelList = ECOHostWidgets.scrollList(ECOHostStyles.STORAGE_DETAIL_HEIGHT - 13);
         NERegistries.CELL_TYPE.stream()
@@ -191,6 +199,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             buildWindow,
             ECOHostStyles.STORAGE_PANEL_HEIGHT
         );
+        root.addChild(StoragePriorityUI.createOpenButton(priorityWindow));
+        root.addChild(priorityWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 
@@ -310,6 +320,37 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             () -> buildInProgress,
             this::createLocalPreviewPlan
         ));
+    }
+
+    private UIElement priorityPanel(BlockUIMenuType.BlockUIHolder holder) {
+        return StoragePriorityUI.createFloatingPanel(new StoragePriorityUI.Config(
+            () -> storagePriority,
+            priority -> setStoragePriority(holder.player, priority),
+            delta -> changeStoragePriority(holder.player, delta)
+        ));
+    }
+
+    private void changeStoragePriority(Player player, int delta) {
+        setStoragePriority(player, StoragePriority.adjust(storagePriority, delta));
+    }
+
+    private void setStoragePriority(Player player, int priority) {
+        if (storagePriority == priority) {
+            return;
+        }
+        storagePriority = priority;
+        setChanged();
+        markForUpdate();
+        refreshDriveStorageProviders();
+    }
+
+    private void refreshDriveStorageProviders() {
+        if (cluster == null) {
+            return;
+        }
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IStorageProvider.requestUpdate(drive.getMainNode());
+        }
     }
 
     private void increaseBuildLength(Player player) {

@@ -116,7 +116,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             IECOTier mainTier = storageCluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
-                storageMounts.mount(cellInventory);
+                storageMounts.mount(cellInventory, storageCluster.getController().getStoragePriority());
                 mounted = true;
                 setChanged();
                 return;
