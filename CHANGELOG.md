@@ -1,6 +1,20 @@
 # 更新日志
 
-## 1.0.5+mc1.20.1 (2026-06-08)
+## 1.0.6+mc1.20.1 (2026-06-08)
+
+### 新增
+- 计算子系统主机 UI 新增 CPU 自动分配模式按钮（左上角），复用 AE2 原生 SettingToggleButton 外观与 tooltip
+- 三种模式：ANY（合成锤图标）、PLAYER_ONLY（终端图标）、MACHINE_ONLY（输出总线图标），点击循环切换
+- 模式持久化到控制器 NBT，多方块重组后自动恢复
+- NEComputationCluster 新增 canBeAutoSelectedFor、cycleSelectionMode，模式变化后通知 grid CPU 变化
+- 存储子系统主机 / 存储通讯接口实现 AE2 IPriorityHost，直接复用 AE2 原生 PriorityMenu / PriorityScreen
+- 存储 UI 右上角新增优先级按钮（扳手图标），点击打开 AE2 原生优先级面板
+- PriorityScreen 右上角返回按钮图标为 NeoECOAE 存储主机图标，返回主 UI 正常
+- ECODriveBlockEntity mountInventories 挂载时传入 storage host priority，影响 AE2 网络插入/提取顺序
+
+### 改进
+- 存储子系统 IPriorityHost setPriority 后通知所有 Drive 刷新 storage provider
+- 计算子系统 CPU 选择模式变化即时同步 UI 状态，关闭重开 UI 不丢失
 
 能耗 / 冷却 UI 全面重构，基于真实机器状态实时显示能耗柱和冷却液柱
 能耗柱颜色按比例分段：绿色(<50%)、黄色(50%-90%)、红色(>=90%)

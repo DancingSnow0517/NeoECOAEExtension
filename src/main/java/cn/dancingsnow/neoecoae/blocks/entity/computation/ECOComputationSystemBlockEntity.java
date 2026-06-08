@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGridNodeListener;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -35,6 +36,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private long totalBytes;
     /** Sum of CPU accelerators from all parallel cores in the cluster. */
     private int acceleratorCount;
+
+    /** CPU auto-selection mode, persisted in the controller's NBT. */
+    private CpuSelectionMode cpuSelectionMode = CpuSelectionMode.ANY;
 
     private boolean computationStatsDirty = true;
     private long uiRevision = 0L;
@@ -213,6 +217,16 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return acceleratorCount;
     }
 
+    public CpuSelectionMode getCpuSelectionMode() {
+        return cpuSelectionMode;
+    }
+
+    public void setCpuSelectionMode(CpuSelectionMode mode) {
+        this.cpuSelectionMode = mode;
+        setChanged();
+        markUiStateDirty();
+    }
+
     /**
      * Creates a snapshot of current computation stats for S2C UI sync.
      * <p>
@@ -221,6 +235,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
      * </p>
      */
     public NEComputationUiState createComputationUiState() {
+        CpuSelectionMode mode = cluster != null ? cluster.getSelectionMode() : cpuSelectionMode;
         return new NEComputationUiState(
                 worldPosition,
                 formed,
@@ -230,7 +245,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 availableBytes,
                 totalBytes,
                 parallelCount,
-                acceleratorCount);
+                acceleratorCount,
+                mode);
     }
 
     public Component getPreviewStatusComponent() {
@@ -544,6 +560,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.putInt("selectedBuildLength", selectedBuildLength);
+        tag.putInt("cpuSelectionMode", cpuSelectionMode.ordinal());
     }
 
     @Override
@@ -551,6 +568,13 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         super.loadTag(tag);
         selectedBuildLength = tag.getInt("selectedBuildLength");
         if (selectedBuildLength < 1) selectedBuildLength = 1;
+        if (tag.contains("cpuSelectionMode")) {
+            int ordinal = tag.getInt("cpuSelectionMode");
+            CpuSelectionMode[] values = CpuSelectionMode.values();
+            if (ordinal >= 0 && ordinal < values.length) {
+                cpuSelectionMode = values[ordinal];
+            }
+        }
         buildInProgress = false;
         previewMissingBlocks = 0;
         previewConflictBlocks = 0;

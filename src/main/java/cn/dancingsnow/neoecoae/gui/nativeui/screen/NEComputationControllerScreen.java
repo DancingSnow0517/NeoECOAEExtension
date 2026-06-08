@@ -1,8 +1,13 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import appeng.api.config.CpuSelectionMode;
+import appeng.api.config.Settings;
+import appeng.client.gui.widgets.ITooltip;
+import appeng.client.gui.widgets.SettingToggleButton;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEComputationControllerMenu;
 import cn.dancingsnow.neoecoae.network.NEComputationUiState;
+import cn.dancingsnow.neoecoae.network.NENetwork;
 import java.text.NumberFormat;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
@@ -38,8 +43,13 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
     private static final int FORMED_BAR_H = 25;
     private static final int FORMED_BAR_BOTTOM_GAP = 7;
 
+    // ── Left toolbar (CPU auto-selection mode button) ──
+    private static final int TOOLBAR_BUTTON_X_OFFSET = -22;
+    private static final int TOOLBAR_BUTTON_Y_OFFSET = 8;
+
     private boolean hasComputationState;
     private NEComputationUiState computationState;
+    private SettingToggleButton<CpuSelectionMode> cpuSelectionModeButton;
 
     public NEComputationControllerScreen(NEComputationControllerMenu menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title, NEMachineScreenConfig.COMPUTATION_CONTROLLER);
@@ -55,11 +65,44 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
     public void setComputationUiState(NEComputationUiState state) {
         this.hasComputationState = true;
         this.computationState = state;
+        if (cpuSelectionModeButton != null) {
+            cpuSelectionModeButton.set(state.cpuSelectionMode());
+        }
     }
 
     @Override
     protected void init() {
         super.init();
+
+        // CPU auto-selection mode button (left toolbar, AE2 native SettingToggleButton)
+        cpuSelectionModeButton = new SettingToggleButton<>(
+                Settings.CPU_SELECTION_MODE,
+                CpuSelectionMode.ANY,
+                (btn, forward) -> NENetwork.CHANNEL.sendToServer(
+                        new NENetwork.NEComputationCpuSelectionModePacket(menu.getMachinePos())));
+        cpuSelectionModeButton.setX(leftPos + TOOLBAR_BUTTON_X_OFFSET);
+        cpuSelectionModeButton.setY(topPos + TOOLBAR_BUTTON_Y_OFFSET);
+        addRenderableWidget(cpuSelectionModeButton);
+
+        // Apply current state if already available
+        if (hasComputationState) {
+            cpuSelectionModeButton.set(computationState.cpuSelectionMode());
+        }
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        // Render AE2 ITooltip tooltips for SettingToggleButton (etc.)
+        for (var widget : renderables) {
+            if (widget instanceof ITooltip tooltip && tooltip.isTooltipAreaVisible()) {
+                var area = tooltip.getTooltipArea();
+                if (area.contains(mouseX, mouseY)) {
+                    guiGraphics.renderTooltip(
+                            font, tooltip.getTooltipMessage(), java.util.Optional.empty(), mouseX, mouseY);
+                }
+            }
+        }
     }
 
     @Override
@@ -82,7 +125,8 @@ public class NEComputationControllerScreen extends NEBaseMachineScreen<NEComputa
                         be.getAvailableBytes(),
                         be.getTotalBytes(),
                         be.getParallelCount(),
-                        be.getAcceleratorCount());
+                        be.getAcceleratorCount(),
+                        be.getCpuSelectionMode());
             } else {
                 s = this.computationState;
             }

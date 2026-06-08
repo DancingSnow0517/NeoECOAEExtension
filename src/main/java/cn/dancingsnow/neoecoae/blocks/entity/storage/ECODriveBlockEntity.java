@@ -104,6 +104,15 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         IStorageProvider.requestUpdate(getMainNode());
     }
 
+    /**
+     * Public entry point for the storage controller to request a storage provider
+     * refresh (e.g. after priority change). Delegates to
+     * {@link #updateStorageProviderState}.
+     */
+    public void requestStorageProviderUpdate() {
+        updateStorageProviderState("requestStorageProviderUpdate");
+    }
+
     public void scheduleRenderUpdate() {
         markForUpdate();
     }
@@ -140,7 +149,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         logMountAttempt(hasCluster, hasController, mainTier, cellInventory, cellTier, tierSupported, willMount);
         if (cluster != null && cluster.getController() != null) {
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
-                storageMounts.mount(cellInventory);
+                int priority = cluster.getController().getPriority();
+                storageMounts.mount(cellInventory, priority);
                 boolean mountedChanged = !mounted;
                 mounted = true;
                 setChanged();

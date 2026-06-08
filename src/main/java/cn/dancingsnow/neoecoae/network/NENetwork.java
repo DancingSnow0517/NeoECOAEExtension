@@ -1,18 +1,27 @@
 package cn.dancingsnow.neoecoae.network;
 
+import appeng.api.config.CpuSelectionMode;
+import appeng.menu.MenuOpener;
+import appeng.menu.implementations.PriorityMenu;
+import appeng.menu.locator.MenuLocators;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.AbstractCraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.client.NEClientUiPacketHandlers;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEBaseMachineMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEComputationControllerMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NECraftingControllerMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStructureTerminalMenu;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -115,6 +124,18 @@ public final class NENetwork {
                 NEIntegratedWorkingStationActionPacket::encode,
                 NEIntegratedWorkingStationActionPacket::decode,
                 NEIntegratedWorkingStationActionPacket::handle);
+
+        registerC2S(
+                NEComputationCpuSelectionModePacket.class,
+                NEComputationCpuSelectionModePacket::encode,
+                NEComputationCpuSelectionModePacket::decode,
+                NEComputationCpuSelectionModePacket::handle);
+
+        registerC2S(
+                NEOpenStoragePriorityPacket.class,
+                NEOpenStoragePriorityPacket::encode,
+                NEOpenStoragePriorityPacket::decode,
+                NEOpenStoragePriorityPacket::handle);
 
         registerS2C(
                 NEIWSStatePacket.class, NEIWSStatePacket::encode, NEIWSStatePacket::decode, NEIWSStatePacket::handle);
@@ -236,6 +257,7 @@ public final class NENetwork {
             buf.writeLong(s.totalStorage());
             buf.writeInt(s.parallelCount());
             buf.writeInt(s.accelerators());
+            buf.writeEnum(s.cpuSelectionMode());
         }
 
         public static NEComputationUiStatePacket decode(FriendlyByteBuf buf) {
@@ -248,6 +270,7 @@ public final class NENetwork {
             long totalStorage = buf.readLong();
             int parallelCount = buf.readInt();
             int accelerators = buf.readInt();
+            CpuSelectionMode cpuSelectionMode = buf.readEnum(CpuSelectionMode.class);
 
             return new NEComputationUiStatePacket(new NEComputationUiState(
                     pos,
@@ -258,7 +281,8 @@ public final class NENetwork {
                     availableStorage,
                     totalStorage,
                     parallelCount,
-                    accelerators));
+                    accelerators,
+                    cpuSelectionMode));
         }
 
         public static void handle(NEComputationUiStatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
@@ -912,6 +936,107 @@ public final class NENetwork {
         CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
                 new NEIWSStatePacket(iws.getBlockPos(), inputTag, outputTag, iws.isShouldAutoExport()));
+    }
+
+    /**
+     * C2S packet for cycling the CPU auto-selection mode on the Computation
+     * Controller. The server cycles the mode in order (ANY → PLAYER_ONLY →
+     * MACHINE_ONLY → ANY) without trusting the client's reported mode.
+     */
+    public record NEComputationCpuSelectionModePacket(BlockPos pos) {
+
+        public static void encode(NEComputationCpuSelectionModePacket pkt, FriendlyByteBuf buf) {
+            buf.writeBlockPos(pkt.pos());
+        }
+
+        public static NEComputationCpuSelectionModePacket decode(FriendlyByteBuf buf) {
+            return new NEComputationCpuSelectionModePacket(buf.readBlockPos());
+        }
+
+        public static void handle(NEComputationCpuSelectionModePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            var sender = ctx.getSender();
+            if (sender == null) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            ctx.enqueueWork(() -> {
+                // Validate the player has the correct menu open
+                if (!(sender.containerMenu instanceof NEComputationControllerMenu menu)) {
+                    return;
+                }
+                if (!menu.getMachinePos().equals(pkt.pos())) {
+                    return;
+                }
+                if (!menu.stillValid(sender)) {
+                    return;
+                }
+                // Validate the block entity exists and is the right type
+                if (!(sender.level().getBlockEntity(pkt.pos()) instanceof ECOComputationSystemBlockEntity be)) {
+                    return;
+                }
+                // Validate the multiblock is formed and cluster is available
+                NEComputationCluster cluster = be.getCluster();
+                if (cluster == null) {
+                    return;
+                }
+                // Cycle the selection mode server-side
+                cluster.cycleSelectionMode();
+                be.markComputationStatsDirty();
+                be.updateInfos();
+
+                // Immediately push updated state to the client
+                menu.sendStateNow(sender);
+            });
+            ctx.setPacketHandled(true);
+        }
+    }
+
+    /**
+     * C2S packet requesting to open the AE2 native Priority configuration screen
+     * for the storage controller at the given position.
+     */
+    public record NEOpenStoragePriorityPacket(BlockPos pos) {
+
+        public static void encode(NEOpenStoragePriorityPacket pkt, FriendlyByteBuf buf) {
+            buf.writeBlockPos(pkt.pos());
+        }
+
+        public static NEOpenStoragePriorityPacket decode(FriendlyByteBuf buf) {
+            return new NEOpenStoragePriorityPacket(buf.readBlockPos());
+        }
+
+        public static void handle(NEOpenStoragePriorityPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
+            NetworkEvent.Context ctx = ctxSupplier.get();
+            var sender = ctx.getSender();
+            if (sender == null) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            ctx.enqueueWork(() -> {
+                // Validate the player has the correct menu open
+                if (!(sender.containerMenu instanceof NEStorageControllerMenu menu)) {
+                    return;
+                }
+                if (!menu.getMachinePos().equals(pkt.pos())) {
+                    return;
+                }
+                if (!menu.stillValid(sender)) {
+                    return;
+                }
+                // Validate the block entity is the storage host
+                if (!(sender.level().getBlockEntity(pkt.pos()) instanceof ECOStorageSystemBlockEntity be)) {
+                    return;
+                }
+                // Validate multiblock is formed
+                if (!be.isFormed()) {
+                    return;
+                }
+                // Open AE2 native PriorityMenu
+                MenuOpener.open(PriorityMenu.TYPE, sender, MenuLocators.forBlockEntity(be));
+            });
+            ctx.setPacketHandled(true);
+        }
     }
 
     public record NEFluidHatchStatePacket(BlockPos pos, CompoundTag tankTag) {

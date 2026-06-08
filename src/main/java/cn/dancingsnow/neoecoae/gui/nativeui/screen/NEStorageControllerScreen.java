@@ -1,7 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.nativeui.screen;
 
+import appeng.client.gui.Icon;
+import appeng.client.gui.widgets.TabButton;
+import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
+import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.network.NEStorageUiState;
 import cn.dancingsnow.neoecoae.network.NEStorageUiTypeState;
 import java.text.NumberFormat;
@@ -108,6 +112,15 @@ public class NEStorageControllerScreen extends NEBaseMachineScreen<NEStorageCont
         animatedItemPct = 0.0D;
         animatedFluidPct = 0.0D;
         animatedChemicalPct = 0.0D;
+
+        // Priority button (top-right, AE2-style wrench icon)
+        var priorityButton = new TabButton(
+                Icon.WRENCH,
+                GuiText.Priority.text(),
+                btn -> NENetwork.CHANNEL.sendToServer(new NENetwork.NEOpenStoragePriorityPacket(menu.getMachinePos())));
+        priorityButton.setX(leftPos + imageWidth - 22);
+        priorityButton.setY(topPos);
+        addRenderableWidget(priorityButton);
     }
 
     @Override

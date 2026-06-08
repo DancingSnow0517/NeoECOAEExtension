@@ -189,6 +189,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             this.maxThreads = threadingCores.stream()
                     .mapToInt(it -> it.getTier().getCPUThreads())
                     .sum();
+
+            // Apply the controller's persisted CPU auto-selection mode to the cluster
+            if (controller != null) {
+                this.selectionMode = controller.getCpuSelectionMode();
+            }
+
             LOGGER.debug(
                     "NE computation cluster formed: controller={} accelerators={} maxThreads={} availableStorage={}",
                     controller != null ? controller.getBlockPos() : null,
@@ -293,6 +299,27 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             case PLAYER_ONLY -> actionSource.player().isPresent();
             case MACHINE_ONLY -> actionSource.player().isEmpty();
         };
+    }
+
+    public void setSelectionMode(CpuSelectionMode mode) {
+        if (this.selectionMode != mode) {
+            this.selectionMode = mode;
+            // Persist to controller NBT so the mode survives world reload
+            if (controller != null) {
+                controller.setCpuSelectionMode(mode);
+            }
+            updateGridForChangedCpu(this);
+        }
+    }
+
+    public void cycleSelectionMode() {
+        CpuSelectionMode next =
+                switch (selectionMode) {
+                    case ANY -> CpuSelectionMode.PLAYER_ONLY;
+                    case PLAYER_ONLY -> CpuSelectionMode.MACHINE_ONLY;
+                    case MACHINE_ONLY -> CpuSelectionMode.ANY;
+                };
+        setSelectionMode(next);
     }
 
     public @Nullable IGridNode getNode() {

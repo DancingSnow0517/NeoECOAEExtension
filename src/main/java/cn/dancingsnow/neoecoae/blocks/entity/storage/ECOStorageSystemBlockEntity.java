@@ -4,6 +4,8 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.helpers.IPriorityHost;
+import appeng.menu.ISubMenu;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
@@ -11,6 +13,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
@@ -33,14 +36,17 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
-        implements IGridTickable, INEMultiblockBuildHost {
+        implements IGridTickable, INEMultiblockBuildHost, IPriorityHost {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
 
     @Getter
@@ -51,6 +57,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private long[] usedBytes;
     private long[] totalBytes;
     private boolean storageStatsDirty = true;
+
+    /** Storage priority for AE2 network insertion/extraction ordering. */
+    private int priority = 0;
 
     private long storedEnergy;
     private long maxEnergy;
@@ -504,6 +513,43 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         storageStatsDirty = true;
     }
 
+    // ── IPriorityHost implementation ──
+
+    @Override
+    public int getPriority() {
+        return priority;
+    }
+
+    @Override
+    public void setPriority(int newValue) {
+        this.priority = newValue;
+        setChanged();
+        // Notify all drives to remount with the new priority
+        if (cluster != null) {
+            for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                drive.requestStorageProviderUpdate();
+            }
+        }
+        markForUpdate();
+    }
+
+    @Override
+    public ItemStack getMainMenuIcon() {
+        return new ItemStack(getBlockState().getBlock().asItem());
+    }
+
+    @Override
+    public void returnToMainMenu(Player player, ISubMenu subMenu) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            NetworkHooks.openScreen(
+                    serverPlayer,
+                    new SimpleMenuProvider(
+                            (windowId, inv, p) -> new NEStorageControllerMenu(windowId, inv, this.getBlockPos()),
+                            getBlockState().getBlock().getName()),
+                    buf -> buf.writeBlockPos(this.getBlockPos()));
+        }
+    }
+
     private int getCellTypeCount() {
         var reg = NERegistries.cellTypeRegistry();
         return Math.max(reg != null ? reg.size() : 1, 1);
@@ -712,6 +758,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.putInt("selectedBuildLength", selectedBuildLength);
+        tag.putInt("priority", priority);
     }
 
     @Override
@@ -719,6 +766,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         super.loadTag(tag);
         selectedBuildLength = tag.getInt("selectedBuildLength");
         if (selectedBuildLength < 1) selectedBuildLength = 1;
+        priority = tag.getInt("priority");
         // Safety: build session is transient; reset in-progress state on load
         buildInProgress = false;
         previewMissingBlocks = 0;
