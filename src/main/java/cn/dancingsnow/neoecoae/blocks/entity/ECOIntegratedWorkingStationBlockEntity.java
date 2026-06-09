@@ -382,7 +382,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         saveChanges();
     }
 
-    /** Called by NEInternalInventorySlot when the GUI modifies the inventory. */
+    /** Called by GUI inventory bridges when the menu modifies the inventory. */
     public void onGuiInventoryChanged() {
         onChangeInventory();
         setChanged();

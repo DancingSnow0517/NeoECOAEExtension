@@ -5,7 +5,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.compat.xei.MultiblockInfoRecipe;
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEIntegratedWorkingStationScreen;
+import cn.dancingsnow.neoecoae.gui.ldlib.NEIntegratedWorkingStationLDLibUI;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import java.util.List;
@@ -86,9 +86,9 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
-        registration.addGuiContainerHandler(NEIntegratedWorkingStationScreen.class, new IGuiContainerHandler<>() {
+        registration.addGuiContainerHandler(NEIntegratedWorkingStationLDLibUI.class, new IGuiContainerHandler<>() {
             @Override
-            public List<Rect2i> getGuiExtraAreas(NEIntegratedWorkingStationScreen screen) {
+            public List<Rect2i> getGuiExtraAreas(NEIntegratedWorkingStationLDLibUI screen) {
                 return screen.getJeiExtraAreas();
             }
         });

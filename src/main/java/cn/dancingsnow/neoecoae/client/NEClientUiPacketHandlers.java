@@ -1,11 +1,11 @@
 package cn.dancingsnow.neoecoae.client;
 
+import cn.dancingsnow.neoecoae.gui.ldlib.NEComputationControllerLDLibUI;
+import cn.dancingsnow.neoecoae.gui.ldlib.NECraftingControllerLDLibUI;
+import cn.dancingsnow.neoecoae.gui.ldlib.NEStorageControllerLDLibUI;
+import cn.dancingsnow.neoecoae.gui.ldlib.NEStructureTerminalLDLibUI;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEFluidHatchMenu;
 import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEComputationControllerScreen;
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NECraftingControllerScreen;
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStorageControllerScreen;
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEStructureTerminalScreen;
 import cn.dancingsnow.neoecoae.network.NENetwork;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
@@ -24,12 +24,12 @@ public final class NEClientUiPacketHandlers {
 
     /**
      * Handles an incoming {@link NENetwork.NEStorageUiStatePacket} by pushing
-     * the state to the currently open {@link NEStorageControllerScreen} when
-     * the machine position matches.
+     * the state to the currently open LDLib screen when the machine position
+     * matches.
      */
     public static void handleStorageUiState(NENetwork.NEStorageUiStatePacket pkt) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof NEStorageControllerScreen screen) {
+        if (mc.screen instanceof NEStorageControllerLDLibUI screen) {
             if (screen.getMenu().getMachinePos().equals(pkt.state().pos())) {
                 screen.setStorageUiState(pkt.state());
             }
@@ -38,12 +38,12 @@ public final class NEClientUiPacketHandlers {
 
     /**
      * Handles an incoming {@link NENetwork.NEComputationUiStatePacket} by pushing
-     * the state to the currently open {@link NEComputationControllerScreen} when
-     * the machine position matches.
+     * the state to the currently open LDLib screen when the machine position
+     * matches.
      */
     public static void handleComputationUiState(NENetwork.NEComputationUiStatePacket pkt) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof NEComputationControllerScreen screen) {
+        if (mc.screen instanceof NEComputationControllerLDLibUI screen) {
             if (screen.getMenu().getMachinePos().equals(pkt.state().pos())) {
                 screen.setComputationUiState(pkt.state());
             }
@@ -52,12 +52,12 @@ public final class NEClientUiPacketHandlers {
 
     /**
      * Handles an incoming {@link NENetwork.NECraftingUiStatePacket} by pushing
-     * the state to the currently open {@link NECraftingControllerScreen} when
-     * the machine position matches.
+     * the state to the currently open LDLib screen when the machine position
+     * matches.
      */
     public static void handleCraftingUiState(NENetwork.NECraftingUiStatePacket pkt) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof NECraftingControllerScreen screen) {
+        if (mc.screen instanceof NECraftingControllerLDLibUI screen) {
             if (screen.getMenu().getMachinePos().equals(pkt.state().pos())) {
                 screen.setCraftingUiState(pkt.state());
             }
@@ -69,7 +69,7 @@ public final class NEClientUiPacketHandlers {
      */
     public static void handleStructureTerminalConfig(NENetwork.NEStructureTerminalConfigPacket pkt) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof NEStructureTerminalScreen screen) {
+        if (mc.screen instanceof NEStructureTerminalLDLibUI screen) {
             screen.setConfig(
                     pkt.currentLength(),
                     pkt.minLength(),
@@ -82,7 +82,7 @@ public final class NEClientUiPacketHandlers {
 
     /**
      * Handles an incoming {@link NENetwork.NEStructureTerminalUiStatePacket}
-     * by pushing the state to the currently open {@link NEStructureTerminalScreen}.
+     * by pushing the state to the currently open structure terminal screen.
      *
      * @deprecated The config UI no longer uses the full host-bound state.
      */

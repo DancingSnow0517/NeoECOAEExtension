@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Menu for the ECO Integrated Working Station with real machine slots.
  * <p>
- * Coordinates are paired with {@code NEIntegratedWorkingStationScreen}:
+ * Coordinates are shared with the client screen:
  * the Screen draws 18×18 slot backgrounds and this Menu places the 16×16
  * Slot item/click areas at background +1/+1.
  * </p>

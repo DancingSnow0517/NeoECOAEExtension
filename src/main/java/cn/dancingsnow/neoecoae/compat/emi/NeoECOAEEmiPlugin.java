@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.gui.ldlib.NEIntegratedWorkingStationLDLibUI;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -12,6 +13,7 @@ import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.api.widget.Bounds;
 import net.minecraft.client.Minecraft;
 
 @EmiEntrypoint
@@ -28,6 +30,11 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
     @Override
     public void register(EmiRegistry registry) {
+        registry.addExclusionArea(
+                NEIntegratedWorkingStationLDLibUI.class, (screen, consumer) -> screen.getJeiExtraAreas()
+                        .forEach(area -> consumer.accept(
+                                new Bounds(area.getX(), area.getY(), area.getWidth(), area.getHeight()))));
+
         registry.addCategory(INTEGRATED_WORKING_STATION);
         registry.addWorkstation(INTEGRATED_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
 

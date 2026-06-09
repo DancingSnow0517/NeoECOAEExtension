@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.gui.ldlib.NEIntegratedWorkingStationLDLibUI;
 import cn.dancingsnow.neoecoae.integration.emi.recipe.CoolingEmiRecipe;
 import cn.dancingsnow.neoecoae.integration.emi.recipe.IntegrationWorkingStationEmiRecipe;
 import cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe;
@@ -18,6 +19,7 @@ import dev.emi.emi.api.EmiRegistry;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.api.widget.Bounds;
 import java.util.Arrays;
 import java.util.List;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -35,6 +37,11 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
     @Override
     public void register(EmiRegistry registry) {
+        registry.addExclusionArea(
+                NEIntegratedWorkingStationLDLibUI.class, (screen, consumer) -> screen.getJeiExtraAreas()
+                        .forEach(area -> consumer.accept(
+                                new Bounds(area.getX(), area.getY(), area.getWidth(), area.getHeight()))));
+
         // multiblock
         registry.addCategory(MULTIBLOCK);
         registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.STORAGE_SYSTEM_L4));

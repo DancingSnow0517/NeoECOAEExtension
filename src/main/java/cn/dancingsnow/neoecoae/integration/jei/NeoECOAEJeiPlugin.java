@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.jei;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NEIntegratedWorkingStationScreen;
+import cn.dancingsnow.neoecoae.gui.ldlib.NEIntegratedWorkingStationLDLibUI;
 import cn.dancingsnow.neoecoae.integration.jei.categories.CoolingCategory;
 import cn.dancingsnow.neoecoae.integration.jei.categories.IntegrationWorkingStationCategory;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
@@ -58,9 +58,9 @@ public class NeoECOAEJeiPlugin implements IModPlugin {
 
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
-        registration.addGuiContainerHandler(NEIntegratedWorkingStationScreen.class, new IGuiContainerHandler<>() {
+        registration.addGuiContainerHandler(NEIntegratedWorkingStationLDLibUI.class, new IGuiContainerHandler<>() {
             @Override
-            public List<Rect2i> getGuiExtraAreas(NEIntegratedWorkingStationScreen screen) {
+            public List<Rect2i> getGuiExtraAreas(NEIntegratedWorkingStationLDLibUI screen) {
                 return screen.getJeiExtraAreas();
             }
         });

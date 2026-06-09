@@ -4,7 +4,7 @@ package cn.dancingsnow.neoecoae.gui.nativeui.layout;
  * ECO 样板总线的共享布局常量。
  * <p>
  * {@code NECraftingPatternBusMenu}（槽位点击区域）和
- * {@code NECraftingPatternBusScreen}（视觉背景）共同导入
+ * client screen（视觉背景）共同导入
  * 这些常量以确保坐标同步。
  * </p>
  * <p>

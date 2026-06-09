@@ -206,6 +206,9 @@ dependencies {
     // runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
     annotationProcessor "dev.emi:emi-forge:${emi_version}"
 
+    compileOnly fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
+    runtimeOnly fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
+
     compileOnly fg.deobf("maven.modrinth:jade:${jade_version}")
     runtimeOnly fg.deobf("maven.modrinth:jade:${jade_version}")
 

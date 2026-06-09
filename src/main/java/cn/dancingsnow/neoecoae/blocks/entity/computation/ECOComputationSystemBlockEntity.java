@@ -15,7 +15,6 @@ import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -540,7 +539,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         previewStatusArg1 = statusArg1;
         previewStatusArg2 = statusArg2;
         // Keep BuildPreviewState in sync
-        buildPreview.syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, statusArg1, statusArg2);
+        buildPreview.syncPreview(
+                missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, statusArg1, statusArg2);
         setChanged();
         markUiStateDirty();
     }
