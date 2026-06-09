@@ -378,7 +378,6 @@ public class ECOCraftingCPULogic {
 
         int pushedPatterns = 0;
         int slowPushedPatterns = 0;
-        IPatternDetails ecoScheduledDetails = null;
         long executeStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
         beginStatusChangeBatch();
 
@@ -396,13 +395,6 @@ public class ECOCraftingCPULogic {
                 var details = task.getKey();
                 ProviderSelection providers = collectProviders(craftingService, details);
                 if (providers.all().isEmpty()) {
-                    debugExtractSkippedBecauseProvidersBusy++;
-                    continue;
-                }
-                if (ecoScheduledDetails != null && !ecoScheduledDetails.equals(details)) {
-                    break taskLoop;
-                }
-                if (ecoScheduledDetails == null && hasRunningEcoCraftingController(providers)) {
                     debugExtractSkippedBecauseProvidersBusy++;
                     continue;
                 }
@@ -443,30 +435,21 @@ public class ECOCraftingCPULogic {
                             patternPower,
                             task.getValue().value,
                             totalPatternBudget - pushedPatterns,
-                            batchBudget.remaining(),
-                            task.getValue().ecoBatchSize);
+                            batchBudget.remaining());
                     if (batchResult > 0) {
-                        ecoScheduledDetails = details;
-                        if (task.getValue().ecoBatchSize <= 1 && task.getValue().value > batchResult) {
-                            task.getValue().ecoBatchSize = batchResult;
-                        }
                         batchBudget.consume(batchResult);
                         pushedPatterns += batchResult;
                         task.getValue().value -= batchResult;
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
                             it.remove();
-                            break taskLoop;
+                            continue taskLoop;
                         }
                         if (pushedPatterns == totalPatternBudget) {
                             break taskLoop;
                         }
                         continue;
                     } else if (batchResult < 0) {
-                        continue taskLoop;
-                    }
-                    if (requiresFixedEcoBatch(task.getValue())) {
-                        CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
                         continue taskLoop;
                     }
 
@@ -479,7 +462,6 @@ public class ECOCraftingCPULogic {
                         debugSlowFallbackCount++;
                     }
                     boolean pushed = false;
-                    boolean pushedToEcoProvider = false;
                     for (ICraftingProvider provider : providers.all()) {
                         if (provider.isBusy()) {
                             continue;
@@ -493,17 +475,11 @@ public class ECOCraftingCPULogic {
                         if (DEBUG_EXECUTION_STATS) {
                             debugPushPatternCalls++;
                         }
-                        if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
-                            pushed = patternBus.pushPattern(execution, job.link.getCraftingID());
-                            pushedToEcoProvider = pushed;
-                        } else {
-                            pushed = provider.pushPattern(details, craftingContainer);
-                        }
+                        pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                                ? patternBus.pushPattern(execution, job.link.getCraftingID())
+                                : provider.pushPattern(details, craftingContainer);
 
                         if (pushed) {
-                            if (pushedToEcoProvider) {
-                                ecoScheduledDetails = details;
-                            }
                             energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
                             pushedPatterns++;
                             slowPushedPatterns++;
@@ -514,11 +490,6 @@ public class ECOCraftingCPULogic {
                             postPatternOutputsChange(details);
                             if (task.getValue().value <= 0) {
                                 it.remove();
-                            }
-                            if (pushedToEcoProvider) {
-                                break taskLoop;
-                            }
-                            if (task.getValue().value <= 0) {
                                 continue taskLoop;
                             }
                             if (pushedPatterns == totalPatternBudget) {
@@ -612,20 +583,6 @@ public class ECOCraftingCPULogic {
         return false;
     }
 
-    private boolean hasRunningEcoCraftingController(ProviderSelection providers) {
-        for (ECOCraftingPatternBusBlockEntity patternBus : providers.batchBuses()) {
-            ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
-            if (controller != null && controller.isRunning()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean requiresFixedEcoBatch(ExecutingCraftingJob.TaskProgress taskProgress) {
-        return taskProgress.ecoBatchSize > 1 && taskProgress.value >= taskProgress.ecoBatchSize;
-    }
-
     private int tryPushVerifiedFastPathBatch(
             IPatternDetails details,
             ECOExtractedPatternExecution execution,
@@ -635,8 +592,7 @@ public class ECOCraftingCPULogic {
             double patternPower,
             long taskRemaining,
             int totalBudgetRemaining,
-            int batchBudgetRemaining,
-            int fixedBatchSize) {
+            int batchBudgetRemaining) {
         if (!canAttemptBatchFastPath(execution)
                 || taskRemaining <= 1
                 || totalBudgetRemaining <= 1
@@ -644,18 +600,9 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        int requiredBatchSize = fixedBatchSize > 1 && taskRemaining >= fixedBatchSize ? fixedBatchSize : 0;
-        if (requiredBatchSize > 0
-                && (totalBudgetRemaining < requiredBatchSize || batchBudgetRemaining < requiredBatchSize)) {
-            return 0;
-        }
-
         int requested = (int) Math.min(
                 Math.min(taskRemaining, totalBudgetRemaining),
                 Math.min(ECO_BATCH_FAST_PATH_LIMIT, batchBudgetRemaining));
-        if (requiredBatchSize > 0) {
-            requested = requiredBatchSize;
-        }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
@@ -688,9 +635,6 @@ public class ECOCraftingCPULogic {
         int availableExtraCrafts =
                 ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(), extraCrafts);
         batchSize = Math.min(batchSize, availableExtraCrafts + 1);
-        if (requiredBatchSize > 0 && batchSize < requiredBatchSize) {
-            return 0;
-        }
         if (batchSize <= 1) {
             return 0;
         }
