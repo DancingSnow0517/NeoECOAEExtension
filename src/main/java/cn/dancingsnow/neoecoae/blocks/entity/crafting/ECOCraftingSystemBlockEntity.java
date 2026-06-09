@@ -10,16 +10,17 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
-import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
-import cn.dancingsnow.neoecoae.network.NECraftingUiState;
-import cn.dancingsnow.neoecoae.network.NENetwork;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -42,12 +43,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-        implements IGridTickable, INEMultiblockBuildHost {
+        implements IGridTickable, INEMultiblockBuildHost, IUIHolder.BlockEntityUI {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_THREAD_COUNT = Boolean.getBoolean("neoecoae.debugEcoCraftingThreadCount");
 
     /**
-     * Internal coolant cache maximum — the crafting controller's own cooling
+     * Internal coolant cache maximum 鈥?the crafting controller's own cooling
      * buffer, <em>not</em> the fluid hatch tank capacity.
      * Maintains the 1.21.1 value of 1,000,000.
      */
@@ -107,7 +108,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         getMainNode().addService(IGridTickable.class, this);
     }
 
-    // ── NBT persistence ──
+    // 鈹€鈹€ NBT persistence 鈹€鈹€
 
     @Override
     public void saveAdditional(CompoundTag tag) {
@@ -546,9 +547,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return workerCount;
     }
 
-    // getPreviewStatusComponent() — provided by INEMultiblockBuildHost default
+    // getPreviewStatusComponent() 鈥?provided by INEMultiblockBuildHost default
 
-    // ── INEMultiblockBuildHost implementation ──
+    // 鈹€鈹€ INEMultiblockBuildHost implementation 鈹€鈹€
 
     @Override
     public BlockPos getHostPos() {
@@ -590,35 +591,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     @Override
     public boolean isFormed() {
         return formed;
-    }
-
-    public NEStructureTerminalUiState createBuildUiState() {
-        MultiBlockDefinition def = getBuildDefinition();
-        return new NEStructureTerminalUiState(
-                worldPosition,
-                def != null ? def.getName().getString() : "",
-                formed,
-                buildInProgress,
-                selectedBuildLength,
-                getMinBuildLength(),
-                getMaxBuildLength(),
-                previewMissingBlocks,
-                previewConflictBlocks,
-                previewReusedBlocks,
-                previewRequiredItems,
-                buildSession != null ? buildSession.getPlacedBlockCount() : 0,
-                buildSession != null ? buildSession.getTotalBlocks() : 0,
-                previewStatusKey,
-                previewStatusArg1,
-                previewStatusArg2,
-                List.of());
-    }
-
-    public void sendBuildUiState(ServerPlayer player) {
-        NEStructureTerminalUiState state = createBuildUiState();
-        NENetwork.CHANNEL.send(
-                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-                new NENetwork.NEStructureTerminalUiStatePacket(state));
     }
 
     @Override
@@ -689,9 +661,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         // triggers a recalculation, making effParallel inconsistent.
         ensureCraftingStatsCurrent();
 
-        int totalParallelism = threadCount; // FT 理论并行
-        int availThreads = getAvailableThreads(); // FX 工作核心承载上限
-        int effParallel = Math.min(totalParallelism, availThreads); // 实际有效并行
+        int totalParallelism = threadCount; // FT 鐞嗚骞惰
+        int availThreads = getAvailableThreads(); // FX 宸ヤ綔鏍稿績鎵胯浇涓婇檺
+        int effParallel = Math.min(totalParallelism, availThreads); // 瀹為檯鏈夋晥骞惰
 
         // Collect active craft outputs from each worker
         List<ItemStack> craftOutputs = new ArrayList<>();
@@ -734,6 +706,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 effParallel,
                 craftOutputs,
                 coreTiers);
+    }
+
+    @Override
+    public ModularUI createUI(net.minecraft.world.entity.player.Player player) {
+        return NELDLibUis.createCraftingController(this, player);
     }
 
     private long getMaxEnergyUsage() {
@@ -906,7 +883,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    // increaseBuildLength / decreaseBuildLength — provided by INEMultiblockBuildHost default
+    // increaseBuildLength / decreaseBuildLength 鈥?provided by INEMultiblockBuildHost default
 
     @Override
     public BuildPreviewState getBuildPreview() {
@@ -1083,7 +1060,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         markUiStateDirty();
     }
 
-    // buildPreviewStatusComponent() — provided by INEMultiblockBuildHost default
+    // buildPreviewStatusComponent() 鈥?provided by INEMultiblockBuildHost default
 
     private Component buildCoolantSupportComponent() {
         int displayedMaxOverclock = getCurrentCoolingMaxOverclock();
@@ -1106,7 +1083,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return recipe == null ? -1 : recipe.maxOverclock();
     }
 
-    // ── UI sync (Layer 1: chunk-load NBT) ──
+    // 鈹€鈹€ UI sync (Layer 1: chunk-load NBT) 鈹€鈹€
     // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
 
     @Override
@@ -1122,7 +1099,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         tag.putInt("workerCount", workerCount);
         tag.putInt("threadCount", threadCount);
         tag.putInt("runningThreadCount", runningThreadCount);
-        // Build/preview state — delegated to BuildPreviewState
+        // Build/preview state 鈥?delegated to BuildPreviewState
         // Note: individual preview fields still exist alongside buildPreview;
         // syncPreview()/resetPreview() update both.
         buildPreview.writeToTag(tag);
@@ -1142,7 +1119,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (tag.contains("workerCount")) workerCount = tag.getInt("workerCount");
         if (tag.contains("threadCount")) threadCount = tag.getInt("threadCount");
         if (tag.contains("runningThreadCount")) runningThreadCount = tag.getInt("runningThreadCount");
-        // Build/preview state — delegated to BuildPreviewState
+        // Build/preview state 鈥?delegated to BuildPreviewState
         // Keep individual field reads for backward compat; buildPreview syncs alongside.
         buildPreview.readFromTag(tag);
         if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");

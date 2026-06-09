@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.compat.emi;
 
 import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NENativeAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import dev.emi.emi.api.recipe.EmiRecipe;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
@@ -165,23 +165,23 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
         widgets.addDrawable(0, 0, WIDTH, HEIGHT, (g, mouseX, mouseY, delta) -> {
 
             // 1.a Input fluid tank background
-            NENativeAe2StyleRenderer.drawAeFluidTankSimple(
+            NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
                     g, INPUT_FLUID_TANK_X, INPUT_FLUID_TANK_Y, FLUID_TANK_W, FLUID_TANK_H, FluidStack.EMPTY, 0, 16000);
 
             // 1.b Input item slot backgrounds — always all 9 slots
             for (int i = 0; i < INPUT_SLOT_COUNT; i++) {
                 int col = i % INPUT_GRID_COLS;
                 int row = i / INPUT_GRID_COLS;
-                NENativeAe2StyleRenderer.drawAeSlot(
+                NELDLibAe2StyleRenderer.drawAeSlot(
                         g, INPUT_GRID_X + col * SLOT_SPACING, INPUT_GRID_Y + row * SLOT_SPACING);
             }
 
             // 1.c Output Inscriber-style frame
-            NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(
+            NELDLibAe2StyleRenderer.drawAeInscriberOutputFrame(
                     g, OUTPUT_FRAME_X, OUTPUT_FRAME_Y, OUTPUT_FRAME_W, OUTPUT_FRAME_H);
 
             // 1.d Output fluid tank background
-            NENativeAe2StyleRenderer.drawAeFluidTankSimple(
+            NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
                     g,
                     OUTPUT_FLUID_TANK_X,
                     OUTPUT_FLUID_TANK_Y,
@@ -193,8 +193,7 @@ public class IntegratedWorkingStationEmiRecipe implements EmiRecipe {
 
             // 1.e AE2 inscriber-style progress bar
             int progress = (int) ((System.currentTimeMillis() / 50L) % 100L);
-            NENativeAe2StyleRenderer.drawAeProgressBar(
-                    g, PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, progress, 100);
+            NELDLibAe2StyleRenderer.drawAeProgressBar(g, PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, progress, 100);
         });
 
         // ═══════════════════════════════════════════════════════════

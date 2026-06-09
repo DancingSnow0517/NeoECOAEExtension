@@ -13,15 +13,17 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEStorageControllerMenu;
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
-import cn.dancingsnow.neoecoae.network.NEStorageUiState;
-import cn.dancingsnow.neoecoae.network.NEStorageUiTypeState;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -36,16 +38,14 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
-import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.network.NetworkHooks;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
-        implements IGridTickable, INEMultiblockBuildHost, IPriorityHost {
+        implements IGridTickable, INEMultiblockBuildHost, IPriorityHost, IUIHolder.BlockEntityUI {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
 
     @Getter
@@ -269,6 +269,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return new NEStorageUiState(worldPosition, typeStates, storedEnergy, maxEnergy, formed);
     }
 
+    @Override
+    public ModularUI createUI(Player player) {
+        return NELDLibUis.createStorageController(this, player);
+    }
+
     /**
      * Returns the stable identity key for a cell type.
      * Uses the {@code id} field embedded in {@link ECOCellType} directly,
@@ -387,7 +392,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return buildPreviewStatusComponent();
     }
 
-    // ── INEMultiblockBuildHost interface ──
+    // 鈹€鈹€ INEMultiblockBuildHost interface 鈹€鈹€
 
     @Override
     public BlockPos getHostPos() {
@@ -472,7 +477,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         : "gui.neoecoae.multiblock.status.dismantle_failed");
     }
 
-    // ── Legacy public accessors ──
+    // 鈹€鈹€ Legacy public accessors 鈹€鈹€
 
     public int getSelectedBuildLength() {
         return selectedBuildLength;
@@ -519,7 +524,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         storageStatsDirty = true;
     }
 
-    // ── IPriorityHost implementation ──
+    // 鈹€鈹€ IPriorityHost implementation 鈹€鈹€
 
     @Override
     public int getPriority() {
@@ -546,14 +551,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public void returnToMainMenu(Player player, ISubMenu subMenu) {
-        if (player instanceof ServerPlayer serverPlayer) {
-            NetworkHooks.openScreen(
-                    serverPlayer,
-                    new SimpleMenuProvider(
-                            (windowId, inv, p) -> new NEStorageControllerMenu(windowId, inv, this.getBlockPos()),
-                            getBlockState().getBlock().getName()),
-                    buf -> buf.writeBlockPos(this.getBlockPos()));
-        }
+        player.closeContainer();
     }
 
     private int getCellTypeCount() {
@@ -572,7 +570,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return result;
     }
 
-    // increaseBuildLength / decreaseBuildLength — provided by INEMultiblockBuildHost default
+    // increaseBuildLength / decreaseBuildLength 鈥?provided by INEMultiblockBuildHost default
 
     @Override
     public BuildPreviewState getBuildPreview() {
@@ -745,9 +743,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         syncPreview(0, 0, 0, 0, statusKey);
     }
 
-    // buildPreviewStatusComponent() — provided by INEMultiblockBuildHost default
+    // buildPreviewStatusComponent() 鈥?provided by INEMultiblockBuildHost default
 
-    // ── NBT persistence ──
+    // 鈹€鈹€ NBT persistence 鈹€鈹€
 
     @Override
     public void saveAdditional(CompoundTag tag) {
@@ -773,7 +771,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         previewStatusArg2 = 0;
     }
 
-    // ── UI sync (Layer 1: chunk-load NBT) ──
+    // 鈹€鈹€ UI sync (Layer 1: chunk-load NBT) 鈹€鈹€
     // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
     // We only need to override writeUiSyncTag/readUiSyncTag.
 
@@ -790,7 +788,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
         if (totalBytes != null) tag.putLongArray("neo_totalBytes", totalBytes);
-        // Build/preview state — delegated to BuildPreviewState
+        // Build/preview state 鈥?delegated to BuildPreviewState
         // Note: individual fields (selectedBuildLength, preview*, buildInProgress)
         // still exist alongside buildPreview; syncPreview()/resetPreview() update both.
         buildPreview.writeToTag(tag);
@@ -809,7 +807,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");
         if (tag.contains("neo_totalBytes")) totalBytes = tag.getLongArray("neo_totalBytes");
-        // Build/preview state — delegated to BuildPreviewState
+        // Build/preview state 鈥?delegated to BuildPreviewState
         // Keep individual field reads for backward compat; buildPreview syncs alongside.
         buildPreview.readFromTag(tag);
         if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");

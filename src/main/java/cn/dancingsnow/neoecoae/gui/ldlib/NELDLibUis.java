@@ -1,41 +1,64 @@
 package cn.dancingsnow.neoecoae.gui.ldlib;
 
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEComputationControllerWidget;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NECraftingControllerWidget;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NECraftingPatternBusWidget;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEFluidHatchWidget;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEIntegratedWorkingStationWidget;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStorageControllerWidget;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStructureTerminalWidget;
+import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectAndBorderTexture;
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
-import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
-import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
-import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
-import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import net.minecraft.world.entity.player.Player;
 
-/**
- * LDLib1 migration proof of concept.
- *
- * <p>The nativeui screens remain the active fallback path until individual
- * machine UIs are migrated and registered deliberately.
- */
 public final class NELDLibUis {
-    private static final int WIDTH = 176;
-    private static final int HEIGHT = 90;
 
-    public static ModularUI createProofOfConcept(Player player) {
-        ModularUI ui = new ModularUI(WIDTH, HEIGHT, IUIHolder.EMPTY, player)
-                .background(new ColorRectTexture(0xE0101018), new ColorRectAndBorderTexture(0x00000000, 0xFF4FA8DE, 1));
+    public static ModularUI createStorageController(ECOStorageSystemBlockEntity storage, Player player) {
+        return new ModularUI(358, 220, storage, player).widget(new NEStorageControllerWidget(storage, player));
+    }
 
-        ui.widget(new LabelWidget(12, 12, "NeoECOAE LDLib1 POC").setTextColor(0xFFE6F6FF));
-        ui.widget(new LabelWidget(12, 30, "nativeui remains fallback").setTextColor(0xFFB8C7D1));
-        ui.widget(new ButtonWidget(
-                12,
-                52,
-                72,
-                20,
-                new GuiTextureGroup(
-                        new ColorRectAndBorderTexture(0xFF26323A, 0xFF6CB8E6, 1), new TextTexture("Probe", 0xFFE6F6FF)),
-                click -> {}));
+    public static ModularUI createComputationController(ECOComputationSystemBlockEntity computation, Player player) {
+        return new ModularUI(300, 170, computation, player).widget(new NEComputationControllerWidget(computation));
+    }
 
-        return ui;
+    public static ModularUI createCraftingController(ECOCraftingSystemBlockEntity crafting, Player player) {
+        return new ModularUI(372, 240, crafting, player).widget(new NECraftingControllerWidget(crafting));
+    }
+
+    public static ModularUI createPatternBus(ECOCraftingPatternBusBlockEntity bus, Player player) {
+        return new ModularUI(176, 246, bus, player).widget(new NECraftingPatternBusWidget(bus, player.getInventory()));
+    }
+
+    public static ModularUI createIntegratedWorkingStation(
+            ECOIntegratedWorkingStationBlockEntity station, Player player) {
+        return new ModularUI(
+                        NEIntegratedWorkingStationWidget.UI_WIDTH,
+                        NEIntegratedWorkingStationWidget.UI_HEIGHT,
+                        station,
+                        player)
+                .widget(new NEIntegratedWorkingStationWidget(station, player.getInventory()));
+    }
+
+    public static ModularUI createFluidInputHatch(ECOFluidInputHatchBlockEntity hatch, Player player) {
+        return new ModularUI(220, 110, hatch, player)
+                .widget(new NEFluidHatchWidget(hatch.getBlockState().getBlock().getName(), hatch.tank));
+    }
+
+    public static ModularUI createFluidOutputHatch(ECOFluidOutputHatchBlockEntity hatch, Player player) {
+        return new ModularUI(220, 110, hatch, player)
+                .widget(new NEFluidHatchWidget(hatch.getBlockState().getBlock().getName(), hatch.tank));
+    }
+
+    public static ModularUI createStructureTerminal(Player player, HeldItemUIFactory.HeldItemHolder holder) {
+        return new ModularUI(NEStructureTerminalWidget.WIDTH, NEStructureTerminalWidget.HEIGHT, holder, player)
+                .widget(new NEStructureTerminalWidget(holder));
     }
 
     private NELDLibUis() {}

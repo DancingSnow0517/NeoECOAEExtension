@@ -46,9 +46,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.ui.computation_subsystem.short", "ECO - %s Computation Subsystem");
         provider.add("gui.neoecoae.ui.crafting_controller.short", "ECO - %s Crafting Controller");
 
-        // ===== Temporary minimal UI =====
-        provider.add("gui.neoecoae.ui.rebuilding", "UI rebuilding");
-
         // ECO CPU
         provider.add("gui.neoecoae.cpu.eco", "%s ECO CPU");
         provider.add("gui.neoecoae.cpu.eco_with_storage", "%s ECO CPU (%s)");
@@ -60,7 +57,6 @@ public class GuiLangs {
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs", "Output Sides");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.enabled", "Enabled");
         provider.add("gui.neoecoae.integrated_working_station.allow_outputs.disabled", "Disabled");
-        provider.add("gui.neoecoae.migration_ui.no_ldlib1_ui", "No LDLib1 UI is implemented for this machine");
         provider.add("gui.neoecoae.multiblock.builder", "Structure Builder");
         provider.add("gui.neoecoae.multiblock.close_builder", "Close builder");
         provider.add("gui.neoecoae.multiblock.decrease_length", "Decrease length");

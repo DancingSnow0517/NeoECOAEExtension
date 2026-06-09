@@ -26,7 +26,6 @@ import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.blockentity.grid.AENetworkPowerBlockEntity;
-import appeng.client.gui.Icon;
 import appeng.core.definitions.AEItems;
 import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
@@ -39,8 +38,11 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
-import cn.dancingsnow.neoecoae.gui.AETextures;
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEIntegratedWorkingStationUiState;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -58,7 +60,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -76,10 +78,7 @@ import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
-        implements IGridTickable, IUpgradeableObject, IConfigurableObject {
-    private static final ResourceLocation AUTO_EXPORT_OFF = AETextures.icon(Icon.AUTO_EXPORT_OFF);
-    private static final ResourceLocation AUTO_EXPORT_ON = AETextures.icon(Icon.AUTO_EXPORT_ON);
-
+        implements IGridTickable, IUpgradeableObject, IConfigurableObject, IUIHolder.BlockEntityUI {
     private static final int MAX_INPUT_SLOTS = 9;
     private static final int MAX_PROCESSING_STEPS = 200;
     private static final int MAX_POWER_STORAGE = 500000;
@@ -200,40 +199,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         this.setPowerSides(getGridConnectableSides(getOrientation()));
     }
 
-    // ── ContainerData for native Forge Menu sync ──
-
-    private final ContainerData containerData = new ContainerData() {
-        @Override
-        public int get(int index) {
-            return switch (index) {
-                case 0 -> (int) getInternalCurrentPower();
-                case 1 -> (int) getInternalMaxPower();
-                case 2 -> processingTime;
-                case 3 -> MAX_PROCESSING_STEPS;
-                case 4 -> cachedTask != null ? cachedTask.energy() : 0;
-                case 5 -> working ? 1 : 0;
-                case 6 -> inputTank.getFluidAmount();
-                case 7 -> shouldAutoExport ? 1 : 0;
-                case 8 -> outputTank.getFluidAmount();
-                default -> 0;
-            };
-        }
-
-        @Override
-        public void set(int index, int value) {
-            // Server-driven; client cannot set
-        }
-
-        @Override
-        public int getCount() {
-            return 9;
-        }
-    };
-
-    public ContainerData getContainerData() {
-        return containerData;
-    }
-
     public IItemHandler getInputItemHandler() {
         return (IItemHandler) inputExposed.toItemHandler();
     }
@@ -252,6 +217,25 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     /** Returns the AE2 upgrade inventory as an IItemHandler for slot display. */
     public IItemHandler getUpgradeItemHandler() {
         return upgrades.toItemHandler();
+    }
+
+    public NEIntegratedWorkingStationUiState createIntegratedWorkingStationUiState() {
+        IntegratedWorkingStationRecipe task = getTask();
+        return new NEIntegratedWorkingStationUiState(
+                (long) getInternalCurrentPower(),
+                (long) getInternalMaxPower(),
+                processingTime,
+                MAX_PROCESSING_STEPS,
+                task == null ? 0 : task.energy(),
+                working,
+                isAutoExportEnabled(),
+                inputTank.getFluid().copy(),
+                outputTank.getFluid().copy());
+    }
+
+    @Override
+    public ModularUI createUI(Player player) {
+        return NELDLibUis.createIntegratedWorkingStation(this, player);
     }
 
     // ── State ──
@@ -382,7 +366,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         saveChanges();
     }
 
-    /** Called by GUI inventory bridges when the menu modifies the inventory. */
+    /** Called by LDLib inventory bridges when the UI modifies the inventory. */
     public void onGuiInventoryChanged() {
         onChangeInventory();
         setChanged();

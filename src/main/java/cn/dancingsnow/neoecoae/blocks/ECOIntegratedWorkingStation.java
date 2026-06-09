@@ -4,15 +4,12 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.block.AEBaseEntityBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
-import cn.dancingsnow.neoecoae.gui.nativeui.menu.NEIntegratedWorkingStationMenu;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScreenOpener;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -27,7 +24,6 @@ import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraftforge.network.NetworkHooks;
 
 public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegratedWorkingStationBlockEntity> {
     public static final Property<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -109,20 +105,7 @@ public class ECOIntegratedWorkingStation extends AEBaseEntityBlock<ECOIntegrated
         if (player.isShiftKeyDown()) {
             return InteractionResult.PASS;
         }
-        if (level.isClientSide) {
-            return InteractionResult.SUCCESS;
-        }
-        if (player instanceof ServerPlayer serverPlayer) {
-            // Phase 4: Native UI for Integrated Working Station
-            Component title = state.getBlock().getName();
-            NetworkHooks.openScreen(
-                    serverPlayer,
-                    new SimpleMenuProvider(
-                            (windowId, inv, p) -> new NEIntegratedWorkingStationMenu(windowId, inv, pos), title),
-                    buf -> buf.writeBlockPos(pos));
-            return InteractionResult.CONSUME;
-        }
-        return InteractionResult.PASS;
+        return NELDLibScreenOpener.openBlockEntityUi(level, pos, player);
     }
 
     @Override

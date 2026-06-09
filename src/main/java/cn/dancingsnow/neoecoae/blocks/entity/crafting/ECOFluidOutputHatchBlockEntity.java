@@ -1,9 +1,13 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -16,7 +20,8 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
 
-public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidOutputHatchBlockEntity> {
+public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidOutputHatchBlockEntity>
+        implements IUIHolder.BlockEntityUI {
 
     public FluidTank tank = new FluidTank(16000) {
         @Override
@@ -29,6 +34,11 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
 
     public ECOFluidOutputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
+    }
+
+    @Override
+    public ModularUI createUI(Player player) {
+        return NELDLibUis.createFluidOutputHatch(this, player);
     }
 
     @Override

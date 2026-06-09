@@ -21,6 +21,9 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathLimits;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +32,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -41,7 +45,11 @@ import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
-        implements InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
+        implements InternalInventoryHost,
+                ICraftingProvider,
+                PatternContainer,
+                IECOPatternStorage,
+                IUIHolder.BlockEntityUI {
 
     public static final int ROW_SIZE = 9;
     public static final int COL_SIZE = 7;
@@ -328,6 +336,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     public int getPatternSlotCount() {
         return activePages * SLOTS_PER_PAGE;
+    }
+
+    @Override
+    public ModularUI createUI(Player player) {
+        return NELDLibUis.createPatternBus(this, player);
     }
 
     private int getHighestOccupiedPage() {

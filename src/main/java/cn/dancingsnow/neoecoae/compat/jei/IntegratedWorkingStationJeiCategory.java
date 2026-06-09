@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.compat.jei;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
-import cn.dancingsnow.neoecoae.gui.nativeui.screen.NENativeAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import java.util.List;
 import mezz.jei.api.constants.VanillaTypes;
@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * JEI recipe category for the ECO Integrated Working Station.
- * Uses 1.20.1 AE2-style rendering via {@link NENativeAe2StyleRenderer}.
+ * Uses 1.20.1 AE2-style rendering via {@link NELDLibAe2StyleRenderer}.
  */
 public class IntegratedWorkingStationJeiCategory implements IRecipeCategory<IntegratedWorkingStationRecipe> {
 
@@ -212,28 +212,28 @@ public class IntegratedWorkingStationJeiCategory implements IRecipeCategory<Inte
 
         // JEI draws the recipe card background; only draw the machine-specific parts here.
         // 1. Input fluid tank background (empty — JEI renders actual fluid)
-        NENativeAe2StyleRenderer.drawAeFluidTankSimple(
+        NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
                 g, INPUT_FLUID_TANK_X, INPUT_FLUID_TANK_Y, FLUID_TANK_W, FLUID_TANK_H, FluidStack.EMPTY, 0, 16000);
 
         // 2. Input item slot backgrounds — always all 9 slots
         for (int i = 0; i < INPUT_SLOT_COUNT; i++) {
             int col = i % INPUT_GRID_COLS;
             int row = i / INPUT_GRID_COLS;
-            NENativeAe2StyleRenderer.drawAeSlot(
+            NELDLibAe2StyleRenderer.drawAeSlot(
                     g, INPUT_GRID_X + col * SLOT_SPACING - 1, INPUT_GRID_Y + row * SLOT_SPACING - 1);
         }
 
         // 3. Output item Inscriber-style frame
-        NENativeAe2StyleRenderer.drawAeInscriberOutputFrame(
+        NELDLibAe2StyleRenderer.drawAeInscriberOutputFrame(
                 g, OUTPUT_FRAME_X, OUTPUT_FRAME_Y, OUTPUT_FRAME_W, OUTPUT_FRAME_H);
 
         // 4. Output fluid tank background
-        NENativeAe2StyleRenderer.drawAeFluidTankSimple(
+        NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
                 g, OUTPUT_FLUID_TANK_X, OUTPUT_FLUID_TANK_Y, FLUID_TANK_W, FLUID_TANK_H, FluidStack.EMPTY, 0, 16000);
 
         // 5. AE2 inscriber-style progress bar
         int progress = (int) ((System.currentTimeMillis() / 50) % 100);
-        NENativeAe2StyleRenderer.drawAeProgressBar(g, PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, progress, 100);
+        NELDLibAe2StyleRenderer.drawAeProgressBar(g, PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, progress, 100);
 
         // 6. Energy text
         Component energyText =
