@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewContext;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScene;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
@@ -425,6 +426,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
     private void drawMaterialItems(
             GuiGraphics graphics, List<NEStructureTerminalUiState.BuildMaterialEntry> materials) {
         int count = Math.min(visibleMaterialSlots(), Math.max(0, materials.size() - materialScrollOffset));
+        NELDLibGuiRenderState.beginVanillaGuiItemBatch(graphics);
         for (int i = 0; i < count; i++) {
             NEStructureTerminalUiState.BuildMaterialEntry entry = materials.get(materialScrollOffset + i);
             int x = absX(materialSlotX(i));
@@ -432,29 +434,14 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
             ItemStack displayStack = entry.item().copy();
             if (!displayStack.isEmpty()) {
                 displayStack.setCount(1);
-                drawMaterialItem(graphics, displayStack, x, y);
+                drawMaterialItem(graphics, displayStack, x, y, "x" + NELDLibText.compactCount(entry.required()));
             }
-            drawMaterialCount(
-                    graphics, x, y, "x" + NELDLibText.compactCount(entry.required()), materialCountColor(entry));
         }
+        NELDLibGuiRenderState.endVanillaGuiItemBatch(graphics);
     }
 
-    private void drawMaterialItem(GuiGraphics graphics, ItemStack stack, int x, int y) {
-        graphics.renderFakeItem(stack, x + 1, y + 1);
-    }
-
-    private void drawMaterialCount(GuiGraphics graphics, int x, int y, String text, int color) {
-        int textWidth = font().width(text);
-        float scale = Mth.clamp(12.0F / Math.max(1, textWidth), 0.5F, 0.72F);
-        int scaledWidth = Math.round(textWidth * scale);
-        int drawX = x + MATERIAL_SLOT_SIZE - 1 - scaledWidth;
-        int drawY = y + MATERIAL_SLOT_SIZE - 6;
-
-        graphics.pose().pushPose();
-        graphics.pose().translate(drawX, drawY, 200);
-        graphics.pose().scale(scale, scale, 1.0F);
-        graphics.drawString(font(), Component.literal(text), 0, 0, color, true);
-        graphics.pose().popPose();
+    private void drawMaterialItem(GuiGraphics graphics, ItemStack stack, int x, int y, String countLabel) {
+        NELDLibGuiRenderState.renderVanillaSlotItem(graphics, font(), stack, x + 1, y + 1, countLabel);
     }
 
     private void drawMaterialPageText(
@@ -612,16 +599,6 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
         graphics.pose().scale(scale, scale, 1.0F);
         graphics.drawString(font(), text, -textWidth / 2, 0, color, false);
         graphics.pose().popPose();
-    }
-
-    private int materialCountColor(NEStructureTerminalUiState.BuildMaterialEntry entry) {
-        if (entry.available() >= entry.required()) {
-            return TEXT_SUCCESS;
-        }
-        if (entry.available() > 0) {
-            return NELDLibStyle.DARK_TEXT_WARNING;
-        }
-        return NELDLibStyle.DARK_TEXT_ERROR;
     }
 
     private boolean isInMaterialGrid(double mouseX, double mouseY) {

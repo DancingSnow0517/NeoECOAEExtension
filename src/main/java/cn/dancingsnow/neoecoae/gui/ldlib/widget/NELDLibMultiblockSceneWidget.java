@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScene;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibMultiblockSceneAdapter;
 import com.lowdragmc.lowdraglib.client.scene.FBOWorldSceneRenderer;
 import com.lowdragmc.lowdraglib.gui.widget.SceneWidget;
@@ -63,6 +64,7 @@ public class NELDLibMultiblockSceneWidget extends SceneWidget {
         if (hasRenderableScene) {
             saveCameraState();
             super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
+            NELDLibGuiRenderState.restoreGui2dStateAfterScene(graphics);
             saveCameraState();
         } else {
             drawEmptyScene(graphics);
