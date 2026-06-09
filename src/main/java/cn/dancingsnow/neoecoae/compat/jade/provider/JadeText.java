@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.compat.jade.provider;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.text.NumberFormat;
 import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -10,11 +11,13 @@ import net.minecraft.network.chat.MutableComponent;
 final class JadeText {
     private static final DecimalFormat PERCENT_FORMAT =
             new DecimalFormat("0.##%", DecimalFormatSymbols.getInstance(Locale.ROOT));
+    private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
+            ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
 
     private JadeText() {}
 
     static String formatNumber(long value) {
-        return String.format(Locale.ROOT, "%,d", value);
+        return NUMBER_FORMAT.get().format(value);
     }
 
     static String formatPercent(double ratio) {

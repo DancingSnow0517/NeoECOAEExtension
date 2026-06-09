@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.mojang.logging.LogUtils;
@@ -551,7 +552,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public void returnToMainMenu(Player player, ISubMenu subMenu) {
-        player.closeContainer();
+        if (player instanceof ServerPlayer serverPlayer && level != null && !level.isClientSide && !isRemoved()) {
+            BlockEntityUIFactory.INSTANCE.openUI(this, serverPlayer);
+        }
     }
 
     private int getCellTypeCount() {

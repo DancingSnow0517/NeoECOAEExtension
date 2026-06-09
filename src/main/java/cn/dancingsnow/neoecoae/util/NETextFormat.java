@@ -1,5 +1,9 @@
 package cn.dancingsnow.neoecoae.util;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
+
 /**
  * Human-readable byte formatting.
  * Converts raw byte counts into short unit-suffixed strings (B, K, M, G, T, P, E)
@@ -9,6 +13,8 @@ package cn.dancingsnow.neoecoae.util;
 public final class NETextFormat {
 
     private static final String[] UNITS = {"B", "K", "M", "G", "T", "P", "E"};
+    private static final ThreadLocal<DecimalFormat> ONE_DECIMAL =
+            ThreadLocal.withInitial(() -> new DecimalFormat("0.#", DecimalFormatSymbols.getInstance(Locale.US)));
 
     private NETextFormat() {}
 
@@ -30,7 +36,7 @@ public final class NETextFormat {
         if (value == (long) value) {
             return (long) value + UNITS[unitIndex];
         }
-        return String.format("%.1f", value) + UNITS[unitIndex];
+        return ONE_DECIMAL.get().format(value) + UNITS[unitIndex];
     }
 
     /**
@@ -50,7 +56,7 @@ public final class NETextFormat {
         if (value == (long) value) {
             return (long) value + " " + UNITS[unitIndex];
         }
-        return String.format("%.1f", value) + " " + UNITS[unitIndex];
+        return ONE_DECIMAL.get().format(value) + " " + UNITS[unitIndex];
     }
 
     /**
@@ -82,6 +88,6 @@ public final class NETextFormat {
         if (value == (long) value) {
             return (long) value + UNITS[unitIndex];
         }
-        return String.format("%.1f", value) + UNITS[unitIndex];
+        return ONE_DECIMAL.get().format(value) + UNITS[unitIndex];
     }
 }

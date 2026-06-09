@@ -7,10 +7,8 @@ import appeng.crafting.pattern.EncodedPatternItem;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPagedItemTransfer;
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectAndBorderTexture;
-import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -33,11 +31,6 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
     private static final int PAGE_TEXT_RIGHT_X = PAGE_PREV_BUTTON_X - 5;
     private static final int PAGE_TEXT_COLOR = 0xFFFFD24A;
     private static final float GHOST_ALPHA = 0.10F;
-
-    private static final IGuiTexture BUTTON_TEXTURE =
-            new GuiTextureGroup(new ColorRectAndBorderTexture(0xFFECEEF3, 0xFF707070, 1.0F));
-    private static final IGuiTexture BUTTON_HOVER_TEXTURE =
-            new GuiTextureGroup(new ColorRectAndBorderTexture(0x00000000, 0xFF4F7FB6, 1.0F));
 
     private final ECOCraftingPatternBusBlockEntity bus;
     private final Inventory playerInventory;
@@ -64,6 +57,11 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
 
     @Override
     protected boolean shouldAddTitleWidget() {
+        return false;
+    }
+
+    @Override
+    protected boolean shouldDrawBasePanel() {
         return false;
     }
 
@@ -100,19 +98,27 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
         }
 
         previousPageButton = (ButtonWidget) new ButtonWidget(
-                        PAGE_PREV_BUTTON_X, PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H, BUTTON_TEXTURE, click -> {
-                            if (!click.isRemote) {
-                                changePage(currentPage - 1);
-                            }
-                        })
-                .setHoverTexture(BUTTON_HOVER_TEXTURE);
+                PAGE_PREV_BUTTON_X,
+                PAGE_BUTTON_Y,
+                PAGE_BUTTON_W,
+                PAGE_BUTTON_H,
+                NELDLibStyle.aeToolbarButton(),
+                click -> {
+                    if (!click.isRemote) {
+                        changePage(currentPage - 1);
+                    }
+                });
         nextPageButton = (ButtonWidget) new ButtonWidget(
-                        PAGE_NEXT_BUTTON_X, PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H, BUTTON_TEXTURE, click -> {
-                            if (!click.isRemote) {
-                                changePage(currentPage + 1);
-                            }
-                        })
-                .setHoverTexture(BUTTON_HOVER_TEXTURE);
+                PAGE_NEXT_BUTTON_X,
+                PAGE_BUTTON_Y,
+                PAGE_BUTTON_W,
+                PAGE_BUTTON_H,
+                NELDLibStyle.aeToolbarButton(),
+                click -> {
+                    if (!click.isRemote) {
+                        changePage(currentPage + 1);
+                    }
+                });
         addWidget(previousPageButton);
         addWidget(nextPageButton);
         updatePageButtons();

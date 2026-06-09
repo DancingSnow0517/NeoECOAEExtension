@@ -10,19 +10,18 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEIntegratedWorkingStationUiSta
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEInternalInventoryItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectAndBorderTexture;
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
-import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
-import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
+import com.lowdragmc.lowdraglib.side.item.IItemTransfer;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -32,16 +31,9 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
     private static final int MAIN_X = -TOGGLE_BTN_X;
     private static final int AUTO_EXPORT_BUTTON_X = 0;
 
-    private static final IGuiTexture BUTTON_TEXTURE =
-            new GuiTextureGroup(new ColorRectAndBorderTexture(0xFFECEEF3, 0xFF707070, 1.0F));
-    private static final IGuiTexture BUTTON_HOVER_TEXTURE =
-            new GuiTextureGroup(new ColorRectAndBorderTexture(0x00000000, 0xFF4F7FB6, 1.0F));
-    private static final IGuiTexture TANK_BACKGROUND = new GuiTextureGroup(
-            new ColorRectTexture(0xFF8E8E8E), new ColorRectAndBorderTexture(0x00000000, 0xFF707070, 1.0F));
-
     private final ECOIntegratedWorkingStationBlockEntity station;
     private final Inventory playerInventory;
-    private ButtonWidget autoExportButton;
+    private NEAe2IconButtonWidget autoExportButton;
 
     public NEIntegratedWorkingStationWidget(ECOIntegratedWorkingStationBlockEntity station, Inventory playerInventory) {
         super(
@@ -63,6 +55,11 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
     }
 
     @Override
+    protected boolean shouldDrawBasePanel() {
+        return false;
+    }
+
+    @Override
     protected void initLdWidgets() {
         var inputTransfer =
                 new NEInternalInventoryItemTransfer(station.getInput(), station::onGuiInventoryChanged, true, true);
@@ -72,7 +69,7 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
 
         for (int row = 0; row < INPUT_ROWS; row++) {
             for (int col = 0; col < INPUT_COLS; col++) {
-                addWidget(new SlotWidget(
+                addWidget(aeSlot(
                         inputTransfer,
                         col + row * INPUT_COLS,
                         mainX(INPUT_SLOT_X + col * SLOT_SIZE),
@@ -82,16 +79,16 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
             }
         }
 
-        addWidget(new SlotWidget(outputTransfer, 0, mainX(OUTPUT_SLOT_X), OUTPUT_SLOT_Y, false, true));
+        addWidget(aeSlot(outputTransfer, 0, mainX(OUTPUT_SLOT_X), OUTPUT_SLOT_Y, false, true));
 
         for (int i = 0; i < UPGRADE_COUNT; i++) {
-            addWidget(new SlotWidget(
+            addWidget(aeSlot(
                     upgradeTransfer, i, mainX(UPGRADE_SLOT_X), UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE, true, true));
         }
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addWidget(new SlotWidget(
+                addWidget(aeSlot(
                                 playerInventory,
                                 col + row * 9 + 9,
                                 mainX(PLAYER_INV_SLOT_X + col * SLOT_SIZE),
@@ -102,21 +99,24 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
             }
         }
         for (int col = 0; col < 9; col++) {
-            addWidget(new SlotWidget(
-                            playerInventory, col, mainX(HOTBAR_SLOT_X + col * SLOT_SIZE), HOTBAR_SLOT_Y, true, true)
+            addWidget(aeSlot(playerInventory, col, mainX(HOTBAR_SLOT_X + col * SLOT_SIZE), HOTBAR_SLOT_Y, true, true)
                     .setLocationInfo(true, true));
         }
 
-        autoExportButton = (ButtonWidget) new ButtonWidget(
-                        AUTO_EXPORT_BUTTON_X, TOGGLE_BTN_Y, TOGGLE_BTN_W, TOGGLE_BTN_H, BUTTON_TEXTURE, click -> {
-                            if (!click.isRemote) {
-                                station.toggleAutoExport();
-                                station.setChanged();
-                                station.markForUpdate();
-                                syncStateNow();
-                            }
-                        })
-                .setHoverTexture(BUTTON_HOVER_TEXTURE);
+        autoExportButton = new NEAe2IconButtonWidget(
+                AUTO_EXPORT_BUTTON_X,
+                TOGGLE_BTN_Y,
+                TOGGLE_BTN_W,
+                TOGGLE_BTN_H,
+                currentState().autoExport() ? Icon.AUTO_EXPORT_ON : Icon.AUTO_EXPORT_OFF,
+                click -> {
+                    if (!click.isRemote) {
+                        station.toggleAutoExport();
+                        station.setChanged();
+                        station.markForUpdate();
+                        syncStateNow();
+                    }
+                });
         addWidget(autoExportButton);
 
         addWidget(new TankWidget(
@@ -127,10 +127,10 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                         FLUID_IN_H,
                         true,
                         true)
-                .setBackground(TANK_BACKGROUND)
+                .setBackground(IGuiTexture.EMPTY)
                 .setShowAmount(false)
                 .setDrawHoverTips(false)
-                .setDrawHoverOverlay(true)
+                .setDrawHoverOverlay(false)
                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
                 .setAllowClickFilled(true)
                 .setAllowClickDrained(true)
@@ -143,23 +143,22 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                         FLUID_OUT_H,
                         true,
                         true)
-                .setBackground(TANK_BACKGROUND)
+                .setBackground(IGuiTexture.EMPTY)
                 .setShowAmount(false)
                 .setDrawHoverTips(false)
-                .setDrawHoverOverlay(true)
+                .setDrawHoverOverlay(false)
                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
                 .setAllowClickFilled(false)
                 .setAllowClickDrained(true)
                 .setChangeListener(station::onGuiInventoryChanged));
+    }
 
-        addProgress(
-                mainX(PROGRESS_X),
-                PROGRESS_Y,
-                PROGRESS_W,
-                PROGRESS_H,
-                () -> percent(currentState().progress(), currentState().maxProgress()),
-                0xFF49A36E,
-                ProgressTexture.FillDirection.DOWN_TO_UP);
+    private SlotWidget aeSlot(IItemTransfer transfer, int index, int x, int y, boolean canTake, boolean canPut) {
+        return new SlotWidget(transfer, index, x, y, canTake, canPut).setBackgroundTexture(IGuiTexture.EMPTY);
+    }
+
+    private SlotWidget aeSlot(Container container, int index, int x, int y, boolean canTake, boolean canPut) {
+        return new SlotWidget(container, index, x, y, canTake, canPut).setBackgroundTexture(IGuiTexture.EMPTY);
     }
 
     @Override
@@ -218,13 +217,22 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
         for (int col = 0; col < 9; col++) {
             NELDLibAe2StyleRenderer.drawAeSlot(graphics, absX(mainX(HOTBAR_BG_X + col * SLOT_SIZE)), absY(HOTBAR_BG_Y));
         }
+        drawFluidTanks(graphics, mouseX, mouseY);
+        NELDLibAe2StyleRenderer.drawAeProgressBar(
+                graphics,
+                absX(mainX(PROGRESS_X)),
+                absY(PROGRESS_Y),
+                PROGRESS_W,
+                PROGRESS_H,
+                currentState().progress(),
+                currentState().maxProgress());
         drawUpgradePlaceholders(graphics);
         drawClearFluidButtons(graphics, mouseX, mouseY);
     }
 
     @Override
     protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        drawAutoExportIcon(graphics);
+        autoExportButton.setIcon(currentState().autoExport() ? Icon.AUTO_EXPORT_ON : Icon.AUTO_EXPORT_OFF);
         drawLocalString(graphics, title, mainX(TITLE_X), TITLE_Y, TEXT_PRIMARY);
         drawLocalString(
                 graphics,
@@ -271,11 +279,41 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
         }
     }
 
-    private void drawAutoExportIcon(GuiGraphics graphics) {
-        Icon icon = currentState().autoExport() ? Icon.AUTO_EXPORT_ON : Icon.AUTO_EXPORT_OFF;
-        int iconX = AUTO_EXPORT_BUTTON_X + (TOGGLE_BTN_W - icon.width) / 2;
-        int iconY = TOGGLE_BTN_Y + (TOGGLE_BTN_H - icon.height) / 2;
-        NELDLibAe2StyleRenderer.drawAeIcon(graphics, icon, absX(iconX), absY(iconY));
+    private void drawFluidTanks(GuiGraphics graphics, int mouseX, int mouseY) {
+        FluidStack input = currentState().inputFluid();
+        FluidStack output = currentState().outputFluid();
+        NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
+                graphics,
+                absX(mainX(FLUID_IN_X)),
+                absY(FLUID_IN_Y),
+                FLUID_IN_W,
+                FLUID_IN_H,
+                input,
+                Math.max(0, input.getAmount()),
+                Math.max(0, station.getInputTank().getCapacity()));
+        NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
+                graphics,
+                absX(mainX(FLUID_OUT_X)),
+                absY(FLUID_OUT_Y),
+                FLUID_OUT_W,
+                FLUID_OUT_H,
+                output,
+                Math.max(0, output.getAmount()),
+                Math.max(0, station.getOutputTank().getCapacity()));
+        drawFluidHover(graphics, mouseX, mouseY, true);
+        drawFluidHover(graphics, mouseX, mouseY, false);
+    }
+
+    private void drawFluidHover(GuiGraphics graphics, int mouseX, int mouseY, boolean input) {
+        int x = input ? FLUID_IN_X : FLUID_OUT_X;
+        int y = input ? FLUID_IN_Y : FLUID_OUT_Y;
+        int w = input ? FLUID_IN_W : FLUID_OUT_W;
+        int h = input ? FLUID_IN_H : FLUID_OUT_H;
+        if (!isMouseIn(x, y, w, h, mouseX, mouseY)) {
+            return;
+        }
+        graphics.fill(
+                absX(mainX(x + 1)), absY(y + 1), absX(mainX(x + w - 1)), absY(y + h - 1), NELDLibStyle.HOVER_OVERLAY);
     }
 
     private void drawClearFluidButtons(GuiGraphics graphics, int mouseX, int mouseY) {

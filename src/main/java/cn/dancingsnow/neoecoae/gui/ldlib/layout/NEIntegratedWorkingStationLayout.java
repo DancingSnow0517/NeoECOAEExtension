@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.gui.ldlib.layout;
 
 public final class NEIntegratedWorkingStationLayout {
     public static final int SLOT_SIZE = 18;
-    public static final int ITEM_OFFSET = 1;
 
     public static final int PANEL_W = 176;
     public static final int PANEL_H = 171;
@@ -38,26 +37,26 @@ public final class NEIntegratedWorkingStationLayout {
     public static final int AE2_HOTBAR_BOTTOM = 24;
     public static final int AE2_INV_LABEL_BOTTOM = 93;
 
-    public static final int PLAYER_INV_SLOT_X = AE2_PLAYER_SLOT_LEFT;
+    public static final int PLAYER_INV_SLOT_X = AE2_PLAYER_SLOT_LEFT - 1;
     public static final int PLAYER_INV_SLOT_Y = PANEL_H - AE2_PLAYER_INV_BOTTOM;
 
-    public static final int HOTBAR_SLOT_X = AE2_PLAYER_SLOT_LEFT;
+    public static final int HOTBAR_SLOT_X = AE2_PLAYER_SLOT_LEFT - 1;
     public static final int HOTBAR_SLOT_Y = PANEL_H - AE2_HOTBAR_BOTTOM;
 
-    public static final int PLAYER_INV_BG_X = PLAYER_INV_SLOT_X - ITEM_OFFSET;
-    public static final int PLAYER_INV_BG_Y = PLAYER_INV_SLOT_Y - ITEM_OFFSET;
+    public static final int PLAYER_INV_BG_X = PLAYER_INV_SLOT_X;
+    public static final int PLAYER_INV_BG_Y = PLAYER_INV_SLOT_Y;
 
-    public static final int HOTBAR_BG_X = HOTBAR_SLOT_X - ITEM_OFFSET;
-    public static final int HOTBAR_BG_Y = HOTBAR_SLOT_Y - ITEM_OFFSET;
+    public static final int HOTBAR_BG_X = HOTBAR_SLOT_X;
+    public static final int HOTBAR_BG_Y = HOTBAR_SLOT_Y;
 
-    public static final int INPUT_SLOT_X = INPUT_BG_X + ITEM_OFFSET;
-    public static final int INPUT_SLOT_Y = INPUT_BG_Y + ITEM_OFFSET;
+    public static final int INPUT_SLOT_X = INPUT_BG_X;
+    public static final int INPUT_SLOT_Y = INPUT_BG_Y;
 
-    public static final int OUTPUT_SLOT_X = OUTPUT_FRAME_X + (OUTPUT_FRAME_W - 16) / 2;
-    public static final int OUTPUT_SLOT_Y = OUTPUT_FRAME_Y + (OUTPUT_FRAME_H - 16) / 2;
+    public static final int OUTPUT_SLOT_X = OUTPUT_BG_X;
+    public static final int OUTPUT_SLOT_Y = OUTPUT_BG_Y;
 
-    public static final int UPGRADE_SLOT_X = UPGRADE_BG_X + ITEM_OFFSET;
-    public static final int UPGRADE_FIRST_SLOT_Y = UPGRADE_FIRST_BG_Y + ITEM_OFFSET;
+    public static final int UPGRADE_SLOT_X = UPGRADE_BG_X;
+    public static final int UPGRADE_FIRST_SLOT_Y = UPGRADE_FIRST_BG_Y;
 
     public static final int PROGRESS_X = OUTPUT_FRAME_X + 30;
     public static final int PROGRESS_Y = OUTPUT_FRAME_Y + 4;

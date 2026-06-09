@@ -1,18 +1,16 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibUiConstants;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectAndBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
-import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
-import com.lowdragmc.lowdraglib.gui.texture.ResourceBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ProgressWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TextTextureWidget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import java.text.NumberFormat;
-import java.util.Locale;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -28,10 +26,6 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
     protected static final int TEXT_WARNING = NELDLibUiConstants.TEXT_WARNING;
     protected static final int TEXT_ERROR = NELDLibUiConstants.TEXT_ERROR;
 
-    private static final NumberFormat NUMBER_FORMAT = NumberFormat.getNumberInstance(Locale.US);
-    private static final IGuiTexture BACKGROUND =
-            new GuiTextureGroup(new ColorRectTexture(0xFFE8E8E8), ResourceBorderTexture.BORDERED_BACKGROUND.copy());
-
     protected final Component title;
     protected final int width;
     protected final int height;
@@ -41,7 +35,7 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
         this.title = title;
         this.width = width;
         this.height = height;
-        setBackground(BACKGROUND);
+        setBackground(IGuiTexture.EMPTY);
     }
 
     @Override
@@ -69,8 +63,15 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
 
     @Override
     public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        if (shouldDrawBasePanel()) {
+            NELDLibAe2StyleRenderer.drawAeMainPanel(graphics, getPositionX(), getPositionY(), width, height);
+        }
         drawMachineBackground(graphics, mouseX, mouseY, partialTicks);
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
+    }
+
+    protected boolean shouldDrawBasePanel() {
+        return true;
     }
 
     @Override
@@ -154,7 +155,7 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
     }
 
     protected static String fmt(long value) {
-        return NUMBER_FORMAT.format(value);
+        return NELDLibText.number(value);
     }
 
     protected static double percent(long used, long max) {

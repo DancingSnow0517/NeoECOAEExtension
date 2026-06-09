@@ -1,16 +1,16 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEStructureTerminalConfigState;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
 import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectAndBorderTexture;
-import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -58,12 +58,8 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
     private static final int MATERIAL_SLOT_SIZE = 18;
     private static final int MATERIAL_GRID_Y = MATERIAL_Y + 54;
 
-    private static final IGuiTexture BUTTON_TEXTURE =
-            new GuiTextureGroup(new ColorRectAndBorderTexture(0xFFECEEF3, 0xFF8A96A8, 1.0F));
-    private static final IGuiTexture BUTTON_HOVER_TEXTURE =
-            new GuiTextureGroup(new ColorRectAndBorderTexture(0x00000000, 0xFF4F7FB6, 1.0F));
-
     private final HeldItemUIFactory.HeldItemHolder holder;
+    private final List<ActionButtonLabel> actionButtonLabels = new ArrayList<>();
     private int materialScrollOffset;
 
     public NEStructureTerminalWidget(HeldItemUIFactory.HeldItemHolder holder) {
@@ -81,6 +77,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     @Override
     protected void initLdWidgets() {
+        actionButtonLabels.clear();
         addActionButton(CONTROL_ROW_X, LENGTH_ROW_Y, LENGTH_BUTTON_W, Component.literal("-"), Action.DECREASE);
         addActionButton(
                 CONTROL_ROW_X + LENGTH_BUTTON_W + 7 + LENGTH_VALUE_W + 7,
@@ -150,8 +147,9 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        drawPanel(graphics, CONTROL_X, CONTROL_Y, CONTROL_W, CONTROL_H);
-        drawPanel(graphics, MATERIAL_X, MATERIAL_Y, MATERIAL_W, MATERIAL_H);
+        NEStructureTerminalConfigState state = currentState();
+        NELDLibStyle.drawDarkInsetRect(graphics, absX(CONTROL_X), absY(CONTROL_Y), CONTROL_W, CONTROL_H);
+        NELDLibStyle.drawDarkInsetRect(graphics, absX(MATERIAL_X), absY(MATERIAL_Y), MATERIAL_W, MATERIAL_H);
         drawInsetValueLocal(graphics, CONTROL_ROW_X + LENGTH_BUTTON_W + 7, LENGTH_ROW_Y, LENGTH_VALUE_W, BUTTON_H);
         drawMaterialSlotGrid(graphics);
     }
@@ -162,35 +160,43 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
         materialScrollOffset = clampMaterialScroll(materialScrollOffset);
         drawCenteredFitted(
                 graphics,
-                Component.literal("Length: " + state.length()),
+                Component.translatable("gui.neoecoae.structure_terminal.length", NELDLibText.number(state.length())),
                 CONTROL_X + 6,
                 CONTROL_Y + 7,
                 CONTROL_W - 12,
-                TEXT_PRIMARY);
+                NELDLibStyle.DARK_TEXT_PRIMARY);
         drawCenteredFitted(
                 graphics,
-                Component.literal("Min: " + state.minLength() + "  Max: " + state.maxLength()),
+                Component.translatable(
+                        "gui.neoecoae.structure_terminal.length_range",
+                        NELDLibText.number(state.minLength()),
+                        NELDLibText.number(state.maxLength())),
                 CONTROL_X + 6,
                 CONTROL_Y + 19,
                 CONTROL_W - 12,
-                TEXT_MUTED);
+                NELDLibStyle.DARK_TEXT_MUTED);
         drawCenteredFitted(
                 graphics,
-                Component.literal(Integer.toString(state.length())),
+                Component.literal(NELDLibText.number(state.length())),
                 CONTROL_ROW_X + LENGTH_BUTTON_W + 7,
                 LENGTH_ROW_Y + 5,
                 LENGTH_VALUE_W,
-                TEXT_VALUE);
+                NELDLibStyle.DARK_TEXT_VALUE);
         drawLocalString(
-                graphics, Component.literal("Required Materials"), MATERIAL_X + 10, MATERIAL_Y + 8, TEXT_PRIMARY);
+                graphics,
+                Component.translatable("gui.neoecoae.structure_terminal.required_materials"),
+                MATERIAL_X + 10,
+                MATERIAL_Y + 8,
+                NELDLibStyle.DARK_TEXT_PRIMARY);
+        drawActionButtonLabels(graphics);
         if (state.materials().isEmpty()) {
             drawCenteredFitted(
                     graphics,
-                    Component.literal("No materials"),
+                    Component.translatable("gui.neoecoae.structure_terminal.no_materials"),
                     MATERIAL_X,
                     MATERIAL_GRID_Y + 13,
                     MATERIAL_W,
-                    TEXT_MUTED);
+                    NELDLibStyle.DARK_TEXT_MUTED);
         }
         drawMaterialItems(graphics, state.materials());
         drawMaterialPageText(graphics, state.materials());
@@ -238,21 +244,26 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     private void addActionButton(
             int x, int y, int w, int h, Component label, Action action, BooleanSupplier selectedSupplier) {
-        ButtonWidget button = (ButtonWidget) new ButtonWidget(x, y, w, h, BUTTON_TEXTURE, click -> {
+        addActionButton(x, y, w, h, label, action, selectedSupplier, NELDLibStyle.DARK_TEXT_MUTED);
+    }
+
+    private void addActionButton(
+            int x,
+            int y,
+            int w,
+            int h,
+            Component label,
+            Action action,
+            BooleanSupplier selectedSupplier,
+            int inactiveColor) {
+        ButtonWidget button =
+                (ButtonWidget) new ButtonWidget(x, y, w, h, NELDLibStyle.darkInsetButton(selectedSupplier), click -> {
                     if (click.isRemote) {
                         writeClientAction(2, buf -> buf.writeEnum(action));
                     }
-                })
-                .setHoverTexture(BUTTON_HOVER_TEXTURE);
+                });
         addWidget(button);
-        addText(
-                x,
-                y + (h - font().lineHeight) / 2,
-                w,
-                font().lineHeight,
-                () -> label,
-                selectedSupplier.getAsBoolean() ? TEXT_SUCCESS : TEXT_VALUE,
-                com.lowdragmc.lowdraglib.gui.texture.TextTexture.TextType.NORMAL);
+        actionButtonLabels.add(new ActionButtonLabel(x, y, w, h, label, selectedSupplier, inactiveColor));
     }
 
     private void applyAction(Action action) {
@@ -278,9 +289,21 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
     }
 
     private void drawInsetValueLocal(GuiGraphics graphics, int x, int y, int w, int h) {
-        graphics.fill(absX(x), absY(y), absX(x + w), absY(y + h), 0xFF8A96A8);
-        graphics.fill(absX(x + 1), absY(y + 1), absX(x + w - 1), absY(y + h - 1), 0xFFF5F6F8);
-        graphics.fill(absX(x + 2), absY(y + 2), absX(x + w - 2), absY(y + h - 2), 0xFFD9DEE7);
+        NELDLibStyle.drawTinyInsetRect(graphics, absX(x), absY(y), w, h, 0xFF201E27);
+    }
+
+    private void drawActionButtonLabels(GuiGraphics graphics) {
+        for (ActionButtonLabel label : actionButtonLabels) {
+            int color =
+                    label.selectedSupplier().getAsBoolean() ? NELDLibStyle.DARK_TEXT_SUCCESS : label.inactiveColor();
+            drawCenteredFitted(
+                    graphics,
+                    label.label(),
+                    label.x(),
+                    label.y() + (label.h() - font().lineHeight) / 2,
+                    label.w(),
+                    color);
+        }
     }
 
     private void drawMaterialSlotGrid(GuiGraphics graphics) {
@@ -290,19 +313,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
     }
 
     private void drawInventorySlot(GuiGraphics graphics, int x, int y) {
-        graphics.fill(absX(x), absY(y), absX(x + MATERIAL_SLOT_SIZE), absY(y + MATERIAL_SLOT_SIZE), 0xFF9AA0AA);
-        graphics.fill(
-                absX(x + 1),
-                absY(y + 1),
-                absX(x + MATERIAL_SLOT_SIZE - 1),
-                absY(y + MATERIAL_SLOT_SIZE - 1),
-                0xFFECEEF3);
-        graphics.fill(
-                absX(x + 2),
-                absY(y + 2),
-                absX(x + MATERIAL_SLOT_SIZE - 2),
-                absY(y + MATERIAL_SLOT_SIZE - 2),
-                0xFFD7DAE2);
+        NELDLibStyle.drawDarkSlot(graphics, absX(x), absY(y), MATERIAL_SLOT_SIZE);
     }
 
     private void drawMaterialItems(
@@ -313,7 +324,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
             int x = absX(materialSlotX(i));
             int y = absY(materialSlotY(i));
             graphics.renderItem(entry.item(), x + 1, y + 1);
-            String text = "x" + formatCompactCount(entry.required());
+            String text = "x" + NELDLibText.compactCount(entry.required());
             graphics.pose().pushPose();
             graphics.pose().translate(0, 0, 200);
             graphics.drawString(
@@ -340,7 +351,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                 Component.literal(pageText),
                 MATERIAL_X + MATERIAL_W - 10 - font().width(pageText),
                 MATERIAL_Y + MATERIAL_H - 13,
-                TEXT_MUTED);
+                NELDLibStyle.DARK_TEXT_MUTED);
     }
 
     private boolean renderControlTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -424,9 +435,12 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                 font(),
                 List.of(
                         entry.item().getHoverName(),
-                        Component.literal("Required: " + entry.required()),
-                        Component.literal("Available: " + entry.available()),
-                        Component.literal("Missing: " + entry.missing())),
+                        Component.translatable(
+                                "gui.neoecoae.structure_terminal.required", NELDLibText.number(entry.required())),
+                        Component.translatable(
+                                "gui.neoecoae.structure_terminal.available", NELDLibText.number(entry.available())),
+                        Component.translatable(
+                                "gui.neoecoae.structure_terminal.missing", NELDLibText.number(entry.missing()))),
                 Optional.empty(),
                 mouseX,
                 mouseY);
@@ -453,9 +467,9 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
             return TEXT_SUCCESS;
         }
         if (entry.available() > 0) {
-            return TEXT_WARNING;
+            return NELDLibStyle.DARK_TEXT_WARNING;
         }
-        return TEXT_ERROR;
+        return NELDLibStyle.DARK_TEXT_ERROR;
     }
 
     private boolean isInMaterialGrid(double mouseX, double mouseY) {
@@ -499,16 +513,6 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
         return Mth.clamp(value, 0, max);
     }
 
-    private static String formatCompactCount(int value) {
-        if (value < 1000) {
-            return Integer.toString(value);
-        }
-        if (value < 1_000_000) {
-            return (value / 1000) + "K";
-        }
-        return (value / 1_000_000) + "M";
-    }
-
     private enum Action {
         INCREASE,
         DECREASE,
@@ -520,4 +524,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
         SELECT_MIRRORED_BUILD_MODE,
         SELECT_DISMANTLE_MODE
     }
+
+    private record ActionButtonLabel(
+            int x, int y, int w, int h, Component label, BooleanSupplier selectedSupplier, int inactiveColor) {}
 }
