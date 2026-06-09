@@ -4,13 +4,18 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
+import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
@@ -22,10 +27,12 @@ import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -46,6 +53,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         implements IGridTickable, INEMultiblockBuildHost, IUIHolder.BlockEntityUI {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_THREAD_COUNT = Boolean.getBoolean("neoecoae.debugEcoCraftingThreadCount");
+    private static final Comparator<NECraftingModuleCell> MODULE_CELL_ORDER = Comparator.comparingInt(
+                    NECraftingModuleCell::column)
+            .thenComparingInt(cell -> cell.row().ordinal())
+            .thenComparingInt(NECraftingModuleCell::tier);
 
     /**
      * Internal coolant cache maximum 鈥?the crafting controller's own cooling
@@ -669,13 +680,45 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         List<ItemStack> craftOutputs = new ArrayList<>();
         // Collect tier level (1/2/3 = L4/L6/L9) for each parallel core
         List<Integer> coreTiers = new ArrayList<>();
+        List<NECraftingModuleCell> moduleCells = new ArrayList<>();
         if (cluster != null) {
+            int maxWorkerColumn = -1;
+            List<WorkerUiEntry> workerEntries = new ArrayList<>();
             for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                craftOutputs.add(worker.getActiveCraftOutput());
+                int column = moduleColumn(worker.getBlockPos());
+                if (column >= 0) {
+                    maxWorkerColumn = Math.max(maxWorkerColumn, column);
+                    moduleCells.add(new NECraftingModuleCell(
+                            column, NECraftingModuleCell.Row.WORKER, tier.getTier(), worker.getBlockPos()));
+                }
+                workerEntries.add(
+                        new WorkerUiEntry(column, worker.getActiveCraftOutput().copy()));
             }
+            if (maxWorkerColumn >= 0) {
+                for (int i = 0; i <= maxWorkerColumn; i++) {
+                    craftOutputs.add(ItemStack.EMPTY);
+                }
+            }
+            workerEntries.sort(Comparator.comparingInt(WorkerUiEntry::column));
+            for (WorkerUiEntry worker : workerEntries) {
+                if (worker.column() >= 0 && worker.column() < craftOutputs.size()) {
+                    craftOutputs.set(worker.column(), worker.output());
+                } else {
+                    craftOutputs.add(worker.output());
+                }
+            }
+
             for (ECOCraftingParallelCoreBlockEntity core : cluster.getParallelCores()) {
-                coreTiers.add(core.getTier().getTier());
+                int coreTier = core.getTier().getTier();
+                coreTiers.add(coreTier);
+                NECraftingModuleCell.Row row = moduleParallelRow(core.getBlockPos());
+                int column = moduleColumn(core.getBlockPos());
+                if (row != null && column >= 0) {
+                    moduleCells.add(new NECraftingModuleCell(column, row, coreTier, core.getBlockPos()));
+                }
             }
+            coreTiers.sort(Integer::compareTo);
+            moduleCells = normalizeModuleCells(moduleCells);
         }
 
         return new NECraftingUiState(
@@ -705,8 +748,76 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 availThreads,
                 effParallel,
                 craftOutputs,
-                coreTiers);
+                coreTiers,
+                moduleCells);
     }
+
+    private int moduleColumn(BlockPos pos) {
+        Direction right = moduleRightDirection();
+        BlockPos workerStart = worldPosition.relative(right, 2);
+        int dx = pos.getX() - workerStart.getX();
+        int dy = pos.getY() - workerStart.getY();
+        int dz = pos.getZ() - workerStart.getZ();
+        int distance = dx * right.getStepX() + dy * right.getStepY() + dz * right.getStepZ();
+        return distance;
+    }
+
+    @Nullable private NECraftingModuleCell.Row moduleParallelRow(BlockPos pos) {
+        Direction top = moduleTopDirection();
+        Direction down = top.getOpposite();
+        int dx = pos.getX() - worldPosition.getX();
+        int dy = pos.getY() - worldPosition.getY();
+        int dz = pos.getZ() - worldPosition.getZ();
+        if (dx * top.getStepX() + dy * top.getStepY() + dz * top.getStepZ() == 1) {
+            return NECraftingModuleCell.Row.UPPER_PARALLEL;
+        }
+        if (dx * down.getStepX() + dy * down.getStepY() + dz * down.getStepZ() == 1) {
+            return NECraftingModuleCell.Row.LOWER_PARALLEL;
+        }
+        return null;
+    }
+
+    private Direction moduleRightDirection() {
+        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
+        Direction left = strategy.getSide(getBlockState(), RelativeSide.RIGHT);
+        Direction right = left.getOpposite();
+        if (cluster != null && cluster.isMirrored()) {
+            right = right.getOpposite();
+        } else if (getBlockState().hasProperty(NEBlock.MIRRORED)
+                && getBlockState().getValue(NEBlock.MIRRORED)) {
+            right = right.getOpposite();
+        }
+        return right;
+    }
+
+    private Direction moduleTopDirection() {
+        return OrientationStrategies.horizontalFacing().getSide(getBlockState(), RelativeSide.TOP);
+    }
+
+    private static List<NECraftingModuleCell> normalizeModuleCells(List<NECraftingModuleCell> cells) {
+        if (cells.isEmpty()) {
+            return List.of();
+        }
+        List<NECraftingModuleCell> sorted = new ArrayList<>(cells);
+        sorted.sort(MODULE_CELL_ORDER);
+        List<NECraftingModuleCell> normalized = new ArrayList<>(sorted.size());
+        for (NECraftingModuleCell cell : sorted) {
+            int lastIndex = normalized.size() - 1;
+            if (lastIndex >= 0) {
+                NECraftingModuleCell last = normalized.get(lastIndex);
+                if (last.column() == cell.column() && last.row() == cell.row()) {
+                    if (cell.tier() > last.tier()) {
+                        normalized.set(lastIndex, cell);
+                    }
+                    continue;
+                }
+            }
+            normalized.add(cell);
+        }
+        return normalized;
+    }
+
+    private record WorkerUiEntry(int column, ItemStack output) {}
 
     @Override
     public ModularUI createUI(net.minecraft.world.entity.player.Player player) {

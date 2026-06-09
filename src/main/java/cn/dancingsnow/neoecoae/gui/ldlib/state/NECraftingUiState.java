@@ -31,7 +31,8 @@ public record NECraftingUiState(
         int availableThreads,
         int effectiveParallel,
         List<ItemStack> workerCraftOutputs,
-        List<Integer> parallelCoreTiers) {
+        List<Integer> parallelCoreTiers,
+        List<NECraftingModuleCell> moduleCells) {
     public static NECraftingUiState empty(BlockPos pos) {
         return new NECraftingUiState(
                 pos,
@@ -59,6 +60,7 @@ public record NECraftingUiState(
                 0L,
                 0,
                 0,
+                List.of(),
                 List.of(),
                 List.of());
     }

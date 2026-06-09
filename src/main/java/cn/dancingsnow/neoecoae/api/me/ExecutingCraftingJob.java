@@ -46,6 +46,7 @@ public class ExecutingCraftingJob {
     private static final String NBT_REMAINING_AMOUNT = "remainingAmount";
     private static final String NBT_TASKS = "tasks";
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
+    private static final String NBT_ECO_BATCH_SIZE = "ecoBatchSize";
     private static final String NBT_SUSPENDED = "suspended";
 
     final CraftingLink link;
@@ -121,6 +122,7 @@ public class ExecutingCraftingJob {
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
+                tp.ecoBatchSize = item.getInt(NBT_ECO_BATCH_SIZE);
                 this.tasks.put(details, tp);
             }
         }
@@ -144,6 +146,7 @@ public class ExecutingCraftingJob {
         for (var e : this.tasks.entrySet()) {
             var item = e.getKey().getDefinition().toTag();
             item.putLong(NBT_CRAFTING_PROGRESS, e.getValue().value);
+            item.putInt(NBT_ECO_BATCH_SIZE, e.getValue().ecoBatchSize);
             list.add(item);
         }
         data.put(NBT_TASKS, list);
@@ -159,5 +162,6 @@ public class ExecutingCraftingJob {
 
     static class TaskProgress {
         long value = 0;
+        int ecoBatchSize = 0;
     }
 }

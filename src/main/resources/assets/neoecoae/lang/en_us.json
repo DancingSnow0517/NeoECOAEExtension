@@ -107,16 +107,21 @@
   "gui.neoecoae.crafting.energy_usage": "Energy Usage",
   "gui.neoecoae.crafting.coolant": "Coolant",
   "gui.neoecoae.crafting.parallel_core_tiers": "Parallel Core Tiers",
+  "gui.neoecoae.crafting.no_parallel_core": "No parallel core",
   "gui.neoecoae.crafting.effective_parallel": "Effective parallel: %s",
   "gui.neoecoae.crafting.parallel_per_core": "Parallel: %s",
   "gui.neoecoae.structure_terminal.length": "Length: %s",
   "gui.neoecoae.structure_terminal.length_range": "Min: %s  Max: %s",
+  "gui.neoecoae.structure_terminal.host_selection": "Host Selection",
   "gui.neoecoae.structure_terminal.required_materials": "Required Materials",
   "gui.neoecoae.structure_terminal.no_materials": "No materials",
   "gui.neoecoae.structure_terminal.required": "Required: %s",
   "gui.neoecoae.structure_terminal.available": "Available: %s",
   "gui.neoecoae.structure_terminal.missing": "Missing: %s",
+  "gui.neoecoae.structure_terminal.preview_formed": "Formed",
+  "gui.neoecoae.structure_terminal.preview_unformed": "Raw",
   "gui.neoecoae.computation.cpu_selection_mode.short.any": "Any",
   "gui.neoecoae.computation.cpu_selection_mode.short.player": "Player",
-  "gui.neoecoae.computation.cpu_selection_mode.short.machine": "Machine"
+  "gui.neoecoae.computation.cpu_selection_mode.short.machine": "Machine",
+  "gui.neoecoae.structure_terminal.unknown_material": "Unknown material"
 }

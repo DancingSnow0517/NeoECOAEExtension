@@ -20,10 +20,8 @@ public class MultiBlockPlanContext extends MultiBlockContext {
 
     @Override
     public void setBlock(BlockPos pos, BlockState blockState) {
-        plannedBlocks.add(new PlannedBlock(
-                pos.immutable(),
-                blockState,
-                blockState.getBlock().asItem().getDefaultInstance().copy()));
+        plannedBlocks.add(
+                new PlannedBlock(pos.immutable(), blockState, MultiBlockItemFormResolver.requiredItem(blockState)));
     }
 
     @Override

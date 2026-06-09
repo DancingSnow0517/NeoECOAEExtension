@@ -1,10 +1,12 @@
 package cn.dancingsnow.neoecoae.client.multiblock.preview;
 
+import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockItemFormResolver;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,7 +67,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
             return;
         }
 
-        ItemStack item = blockState.getBlock().asItem().getDefaultInstance();
+        ItemStack item = MultiBlockItemFormResolver.requiredItem(blockState);
         addRequiredItem(item);
 
         if (pos.getY() < 0) {
@@ -73,7 +75,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
         }
 
         BlockPos immutable = pos.immutable();
-        BlockState previewState = formed ? applyFormedPreviewState(immutable, blockState) : blockState;
+        BlockState previewState = applyPreviewState(immutable, blockState);
         if (!blocks.containsKey(immutable)) {
             posList.add(immutable);
         }
@@ -141,7 +143,13 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
         maxZ = Math.max(maxZ, pos.getZ());
     }
 
-    private BlockState applyFormedPreviewState(BlockPos pos, BlockState state) {
+    private BlockState applyPreviewState(BlockPos pos, BlockState state) {
+        if (state.is(NEBlocks.COMPUTATION_TRANSMITTER.get()) && state.hasProperty(NEBlock.FORMED)) {
+            state = state.setValue(NEBlock.FORMED, true);
+        }
+        if (!formed) {
+            return state;
+        }
         if (state.hasProperty(NEBlock.FORMED)) {
             state = state.setValue(NEBlock.FORMED, true);
         }

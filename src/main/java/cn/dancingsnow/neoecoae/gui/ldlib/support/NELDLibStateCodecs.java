@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.support;
 
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
@@ -16,6 +17,7 @@ public final class NELDLibStateCodecs {
     private static final int MAX_STORAGE_UI_TYPES = 64;
     private static final int MAX_WORKER_OUTPUTS = 128;
     private static final int MAX_PARALLEL_CORE_TIERS = 128;
+    private static final int MAX_CRAFTING_MODULE_CELLS = 384;
     private static final int MAX_STRUCTURE_TERMINAL_MATERIALS = 512;
 
     public static void writeStorage(FriendlyByteBuf buf, NEStorageUiState state) {
@@ -134,6 +136,19 @@ public final class NELDLibStateCodecs {
             }
             buf.writeVarInt(tier);
         }
+
+        List<NECraftingModuleCell> moduleCells = state.moduleCells();
+        buf.writeVarInt(Math.min(moduleCells.size(), MAX_CRAFTING_MODULE_CELLS));
+        int writtenCells = 0;
+        for (NECraftingModuleCell cell : moduleCells) {
+            if (writtenCells++ >= MAX_CRAFTING_MODULE_CELLS) {
+                break;
+            }
+            buf.writeVarInt(cell.column());
+            buf.writeEnum(cell.row());
+            buf.writeVarInt(cell.tier());
+            buf.writeBlockPos(cell.pos());
+        }
     }
 
     public static NECraftingUiState readCrafting(FriendlyByteBuf buf) {
@@ -181,6 +196,19 @@ public final class NELDLibStateCodecs {
             tiers.add(buf.readVarInt());
         }
 
+        int moduleCellCount = buf.readVarInt();
+        if (moduleCellCount > MAX_CRAFTING_MODULE_CELLS) {
+            throw new IllegalArgumentException("Crafting module cell count exceeds protocol limit: " + moduleCellCount);
+        }
+        List<NECraftingModuleCell> moduleCells = new ArrayList<>(moduleCellCount);
+        for (int i = 0; i < moduleCellCount; i++) {
+            moduleCells.add(new NECraftingModuleCell(
+                    buf.readVarInt(),
+                    buf.readEnum(NECraftingModuleCell.Row.class),
+                    buf.readVarInt(),
+                    buf.readBlockPos()));
+        }
+
         return new NECraftingUiState(
                 pos,
                 formed,
@@ -208,7 +236,8 @@ public final class NELDLibStateCodecs {
                 availableThreads,
                 effectiveParallel,
                 outputs,
-                tiers);
+                tiers,
+                moduleCells);
     }
 
     public static void writeIntegratedWorkingStation(FriendlyByteBuf buf, NEIntegratedWorkingStationUiState state) {

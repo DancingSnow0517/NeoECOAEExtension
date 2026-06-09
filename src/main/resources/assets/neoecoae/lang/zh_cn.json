@@ -434,12 +434,17 @@
   "gui.neoecoae.crafting.parallel_per_core": "并行: %s",
   "gui.neoecoae.structure_terminal.length": "可变长度: %s",
   "gui.neoecoae.structure_terminal.length_range": "最小: %s  最大: %s",
+  "gui.neoecoae.structure_terminal.host_selection": "主机选择",
   "gui.neoecoae.structure_terminal.required_materials": "所需方块",
   "gui.neoecoae.structure_terminal.no_materials": "无所需材料",
   "gui.neoecoae.structure_terminal.required": "需要: %s",
   "gui.neoecoae.structure_terminal.available": "拥有: %s",
   "gui.neoecoae.structure_terminal.missing": "缺少: %s",
+  "gui.neoecoae.structure_terminal.preview_formed": "成型",
+  "gui.neoecoae.structure_terminal.preview_unformed": "原型",
   "gui.neoecoae.computation.cpu_selection_mode.short.any": "任何",
   "gui.neoecoae.computation.cpu_selection_mode.short.player": "玩家",
-  "gui.neoecoae.computation.cpu_selection_mode.short.machine": "机器"
+  "gui.neoecoae.computation.cpu_selection_mode.short.machine": "机器",
+  "gui.neoecoae.crafting.no_parallel_core": "无并行核心",
+  "gui.neoecoae.structure_terminal.unknown_material": "未知材料"
 }

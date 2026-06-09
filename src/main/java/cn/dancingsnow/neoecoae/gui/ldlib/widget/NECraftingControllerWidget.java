@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
@@ -10,11 +11,12 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -50,6 +52,10 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int MODULE_AREA_Y = MAIN_PANEL_Y + 7;
     private static final int MODULE_AREA_W = MAIN_PANEL_W - 14;
     private static final int MODULE_AREA_H = 84;
+    private static final int MODULE_GRID_X = MODULE_AREA_X + 6;
+    private static final int MODULE_GRID_Y = MODULE_AREA_Y + 16;
+    private static final int MODULE_GRID_W = MODULE_AREA_W - 12;
+    private static final int MODULE_GRID_H = MODULE_AREA_H - 20;
     private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 8;
     private static final int STATUS_AREA_X = MODULE_AREA_X;
     private static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
@@ -133,7 +139,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 WIDTH - PANEL_MARGIN * 2,
                 FORMED_BAR_H);
 
-        drawModuleArea(graphics, state);
         drawThreadUsageBar(
                 graphics,
                 absX(STATS_AREA_X + 8),
@@ -162,10 +167,10 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         if (renderToolbarTooltip(graphics, mouseX, mouseY)) {
             return;
         }
-        if (renderGaugeTooltip(graphics, mouseX, mouseY)) {
+        if (renderModuleTooltip(graphics, mouseX, mouseY)) {
             return;
         }
-        if (renderModuleTooltip(graphics, mouseX, mouseY)) {
+        if (renderGaugeTooltip(graphics, mouseX, mouseY)) {
             return;
         }
         renderStatsTooltip(graphics, mouseX, mouseY);
@@ -180,41 +185,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 TOOLBAR_BUTTON_SIZE,
                 NELDLibStyle.aeToolbarButton(),
                 action));
-    }
-
-    private void drawModuleArea(GuiGraphics g, NECraftingUiState state) {
-        int cols = visibleWorkerColumns(state.workerCount());
-        if (cols <= 0) {
-            return;
-        }
-
-        int slotSize = 18;
-        int totalW = cols * slotSize;
-        int startX = absX(MODULE_AREA_X + (MODULE_AREA_W - totalW) / 2);
-        int topY = absY(MODULE_AREA_Y + 16);
-        int middleY = topY + slotSize;
-        int bottomY = middleY + slotSize;
-
-        ResourceLocation controllerLight = resolveParallelCoreLightTexture();
-        List<Integer> coreTiers = state.parallelCoreTiers();
-        int parallelSlots = Math.max(0, state.parallelCount());
-        int activeTopFtSlots = Math.min(parallelSlots, cols);
-        int activeBottomFtSlots = Math.min(Math.max(0, parallelSlots - cols), cols);
-
-        for (int col = 0; col < cols; col++) {
-            int x = startX + col * slotSize;
-            boolean activeTop = col < activeTopFtSlots;
-            boolean activeMiddle = col < state.workerCount();
-            boolean activeBottom = col < activeBottomFtSlots;
-            ResourceLocation topLight = col < coreTiers.size() ? lightForTier(coreTiers.get(col)) : controllerLight;
-            ResourceLocation bottomLight =
-                    col + cols < coreTiers.size() ? lightForTier(coreTiers.get(col + cols)) : controllerLight;
-
-            NELDLibStyle.drawTexturedModuleSlot(g, x, topY, slotSize, MODULE_PARALLEL_CORE_FRONT, topLight, activeTop);
-            NELDLibStyle.drawTexturedModuleSlot(g, x, middleY, slotSize, MODULE_CORE_SIDE, null, activeMiddle);
-            NELDLibStyle.drawTexturedModuleSlot(
-                    g, x, bottomY, slotSize, MODULE_PARALLEL_CORE_FRONT, bottomLight, activeBottom);
-        }
     }
 
     private void drawModuleLabels(GuiGraphics g, NECraftingUiState state) {
@@ -232,7 +202,23 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 absX(MODULE_AREA_X + MODULE_AREA_W - 8),
                 absY(MODULE_AREA_Y + 5),
                 NELDLibStyle.DARK_TEXT_VALUE);
-        if (visibleWorkerColumns(state.workerCount()) <= 0) {
+        if (crafting.getBuildDefinition() == null) {
+            NELDLibStyle.drawCentered(
+                    g,
+                    font(),
+                    Component.translatable("emi.neoecoae.multiblock.empty_scene"),
+                    absX(MODULE_AREA_X),
+                    absY(MODULE_AREA_Y + 39),
+                    MODULE_AREA_W,
+                    NELDLibStyle.DARK_TEXT_MUTED);
+            return;
+        }
+        drawModulePlane(g, state);
+    }
+
+    private void drawModulePlane(GuiGraphics g, NECraftingUiState state) {
+        ModuleGrid grid = moduleGrid(state);
+        if (grid.columns() <= 0) {
             NELDLibStyle.drawCentered(
                     g,
                     font(),
@@ -241,7 +227,140 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                     absY(MODULE_AREA_Y + 39),
                     MODULE_AREA_W,
                     NELDLibStyle.DARK_TEXT_MUTED);
+            return;
         }
+
+        for (int col = 0; col < grid.columns(); col++) {
+            int x = grid.x() + col * grid.cellSize();
+            drawModuleCell(
+                    g,
+                    x,
+                    grid.rowY(NECraftingModuleCell.Row.UPPER_PARALLEL),
+                    grid.cellSize(),
+                    moduleCellAt(state, col, NECraftingModuleCell.Row.UPPER_PARALLEL),
+                    NECraftingModuleCell.Row.UPPER_PARALLEL);
+            drawModuleCell(
+                    g,
+                    x,
+                    grid.rowY(NECraftingModuleCell.Row.WORKER),
+                    grid.cellSize(),
+                    moduleCellAt(state, col, NECraftingModuleCell.Row.WORKER),
+                    NECraftingModuleCell.Row.WORKER);
+            drawModuleCell(
+                    g,
+                    x,
+                    grid.rowY(NECraftingModuleCell.Row.LOWER_PARALLEL),
+                    grid.cellSize(),
+                    moduleCellAt(state, col, NECraftingModuleCell.Row.LOWER_PARALLEL),
+                    NECraftingModuleCell.Row.LOWER_PARALLEL);
+        }
+    }
+
+    private void drawModuleCell(
+            GuiGraphics g, int x, int y, int size, NECraftingModuleCell cell, NECraftingModuleCell.Row row) {
+        boolean active = cell != null;
+        ResourceLocation baseTexture =
+                active ? row == NECraftingModuleCell.Row.WORKER ? MODULE_CORE_SIDE : MODULE_PARALLEL_CORE_FRONT : null;
+        ResourceLocation overlayTexture =
+                active && row != NECraftingModuleCell.Row.WORKER ? lightForTier(cell.tier()) : null;
+        drawTexturedModuleSlot(g, absX(x), absY(y), size, baseTexture, overlayTexture, active);
+    }
+
+    private void drawTexturedModuleSlot(
+            GuiGraphics g,
+            int x,
+            int y,
+            int size,
+            ResourceLocation baseTexture,
+            ResourceLocation overlayTexture,
+            boolean active) {
+        if (size >= 10) {
+            NELDLibStyle.drawDarkInsetRect(g, x, y, size, size);
+        } else {
+            g.fill(x, y, x + size, y + size, 0xFF1B1822);
+        }
+
+        int pad = size >= 10 ? 2 : 1;
+        int innerX = x + pad;
+        int innerY = y + pad;
+        int innerSize = Math.max(1, size - pad * 2);
+        g.fill(innerX, innerY, innerX + innerSize, innerY + innerSize, 0xAA17141E);
+        if (baseTexture != null) {
+            g.blit(baseTexture, innerX, innerY, innerSize, innerSize, 0, 0, 16, 16, 16, 16);
+        }
+        if (overlayTexture != null) {
+            g.blit(overlayTexture, innerX, innerY, innerSize, innerSize, 0, 0, 16, 16, 16, 16);
+        }
+        if (!active) {
+            g.fill(innerX + 1, innerY + 1, innerX + innerSize - 1, innerY + innerSize - 1, 0x66000000);
+        }
+    }
+
+    private boolean renderModuleTooltip(GuiGraphics g, int mouseX, int mouseY) {
+        NECraftingUiState state = currentState();
+        ModuleGrid grid = moduleGrid(state);
+        if (grid.columns() <= 0) {
+            return false;
+        }
+
+        int localX = mouseX - absX(grid.x());
+        if (localX < 0 || localX >= grid.columns() * grid.cellSize()) {
+            return false;
+        }
+        int column = localX / grid.cellSize();
+        for (NECraftingModuleCell.Row row : NECraftingModuleCell.Row.values()) {
+            int rowY = absY(grid.rowY(row));
+            if (mouseY < rowY || mouseY >= rowY + grid.cellSize()) {
+                continue;
+            }
+            if (row == NECraftingModuleCell.Row.WORKER) {
+                renderWorkerTooltip(g, state, column, mouseX, mouseY);
+            } else {
+                renderParallelCoreTooltip(g, state, column, row, mouseX, mouseY);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private void renderWorkerTooltip(GuiGraphics g, NECraftingUiState state, int column, int mouseX, int mouseY) {
+        ItemStack output = column >= 0 && column < state.workerCraftOutputs().size()
+                ? state.workerCraftOutputs().get(column)
+                : ItemStack.EMPTY;
+        if (!output.isEmpty()) {
+            List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), output));
+            lines.add(Component.literal(formatModulePos(moduleCellAt(state, column, NECraftingModuleCell.Row.WORKER))));
+            g.renderTooltip(font(), lines, output.getTooltipImage(), output, mouseX, mouseY);
+            return;
+        }
+        g.renderComponentTooltip(
+                font(),
+                List.of(
+                        Component.translatable("block.neoecoae.crafting_worker"),
+                        Component.literal(
+                                formatModulePos(moduleCellAt(state, column, NECraftingModuleCell.Row.WORKER)))),
+                mouseX,
+                mouseY);
+    }
+
+    private void renderParallelCoreTooltip(
+            GuiGraphics g, NECraftingUiState state, int column, NECraftingModuleCell.Row row, int mouseX, int mouseY) {
+        NECraftingModuleCell cell = moduleCellAt(state, column, row);
+        if (cell == null) {
+            g.renderComponentTooltip(
+                    font(), List.of(Component.translatable("gui.neoecoae.crafting.no_parallel_core")), mouseX, mouseY);
+            return;
+        }
+        g.renderComponentTooltip(
+                font(),
+                List.of(
+                        Component.translatable(parallelCoreNameKey(cell.tier())),
+                        Component.translatable(
+                                "gui.neoecoae.crafting.parallel_per_core",
+                                NELDLibText.number(parallelPerCore(cell.tier(), state.overclocked()))),
+                        Component.literal(formatModulePos(cell))),
+                mouseX,
+                mouseY);
     }
 
     private void drawStatusArea(GuiGraphics g, NECraftingUiState state) {
@@ -545,53 +664,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return false;
     }
 
-    private boolean renderModuleTooltip(GuiGraphics g, int mouseX, int mouseY) {
-        NECraftingUiState state = currentState();
-        int cols = visibleWorkerColumns(state.workerCount());
-        if (cols <= 0) {
-            return false;
-        }
-        int slotSize = 18;
-        int totalW = cols * slotSize;
-        int startX = MODULE_AREA_X + (MODULE_AREA_W - totalW) / 2;
-        int topY = MODULE_AREA_Y + 16;
-        int middleY = topY + slotSize;
-        int bottomY = middleY + slotSize;
-        if (isMouseIn(startX, topY, totalW, slotSize, mouseX, mouseY)) {
-            int col = (mouseX - absX(startX)) / slotSize;
-            g.renderTooltip(
-                    font(),
-                    getParallelPerCoreTooltip(tierAt(state.parallelCoreTiers(), col), state.overclocked()),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        if (isMouseIn(startX, bottomY, totalW, slotSize, mouseX, mouseY)) {
-            int col = (mouseX - absX(startX)) / slotSize;
-            g.renderTooltip(
-                    font(),
-                    getParallelPerCoreTooltip(tierAt(state.parallelCoreTiers(), col + cols), state.overclocked()),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        if (isMouseIn(startX, middleY, totalW, slotSize, mouseX, mouseY)) {
-            int col = (mouseX - absX(startX)) / slotSize;
-            if (col >= 0 && col < state.workerCraftOutputs().size()) {
-                ItemStack stack = state.workerCraftOutputs().get(col);
-                if (!stack.isEmpty()) {
-                    List<Component> lines =
-                            Screen.getTooltipFromItem(net.minecraft.client.Minecraft.getInstance(), stack);
-                    g.renderTooltip(font(), lines, stack.getTooltipImage(), stack, mouseX, mouseY);
-                    return true;
-                }
-            }
-            g.renderTooltip(font(), Component.translatable("block.neoecoae.crafting_worker"), mouseX, mouseY);
-            return true;
-        }
-        return false;
-    }
-
     private void renderStatsTooltip(GuiGraphics g, int mouseX, int mouseY) {
         if (!isMouseIn(STATS_AREA_X, STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H, mouseX, mouseY)) {
             return;
@@ -624,38 +696,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         cursor += NELDLibStyle.drawSegment(g, font(), " / ", absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_MUTED);
         NELDLibStyle.drawSegment(
                 g, font(), NELDLibText.number(max), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
-    }
-
-    private ResourceLocation resolveParallelCoreLightTexture() {
-        String titleText = title.getString().toUpperCase(Locale.ROOT);
-        if (titleText.contains("F9")) {
-            return MODULE_PARALLEL_CORE_LIGHT_L9;
-        }
-        if (titleText.contains("F6")) {
-            return MODULE_PARALLEL_CORE_LIGHT_L6;
-        }
-        return MODULE_PARALLEL_CORE_LIGHT_L4;
-    }
-
-    private static ResourceLocation lightForTier(int tier) {
-        return switch (tier) {
-            case 3 -> MODULE_PARALLEL_CORE_LIGHT_L9;
-            case 2 -> MODULE_PARALLEL_CORE_LIGHT_L6;
-            default -> MODULE_PARALLEL_CORE_LIGHT_L4;
-        };
-    }
-
-    private static int visibleWorkerColumns(int workerCount) {
-        return workerCount <= 0 ? 0 : Math.min(16, workerCount);
-    }
-
-    private static int tierAt(List<Integer> tiers, int index) {
-        return index >= 0 && index < tiers.size() ? tiers.get(index) : 1;
-    }
-
-    private static Component getParallelPerCoreTooltip(int tier, boolean overclocked) {
-        return Component.translatable(
-                "gui.neoecoae.crafting.parallel_per_core", NELDLibText.number(parallelPerCore(tier, overclocked)));
     }
 
     private static int countTier(NECraftingUiState state, int tier) {
@@ -699,5 +739,67 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             return NELDLibStyle.DARK_TEXT_WARNING;
         }
         return NELDLibStyle.DARK_TEXT_SUCCESS;
+    }
+
+    private static ResourceLocation lightForTier(int tier) {
+        return switch (tier) {
+            case 3 -> MODULE_PARALLEL_CORE_LIGHT_L9;
+            case 2 -> MODULE_PARALLEL_CORE_LIGHT_L6;
+            default -> MODULE_PARALLEL_CORE_LIGHT_L4;
+        };
+    }
+
+    private static String parallelCoreNameKey(int tier) {
+        return switch (tier) {
+            case 3 -> "block.neoecoae.crafting_parallel_core_l9";
+            case 2 -> "block.neoecoae.crafting_parallel_core_l6";
+            default -> "block.neoecoae.crafting_parallel_core_l4";
+        };
+    }
+
+    private static NECraftingModuleCell moduleCellAt(
+            NECraftingUiState state, int column, NECraftingModuleCell.Row row) {
+        for (NECraftingModuleCell cell : state.moduleCells()) {
+            if (cell.column() == column && cell.row() == row) {
+                return cell;
+            }
+        }
+        return null;
+    }
+
+    private static String formatModulePos(NECraftingModuleCell cell) {
+        if (cell == null || cell.pos() == null) {
+            return "";
+        }
+        BlockPos pos = cell.pos();
+        return "x=" + pos.getX() + ", y=" + pos.getY() + ", z=" + pos.getZ();
+    }
+
+    private ModuleGrid moduleGrid(NECraftingUiState state) {
+        int maxColumn = -1;
+        for (NECraftingModuleCell cell : state.moduleCells()) {
+            maxColumn = Math.max(maxColumn, cell.column());
+        }
+        int columns = Math.max(maxColumn + 1, state.workerCount());
+        if (columns <= 0) {
+            return new ModuleGrid(MODULE_GRID_X, MODULE_GRID_Y, 0, 18);
+        }
+
+        int cellSize = Math.min(18, Math.max(6, Math.min(MODULE_GRID_W / columns, MODULE_GRID_H / 3)));
+        int totalW = columns * cellSize;
+        int x = MODULE_GRID_X + Math.max(0, (MODULE_GRID_W - totalW) / 2);
+        int y = MODULE_GRID_Y + Math.max(0, (MODULE_GRID_H - cellSize * 3) / 2);
+        return new ModuleGrid(x, y, columns, cellSize);
+    }
+
+    private record ModuleGrid(int x, int y, int columns, int cellSize) {
+        int rowY(NECraftingModuleCell.Row row) {
+            return y
+                    + switch (row) {
+                        case UPPER_PARALLEL -> 0;
+                        case WORKER -> cellSize;
+                        case LOWER_PARALLEL -> cellSize * 2;
+                    };
+        }
     }
 }

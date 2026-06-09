@@ -182,6 +182,7 @@ dependencies {
 
     testImplementation platform("org.junit:junit-bom:5.10.2")
     testImplementation "org.junit.jupiter:junit-jupiter"
+    testImplementation fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
 
     implementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
     jarJar(fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")) {

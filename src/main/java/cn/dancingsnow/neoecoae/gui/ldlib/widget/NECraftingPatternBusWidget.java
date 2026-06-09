@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPagedItemTransfer;
+import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -23,6 +24,7 @@ import net.minecraft.world.item.ItemStack;
 
 public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
     private static final int PAGE_UPDATE_ID = 1;
+    private static final int PAGE_ACTION_ID = 2;
     private static final int PAGE_BUTTON_Y = 4;
     private static final int PAGE_BUTTON_W = 12;
     private static final int PAGE_BUTTON_H = 14;
@@ -70,11 +72,11 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
         for (int row = 0; row < PATTERN_ROWS; row++) {
             for (int col = 0; col < PATTERN_COLS; col++) {
                 int slot = col + row * PATTERN_COLS;
-                addWidget(new SlotWidget(
+                addWidget(aeSlot(
                         pagedTransfer,
                         slot,
-                        PATTERN_SLOT_X + col * SLOT_SIZE,
-                        PATTERN_SLOT_Y + row * SLOT_SIZE,
+                        PATTERN_BG_X + col * SLOT_SIZE,
+                        PATTERN_BG_Y + row * SLOT_SIZE,
                         true,
                         true));
             }
@@ -82,18 +84,18 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addWidget(new SlotWidget(
+                addWidget(aeSlot(
                                 playerInventory,
                                 col + row * 9 + 9,
-                                INV_SLOT_X + col * SLOT_SIZE,
-                                INV_SLOT_Y + row * SLOT_SIZE,
+                                INV_BG_X + col * SLOT_SIZE,
+                                INV_BG_Y + row * SLOT_SIZE,
                                 true,
                                 true)
                         .setLocationInfo(true, false));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addWidget(new SlotWidget(playerInventory, col, HOTBAR_SLOT_X + col * SLOT_SIZE, HOTBAR_SLOT_Y, true, true)
+            addWidget(aeSlot(playerInventory, col, HOTBAR_BG_X + col * SLOT_SIZE, HOTBAR_BG_Y, true, true)
                     .setLocationInfo(true, true));
         }
 
@@ -104,8 +106,8 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
                 PAGE_BUTTON_H,
                 NELDLibStyle.aeToolbarButton(),
                 click -> {
-                    if (!click.isRemote) {
-                        changePage(currentPage - 1);
+                    if (click.isRemote) {
+                        writeClientAction(PAGE_ACTION_ID, buf -> buf.writeVarInt(currentPage - 1));
                     }
                 });
         nextPageButton = (ButtonWidget) new ButtonWidget(
@@ -115,13 +117,39 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
                 PAGE_BUTTON_H,
                 NELDLibStyle.aeToolbarButton(),
                 click -> {
-                    if (!click.isRemote) {
-                        changePage(currentPage + 1);
+                    if (click.isRemote) {
+                        writeClientAction(PAGE_ACTION_ID, buf -> buf.writeVarInt(currentPage + 1));
                     }
                 });
         addWidget(previousPageButton);
         addWidget(nextPageButton);
         updatePageButtons();
+    }
+
+    private SlotWidget aeSlot(
+            com.lowdragmc.lowdraglib.side.item.IItemTransfer transfer,
+            int index,
+            int x,
+            int y,
+            boolean canTake,
+            boolean canPut) {
+        return new SlotWidget(transfer, index, x, y, canTake, canPut)
+                .setBackgroundTexture(IGuiTexture.EMPTY)
+                .setItemHook(this::patternDisplayStack);
+    }
+
+    private SlotWidget aeSlot(
+            net.minecraft.world.Container container, int index, int x, int y, boolean canTake, boolean canPut) {
+        return new SlotWidget(container, index, x, y, canTake, canPut).setBackgroundTexture(IGuiTexture.EMPTY);
+    }
+
+    @Override
+    public void handleClientAction(int id, FriendlyByteBuf buffer) {
+        if (id == PAGE_ACTION_ID) {
+            changePage(buffer.readVarInt());
+            return;
+        }
+        super.handleClientAction(id, buffer);
     }
 
     @Override
@@ -191,8 +219,8 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
 
     @Override
     protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        drawPatternDisplayOverlays(graphics);
         drawTitleAndPage(graphics);
+        drawLocalString(graphics, playerInventory.getDisplayName(), INV_LABEL_X, INV_LABEL_Y, TEXT_MUTED);
         drawPageButtonText(graphics);
     }
 
@@ -271,25 +299,6 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
         RenderSystem.disableBlend();
     }
 
-    private void drawPatternDisplayOverlays(GuiGraphics graphics) {
-        for (int i = 0; i < PATTERN_COLS * PATTERN_ROWS; i++) {
-            ItemStack stack = pagedTransfer.getStackInSlot(i);
-            if (stack.isEmpty() || !(stack.getItem() instanceof EncodedPatternItem)) {
-                continue;
-            }
-            ItemStack display = getPatternDisplay(stack);
-            if (display.isEmpty()) {
-                continue;
-            }
-            int col = i % PATTERN_COLS;
-            int row = i / PATTERN_COLS;
-            int x = absX(PATTERN_SLOT_X + col * SLOT_SIZE);
-            int y = absY(PATTERN_SLOT_Y + row * SLOT_SIZE);
-            graphics.renderItem(display, x, y);
-            graphics.renderItemDecorations(font(), display, x, y);
-        }
-    }
-
     private void drawTitleAndPage(GuiGraphics graphics) {
         boolean paged = pageCount > 1;
         String pageText = paged ? (currentPage + 1) + " / " + pageCount : "";
@@ -355,5 +364,13 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
             return ItemStack.EMPTY;
         }
         return ItemStack.EMPTY;
+    }
+
+    private ItemStack patternDisplayStack(ItemStack stack) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof EncodedPatternItem)) {
+            return stack;
+        }
+        ItemStack display = getPatternDisplay(stack);
+        return display.isEmpty() ? stack : display;
     }
 }

@@ -44,6 +44,7 @@ import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.Block;
@@ -53,6 +54,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraftforge.client.model.generators.BlockModelBuilder;
 import net.minecraftforge.client.model.generators.ConfiguredModel;
+import net.minecraftforge.client.model.generators.ItemModelBuilder;
 import net.minecraftforge.client.model.generators.ModelFile;
 import net.minecraftforge.common.Tags;
 
@@ -753,7 +755,8 @@ public class NEBlocks {
             })
             .item()
             .model((ctx, provider) -> {
-                provider.withExistingParent(ctx.getName(), provider.modLoc("block/eco_drive_empty"));
+                compactBlockItemModel(
+                        provider.withExistingParent(ctx.getName(), provider.modLoc("block/eco_drive_empty")));
             })
             .build()
             .lang("ECO - LD Storage Matrix Drive")
@@ -880,7 +883,10 @@ public class NEBlocks {
             .block("computation_transmitter", ECOComputationTransmitter::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .simpleItem()
+            .item()
+            .model((ctx, prov) -> compactBlockItemModel(
+                    prov.withExistingParent(ctx.getName(), prov.modLoc("block/computation_transmitter"))))
+            .build()
             .blockstate((ctx, prov) -> {
                 prov.getVariantBuilder(ctx.get()).forAllStates(s -> {
                     ModelFile modelFile;
@@ -946,7 +952,8 @@ public class NEBlocks {
                         .save(prov);
             })
             .item()
-            .model((ctx, prov) -> prov.withExistingParent(ctx.getName(), prov.modLoc("block/computation_drive_empty")))
+            .model((ctx, prov) -> compactBlockItemModel(
+                    prov.withExistingParent(ctx.getName(), prov.modLoc("block/computation_drive_empty"))))
             .build()
             .lang("ECO - CD Crystal Matrix Drive")
             .register();
@@ -1470,6 +1477,35 @@ public class NEBlocks {
                 .lang("Cooling System Controller - %s"
                         .formatted(level.toUpperCase(Locale.ROOT).replace("L", "C")))
                 .register();
+    }
+
+    private static ItemModelBuilder compactBlockItemModel(ItemModelBuilder model) {
+        model.transforms()
+                .transform(ItemDisplayContext.THIRD_PERSON_RIGHT_HAND)
+                .rotation(75, -45, 0)
+                .translation(0, 2.5F, 0)
+                .scale(0.375F)
+                .end()
+                .transform(ItemDisplayContext.FIRST_PERSON_RIGHT_HAND)
+                .rotation(0, -45, 0)
+                .scale(0.4F)
+                .end()
+                .transform(ItemDisplayContext.GROUND)
+                .translation(0, 3, 0)
+                .scale(0.25F)
+                .end()
+                .transform(ItemDisplayContext.GUI)
+                .rotation(30, -135, 0)
+                .scale(0.625F)
+                .end()
+                .transform(ItemDisplayContext.HEAD)
+                .rotation(0, -180, 0)
+                .end()
+                .transform(ItemDisplayContext.FIXED)
+                .rotation(0, -180, 0)
+                .scale(0.5F)
+                .end();
+        return model;
     }
 
     public static void register() {}
