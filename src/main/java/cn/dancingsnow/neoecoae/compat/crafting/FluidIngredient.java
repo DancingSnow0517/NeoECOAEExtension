@@ -51,13 +51,13 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
                     null,
                     TagKey.create(
                             Registries.FLUID,
-                            new ResourceLocation(object.get("tag").getAsString())));
+                            ResourceLocation.parse(object.get("tag").getAsString())));
         }
         String field = object.has("fluid") ? "fluid" : object.has("id") ? "id" : null;
         if (field == null) {
             throw new JsonParseException("Fluid ingredient must contain 'fluid', 'id', or 'tag'");
         }
-        ResourceLocation id = new ResourceLocation(object.get(field).getAsString());
+        ResourceLocation id = ResourceLocation.parse(object.get(field).getAsString());
         Fluid fluid = ForgeRegistries.FLUIDS.getValue(id);
         if (fluid == null || fluid == Fluids.EMPTY) {
             throw new JsonParseException("Unknown fluid '" + id + "'");
@@ -100,7 +100,7 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
         if (fluid != null) {
             ResourceLocation id = ForgeRegistries.FLUIDS.getKey(fluid);
             buffer.writeByte(1);
-            buffer.writeResourceLocation(id == null ? new ResourceLocation("minecraft", "empty") : id);
+            buffer.writeResourceLocation(id == null ? ResourceLocation.fromNamespaceAndPath("minecraft", "empty") : id);
             return;
         }
         buffer.writeByte(2);

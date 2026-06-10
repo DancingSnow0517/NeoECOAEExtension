@@ -16,7 +16,8 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class NEInteractionUtil {
 
-    private static final TagKey<Item> WRENCH_TAG = ItemTags.create(new ResourceLocation("forge", "tools/wrench"));
+    private static final TagKey<Item> WRENCH_TAG =
+            ItemTags.create(ResourceLocation.fromNamespaceAndPath("forge", "tools/wrench"));
 
     private NEInteractionUtil() {}
 

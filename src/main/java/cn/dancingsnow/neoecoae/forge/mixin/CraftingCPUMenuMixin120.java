@@ -168,21 +168,12 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         }
     }
 
-    @Inject(
-            method = {"broadcastChanges()V", "m_38946_()V"},
-            at = @At("HEAD"),
-            require = 1)
+    @Inject(method = "broadcastChanges()V", at = @At("HEAD"), require = 1)
     private void neoecoae$onBroadcastChanges(CallbackInfo ci) {
         this.neoecoae$broadcastEcoCpuChanges();
     }
 
-    @Inject(
-            method = {
-                "removed(Lnet/minecraft/world/entity/player/Player;)V",
-                "m_6877_(Lnet/minecraft/world/entity/player/Player;)V"
-            },
-            at = @At("TAIL"),
-            require = 1)
+    @Inject(method = "removed(Lnet/minecraft/world/entity/player/Player;)V", at = @At("TAIL"), require = 1)
     private void neoecoae$onRemoved(Player player, CallbackInfo ci) {
         this.neoecoae$cleanupEcoCpuListener();
     }
@@ -320,8 +311,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
                 logic.getStatusRevision(),
                 this.neoecoae$trackedEcoKeys.size(),
                 logic.getElapsedTimeTracker().getElapsedTime(),
-                logic.getElapsedTimeTracker().getRemainingItemCount(),
-                logic.getElapsedTimeTracker().getStartItemCount());
+                logic.getElapsedTimeTracker().getSyntheticRemainingItemCount(),
+                logic.getElapsedTimeTracker().getSyntheticStartItemCount());
     }
 
     @Unique private void neoecoae$removeEcoListener() {
@@ -434,8 +425,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
 
     @Unique private boolean neoecoae$hasEcoHeaderChanged(ECOCraftingCPULogic logic) {
         long elapsedTime = logic.getElapsedTimeTracker().getElapsedTime();
-        long remainingItems = logic.getElapsedTimeTracker().getRemainingItemCount();
-        long startItems = logic.getElapsedTimeTracker().getStartItemCount();
+        long remainingItems = logic.getElapsedTimeTracker().getSyntheticRemainingItemCount();
+        long startItems = logic.getElapsedTimeTracker().getSyntheticStartItemCount();
         return elapsedTime != this.neoecoae$lastEcoElapsedTime
                 || remainingItems != this.neoecoae$lastEcoRemainingItems
                 || startItems != this.neoecoae$lastEcoStartItems;
@@ -492,8 +483,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         return new CraftingStatus(
                 full,
                 logic.getElapsedTimeTracker().getElapsedTime(),
-                logic.getElapsedTimeTracker().getRemainingItemCount(),
-                logic.getElapsedTimeTracker().getStartItemCount(),
+                logic.getElapsedTimeTracker().getSyntheticRemainingItemCount(),
+                logic.getElapsedTimeTracker().getSyntheticStartItemCount(),
                 entries.build());
     }
 
@@ -515,8 +506,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         return new CraftingStatus(
                 false,
                 logic.getElapsedTimeTracker().getElapsedTime(),
-                logic.getElapsedTimeTracker().getRemainingItemCount(),
-                logic.getElapsedTimeTracker().getStartItemCount(),
+                logic.getElapsedTimeTracker().getSyntheticRemainingItemCount(),
+                logic.getElapsedTimeTracker().getSyntheticStartItemCount(),
                 entries.build());
     }
 
@@ -524,8 +515,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         return new CraftingStatus(
                 false,
                 logic.getElapsedTimeTracker().getElapsedTime(),
-                logic.getElapsedTimeTracker().getRemainingItemCount(),
-                logic.getElapsedTimeTracker().getStartItemCount(),
+                logic.getElapsedTimeTracker().getSyntheticRemainingItemCount(),
+                logic.getElapsedTimeTracker().getSyntheticStartItemCount(),
                 ImmutableList.of());
     }
 

@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     Logger MODEL_LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
     Set<String> WARNED_MISSING_MODELS = ConcurrentHashMap.newKeySet();
-    Set<String> LOGGED_MODEL_QUAD_COUNTS = ConcurrentHashMap.newKeySet();
 
     void renderFixed(
             T blockEntity,
@@ -114,15 +113,11 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
             return;
         }
         VertexConsumer buffer = bufferSource.getBuffer(renderType);
-        int directionalQuadCount = 0;
         for (Direction value : Direction.values()) {
             List<BakedQuad> quads = bakedModel.getQuads(null, value, getRandom());
-            directionalQuadCount += quads.size();
             renderQuadsWithoutAO(poseStack, buffer, quads, packedLight, packedOverlay);
         }
         List<BakedQuad> quads = bakedModel.getQuads(null, null, getRandom());
-        int unculledQuadCount = quads.size();
-        logQuadCounts(model, owner, directionalQuadCount, unculledQuadCount);
         renderQuadsWithoutAO(poseStack, buffer, quads, packedLight, packedOverlay);
     }
 
@@ -162,11 +157,6 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
                     model,
                     owner == null ? "unknown block entity" : owner.getType());
         }
-    }
-
-    private static void logQuadCounts(
-            ResourceLocation model, BlockEntity owner, int directionalQuadCount, int unculledQuadCount) {
-        // No-op: verbose debug logging removed.
     }
 
     default void renderQuadsWithoutAO(

@@ -39,7 +39,7 @@ public final class AE2PatternIntrospection {
             }
             AEItemKey definition = details.getDefinition();
             return definition != null ? definition : details;
-        } catch (Throwable e) {
+        } catch (RuntimeException | LinkageError e) {
             disableOnce(e);
             return details;
         }
@@ -52,7 +52,7 @@ public final class AE2PatternIntrospection {
         try {
             var recipe = accessor.neoecoae$getRecipe();
             return recipe != null && !recipe.isSpecial();
-        } catch (Throwable e) {
+        } catch (RuntimeException | LinkageError e) {
             disableOnce(e);
             return false;
         }
@@ -65,7 +65,7 @@ public final class AE2PatternIntrospection {
         }
         try {
             return ECOFastPathKey.of(getStablePatternIdentity(details), craftingContainer, level, reloadGeneration);
-        } catch (Throwable e) {
+        } catch (RuntimeException | LinkageError e) {
             disableOnce(e);
             return Optional.empty();
         }
@@ -89,7 +89,7 @@ public final class AE2PatternIntrospection {
             Class.forName(AECraftingPattern.class.getName());
             Class.forName(CraftingCpuHelper.class.getName());
             available = true;
-        } catch (Throwable e) {
+        } catch (ClassNotFoundException | LinkageError e) {
             disableOnce(e);
         }
     }

@@ -6,10 +6,7 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
-import com.mojang.logging.LogUtils;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -27,13 +24,9 @@ import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 
 public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEntity<ECOComputationDriveBlockEntity>
         implements ICellHost {
-    private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Set<String> LOGGED_UPDATE_TAGS = ConcurrentHashMap.newKeySet();
-
     @Getter
     @Nullable private ItemStack cellStack = null;
 
@@ -171,7 +164,6 @@ public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEnti
     public CompoundTag getUpdateTag() {
         CompoundTag tag = super.getUpdateTag();
         saveDriveVisualState(tag);
-        logVisualSync("saveUpdateTag", tag);
         return tag;
     }
 
@@ -179,7 +171,6 @@ public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEnti
     public void handleUpdateTag(CompoundTag tag) {
         super.handleUpdateTag(tag);
         loadDriveVisualState(tag);
-        logVisualSync("handleUpdateTag", tag);
     }
 
     @Nullable @Override
@@ -223,10 +214,6 @@ public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEnti
         this.isLowerDrive = data.getBoolean("isLowerDrive");
         this.ownerBlockPos = data.contains("ownerBlockPos") ? BlockPos.of(data.getLong("ownerBlockPos")) : null;
         this.tier = data.contains("tier") ? tierFromId(data.getInt("tier")) : null;
-    }
-
-    private void logVisualSync(String source, CompoundTag data) {
-        // No-op: verbose debug logging removed.
     }
 
     private static @Nullable IECOTier tierFromId(int tier) {

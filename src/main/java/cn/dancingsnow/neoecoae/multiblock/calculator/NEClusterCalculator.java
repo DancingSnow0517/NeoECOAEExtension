@@ -70,11 +70,11 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         this.mirroredStructure = mirroredStructure;
     }
 
-    /** No-op: debug logging removed. Subclasses may still call this safely. */
+    /** Hook for calculator-specific validation diagnostics. */
     protected void logVerifyFailure(
             ServerLevel level, String step, BlockPos pos, String expected, @Nullable Direction expectedFacing) {}
 
-    /** No-op: debug logging removed. Subclasses may still call this safely. */
+    /** Hook for calculator-specific validation diagnostics. */
     protected void logVerifyFailure(
             ServerLevel level,
             @Nullable BlockPos min,
@@ -84,7 +84,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             String expected,
             @Nullable Direction expectedFacing) {}
 
-    /** No-op: debug logging removed. Subclasses may still call this safely. */
+    /** Hook for calculator-specific validation diagnostics. */
     protected void logVerifyContext(
             ServerLevel level,
             BlockPos min,
@@ -98,10 +98,10 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             Direction top,
             Direction down) {}
 
-    /** No-op: debug logging removed. Subclasses may still call this safely. */
+    /** Hook for calculator-specific validation diagnostics. */
     protected void logLineProbe(ServerLevel level, String step, BlockPos start, Direction direction, int maxSamples) {}
 
-    /** No-op: debug logging removed. Subclasses may still call this safely. */
+    /** Hook for calculator-specific validation diagnostics. */
     protected void logLineProbe(
             ServerLevel level,
             @Nullable BlockPos min,

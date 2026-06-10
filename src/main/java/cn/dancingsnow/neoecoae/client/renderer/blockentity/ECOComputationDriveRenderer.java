@@ -27,11 +27,8 @@ public class ECOComputationDriveRenderer
                 BlockEntityRenderer<ECOComputationDriveBlockEntity> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
-    private static final Set<String> LOGGED_RENDER_ENTRIES = ConcurrentHashMap.newKeySet();
-    private static final Set<String> LOGGED_MODELS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MISSING_CELL_MAPPINGS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MISSING_CABLE_MAPPINGS = ConcurrentHashMap.newKeySet();
-    private static final Set<String> LOGGED_RENDERED_CELL_MODELS = ConcurrentHashMap.newKeySet();
 
     public ECOComputationDriveRenderer() {}
 
@@ -52,7 +49,6 @@ public class ECOComputationDriveRenderer
         IECOTier driveTier = blockEntity.getTier();
         ComputationRenderModels models = selectModels(blockEntity, itemStack, formed, driveTier);
 
-        logRenderEntry(blockEntity, itemStack, facing, formed);
         logComputationModels(blockEntity, itemStack, models, facing, formed, driveTier);
 
         poseStack.pushPose();
@@ -126,7 +122,6 @@ public class ECOComputationDriveRenderer
         if (cellModel == null) {
             return;
         }
-        logRenderingCellModel(blockEntity, cellModel, models, facing, formed);
         poseStack.pushPose();
         tessellateModel(blockEntity, poseStack, bufferSource, cellModel, packedLight, packedOverlay);
         poseStack.popPose();
@@ -162,11 +157,6 @@ public class ECOComputationDriveRenderer
 
         tessellateModel(blockEntity, poseStack, bufferSource, models.cableModel(), packedLight, packedOverlay);
         poseStack.popPose();
-    }
-
-    private static void logRenderEntry(
-            ECOComputationDriveBlockEntity blockEntity, ItemStack itemStack, Direction facing, boolean formed) {
-        // No-op: verbose debug logging removed.
     }
 
     private static void logMissingCableModel(
@@ -211,15 +201,6 @@ public class ECOComputationDriveRenderer
                         driveTier);
             }
         }
-    }
-
-    private static void logRenderingCellModel(
-            ECOComputationDriveBlockEntity blockEntity,
-            ResourceLocation selectedCellModel,
-            ComputationRenderModels models,
-            Direction facing,
-            boolean formed) {
-        // No-op: verbose debug logging removed.
     }
 
     @Override

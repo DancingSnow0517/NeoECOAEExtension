@@ -7,9 +7,12 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEConfig {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int CRAFTING_SYSTEM_MIN_LENGTH = 5;
     private static final int COMPUTATION_SYSTEM_MIN_LENGTH = 5;
     private static final int STORAGE_SYSTEM_MIN_LENGTH = 4;
@@ -169,7 +172,8 @@ public class NEConfig {
             return ModList.get().isLoaded("gtceu")
                     || ModList.get().isLoaded("gtm")
                     || ModList.get().isLoaded("gregtech");
-        } catch (Throwable ignored) {
+        } catch (RuntimeException | LinkageError e) {
+            LOGGER.debug("Unable to detect GregTech-compatible mods while initializing ECO config defaults.", e);
             return false;
         }
     }

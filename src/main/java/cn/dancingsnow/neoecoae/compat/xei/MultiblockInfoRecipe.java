@@ -26,7 +26,8 @@ public final class MultiblockInfoRecipe {
                 .unwrapKey()
                 .map(key -> {
                     ResourceLocation ownerId = key.location();
-                    return new ResourceLocation(ownerId.getNamespace(), "multiblock/" + ownerId.getPath());
+                    return ResourceLocation.fromNamespaceAndPath(
+                            ownerId.getNamespace(), "multiblock/" + ownerId.getPath());
                 })
                 .orElseGet(() -> NeoECOAE.id("multiblock/unknown"));
     }

@@ -114,16 +114,27 @@ public class ElapsedTimeTracker {
             completedUnits += completedForType / (double) keyType.getAmountPerUnit();
         }
 
+        if (startedUnits <= 0) {
+            return 1;
+        }
         return Mth.clamp((float) (completedUnits / startedUnits), 0, 1);
+    }
+
+    public long getSyntheticRemainingItemCount() {
+        return (int) (Integer.MAX_VALUE - (double) getProgress() * Integer.MAX_VALUE);
+    }
+
+    public long getSyntheticStartItemCount() {
+        return Integer.MAX_VALUE;
     }
 
     @Deprecated(forRemoval = true)
     public long getRemainingItemCount() {
-        return (int) (Integer.MAX_VALUE - (double) getProgress() * Integer.MAX_VALUE);
+        return getSyntheticRemainingItemCount();
     }
 
     @Deprecated(forRemoval = true)
     public long getStartItemCount() {
-        return Integer.MAX_VALUE;
+        return getSyntheticStartItemCount();
     }
 }

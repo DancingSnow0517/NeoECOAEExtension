@@ -75,7 +75,7 @@ public class ECOComputationThreadingCoreBlockEntity
     }
 
     /**
-     * Restore CPUs from deferred NBT. Idempotent — only processes each slot once.
+     * Restore CPUs from deferred NBT. Idempotent: only processes each slot once.
      * Returns number of CPUs successfully restored.
      */
     public int restoreDeferredCpus(NEComputationCluster cluster) {
@@ -88,7 +88,7 @@ public class ECOComputationThreadingCoreBlockEntity
                         ? ServerLifecycleHooks.getCurrentServer().registryAccess()
                         : null);
         if (registries == null) {
-            LOGGER.warn("Cannot restore deferred ECO CPUs — registries unavailable. pos={}", worldPosition);
+            LOGGER.warn("Cannot restore deferred ECO CPUs: registries unavailable. pos={}", worldPosition);
             return 0;
         }
         int restored = 0;
@@ -101,7 +101,7 @@ public class ECOComputationThreadingCoreBlockEntity
             ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
             try {
                 cpu.readFromNBT(tag, registries);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 LOGGER.error("Failed to read ECO CPU NBT from deferredInit[{}]. pos={}", i, worldPosition, e);
                 continue; // Keep deferredInit[i] for retry
             }
@@ -117,11 +117,11 @@ public class ECOComputationThreadingCoreBlockEntity
                         cpu.getPlan().finalOutput());
             } else if (cpu.getPlan() != null) {
                 LOGGER.warn(
-                        "ECO CPU slot {} has plan but no job — keeping deferredInit for retry. pos={}",
+                        "ECO CPU slot {} has plan but no job; keeping deferredInit for retry. pos={}",
                         i,
                         worldPosition);
             } else {
-                LOGGER.debug("ECO CPU slot {} has no plan — keeping deferredInit for retry. pos={}", i, worldPosition);
+                LOGGER.debug("ECO CPU slot {} has no plan; keeping deferredInit for retry. pos={}", i, worldPosition);
             }
         }
         // Count remaining deferred slots for diagnostic visibility
@@ -157,7 +157,7 @@ public class ECOComputationThreadingCoreBlockEntity
             // wiped.
             int preserved = preserveDeferredTags(data);
             LOGGER.warn(
-                    "Cannot save ECO CPUs — registries unavailable. preservedDeferred={} pos={}",
+                    "Cannot save ECO CPUs: registries unavailable. preservedDeferred={} pos={}",
                     preserved,
                     worldPosition);
             return;

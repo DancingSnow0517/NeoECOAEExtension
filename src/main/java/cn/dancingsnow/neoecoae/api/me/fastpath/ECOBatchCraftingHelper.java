@@ -71,11 +71,13 @@ public final class ECOBatchCraftingHelper {
     }
 
     public static void insertAllOrThrow(ListCraftingInventory inventory, List<GenericStack> stacks) {
-        // ListCraftingInventory is an internal CPU inventory without a capacity
-        // limit. This insert is expected to be lossless. If AE2 changes this
-        // invariant, this method must be changed to verify the inserted amount.
         for (GenericStack stack : stacks) {
+            long before = inventory.extract(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE);
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
+            long after = inventory.extract(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE);
+            if (after < before || after - before != stack.amount()) {
+                throw new IllegalStateException("Failed to insert exact fast-path batch stack");
+            }
         }
     }
 

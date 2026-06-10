@@ -17,7 +17,6 @@ import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
@@ -36,9 +35,6 @@ import org.slf4j.Logger;
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>> extends AENetworkBlockEntity
         implements IAEMultiBlock<C> {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Set<String> LOGGED_FORMED_UPDATES = ConcurrentHashMap.newKeySet();
-    private static final Set<String> LOGGED_REBUILDS = ConcurrentHashMap.newKeySet();
-    private static final Set<String> LOGGED_GRID_STATES = ConcurrentHashMap.newKeySet();
     private static final boolean DEBUG_MIRROR_BUILD = Boolean.getBoolean("neoecoae.debugMultiblockMirror");
 
     @Setter
@@ -65,13 +61,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     public void onReady() {
         super.onReady();
         onGridConnectableSidesChanged();
-        logGridState("onReady", true);
         if (level instanceof ServerLevel serverLevel) {
-            logRebuild("onReady");
             calculator.calculateMultiblock(serverLevel, worldPosition);
             serverLevel.getServer().executeIfPossible(() -> {
                 if (level instanceof ServerLevel delayedLevel && !isRemoved()) {
-                    logRebuild("onReadyDelayed");
                     calculator.calculateMultiblock(delayedLevel, worldPosition);
                 }
             });
@@ -81,21 +74,18 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     public void updateMultiBlock(BlockPos changedPos) {
         if (level instanceof ServerLevel serverLevel) {
-            logRebuild("neighborChanged:" + changedPos);
             calculator.updateMultiblockAfterNeighborUpdate(serverLevel, worldPosition, changedPos);
         }
     }
 
     public void rebuildMultiblock() {
         if (level instanceof ServerLevel serverLevel) {
-            logRebuild("rebuildMultiblock");
             calculator.calculateMultiblock(serverLevel, worldPosition);
         }
     }
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
-        logGridState("onMainNodeStateChanged:" + reason, false);
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.updateState(false);
         }
@@ -123,7 +113,6 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (this.level == null || this.isRemoved()) {
             return;
         }
-        logGridState("updateState", updateExposed);
         BlockState oldState = level.getBlockState(worldPosition);
         BlockState newState = oldState;
         if (newState.hasProperty(NEBlock.FORMED)) {
@@ -151,7 +140,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
-    // ── UI sync template methods ──
+    // UI sync template methods.
     // Subclasses override writeUiSyncTag/readUiSyncTag without needing to
     // duplicate getUpdateTag/handleUpdateTag/getUpdatePacket boilerplate.
 
@@ -197,7 +186,6 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     public void updateCluster(@Nullable C cluster) {
         this.cluster = cluster;
         formed = cluster != null;
-        logGridState("updateCluster", true);
         updateState(true);
     }
 
@@ -222,13 +210,5 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             cluster.onStructureBroken();
             cluster.destroy();
         }
-    }
-
-    private void logRebuild(String source) {
-        // No-op: verbose debug logging removed.
-    }
-
-    private void logGridState(String source, boolean updateExposed) {
-        // No-op: verbose debug logging removed.
     }
 }

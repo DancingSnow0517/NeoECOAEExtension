@@ -393,7 +393,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return buildPreviewStatusComponent();
     }
 
-    // 鈹€鈹€ INEMultiblockBuildHost interface 鈹€鈹€
+    // INEMultiblockBuildHost implementation
 
     @Override
     public BlockPos getHostPos() {
@@ -478,7 +478,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         : "gui.neoecoae.multiblock.status.dismantle_failed");
     }
 
-    // 鈹€鈹€ Legacy public accessors 鈹€鈹€
+    // Legacy public accessors
 
     public int getSelectedBuildLength() {
         return selectedBuildLength;
@@ -573,7 +573,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return result;
     }
 
-    // increaseBuildLength / decreaseBuildLength 鈥?provided by INEMultiblockBuildHost default
+    // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default
 
     @Override
     public BuildPreviewState getBuildPreview() {
@@ -746,10 +746,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         syncPreview(0, 0, 0, 0, statusKey);
     }
 
-    // buildPreviewStatusComponent() 鈥?provided by INEMultiblockBuildHost default
+    // buildPreviewStatusComponent() is provided by INEMultiblockBuildHost default
 
-    // 鈹€鈹€ NBT persistence 鈹€鈹€
-
+    // NBT persistence
     @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
@@ -774,7 +773,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         previewStatusArg2 = 0;
     }
 
-    // 鈹€鈹€ UI sync (Layer 1: chunk-load NBT) 鈹€鈹€
+    // UI sync (Layer 1: chunk-load NBT)
     // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
     // We only need to override writeUiSyncTag/readUiSyncTag.
 
@@ -791,7 +790,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
         if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
         if (totalBytes != null) tag.putLongArray("neo_totalBytes", totalBytes);
-        // Build/preview state 鈥?delegated to BuildPreviewState
+        // Build/preview state is delegated to BuildPreviewState
         // Note: individual fields (selectedBuildLength, preview*, buildInProgress)
         // still exist alongside buildPreview; syncPreview()/resetPreview() update both.
         buildPreview.writeToTag(tag);
@@ -810,7 +809,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
         if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");
         if (tag.contains("neo_totalBytes")) totalBytes = tag.getLongArray("neo_totalBytes");
-        // Build/preview state 鈥?delegated to BuildPreviewState
+        // Build/preview state is delegated to BuildPreviewState
         // Keep individual field reads for backward compat; buildPreview syncs alongside.
         buildPreview.readFromTag(tag);
         if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");

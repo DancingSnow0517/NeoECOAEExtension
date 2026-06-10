@@ -93,7 +93,7 @@ public record CoolingRecipe(
             if (field == null) {
                 throw new JsonParseException("Recipe " + recipeId + " output must contain 'fluid' or 'id'");
             }
-            ResourceLocation fluidId = new ResourceLocation(object.get(field).getAsString());
+            ResourceLocation fluidId = ResourceLocation.parse(object.get(field).getAsString());
             Fluid fluid = ForgeRegistries.FLUIDS.getValue(fluidId);
             if (fluid == null || fluid == Fluids.EMPTY) {
                 throw new JsonParseException("Recipe " + recipeId + " has unknown fluid output '" + fluidId + "'");

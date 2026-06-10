@@ -33,15 +33,15 @@ public final class NELDLibGuiRenderState {
 
     public static void endVanillaGuiItemBatch(GuiGraphics graphics) {
         graphics.flush();
-        restoreGui2dState();
+        restoreGuiItemState();
     }
 
     public static void restoreGui2dStateAfterScene(GuiGraphics graphics) {
         graphics.flush();
-        restoreGui2dState();
+        restoreGuiItemState();
     }
 
-    private static void restoreGui2dState() {
+    private static void restoreGuiItemState() {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();

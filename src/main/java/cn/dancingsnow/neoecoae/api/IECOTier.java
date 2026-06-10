@@ -6,17 +6,18 @@ import net.minecraft.resources.ResourceLocation;
 
 public interface IECOTier {
     int getTier();
+
     /**
-     * 鍚堟垚绯荤粺骞惰鏍稿績骞惰鏁伴噺
+     * Base parallelism provided by a crafting parallel core of this tier.
      *
-     * @return 骞惰鏁伴噺
+     * @return the base crafting parallel count
      */
     int getCrafterParallel();
 
     /**
-     * 鍚堟垚绯荤粺骞惰鏍稿績瓒呴鍚庡苟琛屾暟閲?
+     * Parallelism provided by a crafting parallel core when overclocking is enabled.
      *
-     * @return 瓒呴鍚庡苟琛屾暟閲?
+     * @return the overclocked crafting parallel count
      */
     int getOverclockedCrafterParallel();
 
@@ -27,38 +28,39 @@ public interface IECOTier {
     default int getOverclockedCrafterPowerMultiply() {
         return getOverclockedCrafterQueueMultiply();
     }
+
     /**
-     * 璁＄畻绯荤粺骞惰鏍稿績骞惰鏁伴噺
+     * Accelerator count provided by a computation component of this tier.
      *
-     * @return 骞惰鏁伴噺
+     * @return the accelerator count
      */
     int getCPUAccelerators();
 
     /**
-     * 璁＄畻绯荤粺绾跨▼鏍稿績绾跨▼鏁伴噺
+     * Thread count provided by a computation component of this tier.
      *
-     * @return 绾跨▼鏁伴噺
+     * @return the thread count
      */
     int getCPUThreads();
 
     /**
-     * 璁＄畻绯荤粺闂瓨鏅堕樀瀛楄妭鏁伴噺
+     * Computation storage capacity provided by this tier.
      *
-     * @return 闂瓨鏅堕樀瀛楄妭鏁伴噺
+     * @return total computation bytes
      */
     long getCPUTotalBytes();
 
     /**
-     * 瀛樺偍绯荤粺瀛樺偍鐭╅樀瀛楄妭鏁伴噺
+     * Storage cell capacity provided by this tier.
      *
-     * @return 瀛樺偍鐭╅樀瀛楄妭鏁伴噺
+     * @return total storage bytes
      */
     long getStorageTotalBytes();
 
     /**
-     * 瀛樺偍绯荤粺鍌ㄧ數鏂瑰潡姣忎釜鏂瑰潡鍌ㄧ數閲?
+     * Energy capacity provided by storage power blocks of this tier.
      *
-     * @return 鍌ㄧ數閲?
+     * @return energy storage capacity
      */
     long getPowerStorageSize();
 
@@ -69,10 +71,10 @@ public interface IECOTier {
     }
 
     /**
-     * 瀛樺偍绯荤粺瀛樺偍鐭╅樀绫诲瀷鏁伴噺
+     * Maximum number of stored key types supported by this tier.
      *
-     * @param keyType 鏍规�?{@link AEKeyType} 涓嶅悓锛岀被鍨嬫暟�?
-     * @return 瀛樺偍鐭╅樀绫诲瀷鏁伴噺
+     * @param keyType AE key type whose type limit should be queried
+     * @return total supported type count for the given key type
      */
     default int getStorageTotalTypes(AEKeyType keyType) {
         return ECOAETypeCounts.getByType(keyType);

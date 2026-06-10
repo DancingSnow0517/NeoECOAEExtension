@@ -67,7 +67,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 getLevel().setBlockAndUpdate(getBlockPos(), newState);
             }
         }
-        updateStorageProviderState("setCellStack");
+        updateStorageProviderState();
         lastSyncedCellState = getCurrentCellState();
         markForUpdate();
         setChanged();
@@ -88,10 +88,10 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
-        updateStorageProviderState("updateState");
+        updateStorageProviderState();
     }
 
-    private void updateStorageProviderState(String source) {
+    private void updateStorageProviderState() {
         double power = 256;
         if (cluster != null && cluster.getController() != null) {
             IECOTier mainTier = cluster.getController().getTier();
@@ -110,7 +110,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
      * {@link #updateStorageProviderState}.
      */
     public void requestStorageProviderUpdate() {
-        updateStorageProviderState("requestStorageProviderUpdate");
+        updateStorageProviderState();
     }
 
     public void scheduleRenderUpdate() {
@@ -139,15 +139,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
-        boolean hasCluster = cluster != null;
-        boolean hasController = hasCluster && cluster.getController() != null;
-        IECOTier mainTier = hasController ? cluster.getController().getTier() : null;
-        IECOStorageCell cellInventory = getCellInventory();
-        IECOTier cellTier = cellInventory == null ? null : cellInventory.getTier();
-        boolean tierSupported = mainTier != null && cellTier != null && mainTier.compareTo(cellTier) >= 0;
-        boolean willMount = hasController && cellInventory != null && tierSupported;
-        logMountAttempt(hasCluster, hasController, mainTier, cellInventory, cellTier, tierSupported, willMount);
         if (cluster != null && cluster.getController() != null) {
+            IECOTier mainTier = cluster.getController().getTier();
+            IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 int priority = cluster.getController().getPriority();
                 storageMounts.mount(cellInventory, priority);
@@ -158,7 +152,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 if (mountedChanged) {
                     markForUpdate();
                 }
-                logMountResult(true);
                 notifyControllerRefresh();
                 return;
             }
@@ -170,21 +163,20 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (mountedChanged) {
             markForUpdate();
         }
-        logMountResult(false);
         notifyControllerRefresh();
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        updateStorageProviderState("onReady");
+        updateStorageProviderState();
     }
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
         online = getMainNode().isOnline();
-        updateStorageProviderState("onMainNodeStateChanged:" + reason);
+        updateStorageProviderState();
         markForUpdate();
         setChanged();
     }
@@ -213,7 +205,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public CompoundTag getUpdateTag() {
         CompoundTag tag = super.getUpdateTag();
         saveDriveVisualState(tag);
-        logVisualSync("saveUpdateTag", tag);
         return tag;
     }
 
@@ -221,7 +212,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void handleUpdateTag(CompoundTag tag) {
         super.handleUpdateTag(tag);
         loadDriveVisualState(tag);
-        logVisualSync("handleUpdateTag", tag);
     }
 
     @Nullable @Override
@@ -268,34 +258,11 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         return cellInventory == null ? null : cellInventory.getStatus();
     }
 
-    private void logVisualSync(String source, CompoundTag data) {
-        // No-op: verbose debug logging removed.
-    }
-
     private static @Nullable ItemStack normalizeCellStack(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return null;
         }
         return stack.copyWithCount(1);
-    }
-
-    private void logStorageProviderUpdate(String source, double power) {
-        // No-op: verbose debug logging removed.
-    }
-
-    private void logMountAttempt(
-            boolean hasCluster,
-            boolean hasController,
-            @Nullable IECOTier mainTier,
-            @Nullable IECOStorageCell cellInventory,
-            @Nullable IECOTier cellTier,
-            boolean tierSupported,
-            boolean willMount) {
-        // No-op: debug logging removed.
-    }
-
-    private void logMountResult(boolean mounted) {
-        // No-op: debug logging removed.
     }
 
     /**

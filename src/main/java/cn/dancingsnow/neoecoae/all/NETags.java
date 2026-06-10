@@ -50,9 +50,9 @@ public class NETags {
         public static final TagKey<Item> BUDDING_BLOCKS = common("budding_blocks");
         public static final TagKey<Item> CLUSTERS = common("clusters");
 
-        // 鐢ㄤ簬鍒朵綔姘存櫠閿殑鍩哄簳
+        // Base tag for crystal ingot recipes.
         public static final TagKey<Item> CRYSTAL_INGOT_BASE = mod("crystal_ingot_base");
-        // 鐢ㄤ簬鍒朵綔瓒呭閿殑鍩哄簳
+        // Base tag for superconductive ingot recipes.
         public static final TagKey<Item> SUPERCONDUCTIVE_INGOT_BASE = mod("superconductive_ingot_base");
 
         private static TagKey<Item> mod(String path) {
@@ -60,7 +60,7 @@ public class NETags {
         }
 
         private static TagKey<Item> common(String path) {
-            return ItemTags.create(new ResourceLocation("forge", path));
+            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 
@@ -89,7 +89,7 @@ public class NETags {
         }
 
         private static TagKey<Block> common(String path) {
-            return BlockTags.create(new ResourceLocation("forge", path));
+            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 
@@ -101,7 +101,7 @@ public class NETags {
         }
 
         private static TagKey<Fluid> common(String path) {
-            return FluidTags.create(new ResourceLocation("forge", path));
+            return FluidTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 }

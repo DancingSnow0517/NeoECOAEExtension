@@ -4,6 +4,7 @@ import static cn.dancingsnow.neoecoae.gui.ldlib.layout.NECraftingPatternBusLayou
 
 import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.EncodedPatternItem;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
@@ -14,15 +15,20 @@ import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int PAGE_UPDATE_ID = 1;
     private static final int PAGE_ACTION_ID = 2;
     private static final int PAGE_BUTTON_Y = 4;
@@ -39,6 +45,7 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
     private final NEPagedItemTransfer pagedTransfer;
     private final ItemStack ghostPattern = AEItems.BLANK_PATTERN.stack();
     private final Map<String, ItemStack> patternDisplayCache = new HashMap<>();
+    private final Set<String> failedPatternDisplayCache = new HashSet<>();
 
     private int currentPage;
     private int pageCount = 1;
@@ -350,6 +357,9 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
         }
         String tagKey = patternStack.getTag() != null ? patternStack.getTag().toString() : "{}";
         String key = BuiltInRegistries.ITEM.getKey(patternStack.getItem()) + "|" + tagKey;
+        if (failedPatternDisplayCache.contains(key)) {
+            return ItemStack.EMPTY;
+        }
         ItemStack cached = patternDisplayCache.get(key);
         if (cached != null) {
             return cached.copy();
@@ -360,7 +370,9 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
                 patternDisplayCache.put(key, output.copy());
                 return output;
             }
-        } catch (Exception ignored) {
+        } catch (RuntimeException e) {
+            failedPatternDisplayCache.add(key);
+            LOGGER.debug("Unable to resolve encoded pattern output for smart pattern bus display: {}", key, e);
             return ItemStack.EMPTY;
         }
         return ItemStack.EMPTY;

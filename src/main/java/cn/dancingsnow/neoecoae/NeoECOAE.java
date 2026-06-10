@@ -20,6 +20,7 @@ import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.datagen.AAERecipeData;
 import cn.dancingsnow.neoecoae.datagen.EAERecipeData;
+import cn.dancingsnow.neoecoae.forge.event.NELightningTransformEvents;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -30,8 +31,8 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.event.TagsUpdatedEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -55,8 +56,8 @@ public class NeoECOAE {
 
     public static final NERegistrate REGISTRATE = NERegistrate.create(MOD_ID);
 
-    public NeoECOAE() {
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+    public NeoECOAE(FMLJavaModLoadingContext context) {
+        IEventBus modBus = context.getModEventBus();
         MOD_BUS = modBus;
         REGISTRATE.registerEventListeners(modBus);
 
@@ -82,17 +83,18 @@ public class NeoECOAE {
         integrationManager.loadAllIntegrations();
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
         modBus.addListener(NEConfig::onLoad);
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
+        context.registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
 
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
         modBus.addListener(NeoECOAE::addClassicPack);
         if (FMLEnvironment.dist == Dist.CLIENT) {
-            cn.dancingsnow.neoecoae.client.NeoECOAEClient.init(modBus);
+            cn.dancingsnow.neoecoae.client.NeoECOAEClient.init(modBus, context);
         }
         MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
         MinecraftForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, NELightningTransformEvents::onEntityJoinLevel);
     }
 
     public static ResourceLocation id(String path) {

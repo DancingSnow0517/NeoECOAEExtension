@@ -19,12 +19,11 @@ import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 public class NeoECOAEClient {
-    public static void init(IEventBus modBus) {
+    public static void init(IEventBus modBus, ModLoadingContext loadingContext) {
         NEExtraModels.register();
-        ModLoadingContext.get()
-                .registerExtensionPoint(
-                        ConfigScreenHandler.ConfigScreenFactory.class,
-                        () -> new ConfigScreenHandler.ConfigScreenFactory(NEConfigScreen::new));
+        loadingContext.registerExtensionPoint(
+                ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new ConfigScreenHandler.ConfigScreenFactory(NEConfigScreen::new));
         modBus.addListener(NeoECOAEClient::onClientSetup);
         modBus.addListener(NEExtraModels::onRegisterExtraModels);
         modBus.addListener(NeoECOAEClient::onRegisterRenderers);

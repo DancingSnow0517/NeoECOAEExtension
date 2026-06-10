@@ -15,9 +15,6 @@ import appeng.me.energy.StoredEnergyAmount;
 import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
-import com.mojang.logging.LogUtils;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -26,14 +23,9 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkStatus;
-import org.slf4j.Logger;
 
 public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
         implements IExternalPowerSink, IGridTickable {
-    private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Set<String> LOGGED_POWER_CHANGES = ConcurrentHashMap.newKeySet();
-    private static final Set<String> LOGGED_ENERGY_TICKS = ConcurrentHashMap.newKeySet();
-
     @Getter
     private final IECOTier tier;
 
@@ -56,23 +48,19 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
     @Override
     public final double injectAEPower(double amt, Actionable mode) {
-        double before = this.energyStored.getAmount();
         var inserted = this.energyStored.insert(amt, mode == appeng.api.config.Actionable.MODULATE);
         if (mode == Actionable.MODULATE && inserted > 0) {
             this.onEnergyChanged();
         }
-        logPowerChange("injectAEPower", amt, inserted, mode, before, this.energyStored.getAmount());
         return amt - inserted;
     }
 
     @Override
     public final double extractAEPower(double amt, Actionable mode, PowerMultiplier pm) {
-        double before = this.energyStored.getAmount();
         double extracted = pm.divide(this.extractAEPower(pm.multiply(amt), mode));
         if (mode == Actionable.MODULATE && extracted > 0) {
             this.onEnergyChanged();
         }
-        logPowerChange("extractAEPower", amt, extracted, mode, before, this.energyStored.getAmount());
         return extracted;
     }
 
@@ -122,12 +110,11 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
                 try {
                     grid.getTickManager().alertDevice(node);
                 } catch (IllegalArgumentException ignored) {
-                    // Node not yet alertable — retry on next energy change
+                    // Node is not alertable yet; retry on the next energy change.
                     neighborChangePending = false;
                 }
             });
         }
-        logEnergyTick("onEnergyChanged");
     }
 
     @Override
@@ -175,7 +162,6 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        logEnergyTick("tickingRequest:" + ticksSinceLastCall);
         if (Platform.areBlockEntitiesTicking(getLevel(), getBlockPos())) {
             if (neighborChangePending) {
                 neighborChangePending = false;
@@ -199,27 +185,12 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
         int storageLevel =
                 getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
-        logEnergyTick("updateStateForPowerLevel:" + storageLevel);
 
         if (this.currentDisplayLevel != storageLevel) {
             BlockState oldState = this.level.getBlockState(this.worldPosition);
             BlockState newState = oldState.setValue(ECOEnergyCellBlock.LEVEL, storageLevel);
-            logDisplayLevelUpdate(oldState, newState, storageLevel);
             this.currentDisplayLevel = (byte) storageLevel;
             this.level.setBlockAndUpdate(this.worldPosition, newState);
         }
-    }
-
-    private void logDisplayLevelUpdate(BlockState oldState, BlockState newState, int newDisplayLevel) {
-        // No-op: verbose debug logging removed.
-    }
-
-    private void logPowerChange(
-            String source, double requested, double moved, Actionable mode, double before, double after) {
-        // No-op: verbose debug logging removed.
-    }
-
-    private void logEnergyTick(String source) {
-        // No-op: per-tick verbose debug logging removed.
     }
 }

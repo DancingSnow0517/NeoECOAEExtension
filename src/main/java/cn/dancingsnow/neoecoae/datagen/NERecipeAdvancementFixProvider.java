@@ -69,7 +69,7 @@ public class NERecipeAdvancementFixProvider implements DataProvider {
         if (fixInventoryChangedCriteria(json)) {
             try {
                 DataProvider.saveStable(cache, json, file).join();
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 throw new RuntimeException("Failed to write fixed recipe advancement " + file, e);
             }
         }

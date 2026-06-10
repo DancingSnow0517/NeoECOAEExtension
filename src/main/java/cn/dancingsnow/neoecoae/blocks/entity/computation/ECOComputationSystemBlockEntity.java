@@ -266,9 +266,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return NELDLibUis.createComputationController(this, player);
     }
 
-    // getPreviewStatusComponent() 鈥?provided by INEMultiblockBuildHost default
+    // getPreviewStatusComponent() is provided by INEMultiblockBuildHost default
 
-    // 鈹€鈹€ INEMultiblockBuildHost interface 鈹€鈹€
+    // INEMultiblockBuildHost implementation
 
     @Override
     public BlockPos getHostPos() {
@@ -353,7 +353,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                         : "gui.neoecoae.multiblock.status.dismantle_failed");
     }
 
-    // 鈹€鈹€ Legacy public accessors 鈹€鈹€
+    // Legacy public accessors
 
     public int getSelectedBuildLength() {
         return selectedBuildLength;
@@ -379,11 +379,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return buildInProgress;
     }
 
-    // 閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡?
     // Multi-block builder methods invoked by LDLib UI actions.
-    // 閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡鎰ㄦ櫜閳烘劏鏅查埡?
 
-    // increaseBuildLength / decreaseBuildLength 鈥?provided by INEMultiblockBuildHost default
+    // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default
 
     @Override
     public BuildPreviewState getBuildPreview() {
@@ -559,10 +557,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         markUiStateDirty();
     }
 
-    // buildPreviewStatusComponent() 鈥?provided by INEMultiblockBuildHost default
+    // buildPreviewStatusComponent() is provided by INEMultiblockBuildHost default
 
-    // 鈹€鈹€ NBT persistence 鈹€鈹€
-
+    // NBT persistence
     @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
@@ -592,7 +589,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         previewStatusArg2 = 0;
     }
 
-    // 鈹€鈹€ UI sync (Layer 1: chunk-load NBT) 鈹€鈹€
+    // UI sync (Layer 1: chunk-load NBT)
     // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
 
     @Override
@@ -602,7 +599,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         tag.putInt("neo_parallelCount", parallelCount);
         tag.putLong("neo_availableBytes", availableBytes);
         tag.putLong("neo_totalBytes", totalBytes);
-        // Build/preview state 鈥?delegated to BuildPreviewState
+        // Build/preview state is delegated to BuildPreviewState
         // Note: individual preview fields still exist alongside buildPreview;
         // syncPreview()/resetPreview() update both.
         buildPreview.writeToTag(tag);
@@ -615,7 +612,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         if (tag.contains("neo_parallelCount")) parallelCount = tag.getInt("neo_parallelCount");
         if (tag.contains("neo_availableBytes")) availableBytes = tag.getLong("neo_availableBytes");
         if (tag.contains("neo_totalBytes")) totalBytes = tag.getLong("neo_totalBytes");
-        // Build/preview state 鈥?delegated to BuildPreviewState
+        // Build/preview state is delegated to BuildPreviewState
         // Keep individual field reads for backward compat; buildPreview syncs alongside.
         buildPreview.readFromTag(tag);
         if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");

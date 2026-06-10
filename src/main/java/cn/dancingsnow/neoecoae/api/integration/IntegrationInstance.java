@@ -32,13 +32,13 @@ public final class IntegrationInstance {
             MethodHandle loader;
             try {
                 loader = lookup.findVirtual(clazz, "apply", MethodType.methodType(void.class));
-            } catch (Throwable e) {
+            } catch (NoSuchMethodException e) {
                 loader = null;
             }
             this.loader = loader;
             try {
                 loader = lookup.findVirtual(clazz, "applyClient", MethodType.methodType(void.class));
-            } catch (Throwable e) {
+            } catch (NoSuchMethodException e) {
                 loader = null;
             }
             this.clientLoader = loader;

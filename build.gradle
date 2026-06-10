@@ -35,7 +35,7 @@ repositories {
     }
     maven {
         name = "CurseForge Maven"
-        url "https://cursemaven.com"
+        url = "https://cursemaven.com"
         content {
             includeGroup "curse.maven"
         }
@@ -45,8 +45,8 @@ repositories {
         url = "https://maven.ithundxr.dev/snapshots"
     }
     maven {
-        name "firstdarkdev"
-        url "https://maven.firstdarkdev.xyz/snapshots"
+        name = "firstdarkdev"
+        url = "https://maven.firstdarkdev.xyz/snapshots"
     }
     maven {
         name = "Jared's maven"
@@ -59,7 +59,7 @@ repositories {
     maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
     maven { url = "https://maven.createmod.net" }
     maven {
-        url "https://maven.latvian.dev/releases"
+        url = "https://maven.latvian.dev/releases"
         content {
             includeGroup "dev.latvian.mods"
             includeGroup "dev.latvian.apps"
@@ -67,7 +67,7 @@ repositories {
     }
     maven {
         name = 'GeckoLib'
-        url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+        url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
         content {
             includeGroup("software.bernie.geckolib")
         }
@@ -77,12 +77,12 @@ repositories {
         url = "https://maven.terraformersmc.com/"
     }
     maven {
-        url 'https://jitpack.io'
+        url = 'https://jitpack.io'
         content {
             includeGroup "com.github.rtyley"
         }
     }
-    maven { url "https://maven.shedaniel.me/" }
+    maven { url = "https://maven.shedaniel.me/" }
 }
 
 spotless {
@@ -225,9 +225,10 @@ dependencies {
 }
 
 sourceSets.main.resources {
-    srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources',
-            layout.buildDirectory.dir('generated/refmap')
+    srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources'
 }
+
+sourceSets.main.output.dir(layout.buildDirectory.dir('generated/refmap'), builtBy: 'compileJava')
 
 def forge120JavaExcludes = [
         'cn/dancingsnow/neoecoae/integration/**',
@@ -268,7 +269,6 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 sourceSets.main.resources.srcDir generateModMetadata
 
 processResources.dependsOn generateModMetadata
-processResources.dependsOn compileJava
 processResources.dependsOn 'copyGuidebook'
 tasks.named('processResources', ProcessResources).configure {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -357,7 +357,7 @@ publishing {
     }
     repositories {
         maven {
-            url "file://${project.projectDir}/repo"
+            url = "file://${project.projectDir}/repo"
         }
     }
 }
@@ -370,9 +370,12 @@ tasks.named('test', Test).configure {
     useJUnitPlatform()
 }
 
+tasks.named('check').configure {
+    dependsOn 'spotlessCheck'
+}
+
 tasks.named('compileJava', JavaCompile).configure {
     dependsOn 'createMcpToSrg'
-    dependsOn 'spotlessApply'
     def refmapFile = layout.buildDirectory.file("generated/refmap/${mod_id}.refmap.json").get().asFile
     def tsrgFile = layout.buildDirectory.file('createMcpToSrg/output.tsrg').get().asFile
     options.compilerArgs += [

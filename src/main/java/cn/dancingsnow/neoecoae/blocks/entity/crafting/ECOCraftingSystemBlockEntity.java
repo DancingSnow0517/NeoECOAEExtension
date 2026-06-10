@@ -59,7 +59,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             .thenComparingInt(NECraftingModuleCell::tier);
 
     /**
-     * Internal coolant cache maximum 鈥?the crafting controller's own cooling
+     * Internal coolant cache maximum: the crafting controller's own cooling
      * buffer, <em>not</em> the fluid hatch tank capacity.
      * Maintains the 1.21.1 value of 1,000,000.
      */
@@ -119,8 +119,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         getMainNode().addService(IGridTickable.class, this);
     }
 
-    // 鈹€鈹€ NBT persistence 鈹€鈹€
-
+    // NBT persistence
     @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
@@ -558,10 +557,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return workerCount;
     }
 
-    // getPreviewStatusComponent() 鈥?provided by INEMultiblockBuildHost default
+    // getPreviewStatusComponent() is provided by INEMultiblockBuildHost default
 
-    // 鈹€鈹€ INEMultiblockBuildHost implementation 鈹€鈹€
-
+    // INEMultiblockBuildHost implementation
     @Override
     public BlockPos getHostPos() {
         return worldPosition;
@@ -672,9 +670,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         // triggers a recalculation, making effParallel inconsistent.
         ensureCraftingStatsCurrent();
 
-        int totalParallelism = threadCount; // FT 鐞嗚骞惰
-        int availThreads = getAvailableThreads(); // FX 宸ヤ綔鏍稿績鎵胯浇涓婇檺
-        int effParallel = Math.min(totalParallelism, availThreads); // 瀹為檯鏈夋晥骞惰
+        int totalParallelism = threadCount;
+        int availThreads = getAvailableThreads();
+        int effParallel = Math.min(totalParallelism, availThreads);
 
         // Collect active craft outputs from each worker
         List<ItemStack> craftOutputs = new ArrayList<>();
@@ -994,7 +992,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    // increaseBuildLength / decreaseBuildLength 鈥?provided by INEMultiblockBuildHost default
+    // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default
 
     @Override
     public BuildPreviewState getBuildPreview() {
@@ -1171,7 +1169,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         markUiStateDirty();
     }
 
-    // buildPreviewStatusComponent() 鈥?provided by INEMultiblockBuildHost default
+    // buildPreviewStatusComponent() is provided by INEMultiblockBuildHost default
 
     private Component buildCoolantSupportComponent() {
         int displayedMaxOverclock = getCurrentCoolingMaxOverclock();
@@ -1194,7 +1192,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return recipe == null ? -1 : recipe.maxOverclock();
     }
 
-    // 鈹€鈹€ UI sync (Layer 1: chunk-load NBT) 鈹€鈹€
+    // UI sync (Layer 1: chunk-load NBT)
     // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
 
     @Override
@@ -1210,7 +1208,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         tag.putInt("workerCount", workerCount);
         tag.putInt("threadCount", threadCount);
         tag.putInt("runningThreadCount", runningThreadCount);
-        // Build/preview state 鈥?delegated to BuildPreviewState
+        // Build/preview state is delegated to BuildPreviewState
         // Note: individual preview fields still exist alongside buildPreview;
         // syncPreview()/resetPreview() update both.
         buildPreview.writeToTag(tag);
@@ -1230,7 +1228,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (tag.contains("workerCount")) workerCount = tag.getInt("workerCount");
         if (tag.contains("threadCount")) threadCount = tag.getInt("threadCount");
         if (tag.contains("runningThreadCount")) runningThreadCount = tag.getInt("runningThreadCount");
-        // Build/preview state 鈥?delegated to BuildPreviewState
+        // Build/preview state is delegated to BuildPreviewState
         // Keep individual field reads for backward compat; buildPreview syncs alongside.
         buildPreview.readFromTag(tag);
         if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
