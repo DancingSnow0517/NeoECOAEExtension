@@ -1,0 +1,112 @@
+package cn.dancingsnow.neoecoae.integration.appbot;
+
+import appbot.ae2.ManaKeyType;
+import appeng.items.materials.MaterialItem;
+import appeng.recipes.game.StorageCellDisassemblyRecipe;
+import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.api.ECOTier;
+import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.util.ItemModelUtil;
+import com.tterrag.registrate.providers.RegistrateRecipeProvider;
+import com.tterrag.registrate.util.entry.ItemEntry;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.data.recipes.RecipeOutput;
+import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
+import vazkii.botania.common.crafting.ManaInfusionRecipe;
+
+import java.util.List;
+
+import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
+
+public class NEAppBotItems {
+
+    public static final ItemEntry<MaterialItem> ECO_MANA_CELL_HOUSING = REGISTRATE
+        .item("eco_mana_cell_housing", MaterialItem::new)
+        .recipe((ctx, prov) -> {
+            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition("appbot"));
+            ManaInfusionRecipe recipe = new ManaInfusionRecipe(
+                new ItemStack(ctx.get()),
+                Ingredient.of(NEItems.ECO_ITEM_CELL_HOUSING),
+                100000,
+                null,
+                null
+            );
+            appBotInstalled.accept(ctx.getId().withPrefix("mana_infusion/"), recipe, null);
+        })
+        .lang("ECO Storage Matrix Housing (Mana)")
+        .register();
+
+    public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_16M = REGISTRATE
+        .item("eco_mana_storage_cell_16m", p -> new ECOStorageCellItem(
+            p,
+            ECOTier.L4,
+            ManaKeyType.TYPE,
+            NEAppBotCellTypes.MANA
+        ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
+        .recipe((ctx, prov) -> {
+            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition("appbot"));
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(ECO_MANA_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_16M)
+                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
+                .save(appBotInstalled);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_MANA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
+            appBotInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
+        .lang("ECO - LE4 Storage Matrix (Mana)")
+        .model(ItemModelUtil.cellModel("mana", "16m"))
+        .register();
+
+    public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_64M = REGISTRATE
+        .item("eco_mana_storage_cell_64m", p -> new ECOStorageCellItem(
+            p,
+            ECOTier.L6,
+            ManaKeyType.TYPE,
+            NEAppBotCellTypes.MANA
+        ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
+        .recipe((ctx, prov) -> {
+            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition("appbot"));
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(ECO_MANA_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_64M)
+                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
+                .save(appBotInstalled);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_MANA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
+            appBotInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
+        .lang("ECO - LE6 Storage Matrix (Mana)")
+        .model(ItemModelUtil.cellModel("mana", "64m"))
+        .register();
+
+    public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_256M = REGISTRATE
+        .item("eco_mana_storage_cell_256m", p -> new ECOStorageCellItem(
+            p,
+            ECOTier.L9,
+            ManaKeyType.TYPE,
+            NEAppBotCellTypes.MANA
+        ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
+        .recipe((ctx, prov) -> {
+            RecipeOutput appBotInstalled = prov.withConditions(new ModLoadedCondition("appbot"));
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+                .requires(ECO_MANA_CELL_HOUSING)
+                .requires(NEItems.ECO_CELL_COMPONENT_256M)
+                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
+                .save(appBotInstalled);
+            StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_MANA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
+            appBotInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
+        })
+        .lang("ECO - LE9 Storage Matrix (Mana)")
+        .model(ItemModelUtil.cellModel("mana", "256m"))
+        .register();
+
+    public static void register() {
+
+    }
+}

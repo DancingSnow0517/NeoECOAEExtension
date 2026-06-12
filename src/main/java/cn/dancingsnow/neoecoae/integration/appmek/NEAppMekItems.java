@@ -47,9 +47,10 @@ public class NEAppMekItems {
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE
         .item("eco_chemical_storage_cell_16m", p -> new ECOChemicalStorageCellItem(
-            p.stacksTo(1).rarity(Rarity.UNCOMMON),
+            p,
             ECOTier.L4
         ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
         .recipe((ctx, prov) -> {
             RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -66,9 +67,10 @@ public class NEAppMekItems {
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = REGISTRATE
         .item("eco_chemical_storage_cell_64m", p -> new ECOChemicalStorageCellItem(
-            p.stacksTo(1).rarity(Rarity.RARE),
+            p,
             ECOTier.L6
         ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
         .recipe((ctx, prov) -> {
             RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -85,9 +87,10 @@ public class NEAppMekItems {
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = REGISTRATE
         .item("eco_chemical_storage_cell_256m", p -> new ECOChemicalStorageCellItem(
-            p.stacksTo(1).rarity(Rarity.EPIC),
+            p,
             ECOTier.L9
         ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
         .recipe((ctx, prov) -> {
             RecipeOutput appmekInstalled = prov.withConditions(new ModLoadedCondition("appmek"));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())

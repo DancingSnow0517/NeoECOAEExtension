@@ -21,6 +21,9 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 repositories {
+    flatDir {
+        dir("libs")
+    }
     mavenLocal()
     mavenCentral()
     maven {
@@ -46,7 +49,7 @@ repositories {
         url "https://maven.firstdarkdev.xyz/snapshots"
     }
     maven {
-        // location of the maven that hosts JEI files since January 2023
+        // location of the maven that hosts JEI files since January 2023, botania
         name = "Jared's maven"
         url = "https://maven.blamejared.com/"
     }
@@ -113,6 +116,10 @@ dependencies {
     implementation("curse.maven:advancedae-1084104:7374386")
 
     implementation("curse.maven:jade-324717:7428884")
+
+    implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
+    // implementation("curse.maven:applied-botanics-addon-610632:7234122")
+    implementation(name: "appbot-1.6.0")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")

@@ -13,6 +13,7 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.world.item.Rarity;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
 
@@ -47,6 +48,7 @@ public class NEAppFluxItems {
             ECOTier.L4,
             NEAppFluxCellTypes.FLUX
         ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
         .recipe((ctx, prov) -> {
             RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition("appflux"));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -67,6 +69,7 @@ public class NEAppFluxItems {
             ECOTier.L6,
             NEAppFluxCellTypes.FLUX
         ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
         .recipe((ctx, prov) -> {
             RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition("appflux"));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
@@ -87,6 +90,7 @@ public class NEAppFluxItems {
             ECOTier.L9,
             NEAppFluxCellTypes.FLUX
         ))
+        .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
         .recipe((ctx, prov) -> {
             RecipeOutput appFluxInstalled = prov.withConditions(new ModLoadedCondition("appflux"));
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
