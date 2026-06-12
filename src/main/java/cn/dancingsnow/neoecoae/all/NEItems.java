@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -870,6 +871,7 @@ public class NEItems {
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE4 Storage Matrix (Item)")
+        .model(ItemModelUtil.cellModel("item", "16m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_64M = REGISTRATE
@@ -889,6 +891,7 @@ public class NEItems {
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE6 Storage Matrix (Item)")
+        .model(ItemModelUtil.cellModel("item", "64m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_256M = REGISTRATE
@@ -908,6 +911,7 @@ public class NEItems {
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE9 Storage Matrix (Item)")
+        .model(ItemModelUtil.cellModel("item", "256m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_16M = REGISTRATE
@@ -927,6 +931,7 @@ public class NEItems {
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE4 Storage Matrix (Fluid)")
+        .model(ItemModelUtil.cellModel("fluid", "16m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_64M = REGISTRATE
@@ -946,6 +951,7 @@ public class NEItems {
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE6 Storage Matrix (Fluid)")
+        .model(ItemModelUtil.cellModel("fluid", "64m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_256M = REGISTRATE
@@ -965,6 +971,7 @@ public class NEItems {
             prov.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE9 Storage Matrix (Fluid)")
+        .model(ItemModelUtil.cellModel("fluid", "256m"))
         .register();
 
     public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L4 = createComputationCell(

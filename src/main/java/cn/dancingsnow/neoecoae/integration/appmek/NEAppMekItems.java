@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOAETypeCounts;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.appmek.item.ECOChemicalStorageCellItem;
+import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import me.ramidzkh.mekae2.ae2.MekanismKeyType;
@@ -62,6 +63,7 @@ public class NEAppMekItems {
             appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE4 Storage Matrix (Chemical)")
+        .model(ItemModelUtil.cellModel("chemical", "16m"))
         .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = REGISTRATE
@@ -80,6 +82,7 @@ public class NEAppMekItems {
             appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE6 Storage Matrix (Chemical)")
+        .model(ItemModelUtil.cellModel("chemical", "64m"))
         .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = REGISTRATE
@@ -98,6 +101,7 @@ public class NEAppMekItems {
             appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE9 Storage Matrix (Chemical)")
+        .model(ItemModelUtil.cellModel("chemical", "256m"))
         .register();
 
     public static void register() {

@@ -1,6 +1,7 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "neoecoae:item/eco_fluid_storage_cell_16m"
+    "layer0": "neoecoae:item/eco_fluid_cell_housing",
+    "layer1": "neoecoae:item/eco_cell_light_16m"
   }
 }
