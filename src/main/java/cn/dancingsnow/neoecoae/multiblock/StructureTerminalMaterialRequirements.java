@@ -1,8 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock;
 
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlanContext;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation;
+import cn.dancingsnow.neoecoae.multiblock.preview.MultiblockPatternPreviewService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -42,31 +41,8 @@ public final class StructureTerminalMaterialRequirements {
         if (definition == null) {
             return List.of();
         }
-        int repeats = net.minecraft.util.Mth.clamp(buildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlanContext context = new MultiBlockPlanContext(repeats);
-        definition.createLevel(context);
-
-        List<ItemStack> requiredItems = new ArrayList<>();
-        for (var plannedBlock : context.getPlannedBlocks()) {
-            if (plannedBlock.relativePos().equals(MultiBlockRotation.CONTROLLER_ANCHOR)) {
-                continue;
-            }
-            mergeItem(requiredItems, plannedBlock.requiredItem());
-        }
-        return requiredItems;
-    }
-
-    private static void mergeItem(List<ItemStack> requiredItems, ItemStack toAdd) {
-        if (toAdd.isEmpty()) {
-            return;
-        }
-        for (ItemStack requiredItem : requiredItems) {
-            if (ItemStack.isSameItemSameTags(requiredItem, toAdd)) {
-                requiredItem.grow(toAdd.getCount());
-                return;
-            }
-        }
-        requiredItems.add(toAdd.copy());
+        return MultiblockPatternPreviewService.create(definition, buildLength, false)
+                .materialSummary();
     }
 
     private static long countMatchingItems(Player player, ItemStack target) {

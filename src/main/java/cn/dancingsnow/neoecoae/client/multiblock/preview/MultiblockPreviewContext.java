@@ -7,6 +7,9 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockItemFormResolver;
+import cn.dancingsnow.neoecoae.multiblock.preview.MultiblockPatternPreviewService;
+import cn.dancingsnow.neoecoae.multiblock.preview.MultiblockPatternSnapshot;
+import cn.dancingsnow.neoecoae.multiblock.preview.PatternBlockEntry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,9 +59,19 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
     }
 
     public static MultiblockPreviewScene createScene(MultiBlockDefinition definition, int expand, boolean formed) {
-        MultiblockPreviewContext context = new MultiblockPreviewContext(definition, expand, formed);
-        definition.createLevel(context);
-        return context.toScene(definition, expand);
+        return createScene(MultiblockPatternPreviewService.create(definition, expand, false), formed, -1);
+    }
+
+    public static MultiblockPreviewScene createScene(
+            MultiblockPatternSnapshot snapshot, boolean formed, int selectedLayer) {
+        MultiblockPreviewContext context =
+                new MultiblockPreviewContext(snapshot.definition(), snapshot.repeats(), formed);
+        for (PatternBlockEntry entry : snapshot.blocks()) {
+            if (selectedLayer < 0 || entry.layerY() == selectedLayer) {
+                context.addPreviewBlock(entry.relativePos(), entry.blockState());
+            }
+        }
+        return context.toScene(snapshot.definition(), snapshot.repeats(), snapshot.materialSummary());
     }
 
     @Override
@@ -69,7 +82,10 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
 
         ItemStack item = MultiBlockItemFormResolver.requiredItem(blockState);
         addRequiredItem(item);
+        addPreviewBlock(pos, blockState);
+    }
 
+    private void addPreviewBlock(BlockPos pos, BlockState blockState) {
         if (pos.getY() < 0) {
             return;
         }
@@ -109,8 +125,25 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
     }
 
     public MultiblockPreviewScene toScene(MultiBlockDefinition definition, int expand) {
+        return toScene(definition, expand, requiredItems);
+    }
+
+    private MultiblockPreviewScene toScene(
+            MultiBlockDefinition definition, int expand, List<ItemStack> sceneRequiredItems) {
         return new MultiblockPreviewScene(
-                definition, expand, formed, blocks, posList, requiredItems, minX, minY, minZ, maxX, maxY, maxZ, yMax);
+                definition,
+                expand,
+                formed,
+                blocks,
+                posList,
+                sceneRequiredItems,
+                minX,
+                minY,
+                minZ,
+                maxX,
+                maxY,
+                maxZ,
+                yMax);
     }
 
     private void addRequiredItem(ItemStack itemStack) {

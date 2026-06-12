@@ -11,6 +11,7 @@ import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -23,6 +24,7 @@ import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Structure Terminal — a handheld tool for configuring and executing
@@ -45,6 +47,8 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
     public static final String TAG_HOST_TYPE = "HostType";
     public static final String TAG_HOST_TIER = "HostTier";
     public static final String TAG_OPERATION_MODE = "OperationMode";
+    public static final String TAG_TARGET_DIMENSION = "TargetDimension";
+    public static final String TAG_TARGET_POS = "TargetPos";
     public static final int DEFAULT_BUILD_LENGTH = 1;
     public static final int MIN_BUILD_LENGTH = 1;
 
@@ -108,6 +112,8 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         CompoundTag tag = stack.getOrCreateTag();
         tag.putString(TAG_HOST_TYPE, hostType.name());
         tag.putInt(TAG_HOST_TIER, StructureTerminalHostType.clampTier(tier));
+        tag.remove(TAG_TARGET_DIMENSION);
+        tag.remove(TAG_TARGET_POS);
         setBuildLength(stack, getBuildLength(stack));
     }
 
@@ -129,6 +135,31 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         if (hostType != null) {
             setHostTarget(stack, hostType, StructureTerminalHostType.tierFromDefinition(definition));
         }
+    }
+
+    public static void rememberTarget(ItemStack stack, Level level, INEMultiblockBuildHost host) {
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.putString(TAG_TARGET_DIMENSION, level.dimension().location().toString());
+        tag.putLong(TAG_TARGET_POS, host.getHostPos().asLong());
+    }
+
+    public static @Nullable INEMultiblockBuildHost findLinkedHost(Player player, ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(TAG_TARGET_DIMENSION) || !tag.contains(TAG_TARGET_POS)) {
+            return null;
+        }
+        ResourceLocation targetDimension = ResourceLocation.tryParse(tag.getString(TAG_TARGET_DIMENSION));
+        if (targetDimension == null || !player.level().dimension().location().equals(targetDimension)) {
+            return null;
+        }
+        BlockPos targetPos = BlockPos.of(tag.getLong(TAG_TARGET_POS));
+        if (!player.level().hasChunkAt(targetPos)
+                || player.distanceToSqr(targetPos.getX() + 0.5D, targetPos.getY() + 0.5D, targetPos.getZ() + 0.5D)
+                        > 4096.0D) {
+            return null;
+        }
+        BlockEntity blockEntity = player.level().getBlockEntity(targetPos);
+        return blockEntity instanceof INEMultiblockBuildHost host ? host : null;
     }
 
     // ── Item behaviour ──
@@ -186,6 +217,7 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
                 BlockEntity be = level.getBlockEntity(pos);
                 if (be instanceof INEMultiblockBuildHost host) {
                     setHostTarget(stack, host);
+                    rememberTarget(stack, level, host);
                 }
                 openTerminalConfig(serverPlayer, ctx.getHand());
             }
@@ -204,6 +236,7 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         }
 
         setHostTarget(stack, host);
+        rememberTarget(stack, level, host);
         int requestedLength = StructureTerminalItem.getBuildLength(stack, host.getMaxBuildLength());
         ServerPlayer serverPlayer = (ServerPlayer) player;
         switch (StructureTerminalItem.getOperationMode(stack)) {

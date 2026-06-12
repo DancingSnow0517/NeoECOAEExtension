@@ -64,6 +64,24 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.increase_length", "Increase length");
         provider.add("gui.neoecoae.multiblock.length", "Length: %d");
         provider.add("gui.neoecoae.multiblock.preview", "Preview");
+        provider.add("gui.neoecoae.multiblock.pattern", "Pattern");
+        provider.add("gui.neoecoae.multiblock.layer", "Layer");
+        provider.add("gui.neoecoae.multiblock.layer_all", "All");
+        provider.add("gui.neoecoae.multiblock.layer_value", "Y %s");
+        provider.add("gui.neoecoae.multiblock.size", "Size: %s x %s x %s");
+        provider.add("gui.neoecoae.multiblock.controller", "Controller: %s, %s, %s");
+        provider.add("gui.neoecoae.multiblock.material_summary", "Material Summary");
+        provider.add("gui.neoecoae.multiblock.open_build_assist", "Build Assist");
+        provider.add("gui.neoecoae.multiblock.close_build_assist", "Close Build Assist");
+        provider.add("gui.neoecoae.multiblock.build_assist", "On-site Build Assist");
+        provider.add("gui.neoecoae.multiblock.mirror", "Mirror");
+        provider.add("gui.neoecoae.multiblock.preview_only_hint", "Pattern preview only; world state is not checked.");
+        provider.add("gui.neoecoae.multiblock.linked_host", "Linked Host");
+        provider.add("gui.neoecoae.multiblock.inventory_materials", "Inventory Materials");
+        provider.add("gui.neoecoae.multiblock.build_assist_hint", "Preview checks the linked host before building.");
+        provider.add(
+                "gui.neoecoae.multiblock.no_linked_host_hint",
+                "Open the terminal on a nearby controller to link on-site checks.");
         provider.add("gui.neoecoae.multiblock.build", "Build");
         provider.add("gui.neoecoae.multiblock.reused", "Reused: %d");
         provider.add("gui.neoecoae.multiblock.missing", "Missing: %d");

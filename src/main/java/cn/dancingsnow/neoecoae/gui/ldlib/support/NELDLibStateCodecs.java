@@ -350,6 +350,16 @@ public final class NELDLibStateCodecs {
         buf.writeVarInt(state.tier());
         buf.writeEnum(state.hostType());
         buf.writeEnum(state.operationMode());
+        buf.writeBoolean(state.linkedHost());
+        buf.writeBoolean(state.formed());
+        buf.writeBoolean(state.buildInProgress());
+        buf.writeVarInt(state.previewMissingBlocks());
+        buf.writeVarInt(state.previewConflictBlocks());
+        buf.writeVarInt(state.previewReusedBlocks());
+        buf.writeVarInt(state.previewRequiredItems());
+        buf.writeUtf(state.previewStatusKey());
+        buf.writeVarInt(state.previewStatusArg1());
+        buf.writeVarInt(state.previewStatusArg2());
         List<cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState.BuildMaterialEntry> materials =
                 state.materials();
         buf.writeVarInt(Math.min(materials.size(), MAX_STRUCTURE_TERMINAL_MATERIALS));
@@ -371,6 +381,16 @@ public final class NELDLibStateCodecs {
         int tier = buf.readVarInt();
         var hostType = buf.readEnum(cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType.class);
         var mode = buf.readEnum(cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode.class);
+        boolean linkedHost = buf.readBoolean();
+        boolean formed = buf.readBoolean();
+        boolean buildInProgress = buf.readBoolean();
+        int previewMissingBlocks = buf.readVarInt();
+        int previewConflictBlocks = buf.readVarInt();
+        int previewReusedBlocks = buf.readVarInt();
+        int previewRequiredItems = buf.readVarInt();
+        String previewStatusKey = buf.readUtf();
+        int previewStatusArg1 = buf.readVarInt();
+        int previewStatusArg2 = buf.readVarInt();
         int materialCount = buf.readVarInt();
         if (materialCount > MAX_STRUCTURE_TERMINAL_MATERIALS) {
             throw new IllegalArgumentException(
@@ -382,7 +402,24 @@ public final class NELDLibStateCodecs {
             materials.add(new cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState.BuildMaterialEntry(
                     buf.readItem(), buf.readVarInt(), buf.readVarInt()));
         }
-        return new NEStructureTerminalConfigState(length, minLength, maxLength, tier, hostType, mode, materials);
+        return new NEStructureTerminalConfigState(
+                length,
+                minLength,
+                maxLength,
+                tier,
+                hostType,
+                mode,
+                linkedHost,
+                formed,
+                buildInProgress,
+                previewMissingBlocks,
+                previewConflictBlocks,
+                previewReusedBlocks,
+                previewRequiredItems,
+                previewStatusKey,
+                previewStatusArg1,
+                previewStatusArg2,
+                materials);
     }
 
     private NELDLibStateCodecs() {}

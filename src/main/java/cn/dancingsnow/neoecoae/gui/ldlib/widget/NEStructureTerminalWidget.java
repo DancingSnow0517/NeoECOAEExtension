@@ -1,19 +1,21 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
-import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewContext;
-import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScene;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEStructureTerminalConfigState;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
+import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.preview.MultiblockPatternSnapshot;
+import cn.dancingsnow.neoecoae.multiblock.preview.PatternBlockEntry;
 import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -22,73 +24,89 @@ import java.util.function.Supplier;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
 public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStructureTerminalConfigState> {
-    public static final int WIDTH = 358;
-    public static final int HEIGHT = 236;
+    public static final int WIDTH = 390;
+    public static final int HEIGHT = 252;
 
-    private static final int PANEL_X = 7;
-    private static final int PANEL_Y = 24;
-    private static final int PANEL_GAP = 7;
-    private static final int PREVIEW_X = PANEL_X;
-    private static final int PREVIEW_Y = PANEL_Y;
-    private static final int PREVIEW_W = WIDTH - PANEL_X * 2;
-    private static final int PREVIEW_H = 94;
-    private static final int LOWER_Y = PREVIEW_Y + PREVIEW_H + PANEL_GAP;
-    private static final int LOWER_H = HEIGHT - LOWER_Y - PANEL_X;
-    private static final int CONTROL_X = PANEL_X;
-    private static final int CONTROL_Y = LOWER_Y;
-    private static final int CONTROL_W = 122;
-    private static final int CONTROL_H = LOWER_H;
-    private static final int MATERIAL_X = CONTROL_X + CONTROL_W + PANEL_GAP;
-    private static final int MATERIAL_Y = LOWER_Y;
-    private static final int MATERIAL_W = WIDTH - MATERIAL_X - PANEL_X;
-    private static final int MATERIAL_PANEL_H = LOWER_H;
+    private static final int TAB_Y = 5;
+    private static final int TAB_H = 16;
+    private static final int PATTERN_TAB_X = 211;
+    private static final int PATTERN_TAB_W = 76;
+    private static final int ASSIST_TAB_X = 291;
+    private static final int ASSIST_TAB_W = 92;
 
-    private static final int BUTTON_H = 18;
-    private static final int LENGTH_BUTTON_W = 22;
-    private static final int CONTROL_ROW_W = 107;
-    private static final int CONTROL_ROW_X = CONTROL_X + (CONTROL_W - CONTROL_ROW_W) / 2;
-    private static final int LENGTH_VALUE_W = CONTROL_ROW_W - LENGTH_BUTTON_W * 2 - 14;
-    private static final int CONTROL_BOTTOM_PAD = 7;
-    private static final int MODE_ROW_Y = CONTROL_Y + CONTROL_H - CONTROL_BOTTOM_PAD - BUTTON_H;
-    private static final int RESET_ROW_Y = MODE_ROW_Y - BUTTON_H - 7;
-    private static final int LENGTH_ROW_Y = RESET_ROW_Y - BUTTON_H - 7;
-    private static final int MODE_BUTTON_W = 31;
-    private static final int MODE_GAP = 7;
+    private static final int CONTROL_Y = 25;
+    private static final int CONTROL_H = 18;
+    private static final int HOST_X = 7;
+    private static final int HOST_W = 42;
+    private static final int HOST_GAP = 3;
+    private static final int TIER_X = 148;
+    private static final int TIER_W = 25;
+    private static final int TIER_GAP = 3;
+    private static final int LENGTH_X = 231;
+    private static final int LENGTH_BUTTON_W = 18;
+    private static final int LENGTH_VALUE_W = 43;
+    private static final int MIRROR_X = 318;
+    private static final int MIRROR_W = 65;
 
-    private static final int TIER_BUTTON_X = PREVIEW_X + 10;
-    private static final int TIER_BUTTON_Y = PREVIEW_Y + 26;
-    private static final int TIER_BUTTON_W = 27;
-    private static final int TIER_BUTTON_H = 16;
-    private static final int TIER_BUTTON_GAP = 4;
-    private static final int FORMED_BUTTON_W = 38;
-    private static final int FORMED_BUTTON_H = 16;
-    private static final int FORMED_BUTTON_X = PREVIEW_X + PREVIEW_W - FORMED_BUTTON_W - 10;
-    private static final int FORMED_BUTTON_Y = PREVIEW_Y + (PREVIEW_H - FORMED_BUTTON_H) / 2;
+    private static final int PATTERN_PANEL_X = 7;
+    private static final int PATTERN_PANEL_Y = 50;
+    private static final int PATTERN_PANEL_W = 246;
+    private static final int PATTERN_PANEL_H = 166;
+    private static final int SCENE_X = PATTERN_PANEL_X + 5;
+    private static final int SCENE_Y = PATTERN_PANEL_Y + 23;
+    private static final int SCENE_W = PATTERN_PANEL_W - 10;
+    private static final int SCENE_H = PATTERN_PANEL_H - 28;
+    private static final int LAYER_PREV_X = PATTERN_PANEL_X + PATTERN_PANEL_W - 72;
+    private static final int LAYER_NEXT_X = PATTERN_PANEL_X + PATTERN_PANEL_W - 20;
+    private static final int LAYER_BUTTON_W = 18;
+    private static final int LAYER_LABEL_X = LAYER_PREV_X + LAYER_BUTTON_W;
+    private static final int LAYER_LABEL_W = LAYER_NEXT_X - LAYER_LABEL_X;
 
-    private static final int TARGET_BUTTON_W = 52;
-    private static final int TARGET_BUTTON_H = 18;
-    private static final int TARGET_BUTTON_GAP = 4;
-    private static final int TARGET_BUTTON_Y = MATERIAL_Y + 19;
+    private static final int INFO_PANEL_X = 260;
+    private static final int INFO_PANEL_Y = PATTERN_PANEL_Y;
+    private static final int INFO_PANEL_W = 123;
+    private static final int INFO_PANEL_H = PATTERN_PANEL_H;
+    private static final int PATTERN_MATERIAL_Y = INFO_PANEL_Y + 61;
+    private static final int PATTERN_MATERIAL_COLS = 6;
+    private static final int PATTERN_MATERIAL_ROWS = 5;
 
-    private static final int MATERIAL_COLS = 10;
-    private static final int MATERIAL_ROWS = 2;
-    private static final int MATERIAL_SLOT_SIZE = 18;
-    private static final int PREVIEW_SCENE_X = PREVIEW_X + 42;
-    private static final int PREVIEW_SCENE_Y = PREVIEW_Y + 21;
-    private static final int PREVIEW_SCENE_W = FORMED_BUTTON_X - PREVIEW_SCENE_X - 5;
-    private static final int PREVIEW_SCENE_H = PREVIEW_H - 26;
-    private static final int MATERIAL_BOTTOM_PAD = 7;
-    private static final int MATERIAL_GRID_Y =
-            MATERIAL_Y + MATERIAL_PANEL_H - MATERIAL_BOTTOM_PAD - MATERIAL_ROWS * MATERIAL_SLOT_SIZE;
-    private static final int MATERIAL_TITLE_Y = MATERIAL_GRID_Y - 13;
+    private static final int ASSIST_STATUS_X = 7;
+    private static final int ASSIST_STATUS_Y = 50;
+    private static final int ASSIST_STATUS_W = 184;
+    private static final int ASSIST_STATUS_H = 166;
+    private static final int ASSIST_MATERIAL_X = 198;
+    private static final int ASSIST_MATERIAL_Y = 50;
+    private static final int ASSIST_MATERIAL_W = 185;
+    private static final int ASSIST_MATERIAL_H = 166;
+    private static final int ASSIST_MATERIAL_GRID_Y = ASSIST_MATERIAL_Y + 24;
+    private static final int ASSIST_MATERIAL_COLS = 10;
+    private static final int ASSIST_MATERIAL_ROWS = 6;
+    private static final int PREVIEW_BUTTON_X = ASSIST_STATUS_X + 10;
+    private static final int EXECUTE_BUTTON_X = ASSIST_STATUS_X + 94;
+    private static final int ACTION_BUTTON_Y = ASSIST_STATUS_Y + 124;
+    private static final int ACTION_BUTTON_W = 80;
+    private static final int MODE_BUTTON_Y = ASSIST_STATUS_Y + 146;
+    private static final int MODE_BUTTON_W = 50;
+    private static final int MODE_BUTTON_GAP = 6;
+
+    private static final int SLOT_SIZE = 18;
+    private static final int FOOTER_Y = 224;
+
     private final HeldItemUIFactory.HeldItemHolder holder;
-    private final List<ActionButtonLabel> actionButtonLabels = new ArrayList<>();
-    private int materialScrollOffset;
-    private boolean formedPreview;
+    private final List<RenderedButton> renderedButtons = new ArrayList<>();
+    private final List<Widget> patternWidgets = new ArrayList<>();
+    private final List<Widget> assistWidgets = new ArrayList<>();
+
+    private NEMultiblockPatternViewerWidget patternViewer;
+    private ViewMode viewMode = ViewMode.PATTERN;
+    private boolean mirroredPattern;
+    private int patternMaterialScroll;
+    private int assistMaterialScroll;
 
     public NEStructureTerminalWidget(HeldItemUIFactory.HeldItemHolder holder) {
         super(
@@ -99,27 +117,104 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                 () -> NEStructureTerminalConfigState.fromStack(holder.getPlayer(), holder.getHeld()),
                 NELDLibStateCodecs::writeStructureTerminal,
                 NELDLibStateCodecs::readStructureTerminal,
-                20);
+                10);
         this.holder = holder;
     }
 
     @Override
     protected void initLdWidgets() {
-        actionButtonLabels.clear();
-        addActionButton(CONTROL_ROW_X, LENGTH_ROW_Y, LENGTH_BUTTON_W, Component.literal("-"), Action.DECREASE);
-        addActionButton(
-                CONTROL_ROW_X + LENGTH_BUTTON_W + 7 + LENGTH_VALUE_W + 7,
-                LENGTH_ROW_Y,
-                LENGTH_BUTTON_W,
-                Component.literal("+"),
-                Action.INCREASE);
-        addActionButton(
-                CONTROL_ROW_X,
-                RESET_ROW_Y,
-                CONTROL_ROW_W,
-                Component.translatable("gui.neoecoae.structure_terminal.reset"),
-                Action.RESET);
+        renderedButtons.clear();
+        patternWidgets.clear();
+        assistWidgets.clear();
 
+        addLocalButton(
+                PATTERN_TAB_X,
+                TAB_Y,
+                PATTERN_TAB_W,
+                TAB_H,
+                () -> Component.translatable("gui.neoecoae.multiblock.pattern"),
+                () -> viewMode == ViewMode.PATTERN,
+                () -> setViewMode(ViewMode.PATTERN),
+                () -> true);
+        addLocalButton(
+                ASSIST_TAB_X,
+                TAB_Y,
+                ASSIST_TAB_W,
+                TAB_H,
+                () -> Component.translatable("gui.neoecoae.multiblock.open_build_assist"),
+                () -> viewMode == ViewMode.BUILD_ASSIST,
+                () -> setViewMode(ViewMode.BUILD_ASSIST),
+                () -> true);
+
+        addHostButton(StructureTerminalHostType.CRAFTING, 0, Action.SELECT_CRAFTING);
+        addHostButton(StructureTerminalHostType.STORAGE, 1, Action.SELECT_STORAGE);
+        addHostButton(StructureTerminalHostType.COMPUTATION, 2, Action.SELECT_COMPUTATION);
+        addTierButton(1, 0, Action.SELECT_TIER_1);
+        addTierButton(2, 1, Action.SELECT_TIER_2);
+        addTierButton(3, 2, Action.SELECT_TIER_3);
+        addServerButton(
+                LENGTH_X,
+                CONTROL_Y,
+                LENGTH_BUTTON_W,
+                CONTROL_H,
+                () -> Component.literal("-"),
+                Action.DECREASE,
+                () -> false,
+                () -> true,
+                null);
+        addServerButton(
+                LENGTH_X + LENGTH_BUTTON_W + LENGTH_VALUE_W,
+                CONTROL_Y,
+                LENGTH_BUTTON_W,
+                CONTROL_H,
+                () -> Component.literal("+"),
+                Action.INCREASE,
+                () -> false,
+                () -> true,
+                null);
+        addLocalButton(
+                MIRROR_X,
+                CONTROL_Y,
+                MIRROR_W,
+                CONTROL_H,
+                () -> Component.translatable("gui.neoecoae.multiblock.mirror"),
+                () -> mirroredPattern,
+                () -> mirroredPattern = !mirroredPattern,
+                () -> true);
+
+        patternViewer = new NEMultiblockPatternViewerWidget(
+                SCENE_X,
+                SCENE_Y,
+                SCENE_W,
+                SCENE_H,
+                this::currentDefinition,
+                () -> currentState().length(),
+                () -> mirroredPattern);
+        addWidget(patternViewer);
+        patternWidgets.add(patternViewer);
+        addPatternLayerButton(LAYER_PREV_X, Component.literal("<"), patternViewer::previousLayer);
+        addPatternLayerButton(LAYER_NEXT_X, Component.literal(">"), patternViewer::nextLayer);
+
+        addServerButton(
+                PREVIEW_BUTTON_X,
+                ACTION_BUTTON_Y,
+                ACTION_BUTTON_W,
+                CONTROL_H,
+                () -> Component.translatable("gui.neoecoae.multiblock.preview"),
+                Action.PREVIEW_LINKED,
+                () -> false,
+                () -> viewMode == ViewMode.BUILD_ASSIST,
+                assistWidgets);
+        addServerButton(
+                EXECUTE_BUTTON_X,
+                ACTION_BUTTON_Y,
+                ACTION_BUTTON_W,
+                CONTROL_H,
+                () -> Component.translatable("gui.neoecoae.multiblock.build"),
+                Action.EXECUTE_LINKED,
+                () -> false,
+                () -> viewMode == ViewMode.BUILD_ASSIST,
+                assistWidgets);
         addModeButton(
                 StructureTerminalMode.BUILD,
                 0,
@@ -135,28 +230,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                 2,
                 Component.translatable("gui.neoecoae.structure_terminal.mode.dismantle"),
                 Action.SELECT_DISMANTLE_MODE);
-        addTierButton(1, 0);
-        addTierButton(2, 1);
-        addTierButton(3, 2);
-        addFormedPreviewButton();
-
-        addTargetButton(
-                StructureTerminalHostType.CRAFTING,
-                0,
-                Component.translatable("gui.neoecoae.structure_terminal.target.crafting"),
-                Action.SELECT_CRAFTING);
-        addTargetButton(
-                StructureTerminalHostType.STORAGE,
-                1,
-                Component.translatable("gui.neoecoae.structure_terminal.target.storage"),
-                Action.SELECT_STORAGE);
-        addTargetButton(
-                StructureTerminalHostType.COMPUTATION,
-                2,
-                Component.translatable("gui.neoecoae.structure_terminal.target.computation"),
-                Action.SELECT_COMPUTATION);
-        addWidget(new NELDLibMultiblockSceneWidget(
-                PREVIEW_SCENE_X, PREVIEW_SCENE_Y, PREVIEW_SCENE_W, PREVIEW_SCENE_H, this::createCurrentPreviewScene));
+        refreshWidgetVisibility();
     }
 
     @Override
@@ -171,200 +245,361 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     @Override
     public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
-        if (isInMaterialGrid(mouseX, mouseY) && currentState().materials().size() > visibleMaterialSlots()) {
-            int next = materialScrollOffset + (wheelDelta < 0 ? MATERIAL_COLS : -MATERIAL_COLS);
-            materialScrollOffset = clampMaterialScroll(next);
-            return true;
+        if (viewMode == ViewMode.PATTERN && isInPatternMaterialGrid(mouseX, mouseY)) {
+            int size = patternMaterials().size();
+            patternMaterialScroll = clampScroll(
+                    patternMaterialScroll + (wheelDelta < 0 ? PATTERN_MATERIAL_COLS : -PATTERN_MATERIAL_COLS),
+                    size,
+                    patternVisibleSlots());
+            return size > patternVisibleSlots();
+        }
+        if (viewMode == ViewMode.BUILD_ASSIST && isInAssistMaterialGrid(mouseX, mouseY)) {
+            int size = currentState().materials().size();
+            assistMaterialScroll = clampScroll(
+                    assistMaterialScroll + (wheelDelta < 0 ? ASSIST_MATERIAL_COLS : -ASSIST_MATERIAL_COLS),
+                    size,
+                    assistVisibleSlots());
+            return size > assistVisibleSlots();
         }
         return super.mouseWheelMove(mouseX, mouseY, wheelDelta);
     }
 
     @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        NELDLibStyle.drawDarkInsetRect(graphics, absX(PREVIEW_X), absY(PREVIEW_Y), PREVIEW_W, PREVIEW_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, absX(CONTROL_X), absY(CONTROL_Y), CONTROL_W, CONTROL_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, absX(MATERIAL_X), absY(MATERIAL_Y), MATERIAL_W, MATERIAL_PANEL_H);
-        drawInsetValueLocal(graphics, CONTROL_ROW_X + LENGTH_BUTTON_W + 7, LENGTH_ROW_Y, LENGTH_VALUE_W, BUTTON_H);
-        drawMaterialSlotGrid(graphics);
+        drawInsetValue(graphics, LENGTH_X + LENGTH_BUTTON_W, CONTROL_Y, LENGTH_VALUE_W, CONTROL_H);
+        if (viewMode == ViewMode.PATTERN) {
+            NELDLibStyle.drawDarkInsetRect(
+                    graphics, absX(PATTERN_PANEL_X), absY(PATTERN_PANEL_Y), PATTERN_PANEL_W, PATTERN_PANEL_H);
+            NELDLibStyle.drawDarkInsetRect(
+                    graphics, absX(INFO_PANEL_X), absY(INFO_PANEL_Y), INFO_PANEL_W, INFO_PANEL_H);
+            drawPatternMaterialSlots(graphics);
+        } else {
+            NELDLibStyle.drawDarkInsetRect(
+                    graphics, absX(ASSIST_STATUS_X), absY(ASSIST_STATUS_Y), ASSIST_STATUS_W, ASSIST_STATUS_H);
+            NELDLibStyle.drawDarkInsetRect(
+                    graphics, absX(ASSIST_MATERIAL_X), absY(ASSIST_MATERIAL_Y), ASSIST_MATERIAL_W, ASSIST_MATERIAL_H);
+            drawAssistMaterialSlots(graphics);
+        }
     }
 
     @Override
     protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        NEStructureTerminalConfigState state = currentState();
-        materialScrollOffset = clampMaterialScroll(materialScrollOffset);
-        drawCenteredFitted(
-                graphics,
-                Component.translatable("gui.neoecoae.structure_terminal.length", NELDLibText.number(state.length())),
-                CONTROL_X + 6,
-                CONTROL_Y + 6,
-                CONTROL_W - 12,
-                NELDLibStyle.DARK_TEXT_PRIMARY);
-        drawCenteredFitted(
-                graphics,
-                Component.translatable(
-                        "gui.neoecoae.structure_terminal.length_range",
-                        NELDLibText.number(state.minLength()),
-                        NELDLibText.number(state.maxLength())),
-                CONTROL_X + 6,
-                CONTROL_Y + 17,
-                CONTROL_W - 12,
-                NELDLibStyle.DARK_TEXT_MUTED);
-        drawCenteredFitted(
-                graphics,
-                Component.literal(NELDLibText.number(state.length())),
-                CONTROL_ROW_X + LENGTH_BUTTON_W + 7,
-                LENGTH_ROW_Y + 5,
-                LENGTH_VALUE_W,
-                NELDLibStyle.DARK_TEXT_VALUE);
-        drawLocalString(
-                graphics,
-                Component.translatable("gui.neoecoae.crafting.module_preview"),
-                PREVIEW_X + 10,
-                PREVIEW_Y + 8,
-                NELDLibStyle.DARK_TEXT_PRIMARY);
-        drawLocalString(
-                graphics,
-                Component.translatable("gui.neoecoae.structure_terminal.host_selection"),
-                MATERIAL_X + 10,
-                MATERIAL_Y + 8,
-                NELDLibStyle.DARK_TEXT_PRIMARY);
-        drawLocalString(
-                graphics,
-                Component.translatable("gui.neoecoae.structure_terminal.required_materials"),
-                MATERIAL_X + 10,
-                MATERIAL_TITLE_Y,
-                NELDLibStyle.DARK_TEXT_PRIMARY);
-        drawActionButtonLabels(graphics);
-        if (state.materials().isEmpty()) {
-            drawCenteredFitted(
-                    graphics,
-                    Component.translatable("gui.neoecoae.structure_terminal.no_materials"),
-                    MATERIAL_X,
-                    MATERIAL_GRID_Y + 13,
-                    MATERIAL_W,
-                    NELDLibStyle.DARK_TEXT_MUTED);
+        drawLocalString(graphics, title, 8, 8, TEXT_PRIMARY);
+        drawControlValues(graphics);
+        drawRenderedButtonLabels(graphics);
+        if (viewMode == ViewMode.PATTERN) {
+            drawPatternPage(graphics);
+        } else {
+            drawBuildAssistPage(graphics);
         }
-        drawMaterialItems(graphics, state.materials());
-        drawMaterialPageText(graphics, state.materials());
     }
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (renderControlTooltip(graphics, mouseX, mouseY)) {
-            return;
+        if (viewMode == ViewMode.PATTERN) {
+            renderPatternMaterialTooltip(graphics, mouseX, mouseY);
+        } else {
+            renderAssistMaterialTooltip(graphics, mouseX, mouseY);
         }
-        renderMaterialTooltip(graphics, mouseX, mouseY);
+    }
+
+    private void drawPatternPage(GuiGraphics graphics) {
+        MultiblockPatternSnapshot snapshot = patternViewer.snapshot();
+        drawLocalString(
+                graphics,
+                snapshot == null
+                        ? Component.translatable("gui.neoecoae.multiblock.pattern")
+                        : snapshot.definition().getName(),
+                PATTERN_PANEL_X + 8,
+                PATTERN_PANEL_Y + 7,
+                NELDLibStyle.DARK_TEXT_PRIMARY);
+        drawCenteredLocalString(
+                graphics,
+                patternViewer.selectedLayer() < 0
+                        ? Component.translatable("gui.neoecoae.multiblock.layer_all")
+                        : Component.translatable("gui.neoecoae.multiblock.layer_value", patternViewer.selectedLayer()),
+                LAYER_LABEL_X,
+                PATTERN_PANEL_Y + 7,
+                LAYER_LABEL_W,
+                NELDLibStyle.DARK_TEXT_VALUE);
+
+        drawLocalString(
+                graphics,
+                Component.translatable("gui.neoecoae.multiblock.pattern"),
+                INFO_PANEL_X + 7,
+                INFO_PANEL_Y + 7,
+                NELDLibStyle.DARK_TEXT_PRIMARY);
+        if (snapshot != null) {
+            drawLocalString(
+                    graphics,
+                    Component.translatable(
+                            "gui.neoecoae.multiblock.size", snapshot.sizeX(), snapshot.sizeY(), snapshot.sizeZ()),
+                    INFO_PANEL_X + 7,
+                    INFO_PANEL_Y + 20,
+                    NELDLibStyle.DARK_TEXT_VALUE);
+            PatternBlockEntry controller = controllerEntry(snapshot);
+            if (controller != null) {
+                drawFitted(
+                        graphics,
+                        Component.translatable(
+                                "gui.neoecoae.multiblock.controller",
+                                controller.relativePos().getX(),
+                                controller.relativePos().getY(),
+                                controller.relativePos().getZ()),
+                        INFO_PANEL_X + 7,
+                        INFO_PANEL_Y + 33,
+                        INFO_PANEL_W - 14,
+                        NELDLibStyle.DARK_TEXT_MUTED);
+            }
+        }
+        drawLocalString(
+                graphics,
+                Component.translatable("gui.neoecoae.multiblock.material_summary"),
+                INFO_PANEL_X + 7,
+                INFO_PANEL_Y + 48,
+                NELDLibStyle.DARK_TEXT_PRIMARY);
+        drawPatternMaterialItems(graphics);
+        drawPageText(
+                graphics,
+                patternMaterialScroll,
+                patternMaterials().size(),
+                patternVisibleSlots(),
+                INFO_PANEL_X + INFO_PANEL_W - 7,
+                INFO_PANEL_Y + 48);
+        drawCenteredFitted(
+                graphics,
+                Component.translatable("gui.neoecoae.multiblock.preview_only_hint"),
+                7,
+                FOOTER_Y,
+                WIDTH - 14,
+                TEXT_MUTED);
+    }
+
+    private void drawBuildAssistPage(GuiGraphics graphics) {
+        NEStructureTerminalConfigState state = currentState();
+        drawLocalString(
+                graphics,
+                Component.translatable("gui.neoecoae.multiblock.build_assist"),
+                ASSIST_STATUS_X + 8,
+                ASSIST_STATUS_Y + 7,
+                NELDLibStyle.DARK_TEXT_PRIMARY);
+        drawStatusLine(
+                graphics,
+                Component.translatable("gui.neoecoae.multiblock.linked_host"),
+                state.linkedHost()
+                        ? Component.translatable("gui.neoecoae.common.yes")
+                        : Component.translatable("gui.neoecoae.common.no"),
+                ASSIST_STATUS_Y + 22,
+                state.linkedHost() ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
+        drawStatusLine(
+                graphics,
+                Component.translatable("gui.neoecoae.multiblock.missing", state.previewMissingBlocks()),
+                Component.translatable("gui.neoecoae.multiblock.conflicts", state.previewConflictBlocks()),
+                ASSIST_STATUS_Y + 39,
+                state.previewConflictBlocks() == 0 ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
+        drawStatusLine(
+                graphics,
+                Component.translatable("gui.neoecoae.multiblock.reused", state.previewReusedBlocks()),
+                Component.translatable("gui.neoecoae.multiblock.required_items", state.previewRequiredItems()),
+                ASSIST_STATUS_Y + 55,
+                NELDLibStyle.DARK_TEXT_VALUE);
+        drawFitted(
+                graphics,
+                buildStatusComponent(state),
+                ASSIST_STATUS_X + 8,
+                ASSIST_STATUS_Y + 75,
+                ASSIST_STATUS_W - 16,
+                state.previewConflictBlocks() > 0 ? NELDLibStyle.DARK_TEXT_ERROR : NELDLibStyle.DARK_TEXT_MUTED);
+        drawLocalString(
+                graphics,
+                Component.translatable("gui.neoecoae.multiblock.inventory_materials"),
+                ASSIST_MATERIAL_X + 8,
+                ASSIST_MATERIAL_Y + 7,
+                NELDLibStyle.DARK_TEXT_PRIMARY);
+        drawAssistMaterialItems(graphics);
+        drawPageText(
+                graphics,
+                assistMaterialScroll,
+                state.materials().size(),
+                assistVisibleSlots(),
+                ASSIST_MATERIAL_X + ASSIST_MATERIAL_W - 7,
+                ASSIST_MATERIAL_Y + 7);
+        drawCenteredFitted(
+                graphics,
+                Component.translatable(
+                        state.linkedHost()
+                                ? "gui.neoecoae.multiblock.build_assist_hint"
+                                : "gui.neoecoae.multiblock.no_linked_host_hint"),
+                7,
+                FOOTER_Y,
+                WIDTH - 14,
+                TEXT_MUTED);
+    }
+
+    private void drawControlValues(GuiGraphics graphics) {
+        NEStructureTerminalConfigState state = currentState();
+        drawCenteredLocalString(
+                graphics,
+                Component.literal(Integer.toString(state.length())),
+                LENGTH_X + LENGTH_BUTTON_W,
+                CONTROL_Y + 5,
+                LENGTH_VALUE_W,
+                NELDLibStyle.DARK_TEXT_VALUE);
+    }
+
+    private void drawStatusLine(GuiGraphics graphics, Component left, Component right, int y, int rightColor) {
+        drawLocalString(graphics, left, ASSIST_STATUS_X + 8, y, NELDLibStyle.DARK_TEXT_MUTED);
+        drawRightLocalString(graphics, right, ASSIST_STATUS_X + ASSIST_STATUS_W - 8, y, rightColor);
+    }
+
+    private void addHostButton(StructureTerminalHostType hostType, int index, Action action) {
+        addServerButton(
+                HOST_X + index * (HOST_W + HOST_GAP),
+                CONTROL_Y,
+                HOST_W,
+                CONTROL_H,
+                () -> Component.translatable(hostTypeKey(hostType)),
+                action,
+                () -> currentState().hostType() == hostType,
+                () -> true,
+                null);
+    }
+
+    private void addTierButton(int tier, int index, Action action) {
+        addServerButton(
+                TIER_X + index * (TIER_W + TIER_GAP),
+                CONTROL_Y,
+                TIER_W,
+                CONTROL_H,
+                () -> Component.literal(tierLabel(currentState().hostType(), tier)),
+                action,
+                () -> currentState().tier() == tier,
+                () -> true,
+                null);
     }
 
     private void addModeButton(StructureTerminalMode mode, int index, Component label, Action action) {
-        addActionButton(
-                CONTROL_ROW_X + index * (MODE_BUTTON_W + MODE_GAP),
-                MODE_ROW_Y,
+        addServerButton(
+                ASSIST_STATUS_X + 11 + index * (MODE_BUTTON_W + MODE_BUTTON_GAP),
+                MODE_BUTTON_Y,
                 MODE_BUTTON_W,
-                label,
+                CONTROL_H,
+                () -> label,
                 action,
-                () -> currentState().operationMode() == mode);
+                () -> currentState().operationMode() == mode,
+                () -> viewMode == ViewMode.BUILD_ASSIST,
+                assistWidgets);
     }
 
-    private void addTargetButton(StructureTerminalHostType target, int index, Component label, Action action) {
-        int totalW = TARGET_BUTTON_W * 3 + TARGET_BUTTON_GAP * 2;
-        int x = MATERIAL_X + (MATERIAL_W - totalW) / 2 + index * (TARGET_BUTTON_W + TARGET_BUTTON_GAP);
-        addActionButton(
+    private void addPatternLayerButton(int x, Component label, Runnable action) {
+        addLocalButton(
                 x,
-                TARGET_BUTTON_Y,
-                TARGET_BUTTON_W,
-                TARGET_BUTTON_H,
-                label,
+                PATTERN_PANEL_Y + 3,
+                LAYER_BUTTON_W,
+                CONTROL_H,
+                () -> label,
+                () -> false,
                 action,
-                () -> currentState().hostType() == target);
+                () -> viewMode == ViewMode.PATTERN,
+                patternWidgets);
     }
 
-    private void addTierButton(int tier, int index) {
-        addActionButton(
-                TIER_BUTTON_X,
-                TIER_BUTTON_Y + index * (TIER_BUTTON_H + TIER_BUTTON_GAP),
-                TIER_BUTTON_W,
-                TIER_BUTTON_H,
-                () -> Component.literal(tierLabel(currentState().hostType(), tier)),
-                tierAction(tier),
-                () -> currentState().tier() == tier);
-    }
-
-    private void addFormedPreviewButton() {
-        addLocalActionButton(
-                FORMED_BUTTON_X,
-                FORMED_BUTTON_Y,
-                FORMED_BUTTON_W,
-                FORMED_BUTTON_H,
-                () -> Component.translatable(
-                        formedPreview
-                                ? "gui.neoecoae.structure_terminal.preview_formed"
-                                : "gui.neoecoae.structure_terminal.preview_unformed"),
-                () -> formedPreview,
-                () -> formedPreview = !formedPreview);
-    }
-
-    private void addActionButton(int x, int y, int w, Component label, Action action) {
-        addActionButton(x, y, w, BUTTON_H, label, action, () -> false);
-    }
-
-    private void addActionButton(
-            int x, int y, int w, Component label, Action action, BooleanSupplier selectedSupplier) {
-        addActionButton(x, y, w, BUTTON_H, label, action, selectedSupplier);
-    }
-
-    private void addActionButton(
-            int x, int y, int w, int h, Component label, Action action, BooleanSupplier selectedSupplier) {
-        addActionButton(x, y, w, h, () -> label, action, selectedSupplier, NELDLibStyle.DARK_TEXT_MUTED);
-    }
-
-    private void addActionButton(
+    private void addLocalButton(
             int x,
             int y,
             int w,
             int h,
-            Supplier<Component> labelSupplier,
-            Action action,
-            BooleanSupplier selectedSupplier) {
-        addActionButton(x, y, w, h, labelSupplier, action, selectedSupplier, NELDLibStyle.DARK_TEXT_MUTED);
+            Supplier<Component> label,
+            BooleanSupplier selected,
+            Runnable action,
+            BooleanSupplier visible) {
+        addLocalButton(x, y, w, h, label, selected, action, visible, null);
     }
 
-    private void addActionButton(
+    private void addLocalButton(
             int x,
             int y,
             int w,
             int h,
-            Supplier<Component> labelSupplier,
-            Action action,
-            BooleanSupplier selectedSupplier,
-            int inactiveColor) {
+            Supplier<Component> label,
+            BooleanSupplier selected,
+            Runnable action,
+            BooleanSupplier visible,
+            List<Widget> group) {
         ButtonWidget button =
-                (ButtonWidget) new ButtonWidget(x, y, w, h, NELDLibStyle.darkInsetButton(selectedSupplier), click -> {
+                (ButtonWidget) new ButtonWidget(x, y, w, h, NELDLibStyle.darkInsetButton(selected), click -> {
+                    if (click.isRemote) {
+                        action.run();
+                        refreshWidgetVisibility();
+                    }
+                });
+        addWidget(button);
+        if (group != null) {
+            group.add(button);
+        }
+        renderedButtons.add(new RenderedButton(x, y, w, h, button, label, selected, visible));
+    }
+
+    private void addServerButton(
+            int x,
+            int y,
+            int w,
+            int h,
+            Supplier<Component> label,
+            Action action,
+            BooleanSupplier selected,
+            BooleanSupplier visible,
+            List<Widget> group) {
+        ButtonWidget button =
+                (ButtonWidget) new ButtonWidget(x, y, w, h, NELDLibStyle.darkInsetButton(selected), click -> {
                     if (click.isRemote) {
                         writeClientAction(2, buf -> buf.writeEnum(action));
                     }
                 });
         addWidget(button);
-        actionButtonLabels.add(new ActionButtonLabel(x, y, w, h, labelSupplier, selectedSupplier, inactiveColor));
+        if (group != null) {
+            group.add(button);
+        }
+        renderedButtons.add(new RenderedButton(x, y, w, h, button, label, selected, visible));
     }
 
-    private void addLocalActionButton(
-            int x,
-            int y,
-            int w,
-            int h,
-            Supplier<Component> labelSupplier,
-            BooleanSupplier selectedSupplier,
-            Runnable action) {
-        ButtonWidget button =
-                (ButtonWidget) new ButtonWidget(x, y, w, h, NELDLibStyle.darkInsetButton(selectedSupplier), click -> {
-                    if (click.isRemote) {
-                        action.run();
-                    }
-                });
-        addWidget(button);
-        actionButtonLabels.add(
-                new ActionButtonLabel(x, y, w, h, labelSupplier, selectedSupplier, NELDLibStyle.DARK_TEXT_MUTED));
+    private void setViewMode(ViewMode mode) {
+        viewMode = mode;
+        refreshWidgetVisibility();
+    }
+
+    private void refreshWidgetVisibility() {
+        boolean pattern = viewMode == ViewMode.PATTERN;
+        for (Widget widget : patternWidgets) {
+            widget.setVisible(pattern);
+            widget.setActive(pattern);
+        }
+        for (Widget widget : assistWidgets) {
+            widget.setVisible(!pattern);
+            widget.setActive(!pattern);
+        }
+        for (RenderedButton renderedButton : renderedButtons) {
+            boolean visible = renderedButton.visible().getAsBoolean();
+            renderedButton.button().setVisible(visible);
+            renderedButton.button().setActive(visible);
+        }
+    }
+
+    private void drawRenderedButtonLabels(GuiGraphics graphics) {
+        for (RenderedButton button : renderedButtons) {
+            if (!button.visible().getAsBoolean()) {
+                continue;
+            }
+            int color =
+                    button.selected().getAsBoolean() ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_MUTED;
+            drawCenteredFitted(
+                    graphics,
+                    button.label().get(),
+                    button.x(),
+                    button.y() + (button.h() - font().lineHeight) / 2,
+                    button.w(),
+                    color);
+        }
     }
 
     private void applyAction(Action action) {
@@ -390,190 +625,130 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                     stack, StructureTerminalMode.DISMANTLE);
             case INCREASE -> StructureTerminalItem.setBuildLength(stack, current + 1);
             case DECREASE -> StructureTerminalItem.setBuildLength(stack, current - 1);
-            case RESET -> StructureTerminalItem.setBuildLength(stack, StructureTerminalItem.DEFAULT_BUILD_LENGTH);
+            case PREVIEW_LINKED -> previewLinkedHost(stack);
+            case EXECUTE_LINKED -> executeLinkedHost(stack);
         }
         holder.markAsDirty();
     }
 
-    private void drawInsetValueLocal(GuiGraphics graphics, int x, int y, int w, int h) {
-        NELDLibStyle.drawTinyInsetRect(graphics, absX(x), absY(y), w, h, 0xFF201E27);
+    private void previewLinkedHost(ItemStack stack) {
+        if (!(holder.getPlayer() instanceof ServerPlayer serverPlayer)) {
+            return;
+        }
+        INEMultiblockBuildHost host = StructureTerminalItem.findLinkedHost(serverPlayer, stack);
+        if (host == null) {
+            return;
+        }
+        int length = StructureTerminalItem.getBuildLength(stack, host.getMaxBuildLength());
+        boolean mirrored = StructureTerminalItem.getOperationMode(stack) == StructureTerminalMode.MIRRORED_BUILD;
+        host.previewStructure(serverPlayer, length, mirrored);
     }
 
-    private void drawActionButtonLabels(GuiGraphics graphics) {
-        for (ActionButtonLabel label : actionButtonLabels) {
-            int color =
-                    label.selectedSupplier().getAsBoolean() ? NELDLibStyle.DARK_TEXT_SUCCESS : label.inactiveColor();
-            drawCenteredFitted(
-                    graphics,
-                    label.labelSupplier().get(),
-                    label.x(),
-                    label.y() + (label.h() - font().lineHeight) / 2,
-                    label.w(),
-                    color);
+    private void executeLinkedHost(ItemStack stack) {
+        if (!(holder.getPlayer() instanceof ServerPlayer serverPlayer)) {
+            return;
+        }
+        INEMultiblockBuildHost host = StructureTerminalItem.findLinkedHost(serverPlayer, stack);
+        if (host == null) {
+            return;
+        }
+        int length = StructureTerminalItem.getBuildLength(stack, host.getMaxBuildLength());
+        switch (StructureTerminalItem.getOperationMode(stack)) {
+            case BUILD -> host.autoBuild(serverPlayer, length, false);
+            case MIRRORED_BUILD -> host.autoBuild(serverPlayer, length, true);
+            case DISMANTLE -> host.dismantle(serverPlayer);
         }
     }
 
-    private void drawMaterialSlotGrid(GuiGraphics graphics) {
-        for (int i = 0; i < visibleMaterialSlots(); i++) {
-            drawInventorySlot(graphics, materialSlotX(i), materialSlotY(i));
+    private MultiBlockDefinition currentDefinition() {
+        NEStructureTerminalConfigState state = currentState();
+        return state == null ? null : state.hostType().definitionForTier(state.tier());
+    }
+
+    private List<ItemStack> patternMaterials() {
+        MultiblockPatternSnapshot snapshot = patternViewer == null ? null : patternViewer.snapshot();
+        return snapshot == null ? List.of() : snapshot.materialSummary();
+    }
+
+    private void drawPatternMaterialSlots(GuiGraphics graphics) {
+        for (int i = 0; i < patternVisibleSlots(); i++) {
+            NELDLibStyle.drawDarkSlot(graphics, absX(patternSlotX(i)), absY(patternSlotY(i)), SLOT_SIZE);
         }
     }
 
-    private void drawInventorySlot(GuiGraphics graphics, int x, int y) {
-        NELDLibStyle.drawDarkSlot(graphics, absX(x), absY(y), MATERIAL_SLOT_SIZE);
+    private void drawAssistMaterialSlots(GuiGraphics graphics) {
+        for (int i = 0; i < assistVisibleSlots(); i++) {
+            NELDLibStyle.drawDarkSlot(graphics, absX(assistSlotX(i)), absY(assistSlotY(i)), SLOT_SIZE);
+        }
     }
 
-    private void drawMaterialItems(
-            GuiGraphics graphics, List<NEStructureTerminalUiState.BuildMaterialEntry> materials) {
-        int count = Math.min(visibleMaterialSlots(), Math.max(0, materials.size() - materialScrollOffset));
+    private void drawPatternMaterialItems(GuiGraphics graphics) {
+        List<ItemStack> materials = patternMaterials();
+        patternMaterialScroll = clampScroll(patternMaterialScroll, materials.size(), patternVisibleSlots());
+        int count = Math.min(patternVisibleSlots(), Math.max(0, materials.size() - patternMaterialScroll));
         NELDLibGuiRenderState.beginVanillaGuiItemBatch(graphics);
         for (int i = 0; i < count; i++) {
-            NEStructureTerminalUiState.BuildMaterialEntry entry = materials.get(materialScrollOffset + i);
-            int x = absX(materialSlotX(i));
-            int y = absY(materialSlotY(i));
-            ItemStack displayStack = entry.item().copy();
-            if (!displayStack.isEmpty()) {
-                displayStack.setCount(1);
-                drawMaterialItem(graphics, displayStack, x, y, "x" + NELDLibText.compactCount(entry.required()));
-            }
+            ItemStack stack = materials.get(patternMaterialScroll + i);
+            renderMaterialItem(graphics, stack, patternSlotX(i), patternSlotY(i), stack.getCount());
         }
         NELDLibGuiRenderState.endVanillaGuiItemBatch(graphics);
     }
 
-    private void drawMaterialItem(GuiGraphics graphics, ItemStack stack, int x, int y, String countLabel) {
-        NELDLibGuiRenderState.renderVanillaSlotItem(graphics, font(), stack, x + 1, y + 1, countLabel);
-    }
-
-    private void drawMaterialPageText(
-            GuiGraphics graphics, List<NEStructureTerminalUiState.BuildMaterialEntry> materials) {
-        if (materials.size() <= visibleMaterialSlots()) {
-            return;
-        }
-        int start = materialScrollOffset + 1;
-        int end = Math.min(materialScrollOffset + visibleMaterialSlots(), materials.size());
-        String pageText = start + "-" + end + "/" + materials.size();
-        drawLocalString(
-                graphics,
-                Component.literal(pageText),
-                MATERIAL_X + MATERIAL_W - 10 - font().width(pageText),
-                MATERIAL_TITLE_Y,
-                NELDLibStyle.DARK_TEXT_MUTED);
-    }
-
-    private boolean renderControlTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (isMouseIn(FORMED_BUTTON_X, FORMED_BUTTON_Y, FORMED_BUTTON_W, FORMED_BUTTON_H, mouseX, mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable(
-                            formedPreview
-                                    ? "emi.neoecoae.multiblock.show_unformed"
-                                    : "emi.neoecoae.multiblock.show_formed")),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-
-        for (int i = 0; i < StructureTerminalHostType.MAX_TIER; i++) {
-            int tier = i + 1;
-            if (isMouseIn(
-                    TIER_BUTTON_X,
-                    TIER_BUTTON_Y + i * (TIER_BUTTON_H + TIER_BUTTON_GAP),
-                    TIER_BUTTON_W,
-                    TIER_BUTTON_H,
-                    mouseX,
-                    mouseY)) {
-                graphics.renderComponentTooltip(
-                        font(),
-                        List.of(Component.literal(tierLabel(currentState().hostType(), tier))),
-                        mouseX,
-                        mouseY);
-                return true;
-            }
-        }
-
-        if (isMouseIn(CONTROL_ROW_X, MODE_ROW_Y, MODE_BUTTON_W, BUTTON_H, mouseX, mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable("gui.neoecoae.structure_terminal.mode.build.tooltip")),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        if (isMouseIn(CONTROL_ROW_X + MODE_BUTTON_W + MODE_GAP, MODE_ROW_Y, MODE_BUTTON_W, BUTTON_H, mouseX, mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable("gui.neoecoae.structure_terminal.mode.mirrored_build.tooltip")),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        if (isMouseIn(
-                CONTROL_ROW_X + (MODE_BUTTON_W + MODE_GAP) * 2, MODE_ROW_Y, MODE_BUTTON_W, BUTTON_H, mouseX, mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable("gui.neoecoae.structure_terminal.mode.dismantle.tooltip")),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-
-        int totalW = TARGET_BUTTON_W * 3 + TARGET_BUTTON_GAP * 2;
-        int startX = MATERIAL_X + (MATERIAL_W - totalW) / 2;
-        if (isMouseIn(startX, TARGET_BUTTON_Y, TARGET_BUTTON_W, TARGET_BUTTON_H, mouseX, mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable("gui.neoecoae.structure_terminal.target.crafting.tooltip")),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        if (isMouseIn(
-                startX + TARGET_BUTTON_W + TARGET_BUTTON_GAP,
-                TARGET_BUTTON_Y,
-                TARGET_BUTTON_W,
-                TARGET_BUTTON_H,
-                mouseX,
-                mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable("gui.neoecoae.structure_terminal.target.storage.tooltip")),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        if (isMouseIn(
-                startX + (TARGET_BUTTON_W + TARGET_BUTTON_GAP) * 2,
-                TARGET_BUTTON_Y,
-                TARGET_BUTTON_W,
-                TARGET_BUTTON_H,
-                mouseX,
-                mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable("gui.neoecoae.structure_terminal.target.computation.tooltip")),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        return false;
-    }
-
-    private void renderMaterialTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        int index = materialIndexAt(mouseX, mouseY);
+    private void drawAssistMaterialItems(GuiGraphics graphics) {
         List<NEStructureTerminalUiState.BuildMaterialEntry> materials =
                 currentState().materials();
+        assistMaterialScroll = clampScroll(assistMaterialScroll, materials.size(), assistVisibleSlots());
+        int count = Math.min(assistVisibleSlots(), Math.max(0, materials.size() - assistMaterialScroll));
+        NELDLibGuiRenderState.beginVanillaGuiItemBatch(graphics);
+        for (int i = 0; i < count; i++) {
+            NEStructureTerminalUiState.BuildMaterialEntry entry = materials.get(assistMaterialScroll + i);
+            renderMaterialItem(graphics, entry.item(), assistSlotX(i), assistSlotY(i), entry.required());
+        }
+        NELDLibGuiRenderState.endVanillaGuiItemBatch(graphics);
+    }
+
+    private void renderMaterialItem(GuiGraphics graphics, ItemStack source, int x, int y, int count) {
+        ItemStack display = source.copy();
+        if (display.isEmpty()) {
+            return;
+        }
+        display.setCount(1);
+        NELDLibGuiRenderState.renderVanillaSlotItem(
+                graphics, font(), display, absX(x + 1), absY(y + 1), "x" + NELDLibText.compactCount(count));
+    }
+
+    private void renderPatternMaterialTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        int visibleIndex = slotAt(mouseX, mouseY, true);
+        List<ItemStack> materials = patternMaterials();
+        int index = visibleIndex < 0 ? -1 : patternMaterialScroll + visibleIndex;
         if (index < 0 || index >= materials.size()) {
             return;
         }
-
-        NEStructureTerminalUiState.BuildMaterialEntry entry = materials.get(index);
-        Component itemName = entry.item().isEmpty()
-                ? Component.translatable("gui.neoecoae.structure_terminal.unknown_material")
-                : entry.item().getHoverName();
+        ItemStack stack = materials.get(index);
         graphics.renderTooltip(
                 font(),
                 List.of(
-                        itemName,
+                        stack.getHoverName(),
+                        Component.translatable(
+                                "gui.neoecoae.structure_terminal.required", NELDLibText.number(stack.getCount()))),
+                Optional.empty(),
+                mouseX,
+                mouseY);
+    }
+
+    private void renderAssistMaterialTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        int visibleIndex = slotAt(mouseX, mouseY, false);
+        List<NEStructureTerminalUiState.BuildMaterialEntry> materials =
+                currentState().materials();
+        int index = visibleIndex < 0 ? -1 : assistMaterialScroll + visibleIndex;
+        if (index < 0 || index >= materials.size()) {
+            return;
+        }
+        NEStructureTerminalUiState.BuildMaterialEntry entry = materials.get(index);
+        graphics.renderTooltip(
+                font(),
+                List.of(
+                        entry.item().getHoverName(),
                         Component.translatable(
                                 "gui.neoecoae.structure_terminal.required", NELDLibText.number(entry.required())),
                         Component.translatable(
@@ -585,106 +760,137 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                 mouseY);
     }
 
-    private void drawCenteredFitted(GuiGraphics graphics, Component text, int x, int y, int w, int color) {
-        int textWidth = font().width(text);
-        int maxWidth = Math.max(1, w - 4);
-        if (textWidth <= maxWidth) {
-            drawCenteredLocalString(graphics, text, x, y, w, color);
-            return;
-        }
-
-        float scale = Math.max(0.55F, (float) maxWidth / (float) textWidth);
-        graphics.pose().pushPose();
-        graphics.pose().translate(absX(x) + w / 2.0F, absY(y), 0);
-        graphics.pose().scale(scale, scale, 1.0F);
-        graphics.drawString(font(), text, -textWidth / 2, 0, color, false);
-        graphics.pose().popPose();
-    }
-
-    private boolean isInMaterialGrid(double mouseX, double mouseY) {
-        int x = absX(MATERIAL_X);
-        int y = absY(MATERIAL_GRID_Y);
-        return mouseX >= x && mouseX < x + MATERIAL_W && mouseY >= y && mouseY < y + MATERIAL_ROWS * MATERIAL_SLOT_SIZE;
-    }
-
-    private int materialIndexAt(double mouseX, double mouseY) {
-        int slot = materialVisibleSlotAt(mouseX, mouseY);
-        return slot < 0 ? -1 : materialScrollOffset + slot;
-    }
-
-    private int materialVisibleSlotAt(double mouseX, double mouseY) {
-        for (int i = 0; i < visibleMaterialSlots(); i++) {
-            int x = absX(materialSlotX(i));
-            int y = absY(materialSlotY(i));
-            if (mouseX >= x && mouseX < x + MATERIAL_SLOT_SIZE && mouseY >= y && mouseY < y + MATERIAL_SLOT_SIZE) {
+    private int slotAt(double mouseX, double mouseY, boolean pattern) {
+        int slots = pattern ? patternVisibleSlots() : assistVisibleSlots();
+        for (int i = 0; i < slots; i++) {
+            int x = absX(pattern ? patternSlotX(i) : assistSlotX(i));
+            int y = absY(pattern ? patternSlotY(i) : assistSlotY(i));
+            if (mouseX >= x && mouseX < x + SLOT_SIZE && mouseY >= y && mouseY < y + SLOT_SIZE) {
                 return i;
             }
         }
         return -1;
     }
 
-    private int materialSlotX(int visibleIndex) {
-        int gridW = MATERIAL_COLS * MATERIAL_SLOT_SIZE;
-        int startX = MATERIAL_X + (MATERIAL_W - gridW) / 2;
-        return startX + (visibleIndex % MATERIAL_COLS) * MATERIAL_SLOT_SIZE;
+    private int patternSlotX(int index) {
+        return INFO_PANEL_X + 7 + index % PATTERN_MATERIAL_COLS * SLOT_SIZE;
     }
 
-    private int materialSlotY(int visibleIndex) {
-        return MATERIAL_GRID_Y + (visibleIndex / MATERIAL_COLS) * MATERIAL_SLOT_SIZE;
+    private int patternSlotY(int index) {
+        return PATTERN_MATERIAL_Y + index / PATTERN_MATERIAL_COLS * SLOT_SIZE;
     }
 
-    private int visibleMaterialSlots() {
-        return MATERIAL_COLS * MATERIAL_ROWS;
+    private int assistSlotX(int index) {
+        return ASSIST_MATERIAL_X + 3 + index % ASSIST_MATERIAL_COLS * SLOT_SIZE;
     }
 
-    private int clampMaterialScroll(int value) {
-        int max = Math.max(0, currentState().materials().size() - visibleMaterialSlots());
-        return Mth.clamp(value, 0, max);
+    private int assistSlotY(int index) {
+        return ASSIST_MATERIAL_GRID_Y + index / ASSIST_MATERIAL_COLS * SLOT_SIZE;
     }
 
-    private Action tierAction(int tier) {
-        return switch (tier) {
-            case 2 -> Action.SELECT_TIER_2;
-            case 3 -> Action.SELECT_TIER_3;
-            default -> Action.SELECT_TIER_1;
+    private boolean isInPatternMaterialGrid(double mouseX, double mouseY) {
+        return mouseX >= absX(INFO_PANEL_X)
+                && mouseX < absX(INFO_PANEL_X + INFO_PANEL_W)
+                && mouseY >= absY(PATTERN_MATERIAL_Y)
+                && mouseY < absY(PATTERN_MATERIAL_Y + PATTERN_MATERIAL_ROWS * SLOT_SIZE);
+    }
+
+    private boolean isInAssistMaterialGrid(double mouseX, double mouseY) {
+        return mouseX >= absX(ASSIST_MATERIAL_X)
+                && mouseX < absX(ASSIST_MATERIAL_X + ASSIST_MATERIAL_W)
+                && mouseY >= absY(ASSIST_MATERIAL_GRID_Y)
+                && mouseY < absY(ASSIST_MATERIAL_GRID_Y + ASSIST_MATERIAL_ROWS * SLOT_SIZE);
+    }
+
+    private int patternVisibleSlots() {
+        return PATTERN_MATERIAL_COLS * PATTERN_MATERIAL_ROWS;
+    }
+
+    private int assistVisibleSlots() {
+        return ASSIST_MATERIAL_COLS * ASSIST_MATERIAL_ROWS;
+    }
+
+    private static int clampScroll(int scroll, int size, int visibleSlots) {
+        return Mth.clamp(scroll, 0, Math.max(0, size - visibleSlots));
+    }
+
+    private void drawPageText(GuiGraphics graphics, int scroll, int size, int visibleSlots, int rightX, int y) {
+        if (size <= visibleSlots) {
+            return;
+        }
+        String text = (scroll + 1) + "-" + Math.min(size, scroll + visibleSlots) + "/" + size;
+        drawRightLocalString(graphics, Component.literal(text), rightX, y, NELDLibStyle.DARK_TEXT_MUTED);
+    }
+
+    private void drawInsetValue(GuiGraphics graphics, int x, int y, int w, int h) {
+        NELDLibStyle.drawTinyInsetRect(graphics, absX(x), absY(y), w, h, 0xFF201E27);
+    }
+
+    private void drawFitted(GuiGraphics graphics, Component text, int x, int y, int width, int color) {
+        String value = text.getString();
+        if (font().width(value) > width) {
+            value = font().plainSubstrByWidth(value, Math.max(1, width - font().width("..."))) + "...";
+        }
+        drawLocalString(graphics, Component.literal(value), x, y, color);
+    }
+
+    private void drawCenteredFitted(GuiGraphics graphics, Component text, int x, int y, int width, int color) {
+        String value = text.getString();
+        if (font().width(value) > width) {
+            value = font().plainSubstrByWidth(value, Math.max(1, width - font().width("..."))) + "...";
+        }
+        drawCenteredLocalString(graphics, Component.literal(value), x, y, width, color);
+    }
+
+    private static PatternBlockEntry controllerEntry(MultiblockPatternSnapshot snapshot) {
+        for (PatternBlockEntry entry : snapshot.blocks()) {
+            if (entry.controller()) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private static Component buildStatusComponent(NEStructureTerminalConfigState state) {
+        if ("gui.neoecoae.multiblock.status.building".equals(state.previewStatusKey())) {
+            return Component.translatable(
+                    state.previewStatusKey(), state.previewStatusArg1(), state.previewStatusArg2());
+        }
+        return Component.translatable(state.previewStatusKey());
+    }
+
+    private static String hostTypeKey(StructureTerminalHostType hostType) {
+        return switch (hostType) {
+            case CRAFTING -> "gui.neoecoae.structure_terminal.target.crafting";
+            case STORAGE -> "gui.neoecoae.structure_terminal.target.storage";
+            case COMPUTATION -> "gui.neoecoae.structure_terminal.target.computation";
         };
     }
 
-    private String tierLabel(StructureTerminalHostType hostType, int tier) {
+    private static String tierLabel(StructureTerminalHostType hostType, int tier) {
         int level =
                 switch (StructureTerminalHostType.clampTier(tier)) {
                     case 2 -> 6;
                     case 3 -> 9;
                     default -> 4;
                 };
-        return tierPrefix(hostType) + level;
+        String prefix =
+                switch (hostType) {
+                    case STORAGE -> "L";
+                    case COMPUTATION -> "C";
+                    case CRAFTING -> "F";
+                };
+        return prefix + level;
     }
 
-    private String tierPrefix(StructureTerminalHostType hostType) {
-        return switch (hostType) {
-            case STORAGE -> "L";
-            case COMPUTATION -> "C";
-            case CRAFTING -> "F";
-        };
-    }
-
-    private MultiblockPreviewScene createCurrentPreviewScene() {
-        NEStructureTerminalConfigState state = currentState();
-        if (state == null) {
-            return null;
-        }
-        MultiBlockDefinition definition = state.hostType().definitionForTier(state.tier());
-        if (definition == null) {
-            return null;
-        }
-        int length = Mth.clamp(state.length(), state.minLength(), state.maxLength());
-        return MultiblockPreviewContext.createScene(definition, length, formedPreview);
+    private enum ViewMode {
+        PATTERN,
+        BUILD_ASSIST
     }
 
     private enum Action {
         INCREASE,
         DECREASE,
-        RESET,
         SELECT_CRAFTING,
         SELECT_STORAGE,
         SELECT_COMPUTATION,
@@ -693,15 +899,18 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
         SELECT_TIER_3,
         SELECT_BUILD_MODE,
         SELECT_MIRRORED_BUILD_MODE,
-        SELECT_DISMANTLE_MODE
+        SELECT_DISMANTLE_MODE,
+        PREVIEW_LINKED,
+        EXECUTE_LINKED
     }
 
-    private record ActionButtonLabel(
+    private record RenderedButton(
             int x,
             int y,
             int w,
             int h,
-            Supplier<Component> labelSupplier,
-            BooleanSupplier selectedSupplier,
-            int inactiveColor) {}
+            ButtonWidget button,
+            Supplier<Component> label,
+            BooleanSupplier selected,
+            BooleanSupplier visible) {}
 }

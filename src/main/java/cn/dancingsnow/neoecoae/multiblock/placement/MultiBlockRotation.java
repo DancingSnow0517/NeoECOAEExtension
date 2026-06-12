@@ -16,12 +16,14 @@ public final class MultiBlockRotation {
     }
 
     public static BlockPos localToWorld(BlockPos localPos, BlockPos controllerPos, Direction facing, boolean mirrored) {
-        if (mirrored) {
-            localPos = mirrorLocalPos(localPos);
-        }
+        localPos = transformLocalPos(localPos, mirrored);
         BlockPos offset = localPos.subtract(CONTROLLER_ANCHOR);
         BlockPos rotated = rotateOffset(offset, facing);
         return controllerPos.offset(rotated);
+    }
+
+    public static BlockPos transformLocalPos(BlockPos localPos, boolean mirrored) {
+        return mirrored ? mirrorLocalPos(localPos) : localPos.immutable();
     }
 
     public static BlockState rotateState(BlockState state, Direction facing) {
