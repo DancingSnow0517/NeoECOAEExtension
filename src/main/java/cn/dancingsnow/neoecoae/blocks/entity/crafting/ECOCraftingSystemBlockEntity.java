@@ -29,7 +29,9 @@ import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -762,25 +764,20 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private static void appendWorkerRecipeEntries(
             List<NECraftingRecipeUiEntry> entries, ECOCraftingWorkerBlockEntity worker) {
-        int threadIndex = 0;
+        Map<WorkerTaskKey, WorkerTaskAggregate> aggregates = new LinkedHashMap<>();
         for (var thread : worker.getThreadSnapshots()) {
             ItemStack output = thread.outputItem();
             if (output.isEmpty()) {
-                threadIndex++;
                 continue;
             }
-            entries.add(new NECraftingRecipeUiEntry(
-                    "worker:" + worker.getBlockPos().asLong() + ":" + threadIndex + ":"
-                            + (thread.craftingJobId() != null ? thread.craftingJobId() : "local"),
-                    output.copyWithCount(1),
-                    Math.max(1L, output.getCount()),
-                    Math.max(1, thread.occupiedThreadSlots()),
-                    Math.max(1, thread.maxProgress()),
-                    Math.max(0, thread.maxProgress() - thread.progress()),
-                    thread.progress() >= thread.maxProgress()
-                            ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
-                            : NECraftingRecipeUiEntry.Status.RUNNING));
-            threadIndex++;
+            WorkerTaskKey key = new WorkerTaskKey(thread.craftingJobId(), output);
+            aggregates.computeIfAbsent(key, ignored -> new WorkerTaskAggregate(output.copyWithCount(1)))
+                    .add(thread);
+        }
+
+        int aggregateIndex = 0;
+        for (WorkerTaskAggregate aggregate : aggregates.values()) {
+            entries.add(aggregate.toEntry(worker.getBlockPos(), aggregateIndex++));
         }
     }
 
@@ -850,6 +847,73 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private record WorkerUiEntry(int column, ItemStack output) {}
+
+    private record WorkerTaskKey(UUID craftingJobId, ItemStack output) {
+        private WorkerTaskKey {
+            output = output.copyWithCount(1);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof WorkerTaskKey that)) {
+                return false;
+            }
+            if (craftingJobId != null || that.craftingJobId != null) {
+                return java.util.Objects.equals(craftingJobId, that.craftingJobId)
+                        && ItemStack.isSameItemSameTags(output, that.output);
+            }
+            return ItemStack.isSameItemSameTags(output, that.output);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = craftingJobId != null ? craftingJobId.hashCode() : 0;
+            result = 31 * result + output.getItem().hashCode();
+            result = 31 * result + (output.hasTag() ? output.getTag().hashCode() : 0);
+            return result;
+        }
+    }
+
+    private static final class WorkerTaskAggregate {
+        private final ItemStack output;
+        private UUID craftingJobId;
+        private long outputAmount;
+        private long craftCount;
+        private long weightedTotalProgress;
+        private long weightedRemainingProgress;
+        private boolean waitingOutput = true;
+
+        private WorkerTaskAggregate(ItemStack output) {
+            this.output = output;
+        }
+
+        private void add(cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.Snapshot thread) {
+            if (craftingJobId == null && thread.craftingJobId() != null) {
+                craftingJobId = thread.craftingJobId();
+            }
+            int slots = Math.max(1, thread.occupiedThreadSlots());
+            outputAmount += Math.max(1L, thread.outputItem().getCount());
+            craftCount += slots;
+            weightedTotalProgress += (long) Math.max(1, thread.maxProgress()) * slots;
+            weightedRemainingProgress += (long) Math.max(0, thread.maxProgress() - thread.progress()) * slots;
+            waitingOutput &= thread.progress() >= thread.maxProgress();
+        }
+
+        private NECraftingRecipeUiEntry toEntry(BlockPos workerPos, int aggregateIndex) {
+            return new NECraftingRecipeUiEntry(
+                    "worker:" + workerPos.asLong() + ":" + aggregateIndex + ":"
+                            + (craftingJobId != null ? craftingJobId : "local"),
+                    output.copyWithCount(1),
+                    Math.max(1L, outputAmount),
+                    Math.max(1L, craftCount),
+                    Math.max(1L, weightedTotalProgress),
+                    Math.max(0L, weightedRemainingProgress),
+                    waitingOutput ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT : NECraftingRecipeUiEntry.Status.RUNNING);
+        }
+    }
 
     @Override
     public ModularUI createUI(net.minecraft.world.entity.player.Player player) {

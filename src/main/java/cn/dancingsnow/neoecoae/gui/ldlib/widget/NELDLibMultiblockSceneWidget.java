@@ -11,13 +11,18 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import org.joml.Vector3f;
 
 public class NELDLibMultiblockSceneWidget extends SceneWidget {
     private static final int FBO_SCALE = 4;
     private static final int MIN_FBO_SIDE = 128;
     private static final int MAX_FBO_SIDE = 2048;
+    private static final float FINE_ZOOM_STEP = 0.1F;
+    private static final float MIN_ZOOM = 0.1F;
+    private static final float MAX_ZOOM = 999.0F;
     private static float savedYaw = NELDLibMultiblockSceneAdapter.DEFAULT_YAW;
     private static float savedPitch = NELDLibMultiblockSceneAdapter.DEFAULT_PITCH;
     private static float savedZoom = NELDLibMultiblockSceneAdapter.DEFAULT_ZOOM;
@@ -73,10 +78,27 @@ public class NELDLibMultiblockSceneWidget extends SceneWidget {
 
     @Override
     public void releaseCacheBuffer() {
+        saveCameraState();
         super.releaseCacheBuffer();
         if (renderer instanceof FBOWorldSceneRenderer fboRenderer) {
             fboRenderer.releaseFBO();
         }
+        renderer = null;
+        dummyWorld = null;
+        core = null;
+        appliedSceneKey = null;
+        hasRenderableScene = false;
+    }
+
+    @Override
+    public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
+        if (Screen.hasShiftDown() && wheelDelta != 0.0D && isScalable() && isMouseOverElement(mouseX, mouseY)) {
+            float zoomDelta = wheelDelta < 0.0D ? FINE_ZOOM_STEP : -FINE_ZOOM_STEP;
+            setZoom(Mth.clamp(getZoom() + zoomDelta, MIN_ZOOM, MAX_ZOOM));
+            saveCameraState();
+            return true;
+        }
+        return super.mouseWheelMove(mouseX, mouseY, wheelDelta);
     }
 
     private void ensureSceneCreated() {

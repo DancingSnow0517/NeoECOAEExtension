@@ -26,6 +26,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
     private static final Vec3 CONTROLLER_CENTER = new Vec3(1.5, 1.5, 0.5);
 
     private final MultiBlockDefinition definition;
+    private final boolean mirrored;
     private final boolean formed;
     private final LinkedHashMap<BlockPos, BlockState> blocks = new LinkedHashMap<>();
     private final List<BlockPos> posList = new ArrayList<>();
@@ -41,16 +42,22 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
     private boolean hasBounds = false;
 
     public MultiblockPreviewContext(int repeats) {
-        this(null, repeats, false);
+        this(null, repeats, false, false);
     }
 
     public MultiblockPreviewContext(int repeats, boolean formed) {
-        this(null, repeats, formed);
+        this(null, repeats, false, formed);
     }
 
     public MultiblockPreviewContext(@Nullable MultiBlockDefinition definition, int repeats, boolean formed) {
+        this(definition, repeats, false, formed);
+    }
+
+    public MultiblockPreviewContext(
+            @Nullable MultiBlockDefinition definition, int repeats, boolean mirrored, boolean formed) {
         this.definition = definition;
         this.repeats = repeats;
+        this.mirrored = mirrored;
         this.formed = formed;
     }
 
@@ -65,7 +72,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
     public static MultiblockPreviewScene createScene(
             MultiblockPatternSnapshot snapshot, boolean formed, int selectedLayer) {
         MultiblockPreviewContext context =
-                new MultiblockPreviewContext(snapshot.definition(), snapshot.repeats(), formed);
+                new MultiblockPreviewContext(snapshot.definition(), snapshot.repeats(), snapshot.mirrored(), formed);
         for (PatternBlockEntry entry : snapshot.blocks()) {
             if (selectedLayer < 0 || entry.layerY() == selectedLayer) {
                 context.addPreviewBlock(entry.relativePos(), entry.blockState());
@@ -186,11 +193,25 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
         if (state.hasProperty(NEBlock.FORMED)) {
             state = state.setValue(NEBlock.FORMED, true);
         }
+        if (state.hasProperty(NEBlock.MIRRORED)) {
+            state = state.setValue(NEBlock.MIRRORED, mirrored);
+        }
         if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
-            boolean invisible = isComputationSystem() || pos.getCenter().distanceToSqr(CONTROLLER_CENTER) <= 3.0D;
+            boolean invisible =
+                    isComputationSystem() || pos.getCenter().distanceToSqr(controllerCenter()) <= 3.0D;
             state = state.setValue(ECOMachineCasing.INVISIBLE, invisible);
         }
         return state;
+    }
+
+    private Vec3 controllerCenter() {
+        if (!mirrored) {
+            return CONTROLLER_CENTER;
+        }
+        BlockPos controllerPos =
+                cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.transformLocalPos(
+                        cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.CONTROLLER_ANCHOR, true);
+        return controllerPos.getCenter();
     }
 
     private boolean isComputationSystem() {

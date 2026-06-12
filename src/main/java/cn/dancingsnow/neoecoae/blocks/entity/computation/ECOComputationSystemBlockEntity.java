@@ -2,10 +2,16 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGridNodeListener;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
+import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
@@ -14,6 +20,8 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -22,9 +30,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity>
         implements INEMultiblockBuildHost, IUIHolder.BlockEntityUI {
@@ -247,6 +257,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
      * </p>
      */
     public NEComputationUiState createComputationUiState() {
+        ensureStatsCurrent();
         CpuSelectionMode mode = cluster != null ? cluster.getSelectionMode() : cpuSelectionMode;
         return new NEComputationUiState(
                 worldPosition,
@@ -258,7 +269,66 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 totalBytes,
                 parallelCount,
                 acceleratorCount,
-                mode);
+                mode,
+                collectComputationRecipeEntries());
+    }
+
+    private List<NECraftingRecipeUiEntry> collectComputationRecipeEntries() {
+        if (cluster == null) {
+            return List.of();
+        }
+        List<ECOCraftingCPU> activeCpus = cluster.getActiveCPUs();
+        if (activeCpus.isEmpty()) {
+            return List.of();
+        }
+        List<NECraftingRecipeUiEntry> entries = new ArrayList<>(activeCpus.size());
+        int index = 0;
+        for (ECOCraftingCPU cpu : activeCpus) {
+            NECraftingRecipeUiEntry entry = createComputationRecipeEntry(cpu, index);
+            if (entry != null) {
+                entries.add(entry);
+            }
+            index++;
+        }
+        return List.copyOf(entries);
+    }
+
+    @Nullable private NECraftingRecipeUiEntry createComputationRecipeEntry(ECOCraftingCPU cpu, int index) {
+        if (cpu == null) {
+            return null;
+        }
+        ECOCraftingCPULogic logic = cpu.getLogic();
+        if (!logic.hasJob()) {
+            return null;
+        }
+        GenericStack finalOutput = logic.getFinalJobOutput();
+        if (finalOutput == null || finalOutput.amount() <= 0 || !(finalOutput.what() instanceof AEItemKey itemKey)) {
+            return null;
+        }
+        ItemStack output = itemKey.toStack(1);
+        if (output.isEmpty()) {
+            return null;
+        }
+        ElapsedTimeTracker tracker = logic.getElapsedTimeTracker();
+        long total = Math.max(1L, tracker.getSyntheticStartItemCount());
+        long remaining = Math.max(0L, Math.min(total, tracker.getSyntheticRemainingItemCount()));
+        NECraftingRecipeUiEntry.Status status = logic.isCantStoreItems() || logic.isJobSuspended()
+                ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
+                : NECraftingRecipeUiEntry.Status.RUNNING;
+        return new NECraftingRecipeUiEntry(
+                computationTaskId(cpu, finalOutput, index),
+                output,
+                finalOutput.amount(),
+                1L,
+                total,
+                remaining,
+                status);
+    }
+
+    private static String computationTaskId(ECOCraftingCPU cpu, GenericStack output, int index) {
+        BlockPos ownerPos = cpu.getOwner() != null ? cpu.getOwner().getBlockPos() : null;
+        String owner = ownerPos != null ? Long.toString(ownerPos.asLong()) : "proxy";
+        return "cpu:" + owner + ":" + index + ":" + output.what().hashCode();
     }
 
     @Override

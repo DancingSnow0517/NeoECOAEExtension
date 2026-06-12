@@ -18,6 +18,11 @@ public record NEStructureTerminalConfigState(
         int tier,
         StructureTerminalHostType hostType,
         StructureTerminalMode operationMode,
+        boolean operationModePending,
+        boolean previewMirrored,
+        boolean previewFormed,
+        int previewLayer,
+        int previewMaterialScroll,
         boolean linkedHost,
         boolean formed,
         boolean buildInProgress,
@@ -37,6 +42,11 @@ public record NEStructureTerminalConfigState(
                 StructureTerminalHostType.DEFAULT_TIER,
                 StructureTerminalHostType.DEFAULT,
                 StructureTerminalMode.BUILD,
+                false,
+                false,
+                false,
+                -1,
+                0,
                 false,
                 false,
                 false,
@@ -60,6 +70,7 @@ public record NEStructureTerminalConfigState(
         int tier = StructureTerminalItem.getHostTier(stack);
         StructureTerminalHostType hostType = StructureTerminalItem.getHostType(stack);
         StructureTerminalMode mode = StructureTerminalItem.getOperationMode(stack);
+        boolean modePending = StructureTerminalItem.hasOperationMode(stack);
         INEMultiblockBuildHost host = StructureTerminalItem.findLinkedHost(player, stack);
         BuildPreviewState preview = host == null ? null : host.getBuildPreview();
         return new NEStructureTerminalConfigState(
@@ -69,6 +80,11 @@ public record NEStructureTerminalConfigState(
                 tier,
                 hostType,
                 mode,
+                modePending,
+                StructureTerminalItem.isPreviewMirrored(stack),
+                StructureTerminalItem.isPreviewFormed(stack),
+                StructureTerminalItem.getPreviewLayer(stack),
+                StructureTerminalItem.getPreviewMaterialScroll(stack),
                 host != null,
                 host != null && host.isFormed(),
                 host != null && host.isBuildInProgress(),

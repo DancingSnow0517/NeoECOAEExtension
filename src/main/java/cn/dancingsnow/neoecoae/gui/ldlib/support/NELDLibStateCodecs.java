@@ -110,20 +110,61 @@ public final class NELDLibStateCodecs {
         buf.writeInt(state.parallelCount());
         buf.writeInt(state.accelerators());
         buf.writeEnum(state.cpuSelectionMode());
+        List<NECraftingRecipeUiEntry> recipes = state.recipeEntries();
+        buf.writeVarInt(Math.min(recipes.size(), MAX_CRAFTING_RECIPE_ENTRIES));
+        int writtenRecipes = 0;
+        for (NECraftingRecipeUiEntry entry : recipes) {
+            if (writtenRecipes++ >= MAX_CRAFTING_RECIPE_ENTRIES) {
+                break;
+            }
+            buf.writeUtf(entry.id(), 128);
+            buf.writeItem(entry.output());
+            buf.writeVarLong(Math.max(0L, entry.outputAmount()));
+            buf.writeVarLong(Math.max(0L, entry.craftCount()));
+            buf.writeVarLong(Math.max(0L, entry.totalTicks()));
+            buf.writeVarLong(Math.max(0L, entry.remainingTicks()));
+            buf.writeEnum(entry.status());
+        }
     }
 
     public static NEComputationUiState readComputation(FriendlyByteBuf buf) {
+        BlockPos pos = buf.readBlockPos();
+        boolean formed = buf.readBoolean();
+        boolean active = buf.readBoolean();
+        int usedThreads = buf.readInt();
+        int maxThreads = buf.readInt();
+        long availableStorage = buf.readLong();
+        long totalStorage = buf.readLong();
+        int parallelCount = buf.readInt();
+        int accelerators = buf.readInt();
+        CpuSelectionMode cpuSelectionMode = buf.readEnum(CpuSelectionMode.class);
+        int recipeCount = buf.readVarInt();
+        if (recipeCount > MAX_CRAFTING_RECIPE_ENTRIES) {
+            throw new IllegalArgumentException("Computation recipe entry count exceeds protocol limit: " + recipeCount);
+        }
+        List<NECraftingRecipeUiEntry> recipes = new ArrayList<>(recipeCount);
+        for (int i = 0; i < recipeCount; i++) {
+            recipes.add(new NECraftingRecipeUiEntry(
+                    buf.readUtf(128),
+                    buf.readItem(),
+                    buf.readVarLong(),
+                    buf.readVarLong(),
+                    buf.readVarLong(),
+                    buf.readVarLong(),
+                    buf.readEnum(NECraftingRecipeUiEntry.Status.class)));
+        }
         return new NEComputationUiState(
-                buf.readBlockPos(),
-                buf.readBoolean(),
-                buf.readBoolean(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readLong(),
-                buf.readLong(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readEnum(CpuSelectionMode.class));
+                pos,
+                formed,
+                active,
+                usedThreads,
+                maxThreads,
+                availableStorage,
+                totalStorage,
+                parallelCount,
+                accelerators,
+                cpuSelectionMode,
+                recipes);
     }
 
     public static void writeCrafting(FriendlyByteBuf buf, NECraftingUiState state) {
@@ -350,6 +391,11 @@ public final class NELDLibStateCodecs {
         buf.writeVarInt(state.tier());
         buf.writeEnum(state.hostType());
         buf.writeEnum(state.operationMode());
+        buf.writeBoolean(state.operationModePending());
+        buf.writeBoolean(state.previewMirrored());
+        buf.writeBoolean(state.previewFormed());
+        buf.writeVarInt(state.previewLayer());
+        buf.writeVarInt(state.previewMaterialScroll());
         buf.writeBoolean(state.linkedHost());
         buf.writeBoolean(state.formed());
         buf.writeBoolean(state.buildInProgress());
@@ -381,6 +427,11 @@ public final class NELDLibStateCodecs {
         int tier = buf.readVarInt();
         var hostType = buf.readEnum(cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType.class);
         var mode = buf.readEnum(cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode.class);
+        boolean modePending = buf.readBoolean();
+        boolean previewMirrored = buf.readBoolean();
+        boolean previewFormed = buf.readBoolean();
+        int previewLayer = buf.readVarInt();
+        int previewMaterialScroll = buf.readVarInt();
         boolean linkedHost = buf.readBoolean();
         boolean formed = buf.readBoolean();
         boolean buildInProgress = buf.readBoolean();
@@ -409,6 +460,11 @@ public final class NELDLibStateCodecs {
                 tier,
                 hostType,
                 mode,
+                modePending,
+                previewMirrored,
+                previewFormed,
+                previewLayer,
+                previewMaterialScroll,
                 linkedHost,
                 formed,
                 buildInProgress,

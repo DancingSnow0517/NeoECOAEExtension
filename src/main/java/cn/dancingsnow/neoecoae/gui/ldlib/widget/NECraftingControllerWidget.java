@@ -58,7 +58,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
     private static final int MAIN_PANEL_Y = 24;
     private static final int MAIN_PANEL_W = UI_WIDTH - PANEL_MARGIN * 2;
-    private static final int MAIN_PANEL_H = 165;
+    private static final int MAIN_PANEL_H = 171;
     private static final int TOOLBAR_BUTTON_SIZE = 14;
     private static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 3;
     private static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 3 - 3 * 2;
@@ -67,7 +67,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int MODULE_AREA_X = MAIN_PANEL_X + 7;
     private static final int MODULE_AREA_Y = MAIN_PANEL_Y + 7;
     private static final int MODULE_AREA_W = MAIN_PANEL_W - 14;
-    private static final int MODULE_AREA_H = 72;
+    private static final int MODULE_AREA_H = 78;
     private static final int MODULE_GRID_X = MODULE_AREA_X + 6;
     private static final int MODULE_GRID_Y = MODULE_AREA_Y + 16;
     private static final int MODULE_GRID_W = MODULE_AREA_W - 12;
@@ -90,7 +90,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int GAUGE_BAR_W = 23;
     private static final int SLOT_SIZE = 18;
     private static final int PLAYER_INV_X = MODULE_AREA_X;
-    private static final int PLAYER_INV_LABEL_Y = MAIN_PANEL_Y + MAIN_PANEL_H + 8;
+    private static final int PLAYER_INV_LABEL_Y = MAIN_PANEL_Y + 165 + 8;
     private static final int PLAYER_INV_Y = PLAYER_INV_LABEL_Y + 12;
     private static final int PLAYER_HOTBAR_Y = PLAYER_INV_Y + SLOT_SIZE * 3 + 4;
     private static final int TASK_PANEL_GAP = 8;

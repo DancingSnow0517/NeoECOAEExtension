@@ -21,7 +21,47 @@ public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockScen
             Supplier<MultiBlockDefinition> definitionSupplier,
             IntSupplier repeatsSupplier,
             BooleanSupplier mirroredSupplier) {
-        this(x, y, width, height, new PatternState(definitionSupplier, repeatsSupplier, mirroredSupplier));
+        this(x, y, width, height, definitionSupplier, repeatsSupplier, mirroredSupplier, () -> false);
+    }
+
+    public NEMultiblockPatternViewerWidget(
+            int x,
+            int y,
+            int width,
+            int height,
+            Supplier<MultiBlockDefinition> definitionSupplier,
+            IntSupplier repeatsSupplier,
+            BooleanSupplier mirroredSupplier,
+            BooleanSupplier formedSupplier) {
+        this(
+                x,
+                y,
+                width,
+                height,
+                definitionSupplier,
+                repeatsSupplier,
+                mirroredSupplier,
+                formedSupplier,
+                () -> -1);
+    }
+
+    public NEMultiblockPatternViewerWidget(
+            int x,
+            int y,
+            int width,
+            int height,
+            Supplier<MultiBlockDefinition> definitionSupplier,
+            IntSupplier repeatsSupplier,
+            BooleanSupplier mirroredSupplier,
+            BooleanSupplier formedSupplier,
+            IntSupplier selectedLayerSupplier) {
+        this(
+                x,
+                y,
+                width,
+                height,
+                new PatternState(
+                        definitionSupplier, repeatsSupplier, mirroredSupplier, formedSupplier, selectedLayerSupplier));
     }
 
     private NEMultiblockPatternViewerWidget(int x, int y, int width, int height, PatternState patternState) {
@@ -34,35 +74,32 @@ public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockScen
     }
 
     public int selectedLayer() {
-        return patternState.selectedLayer;
-    }
-
-    public void previousLayer() {
-        patternState.previousLayer();
-    }
-
-    public void nextLayer() {
-        patternState.nextLayer();
+        return patternState.selectedLayer();
     }
 
     private static final class PatternState {
         private final Supplier<MultiBlockDefinition> definitionSupplier;
         private final IntSupplier repeatsSupplier;
         private final BooleanSupplier mirroredSupplier;
+        private final BooleanSupplier formedSupplier;
+        private final IntSupplier selectedLayerSupplier;
 
         private MultiBlockDefinition cachedDefinition;
         private int cachedRepeats = Integer.MIN_VALUE;
         private boolean cachedMirrored;
         private MultiblockPatternSnapshot cachedSnapshot;
-        private int selectedLayer = -1;
 
         private PatternState(
                 Supplier<MultiBlockDefinition> definitionSupplier,
                 IntSupplier repeatsSupplier,
-                BooleanSupplier mirroredSupplier) {
+                BooleanSupplier mirroredSupplier,
+                BooleanSupplier formedSupplier,
+                IntSupplier selectedLayerSupplier) {
             this.definitionSupplier = definitionSupplier;
             this.repeatsSupplier = repeatsSupplier;
             this.mirroredSupplier = mirroredSupplier;
+            this.formedSupplier = formedSupplier;
+            this.selectedLayerSupplier = selectedLayerSupplier;
         }
 
         private @Nullable MultiblockPatternSnapshot snapshot() {
@@ -70,7 +107,6 @@ public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockScen
             if (definition == null) {
                 cachedDefinition = null;
                 cachedSnapshot = null;
-                selectedLayer = -1;
                 return null;
             }
             int repeats = repeatsSupplier.getAsInt();
@@ -83,62 +119,24 @@ public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockScen
                 cachedRepeats = repeats;
                 cachedMirrored = mirrored;
                 cachedSnapshot = MultiblockPatternPreviewService.create(definition, repeats, mirrored);
-                normalizeSelectedLayer();
             }
             return cachedSnapshot;
         }
 
         private @Nullable MultiblockPreviewScene scene() {
             MultiblockPatternSnapshot snapshot = snapshot();
-            return snapshot == null ? null : MultiblockPreviewContext.createScene(snapshot, false, selectedLayer);
+            return snapshot == null
+                    ? null
+                    : MultiblockPreviewContext.createScene(snapshot, formedSupplier.getAsBoolean(), selectedLayer());
         }
 
-        private void previousLayer() {
+        private int selectedLayer() {
             MultiblockPatternSnapshot snapshot = snapshot();
-            if (snapshot == null || snapshot.layers().isEmpty()) {
-                selectedLayer = -1;
-                return;
+            int selectedLayer = selectedLayerSupplier.getAsInt();
+            if (snapshot == null || selectedLayer < 0 || snapshot.blocksForLayer(selectedLayer).isEmpty()) {
+                return -1;
             }
-            if (selectedLayer < 0) {
-                selectedLayer = snapshot.maxLayerY();
-                return;
-            }
-            int previous = -1;
-            for (var layer : snapshot.layers()) {
-                if (layer.y() >= selectedLayer) {
-                    break;
-                }
-                previous = layer.y();
-            }
-            selectedLayer = previous;
-        }
-
-        private void nextLayer() {
-            MultiblockPatternSnapshot snapshot = snapshot();
-            if (snapshot == null || snapshot.layers().isEmpty()) {
-                selectedLayer = -1;
-                return;
-            }
-            if (selectedLayer < 0) {
-                selectedLayer = snapshot.minLayerY();
-                return;
-            }
-            for (var layer : snapshot.layers()) {
-                if (layer.y() > selectedLayer) {
-                    selectedLayer = layer.y();
-                    return;
-                }
-            }
-            selectedLayer = -1;
-        }
-
-        private void normalizeSelectedLayer() {
-            if (cachedSnapshot == null || selectedLayer < 0) {
-                return;
-            }
-            if (cachedSnapshot.blocksForLayer(selectedLayer).isEmpty()) {
-                selectedLayer = -1;
-            }
+            return selectedLayer;
         }
     }
 }

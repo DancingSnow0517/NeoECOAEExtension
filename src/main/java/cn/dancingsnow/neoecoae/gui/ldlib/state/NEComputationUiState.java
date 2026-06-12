@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.state;
 
 import appeng.api.config.CpuSelectionMode;
+import java.util.List;
 import net.minecraft.core.BlockPos;
 
 public record NEComputationUiState(
@@ -13,8 +14,9 @@ public record NEComputationUiState(
         long totalStorage,
         int parallelCount,
         int accelerators,
-        CpuSelectionMode cpuSelectionMode) {
+        CpuSelectionMode cpuSelectionMode,
+        List<NECraftingRecipeUiEntry> recipeEntries) {
     public static NEComputationUiState empty(BlockPos pos) {
-        return new NEComputationUiState(pos, false, false, 0, 0, 0, 0, 0, 0, CpuSelectionMode.ANY);
+        return new NEComputationUiState(pos, false, false, 0, 0, 0, 0, 0, 0, CpuSelectionMode.ANY, List.of());
     }
 }

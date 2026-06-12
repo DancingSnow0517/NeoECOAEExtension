@@ -35,7 +35,7 @@ public final class NELDLibUis {
                         NEComputationControllerWidget.UI_HEIGHT,
                         computation,
                         player)
-                .widget(new NEComputationControllerWidget(computation));
+                .widget(new NEComputationControllerWidget(computation, player));
     }
 
     public static ModularUI createCraftingController(ECOCraftingSystemBlockEntity crafting, Player player) {

@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
@@ -58,7 +59,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     private static final int PLAYER_HOTBAR_Y = 229;
     private static final int MATRIX_PANEL_X = PLAYER_INV_X + SLOT_SIZE * 9 + 4;
     private static final int MATRIX_PANEL_BOTTOM = 249;
-    private static final int MATRIX_PANEL_Y = 174;
+    private static final int MATRIX_PANEL_Y = PLAYER_INV_Y;
     private static final int MATRIX_PANEL_W = UI_WIDTH - MATRIX_PANEL_X - 4;
     private static final int MATRIX_PANEL_H = MATRIX_PANEL_BOTTOM - MATRIX_PANEL_Y;
     private static final int MATRIX_VIEW_X = MATRIX_PANEL_X + 6;
@@ -382,19 +383,48 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                     font(),
                     List.of(
                             stack.getHoverName(),
-                            Component.translatable(
-                                    "gui.neoecoae.machine.types_value",
+                            matrixTierTooltipLine(state.tier()),
+                            matrixUsedTotalTooltipLine(
+                                    Component.translatable("gui.neoecoae.common.types")
+                                            .getString() + ": ",
                                     NELDLibText.number(state.usedTypes()),
-                                    NELDLibText.number(state.totalTypes())),
-                            Component.translatable(
-                                    "gui.neoecoae.storage.matrix_card.bytes",
+                                    NELDLibText.number(state.totalTypes()),
+                                    state.usedTypes(),
+                                    state.totalTypes(),
+                                    ""),
+                            matrixUsedTotalTooltipLine(
+                                    "",
                                     NELDLibText.storageBytes(state.usedBytes()),
-                                    NELDLibText.storageBytes(state.totalBytes()))),
+                                    NELDLibText.storageBytes(state.totalBytes()),
+                                    state.usedBytes(),
+                                    state.totalBytes(),
+                                    Component.translatable("gui.neoecoae.storage.bytes_used")
+                                            .getString())),
                     mouseX,
                     mouseY);
             return true;
         }
         return false;
+    }
+
+    private Component matrixTierTooltipLine(int tier) {
+        return Component.translatable("gui.neoecoae.storage.matrix_card.title", matrixTierName(tier))
+                .withStyle(style -> style.withColor(matrixTierColor(tier)));
+    }
+
+    private Component matrixUsedTotalTooltipLine(
+            String prefix, String usedText, String totalText, long used, long total, String suffix) {
+        MutableComponent line =
+                Component.literal(prefix).withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED));
+        line.append(Component.literal(usedText)
+                .withStyle(style -> style.withColor(NELDLibStyle.usedValueColor(used, total))));
+        line.append(Component.literal(" / ").withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED)));
+        line.append(Component.literal(totalText).withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_VALUE)));
+        if (!suffix.isEmpty()) {
+            line.append(
+                    Component.literal(" " + suffix).withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED)));
+        }
+        return line;
     }
 
     private int matrixColumnCount() {

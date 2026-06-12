@@ -47,6 +47,10 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
     public static final String TAG_HOST_TYPE = "HostType";
     public static final String TAG_HOST_TIER = "HostTier";
     public static final String TAG_OPERATION_MODE = "OperationMode";
+    public static final String TAG_PREVIEW_MIRRORED = "PreviewMirrored";
+    public static final String TAG_PREVIEW_FORMED = "PreviewFormed";
+    public static final String TAG_PREVIEW_LAYER = "PreviewLayer";
+    public static final String TAG_PREVIEW_MATERIAL_SCROLL = "PreviewMaterialScroll";
     public static final String TAG_TARGET_DIMENSION = "TargetDimension";
     public static final String TAG_TARGET_POS = "TargetPos";
     public static final int DEFAULT_BUILD_LENGTH = 1;
@@ -117,6 +121,11 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         setBuildLength(stack, getBuildLength(stack));
     }
 
+    public static boolean hasOperationMode(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.contains(TAG_OPERATION_MODE);
+    }
+
     public static StructureTerminalMode getOperationMode(ItemStack stack) {
         CompoundTag tag = stack.getTag();
         if (tag == null || !tag.contains(TAG_OPERATION_MODE)) {
@@ -127,6 +136,57 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
 
     public static void setOperationMode(ItemStack stack, StructureTerminalMode mode) {
         stack.getOrCreateTag().putString(TAG_OPERATION_MODE, mode.name());
+    }
+
+    public static void clearOperationMode(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag != null) {
+            tag.remove(TAG_OPERATION_MODE);
+        }
+    }
+
+    public static StructureTerminalMode consumeOperationMode(ItemStack stack) {
+        StructureTerminalMode mode = getOperationMode(stack);
+        clearOperationMode(stack);
+        return mode;
+    }
+
+    public static boolean isPreviewMirrored(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.getBoolean(TAG_PREVIEW_MIRRORED);
+    }
+
+    public static void setPreviewMirrored(ItemStack stack, boolean mirrored) {
+        stack.getOrCreateTag().putBoolean(TAG_PREVIEW_MIRRORED, mirrored);
+    }
+
+    public static boolean isPreviewFormed(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.getBoolean(TAG_PREVIEW_FORMED);
+    }
+
+    public static void setPreviewFormed(ItemStack stack, boolean formed) {
+        stack.getOrCreateTag().putBoolean(TAG_PREVIEW_FORMED, formed);
+    }
+
+    public static int getPreviewLayer(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag == null || !tag.contains(TAG_PREVIEW_LAYER) ? -1 : tag.getInt(TAG_PREVIEW_LAYER);
+    }
+
+    public static void setPreviewLayer(ItemStack stack, int layer) {
+        stack.getOrCreateTag().putInt(TAG_PREVIEW_LAYER, layer);
+    }
+
+    public static int getPreviewMaterialScroll(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag == null || !tag.contains(TAG_PREVIEW_MATERIAL_SCROLL)
+                ? 0
+                : Math.max(0, tag.getInt(TAG_PREVIEW_MATERIAL_SCROLL));
+    }
+
+    public static void setPreviewMaterialScroll(ItemStack stack, int scroll) {
+        stack.getOrCreateTag().putInt(TAG_PREVIEW_MATERIAL_SCROLL, Math.max(0, scroll));
     }
 
     private static void setHostTarget(ItemStack stack, INEMultiblockBuildHost host) {
@@ -239,7 +299,7 @@ public class StructureTerminalItem extends Item implements HeldItemUIFactory.IHe
         rememberTarget(stack, level, host);
         int requestedLength = StructureTerminalItem.getBuildLength(stack, host.getMaxBuildLength());
         ServerPlayer serverPlayer = (ServerPlayer) player;
-        switch (StructureTerminalItem.getOperationMode(stack)) {
+        switch (StructureTerminalItem.consumeOperationMode(stack)) {
             case BUILD -> host.autoBuild(serverPlayer, requestedLength, false);
             case MIRRORED_BUILD -> host.autoBuild(serverPlayer, requestedLength, true);
             case DISMANTLE -> host.dismantle(serverPlayer);

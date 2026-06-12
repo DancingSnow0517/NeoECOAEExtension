@@ -108,6 +108,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.structure_terminal.mode.build.tooltip", "Build normal structure");
         provider.add("gui.neoecoae.structure_terminal.mode.mirrored_build.tooltip", "Build mirrored structure");
         provider.add("gui.neoecoae.structure_terminal.mode.dismantle.tooltip", "Dismantle current structure");
+        provider.add("gui.neoecoae.structure_terminal.preview_formed", "Formed Preview");
+        provider.add("gui.neoecoae.structure_terminal.preview_mirrored", "Mirrored Preview");
         provider.add("gui.neoecoae.multiblock.status.idle", "Idle");
         provider.add("gui.neoecoae.multiblock.status.length_updated", "Length updated");
         provider.add("gui.neoecoae.multiblock.status.controller_formed", "Controller already formed");

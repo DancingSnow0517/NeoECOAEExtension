@@ -586,31 +586,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
             if (target != null) {
                 var source = IActionSource.ofMachine(this);
-                var movedStacks = false;
-                var genStack = GenericStack.fromItemStack(this.outputInv.getStackInSlot(0));
-                if (genStack != null && genStack.what() != null) {
-                    var extractedStack = this.outputInv.extractItem(0, 64, false);
-                    var inserted =
-                            target.insert(genStack.what(), extractedStack.getCount(), Actionable.MODULATE, source);
-                    extractedStack.setCount(extractedStack.getCount() - (int) inserted);
-                    this.outputInv.insertItem(0, extractedStack, false);
-                    movedStacks |= inserted > 0;
-                }
-
-                FluidStack outFluid = this.outputTank.getFluid();
-                GenericStack fluid = GenericStack.fromFluidStack(outFluid);
-                if (fluid != null && fluid.what() != null) {
-                    var extracted = this.outputTank
-                            .drain(outFluid, IFluidHandler.FluidAction.EXECUTE)
-                            .getAmount();
-                    var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    this.outputTank.fill(
-                            new FluidStack(outFluid, (int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
-
-                    if (this.outputTank.getFluidAmount() == 0) clearFluidOut();
-
-                    movedStacks |= inserted > 0;
-                }
+                var movedStacks = pushOutItemResult(target, source);
+                movedStacks |= pushOutFluidResult(target, source);
 
                 if (movedStacks) {
                     return true;
@@ -619,6 +596,74 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         }
 
         return false;
+    }
+
+    private boolean pushOutItemResult(MEStorage target, IActionSource source) {
+        ItemStack outputStack = this.outputInv.getStackInSlot(0);
+        if (outputStack.isEmpty()) {
+            return false;
+        }
+
+        GenericStack genStack = GenericStack.fromItemStack(outputStack);
+        if (genStack == null || genStack.what() == null) {
+            return false;
+        }
+
+        long accepted = target.insert(genStack.what(), outputStack.getCount(), Actionable.SIMULATE, source);
+        if (accepted <= 0) {
+            return false;
+        }
+
+        int moveAmount = (int) Math.min(outputStack.getCount(), accepted);
+        ItemStack extractedStack = this.outputInv.extractItem(0, moveAmount, false);
+        if (extractedStack.isEmpty()) {
+            return false;
+        }
+
+        long inserted = target.insert(genStack.what(), extractedStack.getCount(), Actionable.MODULATE, source);
+        int insertedAmount = (int) Math.min(inserted, extractedStack.getCount());
+        if (insertedAmount < extractedStack.getCount()) {
+            ItemStack remainder = extractedStack.copy();
+            remainder.setCount(extractedStack.getCount() - insertedAmount);
+            this.outputInv.insertItem(0, remainder, false);
+        }
+        return insertedAmount > 0;
+    }
+
+    private boolean pushOutFluidResult(MEStorage target, IActionSource source) {
+        FluidStack outFluid = this.outputTank.getFluid();
+        if (outFluid.isEmpty()) {
+            return false;
+        }
+
+        GenericStack fluid = GenericStack.fromFluidStack(outFluid);
+        if (fluid == null || fluid.what() == null) {
+            return false;
+        }
+
+        long accepted = target.insert(fluid.what(), outFluid.getAmount(), Actionable.SIMULATE, source);
+        if (accepted <= 0) {
+            return false;
+        }
+
+        int moveAmount = (int) Math.min(outFluid.getAmount(), accepted);
+        FluidStack drainRequest = outFluid.copy();
+        drainRequest.setAmount(moveAmount);
+        FluidStack drained = this.outputTank.drain(drainRequest, IFluidHandler.FluidAction.EXECUTE);
+        int drainedAmount = drained.getAmount();
+        if (drainedAmount <= 0) {
+            return false;
+        }
+
+        long inserted = target.insert(fluid.what(), drainedAmount, Actionable.MODULATE, source);
+        int insertedAmount = (int) Math.min(inserted, drainedAmount);
+        if (insertedAmount < drainedAmount) {
+            drained.setAmount(drainedAmount - insertedAmount);
+            this.outputTank.fill(drained, IFluidHandler.FluidAction.EXECUTE);
+        }
+
+        if (this.outputTank.getFluidAmount() == 0) clearFluidOut();
+        return insertedAmount > 0;
     }
 
     @SuppressWarnings("UnstableApiUsage")
