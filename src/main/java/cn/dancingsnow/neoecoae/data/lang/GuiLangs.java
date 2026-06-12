@@ -22,6 +22,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.common.fluid", "Fluid");
         provider.add("gui.neoecoae.common.amount", "Amount");
         provider.add("gui.neoecoae.common.coolant", "Coolant");
+        provider.add("gui.neoecoae.common.inventory", "Inventory");
         provider.add("gui.neoecoae.common.overclock", "Overclock");
         provider.add("gui.neoecoae.common.active_cooling", "Active Cooling");
         provider.add("gui.neoecoae.common.input_fluid", "In Fluid");
@@ -116,11 +117,17 @@ public class GuiLangs {
         // storage
         provider.add("gui.neoecoae.storage.energy", "Energy Monitoring");
         provider.add("gui.neoecoae.storage.energy_status", "Energy Storage: %s / %s (%s%%)");
+        provider.add("gui.neoecoae.storage.matrix_card.title", "%s Storage Matrix");
+        provider.add("gui.neoecoae.storage.matrix_card.types", "%s / %s types used");
+        provider.add("gui.neoecoae.storage.matrix_card.bytes", "%s / %s bytes used");
 
         // computation
         provider.add("gui.neoecoae.computation.thread_info", "Thread Used: %s / %s");
         provider.add("gui.neoecoae.computation.parallel_info", "Parallel Count: %s");
         provider.add("gui.neoecoae.computation.storage_info", "Storage Used: %s / %s");
+        provider.add(
+                "gui.neoecoae.computation.cell_locked_active_job",
+                "This computation cell cannot be removed while crafting jobs are active.");
 
         // crafting
         provider.add("gui.neoecoae.crafting.pattern_bus_count", "Pattern Buses: %d");
@@ -129,6 +136,17 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.working_threads", "Working Threads: %d / %d (%d%%)");
         provider.add("gui.neoecoae.crafting.coolant_amount", "Coolant: %s / %s");
         provider.add("gui.neoecoae.crafting.total_parallelism", "Total Parallelism: %d");
+        provider.add("gui.neoecoae.crafting.recipe_slots", "Recipe Slots");
+        provider.add("gui.neoecoae.crafting.batch_parallel", "Throughput");
+        provider.add("gui.neoecoae.crafting.ft_cores_short", "FT Cores");
+        provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");
+        provider.add("gui.neoecoae.crafting.no_tasks", "No active tasks");
+        provider.add("gui.neoecoae.crafting.task.amount", "Amount: %s");
+        provider.add("gui.neoecoae.crafting.task.crafts", "Crafts: %s");
+        provider.add("gui.neoecoae.crafting.task.time", "Time: %s / %s");
+        provider.add("gui.neoecoae.crafting.task.status.running", "Running");
+        provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
+        provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %d (%d%%)");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy Usage: 搂b%s AE");
         provider.add("gui.neoecoae.crafting.overclock_status", "Theoretical Overclock: %d, Effective Overclock: %d");

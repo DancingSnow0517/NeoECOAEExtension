@@ -471,6 +471,20 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return activeCpuCount;
     }
 
+    public boolean hasActiveCraftingJobs() {
+        if (activeCpuCount > 0 || !activeCpus.isEmpty()) {
+            return true;
+        }
+        for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
+            for (ECOCraftingCPU cpu : core.getCpus()) {
+                if (cpu != null && cpu.getLogic().hasJob()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public boolean hasFreeThread() {
         for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
             if (threadingCore.hasFreeCpuSlot()) {

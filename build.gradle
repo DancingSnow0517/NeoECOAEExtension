@@ -66,13 +66,6 @@ repositories {
         }
     }
     maven {
-        name = 'GeckoLib'
-        url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
-        content {
-            includeGroup("software.bernie.geckolib")
-        }
-    }
-    maven {
         name = "TerraformersMC"
         url = "https://maven.terraformersmc.com/"
     }
@@ -212,8 +205,6 @@ dependencies {
 
     compileOnly fg.deobf("maven.modrinth:jade:${jade_version}")
     runtimeOnly fg.deobf("maven.modrinth:jade:${jade_version}")
-
-    implementation fg.deobf("software.bernie.geckolib:geckolib-forge-${minecraft_version}:${geckolib_version}")
 
     compileOnly("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
     annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")

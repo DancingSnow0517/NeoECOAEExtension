@@ -39,13 +39,6 @@ config="${mod_id}.mixins.json"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
-    modId="geckolib"
-    mandatory=true
-    versionRange="[4.0,)"
-    ordering="NONE"
-    side="BOTH"
-
-[[dependencies.${mod_id}]]
     modId="ldlib"
     mandatory=true
     versionRange="[1.0.50,)"

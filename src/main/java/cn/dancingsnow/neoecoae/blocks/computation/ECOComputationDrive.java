@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBloc
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -51,6 +52,11 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
         if (level.getBlockEntity(pos) instanceof ECOComputationDriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
                 if (level.isClientSide) return InteractionResult.SUCCESS;
+                if (!be.canExtractCell()) {
+                    player.displayClientMessage(
+                            Component.translatable("gui.neoecoae.computation.cell_locked_active_job"), true);
+                    return InteractionResult.CONSUME;
+                }
                 ItemStack cellStack = be.getCellStack();
                 be.setCellStack(null);
                 giveCellToPlayer(player, hand, cellStack);

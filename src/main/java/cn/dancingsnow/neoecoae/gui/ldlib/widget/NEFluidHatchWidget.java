@@ -6,30 +6,44 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
+import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 
 public class NEFluidHatchWidget extends NELDLibMachineWidget {
-    private static final int TANK_W = 46;
-    private static final int TANK_H = 64;
-    private static final int TANK_X = 87;
+    public static final int INPUT_UI_WIDTH = 176;
+    public static final int INPUT_UI_HEIGHT = 188;
+    public static final int OUTPUT_UI_WIDTH = 184;
+    public static final int OUTPUT_UI_HEIGHT = 180;
+
+    private static final int SLOT_SIZE = 18;
+    private static final int INVENTORY_WIDTH = SLOT_SIZE * 9;
+    private static final int TANK_W = 48;
+    private static final int INPUT_TANK_H = 64;
+    private static final int OUTPUT_TANK_H = 56;
     private static final int TANK_Y = 25;
-    private static final int AMOUNT_Y = TANK_Y + TANK_H + 7;
+    private static final int INVENTORY_GAP = 4;
+    private static final int HOTBAR_GAP = 4;
 
     private final FluidTank tank;
+    private final Inventory playerInventory;
+    private final boolean input;
 
-    public NEFluidHatchWidget(Component title, FluidTank tank) {
-        super(title, 220, 110);
+    public NEFluidHatchWidget(Component title, FluidTank tank, Inventory playerInventory, boolean input) {
+        super(title, input ? INPUT_UI_WIDTH : OUTPUT_UI_WIDTH, input ? INPUT_UI_HEIGHT : OUTPUT_UI_HEIGHT);
         this.tank = tank;
+        this.playerInventory = playerInventory;
+        this.input = input;
     }
 
     @Override
     protected void initLdWidgets() {
-        addWidget(new TankWidget(new NEForgeFluidStorage(tank), TANK_X, TANK_Y, TANK_W, TANK_H, true, true)
+        addWidget(new TankWidget(new NEForgeFluidStorage(tank), tankX(), TANK_Y, TANK_W, tankHeight(), true, true)
                 .setBackground(IGuiTexture.EMPTY)
                 .setShowAmount(false)
                 .setDrawHoverTips(false)
@@ -38,12 +52,13 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
                 .setAllowClickFilled(true)
                 .setAllowClickDrained(true)
                 .setChangeListener(() -> {}));
-        addText(0, AMOUNT_Y, width, 9, this::amountText, TEXT_VALUE, TextTexture.TextType.NORMAL);
+        addText(8, amountY(), width - 16, 9, this::amountText, TEXT_VALUE, TextTexture.TextType.NORMAL);
+        addPlayerInventorySlots();
     }
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!isMouseIn(TANK_X, TANK_Y, TANK_W, TANK_H, mouseX, mouseY)) {
+        if (!isMouseIn(tankX(), TANK_Y, TANK_W, tankHeight(), mouseX, mouseY)) {
             return;
         }
         FluidStack stack = tank.getFluid();
@@ -57,21 +72,22 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
         FluidStack stack = tank.getFluid();
         NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
                 graphics,
-                absX(TANK_X),
+                absX(tankX()),
                 absY(TANK_Y),
                 TANK_W,
-                TANK_H,
+                tankHeight(),
                 stack,
                 Math.max(0, tank.getFluidAmount()),
                 Math.max(0, tank.getCapacity()));
-        if (isMouseIn(TANK_X, TANK_Y, TANK_W, TANK_H, mouseX, mouseY)) {
+        if (isMouseIn(tankX(), TANK_Y, TANK_W, tankHeight(), mouseX, mouseY)) {
             graphics.fill(
-                    absX(TANK_X + 1),
+                    absX(tankX() + 1),
                     absY(TANK_Y + 1),
-                    absX(TANK_X + TANK_W - 1),
-                    absY(TANK_Y + TANK_H - 1),
+                    absX(tankX() + TANK_W - 1),
+                    absY(TANK_Y + tankHeight() - 1),
                     NELDLibStyle.HOVER_OVERLAY);
         }
+        drawPlayerInventoryBackground(graphics);
     }
 
     private Component amountText() {
@@ -79,5 +95,64 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
                 "gui.neoecoae.fluid_tank.amount",
                 fmt(Math.max(0, tank.getFluidAmount())),
                 fmt(Math.max(0, tank.getCapacity())));
+    }
+
+    private void addPlayerInventorySlots() {
+        int inventoryX = inventoryX();
+        int inventoryY = inventoryY();
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                addWidget(new SlotWidget(
+                                playerInventory,
+                                col + row * 9 + 9,
+                                inventoryX + col * SLOT_SIZE,
+                                inventoryY + row * SLOT_SIZE,
+                                true,
+                                true)
+                        .setBackgroundTexture(IGuiTexture.EMPTY)
+                        .setLocationInfo(true, false));
+            }
+        }
+        int hotbarY = inventoryY + SLOT_SIZE * 3 + HOTBAR_GAP;
+        for (int col = 0; col < 9; col++) {
+            addWidget(new SlotWidget(playerInventory, col, inventoryX + col * SLOT_SIZE, hotbarY, true, true)
+                    .setBackgroundTexture(IGuiTexture.EMPTY)
+                    .setLocationInfo(true, true));
+        }
+    }
+
+    private void drawPlayerInventoryBackground(GuiGraphics graphics) {
+        int inventoryX = inventoryX();
+        int inventoryY = inventoryY();
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                NELDLibAe2StyleRenderer.drawAeSlot(
+                        graphics, absX(inventoryX + col * SLOT_SIZE), absY(inventoryY + row * SLOT_SIZE));
+            }
+        }
+        int hotbarY = inventoryY + SLOT_SIZE * 3 + HOTBAR_GAP;
+        for (int col = 0; col < 9; col++) {
+            NELDLibAe2StyleRenderer.drawAeSlot(graphics, absX(inventoryX + col * SLOT_SIZE), absY(hotbarY));
+        }
+    }
+
+    private int tankX() {
+        return (width - TANK_W) / 2;
+    }
+
+    private int tankHeight() {
+        return input ? INPUT_TANK_H : OUTPUT_TANK_H;
+    }
+
+    private int amountY() {
+        return TANK_Y + tankHeight() + 6;
+    }
+
+    private int inventoryX() {
+        return (width - INVENTORY_WIDTH) / 2;
+    }
+
+    private int inventoryY() {
+        return amountY() + 9 + INVENTORY_GAP;
     }
 }

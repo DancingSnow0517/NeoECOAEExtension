@@ -169,7 +169,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public Snapshot createSnapshot() {
         return new Snapshot(
-                isBusy, progress, MAX_PROGRESS, getOccupiedThreadSlots(), getOutputItem(), getRemainingItems());
+                isBusy,
+                progress,
+                MAX_PROGRESS,
+                getOccupiedThreadSlots(),
+                getOutputItem(),
+                getRemainingItems(),
+                craftingJobId);
     }
 
     /**
@@ -753,5 +759,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             int maxProgress,
             int occupiedThreadSlots,
             ItemStack outputItem,
-            List<ItemStack> remainingItems) {}
+            List<ItemStack> remainingItems,
+            @Nullable UUID craftingJobId) {}
 }

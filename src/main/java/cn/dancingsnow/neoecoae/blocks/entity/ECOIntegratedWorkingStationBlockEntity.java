@@ -37,7 +37,6 @@ import appeng.util.inv.filter.AEItemFilters;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEIntegratedWorkingStationUiState;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -101,7 +100,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     private final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged() {
-            markForUpdate();
             setChanged();
             onChangeTank();
         }
@@ -109,7 +107,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     private final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged() {
-            markForUpdate();
             setChanged();
             onChangeTank();
         }
@@ -241,11 +238,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     // ── State ──
 
     public void setWorking(boolean working) {
-        if (working != this.working) {
-            updateBlockState(working);
-            this.markForUpdate();
+        if (working == this.working) {
+            return;
         }
         this.working = working;
+        updateBlockState(working);
+        setChanged();
     }
 
     private void updateBlockState(boolean working) {
@@ -370,7 +368,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     public void onGuiInventoryChanged() {
         onChangeInventory();
         setChanged();
-        markForUpdate();
     }
 
     @Override
@@ -514,77 +511,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
             if (this.getProcessingTime() >= this.getMaxProcessingTime()) {
                 final IntegratedWorkingStationRecipe out = this.getTask();
-                if (out != null) {
-                    final ItemStack itemOut = out.itemOutput();
-                    final FluidStack fluidOut = out.fluidOutput();
-
-                    boolean itemCanInsert = true;
-                    boolean fluidCanInsert = true;
-
-                    if (!itemOut.isEmpty()) {
-                        itemCanInsert =
-                                this.outputInv.insertItem(0, itemOut, true).isEmpty();
-                    }
-
-                    if (!fluidOut.isEmpty()) {
-                        fluidCanInsert = this.outputTank.fill(fluidOut, IFluidHandler.FluidAction.SIMULATE)
-                                >= fluidOut.getAmount() - 0.01;
-                    }
-
-                    // Only execute if both outputs can be placed; otherwise keep progress to retry
-                    // later
-                    if (itemCanInsert && fluidCanInsert) {
-                        // perform actual insertion
-                        boolean itemInserted = true;
-                        boolean fluidInserted = true;
-
-                        if (!itemOut.isEmpty()) {
-                            itemInserted =
-                                    this.outputInv.insertItem(0, itemOut, false).isEmpty();
-                        }
-
-                        if (!fluidOut.isEmpty()) {
-                            int added = this.outputTank.fill(fluidOut, IFluidHandler.FluidAction.EXECUTE);
-                            fluidInserted = added >= fluidOut.getAmount() - 0.01;
-                        }
-
-                        if (itemInserted && fluidInserted) {
-                            // consume inputs
-                            for (SizedIngredient itemInput : out.inputItems()) {
-                                int remaining = itemInput.count();
-                                for (int x = 0; x < this.inputInv.size(); x++) {
-                                    var stack = this.inputInv.getStackInSlot(x);
-                                    if (itemInput.ingredient().test(stack)) {
-                                        if (stack.getCount() > remaining) {
-                                            stack.shrink(remaining);
-                                            remaining = 0;
-                                        } else {
-                                            remaining -= stack.getCount();
-                                            stack.setCount(0);
-                                        }
-                                        this.inputInv.setItemDirect(x, stack);
-                                    }
-
-                                    if (remaining <= 0) {
-                                        break;
-                                    }
-                                }
-                            }
-
-                            FluidStack fluidStack = this.inputTank.getFluid();
-                            if (out.inputFluid().test(fluidStack)) {
-                                inputTank.drain(
-                                        new FluidStack(
-                                                fluidStack, out.inputFluid().amount()),
-                                        IFluidHandler.FluidAction.EXECUTE);
-                            }
-
-                            this.setProcessingTime(0);
-                            this.saveChanges();
-                            this.invalidateRecipeCache();
-                            this.setWorking(false);
-                        }
-                    }
+                if (out != null && tryCompleteRecipe(out)) {
+                    this.setProcessingTime(0);
+                    this.saveChanges();
+                    this.invalidateRecipeCache();
+                    this.setWorking(false);
                 }
             }
         } else {
@@ -598,6 +529,51 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         return this.hasCraftWork()
                 ? TickRateModulation.URGENT
                 : this.hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
+    }
+
+    private boolean tryCompleteRecipe(IntegratedWorkingStationRecipe recipe) {
+        int[] itemConsumption = createItemConsumptionPlan(recipe);
+        if (itemConsumption == null || !hasRequiredInputFluid(recipe)) {
+            invalidateRecipeCache();
+            return false;
+        }
+
+        ItemStack itemOutput = recipe.itemOutput().copy();
+        FluidStack fluidOutput = recipe.fluidOutput().copy();
+        if ((!itemOutput.isEmpty() && !outputInv.insertItem(0, itemOutput, true).isEmpty())
+                || (!fluidOutput.isEmpty()
+                        && outputTank.fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE)
+                                != fluidOutput.getAmount())) {
+            return false;
+        }
+
+        if (!itemOutput.isEmpty() && !outputInv.insertItem(0, itemOutput, false).isEmpty()) {
+            return false;
+        }
+        if (!fluidOutput.isEmpty()
+                && outputTank.fill(fluidOutput, IFluidHandler.FluidAction.EXECUTE) != fluidOutput.getAmount()) {
+            return false;
+        }
+
+        for (int slot = 0; slot < itemConsumption.length; slot++) {
+            int amount = itemConsumption[slot];
+            if (amount > 0) {
+                inputInv.extractItem(slot, amount, false);
+            }
+        }
+        int fluidAmount = recipe.inputFluid().amount();
+        if (fluidAmount > 0) {
+            inputTank.drain(fluidAmount, IFluidHandler.FluidAction.EXECUTE);
+        }
+        return true;
+    }
+
+    private @Nullable int[] createItemConsumptionPlan(IntegratedWorkingStationRecipe recipe) {
+        return ECOIntegratedWorkingStationRecipeHelper.createItemConsumptionPlan(inputInv, recipe.inputItems());
+    }
+
+    private boolean hasRequiredInputFluid(IntegratedWorkingStationRecipe recipe) {
+        return recipe.inputFluid().ingredient().isEmpty() || recipe.inputFluid().test(inputTank.getFluid());
     }
 
     private boolean pushOutResult() {

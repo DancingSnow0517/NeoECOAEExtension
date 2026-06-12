@@ -46,7 +46,7 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        if (host.getCellStack() == null) {
+        if (host.getCellStack() == null || !host.canExtractCell()) {
             return ItemStack.EMPTY;
         }
         if (amount <= 0) {

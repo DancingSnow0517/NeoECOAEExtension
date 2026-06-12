@@ -9,5 +9,9 @@ public interface ICellHost {
 
     boolean isItemValid(ItemStack stack);
 
+    default boolean canExtractCell() {
+        return true;
+    }
+
     default void notifyPersistence() {}
 }

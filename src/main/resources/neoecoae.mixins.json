@@ -17,6 +17,8 @@
   "client": [
     "CraftingCPUScreenMixin120",
     "CPUSelectionListMixin120",
+    "EmiScreenBaseAccessor120",
+    "EmiScreenBaseMixin120",
     "PatternEncodingTermScreenMixin120"
   ],
   "server": [],

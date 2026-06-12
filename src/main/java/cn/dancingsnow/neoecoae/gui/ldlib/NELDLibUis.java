@@ -21,15 +21,27 @@ import net.minecraft.world.entity.player.Player;
 public final class NELDLibUis {
 
     public static ModularUI createStorageController(ECOStorageSystemBlockEntity storage, Player player) {
-        return new ModularUI(358, 220, storage, player).widget(new NEStorageControllerWidget(storage, player));
+        return new ModularUI(
+                        NEStorageControllerWidget.UI_WIDTH,
+                        NEStorageControllerWidget.uiHeight(storage),
+                        storage,
+                        player)
+                .widget(new NEStorageControllerWidget(storage, player));
     }
 
     public static ModularUI createComputationController(ECOComputationSystemBlockEntity computation, Player player) {
-        return new ModularUI(300, 170, computation, player).widget(new NEComputationControllerWidget(computation));
+        return new ModularUI(
+                        NEComputationControllerWidget.UI_WIDTH,
+                        NEComputationControllerWidget.UI_HEIGHT,
+                        computation,
+                        player)
+                .widget(new NEComputationControllerWidget(computation));
     }
 
     public static ModularUI createCraftingController(ECOCraftingSystemBlockEntity crafting, Player player) {
-        return new ModularUI(372, 240, crafting, player).widget(new NECraftingControllerWidget(crafting));
+        return new ModularUI(
+                        NECraftingControllerWidget.UI_WIDTH, NECraftingControllerWidget.UI_HEIGHT, crafting, player)
+                .widget(new NECraftingControllerWidget(crafting, player));
     }
 
     public static ModularUI createPatternBus(ECOCraftingPatternBusBlockEntity bus, Player player) {
@@ -47,13 +59,15 @@ public final class NELDLibUis {
     }
 
     public static ModularUI createFluidInputHatch(ECOFluidInputHatchBlockEntity hatch, Player player) {
-        return new ModularUI(220, 110, hatch, player)
-                .widget(new NEFluidHatchWidget(hatch.getBlockState().getBlock().getName(), hatch.tank));
+        return new ModularUI(NEFluidHatchWidget.INPUT_UI_WIDTH, NEFluidHatchWidget.INPUT_UI_HEIGHT, hatch, player)
+                .widget(new NEFluidHatchWidget(
+                        hatch.getBlockState().getBlock().getName(), hatch.tank, player.getInventory(), true));
     }
 
     public static ModularUI createFluidOutputHatch(ECOFluidOutputHatchBlockEntity hatch, Player player) {
-        return new ModularUI(220, 110, hatch, player)
-                .widget(new NEFluidHatchWidget(hatch.getBlockState().getBlock().getName(), hatch.tank));
+        return new ModularUI(NEFluidHatchWidget.OUTPUT_UI_WIDTH, NEFluidHatchWidget.OUTPUT_UI_HEIGHT, hatch, player)
+                .widget(new NEFluidHatchWidget(
+                        hatch.getBlockState().getBlock().getName(), hatch.tank, player.getInventory(), false));
     }
 
     public static ModularUI createStructureTerminal(Player player, HeldItemUIFactory.HeldItemHolder holder) {

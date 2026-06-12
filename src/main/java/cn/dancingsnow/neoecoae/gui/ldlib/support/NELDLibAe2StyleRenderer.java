@@ -223,6 +223,19 @@ public final class NELDLibAe2StyleRenderer {
         g.disableScissor();
     }
 
+    public static void drawAeFluidIcon(GuiGraphics g, int x, int y, FluidStack stack) {
+        if (stack.isEmpty() || stack.getFluid() == null) {
+            return;
+        }
+        g.enableScissor(x, y, x + 16, y + 16);
+        drawFluidTextureFull(g, x, y, 16, 16, stack, y + 16);
+        g.disableScissor();
+        g.fill(x, y, x + 16, y + 1, 0x35FFFFFF);
+        g.fill(x, y, x + 1, y + 16, 0x25FFFFFF);
+        g.fill(x, y + 15, x + 16, y + 16, 0x35000000);
+        g.fill(x + 15, y, x + 16, y + 16, 0x25000000);
+    }
+
     private static void drawFluidTextureFull(
             GuiGraphics g, int x, int topY, int w, int h, FluidStack stack, int bottomY) {
         if (stack.isEmpty() || stack.getFluid() == null) return;

@@ -149,6 +149,11 @@ public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEnti
     }
 
     @Override
+    public boolean canExtractCell() {
+        return cluster == null || !cluster.hasActiveCraftingJobs();
+    }
+
+    @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
         loadDriveVisualState(data);

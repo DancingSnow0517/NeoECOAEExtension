@@ -3,7 +3,9 @@ package cn.dancingsnow.neoecoae.gui.ldlib.support;
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
 import java.util.ArrayList;
@@ -15,6 +17,8 @@ import net.minecraftforge.fluids.FluidStack;
 
 public final class NELDLibStateCodecs {
     private static final int MAX_STORAGE_UI_TYPES = 64;
+    private static final int MAX_STORAGE_DRIVES = 384;
+    private static final int MAX_CRAFTING_RECIPE_ENTRIES = 64;
     private static final int MAX_WORKER_OUTPUTS = 128;
     private static final int MAX_PARALLEL_CORE_TIERS = 128;
     private static final int MAX_CRAFTING_MODULE_CELLS = 384;
@@ -25,6 +29,22 @@ public final class NELDLibStateCodecs {
         buf.writeLong(state.storedEnergy());
         buf.writeLong(state.maxEnergy());
         buf.writeBoolean(state.formed());
+        List<NEStorageUiMatrixState> matrices = state.matrixStates();
+        buf.writeVarInt(Math.min(matrices.size(), MAX_STORAGE_DRIVES));
+        int matricesWritten = 0;
+        for (NEStorageUiMatrixState matrix : matrices) {
+            if (matricesWritten++ >= MAX_STORAGE_DRIVES) {
+                break;
+            }
+            buf.writeVarInt(matrix.row());
+            buf.writeVarInt(matrix.column());
+            buf.writeItem(matrix.stack());
+            buf.writeVarInt(matrix.tier());
+            buf.writeLong(matrix.usedTypes());
+            buf.writeLong(matrix.totalTypes());
+            buf.writeLong(matrix.usedBytes());
+            buf.writeLong(matrix.totalBytes());
+        }
         List<NEStorageUiTypeState> types = state.typeStates();
         buf.writeVarInt(Math.min(types.size(), MAX_STORAGE_UI_TYPES));
         int written = 0;
@@ -46,6 +66,22 @@ public final class NELDLibStateCodecs {
         long storedEnergy = buf.readLong();
         long maxEnergy = buf.readLong();
         boolean formed = buf.readBoolean();
+        int matrixCount = buf.readVarInt();
+        if (matrixCount > MAX_STORAGE_DRIVES) {
+            throw new IllegalArgumentException("Storage drive count exceeds protocol limit: " + matrixCount);
+        }
+        List<NEStorageUiMatrixState> matrices = new ArrayList<>(matrixCount);
+        for (int i = 0; i < matrixCount; i++) {
+            matrices.add(new NEStorageUiMatrixState(
+                    buf.readVarInt(),
+                    buf.readVarInt(),
+                    buf.readItem(),
+                    buf.readVarInt(),
+                    buf.readLong(),
+                    buf.readLong(),
+                    buf.readLong(),
+                    buf.readLong()));
+        }
         int typeCount = buf.readVarInt();
         if (typeCount > MAX_STORAGE_UI_TYPES) {
             throw new IllegalArgumentException("Storage UI type count exceeds protocol limit: " + typeCount);
@@ -60,7 +96,7 @@ public final class NELDLibStateCodecs {
                     buf.readLong(),
                     buf.readLong()));
         }
-        return new NEStorageUiState(pos, types, storedEnergy, maxEnergy, formed);
+        return new NEStorageUiState(pos, types, matrices, storedEnergy, maxEnergy, formed);
     }
 
     public static void writeComputation(FriendlyByteBuf buf, NEComputationUiState state) {
@@ -116,6 +152,25 @@ public final class NELDLibStateCodecs {
         buf.writeVarLong(state.coolantCapacity());
         buf.writeVarInt(state.availableThreads());
         buf.writeVarInt(state.effectiveParallel());
+        buf.writeVarInt(state.maxRecipeSlots());
+        buf.writeVarInt(state.occupiedRecipeSlots());
+        buf.writeVarInt(state.batchParallel());
+
+        List<NECraftingRecipeUiEntry> recipes = state.recipeEntries();
+        buf.writeVarInt(Math.min(recipes.size(), MAX_CRAFTING_RECIPE_ENTRIES));
+        int writtenRecipes = 0;
+        for (NECraftingRecipeUiEntry entry : recipes) {
+            if (writtenRecipes++ >= MAX_CRAFTING_RECIPE_ENTRIES) {
+                break;
+            }
+            buf.writeUtf(entry.id(), 128);
+            buf.writeItem(entry.output());
+            buf.writeVarLong(Math.max(0L, entry.outputAmount()));
+            buf.writeVarLong(Math.max(0L, entry.craftCount()));
+            buf.writeVarLong(Math.max(0L, entry.totalTicks()));
+            buf.writeVarLong(Math.max(0L, entry.remainingTicks()));
+            buf.writeEnum(entry.status());
+        }
 
         List<ItemStack> outputs = state.workerCraftOutputs();
         buf.writeVarInt(Math.min(outputs.size(), MAX_WORKER_OUTPUTS));
@@ -177,6 +232,25 @@ public final class NELDLibStateCodecs {
         long coolantCapacity = buf.readVarLong();
         int availableThreads = buf.readVarInt();
         int effectiveParallel = buf.readVarInt();
+        int maxRecipeSlots = buf.readVarInt();
+        int occupiedRecipeSlots = buf.readVarInt();
+        int batchParallel = buf.readVarInt();
+
+        int recipeCount = buf.readVarInt();
+        if (recipeCount > MAX_CRAFTING_RECIPE_ENTRIES) {
+            throw new IllegalArgumentException("Crafting recipe entry count exceeds protocol limit: " + recipeCount);
+        }
+        List<NECraftingRecipeUiEntry> recipes = new ArrayList<>(recipeCount);
+        for (int i = 0; i < recipeCount; i++) {
+            recipes.add(new NECraftingRecipeUiEntry(
+                    buf.readUtf(128),
+                    buf.readItem(),
+                    buf.readVarLong(),
+                    buf.readVarLong(),
+                    buf.readVarLong(),
+                    buf.readVarLong(),
+                    buf.readEnum(NECraftingRecipeUiEntry.Status.class)));
+        }
 
         int outputCount = buf.readVarInt();
         if (outputCount > MAX_WORKER_OUTPUTS) {
@@ -235,6 +309,10 @@ public final class NELDLibStateCodecs {
                 coolantCapacity,
                 availableThreads,
                 effectiveParallel,
+                maxRecipeSlots,
+                occupiedRecipeSlots,
+                batchParallel,
+                recipes,
                 outputs,
                 tiers,
                 moduleCells);

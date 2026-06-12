@@ -16,6 +16,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NEComputationUiState> {
+    public static final int UI_WIDTH = 300;
+    public static final int UI_HEIGHT = 170;
     private static final int PANEL_MARGIN = 7;
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
     private static final int MAIN_PANEL_Y = 24;
@@ -23,8 +25,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private static final int MAIN_PANEL_H = 112;
     private static final int FORMED_BAR_H = 25;
     private static final int FORMED_BAR_BOTTOM_GAP = 7;
-    private static final int TOOLBAR_BUTTON_X = -22;
-    private static final int TOOLBAR_BUTTON_Y = 8;
+    private static final int TOOLBAR_BUTTON_X = UI_WIDTH - PANEL_MARGIN - 18;
+    private static final int TOOLBAR_BUTTON_Y = 4;
     private static final int TOOLBAR_BUTTON_W = 18;
     private static final int TOOLBAR_BUTTON_H = 20;
 
@@ -42,8 +44,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     public NEComputationControllerWidget(ECOComputationSystemBlockEntity computation) {
         super(
                 computation.getBlockState().getBlock().getName(),
-                300,
-                170,
+                UI_WIDTH,
+                UI_HEIGHT,
                 NEComputationUiState.empty(computation.getBlockPos()),
                 computation::createComputationUiState,
                 NELDLibStateCodecs::writeComputation,
@@ -76,16 +78,6 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                         }
                     }
                 }));
-    }
-
-    @Override
-    public List<net.minecraft.client.renderer.Rect2i> getGuiExtraAreas(
-            net.minecraft.client.renderer.Rect2i guiRect, List<net.minecraft.client.renderer.Rect2i> list) {
-        List<net.minecraft.client.renderer.Rect2i> areas =
-                new java.util.ArrayList<>(super.getGuiExtraAreas(guiRect, list));
-        areas.add(new net.minecraft.client.renderer.Rect2i(
-                absX(TOOLBAR_BUTTON_X), absY(TOOLBAR_BUTTON_Y), TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H));
-        return areas;
     }
 
     @Override

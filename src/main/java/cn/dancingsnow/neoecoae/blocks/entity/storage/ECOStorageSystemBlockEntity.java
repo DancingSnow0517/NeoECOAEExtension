@@ -4,6 +4,9 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import appeng.helpers.IPriorityHost;
 import appeng.menu.ISubMenu;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -14,6 +17,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
@@ -27,12 +31,14 @@ import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -226,13 +232,26 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
 
         List<NEStorageUiTypeState> typeStates;
+        List<NEStorageUiMatrixState> matrixStates;
         if (cluster != null) {
             // Group by cell type key; LinkedHashMap preserves insertion order
             Map<ResourceLocation, NEStorageUiTypeState> grouped = new LinkedHashMap<>();
+            matrixStates = new ArrayList<>(cluster.getDrives().size());
+            IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
+            Direction top = strategy.getSide(getBlockState(), RelativeSide.TOP);
+            Direction left = strategy.getSide(getBlockState(), RelativeSide.RIGHT);
+            Direction right = cluster.isMirrored() ? left : left.getOpposite();
 
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                BlockPos offset = drive.getBlockPos().subtract(worldPosition);
+                int row = 1 - directionDistance(offset, top);
+                int column = directionDistance(offset, right) - 1;
+                ItemStack cellStack = drive.getCellStack();
                 IECOStorageCell inv = drive.getCellInventory();
-                if (inv == null) continue;
+                if (inv == null || cellStack.isEmpty()) {
+                    matrixStates.add(new NEStorageUiMatrixState(row, column, ItemStack.EMPTY, 0, 0L, 0L, 0L, 0L));
+                    continue;
+                }
 
                 ECOCellType cellType = inv.getCellType();
                 ResourceLocation typeId = getCellTypeKey(cellType);
@@ -242,6 +261,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 long tt = inv.getTotalItemTypes();
                 long ub = inv.getUsedBytes();
                 long tb = inv.getTotalBytes();
+                int matrixTier = Math.max(0, Math.min(3, inv.getTier().getTier()));
+                matrixStates.add(new NEStorageUiMatrixState(
+                        row, column, new ItemStack(cellStack.getItem()), matrixTier, st, tt, ub, tb));
 
                 NEStorageUiTypeState existing = grouped.get(typeId);
                 if (existing != null) {
@@ -263,11 +285,20 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             typeStates.sort(
                     java.util.Comparator.comparingInt((NEStorageUiTypeState s) -> storageTypeSortPriority(s.typeId()))
                             .thenComparing(s -> s.typeId().toString()));
+            matrixStates.sort(Comparator.comparingInt(NEStorageUiMatrixState::row)
+                    .thenComparingInt(NEStorageUiMatrixState::column));
         } else {
             typeStates = new ArrayList<>();
+            matrixStates = List.of();
         }
 
-        return new NEStorageUiState(worldPosition, typeStates, storedEnergy, maxEnergy, formed);
+        return new NEStorageUiState(worldPosition, typeStates, matrixStates, storedEnergy, maxEnergy, formed);
+    }
+
+    private static int directionDistance(BlockPos offset, Direction direction) {
+        return offset.getX() * direction.getStepX()
+                + offset.getY() * direction.getStepY()
+                + offset.getZ() * direction.getStepZ();
     }
 
     @Override

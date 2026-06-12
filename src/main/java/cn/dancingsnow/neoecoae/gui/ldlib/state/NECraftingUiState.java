@@ -30,6 +30,10 @@ public record NECraftingUiState(
         long coolantCapacity,
         int availableThreads,
         int effectiveParallel,
+        int maxRecipeSlots,
+        int occupiedRecipeSlots,
+        int batchParallel,
+        List<NECraftingRecipeUiEntry> recipeEntries,
         List<ItemStack> workerCraftOutputs,
         List<Integer> parallelCoreTiers,
         List<NECraftingModuleCell> moduleCells) {
@@ -60,6 +64,10 @@ public record NECraftingUiState(
                 0L,
                 0,
                 0,
+                0,
+                0,
+                0,
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of());

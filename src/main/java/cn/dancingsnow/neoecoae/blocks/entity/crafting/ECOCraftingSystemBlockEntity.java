@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
@@ -673,6 +674,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         int totalParallelism = threadCount;
         int availThreads = getAvailableThreads();
         int effParallel = Math.min(totalParallelism, availThreads);
+        int maxRecipeSlots = Math.max(0, availThreads);
+        int occupiedRecipeSlots = Math.min(maxRecipeSlots, Math.max(0, runningThreadCount));
+        int batchParallel = Math.max(0, effParallel);
+        List<NECraftingRecipeUiEntry> recipeEntries = new ArrayList<>();
 
         // Collect active craft outputs from each worker
         List<ItemStack> craftOutputs = new ArrayList<>();
@@ -683,6 +688,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             int maxWorkerColumn = -1;
             List<WorkerUiEntry> workerEntries = new ArrayList<>();
             for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+                appendWorkerRecipeEntries(recipeEntries, worker);
                 int column = moduleColumn(worker.getBlockPos());
                 if (column >= 0) {
                     maxWorkerColumn = Math.max(maxWorkerColumn, column);
@@ -745,9 +751,37 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 MAX_COOLANT,
                 availThreads,
                 effParallel,
+                maxRecipeSlots,
+                occupiedRecipeSlots,
+                batchParallel,
+                recipeEntries,
                 craftOutputs,
                 coreTiers,
                 moduleCells);
+    }
+
+    private static void appendWorkerRecipeEntries(
+            List<NECraftingRecipeUiEntry> entries, ECOCraftingWorkerBlockEntity worker) {
+        int threadIndex = 0;
+        for (var thread : worker.getThreadSnapshots()) {
+            ItemStack output = thread.outputItem();
+            if (output.isEmpty()) {
+                threadIndex++;
+                continue;
+            }
+            entries.add(new NECraftingRecipeUiEntry(
+                    "worker:" + worker.getBlockPos().asLong() + ":" + threadIndex + ":"
+                            + (thread.craftingJobId() != null ? thread.craftingJobId() : "local"),
+                    output.copyWithCount(1),
+                    Math.max(1L, output.getCount()),
+                    Math.max(1, thread.occupiedThreadSlots()),
+                    Math.max(1, thread.maxProgress()),
+                    Math.max(0, thread.maxProgress() - thread.progress()),
+                    thread.progress() >= thread.maxProgress()
+                            ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
+                            : NECraftingRecipeUiEntry.Status.RUNNING));
+            threadIndex++;
+        }
     }
 
     private int moduleColumn(BlockPos pos) {
