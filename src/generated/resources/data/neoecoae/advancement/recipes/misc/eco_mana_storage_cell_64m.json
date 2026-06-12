@@ -7,7 +7,7 @@
   ],
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_16m_component": {
+    "has_64m_component": {
       "conditions": {
         "items": [
           {
@@ -27,7 +27,7 @@
   "requirements": [
     [
       "has_the_recipe",
-      "has_16m_component"
+      "has_64m_component"
     ]
   ],
   "rewards": {

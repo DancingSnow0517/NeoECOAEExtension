@@ -89,6 +89,7 @@ repositories {
         }
     }
     maven { url "https://maven.shedaniel.me/" }
+    maven { url "https://maven.minecraftforge.net/" }
 }
 
 dependencies {
@@ -120,6 +121,9 @@ dependencies {
     implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
     // implementation("curse.maven:applied-botanics-addon-610632:7234122")
     implementation(name: "appbot-1.6.0")
+
+    implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182")
+    implementation("curse.maven:ars-energistique-905641:6203425")
 
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")

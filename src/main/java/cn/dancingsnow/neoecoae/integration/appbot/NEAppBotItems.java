@@ -75,7 +75,7 @@ public class NEAppBotItems {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_MANA_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_64M)
-                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
+                .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
                 .save(appBotInstalled);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_MANA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             appBotInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
@@ -97,7 +97,7 @@ public class NEAppBotItems {
             ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                 .requires(ECO_MANA_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_256M)
-                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
+                .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
                 .save(appBotInstalled);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_MANA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             appBotInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
