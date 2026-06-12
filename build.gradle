@@ -108,6 +108,7 @@ dependencies {
 
     implementation("curse.maven:glodium-957920:5821676")
     implementation("curse.maven:ex-pattern-provider-892005:7478960")
+    implementation("curse.maven:applied-flux-965012:8204513")
 
     implementation("curse.maven:advancedae-1084104:7374386")
 
