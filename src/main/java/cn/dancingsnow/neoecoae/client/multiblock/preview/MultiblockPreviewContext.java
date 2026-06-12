@@ -197,8 +197,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
             state = state.setValue(NEBlock.MIRRORED, mirrored);
         }
         if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
-            boolean invisible =
-                    isComputationSystem() || pos.getCenter().distanceToSqr(controllerCenter()) <= 3.0D;
+            boolean invisible = isComputationSystem() || pos.getCenter().distanceToSqr(controllerCenter()) <= 3.0D;
             state = state.setValue(ECOMachineCasing.INVISIBLE, invisible);
         }
         return state;
@@ -208,9 +207,8 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
         if (!mirrored) {
             return CONTROLLER_CENTER;
         }
-        BlockPos controllerPos =
-                cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.transformLocalPos(
-                        cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.CONTROLLER_ANCHOR, true);
+        BlockPos controllerPos = cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.transformLocalPos(
+                cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.CONTROLLER_ANCHOR, true);
         return controllerPos.getCenter();
     }
 

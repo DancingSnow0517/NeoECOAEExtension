@@ -33,16 +33,7 @@ public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockScen
             IntSupplier repeatsSupplier,
             BooleanSupplier mirroredSupplier,
             BooleanSupplier formedSupplier) {
-        this(
-                x,
-                y,
-                width,
-                height,
-                definitionSupplier,
-                repeatsSupplier,
-                mirroredSupplier,
-                formedSupplier,
-                () -> -1);
+        this(x, y, width, height, definitionSupplier, repeatsSupplier, mirroredSupplier, formedSupplier, () -> -1);
     }
 
     public NEMultiblockPatternViewerWidget(
@@ -133,7 +124,9 @@ public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockScen
         private int selectedLayer() {
             MultiblockPatternSnapshot snapshot = snapshot();
             int selectedLayer = selectedLayerSupplier.getAsInt();
-            if (snapshot == null || selectedLayer < 0 || snapshot.blocksForLayer(selectedLayer).isEmpty()) {
+            if (snapshot == null
+                    || selectedLayer < 0
+                    || snapshot.blocksForLayer(selectedLayer).isEmpty()) {
                 return -1;
             }
             return selectedLayer;

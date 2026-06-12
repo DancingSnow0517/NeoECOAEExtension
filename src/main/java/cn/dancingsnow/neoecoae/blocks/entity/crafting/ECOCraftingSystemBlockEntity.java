@@ -771,7 +771,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 continue;
             }
             WorkerTaskKey key = new WorkerTaskKey(thread.craftingJobId(), output);
-            aggregates.computeIfAbsent(key, ignored -> new WorkerTaskAggregate(output.copyWithCount(1)))
+            aggregates
+                    .computeIfAbsent(key, ignored -> new WorkerTaskAggregate(output.copyWithCount(1)))
                     .add(thread);
         }
 
@@ -911,7 +912,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                     Math.max(1L, craftCount),
                     Math.max(1L, weightedTotalProgress),
                     Math.max(0L, weightedRemainingProgress),
-                    waitingOutput ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT : NECraftingRecipeUiEntry.Status.RUNNING);
+                    waitingOutput
+                            ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
+                            : NECraftingRecipeUiEntry.Status.RUNNING);
         }
     }
 

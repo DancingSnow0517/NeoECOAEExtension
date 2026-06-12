@@ -386,7 +386,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                             matrixTierTooltipLine(state.tier()),
                             matrixUsedTotalTooltipLine(
                                     Component.translatable("gui.neoecoae.common.types")
-                                            .getString() + ": ",
+                                                    .getString() + ": ",
                                     NELDLibText.number(state.usedTypes()),
                                     NELDLibText.number(state.totalTypes()),
                                     state.usedTypes(),

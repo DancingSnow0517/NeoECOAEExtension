@@ -339,7 +339,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 TASK_PANEL_Y + 6,
                 NELDLibStyle.DARK_TEXT_VALUE);
 
-        taskScrollOffset = clampTaskScrollOffset(taskScrollOffset, state.recipeEntries().size());
+        taskScrollOffset =
+                clampTaskScrollOffset(taskScrollOffset, state.recipeEntries().size());
         if (state.recipeEntries().isEmpty()) {
             NELDLibStyle.drawCentered(
                     g,

@@ -231,8 +231,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
         drawInsetValue(graphics, LENGTH_X + LENGTH_BUTTON_W, CONTROL_Y, LENGTH_VALUE_W, CONTROL_H);
         NELDLibStyle.drawDarkInsetRect(
                 graphics, absX(PATTERN_PANEL_X), absY(PATTERN_PANEL_Y), PATTERN_PANEL_W, PATTERN_PANEL_H);
-        NELDLibStyle.drawDarkInsetRect(
-                graphics, absX(INFO_PANEL_X), absY(INFO_PANEL_Y), INFO_PANEL_W, INFO_PANEL_H);
+        NELDLibStyle.drawDarkInsetRect(graphics, absX(INFO_PANEL_X), absY(INFO_PANEL_Y), INFO_PANEL_W, INFO_PANEL_H);
         drawPatternMaterialSlots(graphics);
     }
 
@@ -502,15 +501,17 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                     stack, StructureTerminalItem.getHostType(stack), 3);
             case INCREASE -> StructureTerminalItem.setBuildLength(stack, current + 1);
             case DECREASE -> StructureTerminalItem.setBuildLength(stack, current - 1);
-            case TOGGLE_PREVIEW_MIRRORED ->
-                StructureTerminalItem.setPreviewMirrored(stack, !StructureTerminalItem.isPreviewMirrored(stack));
-            case TOGGLE_PREVIEW_FORMED ->
-                StructureTerminalItem.setPreviewFormed(stack, !StructureTerminalItem.isPreviewFormed(stack));
+            case TOGGLE_PREVIEW_MIRRORED -> StructureTerminalItem.setPreviewMirrored(
+                    stack, !StructureTerminalItem.isPreviewMirrored(stack));
+            case TOGGLE_PREVIEW_FORMED -> StructureTerminalItem.setPreviewFormed(
+                    stack, !StructureTerminalItem.isPreviewFormed(stack));
             case PREVIOUS_LAYER -> StructureTerminalItem.setPreviewLayer(stack, previousLayer(stack));
             case NEXT_LAYER -> StructureTerminalItem.setPreviewLayer(stack, nextLayer(stack));
-            case SET_PATTERN_MATERIAL_SCROLL -> StructureTerminalItem.setPreviewMaterialScroll(stack, buffer.readVarInt());
+            case SET_PATTERN_MATERIAL_SCROLL -> StructureTerminalItem.setPreviewMaterialScroll(
+                    stack, buffer.readVarInt());
             case BUILD_LINKED -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.BUILD);
-            case BUILD_MIRRORED_LINKED -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.MIRRORED_BUILD);
+            case BUILD_MIRRORED_LINKED -> StructureTerminalItem.setOperationMode(
+                    stack, StructureTerminalMode.MIRRORED_BUILD);
             case DISMANTLE_LINKED -> StructureTerminalItem.setOperationMode(stack, StructureTerminalMode.DISMANTLE);
         }
         holder.markAsDirty();
@@ -582,7 +583,8 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     private void drawPatternMaterialItems(GuiGraphics graphics) {
         List<ItemStack> materials = patternMaterials();
-        patternMaterialScroll = clampScroll(currentState().previewMaterialScroll(), materials.size(), patternVisibleSlots());
+        patternMaterialScroll =
+                clampScroll(currentState().previewMaterialScroll(), materials.size(), patternVisibleSlots());
         int count = Math.min(patternVisibleSlots(), Math.max(0, materials.size() - patternMaterialScroll));
         NELDLibGuiRenderState.beginVanillaGuiItemBatch(graphics);
         for (int i = 0; i < count; i++) {

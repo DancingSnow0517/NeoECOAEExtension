@@ -316,13 +316,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
                 : NECraftingRecipeUiEntry.Status.RUNNING;
         return new NECraftingRecipeUiEntry(
-                computationTaskId(cpu, finalOutput, index),
-                output,
-                finalOutput.amount(),
-                1L,
-                total,
-                remaining,
-                status);
+                computationTaskId(cpu, finalOutput, index), output, finalOutput.amount(), 1L, total, remaining, status);
     }
 
     private static String computationTaskId(ECOCraftingCPU cpu, GenericStack output, int index) {

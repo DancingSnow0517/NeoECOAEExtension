@@ -29,6 +29,7 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.compat.ae2.ExtendedAEPlusVirtualCraftingCompat;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
@@ -475,6 +476,7 @@ public class ECOCraftingCPULogic {
                         if (DEBUG_EXECUTION_STATS) {
                             debugPushPatternCalls++;
                         }
+                        boolean virtualCompletesJob = shouldCompleteVirtualCraftingJob(provider, task.getValue());
                         pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
                                 ? patternBus.pushPattern(execution, job.link.getCraftingID())
                                 : provider.pushPattern(details, craftingContainer);
@@ -483,6 +485,11 @@ public class ECOCraftingCPULogic {
                             energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
                             pushedPatterns++;
                             slowPushedPatterns++;
+                            if (virtualCompletesJob) {
+                                recordAcceptedCrafts(1, false);
+                                finishJob(true);
+                                return pushedPatterns;
+                            }
                             recordPushedPattern(execution, 1);
                             recordAcceptedCrafts(1, false);
 
@@ -581,6 +588,27 @@ public class ECOCraftingCPULogic {
             }
         }
         return false;
+    }
+
+    private boolean shouldCompleteVirtualCraftingJob(
+            ICraftingProvider provider, ExecutingCraftingJob.TaskProgress matchedProgress) {
+        if (!ExtendedAEPlusVirtualCraftingCompat.isVirtualCraftingProvider(provider)) {
+            return false;
+        }
+        if (matchedProgress == null || matchedProgress.value > 1) {
+            return false;
+        }
+
+        for (ExecutingCraftingJob.TaskProgress progress : job.tasks.values()) {
+            long remaining = progress.value;
+            if (progress == matchedProgress) {
+                remaining--;
+            }
+            if (remaining > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private int tryPushVerifiedFastPathBatch(

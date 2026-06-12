@@ -168,12 +168,21 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         }
     }
 
-    @Inject(method = "broadcastChanges()V", at = @At("HEAD"), require = 1)
+    @Inject(
+            method = {"broadcastChanges()V", "m_38946_()V"},
+            at = @At("HEAD"),
+            require = 0)
     private void neoecoae$onBroadcastChanges(CallbackInfo ci) {
         this.neoecoae$broadcastEcoCpuChanges();
     }
 
-    @Inject(method = "removed(Lnet/minecraft/world/entity/player/Player;)V", at = @At("TAIL"), require = 1)
+    @Inject(
+            method = {
+                "removed(Lnet/minecraft/world/entity/player/Player;)V",
+                "m_6877_(Lnet/minecraft/world/entity/player/Player;)V"
+            },
+            at = @At("TAIL"),
+            require = 0)
     private void neoecoae$onRemoved(Player player, CallbackInfo ci) {
         this.neoecoae$cleanupEcoCpuListener();
     }
