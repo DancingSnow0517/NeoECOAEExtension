@@ -51,7 +51,6 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     private final IECOTier tier;
     private final long totalBytes;
     private final int bytesPerType;
-    private final int totalTypes;
     private final AEKeyType keyType;
     private final Supplier<ECOCellType> cellType;
 
@@ -60,7 +59,6 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         this.tier = tier;
         this.totalBytes = tier.getStorageTotalBytes();
         this.bytesPerType = 1 << (12 + tier.getTier());
-        this.totalTypes = tier.getStorageTotalTypes(keyType);
         this.keyType = keyType;
         this.cellType = cellType;
     }
@@ -82,7 +80,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public int getTotalTypes() {
-        return totalTypes;
+        return cellType.get().typeCount();
     }
 
     @Override
@@ -185,7 +183,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public ConfigInventory getConfigInventory(ItemStack is) {
-        return CellConfig.create(Set.of(keyType), is);
+        return CellConfig.create(Set.of(getKeyType()), is);
     }
 
     @Override

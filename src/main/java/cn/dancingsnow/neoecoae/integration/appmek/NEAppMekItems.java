@@ -5,13 +5,11 @@ import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NECreativeTabs;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
-import cn.dancingsnow.neoecoae.api.ECOAETypeCounts;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.integration.appmek.item.ECOChemicalStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.ItemEntry;
-import me.ramidzkh.mekae2.ae2.MekanismKeyType;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
@@ -105,6 +103,5 @@ public class NEAppMekItems {
         .register();
 
     public static void register() {
-        ECOAETypeCounts.register(MekanismKeyType.TYPE, 25);
     }
 }

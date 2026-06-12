@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.api;
 
-import appeng.api.stacks.AEKeyType;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -67,16 +66,6 @@ public interface IECOTier {
 
     default IGuiTexture getCraftingOverlayTexture() {
         return NETextures.Crafting.F0;
-    }
-
-    /**
-     * 存储系统存储矩阵类型数量
-     *
-     * @param keyType 根据 {@link AEKeyType} 不同，类型数量
-     * @return 存储矩阵类型数量
-     */
-    default int getStorageTotalTypes(AEKeyType keyType) {
-        return ECOAETypeCounts.getByType(keyType);
     }
 
     default int compareTo(IECOTier tier) {
