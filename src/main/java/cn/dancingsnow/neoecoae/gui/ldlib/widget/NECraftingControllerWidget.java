@@ -446,21 +446,21 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 g,
                 Component.translatable("gui.neoecoae.crafting.overclock"),
                 state.overclocked(),
-                STATUS_AREA_X + 7,
+                STATUS_AREA_X + 4,
                 y);
         y += 15;
         drawStatusRow(
                 g,
                 Component.translatable("gui.neoecoae.crafting.cooling_short"),
                 state.activeCooling(),
-                STATUS_AREA_X + 7,
+                STATUS_AREA_X + 4,
                 y);
         y += 15;
         drawStatusRow(
                 g,
                 Component.translatable("gui.neoecoae.crafting.waste_short"),
                 state.autoClearCoolingWaste(),
-                STATUS_AREA_X + 7,
+                STATUS_AREA_X + 4,
                 y);
     }
 
