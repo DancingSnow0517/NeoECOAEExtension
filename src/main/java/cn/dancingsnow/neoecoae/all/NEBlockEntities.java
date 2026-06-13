@@ -49,6 +49,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.COMPUTATION_CASING)
         .validBlock(NEBlocks.COMPUTATION_CASING)
+        .clazz(ECOMachineCasingBlockEntity.class)
         .register();
 
     public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NECraftingCluster>> CRAFTING_CASING = REGISTRATE
@@ -59,6 +60,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.CRAFTING_CASING)
         .validBlock(NEBlocks.CRAFTING_CASING)
+        .clazz(ECOMachineCasingBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOMachineCasingBlockEntity<NEStorageCluster>> STORAGE_CASING = REGISTRATE
@@ -69,6 +71,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.STORAGE_CASING)
         .validBlock(NEBlocks.STORAGE_CASING)
+        .clazz(ECOMachineCasingBlockEntity.class)
         .register();
 
     public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NEComputationCluster>> COMPUTATION_INTERFACE = REGISTRATE
@@ -79,6 +82,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.COMPUTATION_INTERFACE)
         .validBlock(NEBlocks.COMPUTATION_INTERFACE)
+        .clazz(ECOMachineInterfaceBlockEntity.class)
         .register();
 
     public static final BlockEntityEntry<ECOMachineInterfaceBlockEntity<NECraftingCluster>> CRAFTING_INTERFACE = REGISTRATE
@@ -89,6 +93,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.CRAFTING_INTERFACE)
         .validBlock(NEBlocks.CRAFTING_INTERFACE)
+        .clazz(ECOMachineInterfaceBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOMachineInterfaceBlockEntity<NEStorageCluster>> STORAGE_INTERFACE = REGISTRATE
@@ -99,6 +104,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.STORAGE_INTERFACE)
         .validBlock(NEBlocks.STORAGE_INTERFACE)
+        .clazz(ECOMachineInterfaceBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECODriveBlockEntity> ECO_DRIVE = REGISTRATE
@@ -113,6 +119,7 @@ public class NEBlockEntities {
             NEBlockEntities.ECO_DRIVE.get(),
             (be, side) -> be.getItemHandler()
         ))
+        .clazz(ECODriveBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOStorageVentBlockEntity> STORAGE_VENT = REGISTRATE
@@ -122,6 +129,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.STORAGE_VENT)
         .validBlock(NEBlocks.STORAGE_VENT)
+        .clazz(ECOStorageVentBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L4 = REGISTRATE
@@ -132,6 +140,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.STORAGE_SYSTEM_L4)
         .validBlock(NEBlocks.STORAGE_SYSTEM_L4)
         .serverTicker(ECOStorageSystemBlockEntity::tick)
+        .clazz(ECOStorageSystemBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L6 = REGISTRATE
@@ -142,6 +151,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.STORAGE_SYSTEM_L6)
         .validBlock(NEBlocks.STORAGE_SYSTEM_L6)
         .serverTicker(ECOStorageSystemBlockEntity::tick)
+        .clazz(ECOStorageSystemBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOStorageSystemBlockEntity> STORAGE_SYSTEM_L9 = REGISTRATE
@@ -152,6 +162,7 @@ public class NEBlockEntities {
         .forBlock(NEBlocks.STORAGE_SYSTEM_L9)
         .validBlock(NEBlocks.STORAGE_SYSTEM_L9)
         .serverTicker(ECOStorageSystemBlockEntity::tick)
+        .clazz(ECOStorageSystemBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L4 = REGISTRATE
@@ -162,6 +173,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.ENERGY_CELL_L4)
         .validBlock(NEBlocks.ENERGY_CELL_L4)
+        .clazz(ECOEnergyCellBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L6 = REGISTRATE
@@ -172,6 +184,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.ENERGY_CELL_L6)
         .validBlock(NEBlocks.ENERGY_CELL_L6)
+        .clazz(ECOEnergyCellBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOEnergyCellBlockEntity> ENERGY_CELL_L9 = REGISTRATE
@@ -182,6 +195,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.ENERGY_CELL_L9)
         .validBlock(NEBlocks.ENERGY_CELL_L9)
+        .clazz(ECOEnergyCellBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOCraftingSystemBlockEntity> CRAFTING_SYSTEM_L4 = createCraftingSystem(
@@ -223,6 +237,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.CRAFTING_VENT)
         .validBlock(NEBlocks.CRAFTING_VENT)
+        .clazz(ECOCraftingVentBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOFluidInputHatchBlockEntity> INPUT_HATCH = REGISTRATE
@@ -237,6 +252,7 @@ public class NEBlockEntities {
                 (be, side) -> be.tank
             );
         })
+        .clazz(ECOFluidInputHatchBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOFluidOutputHatchBlockEntity> OUTPUT_HATCH = REGISTRATE
@@ -251,6 +267,7 @@ public class NEBlockEntities {
                 (be, side) -> be.tank
             );
         })
+        .clazz(ECOFluidOutputHatchBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> CRAFTING_WORKER = REGISTRATE
@@ -260,6 +277,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.CRAFTING_WORKER)
         .validBlock(NEBlocks.CRAFTING_WORKER)
+        .clazz(ECOCraftingWorkerBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOCraftingPatternBusBlockEntity> CRAFTING_PATTERN_BUS = REGISTRATE
@@ -274,6 +292,7 @@ public class NEBlockEntities {
             NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
             (be, side) -> be.itemHandler
         ))
+        .clazz(ECOCraftingPatternBusBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOComputationTransmitterBlockEntity> COMPUTATION_TRANSMITTER = REGISTRATE
@@ -283,6 +302,7 @@ public class NEBlockEntities {
         )
         .forBlock(NEBlocks.COMPUTATION_TRANSMITTER)
         .validBlock(NEBlocks.COMPUTATION_TRANSMITTER)
+        .clazz(ECOComputationTransmitterBlockEntity.class)
         .register();
 
     public static final NEBlockEntityEntry<ECOComputationParallelCoreBlockEntity> COMPUTATION_PARALLEL_CORE_L4 = createComputationParallelCore(
@@ -369,6 +389,7 @@ public class NEBlockEntities {
             NEBlockEntities.COMPUTATION_DRIVE.get(),
             (be, unused) -> be.getItemHandler()
         ))
+        .clazz(ECOComputationDriveBlockEntity.class)
         .register();
 
     public static final BlockEntityEntry<ECOIntegratedWorkingStationBlockEntity> INTEGRATED_WORKING_STATION_BLOCK = REGISTRATE
@@ -421,6 +442,7 @@ public class NEBlockEntities {
             .forBlock(block)
             .validBlock(block)
             .serverTicker(ECOCraftingSystemBlockEntity::tick)
+            .clazz(ECOCraftingSystemBlockEntity.class)
             .register();
     }
 
@@ -437,6 +459,7 @@ public class NEBlockEntities {
             )
             .forBlock(block)
             .validBlock(block)
+            .clazz(ECOCraftingParallelCoreBlockEntity.class)
             .register();
     }
 
@@ -453,6 +476,7 @@ public class NEBlockEntities {
             )
             .forBlock(block)
             .validBlock(block)
+            .clazz(ECOComputationParallelCoreBlockEntity.class)
             .register();
     }
 
@@ -469,6 +493,7 @@ public class NEBlockEntities {
             )
             .forBlock(block)
             .validBlock(block)
+            .clazz(ECOComputationThreadingCoreBlockEntity.class)
             .register();
     }
 
@@ -485,6 +510,7 @@ public class NEBlockEntities {
             )
             .forBlock(block)
             .validBlock(block)
+            .clazz(ECOComputationCoolingControllerBlockEntity.class)
             .register();
     }
 
@@ -502,6 +528,7 @@ public class NEBlockEntities {
             .forBlock(block)
             .validBlock(block)
             .serverTicker(ECOComputationSystemBlockEntity::tick)
+            .clazz(ECOComputationSystemBlockEntity.class)
             .register();
     }
 

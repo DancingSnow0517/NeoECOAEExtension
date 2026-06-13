@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.util.NEBlockEntityTicker;
+import com.google.common.base.Preconditions;
 import com.tterrag.registrate.AbstractRegistrate;
 import com.tterrag.registrate.builders.BlockEntityBuilder;
 import com.tterrag.registrate.builders.BuilderCallback;
@@ -34,6 +35,8 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
     @Nullable
     private BlockEntityTicker<T> serverTicker;
 
+    private Class<?> clazz;
+
     public interface ClusterBlockEntityFactory<T extends NEBlockEntity<C, T>, C extends NECluster<C>> {
         T create(BlockEntityType<T> type, BlockPos pos, BlockState state, NEClusterCalculator.Factory<C> tcFactory);
     }
@@ -48,6 +51,11 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     public NEBlockEntityBuilder<T, P> forBlock(BlockEntry<? extends NEBlock<T>> blockSupplier) {
         this.blockEntry = blockSupplier;
+        return this;
+    }
+
+    public NEBlockEntityBuilder<T, P> clazz(Class<?> clazz){
+        this.clazz = clazz;
         return this;
     }
 
@@ -113,7 +121,8 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     @Override
     protected RegistryEntry<BlockEntityType<?>, BlockEntityType<T>> createEntryWrapper(DeferredHolder<BlockEntityType<?>, BlockEntityType<T>> delegate) {
-        return new NEBlockEntityEntry<>(getOwner(), delegate, blockEntry, clientTicker, serverTicker);
+        Preconditions.checkNotNull(clazz);
+        return new NEBlockEntityEntry<>(getOwner(), delegate, blockEntry, clientTicker, serverTicker, clazz);
     }
 
 

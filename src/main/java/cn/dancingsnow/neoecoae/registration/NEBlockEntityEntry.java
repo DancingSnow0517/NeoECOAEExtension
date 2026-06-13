@@ -22,32 +22,34 @@ public class NEBlockEntityEntry<T extends NEBlockEntity<?, T>> extends BlockEnti
     private final BlockEntityTicker<T> clientTicker;
     @Nullable
     private final BlockEntityTicker<T> serverTicker;
+    private final Class<?> clazz;
 
     public NEBlockEntityEntry(
         AbstractRegistrate<?> owner,
         DeferredHolder<BlockEntityType<?>, BlockEntityType<T>> delegate,
         BlockEntry<? extends NEBlock<T>> blockEntry,
         @Nullable BlockEntityTicker<T> clientTicker,
-        @Nullable BlockEntityTicker<T> serverTicker
+        @Nullable BlockEntityTicker<T> serverTicker,
+        Class<?> clazz
     ) {
         super(owner, delegate);
         this.blockEntry = blockEntry;
         this.clientTicker = clientTicker;
         this.serverTicker = serverTicker;
+        this.clazz = clazz;
     }
 
     public void onCommonSetup(FMLCommonSetupEvent event) {
-        //noinspection unchecked
-        blockEntry.get().setBlockEntity(
-            (Class<T>) getDelegate().value().create(BlockPos.ZERO, blockEntry.get().defaultBlockState()).getClass(),
-            (BlockEntityType<T>) getDelegate().value(),
-            clientTicker,
-            serverTicker
-        );
-
         AEBaseBlockEntity.registerBlockEntityItem(
             getDelegate().value(),
             blockEntry.asItem()
+        );
+        //noinspection unchecked
+        blockEntry.get().setBlockEntity(
+            (Class<T>) clazz,
+            (BlockEntityType<T>) getDelegate().value(),
+            clientTicker,
+            serverTicker
         );
     }
 

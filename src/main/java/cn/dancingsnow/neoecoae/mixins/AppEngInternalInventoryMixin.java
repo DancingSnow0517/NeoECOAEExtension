@@ -4,13 +4,16 @@ import appeng.util.inv.AppEngInternalInventory;
 import com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.common.util.ValueIOSerializable;
 import org.jetbrains.annotations.UnknownNullability;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(AppEngInternalInventory.class)
-public abstract class AppEngInternalInventoryMixin implements IContentChangeAware {
+public abstract class AppEngInternalInventoryMixin implements IContentChangeAware, ValueIOSerializable {
     @Unique
     private Runnable neoECOAEExtension$onContentsChanged;
 
@@ -18,19 +21,19 @@ public abstract class AppEngInternalInventoryMixin implements IContentChangeAwar
     public abstract int size();
 
     @Shadow
-    public abstract void writeToNBT(CompoundTag data, String name, HolderLookup.Provider registries);
+    public abstract void readFromNBT(ValueInput input, String name);
 
     @Shadow
-    public abstract void readFromNBT(CompoundTag data, String name, HolderLookup.Provider registries);
+    public abstract void writeToNBT(ValueOutput output, String name);
 
-    public @UnknownNullability CompoundTag serializeNBT(HolderLookup.Provider provider) {
-        CompoundTag tag = new CompoundTag();
-        this.writeToNBT(tag, "inventory", provider);
-        return tag;
+    @Override
+    public void serialize(ValueOutput output) {
+        this.writeToNBT(output, "ae_inventory");
     }
 
-    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
-        this.readFromNBT(nbt, "inventory", provider);
+    @Override
+    public void deserialize(ValueInput input) {
+        this.readFromNBT(input, "ae_inventory");
     }
 
     @Override

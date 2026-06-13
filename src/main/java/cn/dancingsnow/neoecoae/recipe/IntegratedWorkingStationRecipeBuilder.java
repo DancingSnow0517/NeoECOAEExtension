@@ -30,6 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Accessors(fluent = true, chain = true)
 public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
@@ -176,11 +177,11 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
         if (itemOutput == null && fluidOutput == null) {
             throw new IllegalStateException("Recipe must have at least one output");
         }
-        if (inputItems.isEmpty() && inputFluid == null) {
+        if (inputItems.isEmpty()) {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
-        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy);
+        IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, Optional.ofNullable(inputFluid), itemOutput, fluidOutput, energy);
         recipeOutput.accept(id, recipe, null);
     }
 

@@ -21,9 +21,11 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidStackTemplate;
+import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -33,7 +35,7 @@ import java.util.Optional;
 
 public record IntegratedWorkingStationRecipe(
     List<SizedIngredient> inputItems,
-    SizedFluidIngredient inputFluid,
+    Optional<SizedFluidIngredient> inputFluid,
     @Nullable ItemStackTemplate itemOutputTemplate,
     @Nullable FluidStackTemplate fluidOutputTemplate,
     int energy
@@ -77,10 +79,10 @@ public record IntegratedWorkingStationRecipe(
 
         FluidStack providedFluid = recipeInput.fluid();
 
-        if (inputFluid == null) return true;
+        if (inputFluid.isEmpty()) return true;
         if (providedFluid == null || providedFluid.isEmpty()) return false;
-        if (!inputFluid.test(providedFluid)) return false;
-        return providedFluid.getAmount() >= inputFluid.amount();
+        if (!inputFluid.get().test(providedFluid)) return false;
+        return providedFluid.getAmount() >= inputFluid.get().amount();
     }
 
     @Override
@@ -154,7 +156,7 @@ public record IntegratedWorkingStationRecipe(
 
     public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
         SizedIngredient.NESTED_CODEC.listOf(0, 9).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
-        SizedFluidIngredient.CODEC.optionalFieldOf("inputFluid", null).forGetter(IntegratedWorkingStationRecipe::inputFluid),
+        SizedFluidIngredient.CODEC.optionalFieldOf("inputFluid").forGetter(IntegratedWorkingStationRecipe::inputFluid),
         ItemStackTemplate.CODEC.optionalFieldOf("itemOutput").forGetter(IntegratedWorkingStationRecipe::optionalItemOutputTemplate),
         FluidStackTemplate.CODEC.optionalFieldOf("fluidOutput").forGetter(IntegratedWorkingStationRecipe::optionalFluidOutputTemplate),
         Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
@@ -165,7 +167,7 @@ public record IntegratedWorkingStationRecipe(
     public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = StreamCodec.composite(
         SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(9)),
         IntegratedWorkingStationRecipe::inputItems,
-        SizedFluidIngredient.STREAM_CODEC,
+        ByteBufCodecs.optional(SizedFluidIngredient.STREAM_CODEC),
         IntegratedWorkingStationRecipe::inputFluid,
         ByteBufCodecs.optional(ItemStackTemplate.STREAM_CODEC),
         IntegratedWorkingStationRecipe::optionalItemOutputTemplate,

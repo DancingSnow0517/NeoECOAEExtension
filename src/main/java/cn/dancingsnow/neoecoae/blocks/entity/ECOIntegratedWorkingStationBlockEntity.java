@@ -102,6 +102,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.fluid.FluidResource;
 import net.neoforged.neoforge.transfer.fluid.FluidStacksResourceHandler;
@@ -528,8 +529,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                             }
 
                             FluidStack fluidStack = getFluid(this.inputTank);
-                            if (out.inputFluid() != null && out.inputFluid().test(fluidStack)) {
-                                extractFluid(this.inputTank, fluidStack, out.inputFluid().amount());
+                            if (out.inputFluid().isPresent()) {
+                                SizedFluidIngredient ingredient = out.inputFluid().get();
+                                if (ingredient.test(fluidStack)) {
+                                    extractFluid(this.inputTank, fluidStack, ingredient.amount());
+                                }
                             }
 
                             this.setProcessingTime(0);
@@ -548,7 +552,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             return TickRateModulation.URGENT;
         }
 
-        return this.hasCraftWork() ? TickRateModulation.URGENT : this.hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
+        return this.hasCraftWork() ? TickRateModulation.URGENT : (this.hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP);
     }
 
     private boolean pushOutResult() {
