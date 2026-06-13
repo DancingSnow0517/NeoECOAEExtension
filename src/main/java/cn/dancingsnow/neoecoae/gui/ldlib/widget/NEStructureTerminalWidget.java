@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
+import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
@@ -13,6 +14,7 @@ import cn.dancingsnow.neoecoae.multiblock.preview.MultiblockPatternPreviewServic
 import cn.dancingsnow.neoecoae.multiblock.preview.MultiblockPatternSnapshot;
 import cn.dancingsnow.neoecoae.multiblock.preview.PatternBlockEntry;
 import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
+import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.ArrayList;
@@ -229,9 +231,11 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
     @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         drawInsetValue(graphics, LENGTH_X + LENGTH_BUTTON_W, CONTROL_Y, LENGTH_VALUE_W, CONTROL_H);
-        NELDLibStyle.drawDarkInsetRect(
+        NELDLibClientStyle.drawDarkInsetRect(
                 graphics, absX(PATTERN_PANEL_X), absY(PATTERN_PANEL_Y), PATTERN_PANEL_W, PATTERN_PANEL_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, absX(INFO_PANEL_X), absY(INFO_PANEL_Y), INFO_PANEL_W, INFO_PANEL_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, absX(INFO_PANEL_X), absY(INFO_PANEL_Y), INFO_PANEL_W, INFO_PANEL_H);
+        drawRenderedButtonBackgrounds(graphics, mouseX, mouseY);
         drawPatternMaterialSlots(graphics);
     }
 
@@ -417,13 +421,12 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
             Runnable action,
             BooleanSupplier visible,
             List<Widget> group) {
-        ButtonWidget button =
-                (ButtonWidget) new ButtonWidget(x, y, w, h, NELDLibStyle.darkInsetButton(selected), click -> {
-                    if (click.isRemote) {
-                        action.run();
-                        refreshWidgetVisibility();
-                    }
-                });
+        ButtonWidget button = (ButtonWidget) new ButtonWidget(x, y, w, h, IGuiTexture.EMPTY, click -> {
+            if (click.isRemote) {
+                action.run();
+                refreshWidgetVisibility();
+            }
+        });
         addWidget(button);
         if (group != null) {
             group.add(button);
@@ -441,12 +444,11 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
             BooleanSupplier selected,
             BooleanSupplier visible,
             List<Widget> group) {
-        ButtonWidget button =
-                (ButtonWidget) new ButtonWidget(x, y, w, h, NELDLibStyle.darkInsetButton(selected), click -> {
-                    if (click.isRemote) {
-                        writeClientAction(2, buf -> buf.writeEnum(action));
-                    }
-                });
+        ButtonWidget button = (ButtonWidget) new ButtonWidget(x, y, w, h, IGuiTexture.EMPTY, click -> {
+            if (click.isRemote) {
+                writeClientAction(2, buf -> buf.writeEnum(action));
+            }
+        });
         addWidget(button);
         if (group != null) {
             group.add(button);
@@ -480,6 +482,26 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                     button.y() + (button.h() - font().lineHeight) / 2,
                     button.w(),
                     color);
+        }
+    }
+
+    private void drawRenderedButtonBackgrounds(GuiGraphics graphics, int mouseX, int mouseY) {
+        for (RenderedButton button : renderedButtons) {
+            if (!button.visible().getAsBoolean()) {
+                continue;
+            }
+            int x = absX(button.x());
+            int y = absY(button.y());
+            boolean hover = mouseX >= x && mouseX < x + button.w() && mouseY >= y && mouseY < y + button.h();
+            NELDLibClientStyle.drawInsetButton(
+                    graphics,
+                    x,
+                    y,
+                    button.w(),
+                    button.h(),
+                    hover,
+                    false,
+                    button.selected().getAsBoolean());
         }
     }
 
@@ -577,7 +599,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     private void drawPatternMaterialSlots(GuiGraphics graphics) {
         for (int i = 0; i < patternVisibleSlots(); i++) {
-            NELDLibStyle.drawDarkSlot(graphics, absX(patternSlotX(i)), absY(patternSlotY(i)), SLOT_SIZE);
+            NELDLibClientStyle.drawDarkSlot(graphics, absX(patternSlotX(i)), absY(patternSlotY(i)), SLOT_SIZE);
         }
     }
 
@@ -667,7 +689,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
     }
 
     private void drawInsetValue(GuiGraphics graphics, int x, int y, int w, int h) {
-        NELDLibStyle.drawTinyInsetRect(graphics, absX(x), absY(y), w, h, 0xFF201E27);
+        NELDLibClientStyle.drawTinyInsetRect(graphics, absX(x), absY(y), w, h, 0xFF201E27);
     }
 
     private void drawFitted(GuiGraphics graphics, Component text, int x, int y, int width, int color) {

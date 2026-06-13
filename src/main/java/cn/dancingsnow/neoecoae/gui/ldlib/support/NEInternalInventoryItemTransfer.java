@@ -26,7 +26,7 @@ public class NEInternalInventoryItemTransfer implements IItemTransfer {
 
     @Override
     public @NotNull ItemStack getStackInSlot(int slot) {
-        return inv.getStackInSlot(slot);
+        return inv.getStackInSlot(slot).copy();
     }
 
     @Override

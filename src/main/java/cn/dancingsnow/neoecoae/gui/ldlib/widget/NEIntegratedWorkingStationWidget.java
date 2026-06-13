@@ -79,7 +79,7 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
             }
         }
 
-        addWidget(aeSlot(outputTransfer, 0, mainX(OUTPUT_SLOT_X), OUTPUT_SLOT_Y, false, true));
+        addWidget(aeSlot(outputTransfer, 0, mainX(OUTPUT_SLOT_X), OUTPUT_SLOT_Y, true, false));
 
         for (int i = 0; i < UPGRADE_COUNT; i++) {
             addWidget(aeSlot(

@@ -362,21 +362,26 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     private void onUpgradeInventoryChanged() {
         invalidateRecipeCache();
         saveChanges();
+        markForUpdate();
     }
 
     /** Called by LDLib inventory bridges when the UI modifies the inventory. */
     public void onGuiInventoryChanged() {
         onChangeInventory();
         setChanged();
+        markForUpdate();
     }
 
     @Override
     public void onChangeInventory(InternalInventory inv, int slot) {
         onChangeInventory();
+        setChanged();
+        markForUpdate();
     }
 
     public void onChangeTank() {
         onChangeInventory();
+        markForUpdate();
     }
 
     private boolean hasAutoExportWork() {
@@ -514,6 +519,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 if (out != null && tryCompleteRecipe(out)) {
                     this.setProcessingTime(0);
                     this.saveChanges();
+                    this.markForUpdate();
                     this.invalidateRecipeCache();
                     this.setWorking(false);
                 }
@@ -565,6 +571,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         if (fluidAmount > 0) {
             inputTank.drain(fluidAmount, IFluidHandler.FluidAction.EXECUTE);
         }
+        setChanged();
+        markForUpdate();
         return true;
     }
 
@@ -627,6 +635,10 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             remainder.setCount(extractedStack.getCount() - insertedAmount);
             this.outputInv.insertItem(0, remainder, false);
         }
+        if (insertedAmount > 0) {
+            setChanged();
+            markForUpdate();
+        }
         return insertedAmount > 0;
     }
 
@@ -663,6 +675,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         }
 
         if (this.outputTank.getFluidAmount() == 0) clearFluidOut();
+        setChanged();
+        markForUpdate();
         return insertedAmount > 0;
     }
 
@@ -708,6 +722,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         invalidateRecipeCache();
 
         saveChanges();
+        markForUpdate();
     }
 
     @Override

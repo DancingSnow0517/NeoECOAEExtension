@@ -6,9 +6,9 @@ import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.EncodedPatternItem;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPagedItemTransfer;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
@@ -107,23 +107,13 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
         }
 
         previousPageButton = (ButtonWidget) new ButtonWidget(
-                PAGE_PREV_BUTTON_X,
-                PAGE_BUTTON_Y,
-                PAGE_BUTTON_W,
-                PAGE_BUTTON_H,
-                NELDLibStyle.aeToolbarButton(),
-                click -> {
+                PAGE_PREV_BUTTON_X, PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H, IGuiTexture.EMPTY, click -> {
                     if (click.isRemote) {
                         writeClientAction(PAGE_ACTION_ID, buf -> buf.writeVarInt(currentPage - 1));
                     }
                 });
         nextPageButton = (ButtonWidget) new ButtonWidget(
-                PAGE_NEXT_BUTTON_X,
-                PAGE_BUTTON_Y,
-                PAGE_BUTTON_W,
-                PAGE_BUTTON_H,
-                NELDLibStyle.aeToolbarButton(),
-                click -> {
+                PAGE_NEXT_BUTTON_X, PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H, IGuiTexture.EMPTY, click -> {
                     if (click.isRemote) {
                         writeClientAction(PAGE_ACTION_ID, buf -> buf.writeVarInt(currentPage + 1));
                     }
@@ -222,6 +212,7 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
             NELDLibAe2StyleRenderer.drawAeSlot(graphics, absX(HOTBAR_BG_X + col * SLOT_SIZE), absY(HOTBAR_BG_Y));
         }
         drawGhostPatterns(graphics);
+        drawPageButtonBackgrounds(graphics, mouseX, mouseY);
     }
 
     @Override
@@ -332,6 +323,24 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
         if (nextPageButton != null && nextPageButton.isVisible()) {
             int color = nextPageButton.isActive() ? TEXT_PRIMARY : TEXT_MUTED;
             graphics.drawString(font(), ">", absX(PAGE_NEXT_BUTTON_X + 3), absY(PAGE_BUTTON_Y + 3), color, false);
+        }
+    }
+
+    private void drawPageButtonBackgrounds(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (previousPageButton != null && previousPageButton.isVisible()) {
+            drawPageButtonBackground(graphics, mouseX, mouseY, PAGE_PREV_BUTTON_X);
+        }
+        if (nextPageButton != null && nextPageButton.isVisible()) {
+            drawPageButtonBackground(graphics, mouseX, mouseY, PAGE_NEXT_BUTTON_X);
+        }
+    }
+
+    private void drawPageButtonBackground(GuiGraphics graphics, int mouseX, int mouseY, int localX) {
+        int x = absX(localX);
+        int y = absY(PAGE_BUTTON_Y);
+        NELDLibClientStyle.drawAeToolbarButton(graphics, x, y, PAGE_BUTTON_W, PAGE_BUTTON_H);
+        if (mouseX >= x && mouseX < x + PAGE_BUTTON_W && mouseY >= y && mouseY < y + PAGE_BUTTON_H) {
+            graphics.fill(x + 1, y + 1, x + PAGE_BUTTON_W - 1, y + PAGE_BUTTON_H - 1, 0x28FFFFFF);
         }
     }
 

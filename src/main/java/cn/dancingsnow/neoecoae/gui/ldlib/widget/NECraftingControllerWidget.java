@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
@@ -163,11 +164,16 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         int oy = getPositionY();
         NECraftingUiState state = currentState();
 
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + MAIN_PANEL_X, oy + MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + MODULE_AREA_X, oy + MODULE_AREA_Y, MODULE_AREA_W, MODULE_AREA_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + STATUS_AREA_X, oy + STATUS_AREA_Y, STATUS_AREA_W, STATUS_AREA_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + STATS_AREA_X, oy + STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + GAUGE_AREA_X, oy + GAUGE_AREA_Y, GAUGE_AREA_W, GAUGE_AREA_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + MAIN_PANEL_X, oy + MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + MODULE_AREA_X, oy + MODULE_AREA_Y, MODULE_AREA_W, MODULE_AREA_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + STATUS_AREA_X, oy + STATUS_AREA_Y, STATUS_AREA_W, STATUS_AREA_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + STATS_AREA_X, oy + STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + GAUGE_AREA_X, oy + GAUGE_AREA_Y, GAUGE_AREA_W, GAUGE_AREA_H);
         drawThreadUsageBar(
                 graphics,
                 absX(STATS_AREA_X + 8),
@@ -178,7 +184,9 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 state.maxRecipeSlots());
         drawGaugeArea(graphics, state);
         drawPlayerInventorySlots(graphics);
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
+        drawToolbarButtonBackgrounds(graphics, mouseX, mouseY);
     }
 
     @Override
@@ -224,8 +232,19 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 TOOLBAR_Y,
                 TOOLBAR_BUTTON_SIZE,
                 TOOLBAR_BUTTON_SIZE,
-                NELDLibStyle.aeToolbarButton(),
+                IGuiTexture.EMPTY,
                 action));
+    }
+
+    private void drawToolbarButtonBackgrounds(GuiGraphics graphics, int mouseX, int mouseY) {
+        for (int index = 0; index < 3; index++) {
+            int x = absX(TOOLBAR_X + index * TOOLBAR_BUTTON_STRIDE);
+            int y = absY(TOOLBAR_Y);
+            NELDLibClientStyle.drawAeToolbarButton(graphics, x, y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE);
+            if (mouseX >= x && mouseX < x + TOOLBAR_BUTTON_SIZE && mouseY >= y && mouseY < y + TOOLBAR_BUTTON_SIZE) {
+                graphics.fill(x + 1, y + 1, x + TOOLBAR_BUTTON_SIZE - 1, y + TOOLBAR_BUTTON_SIZE - 1, 0x28FFFFFF);
+            }
+        }
     }
 
     private void addPlayerInventorySlots() {
@@ -346,7 +365,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             ResourceLocation overlayTexture,
             boolean active) {
         if (size >= 10) {
-            NELDLibStyle.drawDarkInsetRect(g, x, y, size, size);
+            NELDLibClientStyle.drawDarkInsetRect(g, x, y, size, size);
         } else {
             g.fill(x, y, x + size, y + size, 0xFF1B1822);
         }
@@ -566,7 +585,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private void drawStatusRow(GuiGraphics g, Component label, boolean enabled, int x, int y) {
         int absX = absX(x);
         int absY = absY(y);
-        NELDLibStyle.drawDarkInsetRect(g, absX, absY - 3, 13, 13);
+        NELDLibClientStyle.drawDarkInsetRect(g, absX, absY - 3, 13, 13);
         int light = enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR;
         g.fill(absX + 4, absY + 1, absX + 9, absY + 6, light);
         drawScaledString(g, label, absX + 18, absY, NELDLibStyle.DARK_TEXT_MUTED);
@@ -811,7 +830,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private void drawVerticalReserveGauge(
             GuiGraphics g, int x, int y, int w, int h, int accentColor, double fillRatio) {
-        NELDLibStyle.drawDarkInsetRect(g, x, y, w, h);
+        NELDLibClientStyle.drawDarkInsetRect(g, x, y, w, h);
         int ix = x + 7;
         int iy = y + 7;
         int iw = w - 14;
@@ -826,7 +845,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     }
 
     private void drawThreadUsageBar(GuiGraphics g, int x, int y, int w, int h, long current, long max) {
-        NELDLibStyle.drawDarkInsetRect(g, x, y, w, h);
+        NELDLibClientStyle.drawDarkInsetRect(g, x, y, w, h);
         int ix = x + 3;
         int iy = y + 3;
         int iw = Math.max(0, w - 6);

@@ -6,6 +6,7 @@ import appeng.menu.MenuOpener;
 import appeng.menu.implementations.PriorityMenu;
 import appeng.menu.locator.MenuLocators;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
@@ -169,8 +170,10 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
         int ox = getPositionX();
         int oy = getPositionY();
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + LEFT_PANEL_X, oy + LEFT_PANEL_Y, LEFT_PANEL_W, LEFT_PANEL_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + RIGHT_PANEL_X, oy + RIGHT_PANEL_Y, RIGHT_PANEL_W, RIGHT_PANEL_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + LEFT_PANEL_X, oy + LEFT_PANEL_Y, LEFT_PANEL_W, LEFT_PANEL_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + RIGHT_PANEL_X, oy + RIGHT_PANEL_Y, RIGHT_PANEL_W, RIGHT_PANEL_H);
 
         Metric[] columns = chemicalMode
                 ? new Metric[] {metrics.items(), metrics.fluids(), metrics.chemicals()}
@@ -285,7 +288,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         if (Math.abs(matrixScrollPixels - matrixScrollTargetPixels) < 0.05D) {
             matrixScrollPixels = matrixScrollTargetPixels;
         }
-        NELDLibStyle.drawDarkInsetRect(
+        NELDLibClientStyle.drawDarkInsetRect(
                 graphics, absX(MATRIX_PANEL_X), absY(MATRIX_PANEL_Y), MATRIX_PANEL_W, MATRIX_PANEL_H);
         drawMatrixScrollbar(graphics);
         int clipLeft = absX(MATRIX_VIEW_X);
@@ -553,19 +556,19 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     private void drawPrefixedUsedTotalLine(
             GuiGraphics g, String prefix, long used, long max, String suffix, int x, int y) {
-        int cursor = NELDLibStyle.drawSegment(g, font(), prefix, x, y, NELDLibStyle.DARK_TEXT_MUTED);
-        cursor += NELDLibStyle.drawSegment(
+        int cursor = NELDLibClientStyle.drawSegment(g, font(), prefix, x, y, NELDLibStyle.DARK_TEXT_MUTED);
+        cursor += NELDLibClientStyle.drawSegment(
                 g,
                 font(),
                 NELDLibText.number(Math.max(0L, used)),
                 x + cursor,
                 y,
                 NELDLibStyle.usedValueColor(used, max));
-        cursor += NELDLibStyle.drawSegment(g, font(), " / ", x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
-        cursor += NELDLibStyle.drawSegment(
+        cursor += NELDLibClientStyle.drawSegment(g, font(), " / ", x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
+        cursor += NELDLibClientStyle.drawSegment(
                 g, font(), NELDLibText.number(Math.max(0L, max)), x + cursor, y, NELDLibStyle.DARK_TEXT_VALUE);
         if (!suffix.isEmpty()) {
-            NELDLibStyle.drawSegment(g, font(), " " + suffix, x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
+            NELDLibClientStyle.drawSegment(g, font(), " " + suffix, x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
         }
     }
 
@@ -582,10 +585,10 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     private void drawUsedTotalLine(
             GuiGraphics g, String usedText, String maxText, long used, long max, String suffix, int x, int y) {
-        int cursor = NELDLibStyle.drawSegment(g, font(), usedText, x, y, NELDLibStyle.usedValueColor(used, max));
-        cursor += NELDLibStyle.drawSegment(g, font(), " / ", x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
-        cursor += NELDLibStyle.drawSegment(g, font(), maxText, x + cursor, y, NELDLibStyle.DARK_TEXT_VALUE);
-        NELDLibStyle.drawSegment(g, font(), " " + suffix, x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
+        int cursor = NELDLibClientStyle.drawSegment(g, font(), usedText, x, y, NELDLibStyle.usedValueColor(used, max));
+        cursor += NELDLibClientStyle.drawSegment(g, font(), " / ", x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
+        cursor += NELDLibClientStyle.drawSegment(g, font(), maxText, x + cursor, y, NELDLibStyle.DARK_TEXT_VALUE);
+        NELDLibClientStyle.drawSegment(g, font(), " " + suffix, x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
     }
 
     private void drawBoundMetricColumns(GuiGraphics g, Metric[] metrics, double[] animatedValues) {
@@ -602,9 +605,9 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     }
 
     private void drawBoundMetricColumn(GuiGraphics g, Metric metric, int x, int y, int w, int h, double pct) {
-        NELDLibStyle.drawCenteredFitted(
+        NELDLibClientStyle.drawCenteredFitted(
                 g, font(), metric.label(), x - 9, y - 14, w + 18, NELDLibStyle.DARK_TEXT_PRIMARY);
-        NELDLibStyle.drawTinyInsetRect(g, x, y, w, h, 0xFF201E27);
+        NELDLibClientStyle.drawTinyInsetRect(g, x, y, w, h, 0xFF201E27);
 
         int ix = x + 5;
         int iy = y + 6;
@@ -642,8 +645,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 ? NELDLibStyle.DARK_TEXT_MUTED
                 : NELDLibStyle.metricColor(metric.accentColor(), metric.max(), pct);
         String percentText = NELDLibText.percentOrNA(metric.used(), metric.max());
-        NELDLibStyle.drawTinyInsetRect(g, x - 2, percentY, w + 4, COLUMN_PERCENT_H, 0xFF201E27);
-        NELDLibStyle.drawCenteredScaledString(
+        NELDLibClientStyle.drawTinyInsetRect(g, x - 2, percentY, w + 4, COLUMN_PERCENT_H, 0xFF201E27);
+        NELDLibClientStyle.drawCenteredScaledString(
                 g, font(), percentText, x - 2, percentY, w + 4, COLUMN_PERCENT_H, percentColor, 0.9F);
     }
 

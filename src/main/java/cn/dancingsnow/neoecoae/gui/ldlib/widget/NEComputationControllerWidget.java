@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 import appeng.api.config.CpuSelectionMode;
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
@@ -91,12 +92,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     @Override
     protected void initLdWidgets() {
         addWidget(new ButtonWidget(
-                TOOLBAR_BUTTON_X,
-                TOOLBAR_BUTTON_Y,
-                TOOLBAR_BUTTON_W,
-                TOOLBAR_BUTTON_H,
-                NELDLibStyle.aeToolbarButton(),
-                click -> {
+                TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H, IGuiTexture.EMPTY, click -> {
                     if (!click.isRemote) {
                         NEComputationCluster cluster = computation.getCluster();
                         if (cluster != null) {
@@ -114,8 +110,12 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         int ox = getPositionX();
         int oy = getPositionY();
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + MAIN_PANEL_X, oy + MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
-        NELDLibStyle.drawDarkInsetRect(graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + MAIN_PANEL_X, oy + MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
+        NELDLibClientStyle.drawDarkInsetRect(
+                graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
+        NELDLibClientStyle.drawAeToolbarButton(
+                graphics, ox + TOOLBAR_BUTTON_X, oy + TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H);
         drawPlayerInventorySlots(graphics);
 
         NEComputationUiState state = currentState();
@@ -259,7 +259,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 x,
                 y);
         y += line;
-        NELDLibStyle.drawSegment(
+        NELDLibClientStyle.drawSegment(
                 g,
                 font(),
                 Component.translatable(
@@ -280,7 +280,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 x,
                 y);
         y += line;
-        NELDLibStyle.drawSegment(
+        NELDLibClientStyle.drawSegment(
                 g,
                 font(),
                 Component.translatable(
@@ -342,7 +342,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         taskScrollOffset =
                 clampTaskScrollOffset(taskScrollOffset, state.recipeEntries().size());
         if (state.recipeEntries().isEmpty()) {
-            NELDLibStyle.drawCentered(
+            NELDLibClientStyle.drawCentered(
                     g,
                     font(),
                     Component.translatable("gui.neoecoae.crafting.no_tasks"),
@@ -382,7 +382,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private void drawHorizontalUsageBar(GuiGraphics g, int x, int y, int w, int h, long used, long max, int color) {
-        NELDLibStyle.drawTinyInsetRect(g, x, y, w, h, 0xFF201E27);
+        NELDLibClientStyle.drawTinyInsetRect(g, x, y, w, h, 0xFF201E27);
         int ix = x + 3;
         int iy = y + 3;
         int iw = Math.max(0, w - 6);
@@ -414,7 +414,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         int maxNameW = Math.max(16, TASK_CARD_W - 31 - amountW);
         String name = fitText(entry.output().getHoverName().getString(), maxNameW);
         g.drawString(font(), name, absX(textX), absY(textY), NELDLibStyle.DARK_TEXT_PRIMARY, false);
-        NELDLibStyle.drawRight(
+        NELDLibClientStyle.drawRight(
                 g,
                 font(),
                 Component.literal(amountText),
@@ -496,7 +496,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private void drawModeLine(GuiGraphics g, NEComputationUiState state, int x, int y) {
-        int cursor = NELDLibStyle.drawSegment(
+        int cursor = NELDLibClientStyle.drawSegment(
                 g,
                 font(),
                 Component.translatable("gui.neoecoae.computation.cpu_selection_mode.short")
@@ -504,28 +504,28 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 x,
                 y,
                 NELDLibStyle.DARK_TEXT_MUTED);
-        NELDLibStyle.drawSegment(
+        NELDLibClientStyle.drawSegment(
                 g, font(), cpuModeShortLabel(state.cpuSelectionMode()), x + cursor, y, NELDLibStyle.DARK_TEXT_VALUE);
     }
 
     private void drawPairLine(GuiGraphics g, String prefix, long current, long max, String suffix, int x, int y) {
         drawPairTextLine(g, prefix, NELDLibText.number(current), NELDLibText.number(max), x, y);
         if (!suffix.isEmpty()) {
-            NELDLibStyle.drawSegment(
+            NELDLibClientStyle.drawSegment(
                     g, font(), " " + suffix, x + font().width(prefix), y, NELDLibStyle.DARK_TEXT_MUTED);
         }
     }
 
     private void drawPairTextLine(GuiGraphics g, String prefix, String current, String max, int x, int y) {
-        int cursor = NELDLibStyle.drawSegment(g, font(), prefix, x, y, NELDLibStyle.DARK_TEXT_MUTED);
-        cursor += NELDLibStyle.drawSegment(g, font(), current, x + cursor, y, NELDLibStyle.DARK_TEXT_SUCCESS);
-        cursor += NELDLibStyle.drawSegment(g, font(), " / ", x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
-        NELDLibStyle.drawSegment(g, font(), max, x + cursor, y, NELDLibStyle.DARK_TEXT_VALUE);
+        int cursor = NELDLibClientStyle.drawSegment(g, font(), prefix, x, y, NELDLibStyle.DARK_TEXT_MUTED);
+        cursor += NELDLibClientStyle.drawSegment(g, font(), current, x + cursor, y, NELDLibStyle.DARK_TEXT_SUCCESS);
+        cursor += NELDLibClientStyle.drawSegment(g, font(), " / ", x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
+        NELDLibClientStyle.drawSegment(g, font(), max, x + cursor, y, NELDLibStyle.DARK_TEXT_VALUE);
     }
 
     private void drawBooleanLine(GuiGraphics g, String prefix, boolean value, int x, int y) {
-        int cursor = NELDLibStyle.drawSegment(g, font(), prefix, x, y, NELDLibStyle.DARK_TEXT_MUTED);
-        NELDLibStyle.drawSegment(
+        int cursor = NELDLibClientStyle.drawSegment(g, font(), prefix, x, y, NELDLibStyle.DARK_TEXT_MUTED);
+        NELDLibClientStyle.drawSegment(
                 g,
                 font(),
                 boolText(value),
