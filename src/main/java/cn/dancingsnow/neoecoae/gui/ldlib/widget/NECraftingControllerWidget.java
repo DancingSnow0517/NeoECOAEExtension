@@ -35,8 +35,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraftingUiState> {
-    public static final int UI_WIDTH = 344;
-    public static final int UI_HEIGHT = 294;
+    public static final int UI_WIDTH = 304;
+    public static final int UI_HEIGHT = 268;
+    private static final float TEXT_SCALE = 0.8F;
     private static final long ENERGY_GAUGE_REFERENCE = 1_000_000_000L;
     private static final int HEADER_STATUS_LABEL_COLOR = 0xFF5D5D5D;
     private static final int HEADER_STATUS_SUCCESS_COLOR = 0xFF00A850;
@@ -54,45 +55,45 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final ResourceLocation MODULE_PARALLEL_CORE_LIGHT_L9 =
             ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/block/crafting/core/parallel_core_light_c.png");
 
-    private static final int PANEL_MARGIN = 7;
+    private static final int PANEL_MARGIN = 6;
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
-    private static final int MAIN_PANEL_Y = 24;
+    private static final int MAIN_PANEL_Y = 20;
     private static final int MAIN_PANEL_W = UI_WIDTH - PANEL_MARGIN * 2;
-    private static final int MAIN_PANEL_H = 171;
+    private static final int MAIN_PANEL_H = 151;
     private static final int TOOLBAR_BUTTON_SIZE = 14;
     private static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 3;
     private static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 3 - 3 * 2;
-    private static final int TOOLBAR_Y = 8;
+    private static final int TOOLBAR_Y = 4;
 
-    private static final int MODULE_AREA_X = MAIN_PANEL_X + 7;
-    private static final int MODULE_AREA_Y = MAIN_PANEL_Y + 7;
-    private static final int MODULE_AREA_W = MAIN_PANEL_W - 14;
-    private static final int MODULE_AREA_H = 78;
+    private static final int MODULE_AREA_X = MAIN_PANEL_X + 6;
+    private static final int MODULE_AREA_Y = MAIN_PANEL_Y + 6;
+    private static final int MODULE_AREA_W = MAIN_PANEL_W - 12;
+    private static final int MODULE_AREA_H = 62;
     private static final int MODULE_GRID_X = MODULE_AREA_X + 6;
-    private static final int MODULE_GRID_Y = MODULE_AREA_Y + 16;
+    private static final int MODULE_GRID_Y = MODULE_AREA_Y + 14;
     private static final int MODULE_GRID_W = MODULE_AREA_W - 12;
-    private static final int MODULE_GRID_H = MODULE_AREA_H - 20;
-    private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 7;
+    private static final int MODULE_GRID_H = MODULE_AREA_H - 18;
+    private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 6;
     private static final int STATUS_AREA_X = MODULE_AREA_X;
     private static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATUS_AREA_W = 74;
-    private static final int STATUS_AREA_H = 72;
+    private static final int STATUS_AREA_W = 64;
+    private static final int STATUS_AREA_H = 70;
     private static final int STATS_AREA_X = STATUS_AREA_X + STATUS_AREA_W + 6;
     private static final int STATS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATS_AREA_W = 154;
-    private static final int STATS_AREA_H = 72;
+    private static final int STATS_AREA_W = 126;
+    private static final int STATS_AREA_H = 70;
     private static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + 6;
     private static final int GAUGE_AREA_Y = MIDDLE_AREA_Y;
     private static final int GAUGE_AREA_W = MODULE_AREA_X + MODULE_AREA_W - GAUGE_AREA_X;
-    private static final int GAUGE_AREA_H = 72;
+    private static final int GAUGE_AREA_H = 70;
     private static final int GAUGE_BAR_Y = GAUGE_AREA_Y + 19;
     private static final int GAUGE_BAR_H = 32;
     private static final int GAUGE_BAR_W = 23;
     private static final int SLOT_SIZE = 18;
     private static final int PLAYER_INV_X = MODULE_AREA_X;
-    private static final int PLAYER_INV_LABEL_Y = MAIN_PANEL_Y + 165 + 8;
-    private static final int PLAYER_INV_Y = PLAYER_INV_LABEL_Y + 12;
-    private static final int PLAYER_HOTBAR_Y = PLAYER_INV_Y + SLOT_SIZE * 3 + 4;
+    private static final int PLAYER_INV_LABEL_Y = MAIN_PANEL_Y + MAIN_PANEL_H + 6;
+    private static final int PLAYER_INV_Y = PLAYER_INV_LABEL_Y + 10;
+    private static final int PLAYER_HOTBAR_Y = PLAYER_INV_Y + SLOT_SIZE * 3 + 2;
     private static final int TASK_PANEL_GAP = 8;
     private static final int TASK_PANEL_X = PLAYER_INV_X + SLOT_SIZE * 9 + TASK_PANEL_GAP;
     private static final int TASK_PANEL_Y = PLAYER_INV_LABEL_Y - 2;
@@ -183,14 +184,14 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     @Override
     protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         NECraftingUiState state = currentState();
-        drawLocalString(graphics, title, 8, 8, TEXT_PRIMARY);
+        drawLine(graphics, title, 8, 8, TEXT_PRIMARY);
         drawHeaderMachineStatus(graphics, state);
         drawToolbarIcons(graphics, state);
         drawModuleLabels(graphics, state);
         drawStatusArea(graphics, state);
         drawStatsArea(graphics, state);
         drawGaugeLabels(graphics);
-        drawLocalString(
+        drawLine(
                 graphics,
                 Component.translatable("gui.neoecoae.common.inventory"),
                 PLAYER_INV_X,
@@ -267,18 +268,16 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 MODULE_AREA_X + 8,
                 MODULE_AREA_Y + 5,
                 NELDLibStyle.DARK_TEXT_PRIMARY);
-        NELDLibStyle.drawRight(
+        drawScaledRight(
                 g,
-                font(),
                 Component.literal("FT " + NELDLibText.number(state.parallelCount()) + "   FX "
                         + NELDLibText.number(state.workerCount())),
                 absX(MODULE_AREA_X + MODULE_AREA_W - 8),
                 absY(MODULE_AREA_Y + 5),
                 NELDLibStyle.DARK_TEXT_VALUE);
         if (crafting.getBuildDefinition() == null) {
-            NELDLibStyle.drawCentered(
+            drawScaledCentered(
                     g,
-                    font(),
                     Component.translatable("emi.neoecoae.multiblock.empty_scene"),
                     absX(MODULE_AREA_X),
                     absY(MODULE_AREA_Y + 39),
@@ -292,9 +291,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private void drawModulePlane(GuiGraphics g, NECraftingUiState state) {
         ModuleGrid grid = moduleGrid(state);
         if (grid.columns() <= 0) {
-            NELDLibStyle.drawCentered(
+            drawScaledCentered(
                     g,
-                    font(),
                     Component.translatable("gui.neoecoae.crafting.no_worker_cores"),
                     absX(MODULE_AREA_X),
                     absY(MODULE_AREA_Y + 39),
@@ -500,7 +498,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 g,
                 Component.translatable("gui.neoecoae.crafting.ft_cores_short").getString() + ": ",
                 state.parallelCount(),
-                x + 76,
+                x + 64,
                 y);
     }
 
@@ -531,17 +529,15 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         int gaugeW = GAUGE_BAR_W;
         int energyX = GAUGE_AREA_X + 8;
         int coolantX = GAUGE_AREA_X + GAUGE_AREA_W - 8 - gaugeW;
-        NELDLibStyle.drawCentered(
+        drawScaledCentered(
                 g,
-                font(),
                 Component.translatable("gui.neoecoae.crafting.energy_short"),
                 absX(energyX - 8),
                 absY(gaugeY + gaugeH + 1),
                 gaugeW + 16,
                 NELDLibStyle.DARK_TEXT_MUTED);
-        NELDLibStyle.drawCentered(
+        drawScaledCentered(
                 g,
-                font(),
                 Component.translatable("gui.neoecoae.crafting.cooling_short"),
                 absX(coolantX - 8),
                 absY(gaugeY + gaugeH + 1),
@@ -573,14 +569,13 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         NELDLibStyle.drawDarkInsetRect(g, absX, absY - 3, 13, 13);
         int light = enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR;
         g.fill(absX + 4, absY + 1, absX + 9, absY + 6, light);
-        g.drawString(font(), label, absX + 18, absY, NELDLibStyle.DARK_TEXT_MUTED, false);
-        g.drawString(
-                font(),
+        drawScaledString(g, label, absX + 18, absY, NELDLibStyle.DARK_TEXT_MUTED);
+        drawScaledString(
+                g,
                 Component.translatable(enabled ? "gui.neoecoae.common.on" : "gui.neoecoae.common.off"),
-                absX + 44,
+                absX + 40,
                 absY,
-                enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR,
-                false);
+                enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
     }
 
     private void drawHeaderMachineStatus(GuiGraphics g, NECraftingUiState state) {
@@ -591,33 +586,20 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 .append(Component.translatable("gui.neoecoae.machine.active"))
                 .append(": ");
         Component activeValue = boolText(state.active());
-        int textW = font().width(formedLabel)
-                + font().width(formedValue)
-                + font().width(activeLabel)
-                + font().width(activeValue);
-        int titleRight = 8 + font().width(title) + 10;
+        int textW = scaledWidth(formedLabel)
+                + scaledWidth(formedValue)
+                + scaledWidth(activeLabel)
+                + scaledWidth(activeValue);
+        int titleRight = 8 + scaledWidth(title) + 10;
         int rightLimit = TOOLBAR_X - 8;
         int textX = absX(Math.min(titleRight, Math.max(8, rightLimit - textW)));
         int textY = absY(8);
-        g.drawString(font(), formedLabel, textX, textY, HEADER_STATUS_LABEL_COLOR, false);
-        textX += font().width(formedLabel);
-        g.drawString(
-                font(),
-                formedValue,
-                textX,
-                textY,
-                state.formed() ? HEADER_STATUS_SUCCESS_COLOR : HEADER_STATUS_ERROR_COLOR,
-                false);
-        textX += font().width(formedValue);
-        g.drawString(font(), activeLabel, textX, textY, HEADER_STATUS_LABEL_COLOR, false);
-        textX += font().width(activeLabel);
-        g.drawString(
-                font(),
-                activeValue,
-                textX,
-                textY,
-                state.active() ? HEADER_STATUS_SUCCESS_COLOR : HEADER_STATUS_MUTED_COLOR,
-                false);
+        textX += drawScaledString(g, formedLabel, textX, textY, HEADER_STATUS_LABEL_COLOR);
+        textX += drawScaledString(
+                g, formedValue, textX, textY, state.formed() ? HEADER_STATUS_SUCCESS_COLOR : HEADER_STATUS_ERROR_COLOR);
+        textX += drawScaledString(g, activeLabel, textX, textY, HEADER_STATUS_LABEL_COLOR);
+        drawScaledString(
+                g, activeValue, textX, textY, state.active() ? HEADER_STATUS_SUCCESS_COLOR : HEADER_STATUS_MUTED_COLOR);
     }
 
     private void drawPlayerInventorySlots(GuiGraphics graphics) {
@@ -639,9 +621,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 TASK_PANEL_X + 8,
                 TASK_PANEL_Y + 5,
                 NELDLibStyle.DARK_TEXT_PRIMARY);
-        NELDLibStyle.drawRight(
+        drawScaledRight(
                 g,
-                font(),
                 Component.literal(NELDLibText.number(state.recipeEntries().size())),
                 absX(TASK_PANEL_X + TASK_PANEL_W - 8),
                 absY(TASK_PANEL_Y + 5),
@@ -651,9 +632,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 clampTaskScrollOffset(taskScrollOffset, state.recipeEntries().size());
         List<TaskCardAnimation> cards = updateTaskAnimations(state);
         if (cards.isEmpty() && state.recipeEntries().isEmpty()) {
-            NELDLibStyle.drawCentered(
+            drawScaledCentered(
                     g,
-                    font(),
                     Component.translatable("gui.neoecoae.crafting.no_tasks"),
                     absX(TASK_PANEL_X + 6),
                     absY(TASK_PANEL_Y + 42),
@@ -662,8 +642,14 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             return;
         }
 
-        for (TaskCardAnimation card : cards) {
-            drawTaskCard(g, card);
+        g.enableScissor(
+                absX(TASK_CARD_X), absY(TASK_CARD_Y), absX(TASK_CARD_X + TASK_CARD_W), absY(TASK_LIST_BOTTOM_Y + 1));
+        try {
+            for (TaskCardAnimation card : cards) {
+                drawTaskCard(g, card);
+            }
+        } finally {
+            g.disableScissor();
         }
         drawTaskScrollbar(g, state.recipeEntries().size(), visibleTaskCardCount());
     }
@@ -672,27 +658,26 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         long now = Util.getMillis();
         Set<String> activeKeys = new HashSet<>();
         int total = state.recipeEntries().size();
-        int visible = Math.min(visibleTaskCardCount(), Math.max(0, total - taskScrollOffset));
-        boolean scrolled = taskScrollOffset != lastTaskScrollOffset;
+        int visible = visibleTaskCardCount();
+        int scrollDelta = taskScrollOffset - lastTaskScrollOffset;
         lastTaskScrollOffset = taskScrollOffset;
+        int firstBufferedIndex = Math.max(0, taskScrollOffset - 1);
+        int lastBufferedIndex = Math.min(total, taskScrollOffset + visible + 1);
 
-        for (int i = 0; i < visible; i++) {
-            int entryIndex = taskScrollOffset + i;
+        for (int entryIndex = firstBufferedIndex; entryIndex < lastBufferedIndex; entryIndex++) {
             NECraftingRecipeUiEntry entry = state.recipeEntries().get(entryIndex);
             String key = taskEntryKey(entry, entryIndex);
             activeKeys.add(key);
-            int targetY = TASK_CARD_Y + i * TASK_CARD_STRIDE;
+            int targetY = TASK_CARD_Y + (entryIndex - taskScrollOffset) * TASK_CARD_STRIDE;
             TaskCardAnimation animation = taskAnimations.get(key);
             if (animation == null) {
-                animation = new TaskCardAnimation(entry, targetY, scrolled);
+                float entryOffset = scrollDelta > 0 ? TASK_CARD_STRIDE : scrollDelta < 0 ? -TASK_CARD_STRIDE : 5.0F;
+                animation = new TaskCardAnimation(entry, targetY, entryOffset);
                 taskAnimations.put(key, animation);
             }
             animation.entry = entry;
             animation.targetY = targetY;
             animation.exiting = false;
-            if (scrolled) {
-                animation.snapTo(targetY);
-            }
         }
 
         Iterator<Map.Entry<String, TaskCardAnimation>> iterator =
@@ -701,10 +686,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             Map.Entry<String, TaskCardAnimation> entry = iterator.next();
             TaskCardAnimation animation = entry.getValue();
             if (!activeKeys.contains(entry.getKey()) && !animation.exiting) {
-                if (scrolled) {
-                    iterator.remove();
-                    continue;
-                }
                 animation.exiting = true;
                 animation.exitStartedMs = now;
             }
@@ -738,13 +719,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         int textX = x + 20;
         int textY = y + 4;
         String amountText = "x" + formatTaskAmount(entry.outputAmount());
-        int amountW = font().width(amountText);
+        int amountW = scaledWidth(amountText);
         int maxNameW = Math.max(16, TASK_CARD_W - 28 - amountW);
         String name = fitText(entry.output().getHoverName().getString(), maxNameW);
-        g.drawString(font(), name, absX(textX), absY(textY), withAlpha(NELDLibStyle.DARK_TEXT_PRIMARY, alpha), false);
-        NELDLibStyle.drawRight(
+        drawScaledString(g, name, absX(textX), absY(textY), withAlpha(NELDLibStyle.DARK_TEXT_PRIMARY, alpha));
+        drawScaledRight(
                 g,
-                font(),
                 Component.literal(amountText),
                 absX(TASK_CARD_X + TASK_CARD_W - 5),
                 absY(textY),
@@ -965,22 +945,49 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     }
 
     private void drawLine(GuiGraphics g, Component text, int x, int y, int color) {
-        g.drawString(font(), text, absX(x), absY(y), color, false);
+        drawScaledString(g, text, absX(x), absY(y), color);
     }
 
     private void drawInlineValueLine(GuiGraphics g, String label, long value, int x, int y) {
-        int cursor = NELDLibStyle.drawSegment(g, font(), label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
-        NELDLibStyle.drawSegment(
-                g, font(), NELDLibText.number(value), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
+        int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
+        drawScaledString(g, NELDLibText.number(value), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
     }
 
     private void drawCompactPairLine(GuiGraphics g, String label, long current, long max, int x, int y) {
-        int cursor = NELDLibStyle.drawSegment(g, font(), label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
-        cursor += NELDLibStyle.drawSegment(
-                g, font(), NELDLibText.number(current), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_SUCCESS);
-        cursor += NELDLibStyle.drawSegment(g, font(), " / ", absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_MUTED);
-        NELDLibStyle.drawSegment(
-                g, font(), NELDLibText.number(max), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
+        int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
+        cursor += drawScaledString(
+                g, NELDLibText.number(current), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_SUCCESS);
+        cursor += drawScaledString(g, " / ", absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_MUTED);
+        drawScaledString(g, NELDLibText.number(max), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
+    }
+
+    private int drawScaledString(GuiGraphics g, Component text, int x, int y, int color) {
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0.0F);
+        g.pose().scale(TEXT_SCALE, TEXT_SCALE, 1.0F);
+        g.drawString(font(), text, 0, 0, color, false);
+        g.pose().popPose();
+        return scaledWidth(text);
+    }
+
+    private int drawScaledString(GuiGraphics g, String text, int x, int y, int color) {
+        return drawScaledString(g, Component.literal(text), x, y, color);
+    }
+
+    private void drawScaledRight(GuiGraphics g, Component text, int rightX, int y, int color) {
+        drawScaledString(g, text, rightX - scaledWidth(text), y, color);
+    }
+
+    private void drawScaledCentered(GuiGraphics g, Component text, int x, int y, int width, int color) {
+        drawScaledString(g, text, x + (width - scaledWidth(text)) / 2, y, color);
+    }
+
+    private int scaledWidth(Component text) {
+        return Math.round(font().width(text) * TEXT_SCALE);
+    }
+
+    private int scaledWidth(String text) {
+        return Math.round(font().width(text) * TEXT_SCALE);
     }
 
     private static int countTier(NECraftingUiState state, int tier) {
@@ -1022,11 +1029,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     }
 
     private String fitText(String text, int maxWidth) {
-        if (font().width(text) <= maxWidth) {
+        int unscaledMaxWidth = Math.max(1, (int) Math.floor(maxWidth / TEXT_SCALE));
+        if (font().width(text) <= unscaledMaxWidth) {
             return text;
         }
         String suffix = "...";
-        return font().plainSubstrByWidth(text, Math.max(1, maxWidth - font().width(suffix))) + suffix;
+        return font().plainSubstrByWidth(text, Math.max(1, unscaledMaxWidth - font().width(suffix))) + suffix;
     }
 
     private static String formatTaskAmount(long value) {
@@ -1170,23 +1178,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         private boolean exiting;
         private long exitStartedMs;
 
-        private TaskCardAnimation(NECraftingRecipeUiEntry entry, int targetY, boolean immediate) {
+        private TaskCardAnimation(NECraftingRecipeUiEntry entry, int targetY, float entryOffset) {
             this.entry = entry;
             this.targetY = targetY;
             this.lastUpdateMs = Util.getMillis();
-            if (immediate) {
-                snapTo(targetY);
-            } else {
-                this.y = targetY + 5.0F;
-                this.alpha = 0.0F;
-            }
-        }
-
-        private void snapTo(int targetY) {
-            this.y = targetY;
-            this.targetY = targetY;
-            this.alpha = 1.0F;
-            this.lastUpdateMs = Util.getMillis();
+            this.y = targetY + entryOffset;
+            this.alpha = 0.0F;
         }
 
         private void update(long nowMs) {

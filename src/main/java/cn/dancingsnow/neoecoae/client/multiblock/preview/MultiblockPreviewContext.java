@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.client.multiblock.preview;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
-import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockItemFormResolver;
@@ -25,7 +24,6 @@ import org.jetbrains.annotations.Nullable;
 public final class MultiblockPreviewContext extends MultiBlockContext {
     private static final Vec3 CONTROLLER_CENTER = new Vec3(1.5, 1.5, 0.5);
 
-    private final MultiBlockDefinition definition;
     private final boolean mirrored;
     private final boolean formed;
     private final LinkedHashMap<BlockPos, BlockState> blocks = new LinkedHashMap<>();
@@ -55,7 +53,6 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
 
     public MultiblockPreviewContext(
             @Nullable MultiBlockDefinition definition, int repeats, boolean mirrored, boolean formed) {
-        this.definition = definition;
         this.repeats = repeats;
         this.mirrored = mirrored;
         this.formed = formed;
@@ -197,7 +194,9 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
             state = state.setValue(NEBlock.MIRRORED, mirrored);
         }
         if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
-            boolean invisible = isComputationSystem() || pos.getCenter().distanceToSqr(controllerCenter()) <= 3.0D;
+            // Keep the terminal preview silhouette readable even for computation hosts,
+            // whose formed world state hides every casing block.
+            boolean invisible = pos.getCenter().distanceToSqr(controllerCenter()) <= 3.0D;
             state = state.setValue(ECOMachineCasing.INVISIBLE, invisible);
         }
         return state;
@@ -210,9 +209,5 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
         BlockPos controllerPos = cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.transformLocalPos(
                 cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.CONTROLLER_ANCHOR, true);
         return controllerPos.getCenter();
-    }
-
-    private boolean isComputationSystem() {
-        return definition != null && definition.getOwner().value() instanceof ECOComputationSystem;
     }
 }
