@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.data.worldgen.BootstapContext;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
@@ -27,7 +27,7 @@ public class NEBiomeModifiers {
     // After re-running datagen, re-add the conditions block manually:
     // "conditions": [{ "type": "forge:not", "value": { "type": "forge:mod_loaded",
     // "modid": "gtceu" } }],
-    public static void bootstrap(BootstrapContext<BiomeModifier> context) {
+    public static void bootstrap(BootstapContext<BiomeModifier> context) {
         HolderGetter<Biome> biomes = context.lookup(Registries.BIOME);
         HolderGetter<PlacedFeature> placedFeatures = context.lookup(Registries.PLACED_FEATURE);
         ForgeBiomeModifiers.AddFeaturesBiomeModifier oreBiomeModifier =

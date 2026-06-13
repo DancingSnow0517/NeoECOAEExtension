@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_energized_cryztal_dust": {
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/energized_crystal"
+            "tag": "forge:dusts/energized_crystal"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_energized_cryztal_dust"
+      "has_energized_cryztal_dust",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:cryotheum"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

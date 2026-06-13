@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -15,8 +15,7 @@
     "AAA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:energy_cell_l9",
     "item": "neoecoae:energy_cell_l9"
-  }
+  },
+  "show_notification": true
 }

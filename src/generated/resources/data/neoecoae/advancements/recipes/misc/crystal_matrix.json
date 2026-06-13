@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_crystal_ingot": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:crystal_ingot"]
+            "items": [
+              "neoecoae:crystal_ingot"
+            ]
           }
         ]
       },
@@ -20,13 +22,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_crystal_ingot"
+      "has_crystal_ingot",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:crystal_matrix"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

@@ -12,8 +12,7 @@
     "AAA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:aluminum_alloy_block",
     "item": "neoecoae:aluminum_alloy_block"
-  }
+  },
+  "show_notification": true
 }

@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_computation_casing": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:computation_casing"]
+            "items": [
+              "neoecoae:computation_casing"
+            ]
           }
         ]
       },
@@ -15,7 +17,9 @@
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:energized_superconductive_ingot"]
+            "items": [
+              "neoecoae:energized_superconductive_ingot"
+            ]
           }
         ]
       },
@@ -30,14 +34,15 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
       "has_computation_casing",
-      "has_energized_superconductive_ingot"
+      "has_energized_superconductive_ingot",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:computation_transmitter"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

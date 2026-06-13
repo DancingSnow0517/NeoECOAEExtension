@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_computation_casing": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:computation_casing"]
+            "items": [
+              "neoecoae:computation_casing"
+            ]
           }
         ]
       },
@@ -20,13 +22,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_computation_casing"
+      "has_computation_casing",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:computation_cooling_controller_l4"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

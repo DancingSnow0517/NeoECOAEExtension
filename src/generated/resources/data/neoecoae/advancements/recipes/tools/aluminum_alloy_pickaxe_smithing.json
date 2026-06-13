@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_item": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:aluminum_alloy_ingot"]
+            "items": [
+              "neoecoae:aluminum_alloy_ingot"
+            ]
           }
         ]
       },
@@ -20,13 +22,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_item"
+      "has_item",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:aluminum_alloy_pickaxe_smithing"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

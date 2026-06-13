@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -21,8 +21,7 @@
     "ADA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:eco_drive",
     "item": "neoecoae:eco_drive"
-  }
+  },
+  "show_notification": true
 }

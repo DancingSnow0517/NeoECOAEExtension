@@ -12,8 +12,7 @@
     "AAA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:tungsten_block",
     "item": "neoecoae:tungsten_block"
-  }
+  },
+  "show_notification": true
 }

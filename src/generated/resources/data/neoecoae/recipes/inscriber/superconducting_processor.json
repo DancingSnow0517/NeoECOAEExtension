@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "ae2:inscriber",
   "ingredients": {
     "bottom": {
@@ -13,8 +13,6 @@
   },
   "mode": "press",
   "result": {
-    "count": 1,
-    "id": "neoecoae:superconducting_processor",
     "item": "neoecoae:superconducting_processor"
   }
 }

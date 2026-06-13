@@ -1,19 +1,23 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
+import com.google.gson.JsonObject;
 import java.util.Objects;
+import java.util.function.Consumer;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import net.minecraft.advancements.Criterion;
+import net.minecraft.advancements.CriterionTriggerInstance;
 import net.minecraft.core.Holder;
+import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.data.recipes.RecipeBuilder;
-import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 
 @Accessors(fluent = true, chain = true)
@@ -56,7 +60,7 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public CoolingRecipeBuilder unlockedBy(String name, Criterion<?> criterion) {
+    public CoolingRecipeBuilder unlockedBy(String name, CriterionTriggerInstance criterion) {
         return this;
     }
 
@@ -71,12 +75,12 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput) {
+    public void save(Consumer<FinishedRecipe> recipeOutput) {
         throw new IllegalArgumentException("id must not be null");
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput, ResourceLocation id) {
+    public void save(Consumer<FinishedRecipe> recipeOutput, ResourceLocation id) {
         Objects.requireNonNull(input, "input must not be null");
         if (coolant <= 0) {
             throw new IllegalStateException("coolant must be greater than 0");
@@ -84,7 +88,47 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
         if (maxOverclock < 0) {
             throw new IllegalStateException("maxOverclock must not be negative");
         }
-        CoolingRecipe recipe = new CoolingRecipe(input, output, coolant, maxOverclock);
-        recipeOutput.accept(id, recipe, null);
+        recipeOutput.accept(new Result(id, input, output, coolant, maxOverclock));
+    }
+
+    private record Result(
+            ResourceLocation id, SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock)
+            implements FinishedRecipe {
+        @Override
+        public void serializeRecipeData(JsonObject json) {
+            json.add("input", input.toJson());
+            JsonObject outputJson = new JsonObject();
+            if (!output.isEmpty()) {
+                ResourceLocation fluidId = ForgeRegistries.FLUIDS.getKey(output.getFluid());
+                if (fluidId == null) {
+                    throw new IllegalStateException("Cannot serialize unregistered fluid " + output.getFluid());
+                }
+                outputJson.addProperty("fluid", fluidId.toString());
+                outputJson.addProperty("amount", output.getAmount());
+            }
+            json.add("output", outputJson);
+            json.addProperty("coolant", coolant);
+            json.addProperty("max_overclock", maxOverclock);
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return id;
+        }
+
+        @Override
+        public RecipeSerializer<?> getType() {
+            return cn.dancingsnow.neoecoae.all.NERecipeTypes.COOLING_SERIALIZER.get();
+        }
+
+        @Override
+        public JsonObject serializeAdvancement() {
+            return null;
+        }
+
+        @Override
+        public ResourceLocation getAdvancementId() {
+            return null;
+        }
     }
 }

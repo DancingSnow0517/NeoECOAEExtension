@@ -6,9 +6,5 @@
   "ingredient": {
     "tag": "forge:dusts/black_tungsten_alloy"
   },
-  "result": {
-    "count": 1,
-    "id": "neoecoae:black_tungsten_alloy_ingot",
-    "item": "neoecoae:black_tungsten_alloy_ingot"
-  }
+  "result": "neoecoae:black_tungsten_alloy_ingot"
 }

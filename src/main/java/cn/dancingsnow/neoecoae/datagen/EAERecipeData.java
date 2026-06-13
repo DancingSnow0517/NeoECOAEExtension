@@ -23,7 +23,7 @@ public final class EAERecipeData {
         REGISTRATE.addDataGenerator(ProviderType.RECIPE, EAERecipeData::init);
     }
 
-    private static void init(RegistrateRecipeProvider provider) {
+    public static void init(RegistrateRecipeProvider provider) {
         provider.accept(new CircuitCutterRecipe(
                 NeoECOAE.id("circuit_cutter/superconducting_processor_print"),
                 itemId(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK.get().asItem()),

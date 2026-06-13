@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_dusts_aluminum_alloy": {
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/aluminum_alloy"
+            "tag": "forge:dusts/aluminum_alloy"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_dusts_aluminum_alloy"
+      "has_dusts_aluminum_alloy",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:aluminum_alloy_ingot_from_dusts_aluminum_alloy_smelting"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

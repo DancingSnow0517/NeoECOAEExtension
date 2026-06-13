@@ -1,18 +1,17 @@
 {
-    "conditions":  [
-                       {
-                           "type":  "forge:mod_loaded",
-                           "modid":  "mekanism"
-                       }
-                   ],
-    "type":  "mekanism:crushing",
-    "input":  {
-                  "ingredient":  {
-                                     "tag":  "forge:ingots/aluminum"
-                                 }
-              },
-    "output":  {
-                   "count":  1,
-                   "item":  "neoecoae:aluminum_dust"
-               }
+  "type": "mekanism:crushing",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "input": {
+    "ingredient": {
+      "tag": "forge:ingots/aluminum"
+    }
+  },
+  "output": {
+    "item": "neoecoae:aluminum_dust"
+  }
 }

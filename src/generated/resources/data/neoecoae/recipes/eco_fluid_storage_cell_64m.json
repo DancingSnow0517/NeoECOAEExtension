@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
@@ -10,8 +10,6 @@
     }
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:eco_fluid_storage_cell_64m",
     "item": "neoecoae:eco_fluid_storage_cell_64m"
   }
 }

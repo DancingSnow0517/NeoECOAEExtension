@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -12,8 +12,7 @@
     "A A"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:crystal_matrix",
     "item": "neoecoae:crystal_matrix"
-  }
+  },
+  "show_notification": true
 }

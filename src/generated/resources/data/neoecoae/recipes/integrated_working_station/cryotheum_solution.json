@@ -3,7 +3,7 @@
   "energy": 1000,
   "fluidOutput": {
     "amount": 1000,
-    "id": "neoecoae:cryotheum_solution"
+    "fluid": "neoecoae:cryotheum_solution"
   },
   "inputFluid": {
     "amount": 1000,

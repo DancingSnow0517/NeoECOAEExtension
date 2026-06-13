@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.data.worldgen;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.data.worldgen.BootstapContext;
 import net.minecraft.data.worldgen.features.FeatureUtils;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
@@ -18,7 +18,7 @@ public class NEConfiguredFeatures {
             ORE_TUNGSTEN = key("ore_tungsten"),
             ORE_TUNGSTEN_SMALL = key("ore_tungsten_small");
 
-    public static void bootstrap(BootstrapContext<ConfiguredFeature<?, ?>> context) {
+    public static void bootstrap(BootstapContext<ConfiguredFeature<?, ?>> context) {
         FeatureUtils.register(
                 context,
                 ORE_ALUMINUM,

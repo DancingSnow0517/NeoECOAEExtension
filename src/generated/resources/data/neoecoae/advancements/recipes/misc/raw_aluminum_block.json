@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_raw_aluminum_ore": {
       "conditions": {
         "items": [
           {
-            "tag": "c:raw_materials/aluminum"
+            "tag": "forge:raw_materials/aluminum"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_raw_aluminum_ore"
+      "has_raw_aluminum_ore",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:raw_aluminum_block"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

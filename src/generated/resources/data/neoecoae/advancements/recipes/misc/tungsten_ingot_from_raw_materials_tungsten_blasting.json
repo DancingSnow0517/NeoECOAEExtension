@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_raw_materials_tungsten": {
       "conditions": {
         "items": [
           {
-            "tag": "c:raw_materials/tungsten"
+            "tag": "forge:raw_materials/tungsten"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_raw_materials_tungsten"
+      "has_raw_materials_tungsten",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:tungsten_ingot_from_raw_materials_tungsten_blasting"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

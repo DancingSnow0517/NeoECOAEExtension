@@ -6,9 +6,5 @@
   "ingredient": {
     "tag": "forge:ores/aluminum"
   },
-  "result": {
-    "count": 1,
-    "id": "neoecoae:aluminum_ingot",
-    "item": "neoecoae:aluminum_ingot"
-  }
+  "result": "neoecoae:aluminum_ingot"
 }

@@ -15,8 +15,7 @@
     "B"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:aluminum_sword",
     "item": "neoecoae:aluminum_sword"
-  }
+  },
+  "show_notification": true
 }

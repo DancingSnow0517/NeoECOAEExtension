@@ -1,5 +1,9 @@
 {
   "type": "ae2:transform",
+  "circumstance": {
+    "type": "fluid",
+    "tag": "minecraft:water"
+  },
   "ingredients": [
     {
       "item": "neoecoae:chipped_budding_energized_crystal"
@@ -9,8 +13,6 @@
     }
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:flawed_budding_energized_crystal",
     "item": "neoecoae:flawed_budding_energized_crystal"
   }
 }

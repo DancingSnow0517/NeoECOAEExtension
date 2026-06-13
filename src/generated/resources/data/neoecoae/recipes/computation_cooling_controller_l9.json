@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -21,8 +21,7 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:computation_cooling_controller_l9",
     "item": "neoecoae:computation_cooling_controller_l9"
-  }
+  },
+  "show_notification": true
 }

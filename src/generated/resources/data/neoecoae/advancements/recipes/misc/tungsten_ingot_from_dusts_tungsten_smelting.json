@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_dusts_tungsten": {
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/tungsten"
+            "tag": "forge:dusts/tungsten"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_dusts_tungsten"
+      "has_dusts_tungsten",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:tungsten_ingot_from_dusts_tungsten_smelting"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

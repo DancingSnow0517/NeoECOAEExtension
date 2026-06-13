@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -18,8 +18,7 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:storage_vent",
     "item": "neoecoae:storage_vent"
-  }
+  },
+  "show_notification": true
 }

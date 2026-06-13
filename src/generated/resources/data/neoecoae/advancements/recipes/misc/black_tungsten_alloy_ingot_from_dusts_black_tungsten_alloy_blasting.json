@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_dusts_black_tungsten_alloy": {
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/black_tungsten_alloy"
+            "tag": "forge:dusts/black_tungsten_alloy"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_dusts_black_tungsten_alloy"
+      "has_dusts_black_tungsten_alloy",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:black_tungsten_alloy_ingot_from_dusts_black_tungsten_alloy_blasting"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

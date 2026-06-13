@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_ores_aluminum": {
       "conditions": {
         "items": [
           {
-            "tag": "c:ores/aluminum"
+            "tag": "forge:ores/aluminum"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_ores_aluminum"
+      "has_ores_aluminum",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:aluminum_ingot_from_ores_aluminum_smelting"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

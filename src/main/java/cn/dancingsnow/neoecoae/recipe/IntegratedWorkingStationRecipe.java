@@ -34,42 +34,8 @@ public record IntegratedWorkingStationRecipe(
         int energy)
         implements Recipe<IntegratedWorkingStationRecipe.Input> {
 
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static class Builder {
-        public Builder require(Object ingredient) {
-            return this;
-        }
-
-        public Builder require(Object ingredient, int count) {
-            return this;
-        }
-
-        public Builder requireFluid(Object fluid, int amount) {
-            return this;
-        }
-
-        public Builder itemOutput(Object output) {
-            return this;
-        }
-
-        public Builder itemOutput(Object output, int count) {
-            return this;
-        }
-
-        public Builder fluidOutput(Object output, int amount) {
-            return this;
-        }
-
-        public Builder energy(int energy) {
-            return this;
-        }
-
-        public void save(Object provider) {}
-
-        public void save(Object provider, ResourceLocation id) {}
+    public static IntegratedWorkingStationRecipeBuilder builder() {
+        return new IntegratedWorkingStationRecipeBuilder();
     }
 
     @Override

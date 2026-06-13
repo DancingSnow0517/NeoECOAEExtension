@@ -15,8 +15,7 @@
     "B"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:tungsten_shovel",
     "item": "neoecoae:tungsten_shovel"
-  }
+  },
+  "show_notification": true
 }

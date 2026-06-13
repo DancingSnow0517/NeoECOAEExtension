@@ -1,4 +1,5 @@
 {
+  "type": "neoecoae:cooling",
   "conditions": [
     {
       "type": "forge:not",
@@ -8,7 +9,6 @@
       }
     }
   ],
-  "type": "neoecoae:cooling",
   "coolant": 1500,
   "input": {
     "amount": 100,

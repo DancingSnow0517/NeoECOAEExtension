@@ -7,7 +7,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEnt
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeFluidStorage;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEIntegratedWorkingStationUiState;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NEInternalInventoryItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
@@ -62,24 +61,29 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
 
     @Override
     protected void initLdWidgets() {
-        var inputTransfer =
-                new NEInternalInventoryItemTransfer(station.getInput(), station::onGuiInventoryChanged, true, true);
-        var outputTransfer =
-                new NEInternalInventoryItemTransfer(station.getOutput(), station::onGuiInventoryChanged, false, true);
+        var inputContainer = station.getInput().toContainer();
+        var outputContainer = station.getOutput().toContainer();
         var upgradeTransfer = new NEForgeItemTransfer(station.getUpgradeItemHandler(), station::onGuiInventoryChanged);
 
         for (int row = 0; row < INPUT_ROWS; row++) {
             for (int col = 0; col < INPUT_COLS; col++) {
                 addWidget(aeSlot(
-                        inputTransfer,
+                        inputContainer,
                         col + row * INPUT_COLS,
                         mainX(INPUT_SLOT_X + col * SLOT_SIZE),
                         INPUT_SLOT_Y + row * SLOT_SIZE,
-                        SlotAccess.INPUT_OUTPUT));
+                        SlotAccess.INPUT_OUTPUT,
+                        station::onGuiInventoryChanged));
             }
         }
 
-        addWidget(aeSlot(outputTransfer, 0, mainX(OUTPUT_SLOT_X), OUTPUT_SLOT_Y, SlotAccess.OUTPUT_ONLY));
+        addWidget(aeSlot(
+                outputContainer,
+                0,
+                mainX(OUTPUT_SLOT_X),
+                OUTPUT_SLOT_Y,
+                SlotAccess.OUTPUT_ONLY,
+                station::onGuiInventoryChanged));
 
         for (int i = 0; i < UPGRADE_COUNT; i++) {
             addWidget(aeSlot(
@@ -174,6 +178,11 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
 
     private SlotWidget aeSlot(Container container, int index, int x, int y, SlotAccess access) {
         return aeSlot(container, index, x, y, access.canTake, access.canPut);
+    }
+
+    private SlotWidget aeSlot(
+            Container container, int index, int x, int y, SlotAccess access, Runnable changeListener) {
+        return aeSlot(container, index, x, y, access).setChangeListener(changeListener);
     }
 
     @Override

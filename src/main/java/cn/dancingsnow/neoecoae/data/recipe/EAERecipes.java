@@ -1,52 +1,100 @@
 package cn.dancingsnow.neoecoae.data.recipe;
 
-import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.all.NEItems;
-import cn.dancingsnow.neoecoae.all.NETags;
-import com.glodblock.github.extendedae.recipe.CircuitCutterRecipeBuilder;
-import com.glodblock.github.extendedae.recipe.CrystalAssemblerRecipeBuilder;
-import com.glodblock.github.extendedae.recipe.CrystalFixerRecipeBuilder;
+import cn.dancingsnow.neoecoae.datagen.EAERecipeData;
+import com.google.gson.JsonObject;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
-import net.minecraft.data.recipes.RecipeOutput;
-import net.minecraftforge.common.conditions.ModLoadedCondition;
+import net.minecraft.data.recipes.FinishedRecipe;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraftforge.common.crafting.conditions.ModLoadedCondition;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public class EAERecipes {
     public static void init(RegistrateRecipeProvider provider) {
-        RecipeOutput extendedaeInstalled = provider.withConditions(new ModLoadedCondition("extendedae"));
+        EAERecipeData.init(provider);
+        provider.accept(new ConditionalFinishedRecipe(
+                new CrystalFixerRecipe(
+                        NeoECOAE.id("crystal_fixer/damaged_budding_energized_crystal"),
+                        blockId(NEBlocks.ENERGIZED_CRYSTAL_BLOCK.get()),
+                        blockId(NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL.get()),
+                        8000),
+                new ModLoadedCondition("extendedae")));
+        provider.accept(new ConditionalFinishedRecipe(
+                new CrystalFixerRecipe(
+                        NeoECOAE.id("crystal_fixer/chipped_budding_energized_crystal"),
+                        blockId(NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL.get()),
+                        blockId(NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL.get()),
+                        8000),
+                new ModLoadedCondition("extendedae")));
+        provider.accept(new ConditionalFinishedRecipe(
+                new CrystalFixerRecipe(
+                        NeoECOAE.id("crystal_fixer/flawed_budding_energized_crystal"),
+                        blockId(NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL.get()),
+                        blockId(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL.get()),
+                        500),
+                new ModLoadedCondition("extendedae")));
+        // TODO 1.20.1 datagen: restore ExtendedAE crystal assembler recipes
+        // with hand-written FinishedRecipe JSON if that integration is kept.
+    }
 
-        // 姘存櫠淇
-        CrystalFixerRecipeBuilder.fixer(
-                        NEBlocks.ENERGIZED_CRYSTAL_BLOCK.get(), NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL.get())
-                .chance(0.8)
-                .fuel(NETags.Items.ENERGIZED_CRYSTAL)
-                .save(extendedaeInstalled, NeoECOAE.id("crystal_fixer/damaged_budding_energized_crystal"));
+    private static ResourceLocation blockId(net.minecraft.world.level.block.Block block) {
+        ResourceLocation id = ForgeRegistries.BLOCKS.getKey(block);
+        if (id == null) {
+            throw new IllegalStateException("Cannot serialize unregistered block " + block);
+        }
+        return id;
+    }
 
-        CrystalFixerRecipeBuilder.fixer(
-                        NEBlocks.DAMAGED_BUDDING_ENERGIZED_CRYSTAL.get(),
-                        NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL.get())
-                .chance(0.8)
-                .fuel(NETags.Items.ENERGIZED_CRYSTAL)
-                .save(extendedaeInstalled, NeoECOAE.id("crystal_fixer/chipped_budding_energized_crystal"));
+    private record CrystalFixerRecipe(ResourceLocation id, ResourceLocation input, ResourceLocation output, int chance)
+            implements FinishedRecipe {
+        @Override
+        public void serializeRecipeData(JsonObject json) {
+            json.addProperty("chance", chance);
 
-        CrystalFixerRecipeBuilder.fixer(
-                        NEBlocks.CHIPPED_BUDDING_ENERGIZED_CRYSTAL.get(),
-                        NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL.get())
-                .chance(0.05)
-                .fuel(NETags.Items.ENERGIZED_CRYSTAL)
-                .save(extendedaeInstalled, NeoECOAE.id("crystal_fixer/flawed_budding_energized_crystal"));
+            JsonObject fuelIngredient = new JsonObject();
+            fuelIngredient.addProperty("tag", "forge:gems/energized_crystal");
+            JsonObject fuel = new JsonObject();
+            fuel.add("ingredient", fuelIngredient);
+            json.add("fuel", fuel);
 
-        // 姘存櫠瑁呴厤鍣?
-        CrystalAssemblerRecipeBuilder.assemble(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
-                .input(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT, 4)
-                .input(NEItems.CRYSTAL_MATRIX, 4)
-                .input(AEItems.SILICON_PRINT, 4)
-                .save(extendedaeInstalled, NeoECOAE.id("crystal_assembler/superconducting_processor"));
+            JsonObject inputJson = new JsonObject();
+            inputJson.addProperty("id", input.toString());
+            inputJson.addProperty("count", 1);
+            json.add("input", inputJson);
 
-        // 鐢佃矾鍒囩墖鏈?
-        CircuitCutterRecipeBuilder.cut(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT, 9)
-                .input(NEBlocks.ENERGIZED_SUPERCONDUCTIVE_BLOCK)
-                .save(extendedaeInstalled, NeoECOAE.id("circuit_cutter/superconducting_processor_print"));
+            JsonObject outputJson = new JsonObject();
+            outputJson.addProperty("id", output.toString());
+            outputJson.addProperty("count", 1);
+            json.add("output", outputJson);
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return id;
+        }
+
+        @Override
+        public RecipeSerializer<?> getType() {
+            return RecipeSerializer.SHAPELESS_RECIPE;
+        }
+
+        @Override
+        public JsonObject serializeRecipe() {
+            JsonObject json = FinishedRecipe.super.serializeRecipe();
+            json.addProperty("type", "extendedae:crystal_fixer");
+            return json;
+        }
+
+        @Override
+        public JsonObject serializeAdvancement() {
+            return null;
+        }
+
+        @Override
+        public ResourceLocation getAdvancementId() {
+            return null;
+        }
     }
 }

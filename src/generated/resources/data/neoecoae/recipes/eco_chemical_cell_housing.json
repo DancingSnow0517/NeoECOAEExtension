@@ -1,12 +1,10 @@
 {
-  "conditions": [
-    {
-      "type": "forge:mod_loaded",
-      "modid": "appmek"
-    }
-  ],
   "type": "minecraft:crafting_shaped",
   "category": "misc",
+  "conditions": {
+    "type": "forge:mod_loaded",
+    "modid": "appmek"
+  },
   "key": {
     "A": {
       "item": "neoecoae:crystal_matrix"
@@ -24,8 +22,7 @@
     "CCC"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:eco_chemical_cell_housing",
     "item": "neoecoae:eco_chemical_cell_housing"
-  }
+  },
+  "show_notification": true
 }

@@ -1,18 +1,18 @@
 {
-    "conditions":  [
-                       {
-                           "type":  "forge:mod_loaded",
-                           "modid":  "mekanism"
-                       }
-                   ],
-    "type":  "mekanism:enriching",
-    "input":  {
-                  "ingredient":  {
-                                     "tag":  "forge:storage_blocks/raw_aluminum"
-                                 }
-              },
-    "output":  {
-                   "count":  12,
-                   "item":  "neoecoae:aluminum_dust"
-               }
+  "type": "mekanism:enriching",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "input": {
+    "ingredient": {
+      "tag": "forge:storage_blocks/raw_aluminum"
+    }
+  },
+  "output": {
+    "count": 12,
+    "item": "neoecoae:aluminum_dust"
+  }
 }

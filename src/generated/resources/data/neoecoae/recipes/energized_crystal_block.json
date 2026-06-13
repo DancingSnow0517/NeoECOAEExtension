@@ -11,8 +11,7 @@
     "AA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:energized_crystal_block",
     "item": "neoecoae:energized_crystal_block"
-  }
+  },
+  "show_notification": true
 }

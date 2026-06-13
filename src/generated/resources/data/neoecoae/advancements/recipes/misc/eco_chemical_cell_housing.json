@@ -1,17 +1,15 @@
-﻿{
-  "conditions": [
-    {
-      "type": "forge:mod_loaded",
-      "modid": "appmek"
-    }
-  ],
+{
   "parent": "minecraft:recipes/root",
+  "conditions": {
+    "type": "forge:mod_loaded",
+    "modid": "appmek"
+  },
   "criteria": {
     "has_black_tungsten_alloy": {
       "conditions": {
         "items": [
           {
-            "tag": "c:ingots/aluminum_alloy"
+            "tag": "forge:ingots/black_tungsten_alloy"
           }
         ]
       },
@@ -21,7 +19,9 @@
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:crystal_matrix"]
+            "items": [
+              "neoecoae:crystal_matrix"
+            ]
           }
         ]
       },
@@ -31,7 +31,7 @@
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/redstone"
+            "tag": "forge:dusts/redstone"
           }
         ]
       },
@@ -46,15 +46,16 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
       "has_crystal_matrix",
       "has_redstone",
-      "has_black_tungsten_alloy"
+      "has_black_tungsten_alloy",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:eco_chemical_cell_housing"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

@@ -12,8 +12,7 @@
     "AAA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:black_tungsten_alloy_block",
     "item": "neoecoae:black_tungsten_alloy_block"
-  }
+  },
+  "show_notification": true
 }

@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_alloy_casing": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:aluminum_alloy_casing"]
+            "items": [
+              "neoecoae:aluminum_alloy_casing"
+            ]
           }
         ]
       },
@@ -15,7 +17,9 @@
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:superconducting_processor"]
+            "items": [
+              "neoecoae:superconducting_processor"
+            ]
           }
         ]
       },
@@ -30,14 +34,15 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
       "has_superconducting_processor",
-      "has_aluminum_alloy_casing"
+      "has_aluminum_alloy_casing",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:integrated_working_station"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

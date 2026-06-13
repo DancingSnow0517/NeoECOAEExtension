@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_64m_component": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:eco_cell_component_64m"]
+            "items": [
+              "neoecoae:eco_cell_component_64m"
+            ]
           }
         ]
       },
@@ -20,13 +22,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_64m_component"
+      "has_64m_component",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:eco_fluid_storage_cell_64m"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

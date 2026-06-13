@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_ingot": {
       "conditions": {
         "items": [
           {
-            "tag": "c:ingots/aluminum"
+            "tag": "forge:ingots/aluminum"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_aluminum_ingot"
+      "has_aluminum_ingot",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:aluminum_pickaxe"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

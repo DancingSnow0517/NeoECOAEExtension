@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -18,8 +18,7 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:input_hatch",
     "item": "neoecoae:input_hatch"
-  }
+  },
+  "show_notification": true
 }

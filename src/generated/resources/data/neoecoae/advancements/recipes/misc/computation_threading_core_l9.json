@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_computation_thread_core_l6": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:computation_threading_core_l6"]
+            "items": [
+              "neoecoae:computation_threading_core_l6"
+            ]
           }
         ]
       },
@@ -20,13 +22,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_computation_thread_core_l6"
+      "has_computation_thread_core_l6",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:computation_threading_core_l9"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

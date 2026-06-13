@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_crafting_casing": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:crafting_casing"]
+            "items": [
+              "neoecoae:crafting_casing"
+            ]
           }
         ]
       },
@@ -20,13 +22,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_crafting_casing"
+      "has_crafting_casing",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:crafting_pattern_bus"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

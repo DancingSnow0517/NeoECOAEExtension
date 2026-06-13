@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -21,8 +21,7 @@
     "ADA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:crafting_pattern_bus",
     "item": "neoecoae:crafting_pattern_bus"
-  }
+  },
+  "show_notification": true
 }

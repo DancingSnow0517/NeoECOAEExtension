@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_raw_tungsten_block": {
       "conditions": {
         "items": [
           {
-            "tag": "c:storage_blocks/raw_tungsten"
+            "tag": "forge:storage_blocks/raw_tungsten"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_raw_tungsten_block"
+      "has_raw_tungsten_block",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:raw_tungsten_ore"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

@@ -21,6 +21,9 @@ import net.minecraftforge.registries.ForgeRegistries;
 public record CoolingRecipe(
         ResourceLocation id, SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock)
         implements Recipe<CoolingRecipe.Input> {
+    public static CoolingRecipeBuilder builder() {
+        return new CoolingRecipeBuilder();
+    }
 
     @Override
     public boolean matches(Input i, Level l) {

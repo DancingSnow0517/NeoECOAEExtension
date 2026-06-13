@@ -6,9 +6,5 @@
   "ingredient": {
     "tag": "forge:dusts/aluminum_alloy"
   },
-  "result": {
-    "count": 1,
-    "id": "neoecoae:aluminum_alloy_ingot",
-    "item": "neoecoae:aluminum_alloy_ingot"
-  }
+  "result": "neoecoae:aluminum_alloy_ingot"
 }

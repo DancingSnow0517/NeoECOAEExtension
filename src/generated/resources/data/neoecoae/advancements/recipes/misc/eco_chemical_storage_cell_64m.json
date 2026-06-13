@@ -1,17 +1,17 @@
-﻿{
-  "conditions": [
-    {
-      "type": "forge:mod_loaded",
-      "modid": "appmek"
-    }
-  ],
+{
   "parent": "minecraft:recipes/root",
+  "conditions": {
+    "type": "forge:mod_loaded",
+    "modid": "appmek"
+  },
   "criteria": {
     "has_64m_component": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:eco_cell_component_64m"]
+            "items": [
+              "neoecoae:eco_cell_component_64m"
+            ]
           }
         ]
       },
@@ -26,13 +26,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_64m_component"
+      "has_64m_component",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:eco_chemical_storage_cell_64m"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

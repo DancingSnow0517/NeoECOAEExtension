@@ -227,8 +227,6 @@ def forge120JavaExcludes = [
         'cn/dancingsnow/neoecoae/client/model/**',
         'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java',
         'cn/dancingsnow/neoecoae/client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java',
-        'cn/dancingsnow/neoecoae/data/**',
-        'cn/dancingsnow/neoecoae/recipe/*Builder.java',
         'cn/dancingsnow/neoecoae/all/NEDataComponents.java',
         'cn/dancingsnow/neoecoae/api/components/**'
 ]

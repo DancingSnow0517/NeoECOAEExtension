@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_ores_tungsten": {
       "conditions": {
         "items": [
           {
-            "tag": "c:ores/tungsten"
+            "tag": "forge:ores/tungsten"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_ores_tungsten"
+      "has_ores_tungsten",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:tungsten_ingot_from_ores_tungsten_smelting"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

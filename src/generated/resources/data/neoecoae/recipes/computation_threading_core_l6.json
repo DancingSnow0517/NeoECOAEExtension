@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -15,8 +15,7 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:computation_threading_core_l6",
     "item": "neoecoae:computation_threading_core_l6"
-  }
+  },
+  "show_notification": true
 }

@@ -1,12 +1,12 @@
 {
+  "type": "extendedae:crystal_fixer",
+  "chance": 500,
   "conditions": [
     {
       "type": "forge:mod_loaded",
       "modid": "extendedae"
     }
   ],
-  "type": "extendedae:crystal_fixer",
-  "chance": 500,
   "fuel": {
     "ingredient": {
       "tag": "forge:gems/energized_crystal"

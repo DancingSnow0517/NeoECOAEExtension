@@ -15,8 +15,7 @@
     " B"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:tungsten_hoe",
     "item": "neoecoae:tungsten_hoe"
-  }
+  },
+  "show_notification": true
 }

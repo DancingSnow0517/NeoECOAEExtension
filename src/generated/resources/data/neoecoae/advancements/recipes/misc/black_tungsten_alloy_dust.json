@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_dust": {
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/aluminum_alloy"
+            "tag": "forge:dusts/aluminum_alloy"
           }
         ]
       },
@@ -15,7 +15,7 @@
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/certus_quartz"
+            "tag": "forge:dusts/certus_quartz"
           }
         ]
       },
@@ -31,7 +31,7 @@
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/tungsten"
+            "tag": "forge:dusts/tungsten"
           }
         ]
       },
@@ -40,15 +40,16 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
       "has_aluminum_dust",
       "has_tungsten_dust",
-      "has_certus_quartz_dust"
+      "has_certus_quartz_dust",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:black_tungsten_alloy_dust"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

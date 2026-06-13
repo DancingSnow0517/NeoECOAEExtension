@@ -6,9 +6,5 @@
   "ingredient": {
     "tag": "forge:ores/tungsten"
   },
-  "result": {
-    "count": 1,
-    "id": "neoecoae:tungsten_ingot",
-    "item": "neoecoae:tungsten_ingot"
-  }
+  "result": "neoecoae:tungsten_ingot"
 }

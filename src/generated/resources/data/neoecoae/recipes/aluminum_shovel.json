@@ -15,8 +15,7 @@
     "B"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:aluminum_shovel",
     "item": "neoecoae:aluminum_shovel"
-  }
+  },
+  "show_notification": true
 }

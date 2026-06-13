@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -15,8 +15,7 @@
     "AAA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:crafting_parallel_core_l4",
     "item": "neoecoae:crafting_parallel_core_l4"
-  }
+  },
+  "show_notification": true
 }

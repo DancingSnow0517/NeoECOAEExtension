@@ -1,18 +1,17 @@
 {
-    "conditions":  [
-                       {
-                           "type":  "forge:mod_loaded",
-                           "modid":  "mekanism"
-                       }
-                   ],
-    "type":  "mekanism:crushing",
-    "input":  {
-                  "ingredient":  {
-                                     "tag":  "forge:gems/energized_fluix_crystal"
-                                 }
-              },
-    "output":  {
-                   "count":  1,
-                   "item":  "neoecoae:energized_fluix_crystal_dust"
-               }
+  "type": "mekanism:crushing",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "input": {
+    "ingredient": {
+      "tag": "forge:gems/energized_fluix_crystal"
+    }
+  },
+  "output": {
+    "item": "neoecoae:energized_fluix_crystal_dust"
+  }
 }

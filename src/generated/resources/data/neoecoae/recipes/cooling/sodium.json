@@ -1,11 +1,11 @@
 {
+  "type": "neoecoae:cooling",
   "conditions": [
     {
       "type": "forge:mod_loaded",
       "modid": "mekanism"
     }
   ],
-  "type": "neoecoae:cooling",
   "coolant": 5000,
   "input": {
     "amount": 100,
@@ -14,6 +14,6 @@
   "max_overclock": 6,
   "output": {
     "amount": 100,
-    "id": "mekanism:superheated_sodium"
+    "fluid": "mekanism:superheated_sodium"
   }
 }

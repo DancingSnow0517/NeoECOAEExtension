@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_black_tungsten_ingot": {
       "conditions": {
         "items": [
           {
-            "tag": "c:ingots/black_tungsten_alloy"
+            "tag": "forge:ingots/black_tungsten_alloy"
           }
         ]
       },
@@ -15,7 +15,9 @@
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:crystal_ingot"]
+            "items": [
+              "neoecoae:crystal_ingot"
+            ]
           }
         ]
       },
@@ -25,7 +27,9 @@
       "conditions": {
         "items": [
           {
-            "items": ["ae2:quartz_vibrant_glass"]
+            "items": [
+              "ae2:quartz_vibrant_glass"
+            ]
           }
         ]
       },
@@ -40,15 +44,16 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
       "has_black_tungsten_ingot",
       "has_quartz_vibrant_glass",
-      "has_crystal_ingot"
+      "has_crystal_ingot",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:black_tungsten_alloy_casing"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

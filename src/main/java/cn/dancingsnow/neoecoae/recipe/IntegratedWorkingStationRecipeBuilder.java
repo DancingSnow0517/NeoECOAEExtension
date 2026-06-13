@@ -4,21 +4,27 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.compat.crafting.FluidIngredient;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import net.minecraft.advancements.Criterion;
+import net.minecraft.advancements.CriterionTriggerInstance;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.data.recipes.RecipeBuilder;
-import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 
 @Accessors(fluent = true, chain = true)
@@ -109,7 +115,7 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public RecipeBuilder unlockedBy(String name, Criterion<?> criterion) {
+    public RecipeBuilder unlockedBy(String name, CriterionTriggerInstance criterion) {
         return this;
     }
 
@@ -124,14 +130,14 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput) {
+    public void save(Consumer<FinishedRecipe> recipeOutput) {
         save(
                 recipeOutput,
                 NeoECOAE.id(BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()));
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput, ResourceLocation id) {
+    public void save(Consumer<FinishedRecipe> recipeOutput, ResourceLocation id) {
         // check
         if (itemOutput.isEmpty() && fluidOutput.isEmpty()) {
             throw new IllegalStateException("Recipe must have at least one output");
@@ -140,8 +146,77 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
-        IntegratedWorkingStationRecipe recipe =
-                new IntegratedWorkingStationRecipe(id, inputItems, inputFluid, itemOutput, fluidOutput, energy);
-        recipeOutput.accept(id, recipe, null);
+        recipeOutput.accept(
+                new Result(id, List.copyOf(inputItems), inputFluid, itemOutput.copy(), fluidOutput.copy(), energy));
+    }
+
+    private record Result(
+            ResourceLocation id,
+            List<SizedIngredient> inputItems,
+            SizedFluidIngredient inputFluid,
+            ItemStack itemOutput,
+            FluidStack fluidOutput,
+            int energy)
+            implements FinishedRecipe {
+        @Override
+        public void serializeRecipeData(JsonObject json) {
+            json.addProperty("energy", energy);
+
+            JsonArray inputItemsJson = new JsonArray();
+            for (SizedIngredient inputItem : inputItems) {
+                inputItemsJson.add(serializeSizedIngredient(inputItem));
+            }
+            json.add("inputItems", inputItemsJson);
+
+            if (!inputFluid.ingredient().isEmpty()) {
+                json.add("inputFluid", inputFluid.toJson());
+            }
+            if (!itemOutput.isEmpty()) {
+                JsonObject output = new JsonObject();
+                ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(itemOutput.getItem());
+                if (itemId == null) {
+                    throw new IllegalStateException("Cannot serialize unregistered item " + itemOutput.getItem());
+                }
+                output.addProperty("id", itemId.toString());
+                output.addProperty("count", itemOutput.getCount());
+                json.add("itemOutput", output);
+            }
+            if (!fluidOutput.isEmpty()) {
+                JsonObject output = new JsonObject();
+                ResourceLocation fluidId = ForgeRegistries.FLUIDS.getKey(fluidOutput.getFluid());
+                if (fluidId == null) {
+                    throw new IllegalStateException("Cannot serialize unregistered fluid " + fluidOutput.getFluid());
+                }
+                output.addProperty("fluid", fluidId.toString());
+                output.addProperty("amount", fluidOutput.getAmount());
+                json.add("fluidOutput", output);
+            }
+        }
+
+        private static JsonElement serializeSizedIngredient(SizedIngredient ingredient) {
+            JsonObject json = ingredient.ingredient().toJson().getAsJsonObject();
+            json.addProperty("count", ingredient.count());
+            return json;
+        }
+
+        @Override
+        public ResourceLocation getId() {
+            return id;
+        }
+
+        @Override
+        public RecipeSerializer<?> getType() {
+            return cn.dancingsnow.neoecoae.all.NERecipeTypes.INTEGRATED_WORKING_STATION_SERIALIZER.get();
+        }
+
+        @Override
+        public JsonObject serializeAdvancement() {
+            return null;
+        }
+
+        @Override
+        public ResourceLocation getAdvancementId() {
+            return null;
+        }
     }
 }

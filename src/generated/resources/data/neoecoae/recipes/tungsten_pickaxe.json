@@ -15,8 +15,7 @@
     " B "
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:tungsten_pickaxe",
     "item": "neoecoae:tungsten_pickaxe"
-  }
+  },
+  "show_notification": true
 }

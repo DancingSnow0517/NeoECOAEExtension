@@ -4,18 +4,20 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
+import java.util.function.Consumer;
 import mekanism.api.datagen.recipe.builder.ItemStackToItemStackRecipeBuilder;
 import mekanism.api.recipes.ingredients.ItemStackIngredient;
 import mekanism.api.recipes.ingredients.creator.IngredientCreatorAccess;
-import net.minecraft.data.recipes.RecipeOutput;
+import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ItemLike;
-import net.minecraftforge.common.conditions.ModLoadedCondition;
+import net.minecraftforge.common.crafting.conditions.ModLoadedCondition;
 
 public class MekanismRecipes {
     public static void init(RegistrateRecipeProvider provider) {
-        RecipeOutput hasMekanism = provider.withConditions(new ModLoadedCondition("mekanism"));
+        Consumer<FinishedRecipe> hasMekanism =
+                recipe -> provider.accept(new ConditionalFinishedRecipe(recipe, new ModLoadedCondition("mekanism")));
 
         // aluminum
         ItemStackToItemStackRecipeBuilder.crushing(

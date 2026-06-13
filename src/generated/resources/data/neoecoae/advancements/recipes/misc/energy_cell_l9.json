@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_energy_cell_l6": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:energy_cell_l6"]
+            "items": [
+              "neoecoae:energy_cell_l6"
+            ]
           }
         ]
       },
@@ -20,13 +22,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_energy_cell_l6"
+      "has_energy_cell_l6",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:energy_cell_l9"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

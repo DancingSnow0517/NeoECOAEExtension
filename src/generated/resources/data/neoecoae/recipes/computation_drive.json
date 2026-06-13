@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -24,8 +24,7 @@
     "AEA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:computation_drive",
     "item": "neoecoae:computation_drive"
-  }
+  },
+  "show_notification": true
 }

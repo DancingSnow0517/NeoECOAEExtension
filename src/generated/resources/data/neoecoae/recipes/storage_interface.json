@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -21,8 +21,7 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:storage_interface",
     "item": "neoecoae:storage_interface"
-  }
+  },
+  "show_notification": true
 }

@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_crafting_casing": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:crafting_casing"]
+            "items": [
+              "neoecoae:crafting_casing"
+            ]
           }
         ]
       },
@@ -15,7 +17,9 @@
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:crafting_vent"]
+            "items": [
+              "neoecoae:crafting_vent"
+            ]
           }
         ]
       },
@@ -30,14 +34,15 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
       "has_crafting_casing",
-      "has_crafting_vent"
+      "has_crafting_vent",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:crafting_worker"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

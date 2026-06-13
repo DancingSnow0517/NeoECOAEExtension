@@ -367,6 +367,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     /** Called by LDLib inventory bridges when the UI modifies the inventory. */
     public void onGuiInventoryChanged() {
+        if (level != null && level.isClientSide) {
+            return;
+        }
         markInventoryChanged();
     }
 

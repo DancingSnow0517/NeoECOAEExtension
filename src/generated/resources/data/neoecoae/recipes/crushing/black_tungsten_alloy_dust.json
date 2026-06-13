@@ -1,18 +1,17 @@
 {
-    "conditions":  [
-                       {
-                           "type":  "forge:mod_loaded",
-                           "modid":  "mekanism"
-                       }
-                   ],
-    "type":  "mekanism:crushing",
-    "input":  {
-                  "ingredient":  {
-                                     "tag":  "forge:ingots/black_tungsten_alloy"
-                                 }
-              },
-    "output":  {
-                   "count":  1,
-                   "item":  "neoecoae:black_tungsten_alloy_dust"
-               }
+  "type": "mekanism:crushing",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "input": {
+    "ingredient": {
+      "tag": "forge:ingots/black_tungsten_alloy"
+    }
+  },
+  "output": {
+    "item": "neoecoae:black_tungsten_alloy_dust"
+  }
 }

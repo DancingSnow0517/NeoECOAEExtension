@@ -15,8 +15,7 @@
     " B"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:tungsten_axe",
     "item": "neoecoae:tungsten_axe"
-  }
+  },
+  "show_notification": true
 }

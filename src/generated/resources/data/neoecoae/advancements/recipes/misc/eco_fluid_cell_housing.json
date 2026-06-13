@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_aluminum_allot": {
       "conditions": {
         "items": [
           {
-            "tag": "c:ingots/aluminum_alloy"
+            "tag": "forge:ingots/aluminum_alloy"
           }
         ]
       },
@@ -15,7 +15,9 @@
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:crystal_matrix"]
+            "items": [
+              "neoecoae:crystal_matrix"
+            ]
           }
         ]
       },
@@ -25,7 +27,7 @@
       "conditions": {
         "items": [
           {
-            "tag": "c:dusts/redstone"
+            "tag": "forge:dusts/redstone"
           }
         ]
       },
@@ -40,15 +42,16 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
       "has_crystal_matrix",
       "has_redstone",
-      "has_aluminum_allot"
+      "has_aluminum_allot",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:eco_fluid_cell_housing"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -33,8 +33,7 @@
     "GBH"
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:integrated_working_station",
     "item": "neoecoae:integrated_working_station"
-  }
+  },
+  "show_notification": true
 }

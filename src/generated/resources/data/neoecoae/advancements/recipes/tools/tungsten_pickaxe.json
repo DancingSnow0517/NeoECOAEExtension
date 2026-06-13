@@ -1,4 +1,4 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_the_recipe": {
@@ -11,7 +11,7 @@
       "conditions": {
         "items": [
           {
-            "tag": "c:ingots/tungsten"
+            "tag": "forge:ingots/tungsten"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_tungsten_ingot"
+      "has_tungsten_ingot",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:tungsten_pickaxe"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

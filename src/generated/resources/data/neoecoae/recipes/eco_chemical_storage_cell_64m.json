@@ -1,12 +1,10 @@
 {
-  "conditions": [
-    {
-      "type": "forge:mod_loaded",
-      "modid": "appmek"
-    }
-  ],
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
+  "conditions": {
+    "type": "forge:mod_loaded",
+    "modid": "appmek"
+  },
   "ingredients": [
     {
       "item": "neoecoae:eco_chemical_cell_housing"
@@ -16,8 +14,6 @@
     }
   ],
   "result": {
-    "count": 1,
-    "id": "neoecoae:eco_chemical_storage_cell_64m",
     "item": "neoecoae:eco_chemical_storage_cell_64m"
   }
 }

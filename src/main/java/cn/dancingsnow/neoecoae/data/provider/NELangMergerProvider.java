@@ -19,7 +19,6 @@ import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
 import net.minecraftforge.fml.ModList;
-import net.minecraftforgespi.locating.IModFile;
 import org.slf4j.Logger;
 
 public class NELangMergerProvider implements DataProvider {
@@ -81,8 +80,8 @@ public class NELangMergerProvider implements DataProvider {
 
     private List<Pair<String, JsonElement>> getAllLocalizationFiles() {
         List<Pair<String, JsonElement>> localizationFiles = new ArrayList<>();
-        IModFile file = ModList.get().getModFileById(modid).getFile();
-        try (Stream<Path> listDir = Files.list(file.findResource("assets", modid, "lang"))) {
+        Path langRoot = ModList.get().getModFileById(modid).getFile().findResource("assets", modid, "lang");
+        try (Stream<Path> listDir = Files.list(langRoot)) {
             listDir.forEach(p -> {
                 String fileName = p.getFileName().toString();
                 if (!fileName.endsWith(".json") || fileName.equals("en_us.json") || fileName.equals("en_ud.json")) {

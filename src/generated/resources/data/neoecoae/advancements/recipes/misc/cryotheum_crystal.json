@@ -1,11 +1,13 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_cryotheum": {
       "conditions": {
         "items": [
           {
-            "items": ["neoecoae:cryotheum"]
+            "items": [
+              "neoecoae:cryotheum"
+            ]
           }
         ]
       },
@@ -20,13 +22,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_cryotheum"
+      "has_cryotheum",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:cryotheum_crystal"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }

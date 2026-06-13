@@ -1,11 +1,11 @@
 {
+  "type": "neoecoae:cooling",
   "conditions": [
     {
       "type": "forge:mod_loaded",
       "modid": "mekanism"
     }
   ],
-  "type": "neoecoae:cooling",
   "coolant": 1500,
   "input": {
     "amount": 100,
@@ -14,6 +14,6 @@
   "max_overclock": 2,
   "output": {
     "amount": 100,
-    "id": "mekanism:steam"
+    "fluid": "mekanism:steam"
   }
 }

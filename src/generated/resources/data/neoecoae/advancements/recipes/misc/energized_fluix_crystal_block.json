@@ -1,11 +1,11 @@
-﻿{
+{
   "parent": "minecraft:recipes/root",
   "criteria": {
     "has_energized_fluix_crystal": {
       "conditions": {
         "items": [
           {
-            "tag": "c:gems/energized_fluix_crystal"
+            "tag": "forge:gems/energized_fluix_crystal"
           }
         ]
       },
@@ -20,13 +20,14 @@
   },
   "requirements": [
     [
-      "has_the_recipe",
-      "has_energized_fluix_crystal"
+      "has_energized_fluix_crystal",
+      "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
       "neoecoae:energized_fluix_crystal_block"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }
