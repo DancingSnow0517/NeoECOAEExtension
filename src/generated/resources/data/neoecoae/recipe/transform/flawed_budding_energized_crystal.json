@@ -1,15 +1,10 @@
 {
   "type": "ae2:transform",
   "ingredients": [
-    {
-      "item": "neoecoae:chipped_budding_energized_crystal"
-    },
-    {
-      "tag": "c:gems/energized_crystal"
-    }
+    "neoecoae:chipped_budding_energized_crystal",
+    "#c:gems/energized_crystal"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:flawed_budding_energized_crystal"
   }
 }

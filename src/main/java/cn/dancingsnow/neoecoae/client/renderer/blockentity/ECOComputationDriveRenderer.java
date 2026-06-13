@@ -9,18 +9,16 @@ import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Quaternionf;
 
 public class ECOComputationDriveRenderer
     implements
-    IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity>,
-    BlockEntityRenderer<ECOComputationDriveBlockEntity> {
+    IFixedBlockEntityRenderer<ECOComputationDriveBlockEntity> {
 
     private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
 
@@ -57,7 +55,7 @@ public class ECOComputationDriveRenderer
         if (itemStack != null && !itemStack.isEmpty() && itemStack.getItem() instanceof ECOComputationCellItem item) {
             IECOTier itemTier = item.getTier();
             shouldCellWork = formed && blockEntity.getTier() != null && itemTier.compareTo(blockEntity.getTier()) <= 0;
-            ResourceLocation cellModel = shouldCellWork
+            Identifier cellModel = shouldCellWork
                 ? ECOComputationModels.getFormedModel(itemStack.getItem())
                 : ECOComputationModels.getNormalModel(itemStack.getItem());
             if (shouldCellWork) {
@@ -81,7 +79,7 @@ public class ECOComputationDriveRenderer
 //                packedOverlay
 //            );
         }
-        ResourceLocation cableModel = null;
+        Identifier cableModel = null;
         boolean connected = false;
         if (formed) {
             if (itemStack != null) {

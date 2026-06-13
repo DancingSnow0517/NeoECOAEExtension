@@ -3,11 +3,8 @@
   "category": "misc",
   "cookingtime": 100,
   "experience": 0.8,
-  "ingredient": {
-    "tag": "c:ores/aluminum"
-  },
+  "ingredient": "#c:ores/aluminum",
   "result": {
-    "count": 1,
     "id": "neoecoae:aluminum_ingot"
   }
 }

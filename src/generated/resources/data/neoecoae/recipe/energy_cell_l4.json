@@ -2,12 +2,8 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "ae2:dense_energy_cell"
-    },
-    "B": {
-      "item": "neoecoae:storage_casing"
-    }
+    "A": "ae2:dense_energy_cell",
+    "B": "neoecoae:storage_casing"
   },
   "pattern": [
     "AAA",
@@ -15,7 +11,6 @@
     "AAA"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:energy_cell_l4"
   }
 }

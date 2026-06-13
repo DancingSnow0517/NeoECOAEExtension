@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api;
 
 import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 
 import java.util.IdentityHashMap;
@@ -12,28 +12,28 @@ public class ECOComputationModels {
     private static final Map<Item, Entry> map = new IdentityHashMap<>();
     private static final Map<IECOTier, Entry> cableModels = new IdentityHashMap<>();
 
-    public static void registerCellModel(Holder<Item> item, ResourceLocation normalModel, ResourceLocation formedModel) {
+    public static void registerCellModel(Holder<Item> item, Identifier normalModel, Identifier formedModel) {
         deferredRegistration.put(item, new Entry(normalModel, formedModel));
     }
 
-    public static void registerCableModel(IECOTier tier, ResourceLocation normalModel, ResourceLocation formedModel) {
+    public static void registerCableModel(IECOTier tier, Identifier normalModel, Identifier formedModel) {
         cableModels.put(tier, new Entry(normalModel, formedModel));
     }
 
-    public static ResourceLocation getNormalModel(Item item) {
+    public static Identifier getNormalModel(Item item) {
         return map.get(item).normalModel;
     }
 
-    public static ResourceLocation getFormedModel(Item item) {
+    public static Identifier getFormedModel(Item item) {
         return map.get(item).formedModel;
     }
 
-    public static ResourceLocation getCableDisconnectedModel(IECOTier tier) {
+    public static Identifier getCableDisconnectedModel(IECOTier tier) {
         if (tier == null) return null;
         return cableModels.get(tier).normalModel;
     }
 
-    public static ResourceLocation getCableConnectedModel(IECOTier tier) {
+    public static Identifier getCableConnectedModel(IECOTier tier) {
         if (tier == null) return null;
         return cableModels.get(tier).formedModel;
     }
@@ -45,8 +45,8 @@ public class ECOComputationModels {
     }
 
     public record Entry(
-        ResourceLocation normalModel,
-        ResourceLocation formedModel
+        Identifier normalModel,
+        Identifier formedModel
     ) {
     }
 }

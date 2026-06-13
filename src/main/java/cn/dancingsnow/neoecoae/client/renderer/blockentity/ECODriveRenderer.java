@@ -9,10 +9,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
@@ -22,7 +22,7 @@ import net.minecraft.world.phys.Vec2;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
-public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity>, IFixedBlockEntityRenderer<ECODriveBlockEntity> {
+public class ECODriveRenderer implements IFixedBlockEntityRenderer<ECODriveBlockEntity> {
     private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
 
     public ECODriveRenderer() {
@@ -31,14 +31,13 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
     public ECODriveRenderer(BlockEntityRendererProvider.Context context) {
     }
 
-    @Override
     public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
         if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
             return;
         }
         IECOStorageCell cellInventory = blockEntity.getCellInventory();
         if (cellInventory != null) {
-            int stateColor = FastColor.ARGB32.color(255, cellInventory.getStatus().getStateColor());
+            int stateColor = ARGB.color(255, cellInventory.getStatus().getStateColor());
 
             BlockState blockState = blockEntity.getBlockState();
             Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
@@ -111,7 +110,7 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
             );
         }
         poseStack.mulPose(rotation);
-        ResourceLocation modelLocation = ECOCellModels.getModelLocation(cellStack.getItem());
+        Identifier modelLocation = ECOCellModels.getModelLocation(cellStack.getItem());
         tessellateModel(
             poseStack,
             bufferSource,

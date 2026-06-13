@@ -23,7 +23,7 @@ import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
+import com.lowdragmc.lowdraglib2.gui.slot.ItemResourceHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -46,7 +46,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -67,7 +68,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @DescSynced
     private final AppEngInternalInventory inventory;
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
-    public final IItemHandlerModifiable itemHandler;
+    public final ResourceHandler<ItemResource> itemHandler;
     private int nextWorkerIndex = 0;
 
     @Override
@@ -275,7 +276,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         super(type, pos, blockState);
         this.inventory = new AppEngInternalInventory(this, ROW_SIZE * COL_SIZE);
         this.inventory.setFilter(new AEEncodedPatternFilter());
-        this.itemHandler = (IItemHandlerModifiable) inventory.toItemHandler();
+        this.itemHandler = inventory.toResourceHandler();
         this.getMainNode().addService(ICraftingProvider.class, this)
             .addService(IECOPatternStorage.class, this);
     }
@@ -345,7 +346,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
-                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(itemHandler, slotIndex))
+                UIElement slot = new PatternItemSlot(new ItemResourceHandlerSlot(itemHandler, slotIndex))
                     .slotStyle(slotStyle -> slotStyle.slotOverlay(NETextures.PATTERN_OVERLAY));
                 rowInv.addChild(slot);
             }

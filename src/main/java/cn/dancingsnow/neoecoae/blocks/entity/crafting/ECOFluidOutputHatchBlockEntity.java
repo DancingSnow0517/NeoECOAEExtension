@@ -4,21 +4,26 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.fluid.FluidStacksResourceHandler;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidOutputHatchBlockEntity> {
 
-    public FluidTank tank = new FluidTank(16000) {
+    public static int MAX_CAPACITY = 16000;
+
+    public FluidStacksResourceHandler tank = new FluidStacksResourceHandler(1, MAX_CAPACITY) {
         @Override
-        protected void onContentsChanged() {
+        protected void onContentsChanged(int index, FluidStack previousContents) {
             setChanged();
             markForUpdate();
         }
@@ -29,23 +34,30 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        tank.writeToNBT(registries, data);
+    public void saveAdditional(ValueOutput data) {
+        super.saveAdditional(data);
+        data.putChild("tank", tank);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        tank.readFromNBT(registries, data);
+    public void loadTag(ValueInput data) {
+        super.loadTag(data);
+        data.readChild("tank", tank);
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
+        if (ResourceHandlerUtil.isEmpty(tank)) {
+            return;
+        }
         for (Direction face : Direction.values()) {
-            IFluidHandler targetHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos.relative(face), face.getOpposite());
+            ResourceHandler<FluidResource> targetHandler = level.getCapability(Capabilities.Fluid.BLOCK, pos.relative(face), face.getOpposite());
             if (targetHandler != null) {
-                if (!FluidUtil.tryFluidTransfer(targetHandler, tank, tank.getFluidAmount(), true).isEmpty()) {
-                    return;
+                try (Transaction transaction = Transaction.open(null)) {
+                    int moved = ResourceHandlerUtil.move(tank, targetHandler, fluid -> true, tank.getCapacityAsInt(0, tank.getResource(0)), transaction);
+                    if (moved > 0) {
+                        transaction.commit();
+                        return;
+                    }
                 }
             }
         }

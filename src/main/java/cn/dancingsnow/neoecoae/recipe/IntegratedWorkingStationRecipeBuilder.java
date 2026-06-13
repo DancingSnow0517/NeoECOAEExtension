@@ -4,32 +4,57 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.minecraft.advancements.Criterion;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.recipes.RecipeBuilder;
 import net.minecraft.data.recipes.RecipeOutput;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStackTemplate;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Accessors(fluent = true, chain = true)
 public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     List<SizedIngredient> inputItems = new ArrayList<>();
-    SizedFluidIngredient inputFluid = new SizedFluidIngredient(FluidIngredient.empty(), 1);
-    ItemStack itemOutput = ItemStack.EMPTY;
-    FluidStack fluidOutput = FluidStack.EMPTY;
+    @Nullable
+    SizedFluidIngredient inputFluid = null;
+    @Nullable
+    private final HolderGetter<Item> itemLookup;
+    @Nullable
+    private final HolderGetter<Fluid> fluidLookup;
+    @Nullable
+    ItemStackTemplate itemOutput = null;
+    @Nullable
+    FluidStackTemplate fluidOutput = null;
     @Setter
     int energy = 1000;
+
+    public IntegratedWorkingStationRecipeBuilder() {
+        this(null, null);
+    }
+
+    public IntegratedWorkingStationRecipeBuilder(@Nullable HolderGetter<Item> itemLookup, @Nullable HolderGetter<Fluid> fluidLookup) {
+        this.itemLookup = itemLookup;
+        this.fluidLookup = fluidLookup;
+    }
 
     public IntegratedWorkingStationRecipeBuilder require(SizedIngredient ingredient) {
         inputItems.add(ingredient);
@@ -45,7 +70,10 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     public IntegratedWorkingStationRecipeBuilder require(TagKey<Item> tag, int count) {
-        return require(SizedIngredient.of(tag, count));
+        if (itemLookup == null) {
+            throw new IllegalStateException("Item tag ingredients require an item HolderGetter");
+        }
+        return require(new SizedIngredient(Ingredient.of(itemLookup.getOrThrow(tag)), count));
     }
 
     public IntegratedWorkingStationRecipeBuilder require(TagKey<Item> tag) {
@@ -62,8 +90,10 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     public IntegratedWorkingStationRecipeBuilder requireFluid(TagKey<Fluid> tag, int count) {
-
-        return requireFluid(SizedFluidIngredient.of(tag, count));
+        if (fluidLookup == null) {
+            throw new IllegalStateException("Fluid tag ingredients require a fluid HolderGetter");
+        }
+        return requireFluid(new SizedFluidIngredient(FluidIngredient.of(fluidLookup.getOrThrow(tag)), count));
     }
 
     public IntegratedWorkingStationRecipeBuilder requireFluid(TagKey<Fluid> tag) {
@@ -79,16 +109,22 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     public IntegratedWorkingStationRecipeBuilder requireFluid(FluidStack stack) {
-        return requireFluid(SizedFluidIngredient.of(stack));
+        return requireFluid(new SizedFluidIngredient(FluidIngredient.of(stack), stack.getAmount()));
     }
 
     public IntegratedWorkingStationRecipeBuilder itemOutput(ItemStack itemStack) {
-        this.itemOutput = itemStack;
+        this.itemOutput = ItemStackTemplate.fromNonEmptyStack(itemStack);
         return this;
     }
 
     public IntegratedWorkingStationRecipeBuilder itemOutput(ItemLike item, int count) {
-        return itemOutput(new ItemStack(item, count));
+        if (itemLookup == null) {
+            throw new IllegalStateException("Item outputs require an item HolderGetter");
+        }
+        Identifier itemId = Objects.requireNonNull(BuiltInRegistries.ITEM.getKey(item.asItem()), "item must be registered");
+        Holder<Item> holder = itemLookup.getOrThrow(ResourceKey.create(Registries.ITEM, itemId));
+        this.itemOutput = new ItemStackTemplate(holder, count);
+        return this;
     }
 
     public IntegratedWorkingStationRecipeBuilder itemOutput(ItemLike item) {
@@ -96,12 +132,18 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     public IntegratedWorkingStationRecipeBuilder fluidOutput(FluidStack fluidStack) {
-        this.fluidOutput = fluidStack;
+        this.fluidOutput = FluidStackTemplate.fromNonEmptyStack(fluidStack);
         return this;
     }
 
     public IntegratedWorkingStationRecipeBuilder fluidOutput(Fluid fluid, int amount) {
-        return fluidOutput(new FluidStack(fluid, amount));
+        if (fluidLookup == null) {
+            throw new IllegalStateException("Fluid outputs require a fluid HolderGetter");
+        }
+        Identifier fluidId = Objects.requireNonNull(BuiltInRegistries.FLUID.getKey(fluid), "fluid must be registered");
+        Holder<Fluid> holder = fluidLookup.getOrThrow(ResourceKey.create(Registries.FLUID, fluidId));
+        this.fluidOutput = new FluidStackTemplate(holder, amount);
+        return this;
     }
 
     public IntegratedWorkingStationRecipeBuilder fluidOutput(Fluid fluid) {
@@ -119,26 +161,37 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public Item getResult() {
-        return itemOutput.getItem();
+    public ResourceKey<Recipe<?>> defaultId() {
+        return ResourceKey.create(Registries.RECIPE, NeoECOAE.id(itemOutputPath()));
     }
 
     @Override
     public void save(RecipeOutput recipeOutput) {
-        save(recipeOutput, NeoECOAE.id(BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()));
+        save(recipeOutput, NeoECOAE.id(itemOutputPath()));
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput, ResourceLocation id) {
+    public void save(RecipeOutput recipeOutput, ResourceKey<Recipe<?>> id) {
         // check
-        if (itemOutput.isEmpty() && fluidOutput.isEmpty()) {
+        if (itemOutput == null && fluidOutput == null) {
             throw new IllegalStateException("Recipe must have at least one output");
         }
-        if (inputItems.isEmpty() && inputFluid.ingredient().isEmpty()) {
+        if (inputItems.isEmpty() && inputFluid == null) {
             throw new IllegalStateException("Recipe must have at least one input");
         }
 
         IntegratedWorkingStationRecipe recipe = new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput, fluidOutput, energy);
         recipeOutput.accept(id, recipe, null);
+    }
+
+    public void save(RecipeOutput recipeOutput, Identifier id) {
+        save(recipeOutput, ResourceKey.create(Registries.RECIPE, id));
+    }
+
+    private String itemOutputPath() {
+        if (itemOutput == null) {
+            throw new IllegalStateException("Recipe ID requires an item output");
+        }
+        return BuiltInRegistries.ITEM.getKey(itemOutput.item().value()).getPath();
     }
 }

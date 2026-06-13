@@ -68,8 +68,8 @@ public final class ECOBatchCraftingHelper {
     }
 
     public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
-        // ListCraftingInventory 是 CPU 的本地记账库存；向其插入是内存级别的回滚操作，
-        // 预期不会像网络存储那样拒绝物品。
+        // ListCraftingInventory �?CPU 的本地记账库存；向其插入是内存级别的回滚操作�?
+        // 预期不会像网络存储那样拒绝物品�?
         for (GenericStack stack : stacks) {
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
         }

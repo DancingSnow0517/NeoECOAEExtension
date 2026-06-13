@@ -5,7 +5,7 @@ import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.lowdragmc.lowdraglib2.integration.xei.emi.ModularUIEMIRecipe;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
@@ -22,7 +22,7 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
     }
 
     @Override
-    public @Nullable ResourceLocation getId() {
+    public @Nullable Identifier getId() {
         return definition.getOwner().unwrapKey().map(key -> key.location().withPrefix("/")).orElse(null);
     }
 

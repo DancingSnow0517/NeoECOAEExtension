@@ -4,21 +4,12 @@
     "type": "explosion"
   },
   "ingredients": [
-    {
-      "tag": "c:dusts/energized_fluix_crystal"
-    },
-    {
-      "tag": "c:dusts/aluminum"
-    },
-    {
-      "tag": "c:silicon"
-    },
-    {
-      "tag": "neoecoae:superconductive_ingot_base"
-    }
+    "#c:dusts/energized_fluix_crystal",
+    "#c:dusts/aluminum",
+    "#c:silicon",
+    "#neoecoae:superconductive_ingot_base"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:energized_superconductive_ingot"
   }
 }

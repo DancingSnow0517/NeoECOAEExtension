@@ -2,9 +2,7 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "tag": "c:storage_blocks/black_tungsten_alloy"
-    }
+    "#c:storage_blocks/black_tungsten_alloy"
   ],
   "result": {
     "count": 9,

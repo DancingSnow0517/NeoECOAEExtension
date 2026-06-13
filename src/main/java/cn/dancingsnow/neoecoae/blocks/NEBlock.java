@@ -1,14 +1,16 @@
 package cn.dancingsnow.neoecoae.blocks;
 
 import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.crafting.CraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.redstone.Orientation;
+import org.jetbrains.annotations.Nullable;
 
 public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntityBlock<T> {
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
@@ -25,24 +27,21 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (newState.getBlock() == state.getBlock()) {
-            return; // Just a block state change
-        }
-
+    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
         final T cp = this.getBlockEntity(level, pos);
         if (cp != null) {
             cp.breakCluster();
         }
 
-        super.onRemove(state, level, pos, newState, isMoving);
+        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
     }
 
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+            @Nullable Orientation orientation, boolean movedByPiston) {
         final NEBlockEntity<?, T> be = this.getBlockEntity(level, pos);
         if (be != null) {
-            be.updateMultiBlock(neighborPos);
+            be.updateMultiBlock(pos);
         }
     }
 }

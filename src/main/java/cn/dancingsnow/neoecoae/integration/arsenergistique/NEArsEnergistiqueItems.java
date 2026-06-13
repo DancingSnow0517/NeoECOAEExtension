@@ -6,11 +6,10 @@ import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import cn.dancingsnow.neoecoae.util.ItemModelUtil;
+import cn.dancingsnow.neoecoae.util.ECOModelUtil;
 import com.hollingsworth.arsnouveau.common.crafting.recipes.EnchantingApparatusRecipe;
 import com.hollingsworth.arsnouveau.common.datagen.ItemTagProvider;
 import com.hollingsworth.arsnouveau.setup.registry.ItemsRegistry;
-import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import gripe._90.arseng.me.key.SourceKeyType;
 import net.minecraft.data.recipes.RecipeCategory;
@@ -62,16 +61,16 @@ public class NEArsEnergistiqueItems {
         .properties(p -> p.stacksTo(1).rarity(Rarity.UNCOMMON))
         .recipe((ctx, prov) -> {
             RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition("arseng"));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+            ShapelessRecipeBuilder.shapeless(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .requires(ECO_SOURCE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_16M)
-                .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
+                .unlockedBy("has_16m_component", prov.has(NEItems.ECO_CELL_COMPONENT_16M))
                 .save(arsengInstalled);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_SOURCE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
             arsengInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE4 Storage Matrix (Source)")
-        .model(ItemModelUtil.cellModel("source", "16m"))
+        .model(ECOModelUtil.cellModel("source", "16m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_64M = REGISTRATE
@@ -84,16 +83,16 @@ public class NEArsEnergistiqueItems {
         .properties(p -> p.stacksTo(1).rarity(Rarity.RARE))
         .recipe((ctx, prov) -> {
             RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition("arseng"));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+            ShapelessRecipeBuilder.shapeless(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .requires(ECO_SOURCE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_64M)
-                .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
+                .unlockedBy("has_64m_component", prov.has(NEItems.ECO_CELL_COMPONENT_64M))
                 .save(arsengInstalled);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_SOURCE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             arsengInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE6 Storage Matrix (Source)")
-        .model(ItemModelUtil.cellModel("source", "64m"))
+        .model(ECOModelUtil.cellModel("source", "64m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_256M = REGISTRATE
@@ -106,16 +105,16 @@ public class NEArsEnergistiqueItems {
         .properties(p -> p.stacksTo(1).rarity(Rarity.EPIC))
         .recipe((ctx, prov) -> {
             RecipeOutput arsengInstalled = prov.withConditions(new ModLoadedCondition("arseng"));
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
+            ShapelessRecipeBuilder.shapeless(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .requires(ECO_SOURCE_CELL_HOUSING)
                 .requires(NEItems.ECO_CELL_COMPONENT_256M)
-                .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
+                .unlockedBy("has_256m_component", prov.has(NEItems.ECO_CELL_COMPONENT_256M))
                 .save(arsengInstalled);
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_SOURCE_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             arsengInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE9 Storage Matrix (Source)")
-        .model(ItemModelUtil.cellModel("source", "256m"))
+        .model(ECOModelUtil.cellModel("source", "256m"))
         .register();
 
     public static void register() {

@@ -10,9 +10,9 @@ import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Debug;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,17 +34,17 @@ public class CPUSelectionListMixin {
         method = "drawBackgroundLayer",
         at = @At(
             value = "INVOKE",
-            target = "Lcom/mojang/blaze3d/vertex/PoseStack;scale(FFF)V"
+            target = "Lorg/joml/Matrix3x2fStack;scale(F)Lorg/joml/Matrix3x2f;"
         )
     )
     private void onDrawBackgroundLayer(
-        GuiGraphics guiGraphics,
+        GuiGraphicsExtractor guiGraphics,
         Rect2i bounds,
         Point mouse,
         CallbackInfo ci,
         @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
     ) {
-        ResourceLocation texture = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
+        Identifier texture = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
         if (texture != null) {
             guiGraphics.blit(texture, buttonBg.getSrcWidth() - 12, 0, 0, 0, 7, 7, 7, 7);
         }

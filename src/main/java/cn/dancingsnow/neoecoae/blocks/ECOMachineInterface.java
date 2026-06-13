@@ -40,7 +40,7 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
     }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(FORMED);
+    protected int getLightDampening(BlockState state) {
+        return state.getValue(FORMED) ? 0 : super.getLightDampening(state);
     }
 }

@@ -33,7 +33,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
-    public final IItemHandler HANDLER = new CellHostItemHandler(this);
+    @Getter
+    private final CellHostItemHandler itemHandler = new CellHostItemHandler(this);
 
     @Getter
     @DescSynced

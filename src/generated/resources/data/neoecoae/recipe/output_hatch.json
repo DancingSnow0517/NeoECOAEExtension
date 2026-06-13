@@ -2,15 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:crafting_casing"
-    },
-    "B": {
-      "item": "ae2:export_bus"
-    },
-    "C": {
-      "item": "ae2:interface"
-    }
+    "A": "neoecoae:crafting_casing",
+    "B": "ae2:export_bus",
+    "C": "ae2:interface"
   },
   "pattern": [
     "ABA",
@@ -18,7 +12,6 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:output_hatch"
   }
 }

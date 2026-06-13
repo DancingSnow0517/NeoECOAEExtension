@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -38,14 +39,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.INBTSerializable;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnknownNullability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
+public class ECOCraftingThread {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     public static final int MAX_PROGRESS = 100;
 
@@ -728,7 +728,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         worker.setChanged();
     }
 
-    @Override
     public @UnknownNullability CompoundTag serializeNBT(HolderLookup.Provider provider) {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean("isBusy", isBusy);
@@ -739,71 +738,73 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         tag.putBoolean("outputsReady", outputsReady);
         tag.putString("recoveryState", recoveryState.name());
         if (craftingJobId != null) {
-            tag.putUUID("craftingJobId", craftingJobId);
+            tag.putIntArray("craftingJobId", UUIDUtil.uuidToIntArray(craftingJobId));
         }
-        tag.put("outputItem", firstOutputItem().saveOptional(provider));
+        tag.put("outputItem", saveStack(provider, firstOutputItem()));
 
         ListTag outputs = new ListTag();
         for (ItemStack outputItem : outputItems) {
-            outputs.add(outputItem.saveOptional(provider));
+            outputs.add(saveStack(provider, outputItem));
         }
         tag.put("outputItems", outputs);
 
         ListTag inputs = new ListTag();
         for (ItemStack inputItem : inputItems) {
-            inputs.add(inputItem.saveOptional(provider));
+            inputs.add(saveStack(provider, inputItem));
         }
         tag.put("inputItems", inputs);
 
         ListTag remaining = new ListTag();
         for (ItemStack remainingItem : remainingItems) {
-            remaining.add(remainingItem.saveOptional(provider));
+            remaining.add(saveStack(provider, remainingItem));
         }
         tag.put("remainingItems", remaining);
         return tag;
     }
 
-    @Override
     public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
-        this.isBusy = nbt.getBoolean("isBusy");
-        this.reboot = nbt.getBoolean("reboot");
-        this.progress = nbt.getInt("progress");
+        this.isBusy = nbt.getBoolean("isBusy").orElse(false);
+        this.reboot = nbt.getBoolean("reboot").orElse(false);
+        this.progress = nbt.getInt("progress").orElse(0);
         this.occupiedThreadSlots = Math.max(
-            1, nbt.contains("occupiedThreadSlots") ? nbt.getInt("occupiedThreadSlots") : 1
+            1, nbt.getInt("occupiedThreadSlots").orElse(1)
         );
-        this.outputsReady = nbt.getBoolean("outputsReady");
-        this.craftingJobId = nbt.hasUUID("craftingJobId") ? nbt.getUUID("craftingJobId") : null;
+        this.outputsReady = nbt.getBoolean("outputsReady").orElse(false);
+        this.craftingJobId = nbt.getIntArray("craftingJobId")
+            .filter(array -> array.length == 4)
+            .map(UUIDUtil::uuidFromIntArray)
+            .orElse(null);
         this.recoveryState = readRecoveryState(nbt);
 
         outputItems.clear();
-        ListTag outputs = nbt.getList("outputItems", Tag.TAG_COMPOUND);
+        ListTag outputs = nbt.getList("outputItems").orElseGet(ListTag::new);
         if (!outputs.isEmpty()) {
             for (int i = 0; i < outputs.size(); i++) {
-                ItemStack output = ItemStack.parseOptional(provider, outputs.getCompound(i));
+                ItemStack output = loadStack(provider, outputs.getCompound(i).orElseGet(CompoundTag::new));
                 if (!output.isEmpty()) {
                     outputItems.add(output);
                 }
             }
         } else {
-            ItemStack output = ItemStack.parseOptional(provider, nbt.getCompound("outputItem"));
+            ItemStack output = loadStack(provider, nbt.getCompound("outputItem").orElseGet(CompoundTag::new));
             if (!output.isEmpty()) {
                 outputItems.add(output);
             }
         }
 
         inputItems.clear();
-        ListTag inputs = nbt.getList("inputItems", Tag.TAG_COMPOUND);
+        ListTag inputs = nbt.getList("inputItems").orElseGet(ListTag::new);
         for (int i = 0; i < inputs.size(); i++) {
-            ItemStack input = ItemStack.parseOptional(provider, inputs.getCompound(i));
+            ItemStack input = loadStack(provider, inputs.getCompound(i).orElseGet(CompoundTag::new));
             if (!input.isEmpty()) {
                 inputItems.add(input);
             }
         }
 
         remainingItems.clear();
-        ListTag remaining = nbt.getList("remainingItems", Tag.TAG_COMPOUND);
+        ListTag remaining = nbt.getList("remainingItems").orElseGet(ListTag::new);
         for (int i = 0; i < remaining.size(); i++) {
-            ItemStack remainingItem = ItemStack.parseOptional(provider, remaining.getCompound(i));
+            ItemStack remainingItem = loadStack(provider, remaining.getCompound(i).orElseGet(CompoundTag::new));
             if (!remainingItem.isEmpty()) {
                 remainingItems.add(remainingItem);
             }
@@ -811,14 +812,23 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private RecoveryState readRecoveryState(CompoundTag nbt) {
-        if (nbt.contains("recoveryState", Tag.TAG_STRING)) {
+        var recoveryStateName = nbt.getString("recoveryState");
+        if (recoveryStateName.isPresent()) {
             try {
-                return RecoveryState.valueOf(nbt.getString("recoveryState"));
+                return RecoveryState.valueOf(recoveryStateName.get());
             } catch (IllegalArgumentException ignored) {
                 return this.isBusy ? RecoveryState.ACTIVE : RecoveryState.CLEARED;
             }
         }
         return this.isBusy ? RecoveryState.ACTIVE : RecoveryState.CLEARED;
+    }
+
+    private static CompoundTag saveStack(HolderLookup.Provider provider, ItemStack stack) {
+        return NbtValueIO.write(provider, output -> output.store(ItemStack.MAP_CODEC, stack));
+    }
+
+    private static ItemStack loadStack(HolderLookup.Provider provider, CompoundTag tag) {
+        return NbtValueIO.input(provider, tag).read(ItemStack.MAP_CODEC).orElse(ItemStack.EMPTY);
     }
 
     private record FastPathWork(ItemStack output, List<ItemStack> inputs, List<ItemStack> remaining) {}

@@ -4,23 +4,22 @@
   "inputItems": [
     {
       "count": 1,
-      "item": "neoecoae:crafting_system_l4"
+      "ingredient": "neoecoae:crafting_system_l4"
     },
     {
       "count": 2,
-      "item": "neoecoae:crafting_parallel_core_l6"
+      "ingredient": "neoecoae:crafting_parallel_core_l6"
     },
     {
       "count": 32,
-      "item": "neoecoae:energized_superconductive_ingot"
+      "ingredient": "neoecoae:energized_superconductive_ingot"
     },
     {
       "count": 32,
-      "item": "neoecoae:superconducting_processor"
+      "ingredient": "neoecoae:superconducting_processor"
     }
   ],
   "itemOutput": {
-    "count": 1,
     "id": "neoecoae:crafting_system_l6"
   }
 }

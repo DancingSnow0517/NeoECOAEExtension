@@ -3,16 +3,16 @@
   "energy": 62500,
   "inputFluid": {
     "amount": 250,
-    "tag": "minecraft:water"
+    "ingredient": "#minecraft:water"
   },
   "inputItems": [
     {
       "count": 8,
-      "tag": "c:dusts/energized_crystal"
+      "ingredient": "#c:dusts/energized_crystal"
     },
     {
       "count": 8,
-      "tag": "c:gems/fluix"
+      "ingredient": "#c:gems/fluix"
     }
   ],
   "itemOutput": {

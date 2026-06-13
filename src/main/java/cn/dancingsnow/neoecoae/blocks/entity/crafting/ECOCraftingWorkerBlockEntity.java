@@ -17,12 +17,13 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -273,26 +274,27 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        ListTag threads = new ListTag();
+    public void saveAdditional(ValueOutput data) {
+        super.saveAdditional(data);
+        var registries = getRegistryProvider();
+        var threads = data.list("craftingThreads", CompoundTag.CODEC);
         for (ECOCraftingThread thread : craftingThreads) {
             threads.add(thread.serializeNBT(registries));
         }
-        data.put("craftingThreads", threads);
         data.putInt("runningThreads", runningThreads);
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
+    public void loadTag(ValueInput data) {
+        super.loadTag(data);
+        var registries = data.lookup();
+        var threads = data.listOrEmpty("craftingThreads", CompoundTag.CODEC);
         craftingThreads.clear();
         fastPathCache.clear();
         int busyThreads = 0;
-        for (int i = 0; i < threads.size(); i++) {
+        for (CompoundTag threadTag : threads) {
             ECOCraftingThread thread = new ECOCraftingThread(this);
-            thread.deserializeNBT(registries, threads.getCompound(i));
+            thread.deserializeNBT(registries, threadTag);
             craftingThreads.add(thread);
             if (!thread.isFree()) {
                 busyThreads += thread.getOccupiedThreadSlots();
@@ -300,6 +302,13 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         runningThreads = busyThreads;
         nextFreeThreadIndex = 0;
+    }
+
+    private HolderLookup.Provider getRegistryProvider() {
+        if (level != null) {
+            return level.registryAccess();
+        }
+        return ServerLifecycleHooks.getCurrentServer().registryAccess();
     }
 
     public boolean isWorking() {

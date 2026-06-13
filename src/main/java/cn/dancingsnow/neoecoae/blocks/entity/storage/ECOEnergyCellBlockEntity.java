@@ -161,7 +161,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
             false
         );
         if (chunk != null) {
-            chunk.setUnsaved(true);
+            chunk.markUnsaved();
         }
     }
 

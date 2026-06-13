@@ -2,15 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:crafting_casing"
-    },
-    "B": {
-      "item": "minecraft:blue_ice"
-    },
-    "C": {
-      "item": "ae2:quartz_block"
-    }
+    "A": "neoecoae:crafting_casing",
+    "B": "minecraft:blue_ice",
+    "C": "ae2:quartz_block"
   },
   "pattern": [
     "ABA",
@@ -18,7 +12,6 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:crafting_vent"
   }
 }

@@ -41,18 +41,22 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.fluid.FluidStacksResourceHandler;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
@@ -341,16 +345,24 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (cluster == null || cluster.getInputHatch() == null || cluster.getOutputHatch() == null || getLevel() == null) {
             return null;
         }
-        FluidTank inputHatch = cluster.getInputHatch().tank;
-        if (inputHatch.getFluidAmount() <= 0) {
+        FluidStacksResourceHandler inputHatch = cluster.getInputHatch().tank;
+        if (ResourceHandlerUtil.isEmpty(inputHatch)) {
             return null;
         }
-        FluidTank outputHatch = cluster.getOutputHatch().tank;
-        return getLevel().getRecipeManager().getRecipeFor(
-            NERecipeTypes.COOLING.get(),
-            new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid()),
-            getLevel()
-        ).map(net.minecraft.world.item.crafting.RecipeHolder::value).orElse(null);
+        FluidStacksResourceHandler outputHatch = cluster.getOutputHatch().tank;
+        if (getLevel() instanceof ServerLevel serverLevel) {
+            Optional<RecipeHolder<CoolingRecipe>> recipe = serverLevel.recipeAccess().getRecipeFor(
+                NERecipeTypes.COOLING.get(),
+                new CoolingRecipe.Input(
+                    inputHatch.getResource(0).toStack(inputHatch.getAmountAsInt(0)),
+                    outputHatch.getResource(0).toStack(outputHatch.getAmountAsInt(0))
+                ),
+                serverLevel
+            );
+            return recipe.map(RecipeHolder::value).orElse(null);
+        } else {
+            return null;
+        }
     }
 
     private boolean canRefillWith(int maxOverclock) {
@@ -381,31 +393,36 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (cluster == null || cluster.getInputHatch() == null || cluster.getOutputHatch() == null) {
             return 0;
         }
-        FluidTank inputHatch = cluster.getInputHatch().tank;
-        FluidTank outputHatch = cluster.getOutputHatch().tank;
+        FluidStacksResourceHandler inputHatch = cluster.getInputHatch().tank;
+        FluidStacksResourceHandler outputHatch = cluster.getOutputHatch().tank;
         int inputAmount = recipe.inputAmount();
         if (deficit <= 0 || inputAmount <= 0 || recipe.coolant() <= 0) {
             return 0;
         }
 
         long requiredInput = ((long) deficit * inputAmount + recipe.coolant() - 1L) / recipe.coolant();
-        long drainAmount = Math.min(requiredInput, inputHatch.getFluidAmount());
+        FluidResource inputResource = inputHatch.getResource(0);
+        long drainAmount = Math.min(requiredInput, inputHatch.getAmountAsLong(0));
         drainAmount = Math.min(drainAmount, getMaxDrainByOutput(recipe, outputHatch));
         if (drainAmount <= 0) {
             return 0;
         }
 
-        int drained = inputHatch.drain((int) drainAmount, IFluidHandler.FluidAction.EXECUTE).getAmount();
-        if (drained <= 0) {
-            return 0;
-        }
-
-        FluidStack output = recipe.output();
-        if (!output.isEmpty()) {
-            int outputAmount = (int) ((long) drained * recipe.outputAmount() / inputAmount);
-            if (outputAmount > 0) {
-                outputHatch.fill(output.copyWithAmount(outputAmount), IFluidHandler.FluidAction.EXECUTE);
+        int drained;
+        try (var transaction = Transaction.open(null)) {
+            drained = inputHatch.extract(inputResource, (int) drainAmount, transaction);
+            if (drained <= 0) {
+                return 0;
             }
+
+            FluidStack output = recipe.output();
+            if (!output.isEmpty()) {
+                int outputAmount = (int) ((long) drained * recipe.outputAmount() / inputAmount);
+                if (outputAmount > 0) {
+                    outputHatch.insert(FluidResource.of(output), outputAmount, transaction);
+                }
+            }
+            transaction.commit();
         }
 
         int coolantGain = (int) ((long) drained * recipe.coolant() / inputAmount);
@@ -418,21 +435,20 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return coolantGain;
     }
 
-    private long getMaxDrainByOutput(CoolingRecipe recipe, FluidTank outputHatch) {
+    private int getMaxDrainByOutput(CoolingRecipe recipe, FluidStacksResourceHandler outputHatch) {
         FluidStack output = recipe.output();
-        if (output.isEmpty()) {
-            return Long.MAX_VALUE;
-        }
-        FluidStack stored = outputHatch.getFluid();
-        if (!stored.isEmpty() && !FluidStack.isSameFluidSameComponents(stored, output)) {
-            return 0;
-        }
         int outputAmount = recipe.outputAmount();
         if (outputAmount <= 0) {
-            return Long.MAX_VALUE;
+            return Integer.MAX_VALUE;
         }
-        long outputSpace = outputHatch.getCapacity() - outputHatch.getFluidAmount();
-        return outputSpace * recipe.inputAmount() / outputAmount;
+
+        try (var transaction = Transaction.open(null)) {
+            int inserted = outputHatch.insert(FluidResource.of(output), Integer.MAX_VALUE, transaction);
+            if (inserted > 0) {
+                return inserted * recipe.inputAmount() / outputAmount;
+            }
+        }
+        return 0;
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
@@ -480,7 +496,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         ECOHostWidgets.addDetailChild(details, createOverclockCoolingCard());
 
         UIElement root = ECOHostWidgets.hostPanel(
-            () -> getItemFromBlockEntity().getDescription(),
+            () -> getItemFromBlockEntity().getName(getItemFromBlockEntity().getDefaultInstance()),
             () -> Component.translatable("gui.neoecoae.host.crafting.subtitle"),
             () -> Component.translatable(buildInProgress ? "gui.neoecoae.host.status.running" : "gui.neoecoae.host.status.online"),
             List.of(

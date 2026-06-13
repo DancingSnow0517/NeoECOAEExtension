@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.gui;
 
-import appeng.client.gui.Icon;
 import appeng.core.AppEng;
+import appeng.util.Icon;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 

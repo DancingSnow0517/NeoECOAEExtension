@@ -16,6 +16,7 @@ import lombok.Getter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
@@ -127,18 +128,21 @@ public class ECOCraftingCPU implements ICraftingCPU {
     }
 
     private void writeCraftingPlanToNBT(ICraftingPlan plan, CompoundTag tag, HolderLookup.Provider registries) {
-        CompoundTag outputTag = GenericStack.writeTag(registries, plan.finalOutput());
-        tag.put("output", outputTag);
+        tag.put("output", NbtValueIO.write(registries, output -> GenericStack.writeTag(output, plan.finalOutput())));
         tag.putLong("bytes", plan.bytes());
         tag.putBoolean("simulation", plan.simulation());
         tag.putBoolean("multiplePaths", plan.multiplePaths());
     }
 
     private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        GenericStack output = GenericStack.readTag(registries, tag.getCompound("output"));
-        long bytes = tag.getLong("bytes");
-        boolean simulation = tag.getBoolean("simulation");
-        boolean multiplePaths = tag.getBoolean("multiplePaths");
+        return readCraftingPlanFromNBT(NbtValueIO.input(registries, tag));
+    }
+
+    private CraftingPlan readCraftingPlanFromNBT(ValueInput tag) {
+        GenericStack output = GenericStack.readTag(tag.childOrEmpty("output"));
+        long bytes = tag.getLongOr("bytes", 0);
+        boolean simulation = tag.getBooleanOr("simulation", false);
+        boolean multiplePaths = tag.getBooleanOr("multiplePaths", false);
         return new CraftingPlan(output, bytes, simulation, multiplePaths, null, null, null, null);
     }
 
@@ -153,10 +157,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         logic.readFromNBT(data, registries);
-        if (data.contains("plan")) {
-            CompoundTag tag = data.getCompound("plan");
-            this.plan = readCraftingPlanFromNBT(tag, registries);
-        }
+        data.getCompound("plan").ifPresent(tag -> this.plan = readCraftingPlanFromNBT(tag, registries));
     }
 
     public boolean hasRemainingItems() {

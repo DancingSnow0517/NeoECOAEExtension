@@ -101,7 +101,7 @@ public final class ECOFastPathStacks {
         if (!itemStack.isComponentsPatchEmpty() || itemKey.isDamaged() || itemStack.isDamageableItem()) {
             return false;
         }
-        return !input || !itemStack.getItem().hasCraftingRemainingItem(itemStack);
+        return !input || itemStack.getCraftingRemainder() == null;
     }
 
     private static Optional<ItemStack> toItemStack(GenericStack stack) {

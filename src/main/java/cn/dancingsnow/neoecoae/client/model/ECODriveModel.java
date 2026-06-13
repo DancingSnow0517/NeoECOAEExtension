@@ -10,7 +10,7 @@ import net.minecraft.client.resources.model.Material;
 import net.minecraft.client.resources.model.ModelBaker;
 import net.minecraft.client.resources.model.ModelState;
 import net.minecraft.client.resources.model.UnbakedModel;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,8 +19,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 public class ECODriveModel implements BasicUnbakedModel {
-    public static final ResourceLocation DRIVE_EMPTY = NeoECOAE.id("block/eco_drive_empty");
-    public static final ResourceLocation DRIVE_FULL = NeoECOAE.id("block/eco_drive_full");
+    public static final Identifier DRIVE_EMPTY = NeoECOAE.id("block/eco_drive_empty");
+    public static final Identifier DRIVE_FULL = NeoECOAE.id("block/eco_drive_full");
 
     @Override
     public @Nullable BakedModel bake(

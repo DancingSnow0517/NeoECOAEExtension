@@ -4,14 +4,21 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.minecraft.advancements.Criterion;
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderGetter;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.recipes.RecipeBuilder;
 import net.minecraft.data.recipes.RecipeOutput;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStackTemplate;
+import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,13 +27,24 @@ import java.util.Objects;
 @Accessors(fluent = true, chain = true)
 public class CoolingRecipeBuilder implements RecipeBuilder {
 
+    @Nullable
+    private final HolderGetter<Fluid> fluidLookup;
     private SizedFluidIngredient input = null;
     @Setter
-    private FluidStack output = FluidStack.EMPTY;
+    @Nullable
+    private FluidStackTemplate output = null;
     @Setter
     private int coolant = 0;
     @Setter
     private int maxOverclock = 9;
+
+    public CoolingRecipeBuilder() {
+        this(null);
+    }
+
+    public CoolingRecipeBuilder(@Nullable HolderGetter<Fluid> fluidLookup) {
+        this.fluidLookup = fluidLookup;
+    }
 
     public CoolingRecipeBuilder input(SizedFluidIngredient ingredient) {
         this.input = ingredient;
@@ -34,23 +52,28 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     }
 
     public CoolingRecipeBuilder input(TagKey<Fluid> tag, int amount) {
-        return input(SizedFluidIngredient.of(tag, amount));
+        if (fluidLookup == null) {
+            throw new IllegalStateException("Fluid tag ingredients require a fluid HolderGetter");
+        }
+        return input(new SizedFluidIngredient(FluidIngredient.of(fluidLookup.getOrThrow(tag)), amount));
     }
 
     public CoolingRecipeBuilder input(FluidStack stack) {
-        return input(SizedFluidIngredient.of(stack));
+        return input(new SizedFluidIngredient(FluidIngredient.of(stack), stack.getAmount()));
     }
 
     public CoolingRecipeBuilder input(Fluid fluid, int amount) {
-        return input(new FluidStack(fluid, amount));
+        return input(new SizedFluidIngredient(FluidIngredient.of(HolderSet.direct(fluidHolder(fluid, "Fluid inputs"))), amount));
     }
 
     public CoolingRecipeBuilder output(Holder<Fluid> fluid, int amount) {
-        return output(fluid.value(), amount);
+        this.output = new FluidStackTemplate(fluid, amount);
+        return this;
     }
 
     public CoolingRecipeBuilder output(Fluid fluid, int amount) {
-        return output(new FluidStack(fluid, amount));
+        this.output = new FluidStackTemplate(fluidHolder(fluid, "Fluid outputs"), amount);
+        return this;
     }
 
     @Override
@@ -64,8 +87,8 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public Item getResult() {
-        return Items.AIR;
+    public ResourceKey<Recipe<?>> defaultId() {
+        return ResourceKey.create(Registries.RECIPE, Identifier.parse("neoecoae:cooling"));
     }
 
     @Override
@@ -74,7 +97,7 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     }
 
     @Override
-    public void save(RecipeOutput recipeOutput, ResourceLocation id) {
+    public void save(RecipeOutput recipeOutput, ResourceKey<Recipe<?>> id) {
         Objects.requireNonNull(input, "input must not be null");
         if (coolant <= 0) {
             throw new IllegalStateException("coolant must be greater than 0");
@@ -84,5 +107,17 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
         }
         CoolingRecipe recipe = new CoolingRecipe(input, output, coolant, maxOverclock);
         recipeOutput.accept(id, recipe, null);
+    }
+
+    public void save(RecipeOutput recipeOutput, Identifier id) {
+        save(recipeOutput, ResourceKey.create(Registries.RECIPE, id));
+    }
+
+    private Holder<Fluid> fluidHolder(Fluid fluid, String role) {
+        if (fluidLookup == null) {
+            throw new IllegalStateException(role + " require a fluid HolderGetter");
+        }
+        Identifier fluidId = Objects.requireNonNull(BuiltInRegistries.FLUID.getKey(fluid), "fluid must be registered");
+        return fluidLookup.getOrThrow(ResourceKey.create(Registries.FLUID, fluidId));
     }
 }

@@ -28,12 +28,17 @@ public class NEDataGen {
     }
 
     @SubscribeEvent
-    public static void gatherData(GatherDataEvent event) {
+    public static void gatherData(GatherDataEvent.Server event) {
         DataGenerator generator = event.getGenerator();
         CompletableFuture<HolderLookup.Provider> registries = event.getLookupProvider();
         PackOutput packOutput = generator.getPackOutput();
 
-        generator.addProvider(event.includeServer(), new NERegistryProvider(packOutput, registries));
-        generator.addProvider(event.includeClient(), new NELangMergerProvider(packOutput));
+        event.addProvider(new NERegistryProvider(packOutput, registries));
+    }
+
+    @SubscribeEvent
+    public static void gatherClientData(GatherDataEvent.Client event) {
+        PackOutput packOutput = event.getGenerator().getPackOutput();
+        event.addProvider(new NELangMergerProvider(packOutput));
     }
 }

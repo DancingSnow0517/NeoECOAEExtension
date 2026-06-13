@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.multiblock.placement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 
 public final class MultiBlockRotation {
@@ -32,17 +31,21 @@ public final class MultiBlockRotation {
     public static BlockState rotateState(BlockState state, Direction facing, boolean mirrored) {
         BlockState rotated = state;
         for (Property<?> property : state.getProperties()) {
-            if (property instanceof DirectionProperty directionProperty) {
-                Direction direction = state.getValue(directionProperty);
+            if (state.getValue(property) instanceof Direction direction) {
                 if (direction.getAxis().isHorizontal()) {
                     if (mirrored) {
                         direction = mirrorHorizontal(direction);
                     }
-                    rotated = rotated.setValue(directionProperty, rotateHorizontal(direction, facing));
+                    rotated = setDirection(rotated, property, rotateHorizontal(direction, facing));
                 }
             }
         }
         return rotated;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static BlockState setDirection(BlockState state, Property<?> property, Direction direction) {
+        return state.setValue((Property) property, direction);
     }
 
     private static BlockPos mirrorLocalPos(BlockPos localPos) {

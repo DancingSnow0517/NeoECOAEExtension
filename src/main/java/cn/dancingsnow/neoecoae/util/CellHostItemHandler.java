@@ -1,9 +1,16 @@
 package cn.dancingsnow.neoecoae.util;
 
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.TransferPreconditions;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
-public class CellHostItemHandler implements IItemHandler {
+public class CellHostItemHandler extends SnapshotJournal<ItemStack> implements ResourceHandler<ItemResource> {
+    private static final int CELL_SLOT = 0;
+    private static final int SLOT_COUNT = 1;
+
     private final ICellHost host;
 
     public CellHostItemHandler(ICellHost host) {
@@ -11,54 +18,97 @@ public class CellHostItemHandler implements IItemHandler {
     }
 
     @Override
-    public int getSlots() {
+    public int size() {
+        return SLOT_COUNT;
+    }
+
+    @Override
+    public ItemResource getResource(int index) {
+        if (!isCellSlot(index)) {
+            return ItemResource.EMPTY;
+        }
+        ItemStack cellStack = host.getCellStack();
+        if (cellStack == null || cellStack.isEmpty()) {
+            return ItemResource.EMPTY;
+        }
+        return ItemResource.of(cellStack);
+    }
+
+    @Override
+    public long getAmountAsLong(int index) {
+        if (!isCellSlot(index)) {
+            return 0;
+        }
+        ItemStack cellStack = host.getCellStack();
+        return cellStack == null || cellStack.isEmpty() ? 0 : cellStack.getCount();
+    }
+
+    @Override
+    public long getCapacityAsLong(int index, ItemResource resource) {
+        if (!isCellSlot(index)) {
+            return 0;
+        }
+        return resource.isEmpty() || isValid(index, resource) ? 1 : 0;
+    }
+
+    @Override
+    public boolean isValid(int index, ItemResource resource) {
+        return isCellSlot(index) && !resource.isEmpty() && host.isItemValid(resource.toStack());
+    }
+
+    @Override
+    public int insert(int index, ItemResource resource, int amount, TransactionContext transaction) {
+        TransferPreconditions.checkNonEmptyNonNegative(resource, amount);
+
+        if (!isCellSlot(index) || amount == 0 || !isValid(index, resource)) {
+            return 0;
+        }
+
+        ItemStack cellStack = host.getCellStack();
+        if (cellStack != null && !cellStack.isEmpty()) {
+            return 0;
+        }
+
+        updateSnapshots(transaction);
+        host.setCellStack(resource.toStack(1));
         return 1;
     }
 
     @Override
-    public ItemStack getStackInSlot(int slot) {
-        return host.getCellStack() != null ? host.getCellStack() : ItemStack.EMPTY;
-    }
+    public int extract(int index, ItemResource resource, int amount, TransactionContext transaction) {
+        TransferPreconditions.checkNonEmptyNonNegative(resource, amount);
 
-    @Override
-    public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-        if (host.getCellStack() != null) {
-            return stack;
-        } else {
-            if (stack.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            if (!simulate) {
-                host.setCellStack(stack.copyWithCount(1));
-            }
-            ItemStack copy = stack.copy();
-            copy.shrink(1);
-            return copy;
+        if (!isCellSlot(index) || amount == 0) {
+            return 0;
         }
-    }
 
-    @Override
-    public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        if (host.getCellStack() == null) {
-            return ItemStack.EMPTY;
+        ItemStack cellStack = host.getCellStack();
+        if (cellStack == null || cellStack.isEmpty() || !resource.matches(cellStack)) {
+            return 0;
         }
-        if (amount <= 0) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack copy = host.getCellStack().copyWithCount(1);
-        if (!simulate) {
+
+        int extracted = Math.min(amount, cellStack.getCount());
+        updateSnapshots(transaction);
+        if (extracted == cellStack.getCount()) {
             host.setCellStack(null);
+        } else {
+            host.setCellStack(cellStack.copyWithCount(cellStack.getCount() - extracted));
         }
-        return copy;
+        return extracted;
     }
 
     @Override
-    public int getSlotLimit(int slot) {
-        return 1;
+    protected ItemStack createSnapshot() {
+        ItemStack cellStack = host.getCellStack();
+        return cellStack == null ? ItemStack.EMPTY : cellStack.copy();
     }
 
     @Override
-    public boolean isItemValid(int slot, ItemStack stack) {
-        return host.isItemValid(stack);
+    protected void revertToSnapshot(ItemStack snapshot) {
+        host.setCellStack(snapshot.isEmpty() ? null : snapshot.copy());
+    }
+
+    private static boolean isCellSlot(int index) {
+        return index == CELL_SLOT;
     }
 }

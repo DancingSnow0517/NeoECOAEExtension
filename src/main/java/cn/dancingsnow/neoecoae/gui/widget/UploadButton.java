@@ -1,17 +1,16 @@
 package cn.dancingsnow.neoecoae.gui.widget;
 
-import appeng.client.gui.Icon;
+import appeng.client.gui.style.Blitter;
+import appeng.util.Icon;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-
-import java.util.List;
+import net.minecraft.resources.Identifier;
 
 public class UploadButton extends Button {
-    public static final ResourceLocation ICON_TEXTURE = NeoECOAE.id("textures/gui/upload.png");
+    public static final Identifier ICON_TEXTURE = NeoECOAE.id("textures/gui/upload.png");
 
     public UploadButton(int x, int y, OnPress onPress) {
         super(
@@ -23,40 +22,16 @@ public class UploadButton extends Button {
             onPress,
             unused -> Component.empty()
         );
+        setTooltip(Tooltip.create(Component.translatable("neoecoae.tooltip.upload_pattern")));
     }
 
     @Override
-    protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    protected void extractContents(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         int yOffset = isHovered() ? 1 : 0;
         Icon bgIcon = isHovered() ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
             : isFocused() ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS : Icon.TOOLBAR_BUTTON_BACKGROUND;
-        bgIcon.getBlitter()
+        Blitter.icon(bgIcon)
             .dest(getX() - 1, getY() + yOffset, 18, 20)
-            .zOffset(100)
             .blit(guiGraphics);
-
-        guiGraphics.blit(
-            ICON_TEXTURE,
-            getX(),
-            getY() + 2 + yOffset,
-            200,
-            0,
-            0,
-            16,
-            16,
-            16,
-            16
-        );
-
-        if (isHovered()) {
-            guiGraphics.renderComponentTooltip(
-                Minecraft.getInstance().font,
-                List.of(
-                    Component.translatable("neoecoae.tooltip.upload_pattern")
-                ),
-                mouseX,
-                mouseY
-            );
-        }
     }
 }

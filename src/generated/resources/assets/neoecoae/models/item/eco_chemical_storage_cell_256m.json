@@ -1,7 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "neoecoae:item/eco_chemical_cell_housing",
-    "layer1": "neoecoae:item/eco_cell_light_256m"
-  }
-}

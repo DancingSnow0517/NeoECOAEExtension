@@ -5,6 +5,7 @@ import appeng.api.storage.ITerminalHost;
 import appeng.helpers.IPatternTerminalMenuHost;
 import appeng.menu.me.common.MEStorageMenu;
 import appeng.menu.me.items.PatternEncodingTermMenu;
+import appeng.menu.guisync.ClientActionKey;
 import appeng.menu.slot.RestrictedInputSlot;
 import appeng.parts.encoding.EncodingMode;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
@@ -28,7 +29,7 @@ public class PatternEncodingTermMenuMixin extends MEStorageMenu implements Patte
     @Shadow
     private EncodingMode currentMode;
     @Unique
-    private final String ACTION_UPLOAD_PATTERN = "neoecoae:uploadPattern";
+    private static final ClientActionKey<Void> ACTION_UPLOAD_PATTERN = new ClientActionKey<>("neoecoae:uploadPattern");
 
     public PatternEncodingTermMenuMixin(MenuType<?> menuType, int id, Inventory playerInventory, ITerminalHost host) {
         super(menuType, id, playerInventory, host);
@@ -38,7 +39,7 @@ public class PatternEncodingTermMenuMixin extends MEStorageMenu implements Patte
         method = "<init>(Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Lappeng/helpers/IPatternTerminalMenuHost;Z)V",
         at = @At(
             value = "INVOKE",
-            target = "Lappeng/menu/me/items/PatternEncodingTermMenu;registerClientAction(Ljava/lang/String;Ljava/lang/Runnable;)V",
+            target = "Lappeng/menu/me/items/PatternEncodingTermMenu;registerClientAction(Lappeng/menu/guisync/ClientActionKey;Ljava/lang/Runnable;)V",
             ordinal = 0
         )
     )

@@ -13,7 +13,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
 
 import java.util.List;
 
@@ -21,8 +22,7 @@ public final class CraftingUIHelper {
     private CraftingUIHelper() {
     }
 
-    public static ModularUI createFluidHatchUI(BlockUIMenuType.BlockUIHolder holder, FluidTank tank, String titleKey,
-        boolean allowClickFilled, boolean allowClickDrained) {
+    public static ModularUI createFluidHatchUI(BlockUIMenuType.BlockUIHolder holder, ResourceHandler<FluidResource> tank, String titleKey, boolean allowClickFilled, boolean allowClickDrained) {
         UIElement root = new UIElement().layout(layout -> layout
             .paddingAll(4)
             .gapAll(2)

@@ -12,8 +12,7 @@
   "coolant": 1500,
   "input": {
     "amount": 100,
-    "tag": "minecraft:water"
+    "ingredient": "#minecraft:water"
   },
-  "max_overclock": 2,
-  "output": {}
+  "max_overclock": 2
 }

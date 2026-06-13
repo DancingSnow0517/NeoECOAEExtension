@@ -27,13 +27,13 @@ import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.blockentity.grid.AENetworkedPoweredBlockEntity;
-import appeng.client.gui.Icon;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
+import appeng.util.Icon;
 import appeng.util.SettingsFrom;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
@@ -49,7 +49,7 @@ import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
+import com.lowdragmc.lowdraglib2.gui.slot.ItemResourceHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -86,26 +86,27 @@ import lombok.Setter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.fluid.FluidStacksResourceHandler;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -141,17 +142,17 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     private final FilteredInternalInventory outputExposed = new FilteredInternalInventory(this.outputInv, AEItemFilters.EXTRACT_ONLY);
     private final InternalInventory invExposed = new CombinedInternalInventory(this.inputExposed, this.outputExposed);
 
-    private final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
+    private final FluidStacksResourceHandler inputTank = new FluidStacksResourceHandler(1, MAX_TANK_CAPACITY) {
         @Override
-        protected void onContentsChanged() {
+        protected void onContentsChanged(int index, FluidStack previousContents) {
             markForUpdate();
             setChanged();
             onChangeTank();
         }
     };
-    private final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
+    private final FluidStacksResourceHandler outputTank = new FluidStacksResourceHandler(1, MAX_TANK_CAPACITY) {
         @Override
-        protected void onContentsChanged() {
+        protected void onContentsChanged(int index, FluidStack previousContents) {
             markForUpdate();
             setChanged();
             onChangeTank();
@@ -162,40 +163,40 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     boolean shouldAutoExport;
 
     @Getter
-    private final IFluidHandler fluidCombined = new IFluidHandler() {
+    private final ResourceHandler<FluidResource> fluidCombined = new ResourceHandler<>() {
         @Override
-        public int getTanks() {
+        public int size() {
             return 2;
         }
 
         @Override
-        public FluidStack getFluidInTank(int tank) {
-            return tank == 0 ? inputTank.getFluid() : outputTank.getFluid();
+        public FluidResource getResource(int index) {
+            return index == 0 ? inputTank.getResource(0) : outputTank.getResource(0);
         }
 
         @Override
-        public int getTankCapacity(int tank) {
-            return MAX_TANK_CAPACITY;
+        public long getAmountAsLong(int index) {
+            return index == 0 ? inputTank.getAmountAsLong(0) : outputTank.getAmountAsLong(0);
         }
 
         @Override
-        public boolean isFluidValid(int tank, FluidStack stack) {
-            return tank == 0 ? inputTank.isFluidValid(stack) : outputTank.isFluidValid(stack);
+        public long getCapacityAsLong(int index, FluidResource resource) {
+            return index == 0 ? inputTank.getCapacityAsLong(0, resource) : outputTank.getCapacityAsLong(0, resource);
         }
 
         @Override
-        public int fill(FluidStack resource, FluidAction action) {
-            return inputTank.fill(resource, action);
+        public boolean isValid(int index, FluidResource resource) {
+            return index == 0 ? inputTank.isValid(0, resource) : outputTank.isValid(0, resource);
         }
 
         @Override
-        public FluidStack drain(FluidStack resource, FluidAction action) {
-            return outputTank.drain(resource, action);
+        public int insert(int index, FluidResource resource, int amount, TransactionContext transaction) {
+            return index == 0 ? inputTank.insert(0, resource, amount, transaction) : outputTank.insert(0, resource, amount, transaction);
         }
 
         @Override
-        public FluidStack drain(int maxDrain, FluidAction action) {
-            return outputTank.drain(maxDrain, action);
+        public int extract(int index, FluidResource resource, int amount, TransactionContext transaction) {
+            return index == 0 ? inputTank.extract(0, resource, amount, transaction) : outputTank.extract(0, resource, amount, transaction);
         }
     };
 
@@ -265,36 +266,36 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     @Override
-    protected void saveVisualState(CompoundTag data) {
+    protected void saveVisualState(ValueOutput data) {
         super.saveVisualState(data);
 
         data.putBoolean("working", isWorking());
     }
 
     @Override
-    protected void loadVisualState(CompoundTag data) {
+    protected void loadVisualState(ValueInput data) {
         super.loadVisualState(data);
 
-        setWorking(data.getBoolean("working"));
+        setWorking(data.getBooleanOr("working", false));
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
-        this.inputTank.readFromNBT(registries, data.getCompound("inputTank"));
-        this.outputTank.readFromNBT(registries, data.getCompound("outputTank"));
-        this.upgrades.readFromNBT(data, "upgrades", registries);
-        this.configManager.readFromNBT(data, registries);
+    public void loadTag(ValueInput data) {
+        super.loadTag(data);
+        data.readChild("inputTank", inputTank);
+        data.readChild("outputTank", outputTank);
+        this.upgrades.readFromNBT(data, "upgrades");
+        this.configManager.readFromNBT(data);
         shouldAutoExport = configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
-        data.put("inputTank", this.inputTank.writeToNBT(registries, new CompoundTag()));
-        data.put("outputTank", this.outputTank.writeToNBT(registries, new CompoundTag()));
-        upgrades.writeToNBT(data, "upgrades", registries);
-        configManager.writeToNBT(data, registries);
+    public void saveAdditional(ValueOutput data) {
+        super.saveAdditional(data);
+        data.putChild("inputTank", inputTank);
+        data.putChild("outputTank", outputTank);
+        upgrades.writeToNBT(data, "upgrades");
+        configManager.writeToNBT(data);
     }
 
     @Override
@@ -312,7 +313,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
     @Nullable
     @Override
-    public InternalInventory getSubInventory(ResourceLocation id) {
+    public InternalInventory getSubInventory(Identifier id) {
         if (id.equals(ISegmentedInventory.STORAGE)) {
             return this.getInternalInventory();
         } else if (id.equals(ISegmentedInventory.UPGRADES)) {
@@ -348,21 +349,22 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     }
 
     private boolean hasAutoExportWork() {
-        return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES && (!this.outputInv.getStackInSlot(0).isEmpty() || !this.outputTank.getFluid().isEmpty());
+        return configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES && (!this.outputInv.getStackInSlot(0).isEmpty() || this.outputTank.getAmountAsLong(0) > 0);
     }
 
     private boolean hasCraftWork() {
         var task = this.getTask();
         if (task != null) {
-            if (task.hasItemOutput() && outputInv.insertItem(0, task.itemOutput(), true).isEmpty()) {
-                return true;
-            }
-            if (task.hasFluidOutput()) {
-                FluidStack fluidOutput = task.fluidOutput();
-                if (outputTank.fill(fluidOutput, IFluidHandler.FluidAction.SIMULATE) == fluidOutput.getAmount()) {
+            try (Transaction transaction = Transaction.open(null)) {
+                if (task.hasItemOutput() && outputInv.insertItem(0, task.itemOutput(), true).isEmpty()) {
                     return true;
                 }
-
+                if (task.hasFluidOutput()) {
+                    FluidStack fluidOutput = task.fluidOutput();
+                    if (!fluidOutput.isEmpty() && outputTank.insert(FluidResource.of(fluidOutput), fluidOutput.getAmount(), transaction) == fluidOutput.getAmount()) {
+                        return true;
+                    }
+                }
             }
         }
 
@@ -384,11 +386,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         for (var x = 0; x < this.inputInv.size(); x++) {
             inputs.add(this.inputInv.getStackInSlot(x));
         }
-        return level.getRecipeManager().getRecipeFor(
+        var recipe = appeng.crafting.RecipeAccess.getRecipeFor(
+            level,
             NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
-            new IntegratedWorkingStationRecipe.Input(inputs, this.inputTank.getFluid()),
-            level
-        ).map(RecipeHolder::value).orElse(null);
+            new IntegratedWorkingStationRecipe.Input(inputs, getFluid(this.inputTank))
+        );
+        return recipe == null ? null : recipe.value();
     }
 
     @Override
@@ -483,7 +486,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     }
 
                     if (!fluidOut.isEmpty()) {
-                        fluidCanInsert = this.outputTank.fill(fluidOut, IFluidHandler.FluidAction.SIMULATE) >= fluidOut.getAmount() - 0.01;
+                        fluidCanInsert = canInsertAll(this.outputTank, fluidOut);
                     }
 
                     // Only execute if both outputs can be placed; otherwise keep progress to retry later
@@ -497,8 +500,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                         }
 
                         if (!fluidOut.isEmpty()) {
-                            int added = this.outputTank.fill(fluidOut, IFluidHandler.FluidAction.EXECUTE);
-                            fluidInserted = added >= fluidOut.getAmount() - 0.01;
+                            int added = insertFluid(this.outputTank, fluidOut);
+                            fluidInserted = added >= fluidOut.getAmount();
                         }
 
                         if (itemInserted && fluidInserted) {
@@ -524,9 +527,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                                 }
                             }
 
-                            FluidStack fluidStack = this.inputTank.getFluid();
-                            if (out.inputFluid().test(fluidStack)) {
-                                inputTank.drain(fluidStack.copyWithAmount(out.inputFluid().amount()), IFluidHandler.FluidAction.EXECUTE);
+                            FluidStack fluidStack = getFluid(this.inputTank);
+                            if (out.inputFluid() != null && out.inputFluid().test(fluidStack)) {
+                                extractFluid(this.inputTank, fluidStack, out.inputFluid().amount());
                             }
 
                             this.setProcessingTime(0);
@@ -568,14 +571,14 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     movedStacks |= inserted > 0;
                 }
 
-                FluidStack outFluid = this.outputTank.getFluid();
+                FluidStack outFluid = getFluid(this.outputTank);
                 GenericStack fluid = GenericStack.fromFluidStack(outFluid);
                 if (fluid != null && fluid.what() != null) {
-                    var extracted = this.outputTank.drain(outFluid, IFluidHandler.FluidAction.EXECUTE).getAmount();
+                    var extracted = extractFluid(this.outputTank, outFluid, outFluid.getAmount());
                     var inserted = target.insert(fluid.what(), extracted, Actionable.MODULATE, source);
-                    this.outputTank.fill(outFluid.copyWithAmount((int) (extracted - inserted)), IFluidHandler.FluidAction.EXECUTE);
+                    insertFluid(this.outputTank, outFluid.copyWithAmount((int) (extracted - inserted)));
 
-                    if (this.outputTank.getFluidAmount() == 0) clearFluidOut();
+                    if (this.outputTank.getAmountAsLong(0) == 0) clearFluidOut();
 
                     movedStacks |= inserted > 0;
                 }
@@ -587,6 +590,52 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         }
 
         return false;
+    }
+
+    private static FluidStack getFluid(FluidStacksResourceHandler tank) {
+        FluidResource resource = tank.getResource(0);
+        if (resource.isEmpty()) {
+            return FluidStack.EMPTY;
+        }
+        return resource.toStack(tank.getAmountAsInt(0));
+    }
+
+    private static boolean canInsertAll(FluidStacksResourceHandler tank, FluidStack stack) {
+        if (stack.isEmpty()) {
+            return true;
+        }
+
+        try (Transaction transaction = Transaction.open(null)) {
+            return tank.insert(FluidResource.of(stack), stack.getAmount(), transaction) >= stack.getAmount();
+        }
+    }
+
+    private static int insertFluid(FluidStacksResourceHandler tank, FluidStack stack) {
+        if (stack.isEmpty()) {
+            return 0;
+        }
+
+        try (Transaction transaction = Transaction.open(null)) {
+            int inserted = tank.insert(FluidResource.of(stack), stack.getAmount(), transaction);
+            if (inserted > 0) {
+                transaction.commit();
+            }
+            return inserted;
+        }
+    }
+
+    private static int extractFluid(FluidStacksResourceHandler tank, FluidStack stack, int amount) {
+        if (stack.isEmpty() || amount <= 0) {
+            return 0;
+        }
+
+        try (Transaction transaction = Transaction.open(null)) {
+            int extracted = tank.extract(FluidResource.of(stack), amount, transaction);
+            if (extracted > 0) {
+                transaction.commit();
+            }
+            return extracted;
+        }
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -661,17 +710,17 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
     @Override
     public void clearContent() {
         super.clearContent();
-        this.inputTank.setFluid(FluidStack.EMPTY);
-        this.outputTank.setFluid(FluidStack.EMPTY);
+        this.inputTank.set(0, FluidResource.EMPTY, 0);
+        this.outputTank.set(0, FluidResource.EMPTY, 0);
         this.upgrades.clear();
     }
 
     public void clearFluid() {
-        this.inputTank.setFluid(FluidStack.EMPTY);
+        this.inputTank.set(0, FluidResource.EMPTY, 0);
     }
 
     public void clearFluidOut() {
-        this.outputTank.setFluid(FluidStack.EMPTY);
+        this.outputTank.set(0, FluidResource.EMPTY, 0);
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
@@ -712,7 +761,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int y = 0; y < 3; y++) {
                 int i = x + y * 3;
-                row.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), i)));
+                row.addChild(new ItemSlot(new ItemResourceHandlerSlot(getExposedItemHandler(null), i)));
             }
             inputSlots.addChild(row);
         }
@@ -726,7 +775,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         });
         UIElement outputSlot = new UIElement().addClass("panel_border").layout(layout -> layout.justifyContent(AlignContent.CENTER));
         outputSlots.addChild(outputSlot);
-        outputSlot.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) getExposedItemHandler(null), 9)));
+        outputSlot.addChild(new ItemSlot(new ItemResourceHandlerSlot(getExposedItemHandler(null), 9)));
         inputArea.addChild(outputSlots);
 
         // progress bar
@@ -745,12 +794,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 .layout(layout -> layout.height(18).width(6))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                     Float value = ((ProgressBar) event.currentElement).getValue();
-                    event.hoverTooltips = new HoverTooltips(
-                        List.of(Component.literal("%.0f%%".formatted(value / MAX_PROCESSING_STEPS * 100))),
-                        null,
-                        null,
-                        null
-                    );
+                    event.hoverTooltips = HoverTooltips.create(Component.literal("%.0f%%".formatted(value / MAX_PROCESSING_STEPS * 100)));
                 })
         );
 
@@ -776,7 +820,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // add main input area and upgrades panel side-by-side
         root.addChild(inputArea);
 
-        // Upgrades panel on the right (凸出式)
+        // Upgrades panel on the right (凸出�?
         UIElement upgradesPanel = new UIElement().layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.right(-22);
@@ -786,13 +830,13 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         }).style(style -> style.background(NETextures.BACKGROUND));
         // add four upgrade slots vertically
         for (int i = 0; i < 4; i++) {
-            upgradesPanel.addChild(new ItemSlot(new ItemHandlerSlot((IItemHandlerModifiable) this.upgrades.toItemHandler(), i))
+            upgradesPanel.addChild(new ItemSlot(new ItemResourceHandlerSlot(this.upgrades.toResourceHandler(), i))
                 .slotStyle(style -> style.slotOverlay(AETextures.icon(Icon.BACKGROUND_UPGRADE)))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                     List<Component> tooltips = new ArrayList<>();
                     tooltips.add(GuiText.CompatibleUpgrades.text());
                     tooltips.addAll(Upgrades.getTooltipLinesForMachine(NEBlocks.INTEGRATED_WORKING_STATION));
-                    event.hoverTooltips = new HoverTooltips(tooltips, null, null, null);
+                    event.hoverTooltips = HoverTooltips.create(tooltips.toArray());
                 }));
         }
 
@@ -813,11 +857,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 GuidesCommon.openGuide(holder.player, AppEng.makeId("guide"), PageAnchor.parse("neoecoae:neoecoae_intro/integrated_working_station.md"));
             })
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(ButtonToolTips.OpenGuide.text().withColor(-1), ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)),
-                    null,
-                    null,
-                    null
+                event.hoverTooltips = HoverTooltips.create(
+                    ButtonToolTips.OpenGuide.text().withColor(-1),
+                    ButtonToolTips.OpenGuideDetail.text().withStyle(ChatFormatting.GRAY)
                 );
             })
             .layout(style -> style.height(20).width(18)));
@@ -831,14 +873,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             }).layout(layout -> layout.height(20).width(18)))
             .bindDataSource(SupplierDataSource.of(() -> shouldAutoExport))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(
-                        ButtonToolTips.AutoExport.text().withColor(-1),
-                        (shouldAutoExport ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
-                    ),
-                    null,
-                    null,
-                    null
+                event.hoverTooltips = HoverTooltips.create(
+                    ButtonToolTips.AutoExport.text().withColor(-1),
+                    (shouldAutoExport ? ButtonToolTips.AutoExportOn : ButtonToolTips.AutoExportOff).text().withStyle(ChatFormatting.GRAY)
                 );
             })
             .layout(layout -> layout.width(18).height(22).paddingAll(0)));
@@ -849,12 +886,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             .addPostIcon(NETextures.OUTPUTS)
             .setOnClick(e -> allowOutputWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE)),
-                    null,
-                    null,
-                    null
-                );
+                event.hoverTooltips = HoverTooltips.create(Component.translatable("gui.neoecoae.integrated_working_station.allow_outputs").withStyle(ChatFormatting.WHITE));
             })
             .layout(style -> style.height(20).width(18)));
 
@@ -1004,16 +1036,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             toggle.bindDataSource(SupplierDataSource.of(() -> allowOutputs.contains(internalSide)));
             toggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 var enabled = allowOutputs.contains(internalSide);
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(
-                        Component.translatable(labelKey).withStyle(ChatFormatting.WHITE),
-                        Component.translatable(enabled
-                            ? "gui.neoecoae.integrated_working_station.allow_outputs.enabled"
-                            : "gui.neoecoae.integrated_working_station.allow_outputs.disabled").withStyle(ChatFormatting.GRAY)
-                    ),
-                    null,
-                    null,
-                    null
+                event.hoverTooltips = HoverTooltips.create(
+                    Component.translatable(labelKey).withStyle(ChatFormatting.WHITE),
+                    Component.translatable(enabled
+                        ? "gui.neoecoae.integrated_working_station.allow_outputs.enabled"
+                        : "gui.neoecoae.integrated_working_station.allow_outputs.disabled").withStyle(ChatFormatting.GRAY)
                 );
             });
 
@@ -1021,7 +1048,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
             // Keep visuals in-sync immediately on the client, while server remains authoritative
             toggle.setOnToggleChanged(on -> {
-                if (level != null && level.isClientSide) {
+                if (level != null && level.isClientSide()) {
                     if (on) {
                         allowOutputs.add(internalSide);
                     } else {

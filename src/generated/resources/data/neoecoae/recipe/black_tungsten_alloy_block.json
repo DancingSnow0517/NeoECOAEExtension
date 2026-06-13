@@ -2,9 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "tag": "c:ingots/black_tungsten_alloy"
-    }
+    "A": "#c:ingots/black_tungsten_alloy"
   },
   "pattern": [
     "AAA",
@@ -12,7 +10,6 @@
     "AAA"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:black_tungsten_alloy_block"
   }
 }

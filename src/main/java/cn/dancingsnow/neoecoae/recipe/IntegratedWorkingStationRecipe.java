@@ -4,35 +4,47 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.HolderLookup;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
+import net.minecraft.world.item.crafting.PlacementInfo;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeBookCategories;
+import net.minecraft.world.item.crafting.RecipeBookCategory;
+import net.minecraft.world.item.crafting.display.RecipeDisplay;
 import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
+import net.neoforged.neoforge.fluids.FluidStackTemplate;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
 public record IntegratedWorkingStationRecipe(
     List<SizedIngredient> inputItems,
     SizedFluidIngredient inputFluid,
-    ItemStack itemOutput,
-    FluidStack fluidOutput,
+    @Nullable ItemStackTemplate itemOutputTemplate,
+    @Nullable FluidStackTemplate fluidOutputTemplate,
     int energy
 ) implements Recipe<IntegratedWorkingStationRecipe.Input> {
 
     public static IntegratedWorkingStationRecipeBuilder builder() {
         return new IntegratedWorkingStationRecipeBuilder();
+    }
+
+    public static IntegratedWorkingStationRecipeBuilder builder(HolderGetter<Item> items, HolderGetter<Fluid> fluids) {
+        return new IntegratedWorkingStationRecipeBuilder(items, fluids);
     }
 
     @Override
@@ -65,34 +77,44 @@ public record IntegratedWorkingStationRecipe(
 
         FluidStack providedFluid = recipeInput.fluid();
 
-        if (inputFluid.ingredient().isEmpty()) return true;
+        if (inputFluid == null) return true;
         if (providedFluid == null || providedFluid.isEmpty()) return false;
         if (!inputFluid.test(providedFluid)) return false;
         return providedFluid.getAmount() >= inputFluid.amount();
     }
 
     @Override
-    public ItemStack assemble(Input inv, HolderLookup.@NotNull Provider registries) {
-        return getResultItem(registries).copy();
+    public String group() {
+        return "";
     }
 
     @Override
-    public boolean canCraftInDimensions(int width, int height) {
-        return true;
+    public ItemStack assemble(Input inv) {
+        return itemOutput();
     }
 
     @Override
-    public ItemStack getResultItem(HolderLookup.@NotNull Provider registries) {
-        return itemOutput;
+    public PlacementInfo placementInfo() {
+        return PlacementInfo.NOT_PLACEABLE;
     }
 
     @Override
-    public RecipeSerializer<?> getSerializer() {
+    public List<RecipeDisplay> display() {
+        return List.of();
+    }
+
+    @Override
+    public RecipeBookCategory recipeBookCategory() {
+        return RecipeBookCategories.CRAFTING_MISC;
+    }
+
+    @Override
+    public RecipeSerializer<? extends Recipe<Input>> getSerializer() {
         return NERecipeTypes.INTEGRATED_WORKING_STATION_SERIALIZER.get();
     }
 
     @Override
-    public RecipeType<?> getType() {
+    public RecipeType<? extends Recipe<Input>> getType() {
         return NERecipeTypes.INTEGRATED_WORKING_STATION.get();
     }
 
@@ -101,48 +123,61 @@ public record IntegratedWorkingStationRecipe(
         return true;
     }
 
-    public boolean hasItemOutput() {
-        return !itemOutput.isEmpty();
+    @Override
+    public boolean showNotification() {
+        return false;
     }
 
+    public boolean hasItemOutput() {
+        return itemOutputTemplate != null;
+    }
+
+    public ItemStack itemOutput() {
+        return itemOutputTemplate == null ? ItemStack.EMPTY : itemOutputTemplate.create();
+    }
+
+    public Optional<ItemStackTemplate> optionalItemOutputTemplate() {
+        return Optional.ofNullable(itemOutputTemplate);
+    }
 
     public boolean hasFluidOutput() {
-        return !fluidOutput.isEmpty();
+        return fluidOutputTemplate != null;
     }
 
-    public static class Serializer implements RecipeSerializer<IntegratedWorkingStationRecipe> {
-        public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
-            SizedIngredient.FLAT_CODEC.listOf(0, 9).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
-            SizedFluidIngredient.FLAT_CODEC.optionalFieldOf("inputFluid", new SizedFluidIngredient(FluidIngredient.empty(), 1)).forGetter(IntegratedWorkingStationRecipe::inputFluid),
-            ItemStack.OPTIONAL_CODEC.optionalFieldOf("itemOutput", ItemStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::itemOutput),
-            FluidStack.OPTIONAL_CODEC.optionalFieldOf("fluidOutput", FluidStack.EMPTY).forGetter(IntegratedWorkingStationRecipe::fluidOutput),
-            Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
-        ).apply(ins, IntegratedWorkingStationRecipe::new));
-
-        public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = StreamCodec.composite(
-            SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(9)),
-            IntegratedWorkingStationRecipe::inputItems,
-            SizedFluidIngredient.STREAM_CODEC,
-            IntegratedWorkingStationRecipe::inputFluid,
-            ItemStack.OPTIONAL_STREAM_CODEC,
-            IntegratedWorkingStationRecipe::itemOutput,
-            FluidStack.OPTIONAL_STREAM_CODEC,
-            IntegratedWorkingStationRecipe::fluidOutput,
-            ByteBufCodecs.VAR_INT,
-            IntegratedWorkingStationRecipe::energy,
-            IntegratedWorkingStationRecipe::new
-        );
-
-        @Override
-        public MapCodec<IntegratedWorkingStationRecipe> codec() {
-            return CODEC;
-        }
-
-        @Override
-        public StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> streamCodec() {
-            return STREAM_CODEC;
-        }
+    public FluidStack fluidOutput() {
+        return fluidOutputTemplate == null ? FluidStack.EMPTY : fluidOutputTemplate.create();
     }
+
+    public Optional<FluidStackTemplate> optionalFluidOutputTemplate() {
+        return Optional.ofNullable(fluidOutputTemplate);
+    }
+
+    public static final MapCodec<IntegratedWorkingStationRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
+        SizedIngredient.NESTED_CODEC.listOf(0, 9).optionalFieldOf("inputItems", List.of()).forGetter(IntegratedWorkingStationRecipe::inputItems),
+        SizedFluidIngredient.CODEC.optionalFieldOf("inputFluid", null).forGetter(IntegratedWorkingStationRecipe::inputFluid),
+        ItemStackTemplate.CODEC.optionalFieldOf("itemOutput").forGetter(IntegratedWorkingStationRecipe::optionalItemOutputTemplate),
+        FluidStackTemplate.CODEC.optionalFieldOf("fluidOutput").forGetter(IntegratedWorkingStationRecipe::optionalFluidOutputTemplate),
+        Codec.INT.fieldOf("energy").forGetter(IntegratedWorkingStationRecipe::energy)
+    ).apply(ins, (inputItems, inputFluid, itemOutput, fluidOutput, energy) ->
+        new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput.orElse(null), fluidOutput.orElse(null), energy)
+    ));
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, IntegratedWorkingStationRecipe> STREAM_CODEC = StreamCodec.composite(
+        SizedIngredient.STREAM_CODEC.apply(ByteBufCodecs.list(9)),
+        IntegratedWorkingStationRecipe::inputItems,
+        SizedFluidIngredient.STREAM_CODEC,
+        IntegratedWorkingStationRecipe::inputFluid,
+        ByteBufCodecs.optional(ItemStackTemplate.STREAM_CODEC),
+        IntegratedWorkingStationRecipe::optionalItemOutputTemplate,
+        ByteBufCodecs.optional(FluidStackTemplate.STREAM_CODEC),
+        IntegratedWorkingStationRecipe::optionalFluidOutputTemplate,
+        ByteBufCodecs.VAR_INT,
+        IntegratedWorkingStationRecipe::energy,
+        (inputItems, inputFluid, itemOutput, fluidOutput, energy) ->
+            new IntegratedWorkingStationRecipe(inputItems, inputFluid, itemOutput.orElse(null), fluidOutput.orElse(null), energy)
+    );
+
+    public static final RecipeSerializer<IntegratedWorkingStationRecipe> SERIALIZER = new RecipeSerializer<>(CODEC, STREAM_CODEC);
 
     public record Input(List<ItemStack> inputs, @Nullable FluidStack fluid) implements RecipeInput {
 

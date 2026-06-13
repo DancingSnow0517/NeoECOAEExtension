@@ -4,7 +4,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import lombok.Getter;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public enum ECOTier implements IECOTier {
     L4(
@@ -56,7 +56,7 @@ public enum ECOTier implements IECOTier {
     private final long storageTotalBytes;
     @Getter
     private final long powerStorageSize;
-    private final ResourceLocation cpuOverlayTexture;
+    private final Identifier cpuOverlayTexture;
     @Getter
     private final IGuiTexture craftingOverlayTexture;
 
@@ -69,7 +69,7 @@ public enum ECOTier implements IECOTier {
         long cpuTotalBytes,
         long storageTotalBytes,
         long powerStorageSize,
-        ResourceLocation cpuOverlayTexture,
+        Identifier cpuOverlayTexture,
         IGuiTexture craftingOverlayTexture
     ) {
         this.tier = tier;
@@ -100,7 +100,7 @@ public enum ECOTier implements IECOTier {
     }
 
     @Override
-    public ResourceLocation getCPUOverlayTexture() {
+    public Identifier getCPUOverlayTexture() {
         return cpuOverlayTexture;
     }
 }

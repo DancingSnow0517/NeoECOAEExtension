@@ -12,8 +12,9 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -64,14 +65,15 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     }
 
     @Override
-    public void saveAdditional(CompoundTag data, HolderLookup.Provider registries) {
-        super.saveAdditional(data, registries);
+    public void saveAdditional(ValueOutput data) {
+        super.saveAdditional(data);
+        var registries = level != null ? level.registryAccess() : ServerLifecycleHooks.getCurrentServer().registryAccess();
         for (int i = 0; i < cpus.length; i++) {
             ECOCraftingCPU cpu = cpus[i];
             if (cpu != null) {
                 CompoundTag tag = new CompoundTag();
                 cpu.writeToNBT(tag, registries);
-                data.put("CPU" + i, tag);
+                data.store("CPU" + i, CompoundTag.CODEC, tag);
             }
         }
     }
@@ -84,13 +86,8 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                 CompoundTag tag = deferredInit[i];
                 if (tag != null) {
                     ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
-                    HolderLookup.Provider registries = ServerLifecycleHooks.getCurrentServer()
-                        .getServerResources()
-                        .managers()
-                        .fullRegistries()
-                        .get();
                     deferredInit[i] = null;
-                    cpu.readFromNBT(tag, registries);
+                    cpu.readFromNBT(tag, level.registryAccess());
                     if (cpu.getPlan() != null) {
                         System.out.println("pickup cpu" + cpu + " " + cpu.getPlan());
                         cpus[i] = cpu;
@@ -102,12 +99,11 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     }
 
     @Override
-    public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
-        super.loadTag(data, registries);
+    public void loadTag(ValueInput data) {
+        super.loadTag(data);
         for (int i = 0; i < cpus.length; i++) {
-            if (data.contains("CPU" + i)) {
-                deferredInit[i] = data.getCompound("CPU" + i);
-            }
+            final int index = i;
+            data.read("CPU" + i, CompoundTag.CODEC).ifPresent(tag -> deferredInit[index] = tag);
         }
         markForUpdate();
     }

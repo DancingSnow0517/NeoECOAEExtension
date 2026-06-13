@@ -2,15 +2,9 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:crystal_matrix"
-    },
-    "B": {
-      "tag": "c:dusts/redstone"
-    },
-    "C": {
-      "tag": "c:ingots/aluminum_alloy"
-    }
+    "A": "neoecoae:crystal_matrix",
+    "B": "#c:dusts/redstone",
+    "C": "#c:ingots/aluminum_alloy"
   },
   "pattern": [
     "ABA",
@@ -18,7 +12,6 @@
     "CCC"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:eco_fluid_cell_housing"
   }
 }

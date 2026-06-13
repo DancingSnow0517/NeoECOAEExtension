@@ -2,21 +2,11 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "ae2:256k_crafting_storage"
-    },
-    "B": {
-      "item": "ae2:interface"
-    },
-    "C": {
-      "item": "ae2:controller"
-    },
-    "D": {
-      "item": "neoecoae:crafting_casing"
-    },
-    "E": {
-      "item": "neoecoae:crafting_vent"
-    }
+    "A": "ae2:256k_crafting_storage",
+    "B": "ae2:interface",
+    "C": "ae2:controller",
+    "D": "neoecoae:crafting_casing",
+    "E": "neoecoae:crafting_vent"
   },
   "pattern": [
     "ABA",
@@ -24,7 +14,6 @@
     "AEA"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:crafting_worker"
   }
 }

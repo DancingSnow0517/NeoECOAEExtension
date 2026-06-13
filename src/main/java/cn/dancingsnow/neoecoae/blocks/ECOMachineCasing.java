@@ -56,7 +56,7 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
     }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(INVISIBLE);
+    protected int getLightDampening(BlockState state) {
+        return state.getValue(INVISIBLE) ? 0 : super.getLightDampening(state);
     }
 }

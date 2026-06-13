@@ -18,7 +18,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -60,7 +59,7 @@ public class ECOComputationDriveBlockEntity
     private IECOTier tier = null;
 
     @Getter
-    private final IItemHandler itemHandler = new CellHostItemHandler(this);
+    private final CellHostItemHandler itemHandler = new CellHostItemHandler(this);
 
     public ECOComputationDriveBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);

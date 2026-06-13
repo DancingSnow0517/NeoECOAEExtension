@@ -3,11 +3,9 @@
   "cell": "neoecoae:eco_fluid_storage_cell_64m",
   "cell_disassembly_items": [
     {
-      "count": 1,
       "id": "neoecoae:eco_fluid_cell_housing"
     },
     {
-      "count": 1,
       "id": "neoecoae:eco_cell_component_64m"
     }
   ]

@@ -2,9 +2,7 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    {
-      "tag": "c:storage_blocks/raw_tungsten"
-    }
+    "#c:storage_blocks/raw_tungsten"
   ],
   "result": {
     "count": 9,

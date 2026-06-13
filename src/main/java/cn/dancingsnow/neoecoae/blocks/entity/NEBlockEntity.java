@@ -64,7 +64,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     public void updateMultiBlock(BlockPos changedPos) {
         if (level instanceof ServerLevel serverLevel) {
-            calculator.updateMultiblockAfterNeighborUpdate(serverLevel, worldPosition, changedPos);
+            calculator.calculateMultiblock(serverLevel, worldPosition);
         }
     }
 

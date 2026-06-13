@@ -11,7 +11,6 @@ import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
 
-import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -42,12 +41,7 @@ public class ECOHostSwitchRow extends UIElement {
         );
 
         if (!Component.empty().equals(tooltip)) {
-            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                List.of(tooltip),
-                null,
-                null,
-                null
-            ));
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.create(tooltip));
         }
     }
 }

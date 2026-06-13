@@ -2,18 +2,10 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:aluminum_alloy_casing"
-    },
-    "B": {
-      "item": "ae2:sky_stone_block"
-    },
-    "C": {
-      "item": "ae2:logic_processor"
-    },
-    "D": {
-      "tag": "c:storage_blocks/energized_fluix_crystal"
-    }
+    "A": "neoecoae:aluminum_alloy_casing",
+    "B": "ae2:sky_stone_block",
+    "C": "ae2:logic_processor",
+    "D": "#c:storage_blocks/energized_fluix_crystal"
   },
   "pattern": [
     "ABA",
@@ -21,7 +13,6 @@
     "ABA"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:storage_casing"
   }
 }

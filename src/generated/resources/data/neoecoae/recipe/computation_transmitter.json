@@ -2,21 +2,11 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:computation_casing"
-    },
-    "B": {
-      "item": "neoecoae:energized_superconductive_ingot"
-    },
-    "C": {
-      "tag": "ae2:covered_dense_cable"
-    },
-    "D": {
-      "item": "ae2:interface"
-    },
-    "E": {
-      "item": "ae2:calculation_processor"
-    }
+    "A": "neoecoae:computation_casing",
+    "B": "neoecoae:energized_superconductive_ingot",
+    "C": "#ae2:covered_dense_cable",
+    "D": "ae2:interface",
+    "E": "ae2:calculation_processor"
   },
   "pattern": [
     "ABA",
@@ -24,7 +14,6 @@
     "AEA"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:computation_transmitter"
   }
 }

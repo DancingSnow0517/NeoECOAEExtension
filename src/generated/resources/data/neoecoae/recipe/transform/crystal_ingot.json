@@ -4,21 +4,12 @@
     "type": "explosion"
   },
   "ingredients": [
-    {
-      "tag": "c:dusts/certus_quartz"
-    },
-    {
-      "tag": "c:dusts/fluix"
-    },
-    {
-      "tag": "c:dusts/energized_crystal"
-    },
-    {
-      "tag": "neoecoae:crystal_ingot_base"
-    }
+    "#c:dusts/certus_quartz",
+    "#c:dusts/fluix",
+    "#c:dusts/energized_crystal",
+    "#neoecoae:crystal_ingot_base"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:crystal_ingot"
   }
 }

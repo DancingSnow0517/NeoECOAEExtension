@@ -8,10 +8,10 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.client.resources.model.ModelIdentifier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -26,7 +26,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
 
     default void tessellateModelWithAO(
         BlockAndTintGetter level,
-        ResourceLocation model,
+        Identifier model,
         BlockState state,
         BlockPos pos,
         PoseStack poseStack,
@@ -49,7 +49,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
 
     default void tessellateModelWithAO(
         BlockAndTintGetter level,
-        ResourceLocation model,
+        Identifier model,
         BlockState state,
         BlockPos pos,
         PoseStack poseStack,
@@ -60,8 +60,8 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     ) {
         Minecraft mc = Minecraft.getInstance();
         ModelBlockRenderer modelRenderer = mc.getBlockRenderer().getModelRenderer();
-        BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
+        BakedModel bakedModel = mc.getModelManager().getStandaloneModel()
+            .getModel(ModelIdentifier.standalone(model));
         VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
         modelRenderer.tesselateWithAO(
             level,
@@ -80,7 +80,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     default void tessellateModel(
         PoseStack poseStack,
         MultiBufferSource bufferSource,
-        ResourceLocation model,
+        Identifier model,
         int packedLight,
         int packedOverlay
     ) {
@@ -97,14 +97,14 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     default void tessellateModel(
         PoseStack poseStack,
         MultiBufferSource bufferSource,
-        ResourceLocation model,
+        Identifier model,
         int packedLight,
         int packedOverlay,
         RenderType renderType
     ) {
         Minecraft mc = Minecraft.getInstance();
         BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
+            .getModel(ModelIdentifier.standalone(model));
         for (Direction value : Direction.values()) {
             List<BakedQuad> quads = bakedModel.getQuads(
                 null,

@@ -1,13 +1,10 @@
 {
   "type": "ae2:inscriber",
   "ingredients": {
-    "middle": {
-      "tag": "c:ingots/black_tungsten_alloy"
-    }
+    "middle": "#c:ingots/black_tungsten_alloy"
   },
   "mode": "inscribe",
   "result": {
-    "count": 1,
     "id": "neoecoae:black_tungsten_alloy_dust"
   }
 }

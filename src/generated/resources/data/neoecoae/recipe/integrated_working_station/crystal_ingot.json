@@ -3,24 +3,24 @@
   "energy": 200000,
   "inputFluid": {
     "amount": 2000,
-    "tag": "minecraft:lava"
+    "ingredient": "#minecraft:lava"
   },
   "inputItems": [
     {
       "count": 4,
-      "tag": "c:dusts/certus_quartz"
+      "ingredient": "#c:dusts/certus_quartz"
     },
     {
       "count": 4,
-      "tag": "c:dusts/fluix"
+      "ingredient": "#c:dusts/fluix"
     },
     {
       "count": 4,
-      "tag": "c:dusts/energized_crystal"
+      "ingredient": "#c:dusts/energized_crystal"
     },
     {
       "count": 4,
-      "tag": "neoecoae:crystal_ingot_base"
+      "ingredient": "#neoecoae:crystal_ingot_base"
     }
   ],
   "itemOutput": {

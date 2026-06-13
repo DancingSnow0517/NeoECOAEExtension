@@ -15,12 +15,9 @@
     "LightningBoltMixin",
     "PatternEncodingTermMenuMixin",
     "StoredEnergyAmountMixin",
-    "ae2.AECraftingPatternAccessor",
-    "aae.ContainerExIOPortMixin",
-    "aae.TileExIOPortMixin"
+    "ae2.AECraftingPatternAccessor"
   ],
   "client": [
-    "ModelBakeryMixin",
     "PatternEncodingTermScreenMixin"
   ],
   "server": [],

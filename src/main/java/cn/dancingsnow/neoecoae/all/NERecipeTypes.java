@@ -19,13 +19,13 @@ public class NERecipeTypes {
     public static final DeferredHolder<RecipeType<?>, RecipeType<CoolingRecipe>> COOLING = registerRecipe("cooling");
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<CoolingRecipe>> COOLING_SERIALIZER = RECIPE_SERIALIZER.register(
         "cooling",
-        CoolingRecipe.Serializer::new
+        () -> CoolingRecipe.SERIALIZER
     );
 
     public static final DeferredHolder<RecipeType<?>, RecipeType<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION = registerRecipe("integrated_working_station");
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<IntegratedWorkingStationRecipe>> INTEGRATED_WORKING_STATION_SERIALIZER = RECIPE_SERIALIZER.register(
         "integrated_working_station",
-        IntegratedWorkingStationRecipe.Serializer::new
+        () -> IntegratedWorkingStationRecipe.SERIALIZER
     );
 
     private static <T extends Recipe<?>> DeferredHolder<RecipeType<?>, RecipeType<T>> registerRecipe(String name) {

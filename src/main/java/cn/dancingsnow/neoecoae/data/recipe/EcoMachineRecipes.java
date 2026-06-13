@@ -2,24 +2,30 @@ package cn.dancingsnow.neoecoae.data.recipe;
 
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
-import appeng.datagen.providers.tags.ConventionTags;
+import appeng.core.ConventionTags;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEFluids;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
-import com.tterrag.registrate.providers.RegistrateRecipeProvider;
+import com.tterrag.registrate.providers.generators.RegistrateRecipeProvider;
+import net.minecraft.core.HolderGetter;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.common.Tags;
 
 public class EcoMachineRecipes {
     public static void init(RegistrateRecipeProvider provider) {
+        HolderGetter<Item> items = provider.itemLookup();
+        HolderGetter<Fluid> fluids = provider.registries().lookupOrThrow(Registries.FLUID);
         //Energized crystal
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED, 4)
             .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 4)
             .requireFluid(FluidTags.WATER, 250)
@@ -28,7 +34,7 @@ public class EcoMachineRecipes {
             .save(provider, NeoECOAE.id("integrated_working_station/energized_crystal"));
 
         //Energized fluix crystal
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 8)
             .require(ConventionTags.FLUIX_CRYSTAL, 8)
             .requireFluid(FluidTags.WATER, 250)
@@ -37,7 +43,7 @@ public class EcoMachineRecipes {
             .save(provider, NeoECOAE.id("integrated_working_station/energized_fluix_crystal"));
 
         //ECO - CE4
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEItems.ECO_CELL_COMPONENT_16M, 4)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 4)
@@ -46,7 +52,7 @@ public class EcoMachineRecipes {
             .energy(64000)
             .save(provider);
         //ECO - CE6
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEItems.ECO_CELL_COMPONENT_64M, 4)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 16)
@@ -55,7 +61,7 @@ public class EcoMachineRecipes {
             .energy(256000)
             .save(provider);
         //ECO - CE9
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEItems.ECO_CELL_COMPONENT_256M, 4)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
             .require(NEItems.SUPERCONDUCTING_PROCESSOR, 64)
@@ -65,7 +71,7 @@ public class EcoMachineRecipes {
             .save(provider);
 
         // Storage System
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.STORAGE_CASING, 4)
             .require(AEBlocks.DRIVE, 4)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
@@ -74,7 +80,7 @@ public class EcoMachineRecipes {
             .energy(16000)
             .save(provider);
 
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.STORAGE_SYSTEM_L4)
             .require(AEBlocks.DRIVE, 8)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 32)
@@ -83,7 +89,7 @@ public class EcoMachineRecipes {
             .energy(160000)
             .save(provider);
 
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.STORAGE_SYSTEM_L6)
             .require(AEBlocks.DRIVE, 16)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
@@ -93,7 +99,7 @@ public class EcoMachineRecipes {
             .save(provider);
 
         // computation system
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.COMPUTATION_CASING, 4)
             .require(NEBlocks.COMPUTATION_PARALLEL_CORE_L4, 2)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
@@ -102,7 +108,7 @@ public class EcoMachineRecipes {
             .energy(16000)
             .save(provider);
 
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.COMPUTATION_SYSTEM_L4)
             .require(NEBlocks.COMPUTATION_PARALLEL_CORE_L6, 2)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 32)
@@ -111,7 +117,7 @@ public class EcoMachineRecipes {
             .energy(160000)
             .save(provider);
 
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.COMPUTATION_SYSTEM_L6)
             .require(NEBlocks.COMPUTATION_PARALLEL_CORE_L9, 2)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
@@ -121,75 +127,75 @@ public class EcoMachineRecipes {
             .save(provider);
 
         // computation threading core
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_THREADING_CORE_L4)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_THREADING_CORE_L4)
             .pattern("ABA")
             .pattern("ACA")
             .pattern("ABA")
             .define('A', AEBlocks.CRAFTING_STORAGE_256K)
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
             .define('C', NEBlocks.COMPUTATION_CASING)
-            .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
+            .unlockedBy("has_computation_casing", provider.has(NEBlocks.COMPUTATION_CASING))
             .save(provider);
 
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_THREADING_CORE_L6)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_THREADING_CORE_L6)
             .pattern("ABA")
             .pattern("ABA")
             .pattern("ABA")
             .define('A', NEBlocks.COMPUTATION_THREADING_CORE_L4)
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_computation_thread_core_l4", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_THREADING_CORE_L4))
+            .unlockedBy("has_computation_thread_core_l4", provider.has(NEBlocks.COMPUTATION_THREADING_CORE_L4))
             .save(provider);
 
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_THREADING_CORE_L9)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_THREADING_CORE_L9)
             .pattern("ABA")
             .pattern("ABA")
             .pattern("ABA")
             .define('A', NEBlocks.COMPUTATION_THREADING_CORE_L6)
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_computation_thread_core_l6", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_THREADING_CORE_L6))
+            .unlockedBy("has_computation_thread_core_l6", provider.has(NEBlocks.COMPUTATION_THREADING_CORE_L6))
             .save(provider);
 
         // computation parallel core
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_PARALLEL_CORE_L4)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_PARALLEL_CORE_L4)
             .pattern("ABA")
             .pattern("ACA")
             .pattern("ABA")
             .define('A', AEBlocks.CRAFTING_ACCELERATOR)
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
             .define('C', NEBlocks.COMPUTATION_CASING)
-            .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
+            .unlockedBy("has_computation_casing", provider.has(NEBlocks.COMPUTATION_CASING))
             .save(provider);
 
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_PARALLEL_CORE_L6)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_PARALLEL_CORE_L6)
             .pattern("ABA")
             .pattern("ABA")
             .pattern("ABA")
             .define('A', NEBlocks.COMPUTATION_PARALLEL_CORE_L4)
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_computation_parallel_core_l4", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_PARALLEL_CORE_L4))
+            .unlockedBy("has_computation_parallel_core_l4", provider.has(NEBlocks.COMPUTATION_PARALLEL_CORE_L4))
             .save(provider);
 
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_PARALLEL_CORE_L9)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_PARALLEL_CORE_L9)
             .pattern("ABA")
             .pattern("ABA")
             .pattern("ABA")
             .define('A', NEBlocks.COMPUTATION_PARALLEL_CORE_L6)
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_computation_parallel_core_l6", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_PARALLEL_CORE_L6))
+            .unlockedBy("has_computation_parallel_core_l6", provider.has(NEBlocks.COMPUTATION_PARALLEL_CORE_L6))
             .save(provider);
 
         // computation cooling core
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4)
             .pattern("ABA")
             .pattern("BCB")
             .pattern("ABA")
             .define('A', Items.BLUE_ICE)
             .define('B', NEBlocks.COMPUTATION_CASING)
             .define('C', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
+            .unlockedBy("has_computation_casing", provider.has(NEBlocks.COMPUTATION_CASING))
             .save(provider);
 
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6)
             .pattern("ABA")
             .pattern("DCD")
             .pattern("ABA")
@@ -197,10 +203,10 @@ public class EcoMachineRecipes {
             .define('B', NEItems.CRYSTAL_INGOT)
             .define('C', NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4)
             .define('D', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_computation_cooling_controller_l4", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4))
+            .unlockedBy("has_computation_cooling_controller_l4", provider.has(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4))
             .save(provider);
 
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9)
             .pattern("ABA")
             .pattern("DCD")
             .pattern("ABA")
@@ -208,11 +214,11 @@ public class EcoMachineRecipes {
             .define('B', NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT)
             .define('C', NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6)
             .define('D', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_computation_cooling_controller_l6", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6))
+            .unlockedBy("has_computation_cooling_controller_l6", provider.has(NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6))
             .save(provider);
 
         // crafting system
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.CRAFTING_CASING, 4)
             .require(NEBlocks.CRAFTING_PARALLEL_CORE_L4, 2)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
@@ -221,7 +227,7 @@ public class EcoMachineRecipes {
             .energy(16000)
             .save(provider);
 
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.CRAFTING_SYSTEM_L4)
             .require(NEBlocks.CRAFTING_PARALLEL_CORE_L6, 2)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 32)
@@ -230,7 +236,7 @@ public class EcoMachineRecipes {
             .energy(160000)
             .save(provider);
 
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEBlocks.CRAFTING_SYSTEM_L6)
             .require(NEBlocks.CRAFTING_PARALLEL_CORE_L9, 2)
             .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
@@ -240,35 +246,35 @@ public class EcoMachineRecipes {
             .save(provider);
 
         // crafting parallel core
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.CRAFTING_PARALLEL_CORE_L4)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.CRAFTING_PARALLEL_CORE_L4)
             .pattern("AAA")
             .pattern("ABA")
             .pattern("AAA")
             .define('A', AEBlocks.CRAFTING_ACCELERATOR)
             .define('B', NEBlocks.CRAFTING_CASING)
-            .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
+            .unlockedBy("has_crafting_casing", provider.has(NEBlocks.CRAFTING_CASING))
             .save(provider);
 
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.CRAFTING_PARALLEL_CORE_L6)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.CRAFTING_PARALLEL_CORE_L6)
             .pattern("AAA")
             .pattern("ABA")
             .pattern("AAA")
             .define('A', NEBlocks.CRAFTING_PARALLEL_CORE_L4)
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_crafting_parallel_core_l4", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_PARALLEL_CORE_L4))
+            .unlockedBy("has_crafting_parallel_core_l4", provider.has(NEBlocks.CRAFTING_PARALLEL_CORE_L4))
             .save(provider);
 
-        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, NEBlocks.CRAFTING_PARALLEL_CORE_L9)
+        ShapedRecipeBuilder.shaped(items, RecipeCategory.MISC, NEBlocks.CRAFTING_PARALLEL_CORE_L9)
             .pattern("AAA")
             .pattern("ABA")
             .pattern("AAA")
             .define('A', NEBlocks.CRAFTING_PARALLEL_CORE_L6)
             .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
-            .unlockedBy("has_crafting_parallel_core_l6", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_PARALLEL_CORE_L6))
+            .unlockedBy("has_crafting_parallel_core_l6", provider.has(NEBlocks.CRAFTING_PARALLEL_CORE_L6))
             .save(provider);
 
         // cryotheum_solution
-        IntegratedWorkingStationRecipe.builder()
+        IntegratedWorkingStationRecipe.builder(items, fluids)
             .require(NEItems.CRYOTHEUM_CRYSTAL, 4)
             .require(NEItems.ENERGIZED_CRYSTAL, 2)
             .require(Tags.Items.DUSTS_REDSTONE, 2)

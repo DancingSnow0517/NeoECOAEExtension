@@ -4,23 +4,22 @@
   "inputItems": [
     {
       "count": 12,
-      "item": "ae2:cell_component_256k"
+      "ingredient": "ae2:cell_component_256k"
     },
     {
       "count": 32,
-      "item": "neoecoae:energized_superconductive_ingot"
+      "ingredient": "neoecoae:energized_superconductive_ingot"
     },
     {
       "count": 4,
-      "item": "neoecoae:superconducting_processor"
+      "ingredient": "neoecoae:superconducting_processor"
     },
     {
       "count": 1,
-      "item": "neoecoae:crystal_ingot"
+      "ingredient": "neoecoae:crystal_ingot"
     }
   ],
   "itemOutput": {
-    "count": 1,
     "id": "neoecoae:eco_cell_component_16m"
   }
 }

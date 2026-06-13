@@ -1,12 +1,7 @@
 package cn.dancingsnow.neoecoae.client;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
-import cn.dancingsnow.neoecoae.api.rendering.FixedBlockEntityRenderers;
-import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
-import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
@@ -27,7 +22,6 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public class NeoECOAEClient {
     public NeoECOAEClient(IEventBus modBus, ModContainer container) {
-        NEExtraModels.register();
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
     }
 
@@ -35,33 +29,11 @@ public class NeoECOAEClient {
     public static void onClientSetup(FMLClientSetupEvent event) {
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
         ECOComputationModels.runDeferredRegistration();
-        FixedBlockEntityRenderers.register(
-            NEBlockEntities.COMPUTATION_DRIVE.get(),
-            new ECOComputationDriveRenderer()
-        );
-        FixedBlockEntityRenderers.register(
-            NEBlockEntities.ECO_DRIVE.get(),
-            new ECODriveRenderer()
-        );
-//        FixedBlockEntityRenderers.register(
-//            NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L4.get(),
-//            new ECOComputationCoolingControllerRenderer()
-//        );
-//
-//        FixedBlockEntityRenderers.register(
-//            NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L6.get(),
-//            new ECOComputationCoolingControllerRenderer()
-//        );
-//
-//        FixedBlockEntityRenderers.register(
-//            NEBlockEntities.COMPUTATION_COOLING_CONTROLLER_L9.get(),
-//            new ECOComputationCoolingControllerRenderer()
-//        );
     }
 
     @SubscribeEvent
     public static void onAddChunkGeometry(AddSectionGeometryEvent event) {
-        event.addRenderer(c -> FixedBlockEntityRenderers.render(c, event.getSectionOrigin()));
+        event.addRenderer(context -> {});
     }
 
     @SuppressWarnings("unchecked")

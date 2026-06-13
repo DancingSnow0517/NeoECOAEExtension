@@ -57,8 +57,8 @@ public class ECOFluidOutputHatchBlock extends NEBlock<ECOFluidOutputHatchBlockEn
     }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
-        return state.getValue(FORMED);
+    protected int getLightDampening(BlockState state) {
+        return state.getValue(FORMED) ? 0 : super.getLightDampening(state);
     }
 
     @Override

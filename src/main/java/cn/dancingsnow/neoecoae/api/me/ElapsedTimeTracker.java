@@ -18,8 +18,9 @@
 
 package cn.dancingsnow.neoecoae.api.me;
 
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 import it.unimi.dsi.fastutil.objects.Reference2LongMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
@@ -43,32 +44,28 @@ public class ElapsedTimeTracker {
     public ElapsedTimeTracker() {
     }
 
-    public ElapsedTimeTracker(CompoundTag data) {
-        this.elapsedTime = data.getLong(NBT_ELAPSED_TIME);
-        readLongByTypeMap(data.getCompound(NBT_STARTED_WORK), startedWorkByType);
-        readLongByTypeMap(data.getCompound(NBT_COMPLETED_WORK), completedWorkByType);
+    public ElapsedTimeTracker(ValueInput data) {
+        this.elapsedTime = data.getLongOr(NBT_ELAPSED_TIME, 0);
+        readLongByTypeMap(data.childOrEmpty(NBT_STARTED_WORK), startedWorkByType);
+        readLongByTypeMap(data.childOrEmpty(NBT_COMPLETED_WORK), completedWorkByType);
     }
 
-    public CompoundTag writeToNBT() {
-        CompoundTag data = new CompoundTag();
+    public void writeToNBT(ValueOutput data) {
         data.putLong(NBT_ELAPSED_TIME, elapsedTime);
-        data.put(NBT_STARTED_WORK, writeLongByTypeMap(startedWorkByType));
-        data.put(NBT_COMPLETED_WORK, writeLongByTypeMap(completedWorkByType));
-        return data;
+        writeLongByTypeMap(data.child(NBT_STARTED_WORK), startedWorkByType);
+        writeLongByTypeMap(data.child(NBT_COMPLETED_WORK), completedWorkByType);
     }
 
-    private static void readLongByTypeMap(CompoundTag tag, Reference2LongMap<AEKeyType> output) {
+    private static void readLongByTypeMap(ValueInput tag, Reference2LongMap<AEKeyType> output) {
         for (var keyType : AEKeyTypes.getAll()) {
-            output.put(keyType, tag.getLong(keyType.getId().toString()));
+            output.put(keyType, tag.getLongOr(keyType.getId().toString(), 0));
         }
     }
 
-    private static CompoundTag writeLongByTypeMap(Reference2LongMap<AEKeyType> input) {
-        CompoundTag result = new CompoundTag();
+    private static void writeLongByTypeMap(ValueOutput result, Reference2LongMap<AEKeyType> input) {
         for (var entry : input.reference2LongEntrySet()) {
             result.putLong(entry.getKey().getId().toString(), entry.getLongValue());
         }
-        return result;
     }
 
     private void updateTime() {

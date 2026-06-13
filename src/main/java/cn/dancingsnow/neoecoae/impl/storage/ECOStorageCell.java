@@ -43,7 +43,7 @@ public class ECOStorageCell implements IECOStorageCell {
     private final IBasicECOCellItem cellType;
     @Getter
     private final AEKeyType keyType;
-    // 过滤器
+    // 过滤�?
     @Getter
     private final IPartitionList partitionList;
     @Getter
@@ -75,7 +75,7 @@ public class ECOStorageCell implements IECOStorageCell {
             this.cellType = c;
             this.tier = c.getTier();
 
-            // 根据已安装的升级和配置的过滤器更新分区列表和模式。
+            // 根据已安装的升级和配置的过滤器更新分区列表和模式�?
             var builder = IPartitionList.builder();
 
             var upgrades = getUpgradesInventory();
@@ -251,10 +251,10 @@ public class ECOStorageCell implements IECOStorageCell {
             return 0;
         }
 
-        // 执行常规插入逻辑，然后对返回值应用虚空升级效果。
+        // 执行常规插入逻辑，然后对返回值应用虚空升级效果�?
         long inserted = innerInsert(what, amount, mode);
 
-        // 当虚空卡用于（已满的）未格式化元件时，确保不会虚空掉元件未存储且无法存储的物品。
+        // 当虚空卡用于（已满的）未格式化元件时，确保不会虚空掉元件未存储且无法存储的物品�?
         if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
             return getCellItems().containsKey(what) ? amount : inserted;
         }
@@ -277,7 +277,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
         if (currentAmount <= 0) {
             if (!canHoldNewItem()) {
-                // 无更多类型空间
+                // 无更多类型空�?
                 return 0;
             }
 

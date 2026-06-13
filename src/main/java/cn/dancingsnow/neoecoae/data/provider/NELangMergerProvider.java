@@ -78,23 +78,24 @@ public class NELangMergerProvider implements DataProvider {
     private List<Pair<String, JsonElement>> getAllLocalizationFiles() {
         List<Pair<String, JsonElement>> localizationFiles = new ArrayList<>();
         IModFile file = ModList.get().getModFileById(modid).getFile();
-        try (Stream<Path> listDir = Files.list(file.findResource("assets", modid, "lang"))) {
-            listDir.forEach(p -> {
-                String fileName = p.getFileName().toString();
-                if (!fileName.endsWith(".json") || fileName.equals("en_us.json") || fileName.equals("en_ud.json")) {
-                    return;
-                }
-                try (BufferedReader bfr = Files.newBufferedReader(p)) {
-                    localizationFiles.add(Pair.of(p.getFileName().toString(), JsonParser.parseReader(bfr)));
-                } catch (IOException e) {
-                    LOGGER.error("Error reading file {}", p, e);
-                }
-            });
-        } catch (IOException e) {
-            LOGGER.error("Failed to list assets in lang file!", e);
+        for (Path root : file.getContents().getContentRoots()) {
+            Path langPath = root.resolve("assets").resolve(modid).resolve("lang");
+            try (Stream<Path> listDir = Files.list(langPath)) {
+                listDir.forEach(p -> {
+                    String fileName = p.getFileName().toString();
+                    if (!fileName.endsWith(".json") || fileName.equals("en_us.json") || fileName.equals("en_ud.json")) {
+                        return;
+                    }
+                    try (BufferedReader bfr = Files.newBufferedReader(p)) {
+                        localizationFiles.add(Pair.of(p.getFileName().toString(), JsonParser.parseReader(bfr)));
+                    } catch (IOException e) {
+                        LOGGER.error("Error reading file {}", p, e);
+                    }
+                });
+            } catch (IOException e) {
+                LOGGER.error("Failed to list assets in lang file!", e);
+            }
         }
-
-
         return localizationFiles;
     }
 

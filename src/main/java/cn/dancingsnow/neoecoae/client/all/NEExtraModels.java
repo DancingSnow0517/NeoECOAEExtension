@@ -4,8 +4,8 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import net.minecraft.client.resources.model.ModelResourceLocation;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.resources.model.ModelIdentifier;
+import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -16,37 +16,37 @@ import java.util.Set;
 
 @EventBusSubscriber(value = Dist.CLIENT)
 public class NEExtraModels {
-    private static final Set<ResourceLocation> MODELS = new HashSet<>();
+    private static final Set<Identifier> MODELS = new HashSet<>();
 
 
-    public static final ResourceLocation CABLE_L4 = id("block/compute/cable_l4");
-    public static final ResourceLocation CABLE_L6 = id("block/compute/cable_l6");
-    public static final ResourceLocation CABLE_L9 = id("block/compute/cable_l9");
+    public static final Identifier CABLE_L4 = id("block/compute/cable_l4");
+    public static final Identifier CABLE_L6 = id("block/compute/cable_l6");
+    public static final Identifier CABLE_L9 = id("block/compute/cable_l9");
 
-    public static final ResourceLocation CABLE_L4_DISCONNECTED = id("block/compute/cable_l4_dis");
-    public static final ResourceLocation CABLE_L6_DISCONNECTED = id("block/compute/cable_l6_dis");
-    public static final ResourceLocation CABLE_L9_DISCONNECTED = id("block/compute/cable_l9_dis");
+    public static final Identifier CABLE_L4_DISCONNECTED = id("block/compute/cable_l4_dis");
+    public static final Identifier CABLE_L6_DISCONNECTED = id("block/compute/cable_l6_dis");
+    public static final Identifier CABLE_L9_DISCONNECTED = id("block/compute/cable_l9_dis");
 
-    public static final ResourceLocation COMPUTATION_CELL_L4 = id("block/compute/cell_l4");
-    public static final ResourceLocation COMPUTATION_CELL_L6 = id("block/compute/cell_l6");
-    public static final ResourceLocation COMPUTATION_CELL_L9 = id("block/compute/cell_l9");
+    public static final Identifier COMPUTATION_CELL_L4 = id("block/compute/cell_l4");
+    public static final Identifier COMPUTATION_CELL_L6 = id("block/compute/cell_l6");
+    public static final Identifier COMPUTATION_CELL_L9 = id("block/compute/cell_l9");
 
-    public static final ResourceLocation COMPUTATION_CELL_L4_FORMED = id("block/compute/cell_l4_formed");
-    public static final ResourceLocation COMPUTATION_CELL_L6_FORMED = id("block/compute/cell_l6_formed");
-    public static final ResourceLocation COMPUTATION_CELL_L9_FORMED = id("block/compute/cell_l9_formed");
+    public static final Identifier COMPUTATION_CELL_L4_FORMED = id("block/compute/cell_l4_formed");
+    public static final Identifier COMPUTATION_CELL_L6_FORMED = id("block/compute/cell_l6_formed");
+    public static final Identifier COMPUTATION_CELL_L9_FORMED = id("block/compute/cell_l9_formed");
 
-    public static final ResourceLocation COMPUTATION_COOLING_CONTROLLER_GLASS = id("block/compute/computation_cooling_controller_glass");
+    public static final Identifier COMPUTATION_COOLING_CONTROLLER_GLASS = id("block/compute/computation_cooling_controller_glass");
 
-    private static ResourceLocation id(String path) {
-        ResourceLocation id = NeoECOAE.id(path);
+    private static Identifier id(String path) {
+        Identifier id = NeoECOAE.id(path);
         MODELS.add(id);
         return id;
     }
 
     @SubscribeEvent
     public static void onRegisterExtraModels(ModelEvent.RegisterAdditional event) {
-        for (ResourceLocation model : MODELS) {
-            event.register(ModelResourceLocation.standalone(model));
+        for (Identifier model : MODELS) {
+            event.register(ModelIdentifier.standalone(model));
         }
     }
 

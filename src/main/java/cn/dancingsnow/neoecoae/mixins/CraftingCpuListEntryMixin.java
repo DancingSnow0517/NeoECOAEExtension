@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.mixins;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -16,15 +16,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class CraftingCpuListEntryMixin implements IOverlayTextureHolder {
 
     @Unique
-    private ResourceLocation neoecoae$overlayTexture = null;
+    private Identifier neoecoae$overlayTexture = null;
 
     @Override
-    public @Nullable ResourceLocation neoecoae$getOverlay() {
+    public @Nullable Identifier neoecoae$getOverlay() {
         return neoecoae$overlayTexture;
     }
 
     @Override
-    public void neoecoae$setOverlay(@Nullable ResourceLocation overlay) {
+    public void neoecoae$setOverlay(@Nullable Identifier overlay) {
         neoecoae$overlayTexture = overlay;
     }
 
@@ -36,7 +36,7 @@ public class CraftingCpuListEntryMixin implements IOverlayTextureHolder {
         CraftingStatusMenu.CraftingCpuListEntry entry = cir.getReturnValue();
         String texture = buf.readUtf();
         if (!texture.isEmpty()) {
-            IOverlayTextureHolder.of(entry).neoecoae$setOverlay(ResourceLocation.parse(texture));
+            IOverlayTextureHolder.of(entry).neoecoae$setOverlay(Identifier.parse(texture));
         } else {
             IOverlayTextureHolder.of(entry).neoecoae$setOverlay(null);
         }

@@ -1,16 +1,9 @@
 {
   "type": "minecraft:smithing_transform",
-  "addition": {
-    "tag": "c:ingots/aluminum_alloy"
-  },
-  "base": {
-    "item": "neoecoae:aluminum_sword"
-  },
+  "addition": "#c:ingots/aluminum_alloy",
+  "base": "neoecoae:aluminum_sword",
   "result": {
-    "count": 1,
     "id": "neoecoae:aluminum_alloy_sword"
   },
-  "template": {
-    "item": "neoecoae:aluminum_alloy_upgrade_smithing_template"
-  }
+  "template": "neoecoae:aluminum_alloy_upgrade_smithing_template"
 }

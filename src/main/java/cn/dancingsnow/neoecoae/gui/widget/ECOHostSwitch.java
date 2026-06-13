@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.widget;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
-import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.IGUIContext;
 import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegister;
 
 @LDLRegister(name = "eco-host-switch", group = "neoecoae", registry = "ldlib2:ui_element")
@@ -15,12 +15,8 @@ public class ECOHostSwitch extends Switch {
     }
 
     @Override
-    public void drawBackgroundTexture(GUIContext guiContext) {
+    protected void drawBackgroundTexture(IGUIContext guiContext) {
         guiContext.drawTexture(selectTexture(isOn(), isHover()), getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
-    }
-
-    @Override
-    public void drawContents(GUIContext guiContext) {
     }
 
     static IGuiTexture selectTexture(boolean isOn, boolean isHover) {

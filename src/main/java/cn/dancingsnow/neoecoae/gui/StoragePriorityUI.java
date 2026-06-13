@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui;
 
-import appeng.client.gui.Icon;
+import appeng.util.Icon;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
@@ -151,7 +151,7 @@ public final class StoragePriorityUI {
     }
 
     private static HoverTooltips tooltip(String key) {
-        return new HoverTooltips(List.of(Component.translatable(key)), null, null, null);
+        return HoverTooltips.create(Component.translatable(key));
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {

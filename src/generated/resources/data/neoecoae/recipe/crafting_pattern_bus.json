@@ -2,18 +2,10 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "neoecoae:crafting_casing"
-    },
-    "B": {
-      "item": "ae2:pattern_provider"
-    },
-    "C": {
-      "item": "ae2:interface"
-    },
-    "D": {
-      "item": "ae2:engineering_processor"
-    }
+    "A": "neoecoae:crafting_casing",
+    "B": "ae2:pattern_provider",
+    "C": "ae2:interface",
+    "D": "ae2:engineering_processor"
   },
   "pattern": [
     "ABA",
@@ -21,7 +13,6 @@
     "ADA"
   ],
   "result": {
-    "count": 1,
     "id": "neoecoae:crafting_pattern_bus"
   }
 }

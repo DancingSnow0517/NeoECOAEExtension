@@ -3,11 +3,8 @@
   "category": "misc",
   "cookingtime": 200,
   "experience": 1.0,
-  "ingredient": {
-    "tag": "c:raw_materials/tungsten"
-  },
+  "ingredient": "#c:raw_materials/tungsten",
   "result": {
-    "count": 1,
     "id": "neoecoae:tungsten_ingot"
   }
 }

@@ -1,16 +1,9 @@
 {
   "type": "minecraft:smithing_transform",
-  "addition": {
-    "tag": "c:ingots/black_tungsten_alloy"
-  },
-  "base": {
-    "item": "neoecoae:tungsten_axe"
-  },
+  "addition": "#c:ingots/black_tungsten_alloy",
+  "base": "neoecoae:tungsten_axe",
   "result": {
-    "count": 1,
     "id": "neoecoae:black_tungsten_alloy_axe"
   },
-  "template": {
-    "item": "neoecoae:black_tungsten_alloy_upgrade_smithing_template"
-  }
+  "template": "neoecoae:black_tungsten_alloy_upgrade_smithing_template"
 }

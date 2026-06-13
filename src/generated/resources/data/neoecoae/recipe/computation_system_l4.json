@@ -4,23 +4,22 @@
   "inputItems": [
     {
       "count": 4,
-      "item": "neoecoae:computation_casing"
+      "ingredient": "neoecoae:computation_casing"
     },
     {
       "count": 2,
-      "item": "neoecoae:computation_parallel_core_l4"
+      "ingredient": "neoecoae:computation_parallel_core_l4"
     },
     {
       "count": 16,
-      "item": "neoecoae:energized_superconductive_ingot"
+      "ingredient": "neoecoae:energized_superconductive_ingot"
     },
     {
       "count": 16,
-      "item": "neoecoae:superconducting_processor"
+      "ingredient": "neoecoae:superconducting_processor"
     }
   ],
   "itemOutput": {
-    "count": 1,
     "id": "neoecoae:computation_system_l4"
   }
 }

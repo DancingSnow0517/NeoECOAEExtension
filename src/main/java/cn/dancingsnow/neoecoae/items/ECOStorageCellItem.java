@@ -24,15 +24,17 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -43,6 +45,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
@@ -89,13 +92,13 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> lines, TooltipFlag tooltipFlag) {
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
         }
-        lines.add(Tooltips.bytesUsed(handler.getUsedBytes(), handler.getTotalBytes()));
-        lines.add(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
+        lines.accept(Tooltips.bytesUsed(handler.getUsedBytes(), handler.getTotalBytes()));
+        lines.accept(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
     }
 
     @Override
@@ -192,40 +195,49 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         this.disassembleDrive(player.getItemInHand(hand), level, player);
-        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), player.getItemInHand(hand));
+        InteractionResult.Success result = level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
+        return result.heldItemTransformedTo(player.getItemInHand(hand));
     }
 
     @Override
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
         return this.disassembleDrive(stack, context.getLevel(), context.getPlayer())
-            ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
+            ? context.getLevel().isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER
             : InteractionResult.PASS;
     }
 
-    private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
+    private boolean disassembleDrive(ItemStack stack, Level level, @Nullable Player player) {
+        if (player == null) {
+            return false;
+        }
         if (!InteractionUtil.isInAlternateUseMode(player)) {
             return false;
         }
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return true;
+        }
 
-        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
+        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(serverLevel, stack.getItem());
         if (disassembledStacks.isEmpty()) {
             return false;
         }
 
         Inventory playerInventory = player.getInventory();
-        if (playerInventory.getSelected() != stack) {
+        if (playerInventory.getSelectedItem() != stack) {
             return false;
         }
 
         ECOStorageCell cellInventory = getCellInventory(stack);
         if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
-            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            if (player instanceof ServerPlayer serverPlayer) {
+                serverPlayer.sendSystemMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            }
             return false;
         }
 
-        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
+        playerInventory.setSelectedItem(ItemStack.EMPTY);
 
         // Drop items from the recipe.
         for (var disassembledStack : disassembledStacks) {

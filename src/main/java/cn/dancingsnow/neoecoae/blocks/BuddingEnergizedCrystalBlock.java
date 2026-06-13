@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.blocks;
 
 import appeng.block.AEBaseBlock;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;

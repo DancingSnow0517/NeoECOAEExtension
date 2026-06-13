@@ -51,18 +51,18 @@ public class ECOCraftingCPULogic {
     final ECOCraftingCPU cpu;
 
     /**
-     * 当前合成任务。
+     * 当前合成任务�?
      */
     @Getter
     private ExecutingCraftingJob job = null;
     /**
-     * 库存。
+     * 库存�?
      */
     @Getter
     private final ListCraftingInventory inventory = new ListCraftingInventory(ECOCraftingCPULogic.this::postChange);
     private final Set<Consumer<AEKey>> listeners = new HashSet<>();
     /**
-     * 如果 CPU 正在尝试清空库存但无法完成，则为 true。
+     * 如果 CPU 正在尝试清空库存但无法完成，则为 true�?
      */
     @Getter
     private boolean cantStoreItems = false;
@@ -84,43 +84,43 @@ public class ECOCraftingCPULogic {
 
     public ICraftingSubmitResult trySubmitJob(
             IGrid grid, ICraftingPlan plan, IActionSource src, @Nullable ICraftingRequester requester) {
-        // 已有任务在运行。
+        // 已有任务在运行�?
         if (this.job != null)
             return CraftingSubmitResult.CPU_BUSY;
-        // 检查节点是否活跃。
+        // 检查节点是否活跃�?
         if (!cpu.isActive())
             return CraftingSubmitResult.CPU_OFFLINE;
-        // 检查存储字节数。
+        // 检查存储字节数�?
         if (cpu.getAvailableStorage() < plan.bytes())
             return CraftingSubmitResult.CPU_TOO_SMALL;
 
         if (!inventory.list.isEmpty())
             AELog.warn("Crafting CPU inventory is not empty yet a job was submitted.");
 
-        // 尝试提取所需物品。
+        // 尝试提取所需物品�?
         var missingIngredient = CraftingCpuHelper.tryExtractInitialItems(plan, grid, inventory, src);
         if (missingIngredient != null)
             return CraftingSubmitResult.missingIngredient(missingIngredient);
 
-        // 设置 CPU 链接与任务。
+        // 设置 CPU 链接与任务�?
         var playerId = src.player()
                 .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
                 .orElse(null);
         var craftId = UUID.randomUUID();
-        var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
+        var linkCpu = new CraftingLink(craftId, requester == null, cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
 
-        // 合成监视器暂不支持
+        // 合成监视器暂不支�?
         // cpu.updateOutput(plan.finalOutput());
         cpu.markDirty();
 
-        // TODO: 发送监视器差异？
+        // TODO: 发送监视器差异�?
 
         notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
 
-        // 非独立任务需要为请求者创建另一个链接，两个链接都需要提交到缓存。
+        // 非独立任务需要为请求者创建另一个链接，两个链接都需要提交到缓存�?
         if (requester != null) {
-            var linkReq = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, false, true), requester);
+            var linkReq = new CraftingLink(craftId, false, requester);
 
             var craftingService = (CraftingService) grid.getCraftingService();
             craftingService.addLink(linkCpu);
@@ -133,11 +133,11 @@ public class ECOCraftingCPULogic {
     }
 
     public void tickCraftingLogic(IEnergyService eg, CraftingService cc) {
-        // 未激活时不 tick。
+        // 未激活时�?tick�?
         if (!cpu.isActive())
             return;
         cantStoreItems = false;
-        // 无任务时只需尝试清空物品。
+        // 无任务时只需尝试清空物品�?
         if (this.job == null) {
             this.storeItems();
             if (!this.inventory.list.isEmpty()) {
@@ -149,7 +149,7 @@ public class ECOCraftingCPULogic {
             }
             return;
         }
-        // 检查任务是否已被取消。
+        // 检查任务是否已被取消�?
         if (job.link.isCanceled()) {
             cancel();
             return;
@@ -181,9 +181,9 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * 尝试将 pattern 推送到可用接口中，即执行实际的合成操作。
+     * 尝试�?pattern 推送到可用接口中，即执行实际的合成操作�?
      *
-     * @return 成功推送的 pattern 数量。
+     * @return 成功推送的 pattern 数量�?
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
@@ -462,22 +462,22 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * 由 CraftingService 以 Integer.MAX_VALUE 优先级调用，用于注入正在等待的物品。
+     * �?CraftingService �?Integer.MAX_VALUE 优先级调用，用于注入正在等待的物品�?
      *
-     * @return 已消耗数量。
+     * @return 已消耗数量�?
      */
     public long insert(AEKey what, long amount, Actionable type) {
-        // 任务完成时也停止接收物品，防止在 storeItems 推出物品时重新插入
+        // 任务完成时也停止接收物品，防止在 storeItems 推出物品时重新插�?
         if (what == null || job == null)
             return 0;
 
-        // 只接收正在等待的物品。
+        // 只接收正在等待的物品�?
         var waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
         if (waitingFor <= 0) {
             return 0;
         }
 
-        // 确保不接收超出等待数量的物品。
+        // 确保不接收超出等待数量的物品�?
         if (amount > waitingFor) {
             amount = waitingFor;
         }
@@ -490,19 +490,19 @@ public class ECOCraftingCPULogic {
 
         long inserted = amount;
         if (what.matches(job.finalOutput)) {
-            // 最终输出是特殊的：直接发送给请求者
+            // 最终输出是特殊的：直接发送给请求�?
             inserted = job.link.insert(what, amount, type);
 
-            // 注意：我们忽略任何余数（如果没有请求者，余数可能是整个输入），
-            // 我们已经将物品标记为已完成，甚至可能完成整个任务。
+            // 注意：我们忽略任何余数（如果没有请求者，余数可能是整个输入）�?
+            // 我们已经将物品标记为已完成，甚至可能完成整个任务�?
 
-            // 这意味着即使某些物品实际未被插入，任务也可能被标记为完成。
-            // 在某些情况下，最终输出的一小部分反复插入失败可能会阻止某些配方被推送。
-            // TODO: 考虑修复此问题，也许可以使用网络监视器检查实际插入量。
-            // TODO: 另一种解决方案是等待所有配方被推送后再取消任务。
+            // 这意味着即使某些物品实际未被插入，任务也可能被标记为完成�?
+            // 在某些情况下，最终输出的一小部分反复插入失败可能会阻止某些配方被推送�?
+            // TODO: 考虑修复此问题，也许可以使用网络监视器检查实际插入量�?
+            // TODO: 另一种解决方案是等待所有配方被推送后再取消任务�?
 
             if (type == Actionable.MODULATE) {
-                // 更新计数和显示的 CPU 堆栈，如果可能则完成任务。
+                // 更新计数和显示的 CPU 堆栈，如果可能则完成任务�?
                 postChange(what);
                 job.remainingAmount = Math.max(0, job.remainingAmount - amount);
 
@@ -520,9 +520,9 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * 完成当前合成任务。
+     * 完成当前合成任务�?
      *
-     * @param success 任务完成则为 true，取消则为 false。
+     * @param success 任务完成则为 true，取消则�?false�?
      */
     private void finishJob(boolean success) {
         if (success) {
@@ -533,9 +533,9 @@ public class ECOCraftingCPULogic {
 
         // TODO: 记录日志
 
-        // 清空等待列表并发送所有相关变更通知。
+        // 清空等待列表并发送所有相关变更通知�?
         job.waitingFor.clear();
-        // 通知已打开菜单关于已取消的调度任务。
+        // 通知已打开菜单关于已取消的调度任务�?
         for (var entry : job.tasks.entrySet()) {
             for (var output : entry.getKey().getOutputs()) {
                 postChange(output.what());
@@ -545,15 +545,15 @@ public class ECOCraftingCPULogic {
         notifyJobOwner(
                 job, success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
 
-        // 结束任务。
+        // 结束任务�?
         this.job = null;
 
-        // 存储所有剩余物品。
+        // 存储所有剩余物品�?
         this.storeItems();
     }
 
     /**
-     * 取消当前合成任务。
+     * 取消当前合成任务�?
      */
     public void cancel() {
         // 没有可取消的任务 :P
@@ -577,11 +577,11 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * 尝试将所有本地存储的物品转存回存储网络。
+     * 尝试将所有本地存储的物品转存回存储网络�?
      */
     public void storeItems() {
         Preconditions.checkState(job == null, "CPU should not have a job to prevent re-insertion when dumping items");
-        // 无事可做则快速返回。
+        // 无事可做则快速返回�?
         if (this.inventory.list.isEmpty())
             return;
 
@@ -596,7 +596,7 @@ public class ECOCraftingCPULogic {
             var inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE,
                     cpu.getActionSource());
 
-            // 网络无法接收全部物品，即存储空间不足或已满
+            // 网络无法接收全部物品，即存储空间不足或已�?
             entry.setValue(entry.getLongValue() - inserted);
         }
         this.inventory.list.removeZeros();
@@ -708,17 +708,19 @@ public class ECOCraftingCPULogic {
     }
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        this.inventory.readFromNBT(data.getList("inventory", 10), registries);
-        if (data.contains("job")) {
-            this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
+        var input = NbtValueIO.input(registries, data);
+        this.inventory.deserialize(input.childrenListOrEmpty("inventory"));
+        input.child("job").ifPresent(jobData -> {
+            this.job = new ExecutingCraftingJob(jobData, this::postChange, this);
             if (this.job.finalOutput == null) {
                 finishJob(false);
             }
-        }
+        });
     }
 
     public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        data.put("inventory", this.inventory.writeToNBT(registries));
+        data.put("inventory", NbtValueIO.write(registries, output ->
+                this.inventory.serialize(output.childrenList("inventory"))).getList("inventory").orElseThrow());
         if (this.job != null) {
             data.put("job", this.job.writeToNBT(registries));
         }
@@ -732,8 +734,8 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * 注册一个监听器，当存储物品、等待物品或待处理输出发生变化时接收通知。
-     * 仅供菜单使用。务必通过 {@link #removeListener} 来移除。
+     * 注册一个监听器，当存储物品、等待物品或待处理输出发生变化时接收通知�?
+     * 仅供菜单使用。务必通过 {@link #removeListener} 来移除�?
      */
     public void addListener(Consumer<AEKey> listener) {
         listeners.add(listener);
@@ -777,7 +779,7 @@ public class ECOCraftingCPULogic {
     }
 
     /**
-     * 供菜单使用，收集所有类型的存储物品。
+     * 供菜单使用，收集所有类型的存储物品�?
      */
     public void getAllItems(KeyCounter out) {
         out.addAll(this.inventory.list);

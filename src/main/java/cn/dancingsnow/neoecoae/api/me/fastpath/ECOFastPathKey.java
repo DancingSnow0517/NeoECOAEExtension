@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,7 +15,7 @@ public final class ECOFastPathKey {
     private final Object patternIdentity;
 
     @Nullable
-    private final ResourceLocation dimension;
+    private final Identifier dimension;
 
     private final long reloadGeneration;
     private final List<SlotSignature> slots;
@@ -23,7 +23,7 @@ public final class ECOFastPathKey {
 
     private ECOFastPathKey(
         Object patternIdentity,
-        @Nullable ResourceLocation dimension,
+        @Nullable Identifier dimension,
         long reloadGeneration,
         List<SlotSignature> slots
     ) {
@@ -44,7 +44,7 @@ public final class ECOFastPathKey {
             return Optional.empty();
         }
         try {
-            ResourceLocation dimension = level == null ? null : level.dimension().location();
+            Identifier dimension = level == null ? null : level.dimension().identifier();
             List<SlotSignature> slots = new ArrayList<>(craftingContainer.length);
             for (KeyCounter counter : craftingContainer) {
                 List<EntrySignature> entries = new ArrayList<>();

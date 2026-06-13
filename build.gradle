@@ -90,20 +90,24 @@ repositories {
     }
     maven { url "https://maven.shedaniel.me/" }
     maven { url "https://maven.minecraftforge.net/" }
+    maven { // Registrate
+        url "https://maven.gegy.dev/releases"
+    }
 }
 
 dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
-    api("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
-    jarJar("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
+    api("com.tterrag.registrate:Registrate:MC26.1-1.5.4")
+    jarJar("com.tterrag.registrate:Registrate:MC26.1-1.5.4")
 
     implementation("org.appliedenergistics:appliedenergistics2:26.1.9-alpha")
+    implementation("org.appliedenergistics:guideme:26.1.10-alpha")
 
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-26.1:${ldlib2_version}")
     compileOnly("dev.vfyjxf:taffy:${taffy_version}")
 
-    // implementation("curse.maven:mekanism-268560:7132168")
     // implementation("curse.maven:applied-mekanistics-574300:7096962")
 
     // implementation("curse.maven:glodium-957920:5821676")
@@ -188,6 +192,26 @@ neoForge {
 
 sourceSets.main.resources {
     srcDirs 'src/generated/resources', 'src/guidebook/resources'
+}
+
+sourceSets.main.java {
+    exclude 'cn/dancingsnow/neoecoae/api/rendering/**'
+    exclude 'cn/dancingsnow/neoecoae/api/ECOCellModels.java'
+    exclude 'cn/dancingsnow/neoecoae/client/model/**'
+    exclude 'cn/dancingsnow/neoecoae/client/renderer/blockentity/**'
+    exclude 'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java'
+    exclude 'cn/dancingsnow/neoecoae/client/all/NEExtraModels.java'
+    exclude 'cn/dancingsnow/neoecoae/mixins/aae/**'
+    exclude 'cn/dancingsnow/neoecoae/mixins/ModelBakeryMixin.java'
+    exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
+    exclude 'cn/dancingsnow/neoecoae/integration/appflux/**'
+    exclude 'cn/dancingsnow/neoecoae/integration/appmek/**'
+    exclude 'cn/dancingsnow/neoecoae/integration/arsenergistique/**'
+    exclude 'cn/dancingsnow/neoecoae/integration/emi/**'
+    exclude 'cn/dancingsnow/neoecoae/integration/jade/**'
+    exclude 'cn/dancingsnow/neoecoae/integration/jei/**'
+    exclude 'cn/dancingsnow/neoecoae/integration/kubejs/**'
+    exclude 'cn/dancingsnow/neoecoae/integration/xei/**'
 }
 
 sourceSets.test {

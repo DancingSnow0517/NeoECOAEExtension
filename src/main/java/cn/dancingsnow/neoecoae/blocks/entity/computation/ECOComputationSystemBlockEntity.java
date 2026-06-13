@@ -140,7 +140,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         ))));
 
         UIElement root = ECOHostWidgets.hostPanel(
-            () -> getItemFromBlockEntity().getDescription(),
+            () -> getItemFromBlockEntity().getName(getItemFromBlockEntity().getDefaultInstance()),
             () -> Component.translatable("gui.neoecoae.host.computation.subtitle"),
             () -> Component.translatable(buildInProgress ? "gui.neoecoae.host.status.running" : "gui.neoecoae.host.status.online"),
             List.of(
