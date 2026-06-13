@@ -338,10 +338,7 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
     private void drawPageButtonBackground(GuiGraphics graphics, int mouseX, int mouseY, int localX) {
         int x = absX(localX);
         int y = absY(PAGE_BUTTON_Y);
-        NELDLibClientStyle.drawAeToolbarButton(graphics, x, y, PAGE_BUTTON_W, PAGE_BUTTON_H);
-        if (mouseX >= x && mouseX < x + PAGE_BUTTON_W && mouseY >= y && mouseY < y + PAGE_BUTTON_H) {
-            graphics.fill(x + 1, y + 1, x + PAGE_BUTTON_W - 1, y + PAGE_BUTTON_H - 1, 0x28FFFFFF);
-        }
+        NELDLibClientStyle.drawAeToolbarButton(graphics, mouseX, mouseY, x, y, PAGE_BUTTON_W, PAGE_BUTTON_H, false);
     }
 
     private Component truncateTitle(Component text, int maxWidth) {

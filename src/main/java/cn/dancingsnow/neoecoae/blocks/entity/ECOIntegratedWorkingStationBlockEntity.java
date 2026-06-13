@@ -54,6 +54,8 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -100,14 +102,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     private final FluidTank inputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged() {
-            setChanged();
             onChangeTank();
         }
     };
     private final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged() {
-            setChanged();
             onChangeTank();
         }
     };
@@ -362,25 +362,34 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     private void onUpgradeInventoryChanged() {
         invalidateRecipeCache();
         saveChanges();
-        markForUpdate();
+        markContentsChanged();
     }
 
     /** Called by LDLib inventory bridges when the UI modifies the inventory. */
     public void onGuiInventoryChanged() {
-        onChangeInventory();
-        setChanged();
-        markForUpdate();
+        markInventoryChanged();
+    }
+
+    public void onGuiStateChanged() {
+        markContentsChanged();
     }
 
     @Override
     public void onChangeInventory(InternalInventory inv, int slot) {
-        onChangeInventory();
-        setChanged();
-        markForUpdate();
+        markInventoryChanged();
     }
 
     public void onChangeTank() {
+        markInventoryChanged();
+    }
+
+    private void markInventoryChanged() {
         onChangeInventory();
+        markContentsChanged();
+    }
+
+    private void markContentsChanged() {
+        setChanged();
         markForUpdate();
     }
 
@@ -519,7 +528,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 if (out != null && tryCompleteRecipe(out)) {
                     this.setProcessingTime(0);
                     this.saveChanges();
-                    this.markForUpdate();
                     this.invalidateRecipeCache();
                     this.setWorking(false);
                 }
@@ -571,8 +579,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         if (fluidAmount > 0) {
             inputTank.drain(fluidAmount, IFluidHandler.FluidAction.EXECUTE);
         }
-        setChanged();
-        markForUpdate();
+        markContentsChanged();
         return true;
     }
 
@@ -636,8 +643,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             this.outputInv.insertItem(0, remainder, false);
         }
         if (insertedAmount > 0) {
-            setChanged();
-            markForUpdate();
+            markContentsChanged();
         }
         return insertedAmount > 0;
     }
@@ -675,8 +681,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         }
 
         if (this.outputTank.getFluidAmount() == 0) clearFluidOut();
-        setChanged();
-        markForUpdate();
+        markContentsChanged();
         return insertedAmount > 0;
     }
 
@@ -722,7 +727,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         invalidateRecipeCache();
 
         saveChanges();
-        markForUpdate();
+        markContentsChanged();
     }
 
     @Override
@@ -744,18 +749,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     public void clearFluid() {
         if (!this.inputTank.getFluid().isEmpty()) {
             this.inputTank.setFluid(FluidStack.EMPTY);
-            onChangeTank();
-            setChanged();
-            markForUpdate();
         }
     }
 
     public void clearFluidOut() {
         if (!this.outputTank.getFluid().isEmpty()) {
             this.outputTank.setFluid(FluidStack.EMPTY);
-            onChangeTank();
-            setChanged();
-            markForUpdate();
         }
     }
 
@@ -774,9 +773,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         FluidActionResult result = FluidUtil.tryEmptyContainer(carried, inputTank, BUCKET_VOLUME, player, true);
         if (result.isSuccess()) {
             player.containerMenu.setCarried(result.getResult());
-            onChangeTank();
-            setChanged();
-            markForUpdate();
             return;
         }
 
@@ -784,9 +780,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         result = FluidUtil.tryFillContainer(carried, inputTank, BUCKET_VOLUME, player, true);
         if (result.isSuccess()) {
             player.containerMenu.setCarried(result.getResult());
-            onChangeTank();
-            setChanged();
-            markForUpdate();
         }
     }
 
@@ -811,6 +804,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     private void writeUiSyncTag(CompoundTag tag) {
+        tag.put("neo_inputInv", writeInventorySync(inputInv));
+        tag.put("neo_outputInv", writeInventorySync(outputInv));
         tag.put("neo_inputTank", inputTank.writeToNBT(new CompoundTag()));
         tag.put("neo_outputTank", outputTank.writeToNBT(new CompoundTag()));
         tag.putInt("neo_processingTime", processingTime);
@@ -819,11 +814,40 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     private void readUiSyncTag(CompoundTag tag) {
+        if (tag.contains("neo_inputInv")) readInventorySync(inputInv, tag.getList("neo_inputInv", Tag.TAG_COMPOUND));
+        if (tag.contains("neo_outputInv")) readInventorySync(outputInv, tag.getList("neo_outputInv", Tag.TAG_COMPOUND));
         if (tag.contains("neo_inputTank")) inputTank.readFromNBT(tag.getCompound("neo_inputTank"));
         if (tag.contains("neo_outputTank")) outputTank.readFromNBT(tag.getCompound("neo_outputTank"));
         if (tag.contains("neo_processingTime")) processingTime = tag.getInt("neo_processingTime");
         if (tag.contains("neo_working")) working = tag.getBoolean("neo_working");
         if (tag.contains("neo_autoExport")) shouldAutoExport = tag.getBoolean("neo_autoExport");
+    }
+
+    private static ListTag writeInventorySync(InternalInventory inventory) {
+        ListTag list = new ListTag();
+        for (int slot = 0; slot < inventory.size(); slot++) {
+            ItemStack stack = inventory.getStackInSlot(slot);
+            if (!stack.isEmpty()) {
+                CompoundTag slotTag = new CompoundTag();
+                slotTag.putInt("slot", slot);
+                slotTag.put("stack", stack.save(new CompoundTag()));
+                list.add(slotTag);
+            }
+        }
+        return list;
+    }
+
+    private static void readInventorySync(InternalInventory inventory, ListTag list) {
+        for (int slot = 0; slot < inventory.size(); slot++) {
+            inventory.setItemDirect(slot, ItemStack.EMPTY);
+        }
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag slotTag = list.getCompound(i);
+            int slot = slotTag.getInt("slot");
+            if (slot >= 0 && slot < inventory.size()) {
+                inventory.setItemDirect(slot, ItemStack.of(slotTag.getCompound("stack")));
+            }
+        }
     }
 
     @Override

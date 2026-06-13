@@ -2,48 +2,13 @@ package cn.dancingsnow.neoecoae.client.gui.ldlib;
 
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
-import java.util.function.BooleanSupplier;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
 public final class NELDLibClientStyle {
-    private static final IGuiTexture AE_TOOLBAR_BUTTON = (graphics, mouseX, mouseY, x, y, width, height) -> {
-        drawAeSprite(graphics, Icon.TOOLBAR_BUTTON_BACKGROUND, Math.round(x), Math.round(y), width, height);
-    };
-
-    private static final IGuiTexture AE_TAB_BUTTON = (graphics, mouseX, mouseY, x, y, width, height) -> {
-        Icon bg = isMouseIn(Math.round(x), Math.round(y), width, height, mouseX, mouseY)
-                ? Icon.TAB_BUTTON_BACKGROUND_FOCUS
-                : Icon.TAB_BUTTON_BACKGROUND;
-        drawAeSprite(graphics, bg, Math.round(x), Math.round(y), width, height);
-    };
-
     private NELDLibClientStyle() {}
-
-    public static IGuiTexture aeToolbarButton() {
-        return AE_TOOLBAR_BUTTON;
-    }
-
-    public static IGuiTexture aeTabButton() {
-        return AE_TAB_BUTTON;
-    }
-
-    public static IGuiTexture darkInsetButton(boolean selected) {
-        return darkInsetButton(() -> selected);
-    }
-
-    public static IGuiTexture darkInsetButton(BooleanSupplier selectedSupplier) {
-        return (graphics, mouseX, mouseY, x, y, width, height) -> {
-            int ix = Math.round(x);
-            int iy = Math.round(y);
-            boolean hover = mouseX >= ix && mouseX < ix + width && mouseY >= iy && mouseY < iy + height;
-            drawInsetButton(graphics, ix, iy, width, height, hover, false, selectedSupplier.getAsBoolean());
-        };
-    }
 
     public static void drawDarkInsetRect(GuiGraphics g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, 0xFFCBCCD4);
@@ -97,30 +62,6 @@ public final class NELDLibClientStyle {
         g.fill(x + 2, y + 2, x + size - 2, y + size - 2, 0xFF5A5460);
     }
 
-    public static void drawTexturedModuleSlot(
-            GuiGraphics g,
-            int x,
-            int y,
-            int size,
-            ResourceLocation baseTexture,
-            ResourceLocation overlayTexture,
-            boolean active) {
-        drawDarkInsetRect(g, x, y, size, size);
-        int innerX = x + 2;
-        int innerY = y + 2;
-        int innerSize = size - 4;
-        g.fill(innerX, innerY, innerX + innerSize, innerY + innerSize, 0xAA17141E);
-        if (baseTexture != null) {
-            g.blit(baseTexture, innerX, innerY, innerSize, innerSize, 0, 0, 16, 16, 16, 16);
-        }
-        if (overlayTexture != null) {
-            g.blit(overlayTexture, innerX, innerY, innerSize, innerSize, 0, 0, 16, 16, 16, 16);
-        }
-        if (!active) {
-            g.fill(innerX, innerY, innerX + innerSize, innerY + innerSize, 0x99000000);
-        }
-    }
-
     public static int drawSegment(GuiGraphics g, Font font, Component text, int x, int y, int color) {
         g.drawString(font, text, x, y, color, false);
         return font.width(text);
@@ -132,10 +73,6 @@ public final class NELDLibClientStyle {
     }
 
     public static void drawCentered(GuiGraphics g, Font font, Component text, int x, int y, int w, int color) {
-        g.drawString(font, text, x + (w - font.width(text)) / 2, y, color, false);
-    }
-
-    public static void drawCenteredString(GuiGraphics g, Font font, String text, int x, int y, int w, int color) {
         g.drawString(font, text, x + (w - font.width(text)) / 2, y, color, false);
     }
 
@@ -177,12 +114,25 @@ public final class NELDLibClientStyle {
         drawAeSprite(graphics, Icon.TOOLBAR_BUTTON_BACKGROUND, x, y, width, height);
     }
 
+    public static void drawAeToolbarButton(
+            GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int width, int height, boolean pressed) {
+        drawAeToolbarButton(graphics, x, y, width, height);
+        drawHoverOverlay(graphics, mouseX, mouseY, x, y, width, height, pressed);
+    }
+
     public static void drawAeTabButton(
             GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int width, int height) {
         Icon bg = isMouseIn(x, y, width, height, mouseX, mouseY)
                 ? Icon.TAB_BUTTON_BACKGROUND_FOCUS
                 : Icon.TAB_BUTTON_BACKGROUND;
         drawAeSprite(graphics, bg, x, y, width, height);
+    }
+
+    public static void drawHoverOverlay(
+            GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int width, int height, boolean pressed) {
+        if (isMouseIn(x, y, width, height, mouseX, mouseY)) {
+            graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, pressed ? 0x38000000 : 0x28FFFFFF);
+        }
     }
 
     private static void drawAeSprite(GuiGraphics graphics, Icon icon, int x, int y, int width, int height) {

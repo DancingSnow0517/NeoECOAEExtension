@@ -240,10 +240,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         for (int index = 0; index < 3; index++) {
             int x = absX(TOOLBAR_X + index * TOOLBAR_BUTTON_STRIDE);
             int y = absY(TOOLBAR_Y);
-            NELDLibClientStyle.drawAeToolbarButton(graphics, x, y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE);
-            if (mouseX >= x && mouseX < x + TOOLBAR_BUTTON_SIZE && mouseY >= y && mouseY < y + TOOLBAR_BUTTON_SIZE) {
-                graphics.fill(x + 1, y + 1, x + TOOLBAR_BUTTON_SIZE - 1, y + TOOLBAR_BUTTON_SIZE - 1, 0x28FFFFFF);
-            }
+            NELDLibClientStyle.drawAeToolbarButton(
+                    graphics, mouseX, mouseY, x, y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, false);
         }
     }
 

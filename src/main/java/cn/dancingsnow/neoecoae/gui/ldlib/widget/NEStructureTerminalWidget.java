@@ -31,6 +31,7 @@ import net.minecraft.world.item.ItemStack;
 public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStructureTerminalConfigState> {
     public static final int WIDTH = 390;
     public static final int HEIGHT = 252;
+    private static final int ACTION_UPDATE_ID = 2;
 
     private static final int TAB_Y = 5;
     private static final int TAB_H = 16;
@@ -200,7 +201,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     @Override
     public void handleClientAction(int id, FriendlyByteBuf buffer) {
-        if (id == 2) {
+        if (id == ACTION_UPDATE_ID) {
             applyAction(buffer.readEnum(Action.class), buffer);
             syncStateNow();
             return;
@@ -218,7 +219,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                     size,
                     patternVisibleSlots());
             if (patternMaterialScroll != current) {
-                writeClientAction(2, buf -> {
+                writeClientAction(ACTION_UPDATE_ID, buf -> {
                     buf.writeEnum(Action.SET_PATTERN_MATERIAL_SCROLL);
                     buf.writeVarInt(patternMaterialScroll);
                 });
@@ -446,7 +447,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
             List<Widget> group) {
         ButtonWidget button = (ButtonWidget) new ButtonWidget(x, y, w, h, IGuiTexture.EMPTY, click -> {
             if (click.isRemote) {
-                writeClientAction(2, buf -> buf.writeEnum(action));
+                writeClientAction(ACTION_UPDATE_ID, buf -> buf.writeEnum(action));
             }
         });
         addWidget(button);

@@ -48,14 +48,8 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
             NELDLibClientStyle.drawAeToolbarButton(
                     graphics, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         }
-        if (isMouseOverElement(mouseX, mouseY)) {
-            graphics.fill(
-                    getPositionX() + 1,
-                    getPositionY() + 1,
-                    getPositionX() + getSizeWidth() - 1,
-                    getPositionY() + getSizeHeight() - 1,
-                    isClicked() ? 0x38000000 : 0x28FFFFFF);
-        }
+        NELDLibClientStyle.drawHoverOverlay(
+                graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), isClicked());
     }
 
     @Override

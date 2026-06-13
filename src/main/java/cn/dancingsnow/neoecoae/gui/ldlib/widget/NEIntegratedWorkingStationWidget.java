@@ -30,6 +30,7 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
     public static final int UI_HEIGHT = PANEL_H;
     private static final int MAIN_X = -TOGGLE_BTN_X;
     private static final int AUTO_EXPORT_BUTTON_X = 0;
+    private static final int CLEAR_FLUID_ACTION_ID = 2;
 
     private final ECOIntegratedWorkingStationBlockEntity station;
     private final Inventory playerInventory;
@@ -74,16 +75,19 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                         col + row * INPUT_COLS,
                         mainX(INPUT_SLOT_X + col * SLOT_SIZE),
                         INPUT_SLOT_Y + row * SLOT_SIZE,
-                        true,
-                        true));
+                        SlotAccess.INPUT_OUTPUT));
             }
         }
 
-        addWidget(aeSlot(outputTransfer, 0, mainX(OUTPUT_SLOT_X), OUTPUT_SLOT_Y, true, false));
+        addWidget(aeSlot(outputTransfer, 0, mainX(OUTPUT_SLOT_X), OUTPUT_SLOT_Y, SlotAccess.OUTPUT_ONLY));
 
         for (int i = 0; i < UPGRADE_COUNT; i++) {
             addWidget(aeSlot(
-                    upgradeTransfer, i, mainX(UPGRADE_SLOT_X), UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE, true, true));
+                    upgradeTransfer,
+                    i,
+                    mainX(UPGRADE_SLOT_X),
+                    UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE,
+                    SlotAccess.INPUT_OUTPUT));
         }
 
         for (int row = 0; row < 3; row++) {
@@ -93,13 +97,17 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                                 col + row * 9 + 9,
                                 mainX(PLAYER_INV_SLOT_X + col * SLOT_SIZE),
                                 PLAYER_INV_SLOT_Y + row * SLOT_SIZE,
-                                true,
-                                true)
+                                SlotAccess.INPUT_OUTPUT)
                         .setLocationInfo(true, false));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addWidget(aeSlot(playerInventory, col, mainX(HOTBAR_SLOT_X + col * SLOT_SIZE), HOTBAR_SLOT_Y, true, true)
+            addWidget(aeSlot(
+                            playerInventory,
+                            col,
+                            mainX(HOTBAR_SLOT_X + col * SLOT_SIZE),
+                            HOTBAR_SLOT_Y,
+                            SlotAccess.INPUT_OUTPUT)
                     .setLocationInfo(true, true));
         }
 
@@ -112,8 +120,7 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                 click -> {
                     if (!click.isRemote) {
                         station.toggleAutoExport();
-                        station.setChanged();
-                        station.markForUpdate();
+                        station.onGuiStateChanged();
                         syncStateNow();
                     }
                 });
@@ -161,15 +168,23 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
         return new SlotWidget(container, index, x, y, canTake, canPut).setBackgroundTexture(IGuiTexture.EMPTY);
     }
 
+    private SlotWidget aeSlot(IItemTransfer transfer, int index, int x, int y, SlotAccess access) {
+        return aeSlot(transfer, index, x, y, access.canTake, access.canPut);
+    }
+
+    private SlotWidget aeSlot(Container container, int index, int x, int y, SlotAccess access) {
+        return aeSlot(container, index, x, y, access.canTake, access.canPut);
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
             if (isMouseIn(CLEAR_BTN_IN_X, CLEAR_BTN_IN_Y, CLEAR_BTN_W, CLEAR_BTN_H, (int) mouseX, (int) mouseY)) {
-                writeClientAction(2, buf -> buf.writeBoolean(true));
+                writeClientAction(CLEAR_FLUID_ACTION_ID, buf -> buf.writeBoolean(true));
                 return true;
             }
             if (isMouseIn(CLEAR_BTN_OUT_X, CLEAR_BTN_OUT_Y, CLEAR_BTN_W, CLEAR_BTN_H, (int) mouseX, (int) mouseY)) {
-                writeClientAction(2, buf -> buf.writeBoolean(false));
+                writeClientAction(CLEAR_FLUID_ACTION_ID, buf -> buf.writeBoolean(false));
                 return true;
             }
         }
@@ -178,14 +193,12 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
 
     @Override
     public void handleClientAction(int id, net.minecraft.network.FriendlyByteBuf buffer) {
-        if (id == 2) {
+        if (id == CLEAR_FLUID_ACTION_ID) {
             if (buffer.readBoolean()) {
                 station.clearFluid();
             } else {
                 station.clearFluidOut();
             }
-            station.setChanged();
-            station.markForUpdate();
             syncStateNow();
             return;
         }
@@ -427,5 +440,18 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
     @Override
     protected boolean isMouseIn(int x, int y, int w, int h, int mouseX, int mouseY) {
         return super.isMouseIn(mainX(x), y, w, h, mouseX, mouseY);
+    }
+
+    private enum SlotAccess {
+        INPUT_OUTPUT(true, true),
+        OUTPUT_ONLY(true, false);
+
+        private final boolean canTake;
+        private final boolean canPut;
+
+        SlotAccess(boolean canTake, boolean canPut) {
+            this.canTake = canTake;
+            this.canPut = canPut;
+        }
     }
 }

@@ -115,7 +115,14 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         NELDLibClientStyle.drawDarkInsetRect(
                 graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
         NELDLibClientStyle.drawAeToolbarButton(
-                graphics, ox + TOOLBAR_BUTTON_X, oy + TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H);
+                graphics,
+                mouseX,
+                mouseY,
+                ox + TOOLBAR_BUTTON_X,
+                oy + TOOLBAR_BUTTON_Y,
+                TOOLBAR_BUTTON_W,
+                TOOLBAR_BUTTON_H,
+                false);
         drawPlayerInventorySlots(graphics);
 
         NEComputationUiState state = currentState();
