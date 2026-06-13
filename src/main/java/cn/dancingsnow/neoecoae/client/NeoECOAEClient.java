@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
+import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
@@ -29,6 +30,7 @@ public class NeoECOAEClient {
         modBus.addListener(NeoECOAEClient::onRegisterRenderers);
         modBus.addListener((FMLClientSetupEvent event) -> ECOCellModels.on(event));
         modBus.addListener((ModelEvent.RegisterAdditional event) -> ECOCellModels.on(event));
+        MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
         MinecraftForge.EVENT_BUS.addListener(MultiblockPreviewScrollHandler::onMouseScrolled);
     }
 

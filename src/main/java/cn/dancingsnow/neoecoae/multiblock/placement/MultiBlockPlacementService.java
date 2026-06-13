@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
@@ -102,6 +103,10 @@ public final class MultiBlockPlacementService {
             }
             conflictPositions.add(worldPos);
         }
+        sortByHostExtension(
+                missingBlocks,
+                controllerPos,
+                MultiBlockRotation.localDirectionToWorld(Direction.WEST, facing, mirrored));
 
         return new MultiBlockPlacementPlan(
                 allBlocks, missingBlocks, conflictPositions, requiredItems, reusedBlockCount);
@@ -149,17 +154,25 @@ public final class MultiBlockPlacementService {
     }
 
     public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan) {
-        if (!plan.getConflictPositions().isEmpty()) {
-            return false;
-        }
+        boolean placedAny = false;
         for (WorldPlannedBlock worldBlock : plan.getMissingBlocks()) {
-            level.setBlock(worldBlock.worldPos(), worldBlock.targetState(), Block.UPDATE_ALL);
+            BlockState existingState = level.getBlockState(worldBlock.worldPos());
+            if (existingState.equals(worldBlock.targetState())) {
+                continue;
+            }
+            if (!(existingState.isAir() || existingState.canBeReplaced())) {
+                continue;
+            }
+            placedAny |= level.setBlock(worldBlock.worldPos(), worldBlock.targetState(), Block.UPDATE_ALL);
         }
-        return true;
+        return placedAny || plan.getMissingBlocks().isEmpty();
     }
 
     public static MultiBlockBuildSession createBuildSession(ServerLevel level, MultiBlockPlacementPlan plan) {
-        return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay(level));
+        return new MultiBlockBuildSession(
+                plan.getMissingBlocks(),
+                nextPlacementDelay(level),
+                plan.getConflictPositions().size());
     }
 
     public static PlacementTickResult tickBuild(
@@ -175,7 +188,8 @@ public final class MultiBlockPlacementService {
         BlockState existingState = level.getBlockState(worldBlock.worldPos());
         if (!existingState.equals(worldBlock.targetState())
                 && !(existingState.isAir() || existingState.canBeReplaced())) {
-            return PlacementTickResult.BLOCKED;
+            session.skip(nextPlacementDelay(level));
+            return session.isFinished() ? PlacementTickResult.COMPLETED : PlacementTickResult.ADVANCED;
         }
 
         if (!existingState.equals(worldBlock.targetState())) {
@@ -322,6 +336,22 @@ public final class MultiBlockPlacementService {
 
     private static int nextPlacementDelay(ServerLevel level) {
         return 1;
+    }
+
+    private static void sortByHostExtension(
+            List<WorldPlannedBlock> worldBlocks, BlockPos controllerPos, Direction extensionDirection) {
+        worldBlocks.sort(Comparator.comparingInt(
+                        (WorldPlannedBlock block) -> distanceAlong(block.worldPos(), controllerPos, extensionDirection))
+                .thenComparingInt(block -> block.worldPos().distManhattan(controllerPos))
+                .thenComparingInt(block -> block.worldPos().getY())
+                .thenComparingInt(block -> block.worldPos().getZ())
+                .thenComparingInt(block -> block.worldPos().getX()));
+    }
+
+    private static int distanceAlong(BlockPos pos, BlockPos origin, Direction direction) {
+        return (pos.getX() - origin.getX()) * direction.getStepX()
+                + (pos.getY() - origin.getY()) * direction.getStepY()
+                + (pos.getZ() - origin.getZ()) * direction.getStepZ();
     }
 
     private static void playPlacementSound(ServerLevel level, WorldPlannedBlock worldBlock) {

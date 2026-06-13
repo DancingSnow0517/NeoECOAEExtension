@@ -55,7 +55,8 @@ public class IntegrationManager {
     }
 
     public void loadAllIntegrations() {
-        for (String key : instances.keys()) {
+        // keySet avoids loading the same mod id once per integration instance.
+        for (String key : instances.keySet()) {
             if (LoadingModList.get().getMods().stream()
                     .anyMatch(it -> it.getModId().equals(key))) {
                 load(key);
@@ -64,7 +65,8 @@ public class IntegrationManager {
     }
 
     public void loadAllClientIntegrations() {
-        for (String key : instances.keys()) {
+        // keySet avoids loading the same mod id once per integration instance.
+        for (String key : instances.keySet()) {
             if (LoadingModList.get().getMods().stream()
                     .anyMatch(it -> it.getModId().equals(key))) {
                 loadClient(key);

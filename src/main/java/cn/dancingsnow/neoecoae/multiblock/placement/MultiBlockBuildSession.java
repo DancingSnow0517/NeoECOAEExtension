@@ -11,11 +11,17 @@ public class MultiBlockBuildSession {
 
     private int nextBlockIndex;
     private int waitTicks;
+    private int skippedBlockCount;
 
     public MultiBlockBuildSession(List<WorldPlannedBlock> pendingBlocks, int initialDelay) {
+        this(pendingBlocks, initialDelay, 0);
+    }
+
+    public MultiBlockBuildSession(List<WorldPlannedBlock> pendingBlocks, int initialDelay, int initialSkippedBlocks) {
         this.pendingBlocks = List.copyOf(pendingBlocks);
         this.totalBlocks = pendingBlocks.size();
         this.waitTicks = Math.max(0, initialDelay);
+        this.skippedBlockCount = Math.max(0, initialSkippedBlocks);
     }
 
     public boolean isFinished() {
@@ -39,11 +45,20 @@ public class MultiBlockBuildSession {
         waitTicks = Math.max(0, nextDelay);
     }
 
+    public void skip(int nextDelay) {
+        skippedBlockCount++;
+        advance(nextDelay);
+    }
+
     public int getPlacedBlockCount() {
         return nextBlockIndex;
     }
 
     public int getRemainingBlockCount() {
         return totalBlocks - nextBlockIndex;
+    }
+
+    public int getSkippedBlockCount() {
+        return skippedBlockCount;
     }
 }

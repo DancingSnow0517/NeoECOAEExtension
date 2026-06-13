@@ -22,6 +22,14 @@ public final class MultiBlockRotation {
         return controllerPos.offset(rotated);
     }
 
+    public static Direction localDirectionToWorld(Direction localDirection, Direction facing, boolean mirrored) {
+        if (localDirection.getAxis().isVertical()) {
+            return localDirection;
+        }
+        Direction direction = mirrored ? mirrorHorizontal(localDirection) : localDirection;
+        return rotateHorizontal(direction, facing);
+    }
+
     public static BlockPos transformLocalPos(BlockPos localPos, boolean mirrored) {
         return mirrored ? mirrorLocalPos(localPos) : localPos.immutable();
     }

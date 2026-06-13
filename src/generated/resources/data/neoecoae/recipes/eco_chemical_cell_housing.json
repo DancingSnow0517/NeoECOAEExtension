@@ -1,10 +1,12 @@
 {
   "type": "minecraft:crafting_shaped",
   "category": "misc",
-  "conditions": {
-    "type": "forge:mod_loaded",
-    "modid": "appmek"
-  },
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appmek"
+    }
+  ],
   "key": {
     "A": {
       "item": "neoecoae:crystal_matrix"

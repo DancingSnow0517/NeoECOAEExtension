@@ -15,7 +15,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 
 public class NETooltips {
@@ -37,25 +36,28 @@ public class NETooltips {
             NEBlocks.COMPUTATION_SYSTEM_L6.asItem(),
             NEBlocks.COMPUTATION_SYSTEM_L9.asItem());
 
-    private static List<Component> tooltip;
-    private static TooltipFlag flags;
-
     public static void register(ItemTooltipEvent event) {
         ItemStack stack = event.getItemStack();
-        tooltip = event.getToolTip();
-        flags = event.getFlags();
+        List<Component> tooltip = event.getToolTip();
+        boolean showDetails = Screen.hasShiftDown();
         if (STORAGE_SYSTEMS.contains(stack.getItem())) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.storage_system"),
                     Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.storageSystemMaxLength));
         }
         if (stack.is(NEBlocks.ECO_DRIVE.asItem())) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.storage_dirve.0"),
                     Component.translatable("tooltip.neoecoae.storage_dirve.1"));
         }
         if (CRAFTING_SYSTEMS.contains(stack.getItem())) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.crafting_system"),
                     Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.craftingSystemMaxLength));
         }
@@ -63,6 +65,8 @@ public class NETooltips {
                 && blockItem.getBlock() instanceof ECOCraftingParallelCore parallelCore) {
             IECOTier tier = parallelCore.getTier();
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.crafting_parallels"),
                     Component.translatable("tooltip.neoecoae.max_parallel_count", tier.getCrafterParallel()),
                     Component.translatable("tooltip.neoecoae.overclocked"),
@@ -75,6 +79,8 @@ public class NETooltips {
 
         if (stack.is(NEBlocks.CRAFTING_WORKER.asItem())) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.crafting_worker.0"),
                     Component.translatable("tooltip.neoecoae.crafting_worker.1"),
                     Component.translatable("tooltip.neoecoae.overclocked"),
@@ -107,6 +113,8 @@ public class NETooltips {
         }
         if (stack.is(NEBlocks.CRAFTING_PATTERN_BUS.asItem())) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.crafting_pattern_bus.0"),
                     Component.translatable("tooltip.neoecoae.crafting_pattern_bus.1"),
                     Component.translatable("tooltip.neoecoae.crafting_pattern_bus.2"));
@@ -114,6 +122,8 @@ public class NETooltips {
 
         if (COMPUTATION_SYSTEMS.contains(stack.getItem())) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.computation_system"),
                     Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.computationSystemMaxLength),
                     Component.translatable("tooltip.neoecoae.computation_system_desc.0"),
@@ -124,12 +134,16 @@ public class NETooltips {
         }
         if (stack.is(NEBlocks.COMPUTATION_DRIVE.asItem())) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.computation_drive.0"),
                     Component.translatable("tooltip.neoecoae.computation_drive.1"));
         }
         if (stack.getItem() instanceof BlockItem blockItem
                 && blockItem.getBlock() instanceof ECOComputationThreadingCore threadingCore) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.computation_threading_core.0"),
                     Component.translatable("tooltip.neoecoae.computation_threading_core.1"),
                     Component.translatable("tooltip.neoecoae.computation_threading_core.2"),
@@ -140,6 +154,8 @@ public class NETooltips {
         if (stack.getItem() instanceof BlockItem blockItem
                 && blockItem.getBlock() instanceof ECOComputationParallelCore parallelCore) {
             addTooltips(
+                    tooltip,
+                    showDetails,
                     Component.translatable("tooltip.neoecoae.computation_parallel_core.0"),
                     Component.translatable("tooltip.neoecoae.computation_parallel_core.1"),
                     Component.translatable(
@@ -148,12 +164,13 @@ public class NETooltips {
         }
         if (stack.getItem() instanceof BlockItem blockItem
                 && blockItem.getBlock() instanceof BuddingEnergizedCrystalBlock) {
-            addTooltips(Component.translatable("tooltip.neoecoae.budding_energized_crystal_block"));
+            addTooltips(
+                    tooltip, showDetails, Component.translatable("tooltip.neoecoae.budding_energized_crystal_block"));
         }
     }
 
-    private static void addTooltips(Component... tooltips) {
-        if (Screen.hasShiftDown()) {
+    private static void addTooltips(List<Component> tooltip, boolean showDetails, Component... tooltips) {
+        if (showDetails) {
             tooltip.addAll(List.of(tooltips));
         } else {
             tooltip.add(HOLD_SHIFT);

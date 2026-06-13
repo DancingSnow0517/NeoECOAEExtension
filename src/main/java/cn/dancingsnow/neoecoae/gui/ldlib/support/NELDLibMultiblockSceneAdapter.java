@@ -15,7 +15,7 @@ public final class NELDLibMultiblockSceneAdapter {
     public static final float DEFAULT_YAW = -72.0F;
     public static final float DEFAULT_PITCH = 24.0F;
     public static final float DEFAULT_ZOOM = 0.78F;
-    private static final float ORTHO_PADDING = 1.35F;
+    private static final float ORTHO_PADDING = 1.18F;
     private static final float MIN_ORTHO_RANGE = 3.0F;
 
     private NELDLibMultiblockSceneAdapter() {}
@@ -74,7 +74,7 @@ public final class NELDLibMultiblockSceneAdapter {
         if (resetCamera) {
             widget.setZoom(zoom);
         }
-        widget.setOrthoRange(calculateOrthoRange(scene));
+        widget.setOrthoRange(calculateOrthoRange(widget, scene, yaw, pitch, zoom));
         if (resetCamera) {
             widget.setCameraYawAndPitch(yaw, pitch);
         }
@@ -82,7 +82,38 @@ public final class NELDLibMultiblockSceneAdapter {
         return true;
     }
 
-    private static float calculateOrthoRange(MultiblockPreviewScene scene) {
-        return Math.max(MIN_ORTHO_RANGE, scene.maxDimension() * ORTHO_PADDING);
+    private static float calculateOrthoRange(
+            SceneWidget widget, MultiblockPreviewScene scene, float yaw, float pitch, float zoom) {
+        float aspect = Math.max(0.1F, widget.getSize().width / (float) Math.max(1, widget.getSize().height));
+        float horizontalRadius = 0.0F;
+        float verticalRadius = 0.0F;
+        float centerX = scene.centerX();
+        float centerY = scene.centerY();
+        float centerZ = scene.centerZ();
+
+        double yawRadians = Math.toRadians(yaw);
+        double pitchRadians = Math.toRadians(pitch);
+        Vector3f eyeDirection = new Vector3f(
+                        (float) Math.cos(yawRadians), (float) Math.tan(pitchRadians), (float) Math.sin(yawRadians))
+                .normalize();
+        Vector3f forward = new Vector3f(eyeDirection).negate();
+        Vector3f right = new Vector3f(forward).cross(0.0F, 1.0F, 0.0F).normalize();
+        Vector3f up = new Vector3f(right).cross(forward).normalize();
+
+        for (int x = 0; x <= 1; x++) {
+            float px = (x == 0 ? scene.minX() : scene.maxX() + 1) - centerX;
+            for (int y = 0; y <= 1; y++) {
+                float py = (y == 0 ? scene.minY() : scene.maxY() + 1) - centerY;
+                for (int z = 0; z <= 1; z++) {
+                    float pz = (z == 0 ? scene.minZ() : scene.maxZ() + 1) - centerZ;
+                    horizontalRadius = Math.max(horizontalRadius, Math.abs(px * right.x + py * right.y + pz * right.z));
+                    verticalRadius = Math.max(verticalRadius, Math.abs(px * up.x + py * up.y + pz * up.z));
+                }
+            }
+        }
+
+        float visibleZoom = Math.max(0.1F, zoom);
+        float range = Math.max(horizontalRadius, verticalRadius * aspect) / visibleZoom;
+        return Math.max(MIN_ORTHO_RANGE, range * ORTHO_PADDING);
     }
 }

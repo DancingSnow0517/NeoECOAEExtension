@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.client.multiblock.preview;
 
-import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
@@ -181,9 +180,6 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
     }
 
     private BlockState applyPreviewState(BlockPos pos, BlockState state) {
-        if (state.is(NEBlocks.COMPUTATION_TRANSMITTER.get()) && state.hasProperty(NEBlock.FORMED)) {
-            state = state.setValue(NEBlock.FORMED, true);
-        }
         if (!formed) {
             return state;
         }

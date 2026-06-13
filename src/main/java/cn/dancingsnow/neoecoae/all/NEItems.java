@@ -1013,7 +1013,7 @@ public class NEItems {
     public static final ItemEntry<StructureTerminalItem> STRUCTURE_TERMINAL = REGISTRATE
             .item("structure_terminal", StructureTerminalItem::new)
             .lang("Structure Terminal")
-            .model((ctx, prov) -> {})
+            .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("item/" + ctx.getName())))
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.TOOLS, ctx.get())
                         .pattern(" R ")

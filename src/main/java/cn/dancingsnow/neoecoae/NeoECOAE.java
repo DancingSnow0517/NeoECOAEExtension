@@ -13,7 +13,6 @@ import cn.dancingsnow.neoecoae.all.NEGridServices;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.all.NERegistries;
-import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
@@ -39,13 +38,9 @@ import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
 import net.minecraftforge.registries.NewRegistryEvent;
 import net.minecraftforge.registries.RegistryBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Mod(NeoECOAE.MOD_ID)
 public class NeoECOAE {
-    private final Logger logger = LoggerFactory.getLogger(MOD_ID);
-
     @Getter
     private static final IntegrationManager integrationManager = new IntegrationManager();
 
@@ -86,7 +81,6 @@ public class NeoECOAE {
         if (FMLEnvironment.dist == Dist.CLIENT) {
             cn.dancingsnow.neoecoae.client.NeoECOAEClient.init(modBus, context);
         }
-        MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
         MinecraftForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, NELightningTransformEvents::onEntityJoinLevel);
     }

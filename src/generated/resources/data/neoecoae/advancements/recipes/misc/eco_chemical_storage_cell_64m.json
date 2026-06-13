@@ -1,9 +1,11 @@
 {
   "parent": "minecraft:recipes/root",
-  "conditions": {
-    "type": "forge:mod_loaded",
-    "modid": "appmek"
-  },
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appmek"
+    }
+  ],
   "criteria": {
     "has_64m_component": {
       "conditions": {

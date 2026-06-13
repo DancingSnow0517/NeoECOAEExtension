@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScene;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibMultiblockSceneAdapter;
 import com.lowdragmc.lowdraglib.client.scene.FBOWorldSceneRenderer;
+import com.lowdragmc.lowdraglib.client.scene.WorldSceneRenderer;
 import com.lowdragmc.lowdraglib.gui.widget.SceneWidget;
 import com.lowdragmc.lowdraglib.utils.TrackedDummyWorld;
 import java.util.HashSet;
@@ -99,6 +100,12 @@ public class NELDLibMultiblockSceneWidget extends SceneWidget {
             return true;
         }
         return super.mouseWheelMove(mouseX, mouseY, wheelDelta);
+    }
+
+    @Override
+    public void renderBlockOverLay(WorldSceneRenderer renderer) {
+        hoverPosFace = null;
+        hoverItem = null;
     }
 
     private void ensureSceneCreated() {
