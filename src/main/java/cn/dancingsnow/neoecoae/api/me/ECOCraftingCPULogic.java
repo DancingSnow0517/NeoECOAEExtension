@@ -159,7 +159,7 @@ public class ECOCraftingCPULogic {
                 .orElse(null);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
-        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, cpu.getLevel(), playerId);
         markStatusDirty();
 
         // Crafting Monitor unsupported
@@ -383,134 +383,178 @@ public class ECOCraftingCPULogic {
         beginStatusChangeBatch();
 
         try {
-            var it = job.tasks.entrySet().iterator();
-            taskLoop:
-            while (it.hasNext()) {
-                var task = it.next();
-                if (task.getValue().value <= 0) {
-                    postPatternOutputsChange(task.getKey());
-                    it.remove();
-                    continue;
-                }
-
-                var details = task.getKey();
-                ProviderSelection providers = collectProviders(craftingService, details);
-                if (providers.all().isEmpty()) {
-                    debugExtractSkippedBecauseProvidersBusy++;
-                    continue;
-                }
-
-                while (task.getValue().value > 0 && pushedPatterns < totalPatternBudget) {
-                    if (batchBudget.remaining() <= 0 && slowPushedPatterns >= slowPatternBudget) {
-                        break taskLoop;
+            boolean allowUnfinishedDependencies = false;
+            boolean fallbackPassUsed = false;
+            while (true) {
+                int pushedBeforePass = pushedPatterns;
+                boolean sawUnfinishedDependencyBlock = false;
+                var it = job.tasks.entrySet().iterator();
+                taskLoop:
+                while (it.hasNext()) {
+                    var task = it.next();
+                    var progress = task.getValue();
+                    if (progress.value <= 0) {
+                        postPatternOutputsChange(task.getKey());
+                        it.remove();
+                        continue;
                     }
-                    if (!hasPotentialProvider(providers)) {
+
+                    var details = task.getKey();
+                    var dispatchBlock = job.getDispatchBlock(details);
+                    if (dispatchBlock == ExecutingCraftingJob.DispatchBlock.IN_FLIGHT_OUTPUT) {
+                        continue;
+                    }
+                    if (!allowUnfinishedDependencies
+                            && dispatchBlock == ExecutingCraftingJob.DispatchBlock.UNFINISHED_DEPENDENCY) {
+                        sawUnfinishedDependencyBlock = true;
+                        continue;
+                    }
+
+                    ProviderSelection providers = collectProviders(craftingService, details);
+                    if (providers.all().isEmpty()) {
                         debugExtractSkippedBecauseProvidersBusy++;
-                        continue taskLoop;
+                        continue;
                     }
 
-                    var expectedOutputs = new KeyCounter();
-                    var expectedContainerItems = new KeyCounter();
-                    long extractStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
-                    if (DEBUG_EXECUTION_STATS) {
-                        debugExtractPatternInputsCalls++;
-                    }
-                    @Nullable var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                            details, inventory, level, expectedOutputs, expectedContainerItems);
-                    if (DEBUG_EXECUTION_STATS) {
-                        debugExtractPatternInputsNs += System.nanoTime() - extractStartNs;
-                    }
-                    if (craftingContainer == null) {
-                        continue taskLoop;
-                    }
-                    ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
-                            details, craftingContainer, expectedOutputs, expectedContainerItems, level);
-
-                    double patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
-                    int batchResult = tryPushVerifiedFastPathBatch(
-                            details,
-                            execution,
-                            craftingContainer,
-                            providers.batchBuses(),
-                            energyService,
-                            patternPower,
-                            task.getValue().value,
-                            totalPatternBudget - pushedPatterns,
-                            batchBudget.remaining());
-                    if (batchResult > 0) {
-                        batchBudget.consume(batchResult);
-                        pushedPatterns += batchResult;
-                        task.getValue().value -= batchResult;
-                        postPatternOutputsChange(details);
-                        if (task.getValue().value <= 0) {
-                            it.remove();
-                            continue taskLoop;
-                        }
-                        if (pushedPatterns == totalPatternBudget) {
+                    while (progress.value > 0 && pushedPatterns < totalPatternBudget) {
+                        if (batchBudget.remaining() <= 0 && slowPushedPatterns >= slowPatternBudget) {
                             break taskLoop;
                         }
-                        continue;
-                    } else if (batchResult < 0) {
-                        continue taskLoop;
-                    }
-
-                    if (slowPushedPatterns >= slowPatternBudget) {
-                        CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
-                        continue taskLoop;
-                    }
-
-                    if (DEBUG_EXECUTION_STATS) {
-                        debugSlowFallbackCount++;
-                    }
-                    boolean pushed = false;
-                    for (ICraftingProvider provider : providers.all()) {
-                        if (provider.isBusy()) {
-                            continue;
+                        if (!hasPotentialProvider(providers)) {
+                            debugExtractSkippedBecauseProvidersBusy++;
+                            continue taskLoop;
                         }
 
-                        if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                                < patternPower - 0.01) {
-                            break;
-                        }
-
+                        var expectedOutputs = new KeyCounter();
+                        var expectedContainerItems = new KeyCounter();
+                        long extractStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
                         if (DEBUG_EXECUTION_STATS) {
-                            debugPushPatternCalls++;
+                            debugExtractPatternInputsCalls++;
                         }
-                        boolean virtualCompletesJob = shouldCompleteVirtualCraftingJob(provider, task.getValue());
-                        pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                                ? patternBus.pushPattern(execution, job.link.getCraftingID())
-                                : provider.pushPattern(details, craftingContainer);
+                        @Nullable var craftingContainer = CraftingCpuHelper.extractPatternInputs(
+                                details, inventory, level, expectedOutputs, expectedContainerItems);
+                        if (DEBUG_EXECUTION_STATS) {
+                            debugExtractPatternInputsNs += System.nanoTime() - extractStartNs;
+                        }
+                        if (craftingContainer == null) {
+                            continue taskLoop;
+                        }
+                        ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
+                                details,
+                                progress.getCompiledFastPathPattern(details),
+                                craftingContainer,
+                                expectedContainerItems,
+                                level);
 
-                        if (pushed) {
-                            energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                            pushedPatterns++;
-                            slowPushedPatterns++;
-                            if (virtualCompletesJob) {
-                                recordAcceptedCrafts(1, false);
-                                finishJob(true);
-                                return pushedPatterns;
-                            }
-                            recordPushedPattern(execution, 1);
-                            recordAcceptedCrafts(1, false);
-
-                            task.getValue().value--;
+                        double patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
+                        int batchResult = tryPushVerifiedFastPathBatch(
+                                details,
+                                execution,
+                                craftingContainer,
+                                providers.batchBuses(),
+                                energyService,
+                                patternPower,
+                                progress.value,
+                                totalPatternBudget - pushedPatterns,
+                                batchBudget.remaining());
+                        if (batchResult > 0) {
+                            batchBudget.consume(batchResult);
+                            pushedPatterns += batchResult;
+                            progress.value -= batchResult;
                             postPatternOutputsChange(details);
-                            if (task.getValue().value <= 0) {
+                            if (progress.value <= 0) {
                                 it.remove();
+                                if (allowUnfinishedDependencies) {
+                                    break taskLoop;
+                                }
                                 continue taskLoop;
+                            }
+                            if (allowUnfinishedDependencies) {
+                                break taskLoop;
                             }
                             if (pushedPatterns == totalPatternBudget) {
                                 break taskLoop;
                             }
-                            break;
+                            continue;
+                        } else if (batchResult < 0) {
+                            continue taskLoop;
+                        }
+
+                        if (slowPushedPatterns >= slowPatternBudget) {
+                            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+                            continue taskLoop;
+                        }
+
+                        if (DEBUG_EXECUTION_STATS) {
+                            debugSlowFallbackCount++;
+                        }
+                        boolean pushed = false;
+                        for (ICraftingProvider provider : providers.all()) {
+                            if (provider.isBusy()) {
+                                continue;
+                            }
+
+                            if (energyService.extractAEPower(patternPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
+                                    < patternPower - 0.01) {
+                                break;
+                            }
+
+                            if (DEBUG_EXECUTION_STATS) {
+                                debugPushPatternCalls++;
+                            }
+                            boolean virtualCompletesJob = shouldCompleteVirtualCraftingJob(provider, progress);
+                            pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                                    ? patternBus.pushPattern(execution, job.link.getCraftingID())
+                                    : provider.pushPattern(details, craftingContainer);
+
+                            if (pushed) {
+                                energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                                pushedPatterns++;
+                                slowPushedPatterns++;
+                                if (virtualCompletesJob) {
+                                    recordAcceptedCrafts(1, false);
+                                    finishJob(true);
+                                    return pushedPatterns;
+                                }
+                                recordPushedPattern(execution, 1);
+                                recordAcceptedCrafts(1, false);
+
+                                progress.value--;
+                                postPatternOutputsChange(details);
+                                if (progress.value <= 0) {
+                                    it.remove();
+                                    if (allowUnfinishedDependencies) {
+                                        break taskLoop;
+                                    }
+                                    continue taskLoop;
+                                }
+                                if (allowUnfinishedDependencies) {
+                                    break taskLoop;
+                                }
+                                if (pushedPatterns == totalPatternBudget) {
+                                    break taskLoop;
+                                }
+                                break;
+                            }
+                        }
+
+                        if (!pushed) {
+                            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+                            continue taskLoop;
                         }
                     }
-
-                    if (!pushed) {
-                        CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
-                        continue taskLoop;
-                    }
                 }
+
+                if (pushedPatterns > pushedBeforePass
+                        || fallbackPassUsed
+                        || !sawUnfinishedDependencyBlock
+                        || pushedPatterns >= totalPatternBudget
+                        || (batchBudget.remaining() <= 0 && slowPushedPatterns >= slowPatternBudget)) {
+                    break;
+                }
+
+                allowUnfinishedDependencies = true;
+                fallbackPassUsed = true;
             }
         } finally {
             endStatusChangeBatchSafely();
@@ -828,10 +872,12 @@ public class ECOCraftingCPULogic {
 
     private void recordPushedPattern(ECOExtractedPatternExecution execution, int craftCount) {
         int multiplier = Math.max(1, craftCount);
+        job.addInFlightOutputs(execution.expectedOutputs(), multiplier);
         for (var expectedOutput : execution.expectedOutputs()) {
             job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount() * multiplier, Actionable.MODULATE);
         }
         postGenericStackKeysChange(execution.expectedOutputs());
+        job.addInFlightOutputs(execution.expectedContainerItems(), multiplier);
         for (var expectedContainerItem : execution.expectedContainerItems()) {
             job.waitingFor.insert(
                     expectedContainerItem.what(), expectedContainerItem.amount() * multiplier, Actionable.MODULATE);
@@ -882,6 +928,7 @@ public class ECOCraftingCPULogic {
         if (type == Actionable.MODULATE) {
             job.timeTracker.decrementItems(amount, what.getType());
             job.waitingFor.extract(what, amount, Actionable.MODULATE);
+            job.removeInFlightOutput(what, amount);
             cpu.markDirty();
         }
 

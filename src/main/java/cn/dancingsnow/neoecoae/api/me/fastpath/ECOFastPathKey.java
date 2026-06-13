@@ -46,11 +46,13 @@ public final class ECOFastPathKey {
                 if (counter != null) {
                     for (Object2LongMap.Entry<AEKey> entry : counter) {
                         if (entry.getLongValue() > 0) {
-                            entries.add(new EntrySignature(entry.getKey(), entry.getLongValue()));
+                            AEKey key = entry.getKey();
+                            entries.add(
+                                    new EntrySignature(key, entry.getLongValue(), ECOFastPathStacks.keySortId(key)));
                         }
                     }
                 }
-                entries.sort(EntrySignature::compareTo);
+                sortEntries(entries);
                 slots.add(new SlotSignature(entries));
             }
             return Optional.of(new ECOFastPathKey(patternIdentity, dimension, reloadGeneration, slots));
@@ -84,22 +86,26 @@ public final class ECOFastPathKey {
         }
     }
 
-    private record EntrySignature(AEKey key, long amount) implements Comparable<EntrySignature> {
+    private static void sortEntries(List<EntrySignature> entries) {
+        for (int i = 1; i < entries.size(); i++) {
+            EntrySignature current = entries.get(i);
+            int j = i - 1;
+            while (j >= 0 && entries.get(j).compareTo(current) > 0) {
+                entries.set(j + 1, entries.get(j));
+                j--;
+            }
+            entries.set(j + 1, current);
+        }
+    }
+
+    private record EntrySignature(AEKey key, long amount, String sortId) implements Comparable<EntrySignature> {
         @Override
         public int compareTo(EntrySignature other) {
-            int keyCompare = keySortId(this.key).compareTo(keySortId(other.key));
+            int keyCompare = this.sortId.compareTo(other.sortId);
             if (keyCompare != 0) {
                 return keyCompare;
             }
             return Long.compare(this.amount, other.amount);
-        }
-
-        private static String keySortId(AEKey key) {
-            try {
-                return key.toTagGeneric().toString();
-            } catch (RuntimeException e) {
-                return key.getClass().getName() + ":" + key.hashCode();
-            }
         }
     }
 }

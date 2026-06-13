@@ -4,7 +4,6 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.List;
 import java.util.Optional;
@@ -41,24 +40,19 @@ public final class ECOExtractedPatternExecution {
 
     public static ECOExtractedPatternExecution create(
             IPatternDetails details,
+            ECOCompiledFastPathPattern compiledPattern,
             KeyCounter[] craftingContainer,
-            KeyCounter expectedOutputs,
             KeyCounter expectedContainerItems,
             Level level) {
-        List<GenericStack> outputs = ECOFastPathStacks.copyCounter(expectedOutputs);
+        List<GenericStack> outputs = compiledPattern.outputs();
         List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
         boolean canBuildFastPath = NEConfig.isEcoAe2FastPathEnabled()
                 && !NEConfig.postCraftingEvent
-                && AE2PatternIntrospection.isAvailable()
-                && AE2PatternIntrospection.isKnownSafePatternType(details)
-                && outputs.size() == 1
-                && ECOFastPathStacks.isSafeForFastPath(outputs, false)
-                && ECOFastPathStacks.isSafeForFastPath(containers, false);
+                && compiledPattern.canBuildFastPath(containers);
 
         List<GenericStack> inputs = canBuildFastPath ? ECOFastPathStacks.copyCounters(craftingContainer) : List.of();
-        Optional<ECOFastPathKey> key = canBuildFastPath
-                ? AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level)
-                : Optional.empty();
+        Optional<ECOFastPathKey> key =
+                canBuildFastPath ? compiledPattern.buildKey(craftingContainer, level) : Optional.empty();
         boolean eligible = key.isPresent() && ECOFastPathStacks.isSafeForFastPath(inputs, true);
         return new ECOExtractedPatternExecution(
                 details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible);
