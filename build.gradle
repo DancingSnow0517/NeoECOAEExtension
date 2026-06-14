@@ -196,7 +196,6 @@ sourceSets.main.resources {
 
 sourceSets.main.java {
     exclude 'cn/dancingsnow/neoecoae/api/rendering/**'
-    exclude 'cn/dancingsnow/neoecoae/client/renderer/blockentity/**'
     exclude 'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java'
     exclude 'cn/dancingsnow/neoecoae/client/all/NEExtraModels.java'
     exclude 'cn/dancingsnow/neoecoae/mixins/aae/**'

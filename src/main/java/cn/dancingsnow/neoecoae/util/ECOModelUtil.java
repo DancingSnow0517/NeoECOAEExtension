@@ -40,7 +40,10 @@ import static net.minecraft.client.data.models.BlockModelGenerators.plainVariant
 public class ECOModelUtil {
     public static final ModelTemplate CASING = createTemplate("casing_base", TextureSlot.TEXTURE);
 
-    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> cellModel(String type, String size) {
+    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> cellModel(
+        String type,
+        String size
+    ) {
         return (ctx, prov) -> {
             var model = ModelTemplates.THREE_LAYERED_ITEM.create(
                 ctx.get(),
@@ -85,11 +88,18 @@ public class ECOModelUtil {
         };
     }
 
-    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> storageEnergyCell(String level) {
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> storageEnergyCell(
+        String level
+    ) {
         return (ctx, prov) -> {
-            var propertyDispatch = PropertyDispatch.initial(ECOEnergyCellBlock.LEVEL).generate(l -> BlockModelGenerators.plainVariant(prov.modLoc("block/storage_energy_cell/cell_%s_%d".formatted(level, l))));
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-            prov.registerSimpleItemModel(ctx.get(), prov.modLoc("block/storage_energy_cell/cell_%s_0".formatted(level)));
+            var propertyDispatch = PropertyDispatch.initial(ECOEnergyCellBlock.LEVEL).generate(l -> BlockModelGenerators.plainVariant(
+                prov.modLoc("block/storage_energy_cell/cell_%s_%d".formatted(level, l))));
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(
+                BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(
+                ctx.get(),
+                prov.modLoc("block/storage_energy_cell/cell_%s_0".formatted(level))
+            );
         };
     }
 
@@ -101,9 +111,15 @@ public class ECOModelUtil {
                     ModelTemplates.CROSS.extend().build().create(
                         ctx.get(),
                         TextureMapping.cross(ctx.get()),
-                        prov.modelOutput)
-                )).with(ROTATIONS_COLUMN_WITH_FACING));
-            var model = ModelTemplates.FLAT_ITEM.create(ctx.get().asItem(), TextureMapping.layer0(ctx.get()), prov.modelOutput);
+                        prov.modelOutput
+                    )
+                )
+            ).with(ROTATIONS_COLUMN_WITH_FACING));
+            var model = ModelTemplates.FLAT_ITEM.create(
+                ctx.get().asItem(),
+                TextureMapping.layer0(ctx.get()),
+                prov.modelOutput
+            );
             prov.itemModelOutput.accept(ctx.get().asItem(), ItemModelUtils.plainModel(model));
         };
     }
@@ -117,7 +133,8 @@ public class ECOModelUtil {
                 .select(false, emptyModel)
                 .select(true, fullModel);
 
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).withUnbaked(createDriverFacingDispatch()));
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).withUnbaked(
+                createDriverFacingDispatch()));
             prov.registerSimpleItemModel(ctx.get(), ECODriveModel.DRIVE_EMPTY);
         };
     }
@@ -131,18 +148,20 @@ public class ECOModelUtil {
     }
 
     private static PropertyDispatch<UnbakedMutator> createDriverFacingDispatch() {
-        return PropertyDispatch.modifyUnbaked(BlockStateProperties.HORIZONTAL_FACING).generate(facing ->  {
-            return UnbakedMutator.builder()
-                .add(ECODriveModel.Unbaked.class, unbaked -> {
-                    VariantMutator mutator = switch (facing) {
-                        case EAST -> BlockModelGenerators.Y_ROT_90;
-                        case SOUTH -> BlockModelGenerators.Y_ROT_180;
-                        case WEST -> BlockModelGenerators.Y_ROT_270;
-                        default -> BlockModelGenerators.NOP;
-                    };
-                    return new ECODriveModel.Unbaked(unbaked.variant().with(mutator));
-                })
-                .build();
-        });
+        return PropertyDispatch.modifyUnbaked(BlockStateProperties.HORIZONTAL_FACING).generate(facing ->
+            UnbakedMutator.builder()
+                .add(
+                    ECODriveModel.Unbaked.class, unbaked -> {
+                        VariantMutator mutator = switch (facing) {
+                            case EAST -> BlockModelGenerators.Y_ROT_90;
+                            case SOUTH -> BlockModelGenerators.Y_ROT_180;
+                            case WEST -> BlockModelGenerators.Y_ROT_270;
+                            default -> BlockModelGenerators.NOP;
+                        };
+                        return new ECODriveModel.Unbaked(unbaked.variant().with(mutator));
+                    }
+                )
+                .build()
+        );
     }
 }
