@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:block/computation_threading_core_l4"
+    "model": "neoecoae:block/computation_core/threading_core_l4"
   }
 }

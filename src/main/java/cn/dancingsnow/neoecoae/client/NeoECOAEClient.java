@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
+import cn.dancingsnow.neoecoae.client.item.ECOStorageCellStateTintSource;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
 import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
@@ -15,6 +16,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
@@ -42,5 +44,10 @@ public class NeoECOAEClient {
         if (event.resourceInstance.resource == TexturesResource.INSTANCE) {
             NETextures.init((ResourceInstance<IGuiTexture>) event.resourceInstance);
         }
+    }
+
+    @SubscribeEvent
+    public static void registerItemTintSource(RegisterColorHandlersEvent.ItemTintSources event) {
+        event.register(ECOStorageCellStateTintSource.ID, ECOStorageCellStateTintSource.MAP_CODEC);
     }
 }

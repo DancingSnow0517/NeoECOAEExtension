@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "neoecoae:block/energized_crystal_cluster"
+  }
+}

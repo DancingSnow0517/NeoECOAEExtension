@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:block/medium_energized_crystal_bud"
+    "model": "neoecoae:item/medium_energized_crystal_bud"
   }
 }

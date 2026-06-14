@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:block/energy_cell_l4"
+    "model": "neoecoae:block/storage_energy_cell/cell_l4_0"
   }
 }

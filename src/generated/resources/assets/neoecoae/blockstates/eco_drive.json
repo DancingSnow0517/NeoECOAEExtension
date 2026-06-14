@@ -1,7 +1,19 @@
 {
   "variants": {
-    "": {
+    "facing=east": {
+      "model": "neoecoae:block/eco_drive",
+      "y": 90
+    },
+    "facing=north": {
       "model": "neoecoae:block/eco_drive"
+    },
+    "facing=south": {
+      "model": "neoecoae:block/eco_drive",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "neoecoae:block/eco_drive",
+      "y": 270
     }
   }
 }

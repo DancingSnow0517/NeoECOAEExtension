@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "neoecoae:block/medium_energized_crystal_bud"
+  }
+}

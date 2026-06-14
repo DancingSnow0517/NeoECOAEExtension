@@ -1,7 +1,10 @@
 {
   "variants": {
-    "": {
+    "formed=false": {
       "model": "neoecoae:block/crafting_casing"
+    },
+    "formed=true": {
+      "model": "neoecoae:block/crafting_casing_formed"
     }
   }
 }

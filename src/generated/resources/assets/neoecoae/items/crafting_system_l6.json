@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:block/crafting_system_l6"
+    "model": "neoecoae:block/crafting_controller/controller_l6_off"
   }
 }

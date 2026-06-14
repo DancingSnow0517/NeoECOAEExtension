@@ -1,7 +1,30 @@
 {
   "variants": {
-    "": {
+    "facing=down": {
+      "model": "neoecoae:block/small_energized_crystal_bud",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "neoecoae:block/small_energized_crystal_bud",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "neoecoae:block/small_energized_crystal_bud",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "neoecoae:block/small_energized_crystal_bud",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
       "model": "neoecoae:block/small_energized_crystal_bud"
+    },
+    "facing=west": {
+      "model": "neoecoae:block/small_energized_crystal_bud",
+      "x": 90,
+      "y": 270
     }
   }
 }

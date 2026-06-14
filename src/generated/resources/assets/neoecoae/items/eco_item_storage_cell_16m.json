@@ -1,6 +1,19 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:item/eco_item_storage_cell_16m"
+    "model": "neoecoae:item/eco_item_storage_cell_16m",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": -1
+      },
+      {
+        "type": "minecraft:constant",
+        "value": -1
+      },
+      {
+        "type": "neoecoae:eco_storage_cell_state"
+      }
+    ]
   }
 }

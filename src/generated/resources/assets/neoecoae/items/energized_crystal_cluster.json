@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:block/energized_crystal_cluster"
+    "model": "neoecoae:item/energized_crystal_cluster"
   }
 }

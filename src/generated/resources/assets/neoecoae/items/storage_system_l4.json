@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:block/storage_system_l4"
+    "model": "neoecoae:block/storage_controller/controller_l4_off"
   }
 }

@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:block/computation_system_l4"
+    "model": "neoecoae:block/computation_controller/controller_l4_off"
   }
 }
