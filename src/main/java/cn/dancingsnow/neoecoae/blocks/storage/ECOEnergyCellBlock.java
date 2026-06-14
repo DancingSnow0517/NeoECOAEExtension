@@ -18,12 +18,11 @@ public class ECOEnergyCellBlock extends NEBlock<ECOEnergyCellBlockEntity> {
 
     public ECOEnergyCellBlock(Properties properties) {
         super(properties);
-        registerDefaultState(
-            getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(LEVEL, 0)
-            .setValue(FACING, Direction.NORTH)
-        );
+        registerDefaultState(getStateDefinition()
+                .any()
+                .setValue(FORMED, false)
+                .setValue(LEVEL, 0)
+                .setValue(FACING, Direction.NORTH));
     }
 
     @Override

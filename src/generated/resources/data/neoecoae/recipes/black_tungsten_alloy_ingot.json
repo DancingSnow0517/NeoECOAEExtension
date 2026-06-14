@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "forge:storage_blocks/black_tungsten_alloy"
+    }
+  ],
+  "result": {
+    "count": 9,
+    "item": "neoecoae:black_tungsten_alloy_ingot"
+  }
+}

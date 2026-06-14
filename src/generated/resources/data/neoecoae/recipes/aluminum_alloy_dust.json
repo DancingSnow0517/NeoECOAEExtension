@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "forge:dusts/iron"
+    },
+    {
+      "tag": "forge:dusts/aluminium"
+    },
+    {
+      "tag": "forge:dusts/certus_quartz"
+    },
+    {
+      "tag": "forge:dusts/certus_quartz"
+    }
+  ],
+  "result": {
+    "item": "neoecoae:aluminum_alloy_dust"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "ae2:transform",
+  "circumstance": {
+    "type": "fluid",
+    "tag": "minecraft:water"
+  },
+  "ingredients": [
+    {
+      "item": "neoecoae:damaged_budding_energized_crystal"
+    },
+    {
+      "tag": "forge:gems/energized_crystal"
+    }
+  ],
+  "result": {
+    "item": "neoecoae:chipped_budding_energized_crystal"
+  }
+}

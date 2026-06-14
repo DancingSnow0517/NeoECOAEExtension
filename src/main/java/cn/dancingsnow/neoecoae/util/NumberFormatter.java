@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.util;
 
-import appeng.core.localization.Tooltips;
-
 import static appeng.core.localization.Tooltips.DECIMAL_NUMS;
 import static appeng.core.localization.Tooltips.units;
+
+import appeng.core.localization.Tooltips;
 
 public class NumberFormatter {
     public static Tooltips.Amount getAmount(long amount) {

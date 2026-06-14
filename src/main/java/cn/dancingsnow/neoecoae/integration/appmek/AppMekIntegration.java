@@ -8,9 +8,8 @@ import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.integration.appmek.item.ECOChemicalStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-
 import java.util.List;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 
 @Integration("appmek")
 public class AppMekIntegration {
@@ -18,9 +17,9 @@ public class AppMekIntegration {
     public void apply() {
         NEAppMekCellTypes.register();
         NEAppMekItems.register();
-        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_chemical"));
-        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_chemical"));
-        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_chemical"));
+        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_16M, ECOCellModels.STORAGE_CELL_L4_CHEMICAL);
+        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_64M, ECOCellModels.STORAGE_CELL_L6_CHEMICAL);
+        ECOCellModels.register(NEAppMekItems.ECO_CHEMICAL_CELL_256M, ECOCellModels.STORAGE_CELL_L9_CHEMICAL);
 
         NeoECOAE.MOD_BUS.addListener(this::initUpgrades);
     }
@@ -30,10 +29,9 @@ public class AppMekIntegration {
             String storageCellGroup = GuiText.StorageCells.getTranslationKey();
 
             List<ItemEntry<ECOChemicalStorageCellItem>> cells = List.of(
-                NEAppMekItems.ECO_CHEMICAL_CELL_16M,
-                NEAppMekItems.ECO_CHEMICAL_CELL_64M,
-                NEAppMekItems.ECO_CHEMICAL_CELL_256M
-            );
+                    NEAppMekItems.ECO_CHEMICAL_CELL_16M,
+                    NEAppMekItems.ECO_CHEMICAL_CELL_64M,
+                    NEAppMekItems.ECO_CHEMICAL_CELL_256M);
             for (ItemEntry<ECOChemicalStorageCellItem> cell : cells) {
                 Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
                 Upgrades.add(AEItems.INVERTER_CARD, cell, 1, storageCellGroup);

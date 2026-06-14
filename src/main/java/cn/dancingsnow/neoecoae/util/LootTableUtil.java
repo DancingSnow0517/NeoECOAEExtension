@@ -16,9 +16,13 @@ public class LootTableUtil {
     }
 
     public static <T extends Block> void energizedCluster(RegistrateBlockLootTables prov, T block) {
-        prov.add(block, prov.createSilkTouchDispatchTable(block, LootItem.lootTableItem(NEItems.ENERGIZED_CRYSTAL)
-            .apply(SetItemCountFunction.setCount(ConstantValue.exactly(4)))
-            .apply(ApplyBonusCount.addUniformBonusCount(prov.getRegistries().holderOrThrow(Enchantments.FORTUNE)))
-            .apply(ApplyExplosionDecay.explosionDecay())));
+        prov.add(
+                block,
+                prov.createSilkTouchDispatchTable(
+                        block,
+                        LootItem.lootTableItem(NEItems.ENERGIZED_CRYSTAL)
+                                .apply(SetItemCountFunction.setCount(ConstantValue.exactly(4)))
+                                .apply(ApplyBonusCount.addUniformBonusCount(Enchantments.BLOCK_FORTUNE))
+                                .apply(ApplyExplosionDecay.explosionDecay())));
     }
 }

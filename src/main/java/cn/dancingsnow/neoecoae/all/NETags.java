@@ -20,6 +20,7 @@ public class NETags {
         public static final TagKey<Item> ALUMINUM_RAW = common("raw_materials/aluminum");
         public static final TagKey<Item> ALUMINUM_INGOT = common("ingots/aluminum");
         public static final TagKey<Item> ALUMINUM_DUST = common("dusts/aluminum");
+        public static final TagKey<Item> ALUMINIUM_DUST = common("dusts/aluminium");
 
         public static final TagKey<Item> TUNGSTEN_ORE = common("ores/tungsten");
         public static final TagKey<Item> RAW_TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/raw_tungsten");
@@ -32,7 +33,8 @@ public class NETags {
         public static final TagKey<Item> ALUMINUM_ALLOY_INGOT = common("ingots/aluminum_alloy");
         public static final TagKey<Item> ALUMINUM_ALLOY_DUST = common("dusts/aluminum_alloy");
 
-        public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK = common("storage_blocks/black_tungsten_alloy");
+        public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK =
+                common("storage_blocks/black_tungsten_alloy");
         public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_INGOT = common("ingots/black_tungsten_alloy");
         public static final TagKey<Item> BLACK_TUNGSTEN_ALLOY_DUST = common("dusts/black_tungsten_alloy");
 
@@ -42,11 +44,15 @@ public class NETags {
 
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL = common("gems/energized_fluix_crystal");
         public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_DUST = common("dusts/energized_fluix_crystal");
-        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common("storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Item> ENERGIZED_FLUIX_CRYSTAL_BLOCK =
+                common("storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Item> BUDDING = common("budding");
+        public static final TagKey<Item> BUDDING_BLOCKS = common("budding_blocks");
+        public static final TagKey<Item> CLUSTERS = common("clusters");
 
-        // 用于制作水晶锭的基底
+        // Base tag for crystal ingot recipes.
         public static final TagKey<Item> CRYSTAL_INGOT_BASE = mod("crystal_ingot_base");
-        // 用于制作超导锭的基底
+        // Base tag for superconductive ingot recipes.
         public static final TagKey<Item> SUPERCONDUCTIVE_INGOT_BASE = mod("superconductive_ingot_base");
 
         private static TagKey<Item> mod(String path) {
@@ -54,7 +60,7 @@ public class NETags {
         }
 
         private static TagKey<Item> common(String path) {
-            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+            return ItemTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 
@@ -68,17 +74,22 @@ public class NETags {
         public static final TagKey<Block> TUNGSTEN_STORAGE_BLOCK = common("storage_blocks/tungsten");
 
         public static final TagKey<Block> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
-        public static final TagKey<Block> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK = common("storage_blocks/black_tungsten_alloy");
+        public static final TagKey<Block> BLACK_TUNGSTEN_ALLOY_STORAGE_BLOCK =
+                common("storage_blocks/black_tungsten_alloy");
 
         public static final TagKey<Block> ENERGIZED_CRYSTAL_STORAGE_BLOCK = common("storage_blocks/energized_crystal");
-        public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK = common("storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Block> ENERGIZED_FLUIX_CRYSTAL_BLOCK =
+                common("storage_blocks/energized_fluix_crystal");
+        public static final TagKey<Block> BUDDING = common("budding");
+        public static final TagKey<Block> BUDDING_BLOCKS = common("budding_blocks");
+        public static final TagKey<Block> CLUSTERS = common("clusters");
 
         private static TagKey<Block> mod(String path) {
             return BlockTags.create(NeoECOAE.id(path));
         }
 
         private static TagKey<Block> common(String path) {
-            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+            return BlockTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 
@@ -90,7 +101,7 @@ public class NETags {
         }
 
         private static TagKey<Fluid> common(String path) {
-            return FluidTags.create(ResourceLocation.fromNamespaceAndPath("c", path));
+            return FluidTags.create(ResourceLocation.fromNamespaceAndPath("forge", path));
         }
     }
 }

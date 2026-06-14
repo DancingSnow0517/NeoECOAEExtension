@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.impl.storage;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.IncludeExclude;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -19,40 +18,52 @@ import appeng.util.prioritylist.IPartitionList;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.slf4j.Logger;
 
 public class ECOStorageCell implements IECOStorageCell {
-    @Nullable
-    private final ISaveProvider container;
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    @Nullable private final ISaveProvider container;
+
     private final IBasicECOCellItem cellType;
+
     @Getter
     private final AEKeyType keyType;
     // filter
     @Getter
     private final IPartitionList partitionList;
+
     @Getter
     private final IncludeExclude partitionListMode;
+
     private final boolean hasVoidUpgrade;
 
     private final ItemStack cellStack;
 
     private final int maxItemTypes;
     private int storedItems;
+
     @Getter
     private long storedItemCount;
+
     private Object2LongMap<AEKey> storedAmounts;
     private boolean isPersisted = true;
+
     @Getter
     private final IECOTier tier;
 
@@ -65,12 +76,14 @@ public class ECOStorageCell implements IECOStorageCell {
             maxItemTypes = c.getTotalTypes();
             var storedStacks = getStoredStacks();
             this.storedItems = storedStacks.size();
-            this.storedItemCount = storedStacks.stream().mapToLong(GenericStack::amount).sum();
+            this.storedItemCount =
+                    storedStacks.stream().mapToLong(GenericStack::amount).sum();
             this.storedAmounts = null;
             this.cellType = c;
             this.tier = c.getTier();
 
-            // Updates the partition list and mode based on installed upgrades and the configured filter.
+            // Updates the partition list and mode based on installed upgrades and the
+            // configured filter.
             var builder = IPartitionList.builder();
 
             var upgrades = getUpgradesInventory();
@@ -151,7 +164,9 @@ public class ECOStorageCell implements IECOStorageCell {
 
     private boolean canHoldNewItem() {
         final long bytesFree = this.getFreeBytes();
-        return (bytesFree > this.getBytesPerType() || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0) && this.getRemainingItemTypes() > 0;
+        return (bytesFree > this.getBytesPerType()
+                        || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0)
+                && this.getRemainingItemTypes() > 0;
     }
 
     public long getStoredItemTypes() {
@@ -159,7 +174,18 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     private List<GenericStack> getStoredStacks() {
-        return cellStack.getOrDefault(AEComponents.STORAGE_CELL_INV, List.of());
+        if (!cellStack.hasTag() || !cellStack.getTag().contains("eco_cell_contents", Tag.TAG_LIST)) {
+            return List.of();
+        }
+        ListTag list = cellStack.getTag().getList("eco_cell_contents", Tag.TAG_COMPOUND);
+        List<GenericStack> stacks = new ArrayList<>(list.size());
+        for (int i = 0; i < list.size(); i++) {
+            GenericStack stack = GenericStack.readTag(list.getCompound(i));
+            if (stack != null && stack.amount() > 0) {
+                stacks.add(stack);
+            }
+        }
+        return stacks;
     }
 
     protected Object2LongMap<AEKey> getCellItems() {
@@ -180,7 +206,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public double getIdleDrain() {
-        return (double) getTotalBytes() / (1 << 20);
+        return (double) cellType.getIdleDrainBytes() / (1 << 20);
     }
 
     @Override
@@ -201,36 +227,41 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
 
-        if (stacks.isEmpty()) {
-            cellStack.remove(AEComponents.STORAGE_CELL_INV);
-        } else {
-            cellStack.set(AEComponents.STORAGE_CELL_INV, stacks);
+        ListTag list = new ListTag();
+        for (GenericStack stack : stacks) {
+            list.add(GenericStack.writeTag(stack));
         }
+        cellStack.getOrCreateTag().put("eco_cell_contents", list);
 
-        this.storedItems = (short) this.storedAmounts.size();
+        int actualTypes = this.storedAmounts.size();
+        if (actualTypes > this.maxItemTypes) {
+            LOGGER.warn(
+                    "ECO storage cell contains more types than allowed: actual={} max={} stack={}",
+                    actualTypes,
+                    this.maxItemTypes,
+                    cellStack);
+        }
+        this.storedItems = actualTypes;
 
         this.storedItemCount = itemCount;
         this.isPersisted = true;
     }
 
     protected void saveChanges() {
-        this.storedItems = (short) this.storedAmounts.size();
-        this.storedItemCount = 0;
-        for (var storedAmount : this.storedAmounts.values()) {
-            this.storedItemCount += storedAmount;
-        }
-
         this.isPersisted = false;
-        if (this.container != null) {
+        if (this.container == null) {
+            this.persist();
+        } else if (this.container instanceof IBatchedECOCellSaveProvider) {
             this.container.saveChanges();
         } else {
             this.persist();
+            this.container.saveChanges();
         }
     }
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (amount == 0 || !keyType.contains(what)) {
+        if (amount <= 0 || !keyType.contains(what)) {
             return 0;
         }
 
@@ -245,7 +276,8 @@ public class ECOStorageCell implements IECOStorageCell {
         // Run regular insert logic and then apply void upgrade to the returned value.
         long inserted = innerInsert(what, amount, mode);
 
-        // In the event that a void card is being used on a (full) unformatted cell, ensure it doesn't void any items
+        // In the event that a void card is being used on a (full) unformatted cell,
+        // ensure it doesn't void any items
         // that the cell isn't even storing and cannot store to begin with
         if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
             return getCellItems().containsKey(what) ? amount : inserted;
@@ -286,7 +318,12 @@ public class ECOStorageCell implements IECOStorageCell {
         }
 
         if (mode == Actionable.MODULATE) {
-            getCellItems().put(what, currentAmount + amount);
+            long newAmount = currentAmount + amount;
+            getCellItems().put(what, newAmount);
+            if (currentAmount <= 0) {
+                storedItems++;
+            }
+            storedItemCount = saturatedAdd(storedItemCount, amount);
             this.saveChanges();
         }
 
@@ -300,6 +337,8 @@ public class ECOStorageCell implements IECOStorageCell {
             if (amount >= currentAmount) {
                 if (mode == Actionable.MODULATE) {
                     getCellItems().remove(what, currentAmount);
+                    storedItems = Math.max(0, storedItems - 1);
+                    storedItemCount = Math.max(0, storedItemCount - currentAmount);
                     this.saveChanges();
                 }
 
@@ -307,6 +346,7 @@ public class ECOStorageCell implements IECOStorageCell {
             } else {
                 if (mode == Actionable.MODULATE) {
                     getCellItems().put(what, currentAmount - amount);
+                    storedItemCount = Math.max(0, storedItemCount - amount);
                     this.saveChanges();
                 }
 
@@ -352,5 +392,10 @@ public class ECOStorageCell implements IECOStorageCell {
 
     public ConfigInventory getConfigInventory() {
         return ((ECOStorageCellItem) cellStack.getItem()).getConfigInventory(cellStack);
+    }
+
+    private static long saturatedAdd(long a, long b) {
+        long result = a + b;
+        return result < 0 ? Long.MAX_VALUE : result;
     }
 }

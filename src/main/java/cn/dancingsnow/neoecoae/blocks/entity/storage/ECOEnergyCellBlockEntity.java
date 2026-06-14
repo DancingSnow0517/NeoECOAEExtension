@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
-import appeng.api.config.PowerUnit;
+import appeng.api.config.PowerUnits;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.api.networking.events.GridPowerStorageStateChanged;
@@ -15,10 +15,6 @@ import appeng.me.energy.StoredEnergyAmount;
 import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import com.lowdragmc.lowdraglib2.syncdata.storage.IManagedStorage;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -26,41 +22,28 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.ChunkStatus;
 
 public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
-    implements IExternalPowerSink, IGridTickable, ISyncPersistRPCBlockEntity {
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
-
+        implements IExternalPowerSink, IGridTickable {
     @Getter
     private final IECOTier tier;
+
     private byte currentDisplayLevel;
 
-    @Persisted
     private final StoredEnergyAmount energyStored;
 
-    @Persisted
     private boolean neighborChangePending = false;
 
-
-    public ECOEnergyCellBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
-    ) {
+    public ECOEnergyCellBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
-        getMainNode()
-            .addService(IAEPowerStorage.class, this)
-            .addService(IGridTickable.class, this);
+        getMainNode().addService(IAEPowerStorage.class, this).addService(IGridTickable.class, this);
         this.energyStored = new StoredEnergyAmount(0, tier.getPowerStorageSize(), this::emitPowerEvent);
         this.tier = tier;
     }
 
     private void emitPowerEvent(GridPowerStorageStateChanged.PowerEventType type) {
-        getMainNode().ifPresent(
-            grid -> grid.postEvent(new GridPowerStorageStateChanged(this, type)));
+        getMainNode().ifPresent(grid -> grid.postEvent(new GridPowerStorageStateChanged(this, type)));
     }
 
     @Override
@@ -105,7 +88,6 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         return formed ? AccessRestriction.READ_WRITE : AccessRestriction.NO_ACCESS;
     }
 
-    @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
@@ -120,13 +102,19 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
         if (!neighborChangePending) {
             neighborChangePending = true;
-            getMainNode().ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
+            getMainNode().ifPresent((grid, node) -> {
+                if (!node.isActive()) {
+                    neighborChangePending = false;
+                    return;
+                }
+                try {
+                    grid.getTickManager().alertDevice(node);
+                } catch (IllegalArgumentException ignored) {
+                    // Node is not alertable yet; retry on the next energy change.
+                    neighborChangePending = false;
+                }
+            });
         }
-    }
-
-    @Override
-    public IManagedStorage getRootStorage() {
-        return syncStorage;
     }
 
     @Override
@@ -139,13 +127,14 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     @Override
-    public double injectExternalPower(PowerUnit externalUnit, double amount, Actionable mode) {
-        return PowerUnit.AE.convertTo(externalUnit, injectAEPower(PowerUnit.AE.convertTo(externalUnit, amount), mode));
+    public double injectExternalPower(PowerUnits externalUnit, double amount, Actionable mode) {
+        double aeAmount = externalUnit.convertTo(PowerUnits.AE, amount);
+        return PowerUnits.AE.convertTo(externalUnit, injectAEPower(aeAmount, mode));
     }
 
     @Override
-    public double getExternalPowerDemand(PowerUnit externalUnit, double maxPowerRequired) {
-        return PowerUnit.AE.convertTo(externalUnit, Math.max(0.0, getAEMaxPower() - getAECurrentPower()));
+    public double getExternalPowerDemand(PowerUnits externalUnit, double maxPowerRequired) {
+        return PowerUnits.AE.convertTo(externalUnit, Math.max(0.0, getAEMaxPower() - getAECurrentPower()));
     }
 
     private void setChangedNoTicketUpdate() {
@@ -154,12 +143,13 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
         }
 
         var pos = getBlockPos();
-        var chunk = serverLevel.getChunkSource().getChunk(
-            SectionPos.blockToSectionCoord(pos.getX()),
-            SectionPos.blockToSectionCoord(pos.getZ()),
-            ChunkStatus.FULL,
-            false
-        );
+        var chunk = serverLevel
+                .getChunkSource()
+                .getChunk(
+                        SectionPos.blockToSectionCoord(pos.getX()),
+                        SectionPos.blockToSectionCoord(pos.getZ()),
+                        ChunkStatus.FULL,
+                        false);
         if (chunk != null) {
             chunk.setUnsaved(true);
         }
@@ -167,7 +157,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 20, !neighborChangePending);
+        return new TickingRequest(1, 20, !neighborChangePending, false);
     }
 
     @Override
@@ -193,14 +183,14 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
             return;
         }
 
-        int storageLevel = getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
+        int storageLevel =
+                getStorageLevelFromFillFactor(this.energyStored.getAmount() / this.energyStored.getMaximum());
 
         if (this.currentDisplayLevel != storageLevel) {
+            BlockState oldState = this.level.getBlockState(this.worldPosition);
+            BlockState newState = oldState.setValue(ECOEnergyCellBlock.LEVEL, storageLevel);
             this.currentDisplayLevel = (byte) storageLevel;
-            this.level.setBlockAndUpdate(
-                this.worldPosition,
-                this.level.getBlockState(this.worldPosition).setValue(ECOEnergyCellBlock.LEVEL, storageLevel)
-            );
+            this.level.setBlockAndUpdate(this.worldPosition, newState);
         }
     }
 }

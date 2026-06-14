@@ -4,30 +4,39 @@ import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScreenOpener;
+import cn.dancingsnow.neoecoae.util.NEInteractionUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> implements BlockUIMenuType.BlockUI {
+public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     public ECOStorageSystemBlock(BlockBehaviour.Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(FACING, Direction.NORTH)
-        );
+        registerDefaultState(getStateDefinition()
+                .any()
+                .setValue(FORMED, false)
+                .setValue(MIRRORED, false)
+                .setValue(FACING, Direction.NORTH));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(MIRRORED);
     }
 
     @Override
@@ -36,20 +45,17 @@ public class ECOStorageSystemBlock extends NEBlock<ECOStorageSystemBlockEntity> 
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (player instanceof ServerPlayer serverPlayer) {
-            BlockUIMenuType.openUI(serverPlayer, pos);
-            return InteractionResult.CONSUME;
+    public InteractionResult use(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Player player,
+            InteractionHand hand,
+            BlockHitResult hitResult) {
+        // If player is holding a special tool (Structure Terminal shift, wrench), pass through
+        if (NEInteractionUtil.shouldPassBlockUseToHeldTool(player, hand)) {
+            return InteractionResult.PASS;
         }
-        return InteractionResult.SUCCESS;
-    }
-
-    @Override
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        if (holder.player.level().getBlockEntity(holder.pos) instanceof ECOStorageSystemBlockEntity be) {
-            return be.createUI(holder);
-        }
-        return null;
+        return NELDLibScreenOpener.openBlockEntityUi(level, pos, player);
     }
 }
-

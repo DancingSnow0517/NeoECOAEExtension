@@ -1,0 +1,17 @@
+{
+  "type": "mekanism:crushing",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "input": {
+    "ingredient": {
+      "tag": "forge:gems/energized_crystal"
+    }
+  },
+  "output": {
+    "item": "neoecoae:energized_crystal_dust"
+  }
+}

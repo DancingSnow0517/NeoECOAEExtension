@@ -23,17 +23,20 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
         if (serverData.contains("mounted")) {
             boolean mounted = serverData.getBoolean("mounted");
             if (mounted) {
-                iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
+                iTooltip.add(
+                        Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
             } else {
-                iTooltip.add(Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
+                iTooltip.add(
+                        Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
                 return;
             }
         }
         if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
-            iTooltip.add(Tooltips.bytesUsed(serverData.getLong("usedBytes"),serverData.getLong("totalBytes")));
+            iTooltip.add(Tooltips.bytesUsed(serverData.getLong("usedBytes"), serverData.getLong("totalBytes")));
         }
         if (serverData.contains("storedItemTypes") && serverData.contains("totalItemTypes")) {
-            iTooltip.add(Tooltips.typesUsed(serverData.getLong("storedItemTypes"), serverData.getLong("totalItemTypes")));
+            iTooltip.add(
+                    Tooltips.typesUsed(serverData.getLong("storedItemTypes"), serverData.getLong("totalItemTypes")));
         }
     }
 
@@ -50,8 +53,6 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
             }
         }
     }
-
-
 
     @Override
     public ResourceLocation getUid() {

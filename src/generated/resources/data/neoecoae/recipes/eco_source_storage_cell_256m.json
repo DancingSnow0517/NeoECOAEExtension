@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "arseng"
+    }
+  ],
+  "ingredients": [
+    {
+      "item": "neoecoae:eco_source_cell_housing"
+    },
+    {
+      "item": "neoecoae:eco_cell_component_256m"
+    }
+  ],
+  "result": {
+    "item": "neoecoae:eco_source_storage_cell_256m"
+  }
+}

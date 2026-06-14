@@ -11,18 +11,41 @@ public class NELangGenerator {
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_system", "ECO Crafting System");
+        provider.add("config.jade.plugin_neoecoae.eco_computation_system", "ECO Computation System");
 
         provider.add("jade.neoecoae.drive_mounted", "ECO Drive Mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO Drive Unmounted");
         provider.add("jade.neoecoae.worker_threads", "Threads: %d/%d");
+        provider.add("jade.neoecoae.formed", "Formed: %s");
+        provider.add("jade.neoecoae.running", "Running: %s");
+        provider.add("jade.neoecoae.yes", "Yes");
+        provider.add("jade.neoecoae.no", "No");
         provider.add("jade.neoecoae.overclocked", "Overclock Enabled");
         provider.add("jade.neoecoae.activeCooling", "Active Cooling Enabled");
         provider.add("jade.neoecoae.coolant", "Coolant: %d");
         provider.add("jade.neoecoae.coolant_max_overclock", "Coolant Max Overclock: %d");
         provider.add("jade.neoecoae.coolant_max_overclock.none", "Coolant Max Overclock: None");
         provider.add("jade.neoecoae.overclock_status", "Theoretical/Effective Overclock: %d/%d");
+        provider.add("jade.neoecoae.crafting.worker_count", "Worker Cores: %s");
+        provider.add("jade.neoecoae.crafting.thread_usage", "Threads: %s/%s");
+        provider.add("jade.neoecoae.crafting.progress", "Batch Progress: %s / %s t");
+        provider.add("jade.neoecoae.crafting.progress_value", "Thread Progress: %s / 100");
+        provider.add("jade.neoecoae.crafting.avg_progress", "Average Progress: %s / 100");
+        provider.add("jade.neoecoae.crafting.speed", "Thread Speed: %s progress/t");
+        provider.add("jade.neoecoae.crafting.duration", "Craft Time: %s t / %s s");
+        provider.add("jade.neoecoae.crafting.batch_slots", "Current Batch Slots: %s");
+        provider.add("jade.neoecoae.crafting.queue_per_worker", "Queue per Worker: %s");
+        provider.add("jade.neoecoae.computation.accelerators", "Accelerators: %s");
+        provider.add("jade.neoecoae.computation.dispatch_limit", "CPU Dispatch Limit: %s patterns/t");
+        provider.add("jade.neoecoae.computation.thread_usage", "Threads: %s/%s");
+        provider.add("jade.neoecoae.computation.storage_usage", "Storage Used: %s / %s bytes");
 
         provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern into available ECO Crafting System");
+
+        provider.add("cell_type.neoecoae.chemical", "Chemical");
+        provider.add("cell_type.neoecoae.flux", "FE");
+        provider.add("cell_type.neoecoae.mana", "Mana");
+        provider.add("cell_type.neoecoae.source", "Source");
 
         provider.add("category.neoecoae.cooling", "Cooling");
         provider.add("category.neoecoae.cooling.coolant", "Coolant: %d");
@@ -37,22 +60,26 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.max_lenth", "Maximum length of structure: %d");
 
         provider.add("tooltip.neoecoae.storage_system", "The core of the storage subsystem");
-        addLangs(provider, "tooltip.neoecoae.storage_dirve",
-            "Can drive storage matrix",
-            "The drivable storage matrix tier depends on the storage subsystem host controller"
-        );
+        addLangs(
+                provider,
+                "tooltip.neoecoae.storage_dirve",
+                "Can drive storage matrix",
+                "The drivable storage matrix tier depends on the storage subsystem host controller");
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
-        provider.add("tooltip.neoecoae.crafting_parallels", "Parallel core provides parallel count to the crafting subsystem");
+        provider.add(
+                "tooltip.neoecoae.crafting_parallels",
+                "Parallel core provides parallel count to the crafting subsystem");
         provider.add("tooltip.neoecoae.max_parallel_count", "Max parallel count +%d");
         provider.add("tooltip.neoecoae.overclocked", "When enabling overclocking:");
         provider.add("tooltip.neoecoae.active_cooling", "When enabling active cooling:");
         provider.add("tooltip.neoecoae.clear_negative_effect", "Clear the negative effects of overclocking");
 
-        addLangs(provider, "tooltip.neoecoae.crafting_worker",
-            "ECO - FX Worker is the main part of the crafting subsystem",
-            "ECO - FX Worker can store 32 crafting jobs, processing 1 crafting job per crafting"
-        );
+        addLangs(
+                provider,
+                "tooltip.neoecoae.crafting_worker",
+                "ECO - FX Worker is the main part of the crafting subsystem",
+                "ECO - FX Worker can store 32 crafting jobs, processing 1 crafting job per crafting");
         provider.add("tooltip.neoecoae.crafting_jobs_l4", "Store Crafting Jobs: x%d [L4]");
         provider.add("tooltip.neoecoae.crafting_jobs_l6", "Store Crafting Jobs: x%d [L6]");
         provider.add("tooltip.neoecoae.crafting_jobs_l9", "Store Crafting Jobs: x%d [L9]");
@@ -60,40 +87,47 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.power_multiply_l6", "Power Multiply: x%d [L6]");
         provider.add("tooltip.neoecoae.power_multiply_l9", "Power Multiply: x%d [L9]");
 
-        addLangs(provider, "tooltip.neoecoae.crafting_pattern_bus",
-            "ECO - FD Smart Pattern Bus is the main part of the crafting subsystem",
-            "Each bus can store 63 patten",
-            "When encoding patten on the ME Encoding Terminal, you can use the adjacent button to quickly upload them"
-        );
+        addLangs(
+                provider,
+                "tooltip.neoecoae.crafting_pattern_bus",
+                "ECO - FD Smart Pattern Bus is the main part of the crafting subsystem",
+                "Each configured page can store 63 patterns",
+                "When encoding patten on the ME Encoding Terminal, you can use the adjacent button to quickly upload them");
 
         provider.add("tooltip.neoecoae.computation_system", "The core of the computation subsystem");
-        addLangs(provider, "tooltip.neoecoae.computation_system_desc",
-            "The computation subsystem introduces virtual Crafting Processors (vCPUs):",
-            "The host provides only one vCPU to the ME network at a time, with capacity equal to all currently available bytes in the subsystem",
-            "When a user assigns a crafting task to a vCPU, the host automatically adjusts the vCPU's byte allocation to the task's requirements before assigning it to a Threading Core",
-            "New vCPUs can be allocated continuously until the total allocated vCPUs reach the max thread count",
-            "vCPUs are immediately destroyed when the crafting task completes and all items are returned"
-        );
+        addLangs(
+                provider,
+                "tooltip.neoecoae.computation_system_desc",
+                "The computation subsystem introduces virtual Crafting Processors (vCPUs):",
+                "The host provides only one vCPU to the ME network at a time, with capacity equal to all currently available bytes in the subsystem",
+                "When a user assigns a crafting task to a vCPU, the host automatically adjusts the vCPU's byte allocation to the task's requirements before assigning it to a Threading Core",
+                "New vCPUs can be allocated continuously until the total allocated vCPUs reach the max thread count",
+                "vCPUs are immediately destroyed when the crafting task completes and all items are returned");
 
-        addLangs(provider, "tooltip.neoecoae.computation_drive",
-            "Can drive flash crystal matrix",
-                "The drivable flash crystal matrix tier depends on the computation subsystem host controller"
-        );
-        addLangs(provider, "tooltip.neoecoae.computation_threading_core",
-            "Threading Core is the main part of the computation subsystem, providing thread count to the host controller",
-            "Threads determine the maximum virtual CPUs for the computation subsystem",
-            "When destroyed, compressed CPU data will be directly saved to the dropped item"
-        );
+        addLangs(
+                provider,
+                "tooltip.neoecoae.computation_drive",
+                "Can drive flash crystal matrix",
+                "The drivable flash crystal matrix tier depends on the computation subsystem host controller");
+        addLangs(
+                provider,
+                "tooltip.neoecoae.computation_threading_core",
+                "Threading Core is the main part of the computation subsystem, providing thread count to the host controller",
+                "Threads determine the maximum virtual CPUs for the computation subsystem",
+                "When destroyed, compressed CPU data will be directly saved to the dropped item");
         provider.add("tooltip.neoecoae.max_thread_count", "Max thread count +%d");
-        addLangs(provider, "tooltip.neoecoae.computation_parallel_core",
-            "Parallel Core provides parallel count to the computation subsystem",
-            "Parallel count increases the processing numbers per crafting task for all threading cores"
-        );
+        addLangs(
+                provider,
+                "tooltip.neoecoae.computation_parallel_core",
+                "Parallel Core provides parallel count to the computation subsystem",
+                "Parallel count increases the processing numbers per crafting task for all threading cores");
         provider.add("tooltip.neoecoae.computation_cell", "Provides %s bytes to the computation subsystem");
 
         provider.add("neoecoae.classic_pack", "Neo ECO AE Extension Classic Textures");
 
-        provider.add("tooltip.neoecoae.budding_energized_crystal_block", "Obtained by striking Budding Certus Quartz with lightning");
+        provider.add(
+                "tooltip.neoecoae.budding_energized_crystal_block",
+                "Obtained by striking Budding Certus Quartz with lightning");
     }
 
     private static void addLangs(RegistrateLangProvider provider, String key, String... langs) {

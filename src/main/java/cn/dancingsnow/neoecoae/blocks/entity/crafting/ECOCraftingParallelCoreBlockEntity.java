@@ -6,17 +6,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
-public class ECOCraftingParallelCoreBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingParallelCoreBlockEntity> {
+public class ECOCraftingParallelCoreBlockEntity
+        extends AbstractCraftingBlockEntity<ECOCraftingParallelCoreBlockEntity> {
 
     @Getter
     private final IECOTier tier;
 
     public ECOCraftingParallelCoreBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
-    ) {
+            BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
         this.tier = tier;
     }
@@ -27,4 +24,3 @@ public class ECOCraftingParallelCoreBlockEntity extends AbstractCraftingBlockEnt
         getMainNode().setIdlePowerUsage(64);
     }
 }
-

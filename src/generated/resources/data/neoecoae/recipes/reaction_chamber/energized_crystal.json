@@ -1,0 +1,35 @@
+{
+  "type": "advanced_ae:reaction",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "advanced_ae"
+    }
+  ],
+  "energy": 500000,
+  "fluid": {
+    "fluidStack": {
+      "Amount": 500,
+      "FluidName": "minecraft:water"
+    }
+  },
+  "input_items": [
+    {
+      "amount": 32,
+      "ingredient": {
+        "item": "ae2:charged_certus_quartz_crystal"
+      }
+    },
+    {
+      "amount": 32,
+      "ingredient": {
+        "tag": "forge:dusts/energized_crystal"
+      }
+    }
+  ],
+  "output": {
+    "#": 64,
+    "#c": "ae2:i",
+    "id": "neoecoae:energized_crystal"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "tag": "forge:gems/energized_crystal"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "item": "neoecoae:energized_crystal_dust"
+  }
+}

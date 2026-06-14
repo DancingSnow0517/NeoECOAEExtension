@@ -1,0 +1,45 @@
+{
+  "type": "ars_nouveau:enchanting_apparatus",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "arseng"
+    }
+  ],
+  "keepNbtOfReagent": false,
+  "output": {
+    "item": "neoecoae:eco_source_cell_housing"
+  },
+  "pedestalItems": [
+    {
+      "tag": "forge:gems/source"
+    },
+    {
+      "tag": "forge:gems/source"
+    },
+    {
+      "tag": "forge:gems/source"
+    },
+    {
+      "tag": "forge:gems/source"
+    },
+    {
+      "item": "neoecoae:crystal_matrix"
+    },
+    {
+      "item": "neoecoae:crystal_matrix"
+    },
+    {
+      "item": "ars_nouveau:manipulation_essence"
+    },
+    {
+      "item": "ars_nouveau:manipulation_essence"
+    }
+  ],
+  "reagent": [
+    {
+      "item": "neoecoae:eco_item_cell_housing"
+    }
+  ],
+  "sourceCost": 5000
+}

@@ -1,0 +1,12 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "tag": "forge:ingots/black_tungsten_alloy"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "item": "neoecoae:black_tungsten_alloy_dust"
+  }
+}

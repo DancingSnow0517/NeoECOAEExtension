@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appbot"
+    }
+  ],
+  "ingredients": [
+    {
+      "item": "neoecoae:eco_mana_cell_housing"
+    },
+    {
+      "item": "neoecoae:eco_cell_component_256m"
+    }
+  ],
+  "result": {
+    "item": "neoecoae:eco_mana_storage_cell_256m"
+  }
+}

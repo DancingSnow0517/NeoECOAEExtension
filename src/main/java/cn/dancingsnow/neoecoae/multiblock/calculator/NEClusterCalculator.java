@@ -4,34 +4,45 @@ import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.mojang.serialization.DataResult;
+import com.tterrag.registrate.util.entry.BlockEntry;
+import java.util.List;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-
-import java.util.List;
-import java.util.function.BiPredicate;
-import java.util.function.Predicate;
+import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("BooleanMethodIsAlwaysInverted")
 public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
+    private boolean mirroredStructure = false;
 
     public NEClusterCalculator(NEBlockEntity<C, ?> t) {
         super(t);
     }
 
+    @Override
+    public void calculateMultiblock(ServerLevel level, BlockPos pos) {
+        super.calculateMultiblock(level, pos);
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {
+        c.setMirrored(mirroredStructure);
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
-            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) level.getBlockEntity(blockPos);
-            if (blockEntity == null) {
+            BlockEntity rawBlockEntity = level.getBlockEntity(blockPos);
+            if (!isValidBlockEntity(rawBlockEntity)) {
                 this.disconnect();
                 return;
             }
+            @SuppressWarnings("unchecked")
+            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) rawBlockEntity;
             c.addBlockEntity(blockEntity);
         }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
@@ -44,14 +55,61 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         int sizeY = max.getY() - min.getY() + 1;
         int sizeZ = max.getZ() - min.getZ() + 1;
 
+        boolean valid;
         if (sizeX > sizeZ) {
-            return sizeX <= maxLength() && sizeY == 3 && sizeZ == 2;
+            valid = sizeX <= maxLength() && sizeY == 3 && sizeZ == 2;
         } else {
-            return sizeZ <= maxLength() && sizeY == 3 && sizeX == 2;
+            valid = sizeZ <= maxLength() && sizeY == 3 && sizeX == 2;
         }
+        return valid;
     }
 
     protected abstract int maxLength();
+
+    protected void setMirroredStructure(boolean mirroredStructure) {
+        this.mirroredStructure = mirroredStructure;
+    }
+
+    /** Hook for calculator-specific validation diagnostics. */
+    protected void logVerifyFailure(
+            ServerLevel level, String step, BlockPos pos, String expected, @Nullable Direction expectedFacing) {}
+
+    /** Hook for calculator-specific validation diagnostics. */
+    protected void logVerifyFailure(
+            ServerLevel level,
+            @Nullable BlockPos min,
+            @Nullable BlockPos max,
+            String step,
+            BlockPos pos,
+            String expected,
+            @Nullable Direction expectedFacing) {}
+
+    /** Hook for calculator-specific validation diagnostics. */
+    protected void logVerifyContext(
+            ServerLevel level,
+            BlockPos min,
+            BlockPos max,
+            BlockPos controllerPos,
+            BlockState controllerState,
+            Direction front,
+            Direction back,
+            Direction left,
+            Direction right,
+            Direction top,
+            Direction down) {}
+
+    /** Hook for calculator-specific validation diagnostics. */
+    protected void logLineProbe(ServerLevel level, String step, BlockPos start, Direction direction, int maxSamples) {}
+
+    /** Hook for calculator-specific validation diagnostics. */
+    protected void logLineProbe(
+            ServerLevel level,
+            @Nullable BlockPos min,
+            @Nullable BlockPos max,
+            String step,
+            BlockPos start,
+            Direction direction,
+            int maxSamples) {}
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {
@@ -72,64 +130,49 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
 
     public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Block type) {
         BlockPos.MutableBlockPos mutable = start.mutable();
-        while (
-            level.getBlockState(
-                new BlockPos(
+        while (level.getBlockState(new BlockPos(
+                        mutable.getX() + direction.getStepX(),
+                        mutable.getY() + direction.getStepY(),
+                        mutable.getZ() + direction.getStepZ()))
+                .is(type)) {
+            mutable.set(
                     mutable.getX() + direction.getStepX(),
                     mutable.getY() + direction.getStepY(),
-                    mutable.getZ() + direction.getStepZ()
-                )
-            ).is(type)
-        ) {
-            mutable.set(
-                mutable.getX() + direction.getStepX(),
-                mutable.getY() + direction.getStepY(),
-                mutable.getZ() + direction.getStepZ()
-            );
+                    mutable.getZ() + direction.getStepZ());
         }
         return mutable;
     }
 
     public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, Predicate<BlockState> fn) {
         BlockPos.MutableBlockPos mutable = start.mutable();
-        while (
-            fn.test(level.getBlockState(
-                new BlockPos(
-                    mutable.getX() + direction.getStepX(),
-                    mutable.getY() + direction.getStepY(),
-                    mutable.getZ() + direction.getStepZ()
-                )
-            ))
-        ) {
-            mutable.set(
+        while (fn.test(level.getBlockState(new BlockPos(
                 mutable.getX() + direction.getStepX(),
                 mutable.getY() + direction.getStepY(),
-                mutable.getZ() + direction.getStepZ()
-            );
+                mutable.getZ() + direction.getStepZ())))) {
+            mutable.set(
+                    mutable.getX() + direction.getStepX(),
+                    mutable.getY() + direction.getStepY(),
+                    mutable.getZ() + direction.getStepZ());
         }
         return mutable;
     }
 
-    public static BlockPos expandTowards(Level level, Direction direction, BlockPos start, BiPredicate<BlockState, BlockPos> fn) {
+    public static BlockPos expandTowards(
+            Level level, Direction direction, BlockPos start, BiPredicate<BlockState, BlockPos> fn) {
         BlockPos.MutableBlockPos mutable = start.mutable();
         BlockPos pos = new BlockPos(
-            mutable.getX() + direction.getStepX(),
-            mutable.getY() + direction.getStepY(),
-            mutable.getZ() + direction.getStepZ()
-        );
-        while (
-            fn.test(level.getBlockState(pos), pos)
-        ) {
+                mutable.getX() + direction.getStepX(),
+                mutable.getY() + direction.getStepY(),
+                mutable.getZ() + direction.getStepZ());
+        while (fn.test(level.getBlockState(pos), pos)) {
             mutable.set(
-                mutable.getX() + direction.getStepX(),
-                mutable.getY() + direction.getStepY(),
-                mutable.getZ() + direction.getStepZ()
-            );
+                    mutable.getX() + direction.getStepX(),
+                    mutable.getY() + direction.getStepY(),
+                    mutable.getZ() + direction.getStepZ());
             pos = new BlockPos(
-                mutable.getX() + direction.getStepX(),
-                mutable.getY() + direction.getStepY(),
-                mutable.getZ() + direction.getStepZ()
-            );
+                    mutable.getX() + direction.getStepX(),
+                    mutable.getY() + direction.getStepY(),
+                    mutable.getZ() + direction.getStepZ());
         }
         return mutable;
     }
@@ -143,7 +186,8 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return true;
     }
 
-    public static <T> boolean validateBlocks(Level level, Iterable<BlockPos> iterable, BiPredicate<BlockState, T> fn, T value) {
+    public static <T> boolean validateBlocks(
+            Level level, Iterable<BlockPos> iterable, BiPredicate<BlockState, T> fn, T value) {
         for (BlockPos blockPos : iterable) {
             if (!fn.test(level.getBlockState(blockPos), value)) {
                 return false;
@@ -152,47 +196,63 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         return true;
     }
 
-    public static <T> boolean validateBlocks(Level level, BlockPos from, BlockPos to, BiPredicate<BlockState, T> fn, T value) {
+    public static <T> boolean validateBlocks(
+            Level level, BlockPos from, BlockPos to, BiPredicate<BlockState, T> fn, T value) {
         return validateBlocks(level, BlockPos.betweenClosed(from, to), fn, value);
     }
 
     protected static boolean validateCasing(
-        ServerLevel level,
-        BlockPos centerPos,
-        Direction top,
-        Direction down,
-        Holder<Block> casing
-    ) {
-        if (!validateBlock(level, centerPos, BlockState::is, casing)) {
+            ServerLevel level, BlockPos centerPos, Direction top, Direction down, Holder<Block> casing) {
+        if (!validateBlock(level, centerPos, (state, block) -> state.is(block.value()), casing)) {
             return false;
         }
-        if (!validateBlock(level, centerPos.relative(top), BlockState::is, casing)) {
+        if (!validateBlock(level, centerPos.relative(top), (state, block) -> state.is(block.value()), casing)) {
             return false;
         }
-        return validateBlock(level, centerPos.relative(down), BlockState::is, casing);
+        return validateBlock(level, centerPos.relative(down), (state, block) -> state.is(block.value()), casing);
+    }
+
+    protected static boolean validateCasing(
+            ServerLevel level, BlockPos centerPos, Direction top, Direction down, BlockEntry<? extends Block> casing) {
+        return validateCasing(level, centerPos, top, down, casing.get().builtInRegistryHolder());
     }
 
     protected boolean validateInterface(
-        ServerLevel level,
-        BlockPos interfacePos,
-        Direction top,
-        Direction down,
-        Holder<Block> interfaceType,
-        Holder<Block> casingType
-    ) {
-        if (!validateBlock(level, interfacePos, BlockState::is, interfaceType)) {
+            ServerLevel level,
+            BlockPos interfacePos,
+            Direction top,
+            Direction down,
+            Holder<Block> interfaceType,
+            Holder<Block> casingType) {
+        if (!validateBlock(level, interfacePos, (state, block) -> state.is(block.value()), interfaceType)) {
             return false;
         }
-        if (!validateBlock(level, interfacePos.relative(top), BlockState::is, casingType)) {
+        if (!validateBlock(level, interfacePos.relative(top), (state, block) -> state.is(block.value()), casingType)) {
             return false;
         }
-        return validateBlock(level, interfacePos.relative(down), BlockState::is, casingType);
+        return validateBlock(level, interfacePos.relative(down), (state, block) -> state.is(block.value()), casingType);
+    }
+
+    protected boolean validateInterface(
+            ServerLevel level,
+            BlockPos interfacePos,
+            Direction top,
+            Direction down,
+            BlockEntry<? extends Block> interfaceType,
+            BlockEntry<? extends Block> casingType) {
+        return validateInterface(
+                level,
+                interfacePos,
+                top,
+                down,
+                interfaceType.get().builtInRegistryHolder(),
+                casingType.get().builtInRegistryHolder());
     }
 
     protected static boolean ensureSameSurface(List<BlockPos> list) {
-        int x = list.getFirst().getX();
-        int y = list.getFirst().getY();
-        int z = list.getFirst().getZ();
+        int x = list.get(0).getX();
+        int y = list.get(0).getY();
+        int z = list.get(0).getZ();
         boolean sameX = true;
         boolean sameY = true;
         boolean sameZ = true;
@@ -214,30 +274,13 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     protected static DataResult<BlockPos> validateBlockLine(
-        Level level,
-        Direction expandDirection,
-        BlockPos start,
-        BiPredicate<BlockState, BlockPos> blockPredicate
-    ) {
-        if (!validateBlock(
-            level,
-            start,
-            it -> blockPredicate.test(it, start)
-        )) {
+            Level level, Direction expandDirection, BlockPos start, BiPredicate<BlockState, BlockPos> blockPredicate) {
+        if (!validateBlock(level, start, it -> blockPredicate.test(it, start))) {
             return DataResult.error(NEClusterCalculator::fail);
         }
-        BlockPos end = expandTowards(
-            level,
-            expandDirection,
-            start,
-            blockPredicate
-        );
+        BlockPos end = expandTowards(level, expandDirection, start, blockPredicate);
         if (end.equals(start)) {
-            if (validateBlock(
-                level,
-                end,
-                it -> blockPredicate.test(it, start)
-            )) {
+            if (validateBlock(level, end, it -> blockPredicate.test(it, start))) {
                 return DataResult.success(end);
             }
         }

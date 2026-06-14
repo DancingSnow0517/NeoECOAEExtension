@@ -16,6 +16,8 @@ out
 # gradle
 build
 .gradle
+.gradle-port-cache/
+.gradle-native/
 
 # other
 eclipse
@@ -24,8 +26,18 @@ runs
 run-data
 
 repo
+NeoSkills.md
 
 src/generated/resources/.cache/
+
+# logs
+logs/
 /src/guidebook/
+
+# vs code
+.vscode/
+
+# worktrees
+.worktrees/
 
 .mcopilot/

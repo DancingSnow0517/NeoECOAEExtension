@@ -1,0 +1,18 @@
+{
+  "type": "ae2:transform",
+  "circumstance": {
+    "type": "fluid",
+    "tag": "minecraft:water"
+  },
+  "ingredients": [
+    {
+      "tag": "forge:dusts/energized_crystal"
+    },
+    {
+      "tag": "forge:gems/fluix"
+    }
+  ],
+  "result": {
+    "item": "neoecoae:energized_fluix_crystal"
+  }
+}

@@ -1,144 +1,159 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
-import appeng.client.gui.Icon;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.core.localization.Tooltips;
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
+import appeng.hooks.ticking.TickHandler;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
+import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
+import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
+import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Switch;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
-import dev.vfyjxf.taffy.style.TaffyDisplay;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
-import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IGridTickable {
+        implements IGridTickable, INEMultiblockBuildHost, IUIHolder.BlockEntityUI {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final boolean DEBUG_THREAD_COUNT = Boolean.getBoolean("neoecoae.debugEcoCraftingThreadCount");
+    private static final Comparator<NECraftingModuleCell> MODULE_CELL_ORDER = Comparator.comparingInt(
+                    NECraftingModuleCell::column)
+            .thenComparingInt(cell -> cell.row().ordinal())
+            .thenComparingInt(NECraftingModuleCell::tier);
 
+    /**
+     * Internal coolant cache maximum: the crafting controller's own cooling
+     * buffer, <em>not</em> the fluid hatch tank capacity.
+     * Maintains the 1.21.1 value of 1,000,000.
+     */
     public static final int MAX_COOLANT = 1_000_000;
-    private static final int COOLANT_PER_CRAFT = 5;
 
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
+    private static final int COOLANT_PER_CRAFT = 5;
 
     @Getter
     private final IECOTier tier;
 
     @Getter
-    @Persisted
-    @DescSynced
     private boolean overclocked = false;
 
     @Getter
-    @Persisted
-    @DescSynced
     private boolean activeCooling = false;
 
     @Getter
-    @Persisted
-    @DescSynced
-    private int coolant = 0;
+    private boolean autoClearCoolingWaste = false;
+
     @Getter
-    @Persisted
-    @DescSynced
+    private int coolant = 0;
+
+    @Getter
     private int coolantMaxOverclock = -1;
 
-    @DescSynced
     private int patternBusCount, parallelCount, workerCount = 0;
 
-    @Getter
-    @DescSynced
     private int runningThreadCount = 0;
 
-    @Getter
-    @DescSynced
     private int threadCount = 0;
 
-    @Getter
-    @DescSynced
     private int threadCountPerWorker = 0;
 
-    @Getter
-    @DescSynced
     private int overlockTimes = 0;
-    @Persisted
-    @DescSynced
+    private boolean structureStatsDirty = true;
+    /** Shared preview/build state, delegates NBT sync to {@link BuildPreviewState}. */
+    private final BuildPreviewState buildPreview = new BuildPreviewState();
+
+    private long uiRevision = 0L;
     private int selectedBuildLength = 1;
-    @DescSynced
     private int previewMissingBlocks;
-    @DescSynced
     private int previewConflictBlocks;
-    @DescSynced
     private int previewReusedBlocks;
-    @DescSynced
     private int previewRequiredItems;
-    @DescSynced
     private String previewStatusKey = "gui.neoecoae.multiblock.status.idle";
-    @DescSynced
     private int previewStatusArg1;
-    @DescSynced
     private int previewStatusArg2;
-    @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
+    private long lastCoolantConsumeDirtyTick = Long.MIN_VALUE;
+    private long lastThreadCountValidationTick = Long.MIN_VALUE;
 
-    public ECOCraftingSystemBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
-    ) {
+    public ECOCraftingSystemBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
         this.tier = tier;
         getMainNode().addService(IGridTickable.class, this);
+    }
+
+    // NBT persistence
+    @Override
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        tag.putBoolean("overclocked", overclocked);
+        tag.putBoolean("activeCooling", activeCooling);
+        tag.putBoolean("autoClearCoolingWaste", autoClearCoolingWaste);
+        tag.putInt("coolant", coolant);
+        tag.putInt("coolantMaxOverclock", coolantMaxOverclock);
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+    }
+
+    @Override
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
+        overclocked = tag.getBoolean("overclocked");
+        activeCooling = tag.getBoolean("activeCooling");
+        autoClearCoolingWaste = tag.getBoolean("autoClearCoolingWaste");
+        coolant = Mth.clamp(tag.getInt("coolant"), 0, MAX_COOLANT);
+        coolantMaxOverclock = tag.getInt("coolantMaxOverclock");
+        if (!tag.contains("coolantMaxOverclock")) coolantMaxOverclock = -1;
+        selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (selectedBuildLength < 1) selectedBuildLength = 1;
+        // Safety: build session is transient; reset in-progress state
+        buildInProgress = false;
+        previewMissingBlocks = 0;
+        previewConflictBlocks = 0;
+        previewReusedBlocks = 0;
+        previewRequiredItems = 0;
+        previewStatusKey = "gui.neoecoae.multiblock.status.idle";
+        previewStatusArg1 = 0;
+        previewStatusArg2 = 0;
     }
 
     @Override
@@ -147,13 +162,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         getMainNode().setIdlePowerUsage(64);
     }
 
-    @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
                 setChanged();
-                markForUpdate();
-                updateInfo();
+                markStructureStatsDirty();
+                ensureCraftingStatsCurrent();
             });
         }
     }
@@ -162,13 +176,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
         if (updateExposed) {
-            updateInfo();
+            markStructureStatsDirty();
+            ensureCraftingStatsCurrent();
         }
     }
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 10, false);
+        return new TickingRequest(1, 10, false, false);
     }
 
     @Override
@@ -197,13 +212,42 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateInfo() {
-        updateThreadCount();
+        markStructureStatsDirty();
+        ensureCraftingStatsCurrent();
+    }
+
+    /**
+     * Marks the cached crafting structure stats (worker/thread/parallel counts)
+     * as stale and increments the UI revision to trigger a menu state resync.
+     * Call this when the multiblock cluster changes or workers are added/removed.
+     */
+    public void markStructureStatsDirty() {
+        structureStatsDirty = true;
+        markUiStateDirty();
+    }
+
+    /** Returns a monotonically increasing revision for UI state duplicate suppression. */
+    public long getUiRevision() {
+        return uiRevision;
+    }
+
+    /** Increments the UI revision so the next menu tick will push a fresh state. */
+    private void markUiStateDirty() {
+        uiRevision++;
+    }
+
+    private void ensureCraftingStatsCurrent() {
+        if (!structureStatsDirty) {
+            return;
+        }
         updateCount();
+        updateThreadCount();
         updateOverlockTimes();
+        structureStatsDirty = false;
     }
 
     private void updateThreadCount() {
-        if (cluster != null && !cluster.getParallelCores().isEmpty()) {
+        if (cluster != null && parallelCount > 0) {
             int perCore = tier.getCrafterParallel();
             if (overclocked) {
                 perCore += tier.getOverclockedCrafterParallel();
@@ -211,17 +255,30 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             } else {
                 threadCountPerWorker = 32;
             }
-            threadCount = cluster.getParallelCores().size() * perCore;
-            runningThreadCount = cluster.getWorkers().stream().mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
+            threadCount = parallelCount * perCore;
+            recalculateRunningThreadCountFromWorkers();
         } else {
             threadCount = 0;
+            threadCountPerWorker = 0;
+            runningThreadCount = 0;
         }
+    }
+
+    public void recalculateRunningThreadCountFromWorkers() {
+        if (cluster == null) {
+            runningThreadCount = 0;
+            return;
+        }
+
+        runningThreadCount = cluster.getWorkers().stream()
+                .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
+                .sum();
     }
 
     private void updateCount() {
         if (cluster != null) {
             parallelCount = cluster.getParallelCores().size();
-            patternBusCount = cluster.getParallelCores().size();
+            patternBusCount = cluster.getPatternBuses().size();
             workerCount = cluster.getWorkers().size();
         } else {
             parallelCount = 0;
@@ -231,12 +288,19 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateOverlockTimes() {
-        int overflow = threadCount - threadCountPerWorker * workerCount;
+        int overflow = Math.max(0, threadCount - threadCountPerWorker * workerCount);
+        if (overflow <= 0 || threadCount <= 0) {
+            overlockTimes = 0;
+            return;
+        }
         float radio = (float) threadCount / overflow;
-        overlockTimes = Math.clamp(Math.round(radio / 0.05f), 0, 9);
+        overlockTimes = net.minecraft.util.Mth.clamp(Math.round(radio / 0.05f), 0, 9);
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
+        if (!activeCooling) {
+            return true;
+        }
         if (amount <= 0) {
             return true;
         }
@@ -251,12 +315,35 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             coolant = 0;
             coolantMaxOverclock = -1;
         }
-        setChanged();
-        markForUpdate();
+        markCoolantConsumed();
         return true;
     }
 
+    public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
+        if (!activeCooling || requestedCrafts <= 0) {
+            return Math.max(0, requestedCrafts);
+        }
+        if (coolantPerCraft <= 0) {
+            return Math.max(0, requestedCrafts);
+        }
+        if (requiredOverclock > 0 && coolantMaxOverclock < requiredOverclock) {
+            return 0;
+        }
+        return Math.min(requestedCrafts, coolant / coolantPerCraft);
+    }
+
+    private void markCoolantConsumed() {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (lastCoolantConsumeDirtyTick == currentTick) {
+            return;
+        }
+        lastCoolantConsumeDirtyTick = currentTick;
+        setChanged();
+        markUiStateDirty();
+    }
+
     public int getEffectiveOverclockTimes() {
+        ensureCraftingStatsCurrent();
         if (!overclocked) {
             return 0;
         }
@@ -278,20 +365,562 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         coolant = 0;
         coolantMaxOverclock = -1;
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
+    }
+
+    public void toggleOverclocked() {
+        overclocked = !overclocked;
+        markStructureStatsDirty();
+        ensureCraftingStatsCurrent();
+        setChanged();
+    }
+
+    public void toggleActiveCooling() {
+        activeCooling = !activeCooling;
+        setChanged();
+        markUiStateDirty();
+    }
+
+    public void toggleAutoClearCoolingWaste() {
+        autoClearCoolingWaste = !autoClearCoolingWaste;
+        setChanged();
+        markUiStateDirty();
     }
 
     private double getOverflowThreadsPercentage() {
+        ensureCraftingStatsCurrent();
         double totalThread = threadCount;
         return totalThread > 0 ? getOverflowThreads() / totalThread : 0.0;
     }
 
-    private int getOverflowThreads() {
-        return Math.min(0, threadCount - getAvailableThreads());
+    public int getOverflowThreads() {
+        ensureCraftingStatsCurrent();
+        return Math.max(0, threadCount - getAvailableThreads());
     }
 
-    private int getAvailableThreads() {
+    public int getAvailableThreads() {
+        ensureCraftingStatsCurrent();
         return threadCountPerWorker * workerCount;
+    }
+
+    public int getRunningThreadCount() {
+        ensureCraftingStatsCurrent();
+        return runningThreadCount;
+    }
+
+    public int getLiveRunningThreadCount() {
+        return getRunningThreadCount();
+    }
+
+    public boolean isRunning() {
+        return getRunningThreadCount() > 0;
+    }
+
+    public int getCurrentBatchSlots() {
+        ensureCraftingStatsCurrent();
+        return ECOCraftingCapacity.availableCraftSlots(getMaxInFlightCrafts(), runningThreadCount);
+    }
+
+    /**
+     * Maximum pattern executions that may be in flight at once.
+     * The formed structure length is the number of worker segments, while the
+     * parallel cores may impose a lower thread limit.
+     */
+    public int getMaxInFlightCrafts() {
+        ensureCraftingStatsCurrent();
+        return ECOCraftingCapacity.maxInFlightCrafts(threadCount, getStructureBuildLength(), threadCountPerWorker);
+    }
+
+    public int getStructureBuildLength() {
+        ensureCraftingStatsCurrent();
+        return workerCount;
+    }
+
+    public int getProgressPerTick() {
+        return Math.min(10 + getEffectiveOverclockTimes() * 10, 100);
+    }
+
+    public int getTheoreticalCraftTicks() {
+        int progressPerTick = getProgressPerTick();
+        if (progressPerTick <= 0) {
+            return 0;
+        }
+        return Mth.ceil((float) cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / progressPerTick);
+    }
+
+    public int getCraftingPowerMultiplier() {
+        if (overclocked && !activeCooling) {
+            return tier.getOverclockedCrafterPowerMultiply();
+        }
+        return 1;
+    }
+
+    public long getCurrentEnergyPerTick() {
+        return (long) getRunningThreadCount() * getProgressPerTick() * getCraftingPowerMultiplier();
+    }
+
+    public double getEnergyMultiplier() {
+        return getCraftingPowerMultiplier();
+    }
+
+    public double getTimeMultiplier() {
+        ensureCraftingStatsCurrent();
+        int baseParallel = parallelCount * tier.getCrafterParallel();
+        if (baseParallel <= 0 || threadCount <= 0) {
+            return 1.0D;
+        }
+        double baseTicks = cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / 10.0D;
+        return (getTheoreticalCraftTicks() * (double) baseParallel) / (baseTicks * (double) threadCount);
+    }
+
+    public ECOCraftingWorkerBlockEntity.ThreadProgressSummary getThreadProgressSummary() {
+        if (cluster == null) {
+            return new ECOCraftingWorkerBlockEntity.ThreadProgressSummary(0, 0, 0, 0);
+        }
+        int busyThreadCount = 0;
+        int occupiedSlots = 0;
+        int maxProgress = 0;
+        long weightedProgress = 0L;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            ECOCraftingWorkerBlockEntity.ThreadProgressSummary summary = worker.getThreadProgressSummary();
+            busyThreadCount += summary.busyThreadCount();
+            occupiedSlots += summary.occupiedSlots();
+            maxProgress = Math.max(maxProgress, summary.maxProgress());
+            weightedProgress += (long) summary.averageProgress() * summary.occupiedSlots();
+        }
+        int averageProgress = occupiedSlots <= 0 ? 0 : Math.round((float) weightedProgress / occupiedSlots);
+        return new ECOCraftingWorkerBlockEntity.ThreadProgressSummary(
+                busyThreadCount, occupiedSlots, maxProgress, averageProgress);
+    }
+
+    public int getThreadCount() {
+        ensureCraftingStatsCurrent();
+        return threadCount;
+    }
+
+    public int getThreadCountPerWorker() {
+        ensureCraftingStatsCurrent();
+        return threadCountPerWorker;
+    }
+
+    public int getOverlockTimes() {
+        ensureCraftingStatsCurrent();
+        return overlockTimes;
+    }
+
+    public void onWorkerThreadCountChanged(int delta) {
+        int previous = runningThreadCount;
+        runningThreadCount += delta;
+        if (runningThreadCount < 0) {
+            LOGGER.warn(
+                    "ECO controller runningThreadCount underflow: controller={} delta={} previous={} correctedToZero=true",
+                    getBlockPos(),
+                    delta,
+                    previous);
+            runningThreadCount = 0;
+        }
+        validateRunningThreadCount();
+        markUiStateDirty();
+    }
+
+    private void validateRunningThreadCount() {
+        if (!DEBUG_THREAD_COUNT || cluster == null) {
+            return;
+        }
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (currentTick == lastThreadCountValidationTick) {
+            return;
+        }
+        lastThreadCountValidationTick = currentTick;
+        int actual = cluster.getWorkers().stream()
+                .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
+                .sum();
+        if (actual != runningThreadCount) {
+            LOGGER.warn(
+                    "ECO controller runningThreadCount mismatch: controller={} cached={} actual={} corrected=true",
+                    getBlockPos(),
+                    runningThreadCount,
+                    actual);
+            runningThreadCount = actual;
+        }
+    }
+
+    public int getPatternBusCount() {
+        ensureCraftingStatsCurrent();
+        return patternBusCount;
+    }
+
+    public int getParallelCount() {
+        ensureCraftingStatsCurrent();
+        return parallelCount;
+    }
+
+    public int getWorkerCount() {
+        ensureCraftingStatsCurrent();
+        return workerCount;
+    }
+
+    // getPreviewStatusComponent() is provided by INEMultiblockBuildHost default
+
+    // INEMultiblockBuildHost implementation
+    @Override
+    public BlockPos getHostPos() {
+        return worldPosition;
+    }
+
+    @Override
+    public BlockState getHostBlockState() {
+        return getBlockState();
+    }
+
+    @Override
+    public int getSelectedBuildLength() {
+        return selectedBuildLength;
+    }
+
+    @Override
+    public void setSelectedBuildLength(int length) {
+        this.selectedBuildLength = net.minecraft.util.Mth.clamp(length, getMinBuildLength(), getMaxBuildLength());
+    }
+
+    @Override
+    public int getMinBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMin();
+    }
+
+    @Override
+    public int getMaxBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMax();
+    }
+
+    @Override
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
+
+    @Override
+    public boolean isFormed() {
+        return formed;
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int buildLength) {
+        previewStructure(player, buildLength, false);
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int buildLength, boolean mirrored) {
+        setSelectedBuildLength(buildLength);
+        previewStructure(player, mirrored);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int buildLength) {
+        autoBuild(player, buildLength, false);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int buildLength, boolean mirrored) {
+        setSelectedBuildLength(buildLength);
+        autoBuild(player, mirrored);
+    }
+
+    @Override
+    public void dismantle(ServerPlayer player) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        player.closeContainer();
+        boolean dismantled = MultiBlockPlacementService.dismantle(serverLevel, this, player);
+        syncPreview(
+                0,
+                0,
+                0,
+                0,
+                dismantled
+                        ? "gui.neoecoae.multiblock.status.dismantled"
+                        : "gui.neoecoae.multiblock.status.dismantle_failed");
+    }
+
+    public int getPreviewMissingBlocks() {
+        return previewMissingBlocks;
+    }
+
+    public int getPreviewConflictBlocks() {
+        return previewConflictBlocks;
+    }
+
+    public int getPreviewReusedBlocks() {
+        return previewReusedBlocks;
+    }
+
+    public int getPreviewRequiredItems() {
+        return previewRequiredItems;
+    }
+
+    /**
+     * Creates a snapshot of current crafting stats for S2C UI sync.
+     * <p>
+     * On the server side this reads live cluster data. No business
+     * state is modified - this is a pure read-only snapshot.
+     * </p>
+     */
+    public NECraftingUiState createCraftingUiState() {
+        // Ensure stats are current before reading ANY field;
+        // otherwise threadCount could be stale while getAvailableThreads()
+        // triggers a recalculation, making effParallel inconsistent.
+        ensureCraftingStatsCurrent();
+
+        int totalParallelism = threadCount;
+        int availThreads = getAvailableThreads();
+        int effParallel = Math.min(totalParallelism, availThreads);
+        int maxRecipeSlots = Math.max(0, availThreads);
+        int occupiedRecipeSlots = Math.min(maxRecipeSlots, Math.max(0, runningThreadCount));
+        int batchParallel = Math.max(0, effParallel);
+        List<NECraftingRecipeUiEntry> recipeEntries = new ArrayList<>();
+
+        // Collect active craft outputs from each worker
+        List<ItemStack> craftOutputs = new ArrayList<>();
+        // Collect tier level (1/2/3 = L4/L6/L9) for each parallel core
+        List<Integer> coreTiers = new ArrayList<>();
+        List<NECraftingModuleCell> moduleCells = new ArrayList<>();
+        if (cluster != null) {
+            int maxWorkerColumn = -1;
+            List<WorkerUiEntry> workerEntries = new ArrayList<>();
+            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+                appendWorkerRecipeEntries(recipeEntries, worker);
+                int column = moduleColumn(worker.getBlockPos());
+                if (column >= 0) {
+                    maxWorkerColumn = Math.max(maxWorkerColumn, column);
+                    moduleCells.add(new NECraftingModuleCell(
+                            column, NECraftingModuleCell.Row.WORKER, tier.getTier(), worker.getBlockPos()));
+                }
+                workerEntries.add(
+                        new WorkerUiEntry(column, worker.getActiveCraftOutput().copy()));
+            }
+            if (maxWorkerColumn >= 0) {
+                for (int i = 0; i <= maxWorkerColumn; i++) {
+                    craftOutputs.add(ItemStack.EMPTY);
+                }
+            }
+            workerEntries.sort(Comparator.comparingInt(WorkerUiEntry::column));
+            for (WorkerUiEntry worker : workerEntries) {
+                if (worker.column() >= 0 && worker.column() < craftOutputs.size()) {
+                    craftOutputs.set(worker.column(), worker.output());
+                } else {
+                    craftOutputs.add(worker.output());
+                }
+            }
+
+            for (ECOCraftingParallelCoreBlockEntity core : cluster.getParallelCores()) {
+                int coreTier = core.getTier().getTier();
+                coreTiers.add(coreTier);
+                NECraftingModuleCell.Row row = moduleParallelRow(core.getBlockPos());
+                int column = moduleColumn(core.getBlockPos());
+                if (row != null && column >= 0) {
+                    moduleCells.add(new NECraftingModuleCell(column, row, coreTier, core.getBlockPos()));
+                }
+            }
+            coreTiers.sort(Integer::compareTo);
+            moduleCells = normalizeModuleCells(moduleCells);
+        }
+
+        return new NECraftingUiState(
+                worldPosition,
+                formed,
+                cluster != null && getMainNode().isActive(),
+                workerCount,
+                parallelCount,
+                patternBusCount,
+                totalParallelism,
+                runningThreadCount,
+                isOverclocked(),
+                isActiveCooling(),
+                isAutoClearCoolingWaste(),
+                getSelectedBuildLength(),
+                isBuildInProgress(),
+                getPreviewMissingBlocks(),
+                getPreviewConflictBlocks(),
+                getPreviewReusedBlocks(),
+                getPreviewRequiredItems(),
+                previewStatusKey,
+                previewStatusArg1,
+                previewStatusArg2,
+                getCurrentEnergyPerTick(),
+                coolant,
+                MAX_COOLANT,
+                availThreads,
+                effParallel,
+                maxRecipeSlots,
+                occupiedRecipeSlots,
+                batchParallel,
+                recipeEntries,
+                craftOutputs,
+                coreTiers,
+                moduleCells);
+    }
+
+    private static void appendWorkerRecipeEntries(
+            List<NECraftingRecipeUiEntry> entries, ECOCraftingWorkerBlockEntity worker) {
+        Map<WorkerTaskKey, WorkerTaskAggregate> aggregates = new LinkedHashMap<>();
+        for (var thread : worker.getThreadSnapshots()) {
+            ItemStack output = thread.outputItem();
+            if (output.isEmpty()) {
+                continue;
+            }
+            WorkerTaskKey key = new WorkerTaskKey(thread.craftingJobId(), output);
+            aggregates
+                    .computeIfAbsent(key, ignored -> new WorkerTaskAggregate(output.copyWithCount(1)))
+                    .add(thread);
+        }
+
+        int aggregateIndex = 0;
+        for (WorkerTaskAggregate aggregate : aggregates.values()) {
+            entries.add(aggregate.toEntry(worker.getBlockPos(), aggregateIndex++));
+        }
+    }
+
+    private int moduleColumn(BlockPos pos) {
+        Direction right = moduleRightDirection();
+        BlockPos workerStart = worldPosition.relative(right, 2);
+        int dx = pos.getX() - workerStart.getX();
+        int dy = pos.getY() - workerStart.getY();
+        int dz = pos.getZ() - workerStart.getZ();
+        int distance = dx * right.getStepX() + dy * right.getStepY() + dz * right.getStepZ();
+        return distance;
+    }
+
+    @Nullable private NECraftingModuleCell.Row moduleParallelRow(BlockPos pos) {
+        Direction top = moduleTopDirection();
+        Direction down = top.getOpposite();
+        int dx = pos.getX() - worldPosition.getX();
+        int dy = pos.getY() - worldPosition.getY();
+        int dz = pos.getZ() - worldPosition.getZ();
+        if (dx * top.getStepX() + dy * top.getStepY() + dz * top.getStepZ() == 1) {
+            return NECraftingModuleCell.Row.UPPER_PARALLEL;
+        }
+        if (dx * down.getStepX() + dy * down.getStepY() + dz * down.getStepZ() == 1) {
+            return NECraftingModuleCell.Row.LOWER_PARALLEL;
+        }
+        return null;
+    }
+
+    private Direction moduleRightDirection() {
+        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
+        Direction left = strategy.getSide(getBlockState(), RelativeSide.RIGHT);
+        Direction right = left.getOpposite();
+        if (cluster != null && cluster.isMirrored()) {
+            right = right.getOpposite();
+        } else if (getBlockState().hasProperty(NEBlock.MIRRORED)
+                && getBlockState().getValue(NEBlock.MIRRORED)) {
+            right = right.getOpposite();
+        }
+        return right;
+    }
+
+    private Direction moduleTopDirection() {
+        return OrientationStrategies.horizontalFacing().getSide(getBlockState(), RelativeSide.TOP);
+    }
+
+    private static List<NECraftingModuleCell> normalizeModuleCells(List<NECraftingModuleCell> cells) {
+        if (cells.isEmpty()) {
+            return List.of();
+        }
+        List<NECraftingModuleCell> sorted = new ArrayList<>(cells);
+        sorted.sort(MODULE_CELL_ORDER);
+        List<NECraftingModuleCell> normalized = new ArrayList<>(sorted.size());
+        for (NECraftingModuleCell cell : sorted) {
+            int lastIndex = normalized.size() - 1;
+            if (lastIndex >= 0) {
+                NECraftingModuleCell last = normalized.get(lastIndex);
+                if (last.column() == cell.column() && last.row() == cell.row()) {
+                    if (cell.tier() > last.tier()) {
+                        normalized.set(lastIndex, cell);
+                    }
+                    continue;
+                }
+            }
+            normalized.add(cell);
+        }
+        return normalized;
+    }
+
+    private record WorkerUiEntry(int column, ItemStack output) {}
+
+    private record WorkerTaskKey(UUID craftingJobId, ItemStack output) {
+        private WorkerTaskKey {
+            output = output.copyWithCount(1);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof WorkerTaskKey that)) {
+                return false;
+            }
+            if (craftingJobId != null || that.craftingJobId != null) {
+                return java.util.Objects.equals(craftingJobId, that.craftingJobId)
+                        && ItemStack.isSameItemSameTags(output, that.output);
+            }
+            return ItemStack.isSameItemSameTags(output, that.output);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = craftingJobId != null ? craftingJobId.hashCode() : 0;
+            result = 31 * result + output.getItem().hashCode();
+            result = 31 * result + (output.hasTag() ? output.getTag().hashCode() : 0);
+            return result;
+        }
+    }
+
+    private static final class WorkerTaskAggregate {
+        private final ItemStack output;
+        private UUID craftingJobId;
+        private long outputAmount;
+        private long craftCount;
+        private long weightedTotalProgress;
+        private long weightedRemainingProgress;
+        private boolean waitingOutput = true;
+
+        private WorkerTaskAggregate(ItemStack output) {
+            this.output = output;
+        }
+
+        private void add(cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.Snapshot thread) {
+            if (craftingJobId == null && thread.craftingJobId() != null) {
+                craftingJobId = thread.craftingJobId();
+            }
+            int slots = Math.max(1, thread.occupiedThreadSlots());
+            outputAmount += Math.max(1L, thread.outputItem().getCount());
+            craftCount += slots;
+            weightedTotalProgress += (long) Math.max(1, thread.maxProgress()) * slots;
+            weightedRemainingProgress += (long) Math.max(0, thread.maxProgress() - thread.progress()) * slots;
+            waitingOutput &= thread.progress() >= thread.maxProgress();
+        }
+
+        private NECraftingRecipeUiEntry toEntry(BlockPos workerPos, int aggregateIndex) {
+            return new NECraftingRecipeUiEntry(
+                    "worker:" + workerPos.asLong() + ":" + aggregateIndex + ":"
+                            + (craftingJobId != null ? craftingJobId : "local"),
+                    output.copyWithCount(1),
+                    Math.max(1L, outputAmount),
+                    Math.max(1L, craftCount),
+                    Math.max(1L, weightedTotalProgress),
+                    Math.max(0L, weightedRemainingProgress),
+                    waitingOutput
+                            ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
+                            : NECraftingRecipeUiEntry.Status.RUNNING);
+        }
+    }
+
+    @Override
+    public ModularUI createUI(net.minecraft.world.entity.player.Player player) {
+        return NELDLibUis.createCraftingController(this, player);
     }
 
     private long getMaxEnergyUsage() {
@@ -301,9 +930,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return getAvailableThreads() * 100L;
     }
 
-    @Nullable
-    private CoolingRecipe getCoolingRecipe() {
-        if (cluster == null || cluster.getInputHatch() == null || cluster.getOutputHatch() == null || getLevel() == null) {
+    @Nullable private CoolingRecipe getCoolingRecipe() {
+        if (cluster == null
+                || cluster.getInputHatch() == null
+                || cluster.getOutputHatch() == null
+                || getLevel() == null) {
             return null;
         }
         FluidTank inputHatch = cluster.getInputHatch().tank;
@@ -311,11 +942,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return null;
         }
         FluidTank outputHatch = cluster.getOutputHatch().tank;
-        return getLevel().getRecipeManager().getRecipeFor(
-            NERecipeTypes.COOLING.get(),
-            new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid()),
-            getLevel()
-        ).map(net.minecraft.world.item.crafting.RecipeHolder::value).orElse(null);
+        return getLevel()
+                .getRecipeManager()
+                .getRecipeFor(
+                        NERecipeTypes.COOLING.get(),
+                        new CoolingRecipe.Input(inputHatch.getFluid(), outputHatch.getFluid()),
+                        getLevel())
+                .orElse(null);
     }
 
     private boolean canRefillWith(int maxOverclock) {
@@ -355,23 +988,23 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return 0;
         }
 
-        long requiredInput = ((long) deficit * inputAmount + recipe.coolant() - 1L) / recipe.coolant();
-        long drainAmount = Math.min(requiredInput, inputHatch.getFluidAmount());
-        drainAmount = Math.min(drainAmount, getMaxDrainByOutput(recipe, outputHatch));
+        long drainAmount = Math.min(inputHatch.getFluidAmount(), getMaxDrainByOutput(recipe, outputHatch));
         if (drainAmount <= 0) {
             return 0;
         }
 
-        int drained = inputHatch.drain((int) drainAmount, IFluidHandler.FluidAction.EXECUTE).getAmount();
+        int drained = inputHatch
+                .drain((int) drainAmount, IFluidHandler.FluidAction.EXECUTE)
+                .getAmount();
         if (drained <= 0) {
             return 0;
         }
 
         FluidStack output = recipe.output();
-        if (!output.isEmpty()) {
+        if (!output.isEmpty() && !autoClearCoolingWaste) {
             int outputAmount = (int) ((long) drained * recipe.outputAmount() / inputAmount);
             if (outputAmount > 0) {
-                outputHatch.fill(output.copyWithAmount(outputAmount), IFluidHandler.FluidAction.EXECUTE);
+                outputHatch.fill(new FluidStack(output, outputAmount), IFluidHandler.FluidAction.EXECUTE);
             }
         }
 
@@ -382,17 +1015,20 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         coolant = Math.min(MAX_COOLANT, coolant + coolantGain);
         coolantMaxOverclock = recipe.maxOverclock();
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
         return coolantGain;
     }
 
     private long getMaxDrainByOutput(CoolingRecipe recipe, FluidTank outputHatch) {
+        if (autoClearCoolingWaste) {
+            return Long.MAX_VALUE;
+        }
         FluidStack output = recipe.output();
         if (output.isEmpty()) {
             return Long.MAX_VALUE;
         }
         FluidStack stored = outputHatch.getFluid();
-        if (!stored.isEmpty() && !FluidStack.isSameFluidSameComponents(stored, output)) {
+        if (!stored.isEmpty() && !stored.isFluidStackIdentical(output)) {
             return 0;
         }
         int outputAmount = recipe.outputAmount();
@@ -408,296 +1044,76 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
 
-        ServerPlayer buildPlayer = buildPlayerId == null ? null : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
+        ServerPlayer buildPlayer = buildPlayerId == null
+                ? null
+                : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
         if (buildPlayer == null) {
             int remainingBlocks = buildSession.getRemainingBlockCount();
             buildSession = null;
             buildPlayerId = null;
             buildInProgress = false;
-            syncPreview(remainingBlocks, 0, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.builder_unavailable");
+            syncPreview(
+                    remainingBlocks,
+                    0,
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    "gui.neoecoae.multiblock.status.builder_unavailable");
             return;
         }
 
         switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
-            case WAITING -> {
-            }
+            case WAITING -> {}
             case ADVANCED -> syncPreview(
-                buildSession.getRemainingBlockCount(),
-                0,
-                previewReusedBlocks,
-                previewRequiredItems,
-                "gui.neoecoae.multiblock.status.building",
-                buildSession.getPlacedBlockCount(),
-                buildSession.getTotalBlocks()
-            );
+                    buildSession.getRemainingBlockCount(),
+                    buildSession.getSkippedBlockCount(),
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    "gui.neoecoae.multiblock.status.building",
+                    buildSession.getPlacedBlockCount(),
+                    buildSession.getTotalBlocks());
             case COMPLETED -> {
+                int skippedBlocks = buildSession.getSkippedBlockCount();
                 buildSession = null;
                 buildPlayerId = null;
                 buildInProgress = false;
                 rebuildMultiblock();
-                syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.build_complete");
+                syncPreview(
+                        0,
+                        skippedBlocks,
+                        previewReusedBlocks,
+                        previewRequiredItems,
+                        skippedBlocks > 0
+                                ? "gui.neoecoae.multiblock.status.conflicts_detected"
+                                : "gui.neoecoae.multiblock.status.build_complete");
             }
             case BLOCKED -> {
                 int remainingBlocks = buildSession.getRemainingBlockCount();
                 buildSession = null;
                 buildPlayerId = null;
                 buildInProgress = false;
-                syncPreview(remainingBlocks, 1, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.build_interrupted");
+                syncPreview(
+                        remainingBlocks,
+                        1,
+                        previewReusedBlocks,
+                        previewRequiredItems,
+                        "gui.neoecoae.multiblock.status.build_interrupted");
             }
         }
     }
 
+    // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default
 
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
-        UIElement buildWindow = buildPanel(holder);
-
-        ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
-        textPanel.addScrollViewChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
-
-        textPanel.addScrollViewChildren(
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.pattern_bus_count", patternBusCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.parallel_core_count", parallelCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-            new Label()
-                .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.worker_count", workerCount)))
-                .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-                .layout(layout -> layout.marginBottom(10))
-        );
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.working_threads", runningThreadCount, getAvailableThreads(), (int) ((float) runningThreadCount / getAvailableThreads() * 100))))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.total_parallelism", threadCount)))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.total_parallelism.overflow", getOverflowThreads(), (int) (getOverflowThreadsPercentage() * 100))))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.crafting.max_energy_usage", Tooltips.ofNumber(getMaxEnergyUsage()))))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
-
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(this::buildOverclockStatusComponent))
-            .textStyle(ECOCraftingSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER))
-            .addChildren(
-                new TextElement()
-                    .setText(Component.translatable("gui.neoecoae.crafting.enable_overlock"))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Switch()
-                    .bind(DataBindingBuilder.bool(() -> overclocked, b -> overclocked = b).build()))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
-                e.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.crafting.overclocked.tooltip")),
-                    null,
-                    null,
-                    null
-                );
-            }));
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER))
-            .addChildren(
-                new TextElement()
-                    .setText(Component.translatable("gui.neoecoae.crafting.enable_active_cooling"))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Switch()
-                    .bind(DataBindingBuilder.bool(() -> activeCooling, b -> activeCooling = b).build()))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
-                e.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip")),
-                    null,
-                    null,
-                    null
-                );
-            }));
-
-        textPanel.addScrollViewChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4))
-            .addChildren(
-                new Label()
-                    .bindDataSource(SupplierDataSource.of(this::buildCoolantSupportComponent))
-                    .textStyle(ECOCraftingSystemBlockEntity::textStyle),
-                new Button()
-                    .setText("gui.neoecoae.crafting.clear_coolant", true)
-                    .setOnServerClick(event -> clearCoolant())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.crafting.clear_coolant.tooltip")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(42).height(16))));
-
-        textPanel.layout(layout -> layout.height(160).width(220));
-
-        UIElement buildButtonPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        buildButtonPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.CRAFT_HAMMER))
-            .setOnClick(event -> buildWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.multiblock.builder")),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> {
-                layout.width(18);
-                layout.height(20);
-            }));
-
-        root.addChild(textPanel);
-        root.addChild(buildButtonPanel);
-        root.addChild(buildWindow);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    @Override
+    public BuildPreviewState getBuildPreview() {
+        return buildPreview;
     }
 
-    private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement window = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(6);
-            layout.display(TaffyDisplay.NONE);
-            layout.paddingAll(4);
-            layout.gapAll(2);
-            layout.width(160);
-        }).addClass("panel_bg");
-
-        UIElement titleBar = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.SPACE_BETWEEN);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(2);
-        });
-        titleBar.addChild(new TextElement()
-            .setText(Component.translatable("gui.neoecoae.multiblock.builder"))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        titleBar.addChild(new Button()
-            .setText("X")
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> layout.width(16).height(16)));
-        WindowDragHelper.setDragMove(titleBar, window, null, null);
-        window.addChild(titleBar);
-
-        window.addChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(2))
-            .addChildren(
-                new Button()
-                    .setText("-")
-                    .setOnServerClick(event -> decreaseBuildLength())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.decrease_length")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18)),
-                new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.length", selectedBuildLength)))
-                    .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle),
-                new Button()
-                    .setText("+")
-                    .setOnServerClick(event -> increaseBuildLength())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.increase_length")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18))
-            ));
-
-        window.addChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4))
-            .addChildren(
-                new Button()
-                    .setText("gui.neoecoae.multiblock.preview", true)
-                    .setOnServerClick(event -> previewStructure(holder.player))
-                    .layout(layout -> layout.width(48).height(18)),
-                new Button()
-                    .setText("gui.neoecoae.multiblock.build", true)
-                    .setOnServerClick(event -> autoBuild(holder.player))
-                    .layout(layout -> layout.width(48).height(18))
-            ));
-
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.reused", previewReusedBlocks)))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.missing", previewMissingBlocks)))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.conflicts", previewConflictBlocks)))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.required_items", previewRequiredItems)))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(this::buildPreviewStatusComponent))
-            .textStyle(ECOCraftingSystemBlockEntity::buildPanelTextStyle));
-
-        return window;
+    @Override
+    public void previewStructure(ServerPlayer player) {
+        previewStructure(player, false);
     }
 
-    private void increaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
-    }
-
-    private void decreaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
-    }
-
-    private void previewStructure(Player player) {
+    public void previewStructure(ServerPlayer player, boolean mirrored) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -706,7 +1122,14 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         if (buildInProgress && buildSession != null) {
-            syncPreview(buildSession.getRemainingBlockCount(), 0, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.building", buildSession.getPlacedBlockCount(), buildSession.getTotalBlocks());
+            syncPreview(
+                    buildSession.getRemainingBlockCount(),
+                    0,
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    "gui.neoecoae.multiblock.status.building",
+                    buildSession.getPlacedBlockCount(),
+                    buildSession.getTotalBlocks());
             return;
         }
         MultiBlockDefinition definition = getBuildDefinition();
@@ -714,18 +1137,32 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
-        boolean hasMaterials = player instanceof ServerPlayer serverPlayer
-            && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
+        setSelectedBuildLength(selectedBuildLength);
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
+                serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrored);
+        boolean hasMaterials = MultiBlockPlacementService.hasRequiredItems(player, plan.getRequiredItems());
         String statusKey = plan.getConflictPositions().isEmpty()
-            ? (plan.getMissingBlocks().isEmpty() ? "gui.neoecoae.multiblock.status.structure_ready" : (hasMaterials ? "gui.neoecoae.multiblock.status.ready_to_build" : "gui.neoecoae.multiblock.status.not_enough_items"))
-            : "gui.neoecoae.multiblock.status.conflicts_detected";
-        syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), statusKey);
+                ? (plan.getMissingBlocks().isEmpty()
+                        ? "gui.neoecoae.multiblock.status.structure_ready"
+                        : (hasMaterials
+                                ? "gui.neoecoae.multiblock.status.ready_to_build"
+                                : "gui.neoecoae.multiblock.status.not_enough_items"))
+                : "gui.neoecoae.multiblock.status.conflicts_detected";
+        syncPreview(
+                plan.getMissingBlocks().size(),
+                plan.getConflictPositions().size(),
+                plan.getReusedBlockCount(),
+                plan.getRequiredItemCount(),
+                statusKey);
     }
 
-    private void autoBuild(Player player) {
-        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
+    @Override
+    public void autoBuild(ServerPlayer serverPlayer) {
+        autoBuild(serverPlayer, false);
+    }
+
+    public void autoBuild(ServerPlayer serverPlayer, boolean mirrored) {
+        if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
         serverPlayer.closeContainer();
@@ -734,7 +1171,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         if (buildInProgress) {
-            syncPreview(previewMissingBlocks, previewConflictBlocks, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.build_already_in_progress");
+            syncPreview(
+                    previewMissingBlocks,
+                    previewConflictBlocks,
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    "gui.neoecoae.multiblock.status.build_already_in_progress");
             return;
         }
         MultiBlockDefinition definition = getBuildDefinition();
@@ -742,59 +1184,96 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
-        if (!plan.getConflictPositions().isEmpty()) {
-            syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.conflicts_detected");
-            return;
-        }
-        if (!serverPlayer.isCreative() && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
-            syncPreview(plan.getMissingBlocks().size(), 0, plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.not_enough_items");
+        selectedBuildLength =
+                net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
+                serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrored);
+        if (!serverPlayer.isCreative()
+                && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
+            syncPreview(
+                    plan.getMissingBlocks().size(),
+                    plan.getConflictPositions().size(),
+                    plan.getReusedBlockCount(),
+                    plan.getRequiredItemCount(),
+                    "gui.neoecoae.multiblock.status.not_enough_items");
             return;
         }
         if (plan.getMissingBlocks().isEmpty()) {
             rebuildMultiblock();
-            syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.build_complete");
+            int conflicts = plan.getConflictPositions().size();
+            syncPreview(
+                    0,
+                    conflicts,
+                    plan.getReusedBlockCount(),
+                    plan.getRequiredItemCount(),
+                    conflicts > 0
+                            ? "gui.neoecoae.multiblock.status.conflicts_detected"
+                            : "gui.neoecoae.multiblock.status.build_complete");
             return;
         }
         if (serverPlayer.isCreative()) {
             if (!MultiBlockPlacementService.buildInstant(serverLevel, plan)) {
-                syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.build_failed");
+                syncPreview(
+                        plan.getMissingBlocks().size(),
+                        plan.getConflictPositions().size(),
+                        plan.getReusedBlockCount(),
+                        plan.getRequiredItemCount(),
+                        "gui.neoecoae.multiblock.status.build_failed");
                 return;
             }
             rebuildMultiblock();
-            syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.build_complete");
+            int conflicts = plan.getConflictPositions().size();
+            syncPreview(
+                    0,
+                    conflicts,
+                    plan.getReusedBlockCount(),
+                    plan.getRequiredItemCount(),
+                    conflicts > 0
+                            ? "gui.neoecoae.multiblock.status.conflicts_detected"
+                            : "gui.neoecoae.multiblock.status.build_complete");
             return;
         }
         buildSession = MultiBlockPlacementService.createBuildSession(serverLevel, plan);
         buildPlayerId = serverPlayer.getUUID();
         buildInProgress = true;
-        syncPreview(plan.getMissingBlocks().size(), 0, plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.building", buildSession.getPlacedBlockCount(), buildSession.getTotalBlocks());
+        syncPreview(
+                plan.getMissingBlocks().size(),
+                plan.getConflictPositions().size(),
+                plan.getReusedBlockCount(),
+                plan.getRequiredItemCount(),
+                "gui.neoecoae.multiblock.status.building",
+                buildSession.getPlacedBlockCount(),
+                buildSession.getTotalBlocks());
     }
 
-    private @Nullable MultiBlockDefinition getBuildDefinition() {
+    @Nullable public MultiBlockDefinition getBuildDefinition() {
         return NEMultiBlocks.getCraftingSystemDefinition(tier);
     }
 
-    private int getMinBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMin();
+    @Override
+    public void markPreviewDirty() {
+        setChanged();
+        markUiStateDirty();
     }
 
-    private int getMaxBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMax();
-    }
-
-    private void resetPreview(String statusKey) {
+    @Override
+    public void resetPreview(String statusKey) {
         syncPreview(0, 0, 0, 0, statusKey);
     }
 
-    private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {
+    private void syncPreview(
+            int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {
         syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, 0, 0);
     }
 
-    private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey, int statusArg1, int statusArg2) {
+    private void syncPreview(
+            int missingBlocks,
+            int conflictBlocks,
+            int reusedBlocks,
+            int requiredItems,
+            String statusKey,
+            int statusArg1,
+            int statusArg2) {
         previewMissingBlocks = missingBlocks;
         previewConflictBlocks = conflictBlocks;
         previewReusedBlocks = reusedBlocks;
@@ -803,15 +1282,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         previewStatusArg1 = statusArg1;
         previewStatusArg2 = statusArg2;
         setChanged();
-        markForUpdate();
+        markUiStateDirty();
     }
 
-    private Component buildPreviewStatusComponent() {
-        if ("gui.neoecoae.multiblock.status.building".equals(previewStatusKey)) {
-            return Component.translatable(previewStatusKey, previewStatusArg1, previewStatusArg2);
-        }
-        return Component.translatable(previewStatusKey);
-    }
+    // buildPreviewStatusComponent() is provided by INEMultiblockBuildHost default
 
     private Component buildCoolantSupportComponent() {
         int displayedMaxOverclock = getCurrentCoolingMaxOverclock();
@@ -826,10 +1300,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return Component.translatable("gui.neoecoae.crafting.overclock_status.disabled");
         }
         return Component.translatable(
-            "gui.neoecoae.crafting.overclock_status",
-            overlockTimes,
-            getEffectiveOverclockTimes()
-        );
+                "gui.neoecoae.crafting.overclock_status", overlockTimes, getEffectiveOverclockTimes());
     }
 
     private int getDisplayedCoolingRecipeMaxOverclock() {
@@ -837,12 +1308,55 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return recipe == null ? -1 : recipe.maxOverclock();
     }
 
-    private static void textStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xadb0c4).textShadow(false);
+    // UI sync (Layer 1: chunk-load NBT)
+    // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
+
+    @Override
+    protected void writeUiSyncTag(CompoundTag tag) {
+        tag.putBoolean("overclocked", overclocked);
+        tag.putBoolean("activeCooling", activeCooling);
+        tag.putBoolean("autoClearCoolingWaste", autoClearCoolingWaste);
+        tag.putInt("coolant", coolant);
+        tag.putInt("coolantMaxOverclock", coolantMaxOverclock);
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+        tag.putInt("patternBusCount", patternBusCount);
+        tag.putInt("parallelCount", parallelCount);
+        tag.putInt("workerCount", workerCount);
+        tag.putInt("threadCount", threadCount);
+        tag.putInt("runningThreadCount", runningThreadCount);
+        // Build/preview state is delegated to BuildPreviewState
+        // Note: individual preview fields still exist alongside buildPreview;
+        // syncPreview()/resetPreview() update both.
+        buildPreview.writeToTag(tag);
     }
 
-    private static void buildPanelTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+    @Override
+    protected void readUiSyncTag(CompoundTag tag) {
+        if (tag.contains("overclocked")) overclocked = tag.getBoolean("overclocked");
+        if (tag.contains("activeCooling")) activeCooling = tag.getBoolean("activeCooling");
+        if (tag.contains("autoClearCoolingWaste")) autoClearCoolingWaste = tag.getBoolean("autoClearCoolingWaste");
+        if (tag.contains("coolant")) coolant = Mth.clamp(tag.getInt("coolant"), 0, MAX_COOLANT);
+        if (tag.contains("coolantMaxOverclock")) coolantMaxOverclock = tag.getInt("coolantMaxOverclock");
+        else coolantMaxOverclock = -1;
+        if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (tag.contains("patternBusCount")) patternBusCount = tag.getInt("patternBusCount");
+        if (tag.contains("parallelCount")) parallelCount = tag.getInt("parallelCount");
+        if (tag.contains("workerCount")) workerCount = tag.getInt("workerCount");
+        if (tag.contains("threadCount")) threadCount = tag.getInt("threadCount");
+        if (tag.contains("runningThreadCount")) runningThreadCount = tag.getInt("runningThreadCount");
+        // Build/preview state is delegated to BuildPreviewState
+        // Keep individual field reads for backward compat; buildPreview syncs alongside.
+        buildPreview.readFromTag(tag);
+        if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
+        if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");
+        if (tag.contains("previewReusedBlocks")) previewReusedBlocks = tag.getInt("previewReusedBlocks");
+        if (tag.contains("previewRequiredItems")) previewRequiredItems = tag.getInt("previewRequiredItems");
+        if (tag.contains("previewStatusKey")) previewStatusKey = tag.getString("previewStatusKey");
+        if (tag.contains("previewStatusArg1")) previewStatusArg1 = tag.getInt("previewStatusArg1");
+        if (tag.contains("previewStatusArg2")) previewStatusArg2 = tag.getInt("previewStatusArg2");
+        if (tag.contains("buildInProgress")) buildInProgress = tag.getBoolean("buildInProgress");
+        if (buildInProgress && buildSession == null) {
+            buildInProgress = false;
+        }
     }
 }
-

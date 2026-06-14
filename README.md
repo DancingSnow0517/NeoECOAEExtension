@@ -1,6 +1,6 @@
 <p align="center"><img src="/images/logo.png" alt="Logo"></p>
 <h1 align="center">Neo ECO AE Extension</h1>
-<p align="center">ECO AE Extension for modern Minecraft versions NeoForge (1.21.1+).</p>
+<p align="center">ECO AE Extension for modern Minecraft versions NeoForge (1.20.1+).</p>
 <h1 align="center">
 
 English | [简体中文](/README_ZH_CN.md) | [繁體中文](/README_ZH_HK.md) | [文言文](/README_LZH.md)
@@ -23,6 +23,15 @@ Neo Eco AE Extension and Eco AE Extension are related only through an authorized
 
 Please do not submit issues, bug reports, or technical support requests related to Neo Eco AE Extension to the Eco AE Extension project. Such reports cannot be properly addressed and may cause unnecessary disruption to the maintenance and development work of the Eco AE Extension team.
 
-Project maintenance and development information:   
-Eco AE Extension is led and developed by **Hikari_Nova**;    
-Neo Eco AE Extension is led and developed by **DancingSnow0517**.    
+Project maintenance and development information:
+Eco AE Extension is led and developed by **Hikari_Nova**;
+Neo Eco AE Extension is led and developed by **DancingSnow0517**.
+
+## Code style
+
+Before submitting a PR, run:
+
+```bash
+./gradlew spotlessApply
+./gradlew clean compileJava
+```

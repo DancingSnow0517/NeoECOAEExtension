@@ -1,108 +1,90 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
-import appeng.client.gui.Icon;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.core.localization.Tooltips;
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
+import appeng.helpers.IPriorityHost;
+import appeng.menu.ISubMenu;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
+import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
+import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
+import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyDisplay;
-import dev.vfyjxf.taffy.style.TaffyPosition;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import com.mojang.logging.LogUtils;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 
-import java.util.List;
-import java.util.UUID;
-
-public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity,  IGridTickable {
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
+public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
+        implements IGridTickable, INEMultiblockBuildHost, IPriorityHost, IUIHolder.BlockEntityUI {
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
 
     @Getter
     private final IECOTier tier;
 
-    @DescSynced
     private long[] usedTypes;
-    @DescSynced
     private long[] totalTypes;
-    @DescSynced
     private long[] usedBytes;
-    @DescSynced
     private long[] totalBytes;
+    private boolean storageStatsDirty = true;
 
-    @DescSynced
+    /** Storage priority for AE2 network insertion/extraction ordering. */
+    private int priority = 0;
+
+    /** Shared preview/build state, delegates NBT sync to {@link BuildPreviewState}. */
+    private final BuildPreviewState buildPreview = new BuildPreviewState();
+
     private long storedEnergy;
-    @DescSynced
     private long maxEnergy;
-    @Persisted
-    @DescSynced
     private int selectedBuildLength = 1;
-    @DescSynced
     private int previewMissingBlocks;
-    @DescSynced
     private int previewConflictBlocks;
-    @DescSynced
     private int previewReusedBlocks;
-    @DescSynced
     private int previewRequiredItems;
-    @DescSynced
     private String previewStatusKey = "gui.neoecoae.multiblock.status.idle";
-    @DescSynced
     private int previewStatusArg1;
-    @DescSynced
     private int previewStatusArg2;
-    @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
 
-    public ECOStorageSystemBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
-    ) {
+    public ECOStorageSystemBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
         this.tier = tier;
         resetStorageInfos();
@@ -110,27 +92,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         getMainNode().addService(IGridTickable.class, this);
     }
 
-    public static ECOStorageSystemBlockEntity createL4(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState
-    ) {
+    public static ECOStorageSystemBlockEntity createL4(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         return new ECOStorageSystemBlockEntity(type, pos, blockState, ECOTier.L4);
     }
 
-    public static ECOStorageSystemBlockEntity createL6(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState
-    ) {
+    public static ECOStorageSystemBlockEntity createL6(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         return new ECOStorageSystemBlockEntity(type, pos, blockState, ECOTier.L6);
     }
 
-    public static ECOStorageSystemBlockEntity createL9(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState
-    ) {
+    public static ECOStorageSystemBlockEntity createL9(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         return new ECOStorageSystemBlockEntity(type, pos, blockState, ECOTier.L9);
     }
 
@@ -144,15 +114,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
         if (updateExposed) {
+            markStorageStatsDirty();
             updateInfos();
         }
     }
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(20, 20, false);
+        return new TickingRequest(20, 20, false, false);
     }
-
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
@@ -168,10 +138,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         totalBytes = new long[typeCount];
         storedEnergy = 0;
         maxEnergy = 0;
+        _synUsedTypes = 0;
+        _synTotalTypes = 0;
+        _synUsedBytes = 0;
+        _synTotalBytes = 0;
     }
 
+    /**
+     * Core stats recalculation from cluster drives and energy cells.
+     * Updates _syn* scalars and per-type arrays but does NOT mark dirty
+     * or sync to client. Safe to call on server only.
+     */
     @SuppressWarnings("UnstableApiUsage")
-    private void updateInfos() {
+    private void recalculateStorageStats() {
         if (cluster != null) {
             storedEnergy = 0;
             maxEnergy = 0;
@@ -185,25 +164,172 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             totalTypes = new long[typeCount];
             usedBytes = new long[typeCount];
             totalBytes = new long[typeCount];
+
+            // Aggregate scalars - always populated regardless of registry-id lookup
+            long aggUsedTypes = 0, aggTotalTypes = 0, aggUsedBytes = 0, aggTotalBytes = 0;
+
             for (ECODriveBlockEntity drive : cluster.getDrives()) {
                 IECOStorageCell inv = drive.getCellInventory();
-                if (inv != null) {
-                    ECOCellType cellType = inv.getCellType();
-                    int id = NERegistries.CELL_TYPE.getId(cellType);
-                    if (id < 0 || id >= typeCount) {
-                        continue;
-                    }
-                    usedTypes[id] += inv.getStoredItemTypes();
-                    totalTypes[id] += inv.getTotalItemTypes();
-                    usedBytes[id] += inv.getUsedBytes();
-                    totalBytes[id] += inv.getTotalBytes();
+                if (inv == null) continue;
+
+                long st = inv.getStoredItemTypes();
+                long tt = inv.getTotalItemTypes();
+                long ub = inv.getUsedBytes();
+                long tb = inv.getTotalBytes();
+
+                aggUsedTypes += st;
+                aggTotalTypes += tt;
+                aggUsedBytes += ub;
+                aggTotalBytes += tb;
+
+                // Per-cell-type arrays - best-effort, may skip if id lookup fails
+                ECOCellType cellType = inv.getCellType();
+                var reg = NERegistries.cellTypeRegistry();
+                int id = reg != null ? reg.getId(cellType) : -1;
+                if (id >= 0 && id < typeCount) {
+                    usedTypes[id] += st;
+                    totalTypes[id] += tt;
+                    usedBytes[id] += ub;
+                    totalBytes[id] += tb;
                 }
             }
-            setChanged();
+
+            _synUsedTypes = aggUsedTypes;
+            _synTotalTypes = aggTotalTypes;
+            _synUsedBytes = aggUsedBytes;
+            _synTotalBytes = aggTotalBytes;
         } else {
             resetStorageInfos();
+        }
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    private void updateInfos() {
+        if (ensureStorageStatsCurrent()) {
             setChanged();
         }
+    }
+
+    private boolean ensureStorageStatsCurrent() {
+        if (!storageStatsDirty) {
+            return false;
+        }
+        recalculateStorageStats();
+        storageStatsDirty = false;
+        return true;
+    }
+
+    /**
+     * Creates a snapshot of current storage stats for S2C UI sync.
+     * <p>
+     * Stats are grouped by ECOCellType registry key so the screen can display
+     * separate rows for Items, Fluids, and future cell types.
+     * </p>
+     */
+    public NEStorageUiState createStorageUiState() {
+        if (level != null && !level.isClientSide) {
+            ensureStorageStatsCurrent();
+        }
+
+        List<NEStorageUiTypeState> typeStates;
+        List<NEStorageUiMatrixState> matrixStates;
+        if (cluster != null) {
+            // Group by cell type key; LinkedHashMap preserves insertion order
+            Map<ResourceLocation, NEStorageUiTypeState> grouped = new LinkedHashMap<>();
+            matrixStates = new ArrayList<>(cluster.getDrives().size());
+            IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
+            Direction top = strategy.getSide(getBlockState(), RelativeSide.TOP);
+            Direction left = strategy.getSide(getBlockState(), RelativeSide.RIGHT);
+            Direction right = cluster.isMirrored() ? left : left.getOpposite();
+
+            for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                BlockPos offset = drive.getBlockPos().subtract(worldPosition);
+                int row = 1 - directionDistance(offset, top);
+                int column = directionDistance(offset, right) - 1;
+                ItemStack cellStack = drive.getCellStack();
+                IECOStorageCell inv = drive.getCellInventory();
+                if (inv == null || cellStack.isEmpty()) {
+                    matrixStates.add(new NEStorageUiMatrixState(row, column, ItemStack.EMPTY, 0, 0L, 0L, 0L, 0L));
+                    continue;
+                }
+
+                ECOCellType cellType = inv.getCellType();
+                ResourceLocation typeId = getCellTypeKey(cellType);
+                String displayName = cellType.desc().getString();
+
+                long st = inv.getStoredItemTypes();
+                long tt = inv.getTotalItemTypes();
+                long ub = inv.getUsedBytes();
+                long tb = inv.getTotalBytes();
+                int matrixTier = Math.max(0, Math.min(3, inv.getTier().getTier()));
+                matrixStates.add(new NEStorageUiMatrixState(
+                        row, column, new ItemStack(cellStack.getItem()), matrixTier, st, tt, ub, tb));
+
+                NEStorageUiTypeState existing = grouped.get(typeId);
+                if (existing != null) {
+                    grouped.put(
+                            typeId,
+                            new NEStorageUiTypeState(
+                                    typeId,
+                                    displayName,
+                                    existing.usedTypes() + st,
+                                    existing.totalTypes() + tt,
+                                    existing.usedBytes() + ub,
+                                    existing.totalBytes() + tb));
+                } else {
+                    grouped.put(typeId, new NEStorageUiTypeState(typeId, displayName, st, tt, ub, tb));
+                }
+            }
+            typeStates = new ArrayList<>(grouped.values());
+            // Stable ordering: Items first, Fluids second, others by typeId string
+            typeStates.sort(
+                    java.util.Comparator.comparingInt((NEStorageUiTypeState s) -> storageTypeSortPriority(s.typeId()))
+                            .thenComparing(s -> s.typeId().toString()));
+            matrixStates.sort(Comparator.comparingInt(NEStorageUiMatrixState::row)
+                    .thenComparingInt(NEStorageUiMatrixState::column));
+        } else {
+            typeStates = new ArrayList<>();
+            matrixStates = List.of();
+        }
+
+        return new NEStorageUiState(worldPosition, typeStates, matrixStates, storedEnergy, maxEnergy, formed);
+    }
+
+    private static int directionDistance(BlockPos offset, Direction direction) {
+        return offset.getX() * direction.getStepX()
+                + offset.getY() * direction.getStepY()
+                + offset.getZ() * direction.getStepZ();
+    }
+
+    @Override
+    public ModularUI createUI(Player player) {
+        return NELDLibUis.createStorageController(this, player);
+    }
+
+    /**
+     * Returns the stable identity key for a cell type.
+     * Uses the {@code id} field embedded in {@link ECOCellType} directly,
+     * avoiding {@code Registry.getKey()} which is unreliable for custom
+     * Registrate-built registries.
+     */
+    private static ResourceLocation getCellTypeKey(ECOCellType cellType) {
+        ResourceLocation id = cellType.id();
+        return id != null ? id : ResourceLocation.fromNamespaceAndPath(NeoECOAE.MOD_ID, "unknown");
+    }
+
+    /**
+     * Returns a sort priority for stable UI ordering.
+     * Items (0) always first, Fluids (1) second, other types (100+) sorted
+     * by their full typeId string.
+     */
+    private static int storageTypeSortPriority(ResourceLocation id) {
+        if (id.equals(NeoECOAE.id("items"))) {
+            return 0;
+        }
+        if (id.equals(NeoECOAE.id("fluids"))) {
+            return 1;
+        }
+        return 100;
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
@@ -211,260 +337,293 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
 
-        ServerPlayer buildPlayer = buildPlayerId == null ? null : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
+        ServerPlayer buildPlayer = buildPlayerId == null
+                ? null
+                : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
         if (buildPlayer == null) {
             int remainingBlocks = buildSession.getRemainingBlockCount();
             buildSession = null;
             buildPlayerId = null;
             buildInProgress = false;
-            syncPreview(remainingBlocks, 0, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.builder_unavailable");
+            syncPreview(
+                    remainingBlocks,
+                    0,
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    "gui.neoecoae.multiblock.status.builder_unavailable");
             return;
         }
 
         switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
-            case WAITING -> {
-            }
+            case WAITING -> {}
             case ADVANCED -> syncPreview(
-                buildSession.getRemainingBlockCount(),
-                0,
-                previewReusedBlocks,
-                previewRequiredItems,
-                "gui.neoecoae.multiblock.status.building",
-                buildSession.getPlacedBlockCount(),
-                buildSession.getTotalBlocks()
-            );
+                    buildSession.getRemainingBlockCount(),
+                    buildSession.getSkippedBlockCount(),
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    "gui.neoecoae.multiblock.status.building",
+                    buildSession.getPlacedBlockCount(),
+                    buildSession.getTotalBlocks());
             case COMPLETED -> {
+                int skippedBlocks = buildSession.getSkippedBlockCount();
                 buildSession = null;
                 buildPlayerId = null;
                 buildInProgress = false;
                 rebuildMultiblock();
-                syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.build_complete");
+                syncPreview(
+                        0,
+                        skippedBlocks,
+                        previewReusedBlocks,
+                        previewRequiredItems,
+                        skippedBlocks > 0
+                                ? "gui.neoecoae.multiblock.status.conflicts_detected"
+                                : "gui.neoecoae.multiblock.status.build_complete");
             }
             case BLOCKED -> {
                 int remainingBlocks = buildSession.getRemainingBlockCount();
                 buildSession = null;
                 buildPlayerId = null;
                 buildInProgress = false;
-                syncPreview(remainingBlocks, 1, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.build_interrupted");
+                syncPreview(
+                        remainingBlocks,
+                        1,
+                        previewReusedBlocks,
+                        previewRequiredItems,
+                        "gui.neoecoae.multiblock.status.build_interrupted");
             }
         }
     }
 
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        resetStorageInfosIfNeeded();
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
-
-        UIElement buildWindow = buildPanel(holder);
-
-        ScrollerView textPanel = new ScrollerView().viewContainer(view -> view.getLayout().gapAll(2));
-        textPanel.addScrollViewChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOStorageSystemBlockEntity::textStyle)
-            .layout(layout -> layout.marginBottom(5)));
-        NERegistries.CELL_TYPE.stream()
-            .forEachOrdered(cellType -> {
-                int id = NERegistries.CELL_TYPE.getId(cellType);
-                textPanel.addScrollViewChild(new Label()
-                    .setText(cellType.desc())
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
-                textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.typesUsed(getArrayValue(usedTypes, id), getArrayValue(totalTypes, id))))
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
-                textPanel.addScrollViewChild(new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Tooltips.bytesUsed(getArrayValue(usedBytes, id), getArrayValue(totalBytes, id))))
-                    .textStyle(ECOStorageSystemBlockEntity::textStyle));
-            });
-
-        textPanel.addScrollViewChild(new Label().setText("").textStyle(ECOStorageSystemBlockEntity::textStyle));
-
-        textPanel.addScrollViewChild(new Label()
-            .setText(Component.translatable("gui.neoecoae.storage.energy"))
-            .textStyle(ECOStorageSystemBlockEntity::textStyle));
-        textPanel.addScrollViewChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable(
-                "gui.neoecoae.storage.energy_status",
-                Tooltips.ofNumber(storedEnergy),
-                Tooltips.ofNumber(maxEnergy),
-                maxEnergy > 0 ? (int) ((double) storedEnergy / maxEnergy * 100) : 0
-            )))
-            .textStyle(ECOStorageSystemBlockEntity::textStyle));
-
-        textPanel.layout(layout -> layout.height(160).width(220));
-
-        UIElement buildButtonPanel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(-22);
-            layout.top(0);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
-        buildButtonPanel.addChild(new Button()
-            .noText()
-            .addPostIcon(AETextures.icon(Icon.CRAFT_HAMMER))
-            .setOnClick(event -> buildWindow.layout(layout -> layout.display(TaffyDisplay.FLEX)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.multiblock.builder")),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> {
-                layout.width(18);
-                layout.height(20);
-            }));
-
-        root.addChild(textPanel);
-        root.addChild(buildButtonPanel);
-        root.addChild(buildWindow);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    public long getStoredEnergy() {
+        return storedEnergy;
     }
 
-    private void resetStorageInfosIfNeeded() {
-        int typeCount = getCellTypeCount();
-        if (usedTypes == null || totalTypes == null || usedBytes == null || totalBytes == null) {
-            resetStorageInfos();
+    public boolean isFormed() {
+        return formed;
+    }
+
+    public long getMaxEnergy() {
+        return maxEnergy;
+    }
+
+    // Scalar synced fields - written directly to avoid long[] array sync issues on client
+    private long _synUsedTypes;
+    private long _synTotalTypes;
+    private long _synUsedBytes;
+    private long _synTotalBytes;
+
+    public long getTotalUsedBytes() {
+        return _synUsedBytes;
+    }
+
+    public long getTotalBytes() {
+        return _synTotalBytes;
+    }
+
+    public long getTotalUsedTypes() {
+        return _synUsedTypes;
+    }
+
+    public long getTotalTypes() {
+        return _synTotalTypes;
+    }
+
+    public Component getPreviewStatusComponent() {
+        return buildPreviewStatusComponent();
+    }
+
+    // INEMultiblockBuildHost implementation
+
+    @Override
+    public BlockPos getHostPos() {
+        return worldPosition;
+    }
+
+    @Override
+    public BlockState getHostBlockState() {
+        return getBlockState();
+    }
+
+    @Override
+    public MultiBlockDefinition getBuildDefinition() {
+        return NEMultiBlocks.getStorageSystemDefinition(tier);
+    }
+
+    @Override
+    public void setSelectedBuildLength(int length) {
+        this.selectedBuildLength = Mth.clamp(length, getMinBuildLength(), getMaxBuildLength());
+    }
+
+    @Override
+    public int getMinBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMin();
+    }
+
+    @Override
+    public int getMaxBuildLength() {
+        MultiBlockDefinition definition = getBuildDefinition();
+        return definition == null ? 1 : definition.getExpandMax();
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int displayLength) {
+        previewStructure(player, displayLength, false);
+    }
+
+    @Override
+    public void previewStructure(ServerPlayer player, int displayLength, boolean mirrored) {
+        setSelectedBuildLength(displayLength);
+        previewStructure((Player) player, mirrored);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int displayLength) {
+        autoBuild(player, displayLength, false);
+    }
+
+    @Override
+    public void autoBuild(ServerPlayer player, int displayLength, boolean mirrored) {
+        setSelectedBuildLength(displayLength);
+        autoBuild((Player) player, mirrored);
+    }
+
+    @Deprecated
+    @Override
+    public void previewStructure(ServerPlayer player) {
+        previewStructure((Player) player);
+    }
+
+    @Deprecated
+    @Override
+    public void autoBuild(ServerPlayer player) {
+        autoBuild((Player) player);
+    }
+
+    @Override
+    public void dismantle(ServerPlayer player) {
+        if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
-        if (usedTypes.length != typeCount || totalTypes.length != typeCount || usedBytes.length != typeCount || totalBytes.length != typeCount) {
-            resetStorageInfos();
+        player.closeContainer();
+        boolean dismantled = MultiBlockPlacementService.dismantle(serverLevel, this, player);
+        syncPreview(
+                0,
+                0,
+                0,
+                0,
+                dismantled
+                        ? "gui.neoecoae.multiblock.status.dismantled"
+                        : "gui.neoecoae.multiblock.status.dismantle_failed");
+    }
+
+    // Legacy public accessors
+
+    public int getSelectedBuildLength() {
+        return selectedBuildLength;
+    }
+
+    public int getPreviewMissingBlocks() {
+        return previewMissingBlocks;
+    }
+
+    public int getPreviewConflictBlocks() {
+        return previewConflictBlocks;
+    }
+
+    public int getPreviewReusedBlocks() {
+        return previewReusedBlocks;
+    }
+
+    public int getPreviewRequiredItems() {
+        return previewRequiredItems;
+    }
+
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
+
+    /**
+     * Called by Drive block entities to notify the controller that storage
+     * stats should be recalculated (cell inserted, removed, or content changed).
+     * Only executes on the server side.
+     */
+    public void refreshStorageUiState() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        markStorageStatsDirty();
+    }
+
+    /**
+     * Marks the cached storage stats (per-type used/total bytes and types)
+     * as stale. The next call to {@link #ensureStorageStatsCurrent()} will
+     * recalculate from cluster drives and trigger a UI state push.
+     */
+    public void markStorageStatsDirty() {
+        storageStatsDirty = true;
+    }
+
+    // 鈹€鈹€ IPriorityHost implementation 鈹€鈹€
+
+    @Override
+    public int getPriority() {
+        return priority;
+    }
+
+    @Override
+    public void setPriority(int newValue) {
+        this.priority = newValue;
+        setChanged();
+        // Notify all drives to remount with the new priority
+        if (cluster != null) {
+            for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                drive.requestStorageProviderUpdate();
+            }
+        }
+        markForUpdate();
+    }
+
+    @Override
+    public ItemStack getMainMenuIcon() {
+        return new ItemStack(getBlockState().getBlock().asItem());
+    }
+
+    @Override
+    public void returnToMainMenu(Player player, ISubMenu subMenu) {
+        if (player instanceof ServerPlayer serverPlayer && level != null && !level.isClientSide && !isRemoved()) {
+            BlockEntityUIFactory.INSTANCE.openUI(this, serverPlayer);
         }
     }
 
     private int getCellTypeCount() {
-        return Math.max(NERegistries.CELL_TYPE.size(), 1);
+        var reg = NERegistries.cellTypeRegistry();
+        return Math.max(reg != null ? reg.size() : 1, 1);
     }
 
-    private static long getArrayValue(long[] array, int index) {
-        if (array == null || index < 0 || index >= array.length) {
+    private static long sum(long[] values) {
+        if (values == null) {
             return 0;
         }
-        return array[index];
-    }
-
-    private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement window = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(6);
-            layout.display(TaffyDisplay.NONE);
-            layout.paddingAll(4);
-            layout.gapAll(2);
-            layout.width(160);
-        }).addClass("panel_bg");
-
-        UIElement titleBar = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.SPACE_BETWEEN);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(2);
-        });
-        titleBar.addChild(new TextElement()
-            .setText(Component.translatable("gui.neoecoae.multiblock.builder"))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        titleBar.addChild(new Button()
-            .setText("X")
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                event.hoverTooltips = new HoverTooltips(
-                    List.of(Component.translatable("gui.neoecoae.multiblock.close_builder")),
-                    null,
-                    null,
-                    null
-                );
-            })
-            .layout(layout -> layout.width(16).height(16)));
-        WindowDragHelper.setDragMove(titleBar, window, null, null);
-        window.addChild(titleBar);
-
-        window.addChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(2))
-            .addChildren(
-                new Button()
-                    .setText("-")
-                    .setOnServerClick(event -> decreaseBuildLength())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.decrease_length")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18)),
-                new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.length", selectedBuildLength)))
-                    .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle),
-                new Button()
-                    .setText("+")
-                    .setOnServerClick(event -> increaseBuildLength())
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(Component.translatable("gui.neoecoae.multiblock.increase_length")),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18))
-            ));
-
-        window.addChild(new UIElement()
-            .layout(layout -> layout.flexDirection(FlexDirection.ROW).gapAll(4))
-            .addChildren(
-                new Button()
-                    .setText("gui.neoecoae.multiblock.preview", true)
-                    .setOnServerClick(event -> previewStructure(holder.player))
-                    .layout(layout -> layout.width(48).height(18)),
-                new Button()
-                    .setText("gui.neoecoae.multiblock.build", true)
-                    .setOnServerClick(event -> autoBuild(holder.player))
-                    .layout(layout -> layout.width(48).height(18))
-            ));
-
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.reused", previewReusedBlocks)))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.missing", previewMissingBlocks)))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.conflicts", previewConflictBlocks)))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.required_items", previewRequiredItems)))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-        window.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(this::buildPreviewStatusComponent))
-            .textStyle(ECOStorageSystemBlockEntity::buildPanelTextStyle));
-
-        return window;
-    }
-
-    private void increaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
+        long result = 0;
+        for (long value : values) {
+            result += value;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength + 1, getMinBuildLength(), getMaxBuildLength());
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
+        return result;
     }
 
-    private void decreaseBuildLength() {
-        if (buildInProgress) {
-            resetPreview("gui.neoecoae.multiblock.status.build_in_progress");
-            return;
-        }
-        selectedBuildLength = Math.clamp(selectedBuildLength - 1, getMinBuildLength(), getMaxBuildLength());
-        resetPreview("gui.neoecoae.multiblock.status.length_updated");
+    // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default
+
+    @Override
+    public BuildPreviewState getBuildPreview() {
+        return buildPreview;
     }
 
-    private void previewStructure(Player player) {
+    public void previewStructure(Player player) {
+        previewStructure(player, false);
+    }
+
+    public void previewStructure(Player player, boolean mirrored) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -473,7 +632,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         if (buildInProgress && buildSession != null) {
-            syncPreview(buildSession.getRemainingBlockCount(), 0, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.building", buildSession.getPlacedBlockCount(), buildSession.getTotalBlocks());
+            syncPreview(
+                    buildSession.getRemainingBlockCount(),
+                    0,
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    "gui.neoecoae.multiblock.status.building",
+                    buildSession.getPlacedBlockCount(),
+                    buildSession.getTotalBlocks());
             return;
         }
         MultiBlockDefinition definition = getBuildDefinition();
@@ -481,17 +647,32 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
+        selectedBuildLength =
+                net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
+                serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrored);
         boolean hasMaterials = player instanceof ServerPlayer serverPlayer
-            && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
+                && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
         String statusKey = plan.getConflictPositions().isEmpty()
-            ? (plan.getMissingBlocks().isEmpty() ? "gui.neoecoae.multiblock.status.structure_ready" : (hasMaterials ? "gui.neoecoae.multiblock.status.ready_to_build" : "gui.neoecoae.multiblock.status.not_enough_items"))
-            : "gui.neoecoae.multiblock.status.conflicts_detected";
-        syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), statusKey);
+                ? (plan.getMissingBlocks().isEmpty()
+                        ? "gui.neoecoae.multiblock.status.structure_ready"
+                        : (hasMaterials
+                                ? "gui.neoecoae.multiblock.status.ready_to_build"
+                                : "gui.neoecoae.multiblock.status.not_enough_items"))
+                : "gui.neoecoae.multiblock.status.conflicts_detected";
+        syncPreview(
+                plan.getMissingBlocks().size(),
+                plan.getConflictPositions().size(),
+                plan.getReusedBlockCount(),
+                plan.getRequiredItemCount(),
+                statusKey);
     }
 
-    private void autoBuild(Player player) {
+    public void autoBuild(Player player) {
+        autoBuild(player, false);
+    }
+
+    public void autoBuild(Player player, boolean mirrored) {
         if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
@@ -501,7 +682,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         if (buildInProgress) {
-            syncPreview(previewMissingBlocks, previewConflictBlocks, previewReusedBlocks, previewRequiredItems, "gui.neoecoae.multiblock.status.build_already_in_progress");
+            syncPreview(
+                    previewMissingBlocks,
+                    previewConflictBlocks,
+                    previewReusedBlocks,
+                    previewRequiredItems,
+                    "gui.neoecoae.multiblock.status.build_already_in_progress");
             return;
         }
         MultiBlockDefinition definition = getBuildDefinition();
@@ -509,59 +695,76 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
             return;
         }
-        selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength);
-        if (!plan.getConflictPositions().isEmpty()) {
-            syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.conflicts_detected");
-            return;
-        }
-        if (!serverPlayer.isCreative() && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
-            syncPreview(plan.getMissingBlocks().size(), 0, plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.not_enough_items");
+        selectedBuildLength =
+                net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
+        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
+                serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrored);
+        if (!serverPlayer.isCreative()
+                && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
+            syncPreview(
+                    plan.getMissingBlocks().size(),
+                    plan.getConflictPositions().size(),
+                    plan.getReusedBlockCount(),
+                    plan.getRequiredItemCount(),
+                    "gui.neoecoae.multiblock.status.not_enough_items");
             return;
         }
         if (plan.getMissingBlocks().isEmpty()) {
             rebuildMultiblock();
-            syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.build_complete");
+            int conflicts = plan.getConflictPositions().size();
+            syncPreview(
+                    0,
+                    conflicts,
+                    plan.getReusedBlockCount(),
+                    plan.getRequiredItemCount(),
+                    conflicts > 0
+                            ? "gui.neoecoae.multiblock.status.conflicts_detected"
+                            : "gui.neoecoae.multiblock.status.build_complete");
             return;
         }
         if (serverPlayer.isCreative()) {
             if (!MultiBlockPlacementService.buildInstant(serverLevel, plan)) {
-                syncPreview(plan.getMissingBlocks().size(), plan.getConflictPositions().size(), plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.build_failed");
+                syncPreview(
+                        plan.getMissingBlocks().size(),
+                        plan.getConflictPositions().size(),
+                        plan.getReusedBlockCount(),
+                        plan.getRequiredItemCount(),
+                        "gui.neoecoae.multiblock.status.build_failed");
                 return;
             }
             rebuildMultiblock();
-            syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.build_complete");
+            int conflicts = plan.getConflictPositions().size();
+            syncPreview(
+                    0,
+                    conflicts,
+                    plan.getReusedBlockCount(),
+                    plan.getRequiredItemCount(),
+                    conflicts > 0
+                            ? "gui.neoecoae.multiblock.status.conflicts_detected"
+                            : "gui.neoecoae.multiblock.status.build_complete");
             return;
         }
         buildSession = MultiBlockPlacementService.createBuildSession(serverLevel, plan);
         buildPlayerId = serverPlayer.getUUID();
         buildInProgress = true;
-        syncPreview(plan.getMissingBlocks().size(), 0, plan.getReusedBlockCount(), plan.getRequiredItemCount(), "gui.neoecoae.multiblock.status.building", buildSession.getPlacedBlockCount(), buildSession.getTotalBlocks());
+        syncPreview(
+                plan.getMissingBlocks().size(),
+                plan.getConflictPositions().size(),
+                plan.getReusedBlockCount(),
+                plan.getRequiredItemCount(),
+                "gui.neoecoae.multiblock.status.building",
+                buildSession.getPlacedBlockCount(),
+                buildSession.getTotalBlocks());
     }
 
-    private MultiBlockDefinition getBuildDefinition() {
-        return NEMultiBlocks.getStorageSystemDefinition(tier);
-    }
-
-    private int getMinBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMin();
-    }
-
-    private int getMaxBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMax();
-    }
-
-    private void resetPreview(String statusKey) {
-        syncPreview(0, 0, 0, 0, statusKey);
-    }
-
-    private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {
-        syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, 0, 0);
-    }
-
-    private void syncPreview(int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey, int statusArg1, int statusArg2) {
+    private void syncPreview(
+            int missingBlocks,
+            int conflictBlocks,
+            int reusedBlocks,
+            int requiredItems,
+            String statusKey,
+            int statusArg1,
+            int statusArg2) {
         previewMissingBlocks = missingBlocks;
         previewConflictBlocks = conflictBlocks;
         previewReusedBlocks = reusedBlocks;
@@ -573,18 +776,100 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         markForUpdate();
     }
 
-    private Component buildPreviewStatusComponent() {
-        if ("gui.neoecoae.multiblock.status.building".equals(previewStatusKey)) {
-            return Component.translatable(previewStatusKey, previewStatusArg1, previewStatusArg2);
+    private void syncPreview(
+            int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {
+        syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, 0, 0);
+    }
+
+    @Override
+    public void markPreviewDirty() {
+        setChanged();
+        markForUpdate();
+    }
+
+    @Override
+    public void resetPreview(String statusKey) {
+        syncPreview(0, 0, 0, 0, statusKey);
+    }
+
+    // buildPreviewStatusComponent() is provided by INEMultiblockBuildHost default
+
+    // NBT persistence
+    @Override
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        tag.putInt("selectedBuildLength", selectedBuildLength);
+        tag.putInt("priority", priority);
+    }
+
+    @Override
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
+        selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (selectedBuildLength < 1) selectedBuildLength = 1;
+        priority = tag.getInt("priority");
+        // Safety: build session is transient; reset in-progress state on load
+        buildInProgress = false;
+        previewMissingBlocks = 0;
+        previewConflictBlocks = 0;
+        previewReusedBlocks = 0;
+        previewRequiredItems = 0;
+        previewStatusKey = "gui.neoecoae.multiblock.status.idle";
+        previewStatusArg1 = 0;
+        previewStatusArg2 = 0;
+    }
+
+    // UI sync (Layer 1: chunk-load NBT)
+    // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.
+    // We only need to override writeUiSyncTag/readUiSyncTag.
+
+    @Override
+    protected void writeUiSyncTag(CompoundTag tag) {
+        tag.putLong("neo_storedEnergy", storedEnergy);
+        tag.putLong("neo_maxEnergy", maxEnergy);
+        tag.putBoolean("neo_formed", formed);
+        tag.putLong("neo_usedTypes_s", _synUsedTypes);
+        tag.putLong("neo_totalTypes_s", _synTotalTypes);
+        tag.putLong("neo_usedBytes_s", _synUsedBytes);
+        tag.putLong("neo_totalBytes_s", _synTotalBytes);
+        if (usedTypes != null) tag.putLongArray("neo_usedTypes", usedTypes);
+        if (totalTypes != null) tag.putLongArray("neo_totalTypes", totalTypes);
+        if (usedBytes != null) tag.putLongArray("neo_usedBytes", usedBytes);
+        if (totalBytes != null) tag.putLongArray("neo_totalBytes", totalBytes);
+        // Build/preview state is delegated to BuildPreviewState
+        // Note: individual fields (selectedBuildLength, preview*, buildInProgress)
+        // still exist alongside buildPreview; syncPreview()/resetPreview() update both.
+        buildPreview.writeToTag(tag);
+    }
+
+    @Override
+    protected void readUiSyncTag(CompoundTag tag) {
+        if (tag.contains("neo_storedEnergy")) storedEnergy = tag.getLong("neo_storedEnergy");
+        if (tag.contains("neo_maxEnergy")) maxEnergy = tag.getLong("neo_maxEnergy");
+        if (tag.contains("neo_formed")) formed = tag.getBoolean("neo_formed");
+        if (tag.contains("neo_usedTypes_s")) _synUsedTypes = tag.getLong("neo_usedTypes_s");
+        if (tag.contains("neo_totalTypes_s")) _synTotalTypes = tag.getLong("neo_totalTypes_s");
+        if (tag.contains("neo_usedBytes_s")) _synUsedBytes = tag.getLong("neo_usedBytes_s");
+        if (tag.contains("neo_totalBytes_s")) _synTotalBytes = tag.getLong("neo_totalBytes_s");
+        if (tag.contains("neo_usedTypes")) usedTypes = tag.getLongArray("neo_usedTypes");
+        if (tag.contains("neo_totalTypes")) totalTypes = tag.getLongArray("neo_totalTypes");
+        if (tag.contains("neo_usedBytes")) usedBytes = tag.getLongArray("neo_usedBytes");
+        if (tag.contains("neo_totalBytes")) totalBytes = tag.getLongArray("neo_totalBytes");
+        // Build/preview state is delegated to BuildPreviewState
+        // Keep individual field reads for backward compat; buildPreview syncs alongside.
+        buildPreview.readFromTag(tag);
+        if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");
+        if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
+        if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");
+        if (tag.contains("previewReusedBlocks")) previewReusedBlocks = tag.getInt("previewReusedBlocks");
+        if (tag.contains("previewRequiredItems")) previewRequiredItems = tag.getInt("previewRequiredItems");
+        if (tag.contains("previewStatusKey")) previewStatusKey = tag.getString("previewStatusKey");
+        if (tag.contains("previewStatusArg1")) previewStatusArg1 = tag.getInt("previewStatusArg1");
+        if (tag.contains("previewStatusArg2")) previewStatusArg2 = tag.getInt("previewStatusArg2");
+        if (tag.contains("buildInProgress")) buildInProgress = tag.getBoolean("buildInProgress");
+        // Safety: no build session means build cannot be in progress
+        if (buildInProgress && buildSession == null) {
+            buildInProgress = false;
         }
-        return Component.translatable(previewStatusKey);
-    }
-
-    private static void textStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xadb0c4).textShadow(false);
-    }
-
-    private static void buildPanelTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
     }
 }

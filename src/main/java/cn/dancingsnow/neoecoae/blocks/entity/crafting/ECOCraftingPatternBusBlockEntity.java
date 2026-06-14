@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
+import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -15,54 +16,54 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
-import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
-import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
-import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
-import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.FlexDirection;
-import lombok.Getter;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathLimits;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.IntStream;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.IntStream;
-
 public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingPatternBusBlockEntity>
-    implements ISyncPersistRPCBlockEntity, InternalInventoryHost, ICraftingProvider, PatternContainer, IECOPatternStorage {
-
-    @Getter
-    private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
+        implements InternalInventoryHost,
+                ICraftingProvider,
+                PatternContainer,
+                IECOPatternStorage,
+                IUIHolder.BlockEntityUI {
 
     public static final int ROW_SIZE = 9;
     public static final int COL_SIZE = 7;
+    public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
+    private static final String NBT_PATTERN_INVENTORY = "patternInventory";
+    private static final String NBT_PATTERN_INVENTORY_PAGES = "patternInventoryPages";
 
-    @Persisted
-    @DescSynced
     private final AppEngInternalInventory inventory;
+    private final InternalInventory effectiveInventory = new EffectivePatternInventory();
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;
+    private final LazyOptional<IItemHandlerModifiable> itemHandlerCap;
+    private int nextWorkerIndex = 0;
+    private int activePages = NEConfig.getCraftingPatternBusPages();
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -71,12 +72,28 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
-        if (!(patternDetails instanceof IMolecularAssemblerSupportedPattern supportedPattern)) {
+        return pushPattern(patternDetails, inputHolder, null);
+    }
+
+    public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder, @Nullable UUID craftingJobId) {
+        return pushPattern(ECOExtractedPatternExecution.slow(patternDetails, inputHolder), craftingJobId);
+    }
+
+    public boolean pushPattern(ECOExtractedPatternExecution execution, @Nullable UUID craftingJobId) {
+        if (execution.molecularPattern() == null) {
             return false;
         }
         if (cluster != null) {
-            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                if (worker.pushPattern(supportedPattern, inputHolder)) {
+            List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+            if (workers.isEmpty()) {
+                return false;
+            }
+            int start = Math.floorMod(nextWorkerIndex, workers.size());
+            for (int offset = 0; offset < workers.size(); offset++) {
+                int index = (start + offset) % workers.size();
+                ECOCraftingWorkerBlockEntity worker = workers.get(index);
+                if (worker.pushPattern(execution, craftingJobId)) {
+                    nextWorkerIndex = (index + 1) % Math.max(1, workers.size());
                     return true;
                 }
             }
@@ -84,27 +101,111 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return false;
     }
 
-    @Override
-    public boolean isBusy() {
-        if (cluster != null && cluster.getController() != null) {
-            ECOCraftingSystemBlockEntity controller = cluster.getController();
-            if (getRunningThread() >= controller.getThreadCount()) {
-                return true;
-            }
-            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
-                if (!worker.isBusy()) {
-                    return false;
-                }
-            }
+    public boolean pushBatch(ECOBatchCraftingRequest request) {
+        BatchFastPathOffer offer = findBatchFastPathOffer(request.key(), null, request.batchSize());
+        if (offer == null) {
+            return false;
         }
-        return true;
+        return pushBatch(request, offer);
     }
 
-    private long getRunningThread() {
-        if (cluster != null) {
-            return cluster.getWorkers().stream().mapToLong(ECOCraftingWorkerBlockEntity::getRunningThreads).sum();
+    public boolean pushBatch(ECOBatchCraftingRequest request, BatchFastPathOffer offer) {
+        if (offer.worker().pushBatch(request)) {
+            nextWorkerIndex = nextWorkerIndexAfter(offer.worker());
+            return true;
         }
-        return 0;
+        return false;
+    }
+
+    @Nullable public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
+        if (execution.key() == null) {
+            return null;
+        }
+        return findBatchFastPathOffer(execution.key(), execution, requestedBatchSize);
+    }
+
+    @Nullable private BatchFastPathOffer findBatchFastPathOffer(
+            cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey key,
+            @Nullable ECOExtractedPatternExecution execution,
+            int requestedBatchSize) {
+        if (cluster == null || requestedBatchSize <= 0) {
+            return null;
+        }
+        ECOCraftingSystemBlockEntity controller = getCraftingController();
+        if (controller == null) {
+            return null;
+        }
+        int controllerAvailableSlots = controller.getCurrentBatchSlots();
+        if (controllerAvailableSlots <= 0) {
+            return null;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+        if (workers.isEmpty()) {
+            return null;
+        }
+        int start = Math.floorMod(nextWorkerIndex, workers.size());
+        for (int offset = 0; offset < workers.size(); offset++) {
+            int index = (start + offset) % workers.size();
+            ECOCraftingWorkerBlockEntity worker = workers.get(index);
+            int availableSlots = worker.getAvailableThreadSlots();
+            if (availableSlots <= 0) {
+                continue;
+            }
+            ECOFastPathResult result = execution == null
+                    ? worker.getFastPathCache().peek(key)
+                    : worker.getVerifiedFastPathResult(execution);
+            if (result == null || result.isNegative()) {
+                continue;
+            }
+            int maxBatchSize =
+                    ECOFastPathLimits.limitBatchSize(requestedBatchSize, availableSlots, controllerAvailableSlots);
+            if (maxBatchSize > 0) {
+                return new BatchFastPathOffer(worker, result, maxBatchSize);
+            }
+        }
+        return null;
+    }
+
+    private int nextWorkerIndexAfter(ECOCraftingWorkerBlockEntity acceptedWorker) {
+        if (cluster == null) {
+            return nextWorkerIndex;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+        int index = workers.indexOf(acceptedWorker);
+        return index < 0 ? nextWorkerIndex : (index + 1) % Math.max(1, workers.size());
+    }
+
+    public boolean recoverJobToNetwork(UUID craftingJobId, appeng.api.storage.MEStorage storage) {
+        if (cluster == null) {
+            return false;
+        }
+        boolean recoveredAll = true;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            if (!worker.recoverJobToNetwork(craftingJobId, storage)) {
+                recoveredAll = false;
+            }
+        }
+        return recoveredAll;
+    }
+
+    @Override
+    public boolean isBusy() {
+        ECOCraftingSystemBlockEntity controller = getCraftingController();
+        return controller == null || controller.getCurrentBatchSlots() <= 0;
+    }
+
+    public int getAvailableThreadSlots() {
+        ECOCraftingSystemBlockEntity controller = getCraftingController();
+        return controller == null ? 0 : controller.getCurrentBatchSlots();
+    }
+
+    public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {}
+
+    @Nullable public ECOCraftingSystemBlockEntity getCraftingController() {
+        if (cluster != null) {
+            return cluster.getController();
+        }
+        return null;
     }
 
     @Override
@@ -114,7 +215,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public InternalInventory getTerminalPatternInventory() {
-        return inventory;
+        return effectiveInventory;
     }
 
     @Override
@@ -122,23 +223,18 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster != null && cluster.getController() != null) {
             var block = cluster.getController().getBlockState().getBlock();
             if (block != Blocks.AIR) {
-                return new PatternContainerGroup(
-                    AEItemKey.of(block.asItem()),
-                    block.getName(),
-                    List.of()
-                );
+                return new PatternContainerGroup(AEItemKey.of(block.asItem()), block.getName(), List.of());
             }
         }
         return new PatternContainerGroup(
-            AEItemKey.of(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
-            NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),
-            List.of()
-        );
+                AEItemKey.of(NEBlocks.CRAFTING_PATTERN_BUS.asStack()),
+                NEBlocks.CRAFTING_PATTERN_BUS.get().getName(),
+                List.of());
     }
 
     @Override
     public boolean insertPattern(ItemStack itemStack) {
-        ItemStack result = inventory.addItems(itemStack.copy());
+        ItemStack result = effectiveInventory.addItems(itemStack.copy());
         return result.isEmpty();
     }
 
@@ -151,20 +247,19 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     public ECOCraftingPatternBusBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
-        this.inventory = new AppEngInternalInventory(this, ROW_SIZE * COL_SIZE);
+        this.inventory = new AppEngInternalInventory(this, NEConfig.getMaxCraftingPatternBusSlotCount());
         this.inventory.setFilter(new AEEncodedPatternFilter());
-        this.itemHandler = (IItemHandlerModifiable) inventory.toItemHandler();
-        this.getMainNode().addService(ICraftingProvider.class, this)
-            .addService(IECOPatternStorage.class, this);
+        this.itemHandler = (IItemHandlerModifiable) effectiveInventory.toItemHandler();
+        this.itemHandlerCap = LazyOptional.of(() -> this.itemHandler);
+        this.getMainNode().addService(ICraftingProvider.class, this).addService(IECOPatternStorage.class, this);
     }
 
-    @Override
     public void saveChangedInventory(AppEngInternalInventory inv) {
         this.saveChanges();
     }
 
     @Override
-    public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+    public void onChangeInventory(InternalInventory inv, int slot) {
         this.saveChanges();
         updatePatternDetails();
     }
@@ -177,7 +272,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     private void updatePatternDetails() {
         patternDetails.clear();
-        for (ItemStack itemStack : this.inventory) {
+        for (ItemStack itemStack : this.effectiveInventory) {
             IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, this.level);
             if (details != null) {
                 patternDetails.add(details);
@@ -186,7 +281,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         ICraftingProvider.requestUpdate(this.getMainNode());
     }
 
-    @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.getServer().executeIfPossible(() -> {
@@ -199,38 +293,95 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        IntStream.range(0, ROW_SIZE * COL_SIZE)
-            .mapToObj(inventory::getStackInSlot)
-            .filter(s -> !s.isEmpty())
-            .forEach(drops::add);
+        IntStream.range(0, inventory.size())
+                .mapToObj(inventory::getStackInSlot)
+                .filter(s -> !s.isEmpty())
+                .forEach(drops::add);
     }
 
-    public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement root = new UIElement().layout(layout -> layout
-            .paddingAll(4)
-            .gapAll(2)
-            .justifyContent(AlignContent.CENTER)
-        ).addClass("panel_bg");
+    @Override
+    public void saveAdditional(CompoundTag data) {
+        super.saveAdditional(data);
+        inventory.writeToNBT(data, NBT_PATTERN_INVENTORY);
+        data.putInt(NBT_PATTERN_INVENTORY_PAGES, activePages);
+    }
 
-        root.addChild(new TextElement()
-            .setText(Component.translatable("block.neoecoae.crafting_pattern_bus"))
-            .textStyle(textStyle -> textStyle
-                .textWrap(TextWrap.HOVER_ROLL)
-                .adaptiveHeight(true)));
+    @Override
+    public void loadTag(CompoundTag data) {
+        super.loadTag(data);
+        inventory.clear();
+        inventory.readFromNBT(data, NBT_PATTERN_INVENTORY);
+        int savedPages = data.contains(NBT_PATTERN_INVENTORY_PAGES) ? data.getInt(NBT_PATTERN_INVENTORY_PAGES) : 1;
+        activePages = clampPages(
+                Math.max(NEConfig.getCraftingPatternBusPages(), Math.max(savedPages, getHighestOccupiedPage())));
+    }
 
-        UIElement patternInv = new UIElement().addClass("panel_border");
-        for (int row = 0; row < COL_SIZE; row++) {
-            UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
-            for (int col = 0; col < ROW_SIZE; col++) {
-                int slotIndex = row * ROW_SIZE + col;
-                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(itemHandler, slotIndex))
-                    .slotStyle(slotStyle -> slotStyle.slotOverlay(NETextures.PATTERN_OVERLAY));
-                rowInv.addChild(slot);
-            }
-            patternInv.addChild(rowInv);
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
+        if (cap == ForgeCapabilities.ITEM_HANDLER) {
+            return itemHandlerCap.cast();
         }
-        root.addChild(patternInv);
-        root.addChild(new InventorySlots().layout(layout -> layout.marginTop(5)));
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        return super.getCapability(cap, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        itemHandlerCap.invalidate();
+    }
+
+    public int getPageCount() {
+        return activePages;
+    }
+
+    public int getPatternSlotCount() {
+        return activePages * SLOTS_PER_PAGE;
+    }
+
+    @Override
+    public ModularUI createUI(Player player) {
+        return NELDLibUis.createPatternBus(this, player);
+    }
+
+    private int getHighestOccupiedPage() {
+        int highestSlot = -1;
+        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
+            if (!inventory.getStackInSlot(slot).isEmpty()) {
+                highestSlot = slot;
+                break;
+            }
+        }
+        return highestSlot < 0 ? 1 : highestSlot / SLOTS_PER_PAGE + 1;
+    }
+
+    private static int clampPages(int pages) {
+        return Math.max(NEConfig.PATTERN_BUS_MIN_PAGES, Math.min(NEConfig.PATTERN_BUS_MAX_PAGES, pages));
+    }
+
+    private final class EffectivePatternInventory extends BaseInternalInventory {
+        @Override
+        public int size() {
+            return getPatternSlotCount();
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return inventory.getSlotLimit(slot);
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return inventory.getStackInSlot(slot);
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            inventory.setItemDirect(slot, stack);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return slot >= 0 && slot < size() && inventory.isItemValid(slot, stack);
+        }
     }
 }

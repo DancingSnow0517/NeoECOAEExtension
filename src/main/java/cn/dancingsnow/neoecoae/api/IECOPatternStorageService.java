@@ -4,7 +4,7 @@ import appeng.api.networking.IGridService;
 
 public interface IECOPatternStorageService extends IGridService {
     /**
-     * 获取此网络的总 {@link IECOPatternStorage}
+     * 鑾峰彇姝ょ綉缁滅殑鎬?{@link IECOPatternStorage}
      */
     IECOPatternStorage getPatternStorage();
 }

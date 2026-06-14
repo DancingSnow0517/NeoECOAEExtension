@@ -8,7 +8,7 @@ import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.WidgetHolder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 public class CoolingEmiRecipe extends BasicEmiRecipe {
     private final CoolingRecipe recipe;
@@ -30,10 +30,27 @@ public class CoolingEmiRecipe extends BasicEmiRecipe {
         widgets.addTank(NeoECOAEEmiPlugin.of(recipe.input()), 9, 10, 18, 18, 1);
 
         FluidStack output = recipe.output();
-        widgets.addTank(EmiStack.of(output.getFluid(), output.getAmount()), 71, 10, 18, 18, 1).recipeContext(this);
+        widgets.addTank(EmiStack.of(output.getFluid(), output.getAmount()), 71, 10, 18, 18, 1)
+                .recipeContext(this);
 
-        widgets.addTexture(NeoECOAE.id("textures/gui/jei/cooling_progress_empty.png"), 35, 5, 30, 30, 0, 0, 30, 30, 30, 30);
-        widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/jei/cooling_progress.png"), 35, 5, 30, 30, 0, 0, 30, 30, 30, 30, 2000, false, true, false);
+        widgets.addTexture(
+                NeoECOAE.id("textures/gui/jei/cooling_progress_empty.png"), 35, 5, 30, 30, 0, 0, 30, 30, 30, 30);
+        widgets.addAnimatedTexture(
+                NeoECOAE.id("textures/gui/jei/cooling_progress.png"),
+                35,
+                5,
+                30,
+                30,
+                0,
+                0,
+                30,
+                30,
+                30,
+                30,
+                2000,
+                false,
+                true,
+                false);
 
         widgets.addText(Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()), 5, 40, 0, false);
     }

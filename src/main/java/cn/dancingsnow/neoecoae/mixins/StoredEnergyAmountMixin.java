@@ -1,20 +1,21 @@
 package cn.dancingsnow.neoecoae.mixins;
 
 import appeng.me.energy.StoredEnergyAmount;
-import com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.DoubleTag;
-import net.neoforged.neoforge.common.util.INBTSerializable;
+import net.minecraftforge.common.util.INBTSerializable;
 import org.jetbrains.annotations.UnknownNullability;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(value = StoredEnergyAmount.class, remap = false)
-public abstract class StoredEnergyAmountMixin implements IContentChangeAware, INBTSerializable<DoubleTag> {
-    @Shadow public abstract void setStored(double amount);
+public abstract class StoredEnergyAmountMixin implements INBTSerializable<DoubleTag> {
+    @Shadow
+    public abstract void setStored(double amount);
 
-    @Shadow public abstract double getAmount();
+    @Shadow
+    public abstract double getAmount();
 
     @Unique private Runnable neoecoae$onContentsChanged = () -> {};
 

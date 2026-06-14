@@ -1,23 +1,23 @@
 package cn.dancingsnow.neoecoae.api;
 
 import appeng.api.stacks.AEKeyType;
-import cn.dancingsnow.neoecoae.gui.NETextures;
-import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.resources.ResourceLocation;
 
 public interface IECOTier {
     int getTier();
+
     /**
-     * 合成系统并行核心并行数量
+     * Base parallelism provided by a crafting parallel core of this tier.
      *
-     * @return 并行数量
+     * @return the base crafting parallel count
      */
     int getCrafterParallel();
 
     /**
-     * 合成系统并行核心超频后并行数量
+     * Parallelism provided by a crafting parallel core when overclocking is enabled.
      *
-     * @return 超频后并行数量
+     * @return the overclocked crafting parallel count
      */
     int getOverclockedCrafterParallel();
 
@@ -28,52 +28,53 @@ public interface IECOTier {
     default int getOverclockedCrafterPowerMultiply() {
         return getOverclockedCrafterQueueMultiply();
     }
+
     /**
-     * 计算系统并行核心并行数量
+     * Accelerator count provided by a computation component of this tier.
      *
-     * @return 并行数量
+     * @return the accelerator count
      */
     int getCPUAccelerators();
 
     /**
-     * 计算系统线程核心线程数量
+     * Thread count provided by a computation component of this tier.
      *
-     * @return 线程数量
+     * @return the thread count
      */
     int getCPUThreads();
 
     /**
-     * 计算系统闪存晶阵字节数量
+     * Computation storage capacity provided by this tier.
      *
-     * @return 闪存晶阵字节数量
+     * @return total computation bytes
      */
     long getCPUTotalBytes();
 
     /**
-     * 存储系统存储矩阵字节数量
+     * Storage cell capacity provided by this tier.
      *
-     * @return 存储矩阵字节数量
+     * @return total storage bytes
      */
     long getStorageTotalBytes();
 
     /**
-     * 存储系统储电方块每个方块储电量
+     * Energy capacity provided by storage power blocks of this tier.
      *
-     * @return 储电量
+     * @return energy storage capacity
      */
     long getPowerStorageSize();
 
     ResourceLocation getCPUOverlayTexture();
 
-    default IGuiTexture getCraftingOverlayTexture() {
-        return NETextures.Crafting.F0;
+    default ResourceLocation getCraftingOverlayTexture() {
+        return NeoECOAE.id("textures/gui/crafting/f0.png");
     }
 
     /**
-     * 存储系统存储矩阵类型数量
+     * Maximum number of stored key types supported by this tier.
      *
-     * @param keyType 根据 {@link AEKeyType} 不同，类型数量
-     * @return 存储矩阵类型数量
+     * @param keyType AE key type whose type limit should be queried
+     * @return total supported type count for the given key type
      */
     default int getStorageTotalTypes(AEKeyType keyType) {
         return ECOAETypeCounts.getByType(keyType);

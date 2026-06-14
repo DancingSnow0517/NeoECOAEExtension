@@ -1,0 +1,23 @@
+{
+  "type": "ae2:transform",
+  "circumstance": {
+    "type": "explosion"
+  },
+  "ingredients": [
+    {
+      "tag": "forge:dusts/certus_quartz"
+    },
+    {
+      "tag": "forge:dusts/fluix"
+    },
+    {
+      "tag": "forge:dusts/energized_crystal"
+    },
+    {
+      "tag": "neoecoae:crystal_ingot_base"
+    }
+  ],
+  "result": {
+    "item": "neoecoae:crystal_ingot"
+  }
+}

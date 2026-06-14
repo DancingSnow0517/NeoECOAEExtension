@@ -1,33 +1,63 @@
 {
   "variants": {
-    "facing=east,formed=false": {
+    "facing=east,formed=false,has_cell=false": {
       "model": "neoecoae:block/computation_drive_empty",
       "y": 90
     },
-    "facing=east,formed=true": {
-      "model": "neoecoae:block/computation_drive_full",
+    "facing=east,formed=false,has_cell=true": {
+      "model": "neoecoae:block/computation_drive_empty",
       "y": 90
     },
-    "facing=north,formed=false": {
+    "facing=east,formed=true,has_cell=false": {
+      "model": "neoecoae:block/computation_drive_empty",
+      "y": 90
+    },
+    "facing=east,formed=true,has_cell=true": {
+      "model": "neoecoae:block/computation_drive_empty",
+      "y": 90
+    },
+    "facing=north,formed=false,has_cell=false": {
       "model": "neoecoae:block/computation_drive_empty"
     },
-    "facing=north,formed=true": {
-      "model": "neoecoae:block/computation_drive_full"
+    "facing=north,formed=false,has_cell=true": {
+      "model": "neoecoae:block/computation_drive_empty"
     },
-    "facing=south,formed=false": {
+    "facing=north,formed=true,has_cell=false": {
+      "model": "neoecoae:block/computation_drive_empty"
+    },
+    "facing=north,formed=true,has_cell=true": {
+      "model": "neoecoae:block/computation_drive_empty"
+    },
+    "facing=south,formed=false,has_cell=false": {
       "model": "neoecoae:block/computation_drive_empty",
       "y": 180
     },
-    "facing=south,formed=true": {
-      "model": "neoecoae:block/computation_drive_full",
+    "facing=south,formed=false,has_cell=true": {
+      "model": "neoecoae:block/computation_drive_empty",
       "y": 180
     },
-    "facing=west,formed=false": {
+    "facing=south,formed=true,has_cell=false": {
+      "model": "neoecoae:block/computation_drive_empty",
+      "y": 180
+    },
+    "facing=south,formed=true,has_cell=true": {
+      "model": "neoecoae:block/computation_drive_empty",
+      "y": 180
+    },
+    "facing=west,formed=false,has_cell=false": {
       "model": "neoecoae:block/computation_drive_empty",
       "y": 270
     },
-    "facing=west,formed=true": {
-      "model": "neoecoae:block/computation_drive_full",
+    "facing=west,formed=false,has_cell=true": {
+      "model": "neoecoae:block/computation_drive_empty",
+      "y": 270
+    },
+    "facing=west,formed=true,has_cell=false": {
+      "model": "neoecoae:block/computation_drive_empty",
+      "y": 270
+    },
+    "facing=west,formed=true,has_cell=true": {
+      "model": "neoecoae:block/computation_drive_empty",
       "y": 270
     }
   }

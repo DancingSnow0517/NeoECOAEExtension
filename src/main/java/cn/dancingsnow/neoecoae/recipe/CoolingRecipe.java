@@ -1,37 +1,37 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
-import org.jetbrains.annotations.Contract;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
-public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock) implements Recipe<CoolingRecipe.Input> {
-
-    @Contract("-> new")
+public record CoolingRecipe(
+        ResourceLocation id, SizedFluidIngredient input, FluidStack output, int coolant, int maxOverclock)
+        implements Recipe<CoolingRecipe.Input> {
     public static CoolingRecipeBuilder builder() {
         return new CoolingRecipeBuilder();
     }
 
     @Override
     public boolean matches(Input i, Level l) {
-        return input.test(i.input) && (i.output.isEmpty() || output.is(i.output.getFluid()));
+        return input.test(i.input) && (i.output.isEmpty() || output.isFluidEqual(i.output));
     }
 
     @Override
-    public ItemStack assemble(Input input, HolderLookup.Provider registries) {
+    public ItemStack assemble(Input input, RegistryAccess registries) {
         return ItemStack.EMPTY;
     }
 
@@ -41,8 +41,13 @@ public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int c
     }
 
     @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) {
+    public ItemStack getResultItem(RegistryAccess registries) {
         return ItemStack.EMPTY;
+    }
+
+    @Override
+    public ResourceLocation getId() {
+        return id;
     }
 
     @Override
@@ -64,51 +69,69 @@ public record CoolingRecipe(SizedFluidIngredient input, FluidStack output, int c
     }
 
     public static class Serializer implements RecipeSerializer<CoolingRecipe> {
-        private static final MapCodec<CoolingRecipe> CODEC = RecordCodecBuilder.mapCodec(ins -> ins.group(
-            SizedFluidIngredient.FLAT_CODEC.fieldOf("input").forGetter(CoolingRecipe::input),
-            FluidStack.OPTIONAL_CODEC.fieldOf("output").forGetter(CoolingRecipe::output),
-            Codec.INT.fieldOf("coolant").forGetter(CoolingRecipe::coolant),
-            Codec.INT.optionalFieldOf("max_overclock", 0).forGetter(CoolingRecipe::maxOverclock)
-        ).apply(ins, CoolingRecipe::new));
-
-        private static final StreamCodec<RegistryFriendlyByteBuf, CoolingRecipe> STREAM_CODEC = StreamCodec.composite(
-            SizedFluidIngredient.STREAM_CODEC,
-            CoolingRecipe::input,
-            FluidStack.OPTIONAL_STREAM_CODEC,
-            CoolingRecipe::output,
-            ByteBufCodecs.VAR_INT,
-            CoolingRecipe::coolant,
-            ByteBufCodecs.VAR_INT,
-            CoolingRecipe::maxOverclock,
-            CoolingRecipe::new
-        );
-
         @Override
-        public MapCodec<CoolingRecipe> codec() {
-            return CODEC;
+        public CoolingRecipe fromJson(ResourceLocation id, JsonObject json) {
+            SizedFluidIngredient input;
+            try {
+                input = SizedFluidIngredient.fromJson(json.get("input"));
+            } catch (JsonParseException e) {
+                throw new JsonParseException("Recipe " + id + " input " + e.getMessage(), e);
+            }
+            FluidStack output =
+                    json.has("output") ? readFluidStack(id, json.getAsJsonObject("output")) : FluidStack.EMPTY;
+            int coolant = json.get("coolant").getAsInt();
+            int maxOverclock =
+                    json.has("max_overclock") ? json.get("max_overclock").getAsInt() : 0;
+            return new CoolingRecipe(id, input, output, coolant, maxOverclock);
+        }
+
+        private static FluidStack readFluidStack(ResourceLocation recipeId, JsonObject object) {
+            if (object.size() == 0) {
+                return FluidStack.EMPTY;
+            }
+            if (object.has("tag")) {
+                throw new JsonParseException("Recipe " + recipeId + " output cannot use a fluid tag");
+            }
+            String field = object.has("fluid") ? "fluid" : object.has("id") ? "id" : null;
+            if (field == null) {
+                throw new JsonParseException("Recipe " + recipeId + " output must contain 'fluid' or 'id'");
+            }
+            ResourceLocation fluidId = ResourceLocation.parse(object.get(field).getAsString());
+            Fluid fluid = ForgeRegistries.FLUIDS.getValue(fluidId);
+            if (fluid == null || fluid == Fluids.EMPTY) {
+                throw new JsonParseException("Recipe " + recipeId + " has unknown fluid output '" + fluidId + "'");
+            }
+            int amount = object.has("amount") ? object.get("amount").getAsInt() : 1000;
+            return new FluidStack(fluid, amount);
         }
 
         @Override
-        public StreamCodec<RegistryFriendlyByteBuf, CoolingRecipe> streamCodec() {
-            return STREAM_CODEC;
+        public CoolingRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
+            return new CoolingRecipe(
+                    id,
+                    SizedFluidIngredient.fromNetwork(buffer),
+                    FluidStack.readFromPacket(buffer),
+                    buffer.readVarInt(),
+                    buffer.readVarInt());
+        }
+
+        @Override
+        public void toNetwork(FriendlyByteBuf buffer, CoolingRecipe recipe) {
+            recipe.input.toNetwork(buffer);
+            recipe.output.writeToPacket(buffer);
+            buffer.writeVarInt(recipe.coolant);
+            buffer.writeVarInt(recipe.maxOverclock);
         }
     }
 
-    public record Input(FluidStack input, FluidStack output) implements RecipeInput {
+    public static class Input extends SimpleContainer {
+        private final FluidStack input;
+        private final FluidStack output;
 
-        @Override
-        public ItemStack getItem(int index) {
-            return ItemStack.EMPTY;
-        }
-
-        @Override
-        public int size() {
-            return 1;
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return input.isEmpty();
+        public Input(FluidStack input, FluidStack output) {
+            super(0);
+            this.input = input;
+            this.output = output;
         }
     }
 }

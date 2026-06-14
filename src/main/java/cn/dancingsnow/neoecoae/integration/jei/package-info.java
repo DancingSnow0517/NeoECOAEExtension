@@ -2,6 +2,5 @@
 @MethodsReturnNonnullByDefault
 package cn.dancingsnow.neoecoae.integration.jei;
 
-import net.minecraft.MethodsReturnNonnullByDefault;
-
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;

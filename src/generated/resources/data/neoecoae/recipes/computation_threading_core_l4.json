@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "ae2:256k_crafting_storage"
+    },
+    "B": {
+      "item": "neoecoae:superconducting_processor"
+    },
+    "C": {
+      "item": "neoecoae:computation_casing"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "ACA",
+    "ABA"
+  ],
+  "result": {
+    "item": "neoecoae:computation_threading_core_l4"
+  },
+  "show_notification": true
+}

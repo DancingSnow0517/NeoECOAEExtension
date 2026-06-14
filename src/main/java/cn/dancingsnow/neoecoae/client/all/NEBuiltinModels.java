@@ -1,18 +1,14 @@
 package cn.dancingsnow.neoecoae.client.all;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.client.model.ECODriveModel;
-import net.minecraft.client.resources.model.UnbakedModel;
-import net.minecraft.resources.ResourceLocation;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
+import net.minecraft.client.resources.model.UnbakedModel;
+import net.minecraft.resources.ResourceLocation;
 
 public class NEBuiltinModels {
     private static final Map<ResourceLocation, Supplier<UnbakedModel>> registry = new HashMap<>();
-
-    public static final ResourceLocation ECO_DRIVE = register(NeoECOAE.id("block/builtin/eco_drive"), ECODriveModel::new);
 
     public static ResourceLocation register(ResourceLocation id, Supplier<UnbakedModel> factory) {
         registry.put(id, factory);

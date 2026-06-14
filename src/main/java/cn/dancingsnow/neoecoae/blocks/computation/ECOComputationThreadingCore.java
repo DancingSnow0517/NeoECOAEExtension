@@ -23,16 +23,17 @@ public class ECOComputationThreadingCore extends NEBlock<ECOComputationThreading
 
     public ECOComputationThreadingCore(Properties properties, IECOTier tier) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(FACING, Direction.NORTH)
-            .setValue(WORKING, false)
-        );
+        registerDefaultState(getStateDefinition()
+                .any()
+                .setValue(FORMED, false)
+                .setValue(FACING, Direction.NORTH)
+                .setValue(WORKING, false));
         this.tier = tier;
     }
 
     @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, ECOComputationThreadingCoreBlockEntity be) {
+    protected BlockState updateBlockStateFromBlockEntity(
+            BlockState currentState, ECOComputationThreadingCoreBlockEntity be) {
         return super.updateBlockStateFromBlockEntity(currentState, be).setValue(WORKING, be.isWorking());
     }
 

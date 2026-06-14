@@ -16,30 +16,16 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import java.util.Optional;
 
 public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     private static final Logger logger = LogManager.getLogger(NERegistrate.class);
 
     public static NERegistrate create(String modid) {
-        NERegistrate registrate = new NERegistrate(modid);
-        Optional<IEventBus> modEventBus = ModList.get().getModContainerById(modid).map(ModContainer::getEventBus);
-        modEventBus.ifPresentOrElse(registrate::registerEventListeners, () -> {
-            String message = "# [Registrate] Failed to register eventListeners for mod " + modid + ", This should be reported to this mod's dev #";
-            StringBuilder hashtags = new StringBuilder().append("#".repeat(message.length()));
-            logger.fatal(hashtags.toString());
-            logger.fatal(message);
-            logger.fatal(hashtags.toString());
-        });
-        return registrate;
+        return new NERegistrate(modid);
     }
 
     protected NERegistrate(String modid) {
@@ -50,69 +36,68 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     public NERegistrate registerEventListeners(IEventBus bus) {
         super.registerEventListeners(bus);
         bus.addListener(this::onCommonSetup);
-        bus.addListener(this::onRegisterCapabilities);
         return self();
     }
 
-    public <T extends NEBlockEntity<C, T>, C extends NECluster<C>> NEBlockEntityBuilder<T, NERegistrate> blockEntityClusterElement(
-        String name,
-        NEClusterCalculator.Factory<C> tcFactory,
-        NEBlockEntityBuilder.ClusterBlockEntityFactory<T, C> factory
-    ) {
-        return blockEntityBlockLinked(
-            this,
-            name,
-            ((type, pos, state) -> factory.create(type, pos, state, tcFactory))
-        );
+    public <T extends NEBlockEntity<C, T>, C extends NECluster<C>>
+            NEBlockEntityBuilder<T, NERegistrate> blockEntityClusterElement(
+                    String name,
+                    NEClusterCalculator.Factory<C> tcFactory,
+                    NEBlockEntityBuilder.ClusterBlockEntityFactory<T, C> factory) {
+        return blockEntityBlockLinked(this, name, ((type, pos, state) -> factory.create(type, pos, state, tcFactory)));
     }
 
-    public <T extends NEBlockEntity<C, T>, C extends NECluster<C>> NEBlockEntityBuilder<T, NERegistrate> tierBlockEntityBlockLinked(
-        String name,
-        IECOTier tier,
-        NEBlockEntityBuilder.TierBlockEntityFactory<T, C> factory
-    ) {
-        return blockEntityBlockLinked(
-            this,
-            name,
-            (type, pos, state) -> factory.create(type, pos, state, tier)
-        );
+    public <T extends NEBlockEntity<C, T>, C extends NECluster<C>>
+            NEBlockEntityBuilder<T, NERegistrate> tierBlockEntityBlockLinked(
+                    String name, IECOTier tier, NEBlockEntityBuilder.TierBlockEntityFactory<T, C> factory) {
+        return blockEntityBlockLinked(this, name, (type, pos, state) -> factory.create(type, pos, state, tier));
     }
 
-    public <T extends NEBlockEntity<?, T>> NEBlockEntityBuilder<T, NERegistrate> blockEntityBlockLinked(String name, BlockEntityBuilder.BlockEntityFactory<T> factory) {
+    public <T extends NEBlockEntity<?, T>> NEBlockEntityBuilder<T, NERegistrate> blockEntityBlockLinked(
+            String name, BlockEntityBuilder.BlockEntityFactory<T> factory) {
         return blockEntityBlockLinked(this, name, factory);
     }
 
-    public <T extends NEBlockEntity<?, T>> NEBlockEntityBuilder<T, NERegistrate> blockEntityBlockLinked(NERegistrate parent, String name, BlockEntityBuilder.BlockEntityFactory<T> factory) {
-        return (NEBlockEntityBuilder<T, NERegistrate>) this.entry(name, callback -> NEBlockEntityBuilder.createMy(this, parent, name, callback, factory));
+    public <T extends NEBlockEntity<?, T>> NEBlockEntityBuilder<T, NERegistrate> blockEntityBlockLinked(
+            NERegistrate parent, String name, BlockEntityBuilder.BlockEntityFactory<T> factory) {
+        return (NEBlockEntityBuilder<T, NERegistrate>)
+                this.entry(name, callback -> NEBlockEntityBuilder.createMy(this, parent, name, callback, factory));
     }
 
-    public NoConfigBuilder<CreativeModeTab, CreativeModeTab, NERegistrate> defaultCreativeTab(String name, CreativeModeTab.Builder builder) {
+    public NoConfigBuilder<CreativeModeTab, CreativeModeTab, NERegistrate> defaultCreativeTab(
+            String name, CreativeModeTab.Builder builder) {
         return defaultCreativeTab(self(), name, builder);
     }
 
-    public <P> NoConfigBuilder<CreativeModeTab, CreativeModeTab, P> defaultCreativeTab(P parent, String name, CreativeModeTab.Builder builder) {
-        defaultCreativeTab(ResourceKey.create(Registries.CREATIVE_MODE_TAB, ResourceLocation.fromNamespaceAndPath(getModid(), name)));
+    public <P> NoConfigBuilder<CreativeModeTab, CreativeModeTab, P> defaultCreativeTab(
+            P parent, String name, CreativeModeTab.Builder builder) {
+        defaultCreativeTab(ResourceKey.create(
+                Registries.CREATIVE_MODE_TAB, ResourceLocation.fromNamespaceAndPath(getModid(), name)));
         return this.generic(parent, name, Registries.CREATIVE_MODE_TAB, builder::build);
     }
 
-    public NERegistrate defaultCreativeTab(RegistryEntry<CreativeModeTab, CreativeModeTab> tab) {
+    public NERegistrate defaultCreativeTab(RegistryEntry<CreativeModeTab> tab) {
         defaultCreativeTab(tab.getKey());
         return self();
     }
 
-    public <T extends IECOTier> NoConfigBuilder<IECOTier, T, NERegistrate> ecoTier(String name, NonNullSupplier<T> factory) {
+    public <T extends IECOTier> NoConfigBuilder<IECOTier, T, NERegistrate> ecoTier(
+            String name, NonNullSupplier<T> factory) {
         return ecoTier(self(), name, factory);
     }
 
-    public <P, T extends IECOTier> NoConfigBuilder<IECOTier, T, P> ecoTier(P parent, String name, NonNullSupplier<T> factory) {
+    public <P, T extends IECOTier> NoConfigBuilder<IECOTier, T, P> ecoTier(
+            P parent, String name, NonNullSupplier<T> factory) {
         return this.generic(parent, name, NERegistries.Keys.ECO_TIER, factory);
     }
 
-    public NoConfigBuilder<ECOCellType, ECOCellType, NERegistrate> cellType(String name, NonNullSupplier<ECOCellType> factory) {
+    public NoConfigBuilder<ECOCellType, ECOCellType, NERegistrate> cellType(
+            String name, NonNullSupplier<ECOCellType> factory) {
         return cellType(self(), name, factory);
     }
 
-    public <P> NoConfigBuilder<ECOCellType, ECOCellType, P> cellType(P parent, String name, NonNullSupplier<ECOCellType> factory) {
+    public <P> NoConfigBuilder<ECOCellType, ECOCellType, P> cellType(
+            P parent, String name, NonNullSupplier<ECOCellType> factory) {
         return this.generic(parent, name, NERegistries.Keys.CELL_TYPE, factory);
     }
 
@@ -122,19 +107,10 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
     }
 
     public void onCommonSetup(FMLCommonSetupEvent event) {
-        for (RegistryEntry<BlockEntityType<?>, BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
+        for (RegistryEntry<BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
             //noinspection rawtypes
             if (entry instanceof NEBlockEntityEntry entityEntry) {
                 entityEntry.onCommonSetup(event);
-            }
-        }
-    }
-
-    public void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
-        for (RegistryEntry<BlockEntityType<?>, BlockEntityType<?>> entry : getAll(Registries.BLOCK_ENTITY_TYPE)) {
-            //noinspection rawtypes
-            if (entry instanceof NEBlockEntityEntry entityEntry) {
-                entityEntry.onRegisterCapabilies(event);
             }
         }
     }
