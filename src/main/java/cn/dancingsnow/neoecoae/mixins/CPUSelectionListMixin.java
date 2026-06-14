@@ -12,6 +12,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Debug;
 import org.spongepowered.asm.mixin.Final;
@@ -46,7 +47,7 @@ public class CPUSelectionListMixin {
     ) {
         Identifier texture = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
         if (texture != null) {
-            guiGraphics.blit(texture, buttonBg.getSrcWidth() - 12, 0, 0, 0, 7, 7, 7, 7);
+            guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, buttonBg.getSrcWidth() - 12, 0, 0, 0, 7, 7, 7, 7);
         }
     }
 
