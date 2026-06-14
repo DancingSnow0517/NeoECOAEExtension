@@ -30,7 +30,7 @@
 			"to": [16, 16, 0],
 			"shade": false,
 			"faces": {
-				"north": {"uv": [0, 0, 16, 16], "texture": "#1", "cullface": "north", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+				"north": {"uv": [0, 0, 16, 16], "texture": "#1", "cullface": "north", "neoforge_data": {"light_emission": 15}}
 			}
 		}
 	]

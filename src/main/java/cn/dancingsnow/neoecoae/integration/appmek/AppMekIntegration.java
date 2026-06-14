@@ -4,7 +4,7 @@ import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.api.ECOCellModels;
+import cn.dancingsnow.neoecoae.api.client.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.integration.appmek.item.ECOChemicalStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;

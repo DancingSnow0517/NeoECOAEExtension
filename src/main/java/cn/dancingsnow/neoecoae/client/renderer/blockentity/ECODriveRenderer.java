@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
 import appeng.client.render.tesr.CellLedRenderer;
-import cn.dancingsnow.neoecoae.api.ECOCellModels;
+import cn.dancingsnow.neoecoae.api.client.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;

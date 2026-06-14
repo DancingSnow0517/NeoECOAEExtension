@@ -11,8 +11,8 @@
 	"elements": [
 		{
 			"name": "body",
-			"from": [0, 0, 0],
-			"to": [6, 12, 2],
+			"from": [2, 2, 0],
+			"to": [8, 14, 2],
 			"faces": {
 				"north": {"uv": [0, 0, 6, 12], "texture": "#base"},
 				"east": {"uv": [2, 0, 0, 12], "texture": "#base"},
@@ -23,8 +23,8 @@
 		},
 		{
 			"name": "type",
-			"from": [3, 6, 0],
-			"to": [5, 12, 2],
+			"from": [5, 8, 0],
+			"to": [7, 14, 2],
 			"faces": {
 				"north": {"uv": [14, 6, 16, 12], "texture": "#type"},
 				"up": {"uv": [14, 8, 16, 6], "rotation": 180, "texture": "#type"}
@@ -32,8 +32,8 @@
 		},
 		{
 			"name": "level",
-			"from": [0, 2, 0],
-			"to": [6, 4, 2],
+			"from": [2, 4, 0],
+			"to": [8, 6, 2],
 			"shade": false,
 			"faces": {
 				"north": {"uv": [0, 6, 6, 8], "texture": "#level"},

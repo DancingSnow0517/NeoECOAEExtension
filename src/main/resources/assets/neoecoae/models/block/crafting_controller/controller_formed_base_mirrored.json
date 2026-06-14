@@ -33,10 +33,7 @@
 						16
 					],
 					"texture": "#base",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				},
 				"west": {
 					"uv": [
@@ -46,10 +43,7 @@
 						16
 					],
 					"texture": "#base",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				},
 				"south": {
 					"uv": [
@@ -59,10 +53,7 @@
 						16
 					],
 					"texture": "#base",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				}
 			}
 		},
@@ -88,10 +79,7 @@
 						12
 					],
 					"texture": "#screen",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				}
 			}
 		},

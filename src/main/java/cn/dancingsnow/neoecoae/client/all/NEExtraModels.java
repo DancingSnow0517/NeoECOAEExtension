@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.client.all;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
-import cn.dancingsnow.neoecoae.api.ECOComputationModels;
+import cn.dancingsnow.neoecoae.api.client.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import net.minecraft.client.resources.model.ModelIdentifier;
 import net.minecraft.resources.Identifier;

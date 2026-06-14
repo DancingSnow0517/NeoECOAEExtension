@@ -34,10 +34,7 @@
 						16
 					],
 					"texture": "#base",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				},
 				"west": {
 					"uv": [
@@ -47,10 +44,7 @@
 						16
 					],
 					"texture": "#base",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				},
 				"south": {
 					"uv": [
@@ -60,10 +54,7 @@
 						16
 					],
 					"texture": "#base",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				}
 			}
 		},
@@ -88,10 +79,7 @@
 						16
 					],
 					"texture": "#coolant",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				}
 			}
 		},
@@ -125,10 +113,7 @@
 						16
 					],
 					"texture": "#coolant",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				}
 			}
 		},
@@ -153,10 +138,7 @@
 						12
 					],
 					"texture": "#coolant",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				}
 			}
 		},
@@ -319,10 +301,7 @@
 					],
 					"texture": "#screen",
 					"cullface": "north",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				},
 				"west": {
 					"uv": [
@@ -332,10 +311,7 @@
 						14
 					],
 					"texture": "#screen",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				},
 				"east": {
 					"uv": [
@@ -345,10 +321,7 @@
 						14
 					],
 					"texture": "#screen",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				},
 				"up": {
 					"uv": [
@@ -358,10 +331,7 @@
 						4
 					],
 					"texture": "#screen",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				},
 				"down": {
 					"uv": [
@@ -371,10 +341,7 @@
 						14
 					],
 					"texture": "#screen",
-					"neoforge_data": {
-						"block_light": 15,
-						"sky_light": 15
-					}
+					"neoforge_data": {"light_emission": 15}
 				}
 			}
 		},

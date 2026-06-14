@@ -558,7 +558,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate(ECOModelUtil::horizontalExisting)
+        .blockstate(ECOModelUtil::drive)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ADA")

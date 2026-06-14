@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.client.renderer.blockentity;
 
-import cn.dancingsnow.neoecoae.api.ECOComputationModels;
+import cn.dancingsnow.neoecoae.api.client.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;

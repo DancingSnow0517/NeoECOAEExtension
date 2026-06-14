@@ -1,8 +1,10 @@
 package cn.dancingsnow.neoecoae.util;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.client.item.ECOStorageCellStateTintSource;
+import cn.dancingsnow.neoecoae.client.model.ECODriveModel;
 import com.tterrag.registrate.providers.DataGenContext;
 import com.tterrag.registrate.providers.generators.RegistrateBlockModelGenerator;
 import com.tterrag.registrate.providers.generators.RegistrateItemModelGenerator;
@@ -11,6 +13,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import net.minecraft.client.color.item.Constant;
 import net.minecraft.client.data.models.BlockModelGenerators;
+import net.minecraft.client.data.models.MultiVariant;
 import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
 import net.minecraft.client.data.models.blockstates.PropertyDispatch;
 import net.minecraft.client.data.models.model.ItemModelUtils;
@@ -18,9 +21,15 @@ import net.minecraft.client.data.models.model.ModelTemplate;
 import net.minecraft.client.data.models.model.ModelTemplates;
 import net.minecraft.client.data.models.model.TextureMapping;
 import net.minecraft.client.data.models.model.TextureSlot;
+import net.minecraft.client.renderer.block.dispatch.Variant;
+import net.minecraft.client.renderer.block.dispatch.VariantMutator;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.neoforged.neoforge.client.model.block.CustomUnbakedBlockStateModel;
+import net.neoforged.neoforge.client.model.generators.blockstate.CustomBlockStateModelBuilder;
+import net.neoforged.neoforge.client.model.generators.blockstate.UnbakedMutator;
 
 import java.util.Optional;
 
@@ -99,7 +108,41 @@ public class ECOModelUtil {
         };
     }
 
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> drive() {
+        return (ctx, prov) -> {
+            var emptyModel = customBlockStateModel(new ECODriveModel.Unbaked(new Variant(ECODriveModel.DRIVE_EMPTY)));
+            var fullModel = customBlockStateModel(new ECODriveModel.Unbaked(new Variant(ECODriveModel.DRIVE_FULL)));
+
+            var propertyDispatch = PropertyDispatch.initial(ECODriveBlock.HAS_CELL)
+                .select(false, emptyModel)
+                .select(true, fullModel);
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).withUnbaked(createDriverFacingDispatch()));
+            prov.registerSimpleItemModel(ctx.get(), ECODriveModel.DRIVE_EMPTY);
+        };
+    }
+
     private static ModelTemplate createTemplate(String id, TextureSlot... slots) {
         return new ModelTemplate(Optional.of(NeoECOAE.id(id).withPrefix("block/")), Optional.empty(), slots);
+    }
+
+    private static MultiVariant customBlockStateModel(CustomUnbakedBlockStateModel model) {
+        return MultiVariant.of(new CustomBlockStateModelBuilder.Simple(model));
+    }
+
+    private static PropertyDispatch<UnbakedMutator> createDriverFacingDispatch() {
+        return PropertyDispatch.modifyUnbaked(BlockStateProperties.HORIZONTAL_FACING).generate(facing ->  {
+            return UnbakedMutator.builder()
+                .add(ECODriveModel.Unbaked.class, unbaked -> {
+                    VariantMutator mutator = switch (facing) {
+                        case EAST -> BlockModelGenerators.Y_ROT_90;
+                        case SOUTH -> BlockModelGenerators.Y_ROT_180;
+                        case WEST -> BlockModelGenerators.Y_ROT_270;
+                        default -> BlockModelGenerators.NOP;
+                    };
+                    return new ECODriveModel.Unbaked(unbaked.variant().with(mutator));
+                })
+                .build();
+        });
     }
 }

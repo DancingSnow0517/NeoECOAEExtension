@@ -1,5 +1,6 @@
-package cn.dancingsnow.neoecoae.api;
+package cn.dancingsnow.neoecoae.api.client;
 
+import cn.dancingsnow.neoecoae.api.IECOTier;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;

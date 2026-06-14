@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "neoecoae:block/eco_drive"
+    "model": "neoecoae:block/eco_drive_empty"
   }
 }
