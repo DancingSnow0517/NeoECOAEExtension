@@ -2,27 +2,33 @@ package cn.dancingsnow.neoecoae.mixins;
 
 import appeng.me.energy.StoredEnergyAmount;
 import com.lowdragmc.lowdraglib2.syncdata.IContentChangeAware;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.DoubleTag;
-import org.jetbrains.annotations.UnknownNullability;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.common.util.ValueIOSerializable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
 @Mixin(value = StoredEnergyAmount.class, remap = false)
-public abstract class StoredEnergyAmountMixin implements IContentChangeAware {
-    @Shadow public abstract void setStored(double amount);
+public abstract class StoredEnergyAmountMixin implements IContentChangeAware, ValueIOSerializable {
+    @Shadow
+    public abstract void setStored(double amount);
 
-    @Shadow public abstract double getAmount();
+    @Shadow
+    public abstract double getAmount();
 
-    @Unique private Runnable neoecoae$onContentsChanged = () -> {};
+    @Unique
+    private Runnable neoecoae$onContentsChanged = () -> {
+    };
 
-    public @UnknownNullability DoubleTag serializeNBT(HolderLookup.Provider provider) {
-        return DoubleTag.valueOf(getAmount());
+    @Override
+    public void serialize(ValueOutput output) {
+        output.putDouble("ae_stored_energt", getAmount());
     }
 
-    public void deserializeNBT(HolderLookup.Provider provider, DoubleTag nbt) {
-        setStored(nbt.doubleValue());
+    @Override
+    public void deserialize(ValueInput input) {
+        setStored(input.getDoubleOr("ae_stored_energt", 0));
     }
 
     @Override
