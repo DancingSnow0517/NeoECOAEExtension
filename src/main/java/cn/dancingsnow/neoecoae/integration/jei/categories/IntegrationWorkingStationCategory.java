@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jei.categories;
 
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -120,7 +121,7 @@ public class IntegrationWorkingStationCategory implements IRecipeCategory<Recipe
     public void createRecipeExtras(IRecipeExtrasBuilder builder, RecipeHolder<IntegratedWorkingStationRecipe> holder, IFocusGroup focuses) {
         IntegratedWorkingStationRecipe recipe = holder.value();
         Component text = Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
-        builder.addText(text, 120, 12).setPosition(24, 66).setColor(0x403e53);
+        builder.addText(text, 120, 12).setPosition(24, 66).setColor(NEGuiColors.textColor(0x403e53));
     }
 
     public static void registerRecipes(IRecipeRegistration registration) {

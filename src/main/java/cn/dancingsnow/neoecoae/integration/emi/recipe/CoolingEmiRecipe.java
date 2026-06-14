@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
@@ -35,6 +36,6 @@ public class CoolingEmiRecipe extends BasicEmiRecipe {
         widgets.addTexture(NeoECOAE.id("textures/gui/jei/cooling_progress_empty.png"), 35, 5, 30, 30, 0, 0, 30, 30, 30, 30);
         widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/jei/cooling_progress.png"), 35, 5, 30, 30, 0, 0, 30, 30, 30, 30, 2000, false, true, false);
 
-        widgets.addText(Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()), 5, 40, 0, false);
+        widgets.addText(Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()), 5, 40, NEGuiColors.textColor(0), false);
     }
 }

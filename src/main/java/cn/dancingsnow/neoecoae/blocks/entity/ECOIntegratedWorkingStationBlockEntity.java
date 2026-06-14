@@ -45,6 +45,7 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.components.AutoExportSides;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.gui.AETextures;
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -739,7 +740,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         root.addChild(new TextElement()
             .setText("block.neoecoae.integrated_working_station", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))));
 
         UIElement inputArea = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW).marginBottom(5));
         // Input Fluid
@@ -898,7 +899,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         root.addChild(new TextElement()
             .setText("container.inventory", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))));
 
         root.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
 
@@ -924,7 +925,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
 
         titleBar.addChild(new TextElement()
             .setText("gui.neoecoae.integrated_working_station.allow_outputs", true)
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(0x403e53)));
+            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL).adaptiveHeight(true).textShadow(false).textColor(NEGuiColors.textColor(0x403e53))));
 
         titleBar.addChild(new Button()
             .noText()

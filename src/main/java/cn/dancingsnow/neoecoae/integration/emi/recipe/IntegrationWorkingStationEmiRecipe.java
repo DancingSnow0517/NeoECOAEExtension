@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.integration.emi.NeoECOAEEmiPlugin;
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import dev.emi.emi.api.recipe.BasicEmiRecipe;
 import dev.emi.emi.api.stack.EmiStack;
@@ -53,7 +54,7 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/jei/progress_bar.png"), 136, 30, 6, 18, 0, 0, 6, 18, 6, 18, 2000, false, true, false);
 
         Component text = Component.translatable("gui.neoecoae.integrated_working_station.energy", recipe.energy() / 1000);
-        widgets.addText(text, 24, 66, 0x403e53, false);
+        widgets.addText(text, 24, 66, NEGuiColors.textColor(0x403e53), false);
 
         // input fluid
         SizedFluidIngredient inputFluid = recipe.inputFluid();

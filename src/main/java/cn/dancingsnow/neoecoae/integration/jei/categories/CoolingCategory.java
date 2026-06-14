@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jei.categories;
 
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.integration.jei.TextureConstants;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
@@ -97,7 +98,7 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
             Component.translatable("category.neoecoae.cooling.coolant", recipe.value().coolant()),
             0,
             0,
-            0,
+            NEGuiColors.textColor(0),
             false
         );
         poseStack.popPose();

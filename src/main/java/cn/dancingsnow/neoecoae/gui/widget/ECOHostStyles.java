@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.gui.widget;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 
+import cn.dancingsnow.neoecoae.gui.NEGuiColors;
+
 public final class ECOHostStyles {
     public static final int PANEL_WIDTH = 208;
     public static final int PANEL_HEIGHT = 214;
@@ -10,10 +12,10 @@ public final class ECOHostStyles {
     public static final int DETAIL_HEIGHT = 86;
     public static final int STORAGE_DETAIL_HEIGHT = 110;
 
-    public static final int TEXT = 0x263238;
-    public static final int MUTED = 0xffffff;
-    public static final int SOFT = 0x7d8a91;
-    public static final int ACCENT = 0x403e53;
+    public static final int TEXT = NEGuiColors.textColor(0x263238);
+    public static final int MUTED = NEGuiColors.textColor(0xffffff);
+    public static final int SOFT = NEGuiColors.textColor(0x7d8a91);
+    public static final int ACCENT = NEGuiColors.textColor(0x403e53);
 
     private ECOHostStyles() {
     }

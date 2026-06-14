@@ -33,8 +33,8 @@ import java.util.function.Supplier;
 
 public final class MultiblockBuilderUI {
     private static final int CONFLICT_TOOLTIP_LIMIT = 8;
-    private static final int MATERIAL_COUNT_ENOUGH_COLOR = 0x55ff55;
-    private static final int MATERIAL_COUNT_MISSING_COLOR = 0xff5555;
+    private static final int MATERIAL_COUNT_ENOUGH_COLOR = NEGuiColors.textColor(0x55ff55);
+    private static final int MATERIAL_COUNT_MISSING_COLOR = NEGuiColors.textColor(0xff5555);
 
     private MultiblockBuilderUI() {
     }
@@ -363,15 +363,15 @@ public final class MultiblockBuilderUI {
     }
 
     private static void darkTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(NEGuiColors.textColor(0x3f3d52)).textShadow(false);
     }
 
     private static void hintTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x6d6a82).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(NEGuiColors.textColor(0x6d6a82)).textShadow(false);
     }
 
     private static void sectionTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x236f80).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(NEGuiColors.textColor(0x236f80)).textShadow(false);
     }
 
     private static final class SegmentedBooleanControl extends UIElement {
