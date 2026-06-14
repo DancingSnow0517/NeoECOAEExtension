@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.compat.appmek.item;
 
 import appeng.api.stacks.AEKey;
+import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.compat.appmek.AppMekCompat;
-import cn.dancingsnow.neoecoae.compat.appmek.NEAppMekCellTypes;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import me.ramidzkh.mekae2.ae2.MekanismKey;
 import mekanism.api.chemical.attribute.ChemicalAttributeValidator;
@@ -16,7 +16,7 @@ import net.minecraft.world.item.ItemStack;
 public class ECOChemicalStorageCellItem extends ECOStorageCellItem {
 
     public ECOChemicalStorageCellItem(Properties properties, IECOTier tier) {
-        super(properties, tier, AppMekCompat.getChemicalKeyType(), NEAppMekCellTypes.CHEMICAL);
+        super(properties, tier, AppMekCompat.getChemicalKeyType(), NECellTypes.CHEMICAL);
     }
 
     @Override

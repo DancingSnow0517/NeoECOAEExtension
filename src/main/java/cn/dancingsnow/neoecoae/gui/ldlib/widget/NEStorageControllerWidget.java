@@ -16,18 +16,24 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.fml.ModList;
 
 public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorageUiState> {
     public static final int UI_WIDTH = 344;
@@ -44,8 +50,14 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     private static final int TEXT_START_Y = LEFT_PANEL_Y + 8;
     private static final int TEXT_LINE_STEP = 13;
     private static final int TEXT_MAX_W = LEFT_PANEL_W - 16;
+    private static final int COLUMN_VIEW_X = RIGHT_PANEL_X + 8;
+    private static final int COLUMN_VIEW_W = RIGHT_PANEL_W - 16;
     private static final int COLUMN_Y = RIGHT_PANEL_Y + 32;
     private static final int COLUMN_H = 66;
+    private static final int COLUMN_W = 22;
+    private static final int COLUMN_GAP = 8;
+    private static final int COLUMN_SCROLLBAR_Y = RIGHT_PANEL_Y + 8;
+    private static final int COLUMN_SCROLLBAR_H = 3;
     private static final int COLUMN_PERCENT_GAP = 5;
     private static final int COLUMN_PERCENT_H = 15;
     private static final int PRIORITY_BUTTON_X = UI_WIDTH - 22;
@@ -80,26 +92,27 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     private static final int MATRIX_CARD_HOVER_COLOR = 0xFF3B3645;
     private static final double MATRIX_SCROLL_SPEED = 18.0D;
     private static final double MATRIX_SCROLL_LERP = 0.24D;
+    private static final double COLUMN_SCROLL_SPEED = 18.0D;
+    private static final double COLUMN_SCROLL_LERP = 0.24D;
     private static final double LEFT_SCROLL_SPEED = 13.0D;
     private static final double ANIMATION_SPEED = 0.16D;
 
-    private static final String TOOLTIP_ITEMS_USED = "gui.neoecoae.storage.tooltip.items_used";
-    private static final String TOOLTIP_FLUIDS_USED = "gui.neoecoae.storage.tooltip.fluids_used";
-    private static final String TOOLTIP_CHEMICALS_USED = "gui.neoecoae.storage.tooltip.chemicals_used";
+    private static final String TOOLTIP_TYPE_USED = "gui.neoecoae.storage.tooltip.type_used";
     private static final String TOOLTIP_USED_TOTAL = "gui.neoecoae.storage.tooltip.used_total";
+    private static final Map<ScrollKey, ScrollSnapshot> SCROLL_MEMORY = new HashMap<>();
 
     private final ECOStorageSystemBlockEntity storage;
     private final Player player;
     private final Inventory playerInventory;
-    private final boolean chemicalMode = hasChemicalStorageIntegration();
 
     private double animatedEnergyPct;
-    private double animatedItemPct;
-    private double animatedFluidPct;
-    private double animatedChemicalPct;
+    private final Map<String, Double> animatedTypePct = new HashMap<>();
     private double matrixScrollPixels;
     private double matrixScrollTargetPixels;
     private boolean matrixScrollbarDragging;
+    private double metricScrollPixels;
+    private double metricScrollTargetPixels;
+    private boolean metricScrollbarDragging;
     private double leftScrollPixels;
 
     public NEStorageControllerWidget(ECOStorageSystemBlockEntity storage, Player player) {
@@ -115,6 +128,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         this.storage = storage;
         this.player = player;
         this.playerInventory = player.getInventory();
+        restoreScrollState();
     }
 
     public static int uiHeight(ECOStorageSystemBlockEntity storage) {
@@ -161,12 +175,17 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     }
 
     @Override
+    public void readInitialData(FriendlyByteBuf buffer) {
+        super.readInitialData(buffer);
+        restoreScrollState();
+    }
+
+    @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         StorageMetrics metrics = buildStorageMetrics(currentState());
         animatedEnergyPct = animateTo(animatedEnergyPct, metrics.energy().percent());
-        animatedItemPct = animateTo(animatedItemPct, metrics.items().percent());
-        animatedFluidPct = animateTo(animatedFluidPct, metrics.fluids().percent());
-        animatedChemicalPct = animateTo(animatedChemicalPct, metrics.chemicals().percent());
+        animatedTypePct.keySet().removeIf(key -> metrics.types().stream()
+                .noneMatch(metric -> metric.key().equals(key)));
 
         int ox = getPositionX();
         int oy = getPositionY();
@@ -175,12 +194,14 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         NELDLibClientStyle.drawDarkInsetRect(
                 graphics, ox + RIGHT_PANEL_X, oy + RIGHT_PANEL_Y, RIGHT_PANEL_W, RIGHT_PANEL_H);
 
-        Metric[] columns = chemicalMode
-                ? new Metric[] {metrics.items(), metrics.fluids(), metrics.chemicals()}
-                : new Metric[] {metrics.items(), metrics.fluids()};
-        double[] values = chemicalMode
-                ? new double[] {animatedItemPct, animatedFluidPct, animatedChemicalPct}
-                : new double[] {animatedItemPct, animatedFluidPct};
+        List<Metric> columns = columnMetrics(metrics);
+        double[] values = new double[columns.size()];
+        for (int i = 0; i < columns.size(); i++) {
+            Metric metric = columns.get(i);
+            double value = animateTo(animatedTypePct.getOrDefault(metric.key(), 0.0D), metric.percent());
+            animatedTypePct.put(metric.key(), value);
+            values[i] = value;
+        }
         drawBoundMetricColumns(graphics, columns, values);
 
         for (int row = 0; row < 3; row++) {
@@ -200,7 +221,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         StorageMetrics metrics = buildStorageMetrics(currentState());
         drawLocalString(graphics, title, NELDLibUiTitleX(), NELDLibUiTitleY(), TEXT_PRIMARY);
         drawStorageTextLines(graphics, metrics);
-        drawLeftScrollbar(graphics);
+        drawLeftScrollbar(graphics, metrics);
         drawFormedStatus(graphics, currentState().formed());
         drawLocalString(
                 graphics,
@@ -231,7 +252,19 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             double maxScroll = maxLeftScrollPixels();
             double previous = leftScrollPixels;
             leftScrollPixels = Mth.clamp(leftScrollPixels - wheelDelta * LEFT_SCROLL_SPEED, 0.0D, maxScroll);
+            rememberScrollState();
             return leftScrollPixels != previous || maxScroll > 0.0D;
+        }
+        if (mouseX >= absX(RIGHT_PANEL_X)
+                && mouseX < absX(RIGHT_PANEL_X + RIGHT_PANEL_W)
+                && mouseY >= absY(RIGHT_PANEL_Y)
+                && mouseY < absY(RIGHT_PANEL_Y + RIGHT_PANEL_H)) {
+            List<Metric> columns = columnMetrics(buildStorageMetrics(currentState()));
+            double oldTarget = metricScrollTargetPixels;
+            metricScrollTargetPixels = Mth.clamp(
+                    metricScrollTargetPixels - wheelDelta * COLUMN_SCROLL_SPEED, 0.0D, maxMetricScrollPixels(columns));
+            rememberScrollState();
+            return metricScrollTargetPixels != oldTarget || maxMetricScrollPixels(columns) > 0.0D;
         }
         if (mouseX >= absX(MATRIX_PANEL_X)
                 && mouseX < absX(MATRIX_PANEL_X + MATRIX_PANEL_W)
@@ -240,6 +273,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             double oldTarget = matrixScrollTargetPixels;
             matrixScrollTargetPixels = Mth.clamp(
                     matrixScrollTargetPixels - wheelDelta * MATRIX_SCROLL_SPEED, 0.0D, maxMatrixScrollPixels());
+            rememberScrollState();
             return matrixScrollTargetPixels != oldTarget || maxMatrixScrollPixels() > 0.0D;
         }
         return super.mouseWheelMove(mouseX, mouseY, wheelDelta);
@@ -257,6 +291,16 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             updateMatrixScrollFromMouse(mouseX);
             return true;
         }
+        if (button == 0
+                && maxMetricScrollPixels(columnMetrics(buildStorageMetrics(currentState()))) > 0.0D
+                && mouseX >= absX(COLUMN_VIEW_X)
+                && mouseX < absX(COLUMN_VIEW_X + COLUMN_VIEW_W)
+                && mouseY >= absY(COLUMN_SCROLLBAR_Y)
+                && mouseY < absY(COLUMN_SCROLLBAR_Y + COLUMN_SCROLLBAR_H)) {
+            metricScrollbarDragging = true;
+            updateMetricScrollFromMouse(mouseX, columnMetrics(buildStorageMetrics(currentState())));
+            return true;
+        }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
@@ -266,6 +310,10 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             updateMatrixScrollFromMouse(mouseX);
             return true;
         }
+        if (button == 0 && metricScrollbarDragging) {
+            updateMetricScrollFromMouse(mouseX, columnMetrics(buildStorageMetrics(currentState())));
+            return true;
+        }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -273,6 +321,12 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button == 0 && matrixScrollbarDragging) {
             matrixScrollbarDragging = false;
+            rememberScrollState();
+            return true;
+        }
+        if (button == 0 && metricScrollbarDragging) {
+            metricScrollbarDragging = false;
+            rememberScrollState();
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -451,6 +505,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         int contentWidth = matrixContentWidth();
         if (contentWidth <= MATRIX_VIEW_W) {
             matrixScrollTargetPixels = 0.0D;
+            matrixScrollPixels = 0.0D;
+            rememberScrollState();
             return;
         }
         int thumbWidth = Math.max(12, MATRIX_VIEW_W * MATRIX_VIEW_W / contentWidth);
@@ -458,6 +514,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         double relativeX = mouseX - absX(MATRIX_VIEW_X) - thumbWidth / 2.0D;
         matrixScrollTargetPixels =
                 Mth.clamp(relativeX * maxMatrixScrollPixels() / Math.max(1, travel), 0.0D, maxMatrixScrollPixels());
+        matrixScrollPixels = matrixScrollTargetPixels;
+        rememberScrollState();
     }
 
     private boolean isMouseInMatrixCard(int x, int y, int mouseX, int mouseY) {
@@ -484,6 +542,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     }
 
     private void drawStorageTextLines(GuiGraphics g, StorageMetrics metrics) {
+        leftScrollPixels = Mth.clamp(leftScrollPixels, 0.0D, maxLeftScrollPixels(metrics));
         int x = absX(TEXT_START_X);
         int y = absY(TEXT_START_Y - (int) Math.round(leftScrollPixels));
         g.enableScissor(
@@ -504,24 +563,26 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 y);
         y += TEXT_LINE_STEP;
 
-        y = drawStorageTypeBlock(g, metrics.items(), x, y);
-        y = drawStorageTypeBlock(g, metrics.fluids(), x, y);
-        if (chemicalMode) {
-            drawStorageTypeBlock(g, metrics.chemicals(), x, y);
+        for (Metric metric : metrics.types()) {
+            y = drawStorageTypeBlock(g, metric, x, y);
         }
         g.disableScissor();
     }
 
     private double maxLeftScrollPixels() {
-        int typeCount = chemicalMode ? 3 : 2;
+        return maxLeftScrollPixels(buildStorageMetrics(currentState()));
+    }
+
+    private double maxLeftScrollPixels(StorageMetrics metrics) {
+        int typeCount = metrics.types().size();
         int lineCount = 2 + typeCount * 3;
         int contentHeight = (lineCount - 1) * TEXT_LINE_STEP + font().lineHeight;
         int viewportHeight = LEFT_PANEL_H - 16;
         return Math.max(0, contentHeight - viewportHeight);
     }
 
-    private void drawLeftScrollbar(GuiGraphics g) {
-        double maxScroll = maxLeftScrollPixels();
+    private void drawLeftScrollbar(GuiGraphics g, StorageMetrics metrics) {
+        double maxScroll = maxLeftScrollPixels(metrics);
         if (maxScroll <= 0.0D) {
             leftScrollPixels = 0.0D;
             return;
@@ -591,17 +652,66 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         NELDLibClientStyle.drawSegment(g, font(), " " + suffix, x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
     }
 
-    private void drawBoundMetricColumns(GuiGraphics g, Metric[] metrics, double[] animatedValues) {
-        int count = metrics.length;
-        int columnW = count == 3 ? 22 : 26;
-        int gap = count == 3 ? 8 : 22;
-        int totalW = columnW * count + gap * (count - 1);
-        int startX = RIGHT_PANEL_X + (RIGHT_PANEL_W - totalW) / 2;
+    private void drawBoundMetricColumns(GuiGraphics g, List<Metric> metrics, double[] animatedValues) {
+        int count = metrics.size();
+        if (count <= 0) {
+            return;
+        }
+        double maxScroll = maxMetricScrollPixels(metrics);
+        metricScrollTargetPixels = Mth.clamp(metricScrollTargetPixels, 0.0D, maxScroll);
+        metricScrollPixels = metricScrollbarDragging
+                ? metricScrollTargetPixels
+                : Mth.clamp(
+                        Mth.lerp(COLUMN_SCROLL_LERP, metricScrollPixels, metricScrollTargetPixels), 0.0D, maxScroll);
+        if (Math.abs(metricScrollPixels - metricScrollTargetPixels) < 0.05D) {
+            metricScrollPixels = metricScrollTargetPixels;
+        }
+
+        drawMetricScrollbar(g, metrics);
+
+        int startX = metricColumnStartX(metrics);
+        int clipLeft = absX(COLUMN_VIEW_X);
+        int clipTop = absY(RIGHT_PANEL_Y + 18);
+        int clipRight = absX(COLUMN_VIEW_X + COLUMN_VIEW_W);
+        int clipBottom = absY(RIGHT_PANEL_Y + RIGHT_PANEL_H - 5);
+        g.enableScissor(clipLeft, clipTop, clipRight, clipBottom);
 
         for (int i = 0; i < count; i++) {
-            int x = startX + i * (columnW + gap);
-            drawBoundMetricColumn(g, metrics[i], absX(x), absY(COLUMN_Y), columnW, COLUMN_H, animatedValues[i]);
+            int x = startX + i * (COLUMN_W + COLUMN_GAP);
+            if (x + COLUMN_W <= COLUMN_VIEW_X || x >= COLUMN_VIEW_X + COLUMN_VIEW_W) {
+                continue;
+            }
+            drawBoundMetricColumn(g, metrics.get(i), absX(x), absY(COLUMN_Y), COLUMN_W, COLUMN_H, animatedValues[i]);
         }
+        g.disableScissor();
+    }
+
+    private void drawMetricScrollbar(GuiGraphics graphics, List<Metric> metrics) {
+        int trackX = absX(COLUMN_VIEW_X);
+        int trackY = absY(COLUMN_SCROLLBAR_Y);
+        graphics.fill(
+                trackX, trackY, trackX + COLUMN_VIEW_W, trackY + COLUMN_SCROLLBAR_H, NELDLibStyle.DARK_PANEL_OUTER);
+        graphics.fill(
+                trackX + 1,
+                trackY + 1,
+                trackX + COLUMN_VIEW_W - 1,
+                trackY + COLUMN_SCROLLBAR_H - 1,
+                NELDLibStyle.DARK_PANEL_MIDDLE);
+        int contentWidth = metricContentWidth(metrics);
+        if (contentWidth <= COLUMN_VIEW_W) {
+            graphics.fill(
+                    trackX + 1,
+                    trackY + 1,
+                    trackX + COLUMN_VIEW_W - 1,
+                    trackY + COLUMN_SCROLLBAR_H - 1,
+                    NELDLibStyle.DARK_PANEL_LIGHT_EDGE);
+            return;
+        }
+        int thumbWidth = Math.max(12, COLUMN_VIEW_W * COLUMN_VIEW_W / contentWidth);
+        int travel = COLUMN_VIEW_W - thumbWidth;
+        int thumbX = trackX + (int) Math.round(travel * metricScrollPixels / maxMetricScrollPixels(metrics));
+        graphics.fill(
+                thumbX, trackY, thumbX + thumbWidth, trackY + COLUMN_SCROLLBAR_H, NELDLibStyle.DARK_PANEL_LIGHT_EDGE);
     }
 
     private void drawBoundMetricColumn(GuiGraphics g, Metric metric, int x, int y, int w, int h, double pct) {
@@ -662,30 +772,32 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     private void renderMetricColumnTooltip(GuiGraphics g, int mouseX, int mouseY) {
         StorageMetrics metrics = buildStorageMetrics(currentState());
-        Metric[] columns = chemicalMode
-                ? new Metric[] {metrics.items(), metrics.fluids(), metrics.chemicals()}
-                : new Metric[] {metrics.items(), metrics.fluids()};
-        String[] tooltipKeys = chemicalMode
-                ? new String[] {TOOLTIP_ITEMS_USED, TOOLTIP_FLUIDS_USED, TOOLTIP_CHEMICALS_USED}
-                : new String[] {TOOLTIP_ITEMS_USED, TOOLTIP_FLUIDS_USED};
+        List<Metric> columns = columnMetrics(metrics);
 
-        int count = columns.length;
-        int columnW = count == 3 ? 22 : 26;
-        int gap = count == 3 ? 8 : 22;
-        int totalW = columnW * count + gap * (count - 1);
-        int startX = RIGHT_PANEL_X + (RIGHT_PANEL_W - totalW) / 2;
+        int count = columns.size();
+        if (count <= 0) {
+            return;
+        }
+        int startX = metricColumnStartX(columns);
 
         for (int i = 0; i < count; i++) {
-            int x = startX + i * (columnW + gap);
-            if (!isMouseIn(x, COLUMN_Y, columnW, COLUMN_H, mouseX, mouseY)) {
+            int x = startX + i * (COLUMN_W + COLUMN_GAP);
+            if (x + COLUMN_W <= COLUMN_VIEW_X || x >= COLUMN_VIEW_X + COLUMN_VIEW_W) {
                 continue;
             }
-            Metric metric = columns[i];
+            int clippedX = Math.max(x, COLUMN_VIEW_X);
+            int clippedW = Math.min(x + COLUMN_W, COLUMN_VIEW_X + COLUMN_VIEW_W) - clippedX;
+            if (!isMouseIn(clippedX, COLUMN_Y, clippedW, COLUMN_H, mouseX, mouseY)) {
+                continue;
+            }
+            Metric metric = columns.get(i);
             g.renderTooltip(
                     font(),
                     List.of(
                             Component.translatable(
-                                    tooltipKeys[i], NELDLibText.percentOrNA(metric.used(), metric.max())),
+                                    TOOLTIP_TYPE_USED,
+                                    metric.label(),
+                                    NELDLibText.percentOrNA(metric.used(), metric.max())),
                             Component.translatable(
                                     TOOLTIP_USED_TOTAL,
                                     NELDLibText.number(metric.used()),
@@ -705,26 +817,39 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         List<NEStorageUiTypeState> types = state.typeStates();
         NEStorageUiTypeState itemState = findTypeState(types, "item");
         NEStorageUiTypeState fluidState = findTypeState(types, "fluid");
-        NEStorageUiTypeState chemicalState = findChemicalTypeState(types);
         Metric energy = new Metric(
+                "energy",
                 Component.translatable("gui.neoecoae.common.energy"),
                 state.storedEnergy(),
                 state.maxEnergy(),
                 0,
                 0,
                 NELDLibStyle.DARK_TEXT_VALUE);
-        Metric items = createTypeMetric(itemState, Component.translatable("gui.neoecoae.storage.items"), 0xFF43B678);
-        Metric fluids = createTypeMetric(fluidState, Component.translatable("gui.neoecoae.storage.fluids"), 0xFF3A8FD6);
-        Metric chemicals =
-                createTypeMetric(chemicalState, Component.translatable("gui.neoecoae.storage.chemicals"), 0xFF9A6AE8);
-        return new StorageMetrics(energy, items, fluids, chemicals);
+        List<Metric> typeMetrics = new ArrayList<>();
+        typeMetrics.add(createTypeMetric(
+                "neoecoae:items", itemState, Component.translatable("gui.neoecoae.storage.items"), 0xFF43B678));
+        typeMetrics.add(createTypeMetric(
+                "neoecoae:fluids", fluidState, Component.translatable("gui.neoecoae.storage.fluids"), 0xFF3A8FD6));
+        for (NEStorageUiTypeState type : types) {
+            if (matchesTypeState(type, "item") || matchesTypeState(type, "fluid")) {
+                continue;
+            }
+            typeMetrics.add(createTypeMetric(
+                    type.typeId().toString(),
+                    type,
+                    Component.literal(type.displayName()),
+                    typeAccentColor(type, typeMetrics.size())));
+        }
+        return new StorageMetrics(energy, List.copyOf(typeMetrics));
     }
 
-    private static Metric createTypeMetric(NEStorageUiTypeState state, Component fallbackLabel, int accentColor) {
+    private static Metric createTypeMetric(
+            String key, NEStorageUiTypeState state, Component fallbackLabel, int accentColor) {
         if (state == null) {
-            return new Metric(fallbackLabel, 0, 0, 0, 0, accentColor);
+            return new Metric(key, fallbackLabel, 0, 0, 0, 0, accentColor);
         }
         return new Metric(
+                key,
                 fallbackLabel,
                 state.usedBytes(),
                 state.totalBytes(),
@@ -745,12 +870,79 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         return 8;
     }
 
-    private static boolean hasChemicalStorageIntegration() {
-        ModList mods = ModList.get();
-        return mods.isLoaded("mekanism")
-                && (mods.isLoaded("appmek")
-                        || mods.isLoaded("applied_mekanistics")
-                        || mods.isLoaded("appliedmekanistics"));
+    private static List<Metric> columnMetrics(StorageMetrics metrics) {
+        List<Metric> activeMetrics = new ArrayList<>();
+        for (Metric metric : metrics.types()) {
+            if (metric.max() > 0 || metric.totalTypes() > 0) {
+                activeMetrics.add(metric);
+            }
+        }
+        List<Metric> source = activeMetrics.isEmpty() ? metrics.types() : activeMetrics;
+        return source;
+    }
+
+    private int metricColumnStartX(List<Metric> metrics) {
+        int contentWidth = metricContentWidth(metrics);
+        if (contentWidth <= COLUMN_VIEW_W) {
+            return COLUMN_VIEW_X + (COLUMN_VIEW_W - contentWidth) / 2;
+        }
+        return COLUMN_VIEW_X - (int) Math.round(metricScrollPixels);
+    }
+
+    private static int metricContentWidth(List<Metric> metrics) {
+        int count = metrics.size();
+        return count <= 0 ? 0 : count * COLUMN_W + (count - 1) * COLUMN_GAP;
+    }
+
+    private static double maxMetricScrollPixels(List<Metric> metrics) {
+        return Math.max(0.0D, metricContentWidth(metrics) - COLUMN_VIEW_W);
+    }
+
+    private void updateMetricScrollFromMouse(double mouseX, List<Metric> metrics) {
+        int contentWidth = metricContentWidth(metrics);
+        if (contentWidth <= COLUMN_VIEW_W) {
+            metricScrollTargetPixels = 0.0D;
+            metricScrollPixels = 0.0D;
+            rememberScrollState();
+            return;
+        }
+        int thumbWidth = Math.max(12, COLUMN_VIEW_W * COLUMN_VIEW_W / contentWidth);
+        int travel = COLUMN_VIEW_W - thumbWidth;
+        double relativeX = mouseX - absX(COLUMN_VIEW_X) - thumbWidth / 2.0D;
+        metricScrollTargetPixels = Mth.clamp(
+                relativeX * maxMetricScrollPixels(metrics) / Math.max(1, travel), 0.0D, maxMetricScrollPixels(metrics));
+        metricScrollPixels = metricScrollTargetPixels;
+        rememberScrollState();
+    }
+
+    private void restoreScrollState() {
+        scrollKey().map(SCROLL_MEMORY::get).ifPresent(snapshot -> {
+            leftScrollPixels = snapshot.leftScrollPixels();
+            metricScrollPixels = snapshot.metricScrollPixels();
+            metricScrollTargetPixels = snapshot.metricScrollPixels();
+            matrixScrollPixels = snapshot.matrixScrollPixels();
+            matrixScrollTargetPixels = snapshot.matrixScrollPixels();
+        });
+    }
+
+    private void rememberScrollState() {
+        scrollKey()
+                .ifPresent(key -> SCROLL_MEMORY.put(
+                        key,
+                        new ScrollSnapshot(
+                                leftScrollPixels,
+                                metricScrollbarDragging ? metricScrollPixels : metricScrollTargetPixels,
+                                matrixScrollbarDragging ? matrixScrollPixels : matrixScrollTargetPixels)));
+    }
+
+    private Optional<ScrollKey> scrollKey() {
+        if (storage.getLevel() == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new ScrollKey(
+                player.getUUID(),
+                storage.getLevel().dimension().location(),
+                storage.getBlockPos().immutable()));
     }
 
     private static NEStorageUiTypeState findTypeState(List<NEStorageUiTypeState> types, String needle) {
@@ -772,16 +964,39 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         return null;
     }
 
-    private static NEStorageUiTypeState findChemicalTypeState(List<NEStorageUiTypeState> types) {
-        String[] needles =
-                new String[] {"chemical", "chem", "gas", "infuse", "infusion", "pigment", "slurry", "mekanism"};
+    private static boolean matchesTypeState(NEStorageUiTypeState state, String needle) {
+        String lowerNeedle = needle.toLowerCase(Locale.ROOT);
+        String pluralNeedle = lowerNeedle + "s";
+        String path = state.typeId().getPath().toLowerCase(Locale.ROOT);
+        return path.equals(lowerNeedle) || path.equals(pluralNeedle);
+    }
+
+    private static int typeAccentColor(NEStorageUiTypeState state, int index) {
+        String path = state.typeId().getPath().toLowerCase(Locale.ROOT);
+        String name = state.displayName().toLowerCase(Locale.ROOT);
+        if (containsAny(path, name, "chemical", "chem", "gas", "infuse", "infusion", "pigment", "slurry")) {
+            return 0xFF9A6AE8;
+        }
+        if (containsAny(path, name, "flux", "fe", "energy")) {
+            return 0xFFE8A84A;
+        }
+        if (containsAny(path, name, "mana")) {
+            return 0xFF33B6D8;
+        }
+        if (containsAny(path, name, "source")) {
+            return 0xFFB66AE8;
+        }
+        int[] palette = {0xFFE06C75, 0xFF61AFEF, 0xFF98C379, 0xFFD19A66, 0xFFC678DD};
+        return palette[Math.floorMod(index, palette.length)];
+    }
+
+    private static boolean containsAny(String path, String name, String... needles) {
         for (String needle : needles) {
-            NEStorageUiTypeState state = findTypeState(types, needle);
-            if (state != null) {
-                return state;
+            if (path.contains(needle) || name.contains(needle)) {
+                return true;
             }
         }
-        return null;
+        return false;
     }
 
     private static double animateTo(double current, double target) {
@@ -789,9 +1004,14 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         return Mth.lerp(ANIMATION_SPEED, start, Mth.clamp(target, 0.0D, 1.0D));
     }
 
-    private record StorageMetrics(Metric energy, Metric items, Metric fluids, Metric chemicals) {}
+    private record StorageMetrics(Metric energy, List<Metric> types) {}
 
-    private record Metric(Component label, long used, long max, long usedTypes, long totalTypes, int accentColor) {
+    private record ScrollKey(UUID playerId, ResourceLocation dimension, BlockPos pos) {}
+
+    private record ScrollSnapshot(double leftScrollPixels, double metricScrollPixels, double matrixScrollPixels) {}
+
+    private record Metric(
+            String key, Component label, long used, long max, long usedTypes, long totalTypes, int accentColor) {
         private double percent() {
             return NEStorageControllerWidget.percent(used, max);
         }

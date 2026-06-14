@@ -1,0 +1,45 @@
+{
+	"format_version": "1.21.11",
+	"credit": "Made with Blockbench",
+	"render_type": "cutout",
+	"textures": {
+		"level": "neoecoae:block/storage/drive/cell_level",
+		"type": "neoecoae:block/storage/drive/cell_type",
+		"particle": "neoecoae:block/storage/drive/cell_housing",
+		"base": "neoecoae:block/storage/drive/cell_housing"
+	},
+	"elements": [
+		{
+			"name": "body",
+			"from": [0, 0, 0],
+			"to": [6, 12, 2],
+			"faces": {
+				"north": {"uv": [0, 0, 6, 12], "texture": "#base"},
+				"east": {"uv": [2, 0, 0, 12], "texture": "#base"},
+				"west": {"uv": [6, 0, 4, 12], "texture": "#base"},
+				"up": {"uv": [6, 0, 0, 2], "texture": "#base"},
+				"down": {"uv": [6, 10, 0, 12], "texture": "#base"}
+			}
+		},
+		{
+			"name": "type",
+			"from": [3, 6, 0],
+			"to": [5, 12, 2],
+			"faces": {
+				"north": {"uv": [8, 0, 10, 6], "texture": "#type"},
+				"up": {"uv": [8, 2, 10, 0], "rotation": 180, "texture": "#type"}
+			}
+		},
+		{
+			"name": "level",
+			"from": [0, 2, 0],
+			"to": [6, 4, 2],
+			"shade": false,
+			"faces": {
+				"north": {"uv": [0, 0, 6, 2], "texture": "#level"},
+				"east": {"uv": [4, 0, 6, 2], "texture": "#level"},
+				"west": {"uv": [0, 0, 2, 2], "texture": "#level"}
+			}
+		}
+	]
+}

@@ -8,22 +8,25 @@ import cn.dancingsnow.neoecoae.api.ECOAETypeCounts;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.integration.Integration;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.client.NEItemColors;
 import cn.dancingsnow.neoecoae.compat.appmek.item.ECOChemicalStorageCellItem;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import java.util.List;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Applied Mekanistics integration entry point.
- * <p>
- * This class is only loaded when the {@code appmek} mod is present,
- * via the {@link Integration @Integration} annotation scanning.
- * All Mekanism/AppMek class references are therefore safe.
- * </p>
+ *
+ * <p>This class is only loaded when the {@code appmek} mod is present via the
+ * {@link Integration @Integration} annotation scanning, so AppMek and Mekanism
+ * class references stay behind the optional dependency boundary.
  */
 @Integration("appmek")
 public class AppMekIntegration {
@@ -31,16 +34,15 @@ public class AppMekIntegration {
     private static final String VALIDATE_CHEMICAL_CELLS_PROPERTY = "neoecoae.validateChemicalCells";
 
     public void apply() {
-        // Register cell types, items
-        NEAppMekCellTypes.register();
+        ECOAETypeCounts.register(AppMekCompat.getChemicalKeyType(), 25);
         NEAppMekItems.register();
 
-        // Register type count for Mekanism chemical key type (default 0 → 25)
-        ECOAETypeCounts.register(AppMekCompat.getChemicalKeyType(), 25);
-
-        // Defer all registry-entry access to mod bus events —
-        // Registrate has not built entries yet during mod construction.
-        NeoECOAE.MOD_BUS.addListener(this::initModels);
+        // Defer registry-entry access to mod bus events. Registrate has not
+        // built entries yet during mod construction.
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            NeoECOAE.MOD_BUS.addListener(this::initModels);
+            NeoECOAE.MOD_BUS.addListener(this::initItemColors);
+        }
         NeoECOAE.MOD_BUS.addListener(this::initUpgrades);
         NeoECOAE.MOD_BUS.addListener(this::initHandler);
         MinecraftForge.EVENT_BUS.addListener(ChemicalCellValidation::registerCommand);
@@ -68,6 +70,14 @@ public class AppMekIntegration {
                 Upgrades.add(AEItems.VOID_CARD, cell, 1, storageCellGroup);
             }
         });
+    }
+
+    private void initItemColors(RegisterColorHandlersEvent.Item event) {
+        NEItemColors.registerEcoCellStatusLights(
+                event,
+                NEAppMekItems.ECO_CHEMICAL_CELL_16M.get(),
+                NEAppMekItems.ECO_CHEMICAL_CELL_64M.get(),
+                NEAppMekItems.ECO_CHEMICAL_CELL_256M.get());
     }
 
     private void initHandler(FMLCommonSetupEvent event) {

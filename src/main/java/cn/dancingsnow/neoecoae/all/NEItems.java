@@ -14,11 +14,11 @@ import appeng.recipes.transform.TransformRecipeBuilder;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.items.StructureTerminalItem;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.util.ItemModelUtil;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.DataIngredient;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -894,11 +894,9 @@ public class NEItems {
                         .requires(NEItems.ECO_CELL_COMPONENT_16M)
                         .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
                         .save(prov);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
             })
             .lang("ECO - LE4 Storage Matrix (Item)")
+            .model(ItemModelUtil.cellModel("item", "16m"))
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_64M = REGISTRATE
@@ -912,11 +910,9 @@ public class NEItems {
                         .requires(NEItems.ECO_CELL_COMPONENT_64M)
                         .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
                         .save(prov);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             })
             .lang("ECO - LE6 Storage Matrix (Item)")
+            .model(ItemModelUtil.cellModel("item", "64m"))
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_256M = REGISTRATE
@@ -930,11 +926,9 @@ public class NEItems {
                         .requires(NEItems.ECO_CELL_COMPONENT_256M)
                         .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
                         .save(prov);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(NEItems.ECO_ITEM_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             })
             .lang("ECO - LE9 Storage Matrix (Item)")
+            .model(ItemModelUtil.cellModel("item", "256m"))
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_16M = REGISTRATE
@@ -948,11 +942,9 @@ public class NEItems {
                         .requires(NEItems.ECO_CELL_COMPONENT_16M)
                         .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
                         .save(prov);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
             })
             .lang("ECO - LE4 Storage Matrix (Fluid)")
+            .model(ItemModelUtil.cellModel("fluid", "16m"))
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_64M = REGISTRATE
@@ -966,11 +958,9 @@ public class NEItems {
                         .requires(NEItems.ECO_CELL_COMPONENT_64M)
                         .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
                         .save(prov);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             })
             .lang("ECO - LE6 Storage Matrix (Fluid)")
+            .model(ItemModelUtil.cellModel("fluid", "64m"))
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_FLUID_CELL_256M = REGISTRATE
@@ -984,11 +974,9 @@ public class NEItems {
                         .requires(NEItems.ECO_CELL_COMPONENT_256M)
                         .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
                         .save(prov);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(NEItems.ECO_FLUID_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             })
             .lang("ECO - LE9 Storage Matrix (Fluid)")
+            .model(ItemModelUtil.cellModel("fluid", "256m"))
             .register();
 
     public static final ItemEntry<ECOComputationCellItem> ECO_COMPUTATION_CELL_L4 =

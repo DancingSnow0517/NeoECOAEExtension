@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appflux"
+    }
+  ],
+  "key": {
+    "A": {
+      "item": "neoecoae:crystal_matrix"
+    },
+    "B": {
+      "tag": "forge:dusts/redstone"
+    },
+    "C": {
+      "item": "appflux:harden_insulating_resin"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "B B",
+    "CCC"
+  ],
+  "result": {
+    "item": "neoecoae:eco_fe_cell_housing"
+  },
+  "show_notification": true
+}

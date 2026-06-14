@@ -1,10 +1,9 @@
 package cn.dancingsnow.neoecoae.compat.appmek;
 
 import appeng.api.storage.cells.ISaveProvider;
-import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.compat.appmek.item.ECOChemicalStorageCellItem;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -20,11 +19,8 @@ public final class ECOChemicalCellHandler implements IECOCellHandler {
     @Override
     public boolean isCell(ItemStack stack) {
         if (stack.getItem() instanceof ECOStorageCellItem item) {
-            var cellType = item.getCellType();
-            boolean chemicalCellType = cellType == NEAppMekCellTypes.CHEMICAL.get()
-                    || cellType.id().equals(NeoECOAE.id("chemicals"));
-            boolean chemicalItem = item instanceof ECOChemicalStorageCellItem;
-            return (chemicalItem || chemicalCellType) && item.getKeyType() == AppMekCompat.getChemicalKeyType();
+            return item.getCellType() == NECellTypes.CHEMICAL.get()
+                    && item.getKeyType() == AppMekCompat.getChemicalKeyType();
         }
         return false;
     }

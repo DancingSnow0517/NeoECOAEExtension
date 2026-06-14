@@ -53,6 +53,14 @@ repositories {
         url = "https://maven.blamejared.com/"
     }
     maven {
+        name = "Curios Maven"
+        url = "https://maven.theillusivec4.top/"
+    }
+    maven {
+        name = "GeckoLib Maven"
+        url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+    }
+    maven {
         name = "ModMaven"
         url = "https://modmaven.dev"
     }
@@ -192,6 +200,20 @@ dependencies {
     runtimeOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")
     compileOnly fg.deobf("curse.maven:applied-mekanistics-574300:${appmek_file_id}")
     runtimeOnly fg.deobf("curse.maven:applied-mekanistics-574300:${appmek_file_id}")
+    compileOnly fg.deobf("curse.maven:applied-flux-965012:${appflux_file_id}")
+    runtimeOnly fg.deobf("curse.maven:applied-flux-965012:${appflux_file_id}")
+    runtimeOnly fg.deobf("curse.maven:glodium-957920:${glodium_file_id}")
+    compileOnly fg.deobf("curse.maven:applied-botanics-addon-610632:${appbot_file_id}")
+    runtimeOnly fg.deobf("curse.maven:applied-botanics-addon-610632:${appbot_file_id}")
+    compileOnly fg.deobf("vazkii.botania:Botania:${botania_version}")
+    runtimeOnly fg.deobf("vazkii.botania:Botania:${botania_version}")
+    runtimeOnly fg.deobf("vazkii.patchouli:Patchouli:${patchouli_version}")
+    compileOnly fg.deobf("curse.maven:ars-energistique-905641:${arseng_file_id}")
+    runtimeOnly fg.deobf("curse.maven:ars-energistique-905641:${arseng_file_id}")
+    compileOnly fg.deobf("com.hollingsworth.ars_nouveau:ars_nouveau-1.20.1:${ars_nouveau_version}")
+    runtimeOnly fg.deobf("com.hollingsworth.ars_nouveau:ars_nouveau-1.20.1:${ars_nouveau_version}")
+    runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:${curios_version}")
+    runtimeOnly fg.deobf("software.bernie.geckolib:geckolib-forge-1.20.1:${geckolib_version}")
 
     compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
     compileOnly("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")

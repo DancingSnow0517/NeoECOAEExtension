@@ -2,44 +2,38 @@ package cn.dancingsnow.neoecoae.compat.appmek;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
+import appeng.items.materials.MaterialItem;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
-import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.compat.appmek.item.ECOChemicalStorageCellItem;
+import cn.dancingsnow.neoecoae.util.ItemModelUtil;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import com.tterrag.registrate.util.entry.ItemEntry;
-import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraftforge.common.Tags;
 import net.minecraftforge.common.crafting.CraftingHelper;
 import net.minecraftforge.common.crafting.conditions.ICondition;
 import net.minecraftforge.common.crafting.conditions.ModLoadedCondition;
 
 /**
- * Registers Applied Mekanistics chemical storage cell housing and cells.
- * <p>
- * Item registration only occurs when the {@code appmek} mod is loaded,
- * via the
- * {@link cn.dancingsnow.neoecoae.api.integration.Integration @Integration}
- * annotation on {@link AppMekIntegration}. Recipes are therefore safe
- * to register unconditionally — they reference only NeoECOAE and
- * vanilla items.
- * </p>
+ * Registers Applied Mekanistics chemical storage matrix housing and cells.
+ *
+ * <p>This class is loaded only by {@link AppMekIntegration}, after the
+ * {@code appmek} mod is confirmed present.
  */
 public class NEAppMekItems {
-    // ═══════════════════════════════════════════════════════════════
-    // Chemical Cell Housing
-    // ═══════════════════════════════════════════════════════════════
-
-    public static final ItemEntry<net.minecraft.world.item.Item> ECO_CHEMICAL_CELL_HOUSING = REGISTRATE
-            .item("eco_chemical_cell_housing", net.minecraft.world.item.Item::new)
+    public static final ItemEntry<MaterialItem> ECO_CHEMICAL_CELL_HOUSING = REGISTRATE
+            .item("eco_chemical_cell_housing", MaterialItem::new)
             .recipe((ctx, prov) -> {
                 Consumer<FinishedRecipe> appmekInstalled = appmekInstalled(prov);
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -59,10 +53,6 @@ public class NEAppMekItems {
             .lang("ECO Storage Matrix Housing (Chemical)")
             .register();
 
-    // ═══════════════════════════════════════════════════════════════
-    // Chemical Storage Cells
-    // ═══════════════════════════════════════════════════════════════
-
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE
             .item(
                     "eco_chemical_storage_cell_16m",
@@ -70,17 +60,13 @@ public class NEAppMekItems {
             .recipe((ctx, prov) -> {
                 Consumer<FinishedRecipe> appmekInstalled = appmekInstalled(prov);
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                        .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
+                        .requires(ECO_CHEMICAL_CELL_HOUSING)
                         .requires(NEItems.ECO_CELL_COMPONENT_16M)
                         .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
                         .save(appmekInstalled);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(
-                                NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
-                                NEItems.ECO_CELL_COMPONENT_16M.asStack()));
             })
             .lang("ECO - LE4 Storage Matrix (Chemical)")
+            .model(ItemModelUtil.cellModel("chemical", "16m"))
             .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = REGISTRATE
@@ -90,17 +76,13 @@ public class NEAppMekItems {
             .recipe((ctx, prov) -> {
                 Consumer<FinishedRecipe> appmekInstalled = appmekInstalled(prov);
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                        .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
+                        .requires(ECO_CHEMICAL_CELL_HOUSING)
                         .requires(NEItems.ECO_CELL_COMPONENT_64M)
                         .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
                         .save(appmekInstalled);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(
-                                NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
-                                NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             })
             .lang("ECO - LE6 Storage Matrix (Chemical)")
+            .model(ItemModelUtil.cellModel("chemical", "64m"))
             .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = REGISTRATE
@@ -110,47 +92,42 @@ public class NEAppMekItems {
             .recipe((ctx, prov) -> {
                 Consumer<FinishedRecipe> appmekInstalled = appmekInstalled(prov);
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
-                        .requires(NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING)
+                        .requires(ECO_CHEMICAL_CELL_HOUSING)
                         .requires(NEItems.ECO_CELL_COMPONENT_256M)
                         .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
                         .save(appmekInstalled);
-                StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(
-                        ctx.get(),
-                        List.of(
-                                NEAppMekItems.ECO_CHEMICAL_CELL_HOUSING.asStack(),
-                                NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             })
             .lang("ECO - LE9 Storage Matrix (Chemical)")
+            .model(ItemModelUtil.cellModel("chemical", "256m"))
             .register();
 
     public static void register() {}
 
     private static Consumer<FinishedRecipe> appmekInstalled(RegistrateRecipeProvider provider) {
-        ICondition condition = new ModLoadedCondition("appmek");
-        return recipe -> provider.accept(new ConditionalFinishedRecipe(recipe, condition));
+        return recipe -> provider.accept(new ConditionalFinishedRecipe(recipe, new ModLoadedCondition("appmek")));
     }
 
     private record ConditionalFinishedRecipe(FinishedRecipe recipe, ICondition condition) implements FinishedRecipe {
         @Override
         public void serializeRecipeData(JsonObject json) {
             recipe.serializeRecipeData(json);
-            json.add("conditions", CraftingHelper.serialize(condition));
+            json.add("conditions", serializeConditions());
         }
 
         @Override
         public JsonObject serializeRecipe() {
             JsonObject json = recipe.serializeRecipe();
-            json.add("conditions", CraftingHelper.serialize(condition));
+            json.add("conditions", serializeConditions());
             return json;
         }
 
         @Override
-        public net.minecraft.resources.ResourceLocation getId() {
+        public ResourceLocation getId() {
             return recipe.getId();
         }
 
         @Override
-        public net.minecraft.world.item.crafting.RecipeSerializer<?> getType() {
+        public RecipeSerializer<?> getType() {
             return recipe.getType();
         }
 
@@ -158,14 +135,20 @@ public class NEAppMekItems {
         public JsonObject serializeAdvancement() {
             JsonObject json = recipe.serializeAdvancement();
             if (json != null) {
-                json.add("conditions", CraftingHelper.serialize(condition));
+                json.add("conditions", serializeConditions());
             }
             return json;
         }
 
         @Override
-        public net.minecraft.resources.ResourceLocation getAdvancementId() {
+        public ResourceLocation getAdvancementId() {
             return recipe.getAdvancementId();
+        }
+
+        private JsonArray serializeConditions() {
+            JsonArray conditions = new JsonArray();
+            conditions.add(CraftingHelper.serialize(condition));
+            return conditions;
         }
     }
 }

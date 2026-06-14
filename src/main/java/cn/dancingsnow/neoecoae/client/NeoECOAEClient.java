@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.client.screen.NEConfigScreen;
 import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -28,6 +29,7 @@ public class NeoECOAEClient {
         modBus.addListener(NeoECOAEClient::onClientSetup);
         modBus.addListener(NEExtraModels::onRegisterExtraModels);
         modBus.addListener(NeoECOAEClient::onRegisterRenderers);
+        modBus.addListener(NeoECOAEClient::onRegisterItemColors);
         modBus.addListener((FMLClientSetupEvent event) -> ECOCellModels.on(event));
         modBus.addListener((ModelEvent.RegisterAdditional event) -> ECOCellModels.on(event));
         MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
@@ -44,5 +46,10 @@ public class NeoECOAEClient {
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(NEBlockEntities.COMPUTATION_DRIVE.get(), ECOComputationDriveRenderer::new);
         event.registerBlockEntityRenderer(NEBlockEntities.ECO_DRIVE.get(), ECODriveRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
+        NEItemColors.registerBaseCells(event);
     }
 }

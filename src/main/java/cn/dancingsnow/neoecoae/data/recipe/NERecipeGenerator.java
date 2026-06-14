@@ -10,5 +10,6 @@ public class NERecipeGenerator {
         MekanismRecipes.init(provider);
         EAERecipes.init(provider);
         AAERecipes.init(provider);
+        CompatStorageMatrixRecipes.init(provider);
     }
 }

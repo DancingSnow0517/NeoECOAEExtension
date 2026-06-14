@@ -42,6 +42,11 @@ public class NELangGenerator {
 
         provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern into available ECO Crafting System");
 
+        provider.add("cell_type.neoecoae.chemical", "Chemical");
+        provider.add("cell_type.neoecoae.flux", "FE");
+        provider.add("cell_type.neoecoae.mana", "Mana");
+        provider.add("cell_type.neoecoae.source", "Source");
+
         provider.add("category.neoecoae.cooling", "Cooling");
         provider.add("category.neoecoae.cooling.coolant", "Coolant: %d");
         provider.add("category.neoecoae.multiblock", "ECO Multiblock Info");

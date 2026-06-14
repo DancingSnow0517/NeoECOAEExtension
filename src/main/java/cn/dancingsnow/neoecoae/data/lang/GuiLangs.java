@@ -140,6 +140,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.matrix_card.title", "%s Storage Matrix");
         provider.add("gui.neoecoae.storage.matrix_card.types", "%s / %s types used");
         provider.add("gui.neoecoae.storage.matrix_card.bytes", "%s / %s bytes used");
+        provider.add("gui.neoecoae.storage.tooltip.type_used", "%s storage used %s");
 
         // computation
         provider.add("gui.neoecoae.computation.thread_info", "Thread Used: %s / %s");
