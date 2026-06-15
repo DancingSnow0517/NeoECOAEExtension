@@ -467,6 +467,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 mouseY);
     }
 
+    // 绘制状态区域（超频 / 主动冷却 / 自动清理开关）
     private void drawStatusArea(GuiGraphics g, NECraftingUiState state) {
         drawLine(
                 g,
@@ -497,6 +498,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 y);
     }
 
+    // 绘制统计区域（配方槽 / 批量并行 / 样板数 / 核心数）
     private void drawStatsArea(GuiGraphics g, NECraftingUiState state) {
         drawLine(
                 g,
@@ -535,6 +537,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 y);
     }
 
+    // 绘制仪表盘（能量 / 冷却液柱状图）
     private void drawGaugeArea(GuiGraphics g, NECraftingUiState state) {
         int gaugeY = GAUGE_BAR_Y;
         int gaugeH = GAUGE_BAR_H;
@@ -550,6 +553,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 g, absX(coolantX), absY(gaugeY), gaugeW, gaugeH, NELDLibStyle.DARK_TEXT_BLUE, coolantRatio);
     }
 
+    // 绘制仪表盘标签（能量 / 冷却液文字）
     private void drawGaugeLabels(GuiGraphics g) {
         drawLine(
                 g,
@@ -578,6 +582,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 NELDLibStyle.DARK_TEXT_MUTED);
     }
 
+    // 绘制工具栏图标（超频 / 冷却 / 清理状态图标）
     private void drawToolbarIcons(GuiGraphics graphics, NECraftingUiState state) {
         drawToolbarIcon(graphics, 0, state.overclocked() ? Icon.LEVEL_ENERGY : Icon.POWER_UNIT_AE);
         drawToolbarIcon(
@@ -588,6 +593,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 graphics, 2, state.autoClearCoolingWaste() ? Icon.CONDENSER_OUTPUT_TRASH : Icon.BACKGROUND_TRASH);
     }
 
+    // 绘制单个工具栏图标
     private void drawToolbarIcon(GuiGraphics graphics, int index, Icon icon) {
         NELDLibAe2StyleRenderer.drawAeIcon(
                 graphics,
@@ -596,6 +602,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 absY(TOOLBAR_Y + (TOOLBAR_BUTTON_SIZE - icon.height) / 2));
     }
 
+    // 绘制状态行（指示灯 + 开关状态文字）
     private void drawStatusRow(GuiGraphics g, Component label, boolean enabled, int x, int y) {
         int absX = absX(x);
         int absY = absY(y);
@@ -611,6 +618,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
     }
 
+    // 绘制标题栏状态文字（formed / active）
     private void drawHeaderMachineStatus(GuiGraphics g, NECraftingUiState state) {
         Component formedLabel =
                 Component.translatable("gui.neoecoae.machine.formed").append(": ");
@@ -635,11 +643,13 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 g, activeValue, textX, textY, state.active() ? HEADER_STATUS_SUCCESS_COLOR : HEADER_STATUS_MUTED_COLOR);
     }
 
+    // 绘制玩家背包格子背景
     private void drawPlayerInventorySlots(GuiGraphics graphics) {
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
                 graphics, this::absX, this::absY, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
     }
 
+    // 绘制任务面板（标题 + 任务卡片列表 + 滚动条）
     private void drawTaskPanel(GuiGraphics g, NECraftingUiState state) {
         drawLine(
                 g,
@@ -680,6 +690,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawTaskScrollbar(g, state.recipeEntries().size(), visibleTaskCardCount());
     }
 
+    // 更新任务卡片动画状态（新建 / 移入 / 移出 / 淡入淡出）
     private List<TaskCardAnimation> updateTaskAnimations(NECraftingUiState state) {
         long now = Util.getMillis();
         Set<String> activeKeys = new HashSet<>();
@@ -726,6 +737,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return cards;
     }
 
+    // 绘制单张任务卡片（物品图标 + 名称 + 数量 + 进度条）
     private void drawTaskCard(GuiGraphics g, TaskCardAnimation card) {
         int y = Math.round(card.y);
         if (y + TASK_CARD_H < TASK_CARD_Y || y > TASK_LIST_BOTTOM_Y) {
@@ -758,6 +770,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawTaskProgressBar(g, absX + 20, absY + TASK_CARD_H - 4, TASK_CARD_W - 25, 2, entry, alpha);
     }
 
+    // 绘制任务面板滚动条
     private void drawTaskScrollbar(GuiGraphics g, int total, int visible) {
         if (total <= visible) {
             return;
@@ -776,6 +789,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 10);
     }
 
+    // 绘制任务卡片多层嵌套矩形背景
     private void drawTaskCardRect(GuiGraphics g, int x, int y, int w, int h, float alpha, int accentColor) {
         g.fill(x, y, x + w, y + h, withAlpha(0xFFD8D3E4, alpha));
         g.fill(x + 1, y + 1, x + w - 1, y + h - 1, withAlpha(0xFF121016, alpha));
@@ -784,6 +798,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         g.fill(x + 3, y + h - 3, x + w - 3, y + h - 2, withAlpha(accentColor, alpha));
     }
 
+    // 绘制任务进度条（根据状态显示不同填充宽度）
     private void drawTaskProgressBar(
             GuiGraphics g, int x, int y, int w, int h, NECraftingRecipeUiEntry entry, float alpha) {
         g.fill(x, y, x + w, y + h, withAlpha(0xAA17141E, alpha));
@@ -798,6 +813,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         }
     }
 
+    // 渲染任务卡片悬浮提示（物品信息 + 状态 + 数量 + 进度）
     private boolean renderTaskTooltip(GuiGraphics g, int mouseX, int mouseY) {
         taskScrollOffset = clampTaskScrollOffset(
                 taskScrollOffset, currentState().recipeEntries().size());
@@ -827,6 +843,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return false;
     }
 
+    // 计算任务面板可见卡片数量
     private int visibleTaskCardCount() {
         int space = TASK_LIST_BOTTOM_Y - TASK_CARD_Y;
         if (space < TASK_CARD_H) {
@@ -835,10 +852,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return Math.max(1, 1 + (space - TASK_CARD_H) / TASK_CARD_STRIDE);
     }
 
+    // 限制滚动偏移量不超出范围
     private int clampTaskScrollOffset(int value, int total) {
         return Mth.clamp(value, 0, Math.max(0, total - visibleTaskCardCount()));
     }
 
+    // 绘制垂直柱状仪表盘（能量 / 冷却液）
     private void drawVerticalReserveGauge(
             GuiGraphics g, int x, int y, int w, int h, int accentColor, double fillRatio) {
         NELDLibClientStyle.drawDarkInsetRect(g, x, y, w, h);
@@ -855,6 +874,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         }
     }
 
+    // 绘制线程使用率水平进度条
     private void drawThreadUsageBar(GuiGraphics g, int x, int y, int w, int h, long current, long max) {
         NELDLibClientStyle.drawDarkInsetRect(g, x, y, w, h);
         int ix = x + 3;
@@ -871,6 +891,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         }
     }
 
+    // 渲染工具栏按钮悬浮提示（超频 / 冷却 / 自动清理）
     private boolean renderToolbarTooltip(GuiGraphics g, int mouseX, int mouseY) {
         NECraftingUiState state = currentState();
         if (isMouseIn(TOOLBAR_X, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
@@ -921,6 +942,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return false;
     }
 
+    // 渲染仪表盘悬浮提示（能耗 / 冷却液数值）
     private boolean renderGaugeTooltip(GuiGraphics g, int mouseX, int mouseY) {
         NECraftingUiState state = currentState();
         int gaugeY = GAUGE_BAR_Y;
@@ -955,6 +977,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return false;
     }
 
+    // 渲染统计区域悬浮提示（核心等级分布 / 并行数详情）
     private void renderStatsTooltip(GuiGraphics g, int mouseX, int mouseY) {
         if (!isMouseIn(STATS_AREA_X, STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H, mouseX, mouseY)) {
             return;
@@ -974,15 +997,18 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         g.renderTooltip(font(), lines, Optional.empty(), mouseX, mouseY);
     }
 
+    // 绘制一行缩放文字
     private void drawLine(GuiGraphics g, Component text, int x, int y, int color) {
         drawScaledString(g, text, absX(x), absY(y), color);
     }
 
+    // 绘制标签 + 数值行（label: value）
     private void drawInlineValueLine(GuiGraphics g, String label, long value, int x, int y) {
         int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
         drawScaledString(g, NELDLibText.number(value), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
     }
 
+    // 绘制紧凑成对行（label: current / max）
     private void drawCompactPairLine(GuiGraphics g, String label, long current, long max, int x, int y) {
         int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
         cursor += drawScaledString(
@@ -991,6 +1017,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawScaledString(g, NELDLibText.number(max), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
     }
 
+    // 绘制缩放文字（0.8x 缩放），返回文字宽度
     private int drawScaledString(GuiGraphics g, Component text, int x, int y, int color) {
         g.pose().pushPose();
         g.pose().translate(x, y, 0.0F);
@@ -1000,18 +1027,22 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return scaledWidth(text);
     }
 
+    // 绘制缩放文字（String 重载）
     private int drawScaledString(GuiGraphics g, String text, int x, int y, int color) {
         return drawScaledString(g, Component.literal(text), x, y, color);
     }
 
+    // 右对齐绘制缩放文字
     private void drawScaledRight(GuiGraphics g, Component text, int rightX, int y, int color) {
         drawScaledString(g, text, rightX - scaledWidth(text), y, color);
     }
 
+    // 居中绘制缩放文字
     private void drawScaledCentered(GuiGraphics g, Component text, int x, int y, int width, int color) {
         drawScaledString(g, text, x + (width - scaledWidth(text)) / 2, y, color);
     }
 
+    // 计算缩放后文字宽度
     private int scaledWidth(Component text) {
         return Math.round(font().width(text) * TEXT_SCALE);
     }
@@ -1020,6 +1051,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return Math.round(font().width(text) * TEXT_SCALE);
     }
 
+    // 统计指定等级的并行核心数量
     private static int countTier(NECraftingUiState state, int tier) {
         int count = 0;
         for (int value : state.parallelCoreTiers()) {
@@ -1030,6 +1062,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return count;
     }
 
+    // 获取每核心并行数（按等级和超频状态）
     private static int parallelPerCore(int tier, boolean overclocked) {
         return switch (tier) {
             case 3 -> overclocked ? 384 : 256;
@@ -1038,10 +1071,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         };
     }
 
+    // 生成任务卡片唯一键（用于动画追踪）
     private static String taskEntryKey(NECraftingRecipeUiEntry entry, int index) {
         return entry.id() == null || entry.id().isBlank() ? "task:" + index : entry.id();
     }
 
+    // 任务状态 → 颜色映射
     private static int taskStatusColor(NECraftingRecipeUiEntry.Status status) {
         return switch (status) {
             case RUNNING -> NELDLibStyle.DARK_TEXT_SUCCESS;
@@ -1050,6 +1085,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         };
     }
 
+    // 任务状态 → 语言键映射
     private static String taskStatusKey(NECraftingRecipeUiEntry.Status status) {
         return switch (status) {
             case RUNNING -> "gui.neoecoae.crafting.task.status.running";
@@ -1058,10 +1094,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         };
     }
 
+    // 文本截断（缩放适配 + 省略号）
     private String fitText(String text, int maxWidth) {
         return NELDLibTextRender.fitScaledWithEllipsis(font(), text, maxWidth, TEXT_SCALE);
     }
 
+    // 格式化任务产出数量（自动 K/M/G/T 缩写）
     private static String formatTaskAmount(long value) {
         long safe = Math.max(0L, value);
         if (safe < 1_000L) {
@@ -1079,6 +1117,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return compactDecimal(safe, 1_000_000_000_000L, "T");
     }
 
+    // 紧凑小数格式化（整数显示无小数，否则一位小数）
     private static String compactDecimal(long value, long unit, String suffix) {
         double scaled = (double) value / (double) unit;
         if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
@@ -1087,6 +1126,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return String.format(Locale.US, "%.1f%s", scaled, suffix);
     }
 
+    // 格式化 tick 为可读时间（t / s / m s）
     private static String formatTaskTime(long ticks) {
         long safe = Math.max(0L, ticks);
         if (safe < 20L) {
@@ -1100,6 +1140,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return (wholeSeconds / 60L) + "m " + (wholeSeconds % 60L) + "s";
     }
 
+    // 给颜色加上透明度比例
     private static int withAlpha(int color, float alpha) {
         float clamped = Mth.clamp(alpha, 0.0F, 1.0F);
         int baseAlpha = (color >>> 24) & 0xFF;
@@ -1107,6 +1148,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return (outAlpha << 24) | (color & 0x00FFFFFF);
     }
 
+    // 计算比例宽度（current / max * fullWidth）
     private static int ratioWidth(long current, long max, int fullWidth) {
         if (fullWidth <= 0 || max <= 0 || current <= 0) {
             return 0;
@@ -1115,6 +1157,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return (int) Math.max(1L, Math.min(fullWidth, clamped * fullWidth / max));
     }
 
+    // 安全计算比例（0~1 之间）
     private static double clampRatio(long value, long max) {
         if (value <= 0 || max <= 0) {
             return 0.0D;
@@ -1122,6 +1165,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return Math.max(0.0D, Math.min(1.0D, (double) value / (double) max));
     }
 
+    // 能耗仪表盘颜色（按比例渐变：绿 → 黄 → 红）
     private static int energyGaugeColor(double ratio) {
         if (ratio >= 0.9D) {
             return NELDLibStyle.DARK_TEXT_ERROR;
@@ -1132,6 +1176,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return NELDLibStyle.DARK_TEXT_SUCCESS;
     }
 
+    // 并行核心等级 → 发光纹理映射
     private static ResourceLocation lightForTier(int tier) {
         return switch (tier) {
             case 3 -> MODULE_PARALLEL_CORE_LIGHT_L9;
@@ -1140,6 +1185,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         };
     }
 
+    // 并行核心等级 → 名称语言键映射
     private static String parallelCoreNameKey(int tier) {
         return switch (tier) {
             case 3 -> "block.neoecoae.crafting_parallel_core_l9";
@@ -1148,6 +1194,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         };
     }
 
+    // 根据列和行查找模块格子
     private static NECraftingModuleCell moduleCellAt(
             NECraftingUiState state, int column, NECraftingModuleCell.Row row) {
         for (NECraftingModuleCell cell : state.moduleCells()) {
@@ -1158,6 +1205,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return null;
     }
 
+    // 格式化模块方块坐标
     private static String formatModulePos(NECraftingModuleCell cell) {
         if (cell == null || cell.pos() == null) {
             return "";
@@ -1166,6 +1214,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return "x=" + pos.getX() + ", y=" + pos.getY() + ", z=" + pos.getZ();
     }
 
+    // 计算模块网格布局（自适应格子大小和居中）
     private ModuleGrid moduleGrid(NECraftingUiState state) {
         int maxColumn = -1;
         for (NECraftingModuleCell cell : state.moduleCells()) {
@@ -1183,6 +1232,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return new ModuleGrid(x, y, columns, cellSize);
     }
 
+    // 模块网格布局记录（含行 Y 坐标计算）
     private record ModuleGrid(int x, int y, int columns, int cellSize) {
         int rowY(NECraftingModuleCell.Row row) {
             return y
@@ -1194,6 +1244,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         }
     }
 
+    // 任务卡片动画状态（移动 + 淡入淡出）
     private static final class TaskCardAnimation {
         private NECraftingRecipeUiEntry entry;
         private float y;
@@ -1203,6 +1254,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         private boolean exiting;
         private long exitStartedMs;
 
+        // 构造方法（初始位置偏移 + 透明度 0）
         private TaskCardAnimation(NECraftingRecipeUiEntry entry, int targetY, float entryOffset) {
             this.entry = entry;
             this.targetY = targetY;
@@ -1211,6 +1263,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             this.alpha = 0.0F;
         }
 
+        // 更新动画帧（位置插值 + 透明度变化）
         private void update(long nowMs) {
             long elapsed = Math.max(0L, Math.min(1000L, nowMs - lastUpdateMs));
             lastUpdateMs = nowMs;
