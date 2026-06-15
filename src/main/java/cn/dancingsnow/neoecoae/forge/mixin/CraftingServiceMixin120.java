@@ -13,6 +13,7 @@ import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.IECOComputationHost;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
@@ -194,8 +195,8 @@ public abstract class CraftingServiceMixin120 {
 
     @Unique private List<NEComputationCluster> neoecoae$getComputationClusters() {
         List<NEComputationCluster> clusters = new ArrayList<>();
-        for (ECOComputationSystemBlockEntity blockEntity :
-                this.grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+        for (IECOComputationHost host : this.grid.getMachines(IECOComputationHost.class)) {
+            ECOComputationSystemBlockEntity blockEntity = host.getComputationHost();
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null && blockEntity.isFormed()) {
                 clusters.add(cluster);

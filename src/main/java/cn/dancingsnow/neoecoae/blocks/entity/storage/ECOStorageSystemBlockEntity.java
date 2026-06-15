@@ -119,6 +119,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
     }
 
+    public void onStorageClusterFormed() {
+        if (level == null || level.isClientSide || !formed || cluster == null) {
+            return;
+        }
+        markStorageStatsDirty();
+        updateInfos();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            drive.requestStorageProviderUpdate();
+        }
+        setChanged();
+        markForUpdate();
+    }
+
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
         return new TickingRequest(20, 20, false, false);

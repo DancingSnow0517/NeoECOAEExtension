@@ -5,6 +5,7 @@ import appeng.api.networking.IGridNodeListener;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.api.IECOComputationHost;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
@@ -37,7 +38,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity>
-        implements INEMultiblockBuildHost, IUIHolder.BlockEntityUI {
+        implements INEMultiblockBuildHost, IUIHolder.BlockEntityUI, IECOComputationHost {
 
     @Getter
     private final IECOTier tier;
@@ -74,6 +75,12 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
         this.tier = tier;
+        getMainNode().addService(IECOComputationHost.class, this);
+    }
+
+    @Override
+    public ECOComputationSystemBlockEntity getComputationHost() {
+        return this;
     }
 
     @Override

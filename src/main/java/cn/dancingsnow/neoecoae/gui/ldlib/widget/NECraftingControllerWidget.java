@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
@@ -751,7 +752,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
         drawTaskCardRect(g, absX, absY, TASK_CARD_W, TASK_CARD_H, alpha, taskStatusColor(entry.status()));
         if (alpha > 0.22F && !entry.output().isEmpty()) {
-            g.renderItem(entry.output(), absX + 1, absY);
+            NELDLibGuiRenderState.beginVanillaGuiItemBatch(g);
+            try {
+                NELDLibGuiRenderState.renderVanillaSlotItem(g, font(), entry.output(), absX + 1, absY, "");
+            } finally {
+                NELDLibGuiRenderState.endVanillaGuiItemBatch(g);
+            }
         }
 
         int textX = x + 20;

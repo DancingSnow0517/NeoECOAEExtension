@@ -62,4 +62,12 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
         }
         return false;
     }
+
+    @Override
+    public void updateFormed(boolean formed) {
+        super.updateFormed(formed);
+        if (formed && controller != null) {
+            controller.onStorageClusterFormed();
+        }
+    }
 }

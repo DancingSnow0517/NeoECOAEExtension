@@ -33,6 +33,9 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int PAGE_UPDATE_ID = 1;
     private static final int PAGE_ACTION_ID = 2;
+    private static final int INSERT_PLAYER_PATTERNS_ACTION_ID = 3;
+    private static final int SPACE_KEY = 32;
+    private static final int PLAYER_MAIN_INVENTORY_SIZE = 36;
     private static final int PAGE_BUTTON_Y = 4;
     private static final int PAGE_BUTTON_W = 12;
     private static final int PAGE_BUTTON_H = 14;
@@ -133,7 +136,20 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
             changePage(buffer.readVarInt());
             return;
         }
+        if (id == INSERT_PLAYER_PATTERNS_ACTION_ID) {
+            insertPlayerPatterns();
+            return;
+        }
         super.handleClientAction(id, buffer);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == SPACE_KEY && isRemote()) {
+            writeClientAction(INSERT_PLAYER_PATTERNS_ACTION_ID, buf -> {});
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -260,6 +276,35 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
             nextPageButton.setVisible(visible);
             nextPageButton.setActive(visible && currentPage + 1 < pageCount);
         }
+    }
+
+    private void insertPlayerPatterns() {
+        boolean movedAny = false;
+        int slotLimit = Math.min(PLAYER_MAIN_INVENTORY_SIZE, playerInventory.getContainerSize());
+        for (int playerSlot = 0; playerSlot < slotLimit; playerSlot++) {
+            ItemStack stack = playerInventory.getItem(playerSlot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            ItemStack remaining = insertIntoPatternBus(stack.copy());
+            if (remaining.getCount() == stack.getCount()) {
+                continue;
+            }
+            playerInventory.setItem(playerSlot, remaining);
+            movedAny = true;
+        }
+        if (movedAny) {
+            playerInventory.setChanged();
+            bus.notifyPersistence();
+        }
+    }
+
+    private ItemStack insertIntoPatternBus(ItemStack stack) {
+        ItemStack remaining = stack;
+        for (int busSlot = 0; busSlot < bus.itemHandler.getSlots() && !remaining.isEmpty(); busSlot++) {
+            remaining = bus.itemHandler.insertItem(busSlot, remaining, false);
+        }
+        return remaining;
     }
 
     private void drawGhostPatterns(GuiGraphics graphics) {
