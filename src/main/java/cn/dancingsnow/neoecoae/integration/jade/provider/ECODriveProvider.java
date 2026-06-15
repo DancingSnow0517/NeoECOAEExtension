@@ -14,28 +14,8 @@ import snownee.jade.api.IServerDataProvider;
 import snownee.jade.api.ITooltip;
 import snownee.jade.api.config.IPluginConfig;
 
-public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+public enum ECODriveProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
-
-    @Override
-    public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
-        CompoundTag serverData = blockAccessor.getServerData();
-        if (serverData.contains("mounted")) {
-            boolean mounted = serverData.getBoolean("mounted");
-            if (mounted) {
-                iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
-            } else {
-                iTooltip.add(Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
-                return;
-            }
-        }
-        if (serverData.contains("usedBytes") && serverData.contains("totalBytes")) {
-            iTooltip.add(Tooltips.bytesUsed(serverData.getLong("usedBytes"),serverData.getLong("totalBytes")));
-        }
-        if (serverData.contains("storedItemTypes") && serverData.contains("totalItemTypes")) {
-            iTooltip.add(Tooltips.typesUsed(serverData.getLong("storedItemTypes"), serverData.getLong("totalItemTypes")));
-        }
-    }
 
     @Override
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
@@ -52,9 +32,43 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     }
 
 
-
     @Override
     public Identifier getUid() {
         return NeoECOAE.id("eco_drive");
+    }
+
+    public enum Client implements IBlockComponentProvider {
+        INSTANCE;
+
+
+        @Override
+        public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
+            CompoundTag serverData = blockAccessor.getServerData();
+            var mounted = serverData.getBoolean("mounted");
+            if (mounted.isPresent()) {
+                if (mounted.get()) {
+                    iTooltip.add(Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
+                } else {
+                    iTooltip.add(Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
+                    return;
+                }
+            }
+            var usedBytes = serverData.getLong("usedBytes");
+            var totalBytes = serverData.getLong("totalBytes");
+            if (usedBytes.isPresent() && totalBytes.isPresent()) {
+                iTooltip.add(Tooltips.bytesUsed(usedBytes.get(), totalBytes.get()));
+            }
+
+            var storedItemTypes = serverData.getLong("storedItemTypes");
+            var totalItemTypes = serverData.getLong("totalItemTypes");
+            if (storedItemTypes.isPresent() && totalItemTypes.isPresent()) {
+                iTooltip.add(Tooltips.typesUsed(storedItemTypes.get(), totalItemTypes.get()));
+            }
+        }
+
+        @Override
+        public Identifier getUid() {
+            return NeoECOAE.id("eco_drive");
+        }
     }
 }

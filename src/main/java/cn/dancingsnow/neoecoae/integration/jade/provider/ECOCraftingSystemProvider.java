@@ -11,35 +11,8 @@ import snownee.jade.api.IServerDataProvider;
 import snownee.jade.api.ITooltip;
 import snownee.jade.api.config.IPluginConfig;
 
-public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+public enum ECOCraftingSystemProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
-
-    @Override
-    public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
-        CompoundTag data = blockAccessor.getServerData();
-        if (data.contains("overclocked") && data.getBoolean("overclocked")) {
-            iTooltip.add(Component.translatable("jade.neoecoae.overclocked"));
-            iTooltip.add(Component.translatable(
-                "jade.neoecoae.overclock_status",
-                data.getInt("theoreticalOverclock"),
-                data.getInt("effectiveOverclock")
-            ));
-        }
-        if (data.contains("activeCooling") && data.getBoolean("activeCooling")) {
-            iTooltip.add(Component.translatable("jade.neoecoae.activeCooling"));
-        }
-        if (data.contains("coolant")) {
-            iTooltip.add(Component.translatable("jade.neoecoae.coolant", data.getInt("coolant")));
-        }
-        if (data.contains("coolingMaxOverclock")) {
-            int coolingMaxOverclock = data.getInt("coolingMaxOverclock");
-            if (coolingMaxOverclock >= 0) {
-                iTooltip.add(Component.translatable("jade.neoecoae.coolant_max_overclock", coolingMaxOverclock));
-            } else {
-                iTooltip.add(Component.translatable("jade.neoecoae.coolant_max_overclock.none"));
-            }
-        }
-    }
 
     @Override
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
@@ -56,5 +29,45 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
     @Override
     public Identifier getUid() {
         return NeoECOAE.id("eco_crafting_system");
+    }
+
+    public enum Client implements IBlockComponentProvider {
+        INSTANCE;
+
+        @Override
+        public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
+            CompoundTag data = blockAccessor.getServerData();
+            var overlocked = data.getBoolean("overlocked");
+            var theoreticalOverclock = data.getInt("theoreticalOverclock");
+            var effectiveOverclock = data.getInt("effectiveOverclock");
+            if (overlocked.isPresent() && overlocked.get()) {
+                iTooltip.add(Component.translatable("jade.neoecoae.overclocked"));
+                if (theoreticalOverclock.isPresent() && effectiveOverclock.isPresent()) {
+                    iTooltip.add(Component.translatable("jade.neoecoae.overclock_status", theoreticalOverclock.get(), effectiveOverclock.get()));
+                }
+            }
+
+            var activeCooling = data.getBoolean("activeCooling");
+            if (activeCooling.isPresent() && activeCooling.get()) {
+                iTooltip.add(Component.translatable("jade.neoecoae.activeCooling"));
+            }
+
+            var coolant = data.getInt("coolant");
+            coolant.ifPresent(integer -> iTooltip.add(Component.translatable("jade.neoecoae.coolant", integer)));
+
+            var coolingMaxOverclock = data.getInt("coolingMaxOverclock");
+            if (coolingMaxOverclock.isPresent()) {
+                if (coolingMaxOverclock.get() >= 0) {
+                    iTooltip.add(Component.translatable("jade.neoecoae.coolant_max_overclock", coolingMaxOverclock.get()));
+                } else {
+                    iTooltip.add(Component.translatable("jade.neoecoae.coolant_max_overclock.none"));
+                }
+            }
+        }
+
+        @Override
+        public Identifier getUid() {
+            return NeoECOAE.id("eco_crafting_system");
+        }
     }
 }

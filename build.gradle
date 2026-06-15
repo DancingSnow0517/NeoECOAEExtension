@@ -116,7 +116,7 @@ dependencies {
 
     // implementation("curse.maven:advancedae-1084104:7374386")
 
-    // implementation("curse.maven:jade-324717:7428884")
+    implementation("maven.modrinth:jade:26.1.3+neoforge")
 
     // implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
     // implementation("curse.maven:applied-botanics-addon-610632:7234122")
@@ -201,7 +201,6 @@ sourceSets.main.java {
     exclude 'cn/dancingsnow/neoecoae/integration/appmek/**'
     exclude 'cn/dancingsnow/neoecoae/integration/arsenergistique/**'
     exclude 'cn/dancingsnow/neoecoae/integration/emi/**'
-    exclude 'cn/dancingsnow/neoecoae/integration/jade/**'
     exclude 'cn/dancingsnow/neoecoae/integration/jei/**'
     exclude 'cn/dancingsnow/neoecoae/integration/kubejs/**'
     exclude 'cn/dancingsnow/neoecoae/integration/xei/**'

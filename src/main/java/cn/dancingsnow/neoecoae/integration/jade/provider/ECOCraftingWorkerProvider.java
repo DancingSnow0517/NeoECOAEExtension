@@ -11,18 +11,8 @@ import snownee.jade.api.IServerDataProvider;
 import snownee.jade.api.ITooltip;
 import snownee.jade.api.config.IPluginConfig;
 
-public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+public enum ECOCraftingWorkerProvider implements IServerDataProvider<BlockAccessor> {
     INSTANCE;
-
-    @Override
-    public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
-        CompoundTag data = blockAccessor.getServerData();
-        if (data.contains("running") && data.contains("max")) {
-            int max = data.getInt("max");
-            int running = data.getInt("running");
-            iTooltip.add(Component.translatable("jade.neoecoae.worker_threads", running, max));
-        }
-    }
 
     @Override
     public void appendServerData(CompoundTag compoundTag, BlockAccessor blockAccessor) {
@@ -39,5 +29,25 @@ public enum ECOCraftingWorkerProvider implements IBlockComponentProvider, IServe
     @Override
     public Identifier getUid() {
         return NeoECOAE.id("eco_crafting_worker");
+    }
+
+    public enum Client implements IBlockComponentProvider {
+        INSTANCE;
+
+        @Override
+        public void appendTooltip(ITooltip iTooltip, BlockAccessor blockAccessor, IPluginConfig iPluginConfig) {
+            CompoundTag data = blockAccessor.getServerData();
+            var max = data.getInt("max");
+            var running = data.getInt("running");
+            if (max.isPresent() && running.isPresent()) {
+
+                iTooltip.add(Component.translatable("jade.neoecoae.worker_threads", running.get(), max.get()));
+            }
+        }
+
+        @Override
+        public Identifier getUid() {
+            return NeoECOAE.id("eco_crafting_worker");
+        }
     }
 }
