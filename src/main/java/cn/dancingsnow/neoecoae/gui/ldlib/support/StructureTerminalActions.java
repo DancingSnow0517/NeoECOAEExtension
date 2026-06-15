@@ -22,7 +22,8 @@ public final class StructureTerminalActions {
         switch (action.name()) {
             case "SELECT_CRAFTING" -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.CRAFTING);
             case "SELECT_STORAGE" -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.STORAGE);
-            case "SELECT_COMPUTATION" -> StructureTerminalItem.setHostType(stack, StructureTerminalHostType.COMPUTATION);
+            case "SELECT_COMPUTATION" -> StructureTerminalItem.setHostType(
+                    stack, StructureTerminalHostType.COMPUTATION);
             case "SELECT_TIER_1" -> StructureTerminalItem.setHostTarget(
                     stack, StructureTerminalItem.getHostType(stack), 1);
             case "SELECT_TIER_2" -> StructureTerminalItem.setHostTarget(
