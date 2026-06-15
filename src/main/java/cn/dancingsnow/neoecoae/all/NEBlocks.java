@@ -427,7 +427,7 @@ public class NEBlocks {
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate(() -> (ctx, prov) -> {
             var model = ctx.getId().withPrefix("block/");
-            var workingModel = ctx.getId().withPrefix("block/").withSuffix("_working");
+            var workingModel = ctx.getId().withPrefix("block/").withSuffix("_on");
 
             var propertyDispatch = PropertyDispatch.initial(ECOIntegratedWorkingStation.WORKING)
                 .select(false, BlockModelGenerators.plainVariant(model))

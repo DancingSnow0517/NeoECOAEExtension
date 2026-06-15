@@ -188,6 +188,11 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
 }
 
 sourceSets.main.resources {
@@ -201,9 +206,7 @@ sourceSets.main.java {
     exclude 'cn/dancingsnow/neoecoae/integration/appmek/**'
     exclude 'cn/dancingsnow/neoecoae/integration/arsenergistique/**'
     exclude 'cn/dancingsnow/neoecoae/integration/emi/**'
-    exclude 'cn/dancingsnow/neoecoae/integration/jei/**'
     exclude 'cn/dancingsnow/neoecoae/integration/kubejs/**'
-    exclude 'cn/dancingsnow/neoecoae/integration/xei/**'
 }
 
 sourceSets.test {

@@ -2,7 +2,7 @@ package cn.dancingsnow.neoecoae.integration.jei.categories.multiblock;
 
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
-import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
+import cn.dancingsnow.neoecoae.integration.jei.NEJeiRecipeType;
 import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.ModularUIRecipeCategory;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
@@ -10,7 +10,7 @@ import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.recipe.IFocusGroup;
 import mezz.jei.api.recipe.RecipeIngredientRole;
-import mezz.jei.api.recipe.RecipeType;
+import mezz.jei.api.recipe.types.IRecipeType;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.network.chat.Component;
@@ -29,13 +29,12 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, MultiBlockInfoWrapper recipe, IFocusGroup focuses) {
         super.setRecipe(builder, recipe, focuses);
-        builder.addInvisibleIngredients(RecipeIngredientRole.OUTPUT)
-            .addItemLike(recipe.getDefinition().getOwner().value());
+        builder.addInvisibleIngredients(RecipeIngredientRole.OUTPUT).add(recipe.getDefinition().getOwner().value());
     }
 
     @Override
-    public RecipeType<MultiBlockInfoWrapper> getRecipeType() {
-        return NeoECOAEJeiPlugin.MULTIBLOCK_TYPE;
+    public IRecipeType<MultiBlockInfoWrapper> getRecipeType() {
+        return NEJeiRecipeType.MULTIBLOCK;
     }
 
     @Override
@@ -58,15 +57,20 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
         return icon;
     }
 
+    @Override
+    public boolean needsRecipeBorder() {
+        return false;
+    }
+
     public static void registerRecipes(IRecipeRegistration registration) {
         registration.addRecipes(
-            NeoECOAEJeiPlugin.MULTIBLOCK_TYPE,
+            NEJeiRecipeType.MULTIBLOCK,
             NEMultiBlocks.DEFINITIONS.stream().map(MultiBlockInfoWrapper::new).toList()
         );
     }
 
     public static void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         NEMultiBlocks.DEFINITIONS.stream().map(it -> it.getOwner().value())
-            .forEach(it -> registration.addRecipeCatalyst(it, NeoECOAEJeiPlugin.MULTIBLOCK_TYPE));
+            .forEach(it -> registration.addCraftingStation(NEJeiRecipeType.MULTIBLOCK, it));
     }
 }

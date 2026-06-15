@@ -16,15 +16,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
 import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
+import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
-import org.appliedenergistics.yoga.YogaEdge;
-import org.appliedenergistics.yoga.YogaFlexDirection;
-import org.appliedenergistics.yoga.YogaGutter;
-import org.appliedenergistics.yoga.YogaPositionType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,10 +53,10 @@ public class MultiBlockInfoWrapper {
 
     public ModularUI createModularUI() {
         var root = new UIElement().layout(layout -> layout
-            .setWidth(170)
-            .setHeight(170)
-            .setPadding(YogaEdge.ALL, 4)
-            .setGap(YogaGutter.ALL, 2)
+            .width(170)
+            .height(170)
+            .paddingAll(4)
+            .gapAll(2)
         ).addClass("panel_bg");
 
         scene = new Scene()
@@ -70,24 +68,24 @@ public class MultiBlockInfoWrapper {
             .setShowHoverBlockTips(true)
             .useCacheBuffer()
             .setOnSelected(this::onSelect);
-        scene.getLayout().setWidth(165).setHeight(130);
+        scene.getLayout().width(165).height(130);
         root.addChild(scene);
 
         UIElement buttons = new UIElement().layout(layout -> layout
-            .positionType(YogaPositionType.ABSOLUTE)
-            .setPosition(YogaEdge.RIGHT, 2)
-            .setPosition(YogaEdge.TOP, 2)
+            .positionType(TaffyPosition.ABSOLUTE)
+            .right(2)
+            .top(2)
         );
         expandButton = new Button().setText("E: " + expand).setOnClick(event -> expand());
-        expandButton.getLayout().setHeight(18).setWidth(18);
+        expandButton.getLayout().height(18).width(18);
         buttons.addChild(expandButton);
 
         layerButton = new Button().setText("L: " + layer).setOnClick(event -> nextLayer());
-        layerButton.getLayout().setHeight(18).setWidth(18);
+        layerButton.getLayout().height(18).width(18);
         buttons.addChild(layerButton);
 
         formedButton = new Button().setText("F: " + formed).setOnClick(event -> cycleFormed());
-        formedButton.getLayout().setHeight(18).setWidth(18);
+        formedButton.getLayout().height(18).width(18);
         buttons.addChild(formedButton);
 
         root.addChild(buttons);
@@ -95,21 +93,21 @@ public class MultiBlockInfoWrapper {
         root.addChild(new TextElement()
             .setText(definition.getName())
             .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL))
-            .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
-                .setPosition(YogaEdge.LEFT, 2)
-                .setPosition(YogaEdge.TOP, 2)));
+            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+                .left(2)
+                .top(2)));
 
         root.addChild(new ItemSlot()
             .bindDataSource(SupplierDataSource.of(() -> selectedItem))
-            .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
-                .setPosition(YogaEdge.LEFT, 2)
-                .setPosition(YogaEdge.TOP, 14))
+            .layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE)
+                .left(2)
+                .top(14))
             .addClass("panel_border"));
 
         requiredItems = new ScrollerView();
-        requiredItems.viewPort(c -> c.layout(layout-> layout.paddingAll(1).paddingBottom(3)).addClass("panel_bg"));
-        requiredItems.viewContainer(c -> c.layout(layout -> layout.flexDirection(YogaFlexDirection.ROW)).addClass("panel_border"));
-        requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(27));
+        requiredItems.viewPort(c -> c.layout(layout -> layout.paddingAll(1).paddingBottom(3)).addClass("panel_bg"));
+        requiredItems.viewContainer(c -> c.layout(layout -> layout.flexDirection(FlexDirection.ROW)).addClass("panel_border"));
+        requiredItems.layout(layout -> layout.widthPercent(100).height(27));
         root.addChild(requiredItems);
 
         createScene();

@@ -38,6 +38,7 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
+import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.registries.NewRegistryEvent;
 import org.slf4j.Logger;
@@ -82,6 +83,7 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::addClassicPack);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
+        NeoForge.EVENT_BUS.addListener(NeoECOAE::onSyncDatapack);
     }
 
     public static Identifier id(String path) {
@@ -130,5 +132,10 @@ public class NeoECOAE {
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {
         AE2PatternIntrospection.onRecipeReloadOrServerReload();
+    }
+
+    private static void onSyncDatapack(OnDatapackSyncEvent event) {
+        event.sendRecipes(NERecipeTypes.COOLING.get());
+        event.sendRecipes(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
     }
 }
