@@ -7,7 +7,6 @@
 	"textures": {
 		"coolant": "neoecoae:block/compute/coolant",
 		"screen": "neoecoae:block/compute/cooling_controller/screen_on",
-		"base": "neoecoae:block/compute/cooling_controller/controller_a_formed",
 		"particle": "neoecoae:block/compute/casing"
 	},
 	"elements": [
@@ -16,9 +15,9 @@
 			"from": [-16, -16, 0],
 			"to": [16, 32, 0],
 			"shade": false,
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
-				"north": {"uv": [0, 6, 4, 12], "texture": "#base"}
+				"north": {"uv": [0, 6, 4, 12], "texture": "#base", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
@@ -26,74 +25,74 @@
 			"from": [3, 3, 0],
 			"to": [13, 13, 1],
 			"shade": false,
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
-				"north": {"uv": [3, 3, 13, 13], "texture": "#screen"},
-				"east": {"uv": [3, 3, 4, 13], "texture": "#screen"},
-				"west": {"uv": [12, 3, 13, 13], "texture": "#screen"},
-				"up": {"uv": [3, 3, 13, 4], "rotation": 90, "texture": "#screen"},
-				"down": {"uv": [3, 12, 13, 13], "rotation": 270, "texture": "#screen"}
+				"north": {"uv": [3, 3, 13, 13], "texture": "#screen", "neoforge_data": {"light_emission": 15}},
+				"east": {"uv": [3, 3, 4, 13], "texture": "#screen", "neoforge_data": {"light_emission": 15}},
+				"west": {"uv": [12, 3, 13, 13], "texture": "#screen", "neoforge_data": {"light_emission": 15}},
+				"up": {"uv": [3, 3, 13, 4], "rotation": 90, "texture": "#screen", "neoforge_data": {"light_emission": 15}},
+				"down": {"uv": [3, 12, 13, 13], "rotation": 270, "texture": "#screen", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
 			"name": "front_a",
 			"from": [14, -12, 5],
 			"to": [14, 0, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
-				"east": {"uv": [5, 0, 11, 12], "texture": "#coolant"}
+				"east": {"uv": [5, 0, 11, 12], "texture": "#coolant", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
 			"name": "front_a",
 			"from": [14, 16, 5],
 			"to": [14, 28, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
-				"east": {"uv": [5, 4, 11, 16], "texture": "#coolant"}
+				"east": {"uv": [5, 4, 11, 16], "texture": "#coolant", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
 			"name": "front_b",
 			"from": [14, 0, 5],
 			"to": [14, 16, 15],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
-				"east": {"uv": [0, 0, 10, 16], "texture": "#coolant"}
+				"east": {"uv": [0, 0, 10, 16], "texture": "#coolant", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
 			"name": "back_a",
 			"from": [-14, -12, 5],
 			"to": [-14, 0, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
-				"west": {"uv": [11, 0, 5, 12], "texture": "#coolant"}
+				"west": {"uv": [11, 0, 5, 12], "texture": "#coolant", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
 			"name": "back_a",
 			"from": [-14, 16, 5],
 			"to": [-14, 28, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
-				"west": {"uv": [11, 4, 5, 16], "texture": "#coolant"}
+				"west": {"uv": [11, 4, 5, 16], "texture": "#coolant", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
 			"name": "back_b",
 			"from": [-14, 0, 5],
 			"to": [-14, 16, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
-				"west": {"uv": [11, 0, 5, 16], "texture": "#coolant"}
+				"west": {"uv": [11, 0, 5, 16], "texture": "#coolant", "neoforge_data": {"light_emission": 15}}
 			}
 		},
 		{
 			"name": "pillar_a",
 			"from": [14, -16, 5],
 			"to": [16, -12, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"east": {"uv": [4.625, 5.5, 5.375, 6], "texture": "#base"},
 				"up": {"uv": [5.375, 5.5, 4.625, 5.75], "rotation": 90, "texture": "#base"},
@@ -104,7 +103,7 @@
 			"name": "pillar_a",
 			"from": [14, 28, 5],
 			"to": [16, 32, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"east": {"uv": [4.625, 0, 5.375, 0.5], "texture": "#base"},
 				"up": {"uv": [8.625, 0, 9.375, 0.25], "rotation": 90, "texture": "#base"},
@@ -115,7 +114,7 @@
 			"name": "pillar_b",
 			"from": [14, -16, 0],
 			"to": [16, 32, 5],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"north": {"uv": [0, 0, 0.25, 6], "texture": "#base"},
 				"east": {"uv": [5.375, 0, 6, 6], "texture": "#base"},
@@ -128,7 +127,7 @@
 			"name": "pillar_c",
 			"from": [14, -16, 11],
 			"to": [16, 6, 16],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"north": {"uv": [6.625, 3.25, 6.375, 6], "texture": "#base"},
 				"east": {"uv": [4, 3.25, 4.625, 6], "texture": "#base"},
@@ -140,7 +139,7 @@
 			"name": "pillar_c",
 			"from": [14, 10, 11],
 			"to": [16, 32, 16],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"north": {"uv": [6.625, 0, 6.375, 2.75], "texture": "#base"},
 				"east": {"uv": [4, 0, 4.625, 2.75], "texture": "#base"},
@@ -152,7 +151,7 @@
 			"name": "pillar_d",
 			"from": [14, 6, 15],
 			"to": [16, 10, 16],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"north": {"uv": [4, 2.75, 4.25, 3.25], "texture": "#base"},
 				"east": {"uv": [4, 2.75, 4.125, 3.25], "texture": "#base"}
@@ -162,7 +161,7 @@
 			"name": "pillar_a",
 			"from": [-16, -16, 5],
 			"to": [-14, -12, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"west": {"uv": [6.625, 5.5, 7.375, 6], "texture": "#base"},
 				"up": {"uv": [6.625, 5.75, 7.375, 5.5], "rotation": 90, "texture": "#base"},
@@ -173,7 +172,7 @@
 			"name": "pillar_a",
 			"from": [-16, 28, 5],
 			"to": [-14, 32, 11],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"west": {"uv": [6.625, 0, 7.375, 0.5], "texture": "#base"},
 				"up": {"uv": [8.625, 3.75, 9.375, 4], "rotation": 90, "texture": "#base"},
@@ -184,7 +183,7 @@
 			"name": "pillar_b",
 			"from": [-16, -16, 0],
 			"to": [-14, 32, 5],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"north": {"uv": [3.75, 0, 4, 6], "texture": "#base"},
 				"south": {"uv": [6.625, 0, 6.375, 6], "texture": "#base"},
@@ -197,7 +196,7 @@
 			"name": "pillar_b",
 			"from": [-16, -16, 11],
 			"to": [-14, 32, 16],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"north": {"uv": [7.625, 0.125, 7.375, 6.125], "texture": "#base"},
 				"west": {"uv": [7.375, 0, 8, 6], "texture": "#base"},
@@ -209,7 +208,7 @@
 			"name": "body",
 			"from": [-14, -16, 0],
 			"to": [14, 32, 16],
-			"rotation": {"angle": 0, "axis": "y", "origin": [16, 0, 16]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
 			"faces": {
 				"north": {"uv": [0.25, 0, 3.75, 6], "texture": "#base"},
 				"up": {"uv": [8, 0.25, 10, 3.75], "rotation": 90, "texture": "#base"},

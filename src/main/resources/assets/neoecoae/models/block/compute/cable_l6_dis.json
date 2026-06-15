@@ -10,8 +10,8 @@
 	"elements": [
 		{
 			"name": "plug",
-			"from": [-2, -2, -3],
-			"to": [2, 2, 0],
+			"from": [6, -5, -4],
+			"to": [10, -1, -1],
 			"faces": {
 				"north": {"uv": [0, 0, 4, 4], "texture": "#base"},
 				"east": {"uv": [4, 11, 0, 8], "rotation": 270, "texture": "#base"},
@@ -23,8 +23,8 @@
 		},
 		{
 			"name": "light",
-			"from": [-2, -2, -3],
-			"to": [2, 2, 0],
+			"from": [6, -5, -4],
+			"to": [10, -1, -1],
 			"shade": false,
 			"faces": {
 				"east": {"uv": [4, 14, 0, 11], "rotation": 270, "texture": "#base", "neoforge_data": {"light_emission": 15}},
@@ -35,8 +35,8 @@
 		},
 		{
 			"name": "base",
-			"from": [-1.5, -1.5, 0],
-			"to": [1.5, 1.5, 1],
+			"from": [6.5, -4.5, -1],
+			"to": [9.5, -1.5, 0],
 			"faces": {
 				"east": {"uv": [4, 3, 7, 4], "rotation": 270, "texture": "#base"},
 				"south": {"uv": [4, 0, 7, 3], "texture": "#base"},

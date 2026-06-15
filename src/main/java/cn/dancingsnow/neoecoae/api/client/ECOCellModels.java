@@ -14,13 +14,6 @@ public class ECOCellModels {
 
     private static final Map<Item, Identifier> registry = new IdentityHashMap<>();
 
-    public static Identifier getModelLocation(Item item) {
-        if (item == null) {
-            return DEFAULT_MODEL;
-        }
-        return registry.getOrDefault(item, DEFAULT_MODEL);
-    }
-
     public static void register(Holder<Item> item, Identifier model) {
         register(item.value(), model);
     }

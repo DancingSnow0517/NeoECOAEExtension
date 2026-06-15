@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -67,6 +68,11 @@ public class ECOComputationDriveBlockEntity
 
     public void setCellStack(@Nullable ItemStack cellStack) {
         this.cellStack = cellStack;
+        if (cellStack != null) {
+            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, true));
+        } else {
+            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, false));
+        }
         if (this.cluster != null) {
             this.cluster.recalculateRemainingStorage();
         }

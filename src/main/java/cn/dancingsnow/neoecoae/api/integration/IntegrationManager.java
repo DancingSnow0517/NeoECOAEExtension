@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.api.integration;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import lombok.extern.slf4j.Slf4j;
-import net.neoforged.fml.loading.LoadingModList;
+import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.moddiscovery.ModFileInfo;
 import net.neoforged.fml.loading.progress.ProgressMeter;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
@@ -19,8 +19,8 @@ public class IntegrationManager {
     public static final String INTEGRATION_NAME = "L" + Integration.class.getName().replace(".", "/") + ";";
 
     public void compileContent() {
-        ProgressMeter meter = StartupNotificationManager.addProgressBar("Load Integrations", LoadingModList.get().getModFiles().size());
-        for (ModFileInfo modFile : LoadingModList.get().getModFiles()) {
+        ProgressMeter meter = StartupNotificationManager.addProgressBar("Load Integrations", FMLLoader.getCurrent().getLoadingModList().getModFiles().size());
+        for (ModFileInfo modFile : FMLLoader.getCurrent().getLoadingModList().getModFiles()) {
             meter.increment();
             ModFileScanData scanData = modFile.getFile().getScanResult();
             for (ModFileScanData.AnnotationData annotation : scanData.getAnnotations()) {
@@ -56,7 +56,7 @@ public class IntegrationManager {
 
     public void loadAllIntegrations() {
         for (String key : instances.keys()) {
-            if (LoadingModList.get().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
+            if (FMLLoader.getCurrent().getLoadingModList().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
                 load(key);
             }
         }
@@ -64,7 +64,7 @@ public class IntegrationManager {
 
     public void loadAllClientIntegrations() {
         for (String key : instances.keys()) {
-            if (LoadingModList.get().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
+            if (FMLLoader.getCurrent().getLoadingModList().getMods().stream().anyMatch(it -> it.getModId().equals(key))) {
                 loadClient(key);
             }
         }

@@ -746,16 +746,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate(() -> (ctx, prov) -> {
-            var unformedModel = prov.modLoc("block/computation_drive_empty");
-            var formedModel = prov.modLoc("block/computation_drive_full");
-
-            var propertyDispatch = PropertyDispatch.initial(ECOComputationDrive.FORMED)
-                .select(false, BlockModelGenerators.plainVariant(unformedModel))
-                .select(true, BlockModelGenerators.plainVariant(formedModel));
-
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-        })
+        .blockstate(ECOModelUtil::computationDrive)
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")

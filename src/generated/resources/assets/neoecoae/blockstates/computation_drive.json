@@ -1,32 +1,40 @@
 {
   "variants": {
-    "facing=east,formed=false": {
+    "facing=east,has_cell=false": {
+      "type": "neoecoae:eco_computation_drive",
       "model": "neoecoae:block/computation_drive_empty",
       "y": 90
     },
-    "facing=east,formed=true": {
+    "facing=east,has_cell=true": {
+      "type": "neoecoae:eco_computation_drive",
       "model": "neoecoae:block/computation_drive_full",
       "y": 90
     },
-    "facing=north,formed=false": {
+    "facing=north,has_cell=false": {
+      "type": "neoecoae:eco_computation_drive",
       "model": "neoecoae:block/computation_drive_empty"
     },
-    "facing=north,formed=true": {
+    "facing=north,has_cell=true": {
+      "type": "neoecoae:eco_computation_drive",
       "model": "neoecoae:block/computation_drive_full"
     },
-    "facing=south,formed=false": {
+    "facing=south,has_cell=false": {
+      "type": "neoecoae:eco_computation_drive",
       "model": "neoecoae:block/computation_drive_empty",
       "y": 180
     },
-    "facing=south,formed=true": {
+    "facing=south,has_cell=true": {
+      "type": "neoecoae:eco_computation_drive",
       "model": "neoecoae:block/computation_drive_full",
       "y": 180
     },
-    "facing=west,formed=false": {
+    "facing=west,has_cell=false": {
+      "type": "neoecoae:eco_computation_drive",
       "model": "neoecoae:block/computation_drive_empty",
       "y": 270
     },
-    "facing=west,formed=true": {
+    "facing=west,has_cell=true": {
+      "type": "neoecoae:eco_computation_drive",
       "model": "neoecoae:block/computation_drive_full",
       "y": 270
     }

@@ -1,9 +1,11 @@
 package cn.dancingsnow.neoecoae.util;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.client.item.ECOStorageCellStateTintSource;
+import cn.dancingsnow.neoecoae.client.model.ECOComputationDriveModel;
 import cn.dancingsnow.neoecoae.client.model.ECODriveModel;
 import com.tterrag.registrate.providers.DataGenContext;
 import com.tterrag.registrate.providers.generators.RegistrateBlockModelGenerator;
@@ -40,10 +42,7 @@ import static net.minecraft.client.data.models.BlockModelGenerators.plainVariant
 public class ECOModelUtil {
     public static final ModelTemplate CASING = createTemplate("casing_base", TextureSlot.TEXTURE);
 
-    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> cellModel(
-        String type,
-        String size
-    ) {
+    public static <T extends Item> NonNullBiConsumer<DataGenContext<Item, T>, RegistrateItemModelGenerator> cellModel(String type, String size) {
         return (ctx, prov) -> {
             var model = ModelTemplates.THREE_LAYERED_ITEM.create(
                 ctx.get(),
@@ -88,9 +87,7 @@ public class ECOModelUtil {
         };
     }
 
-    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> storageEnergyCell(
-        String level
-    ) {
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> storageEnergyCell(String level) {
         return (ctx, prov) -> {
             var propertyDispatch = PropertyDispatch.initial(ECOEnergyCellBlock.LEVEL).generate(l -> BlockModelGenerators.plainVariant(
                 prov.modLoc("block/storage_energy_cell/cell_%s_%d".formatted(level, l))));
@@ -126,16 +123,29 @@ public class ECOModelUtil {
 
     public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> drive() {
         return (ctx, prov) -> {
-            var emptyModel = customBlockStateModel(new ECODriveModel.Unbaked(new Variant(ECODriveModel.DRIVE_EMPTY)));
-            var fullModel = customBlockStateModel(new ECODriveModel.Unbaked(new Variant(ECODriveModel.DRIVE_FULL)));
+            var emptyModel = customBlockStateModel(new ECODriveModel.Unbaked(new Variant(NeoECOAE.id("block/eco_drive_empty"))));
+            var fullModel = customBlockStateModel(new ECODriveModel.Unbaked(new Variant(NeoECOAE.id("block/eco_drive_full"))));
 
             var propertyDispatch = PropertyDispatch.initial(ECODriveBlock.HAS_CELL)
                 .select(false, emptyModel)
                 .select(true, fullModel);
 
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).withUnbaked(
-                createDriverFacingDispatch()));
-            prov.registerSimpleItemModel(ctx.get(), ECODriveModel.DRIVE_EMPTY);
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).withUnbaked(createDriverFacingDispatch()));
+            prov.registerSimpleItemModel(ctx.get(), NeoECOAE.id("block/eco_drive_empty"));
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> computationDrive() {
+        return (ctx, prov) -> {
+            var emptyModel = customBlockStateModel(new ECOComputationDriveModel.Unbaked(new Variant(NeoECOAE.id("block/computation_drive_empty"))));
+            var fullModel = customBlockStateModel(new ECOComputationDriveModel.Unbaked(new Variant(NeoECOAE.id("block/computation_drive_full"))));
+
+            var propertyDispatch = PropertyDispatch.initial(ECOComputationDrive.HAS_CELL)
+                .select(false, emptyModel)
+                .select(true, fullModel);
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).withUnbaked(createDriverFacingDispatch()));
+            prov.registerSimpleItemModel(ctx.get(), NeoECOAE.id("block/computation_drive_empty"));
         };
     }
 
@@ -148,20 +158,17 @@ public class ECOModelUtil {
     }
 
     private static PropertyDispatch<UnbakedMutator> createDriverFacingDispatch() {
-        return PropertyDispatch.modifyUnbaked(BlockStateProperties.HORIZONTAL_FACING).generate(facing ->
-            UnbakedMutator.builder()
-                .add(
-                    ECODriveModel.Unbaked.class, unbaked -> {
-                        VariantMutator mutator = switch (facing) {
-                            case EAST -> BlockModelGenerators.Y_ROT_90;
-                            case SOUTH -> BlockModelGenerators.Y_ROT_180;
-                            case WEST -> BlockModelGenerators.Y_ROT_270;
-                            default -> BlockModelGenerators.NOP;
-                        };
-                        return new ECODriveModel.Unbaked(unbaked.variant().with(mutator));
-                    }
-                )
-                .build()
-        );
+        return PropertyDispatch.modifyUnbaked(BlockStateProperties.HORIZONTAL_FACING).generate(facing -> {
+            VariantMutator mutator = switch (facing) {
+                case EAST -> BlockModelGenerators.Y_ROT_90;
+                case SOUTH -> BlockModelGenerators.Y_ROT_180;
+                case WEST -> BlockModelGenerators.Y_ROT_270;
+                default -> BlockModelGenerators.NOP;
+            };
+            return UnbakedMutator.builder()
+                .add(ECODriveModel.Unbaked.class, unbaked -> new ECODriveModel.Unbaked(unbaked.variant().with(mutator)))
+                .add(ECOComputationDriveModel.Unbaked.class, unbaked -> new ECOComputationDriveModel.Unbaked(unbaked.variant().with(mutator)))
+                .build();
+        });
     }
 }

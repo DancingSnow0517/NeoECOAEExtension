@@ -12,19 +12,22 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity> {
-    public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final BooleanProperty HAS_CELL = BooleanProperty.create("has_cell");
 
     public ECOComputationDrive(Properties properties) {
         super(properties);
         registerDefaultState(getStateDefinition().any()
+            .setValue(HAS_CELL, false)
             .setValue(FORMED, false)
-            .setValue(FACING, Direction.NORTH)
+            .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH)
         );
     }
 
@@ -55,6 +58,12 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
             }
         }
         return InteractionResult.PASS;
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(HAS_CELL);
     }
 
     @Override

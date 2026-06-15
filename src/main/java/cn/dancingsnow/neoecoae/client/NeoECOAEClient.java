@@ -2,9 +2,11 @@ package cn.dancingsnow.neoecoae.client;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.client.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.client.ECOComputationModels;
 import cn.dancingsnow.neoecoae.client.item.ECOStorageCellStateTintSource;
+import cn.dancingsnow.neoecoae.client.model.ECOComputationDriveModel;
 import cn.dancingsnow.neoecoae.client.model.ECODriveModel;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import com.lowdragmc.lowdraglib2.editor.resource.EditorResourceEvent;
@@ -35,7 +37,6 @@ public class NeoECOAEClient {
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
-        ECOComputationModels.runDeferredRegistration();
     }
 
     @SubscribeEvent
@@ -59,6 +60,7 @@ public class NeoECOAEClient {
     @SubscribeEvent
     public static void registerBlockStateModels(RegisterBlockStateModels event) {
         event.registerModel(ECODriveModel.Unbaked.ID, ECODriveModel.Unbaked.MAP_CODEC);
+        event.registerModel(ECOComputationDriveModel.Unbaked.ID, ECOComputationDriveModel.Unbaked.MAP_CODEC);
     }
 
     @SubscribeEvent
@@ -70,5 +72,13 @@ public class NeoECOAEClient {
         ECOCellModels.register(NEItems.ECO_FLUID_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_fluid"));
         ECOCellModels.register(NEItems.ECO_FLUID_CELL_64M, NeoECOAE.id("block/cell/storage_cell_l6_fluid"));
         ECOCellModels.register(NEItems.ECO_FLUID_CELL_256M, NeoECOAE.id("block/cell/storage_cell_l9_fluid"));
+
+        ECOComputationModels.registerCellModel(NEItems.ECO_COMPUTATION_CELL_L4, NeoECOAE.id("block/compute/cell_l4"), NeoECOAE.id("block/compute/cell_l4_formed"));
+        ECOComputationModels.registerCellModel(NEItems.ECO_COMPUTATION_CELL_L6, NeoECOAE.id("block/compute/cell_l6"), NeoECOAE.id("block/compute/cell_l6_formed"));
+        ECOComputationModels.registerCellModel(NEItems.ECO_COMPUTATION_CELL_L9, NeoECOAE.id("block/compute/cell_l9"), NeoECOAE.id("block/compute/cell_l9_formed"));
+
+        ECOComputationModels.registerCableModel(ECOTier.L4, NeoECOAE.id("block/compute/cable_l4_dis"), NeoECOAE.id("block/compute/cable_l4"));
+        ECOComputationModels.registerCableModel(ECOTier.L6, NeoECOAE.id("block/compute/cable_l6_dis"), NeoECOAE.id("block/compute/cable_l6"));
+        ECOComputationModels.registerCableModel(ECOTier.L9, NeoECOAE.id("block/compute/cable_l9_dis"), NeoECOAE.id("block/compute/cable_l9"));
     }
 }
