@@ -1281,6 +1281,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         previewStatusKey = statusKey;
         previewStatusArg1 = statusArg1;
         previewStatusArg2 = statusArg2;
+        buildPreview.syncPreview(
+                missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, statusArg1, statusArg2);
         setChanged();
         markUiStateDirty();
     }

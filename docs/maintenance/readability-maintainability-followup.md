@@ -105,3 +105,10 @@ P1：
 P2：
 
 - 拆分 `NEBlocks`/`NEItems` 注册文件。只有在注册和 datagen 都稳定后再做，且必须逐项确认 registry name 不变。
+> Current branch note: source search did not find `src/main/java/.../network/NENetwork.java`.
+> Treat current sync boundaries as `NELDLibStateCodecs`, `NELDLibSyncedStateWidget`,
+> AE2 `CraftingStatusPacket` related mixins, BE `writeUiSyncTag/readUiSyncTag`,
+> AE2 native packets, LDLib state codecs, and recipe serializers.
+> `NELDLibStateCodecs` is one current LDLib state codec boundary, not a replacement
+> for reviewing feature widgets, BE update tags, AE2 status sync, or serializers.
+> Older `NENetwork` mentions in this document are stale references for the current branch.

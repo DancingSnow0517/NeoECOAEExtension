@@ -403,7 +403,7 @@ public final class NELDLibStateCodecs {
         buf.writeVarInt(state.previewConflictBlocks());
         buf.writeVarInt(state.previewReusedBlocks());
         buf.writeVarInt(state.previewRequiredItems());
-        buf.writeUtf(state.previewStatusKey());
+        buf.writeUtf(state.previewStatusKey(), 256);
         buf.writeVarInt(state.previewStatusArg1());
         buf.writeVarInt(state.previewStatusArg2());
         List<cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState.BuildMaterialEntry> materials =
@@ -439,14 +439,11 @@ public final class NELDLibStateCodecs {
         int previewConflictBlocks = buf.readVarInt();
         int previewReusedBlocks = buf.readVarInt();
         int previewRequiredItems = buf.readVarInt();
-        String previewStatusKey = buf.readUtf();
+        String previewStatusKey = buf.readUtf(256);
         int previewStatusArg1 = buf.readVarInt();
         int previewStatusArg2 = buf.readVarInt();
-        int materialCount = buf.readVarInt();
-        if (materialCount > MAX_STRUCTURE_TERMINAL_MATERIALS) {
-            throw new IllegalArgumentException(
-                    "Structure Terminal material count exceeds protocol limit: " + materialCount);
-        }
+        int materialCount = readBoundedNonNegativeVarInt(
+                buf, MAX_STRUCTURE_TERMINAL_MATERIALS, "Structure Terminal material count");
         List<cn.dancingsnow.neoecoae.multiblock.NEStructureTerminalUiState.BuildMaterialEntry> materials =
                 new ArrayList<>(materialCount);
         for (int i = 0; i < materialCount; i++) {
@@ -476,6 +473,14 @@ public final class NELDLibStateCodecs {
                 previewStatusArg1,
                 previewStatusArg2,
                 materials);
+    }
+
+    private static int readBoundedNonNegativeVarInt(FriendlyByteBuf buf, int max, String fieldName) {
+        int value = buf.readVarInt();
+        if (value < 0 || value > max) {
+            throw new IllegalArgumentException(fieldName + " outside protocol limit: " + value);
+        }
+        return value;
     }
 
     private NELDLibStateCodecs() {}

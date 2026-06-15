@@ -203,3 +203,10 @@ P2：
 - 不建议用 provider remount 作为普通 storage content change 通知。
 - 不建议在未验证 AppMek/Mekanism classloading 的情况下从主类直接引用 compat-only 类型。
 - 不建议先做大规模 UI 重构；应先补 smoke/test/profile，再做小步抽象。
+> Current branch note: source search did not find `src/main/java/.../network/NENetwork.java`.
+> Treat current sync boundaries as `NELDLibStateCodecs`, `NELDLibSyncedStateWidget`,
+> AE2 `CraftingStatusPacket` related mixins, BE `writeUiSyncTag/readUiSyncTag`,
+> AE2 native packets, LDLib state codecs, and recipe serializers.
+> `NELDLibStateCodecs` is one current LDLib state codec boundary, not a replacement
+> for reviewing feature widgets, BE update tags, AE2 status sync, or serializers.
+> Older `NENetwork` mentions in this document are stale references for the current branch.

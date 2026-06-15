@@ -601,17 +601,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return Math.max(reg != null ? reg.size() : 1, 1);
     }
 
-    private static long sum(long[] values) {
-        if (values == null) {
-            return 0;
-        }
-        long result = 0;
-        for (long value : values) {
-            result += value;
-        }
-        return result;
-    }
-
     // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default
 
     @Override
@@ -772,6 +761,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         previewStatusKey = statusKey;
         previewStatusArg1 = statusArg1;
         previewStatusArg2 = statusArg2;
+        buildPreview.syncPreview(
+                missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, statusArg1, statusArg2);
         setChanged();
         markForUpdate();
     }

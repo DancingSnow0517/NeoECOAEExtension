@@ -88,20 +88,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (outputsReady) {
             return TickRateModulation.URGENT;
         }
-        if (this.reboot) {
-            ticksSinceLastCall = 1;
-        }
-
-        this.reboot = false;
+        ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
         int bonusValue = Math.min(10 + overlockTimes * 10, 100);
         progress += userPower(ticksSinceLastCall, bonusValue, powerMultiply);
 
-        if (this.progress >= MAX_PROGRESS) {
-            outputsReady = true;
-            setChanged();
-            return TickRateModulation.URGENT;
-        }
-        return TickRateModulation.URGENT;
+        return markOutputsReadyIfComplete();
     }
 
     /**
@@ -136,13 +127,22 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (outputsReady) {
             return TickRateModulation.URGENT;
         }
+        ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
+        double slotScaledTax = powerMultiply * Math.max(1, occupiedThreadSlots);
+        progress += (int) (extractedPower / slotScaledTax);
+
+        return markOutputsReadyIfComplete();
+    }
+
+    private int consumeEffectiveTicks(int ticksSinceLastCall) {
         if (this.reboot) {
             ticksSinceLastCall = 1;
         }
         this.reboot = false;
-        double slotScaledTax = powerMultiply * Math.max(1, occupiedThreadSlots);
-        progress += (int) (extractedPower / slotScaledTax);
+        return ticksSinceLastCall;
+    }
 
+    private TickRateModulation markOutputsReadyIfComplete() {
         if (this.progress >= MAX_PROGRESS) {
             outputsReady = true;
             setChanged();
@@ -251,7 +251,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
         ECOFastPathKey key = execution.key();
-        if (!canUseFastPath(execution, key)) {
+        if (!ECOFastPathEligibility.canUse(execution, key)) {
             cache.recordDisabled();
             return calcPatternSlow(execution, controller, craftingJobId, false, tick);
         }
@@ -280,13 +280,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         return calcPatternSlow(execution, controller, craftingJobId, true, tick);
-    }
-
-    private boolean canUseFastPath(ECOExtractedPatternExecution execution, @Nullable ECOFastPathKey key) {
-        return key != null
-                && execution.fastPathEligible()
-                && NEConfig.isEcoAe2FastPathEnabled()
-                && !NEConfig.postCraftingEvent;
     }
 
     @Nullable private FastPathWork createFastPathWork(ECOFastPathResult cached, ECOExtractedPatternExecution execution) {

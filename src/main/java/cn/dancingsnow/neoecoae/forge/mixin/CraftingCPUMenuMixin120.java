@@ -168,21 +168,12 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         }
     }
 
-    @Inject(
-            method = {"broadcastChanges()V", "m_38946_()V"},
-            at = @At("HEAD"),
-            require = 0)
+    @Inject(method = "broadcastChanges()V", at = @At("HEAD"), require = 0)
     private void neoecoae$onBroadcastChanges(CallbackInfo ci) {
         this.neoecoae$broadcastEcoCpuChanges();
     }
 
-    @Inject(
-            method = {
-                "removed(Lnet/minecraft/world/entity/player/Player;)V",
-                "m_6877_(Lnet/minecraft/world/entity/player/Player;)V"
-            },
-            at = @At("TAIL"),
-            require = 0)
+    @Inject(method = "removed(Lnet/minecraft/world/entity/player/Player;)V", at = @At("TAIL"), require = 0)
     private void neoecoae$onRemoved(Player player, CallbackInfo ci) {
         this.neoecoae$cleanupEcoCpuListener();
     }
@@ -491,29 +482,6 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         trackedKeys.removeAll(deletedKeys);
         return new CraftingStatus(
                 full,
-                logic.getElapsedTimeTracker().getElapsedTime(),
-                logic.getElapsedTimeTracker().getSyntheticRemainingItemCount(),
-                logic.getElapsedTimeTracker().getSyntheticStartItemCount(),
-                entries.build());
-    }
-
-    @Unique private static CraftingStatus neoecoae$createTrackedStatus(
-            IncrementalUpdateHelper changes, ECOCraftingCPULogic logic, Set<AEKey> trackedKeys) {
-        ImmutableList.Builder<CraftingStatusEntry> entries = ImmutableList.builder();
-        ArrayList<AEKey> deletedKeys = new ArrayList<>();
-
-        for (AEKey what : new ArrayList<>(trackedKeys)) {
-            CraftingStatusEntry entry = neoecoae$createEntry(changes, logic, what, false, Map.of());
-            entries.add(entry);
-            if (entry.isDeleted()) {
-                changes.removeSerial(what);
-                deletedKeys.add(what);
-            }
-        }
-
-        trackedKeys.removeAll(deletedKeys);
-        return new CraftingStatus(
-                false,
                 logic.getElapsedTimeTracker().getElapsedTime(),
                 logic.getElapsedTimeTracker().getSyntheticRemainingItemCount(),
                 logic.getElapsedTimeTracker().getSyntheticStartItemCount(),

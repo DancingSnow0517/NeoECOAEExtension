@@ -21,7 +21,7 @@ The codebase is functional but has rising maintenance cost in three areas:
 2. The UI layer uses many hard-coded strings, colors, coordinates, and ad hoc layout calculations, which makes repeated visual fixes fragile.
 3. Server block entity code has improved dirty/revision patterns, but `setChanged`, `markForUpdate`, UI sync, persistence, and visual update semantics are still scattered and easy to misuse.
 
-The highest leverage next step is not a broad rewrite. It is to introduce small boundaries around existing hotspots: split large UI widgets into state/layout/render/control units, split packet registration and handlers by feature, and standardize dirty/update method names for block entities.
+The highest leverage next step is not a broad rewrite. It is to introduce small boundaries around existing hotspots: split large UI widgets into state/layout/render/control units, clarify the current sync boundaries by feature, and standardize dirty/update method names for block entities.
 
 ## Large Class Hotspots
 
@@ -31,7 +31,7 @@ The highest leverage next step is not a broad rewrite. It is to introduce small 
 | `src/main/java/cn/dancingsnow/neoecoae/all/NEItems.java` | 1173 | Same registration-scale issue as blocks. |
 | `src/main/java/cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOCraftingSystemBlockEntity.java` | 896 | Combines multiblock build terminal, crafting UI state, stats cache, coolant/config state, and server behavior. |
 | `src/main/java/cn/dancingsnow/neoecoae/blocks/entity/ECOIntegratedWorkingStationBlockEntity.java` | 853 | Combines inventories, recipe cache, IO strategy, ticking, NBT, and UI sync. |
-| `src/main/java/cn/dancingsnow/neoecoae/network/NENetwork.java` | 814 | Packet registration, packet records, encoding, decoding, and handlers are all in one file. |
+| `src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/support/NELDLibStateCodecs.java` | 481 | Current source does not contain the old `NENetwork` boundary; this file is one of the current LDLib state sync boundaries. |
 | `src/main/java/cn/dancingsnow/neoecoae/blocks/entity/storage/ECOStorageSystemBlockEntity.java` | 731 | Storage stats, multiblock construction, controller UI state, and persistence concerns share one class. |
 | `src/main/java/cn/dancingsnow/neoecoae/gui/nativeui/screen/NEStorageControllerScreen.java` | 579 | Complex layout and animation logic in one screen class. |
 | `src/main/java/cn/dancingsnow/neoecoae/compat/emi/MultiblockEmiRecipe.java` | 490 | Recipe model, mutable preview state, layout, drawing, input handling, material paging, and tooltips are mixed. |
@@ -99,22 +99,26 @@ Recommendation:
 - Keep literals only for dynamic symbols such as `+`, `-`, `/`, or debug-only text.
 - Put repeated dimensions/colors in per-screen layout constants or a shared native UI layout helper.
 
-### P1: Network Code Is Over-Centralized
+### P1: Sync Boundaries Need Clearer Ownership
 
 File:
-- `src/main/java/cn/dancingsnow/neoecoae/network/NENetwork.java`
+- `src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/support/NELDLibStateCodecs.java`
+- `src/main/java/cn/dancingsnow/neoecoae/gui/ldlib/widget/NELDLibSyncedStateWidget.java`
+- AE2 `CraftingStatusPacket` related mixins
+- BE `writeUiSyncTag` / `readUiSyncTag`
+- AE2 native packets and recipe serializers
 
 Evidence:
-- Single file contains packet setup, message ids, packet records/classes, encode/decode logic, and server handlers.
-- There are many unrelated workflows in one module: UI state, crafting settings, structure terminal, IWS actions, storage interactions.
+- Current source does not contain `src/main/java/.../network/NENetwork.java`.
+- Sync is now spread across LDLib state codecs, synced widgets, AE2 native packets, Crafting Status mixins, BE update tags, and recipe serializers.
 
 Risk:
-- Packet changes are hard to review.
+- Sync changes are hard to review when feature ownership is not explicit.
 - Dedicated server safety and client-only access are harder to reason about.
 
 Recommendation:
-- Split by feature: `ui`, `crafting`, `storage`, `structure`, `iws`.
-- Keep central registration in `NENetwork`, but move packet definitions and handlers into feature classes.
+- Document and keep feature-local sync boundaries: `storage`, `crafting`, `structure`, `iws`, AE2 status integration.
+- Keep field order and packet compatibility stable when touching LDLib codecs or AE2-native packet paths.
 
 ### P1: BlockEntity Classes Mix Multiple Ownership Boundaries
 
@@ -269,10 +273,10 @@ Recommendation:
 
 ### P1
 
-1. Split `NENetwork` by feature while keeping central packet registration.
-   - Expected benefit: easier packet review and side-safety auditing.
-   - Risk: medium because packet IDs/order must remain stable.
-   - Validation: `build`, client/server connect, each UI action packet.
+1. Clarify current sync boundaries by feature; current source does not contain the old `NENetwork` file, and `NELDLibStateCodecs` should be treated as one sync boundary rather than the sole sync boundary.
+   - Expected benefit: easier sync review and side-safety auditing.
+   - Risk: medium because LDLib codec field order, AE2 packet behavior, BE update tags, and recipe serializers must remain stable.
+   - Validation: `build`, client/server connect, each LDLib UI action, AE2 Crafting Status refresh.
 
 2. Extract stats cache classes from F/C/Storage system block entities.
    - Expected benefit: clearer dirty semantics and lower regression risk.

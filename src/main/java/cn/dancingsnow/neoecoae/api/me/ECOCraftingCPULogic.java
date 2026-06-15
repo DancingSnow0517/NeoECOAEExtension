@@ -30,7 +30,6 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.ExtendedAEPlusVirtualCraftingCompat;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -377,8 +376,8 @@ public class ECOCraftingCPULogic {
         var job = this.job;
         if (job == null) return 0;
 
-        int pushedPatterns = 0;
-        int slowPushedPatterns = 0;
+        CraftingExecutionProgress executionProgress =
+                new CraftingExecutionProgress(slowPatternBudget, totalPatternBudget, batchBudget);
         long executeStartNs = DEBUG_EXECUTION_STATS ? System.nanoTime() : 0L;
         beginStatusChangeBatch();
 
@@ -386,7 +385,7 @@ public class ECOCraftingCPULogic {
             boolean allowUnfinishedDependencies = false;
             boolean fallbackPassUsed = false;
             while (true) {
-                int pushedBeforePass = pushedPatterns;
+                int pushedBeforePass = executionProgress.pushedPatterns();
                 boolean sawUnfinishedDependencyBlock = false;
                 var it = job.tasks.entrySet().iterator();
                 taskLoop:
@@ -416,8 +415,8 @@ public class ECOCraftingCPULogic {
                         continue;
                     }
 
-                    while (progress.value > 0 && pushedPatterns < totalPatternBudget) {
-                        if (batchBudget.remaining() <= 0 && slowPushedPatterns >= slowPatternBudget) {
+                    while (progress.value > 0 && executionProgress.canPushMore()) {
+                        if (!executionProgress.canPushAnyPath()) {
                             break taskLoop;
                         }
                         if (!hasPotentialProvider(providers)) {
@@ -455,11 +454,10 @@ public class ECOCraftingCPULogic {
                                 energyService,
                                 patternPower,
                                 progress.value,
-                                totalPatternBudget - pushedPatterns,
-                                batchBudget.remaining());
+                                executionProgress.totalBudgetRemaining(),
+                                executionProgress.batchBudgetRemaining());
                         if (batchResult > 0) {
-                            batchBudget.consume(batchResult);
-                            pushedPatterns += batchResult;
+                            executionProgress.recordBatchPush(batchResult);
                             progress.value -= batchResult;
                             postPatternOutputsChange(details);
                             if (progress.value <= 0) {
@@ -472,7 +470,7 @@ public class ECOCraftingCPULogic {
                             if (allowUnfinishedDependencies) {
                                 break taskLoop;
                             }
-                            if (pushedPatterns == totalPatternBudget) {
+                            if (!executionProgress.canPushMore()) {
                                 break taskLoop;
                             }
                             continue;
@@ -480,7 +478,7 @@ public class ECOCraftingCPULogic {
                             continue taskLoop;
                         }
 
-                        if (slowPushedPatterns >= slowPatternBudget) {
+                        if (!executionProgress.canPushSlowPath()) {
                             CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
                             continue taskLoop;
                         }
@@ -509,12 +507,11 @@ public class ECOCraftingCPULogic {
 
                             if (pushed) {
                                 energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                                pushedPatterns++;
-                                slowPushedPatterns++;
+                                executionProgress.recordSlowPush();
                                 if (virtualCompletesJob) {
                                     recordAcceptedCrafts(1, false);
                                     finishJob(true);
-                                    return pushedPatterns;
+                                    return executionProgress.pushedPatterns();
                                 }
                                 recordPushedPattern(execution, 1);
                                 recordAcceptedCrafts(1, false);
@@ -531,7 +528,7 @@ public class ECOCraftingCPULogic {
                                 if (allowUnfinishedDependencies) {
                                     break taskLoop;
                                 }
-                                if (pushedPatterns == totalPatternBudget) {
+                                if (!executionProgress.canPushMore()) {
                                     break taskLoop;
                                 }
                                 break;
@@ -545,11 +542,11 @@ public class ECOCraftingCPULogic {
                     }
                 }
 
-                if (pushedPatterns > pushedBeforePass
+                if (executionProgress.pushedPatterns() > pushedBeforePass
                         || fallbackPassUsed
                         || !sawUnfinishedDependencyBlock
-                        || pushedPatterns >= totalPatternBudget
-                        || (batchBudget.remaining() <= 0 && slowPushedPatterns >= slowPatternBudget)) {
+                        || !executionProgress.canPushMore()
+                        || !executionProgress.canPushAnyPath()) {
                     break;
                 }
 
@@ -559,13 +556,13 @@ public class ECOCraftingCPULogic {
         } finally {
             endStatusChangeBatchSafely();
             if (DEBUG_EXECUTION_STATS) {
-                debugPushedPatterns += pushedPatterns;
+                debugPushedPatterns += executionProgress.pushedPatterns();
                 debugExecuteCraftingNs += System.nanoTime() - executeStartNs;
                 maybeLogExecutionStats();
             }
         }
 
-        return pushedPatterns;
+        return executionProgress.pushedPatterns();
     }
 
     private void maybeLogExecutionStats() {
@@ -665,7 +662,7 @@ public class ECOCraftingCPULogic {
             long taskRemaining,
             int totalBudgetRemaining,
             int batchBudgetRemaining) {
-        if (!canAttemptBatchFastPath(execution)
+        if (!ECOFastPathEligibility.canUse(execution)
                 || taskRemaining <= 1
                 || totalBudgetRemaining <= 1
                 || batchBudgetRemaining <= 1) {
@@ -775,13 +772,6 @@ public class ECOCraftingCPULogic {
         if (extraInputsExtracted) {
             ECOBatchCraftingHelper.insertAllOrThrow(inventory, extraInputs);
         }
-    }
-
-    private boolean canAttemptBatchFastPath(ECOExtractedPatternExecution execution) {
-        return execution.key() != null
-                && execution.fastPathEligible()
-                && NEConfig.isEcoAe2FastPathEnabled()
-                && !NEConfig.postCraftingEvent;
     }
 
     private void logBatchCapacity(
@@ -1149,6 +1139,55 @@ public class ECOCraftingCPULogic {
 
     private record ProviderSelection(List<ICraftingProvider> all, List<ECOCraftingPatternBusBlockEntity> batchBuses) {}
 
+    private static final class CraftingExecutionProgress {
+        private final int slowPatternBudget;
+        private final int totalPatternBudget;
+        private final FastPathBatchBudget batchBudget;
+        private int pushedPatterns;
+        private int slowPushedPatterns;
+
+        private CraftingExecutionProgress(
+                int slowPatternBudget, int totalPatternBudget, FastPathBatchBudget batchBudget) {
+            this.slowPatternBudget = slowPatternBudget;
+            this.totalPatternBudget = totalPatternBudget;
+            this.batchBudget = batchBudget;
+        }
+
+        private boolean canPushMore() {
+            return pushedPatterns < totalPatternBudget;
+        }
+
+        private boolean canPushSlowPath() {
+            return slowPushedPatterns < slowPatternBudget;
+        }
+
+        private boolean canPushAnyPath() {
+            return batchBudget.remaining() > 0 || canPushSlowPath();
+        }
+
+        private int totalBudgetRemaining() {
+            return totalPatternBudget - pushedPatterns;
+        }
+
+        private int batchBudgetRemaining() {
+            return batchBudget.remaining();
+        }
+
+        private int pushedPatterns() {
+            return pushedPatterns;
+        }
+
+        private void recordBatchPush(int craftCount) {
+            batchBudget.consume(craftCount);
+            pushedPatterns += craftCount;
+        }
+
+        private void recordSlowPush() {
+            pushedPatterns++;
+            slowPushedPatterns++;
+        }
+    }
+
     private void markStatusDirty() {
         statusRevision++;
         lastModifiedOnTick = TickHandler.instance().getCurrentTick();
@@ -1158,14 +1197,6 @@ public class ECOCraftingCPULogic {
         Set<AEKey> keys = new HashSet<>();
         for (var output : details.getOutputs()) {
             keys.add(output.what());
-        }
-        postKeysChange(keys);
-    }
-
-    private void postCounterKeysChange(KeyCounter counter) {
-        Set<AEKey> keys = new HashSet<>();
-        for (var entry : counter) {
-            keys.add(entry.getKey());
         }
         postKeysChange(keys);
     }
