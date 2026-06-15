@@ -7,12 +7,14 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
-import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -36,6 +38,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraftingUiState> {
+    // UI 尺寸与布局常量
     public static final int UI_WIDTH = 304;
     public static final int UI_HEIGHT = 268;
     private static final float TEXT_SCALE = 0.8F;
@@ -45,6 +48,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int HEADER_STATUS_ERROR_COLOR = 0xFFC03434;
     private static final int HEADER_STATUS_MUTED_COLOR = 0xFF606060;
 
+    // 模块贴图资源路径
     private static final ResourceLocation MODULE_CORE_SIDE =
             ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/block/crafting/core/core_side.png");
     private static final ResourceLocation MODULE_PARALLEL_CORE_FRONT =
@@ -56,6 +60,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final ResourceLocation MODULE_PARALLEL_CORE_LIGHT_L9 =
             ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/block/crafting/core/parallel_core_light_c.png");
 
+    // 主面板 / 工具栏布局常量
     private static final int PANEL_MARGIN = 6;
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
     private static final int MAIN_PANEL_Y = 20;
@@ -66,6 +71,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 3 - 3 * 2;
     private static final int TOOLBAR_Y = 4;
 
+    // 模块预览区域布局常量
     private static final int MODULE_AREA_X = MAIN_PANEL_X + 6;
     private static final int MODULE_AREA_Y = MAIN_PANEL_Y + 6;
     private static final int MODULE_AREA_W = MAIN_PANEL_W - 12;
@@ -74,6 +80,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int MODULE_GRID_Y = MODULE_AREA_Y + 14;
     private static final int MODULE_GRID_W = MODULE_AREA_W - 12;
     private static final int MODULE_GRID_H = MODULE_AREA_H - 18;
+
+    // 状态 / 统计 / 仪表盘区域布局常量
     private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 6;
     private static final int STATUS_AREA_X = MODULE_AREA_X;
     private static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
@@ -90,11 +98,15 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int GAUGE_BAR_Y = GAUGE_AREA_Y + 19;
     private static final int GAUGE_BAR_H = 32;
     private static final int GAUGE_BAR_W = 23;
+
+    // 玩家背包格子布局常量
     private static final int SLOT_SIZE = 18;
     private static final int PLAYER_INV_X = MODULE_AREA_X;
     private static final int PLAYER_INV_LABEL_Y = MAIN_PANEL_Y + MAIN_PANEL_H + 6;
     private static final int PLAYER_INV_Y = PLAYER_INV_LABEL_Y + 10;
     private static final int PLAYER_HOTBAR_Y = PLAYER_INV_Y + SLOT_SIZE * 3 + 2;
+
+    // 任务面板布局常量
     private static final int TASK_PANEL_GAP = 8;
     private static final int TASK_PANEL_X = PLAYER_INV_X + SLOT_SIZE * 9 + TASK_PANEL_GAP;
     private static final int TASK_PANEL_Y = PLAYER_INV_LABEL_Y - 2;
@@ -107,15 +119,19 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int TASK_CARD_STRIDE = 18;
     private static final int TASK_LIST_BOTTOM_Y = TASK_PANEL_Y + TASK_PANEL_H - 1;
     private static final int TASK_SCROLLBAR_W = 3;
+
+    // 任务卡片动画时间常量
     private static final long TASK_FADE_MS = 360L;
     private static final long TASK_MOVE_MS = 140L;
 
+    // 实例字段
     private final ECOCraftingSystemBlockEntity crafting;
     private final Inventory playerInventory;
     private final Map<String, TaskCardAnimation> taskAnimations = new LinkedHashMap<>();
     private int taskScrollOffset;
     private int lastTaskScrollOffset;
 
+    // 构造方法
     public NECraftingControllerWidget(ECOCraftingSystemBlockEntity crafting, Player player) {
         super(
                 crafting.getBlockState().getBlock().getName(),
@@ -130,11 +146,13 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         this.playerInventory = player.getInventory();
     }
 
+    // 不显示默认标题栏（自定义标题绘制）
     @Override
     protected boolean shouldAddTitleWidget() {
         return false;
     }
 
+    // 初始化 LDLib 子控件（工具栏按钮 + 背包格子）
     @Override
     protected void initLdWidgets() {
         addToolbarButton(0, click -> {
@@ -158,6 +176,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         addPlayerInventorySlots();
     }
 
+    // 绘制背景层（深色面板 + 进度条 + 仪表盘 + 工具栏按钮背景）
     @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         int ox = getPositionX();
@@ -189,6 +208,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawToolbarButtonBackgrounds(graphics, mouseX, mouseY);
     }
 
+    // 绘制前景层（标题 + 状态 / 统计 / 模块 / 仪表盘 / 任务面板）
     @Override
     protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         NECraftingUiState state = currentState();
@@ -208,6 +228,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawTaskPanel(graphics, state);
     }
 
+    // 绘制鼠标悬浮提示（工具栏 / 模块 / 仪表盘 / 任务卡片 / 统计）
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
         if (renderToolbarTooltip(graphics, mouseX, mouseY)) {
@@ -225,6 +246,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         renderStatsTooltip(graphics, mouseX, mouseY);
     }
 
+    // 添加工具栏按钮（超频 / 主动冷却 / 自动清理）
     private void addToolbarButton(
             int index, java.util.function.Consumer<com.lowdragmc.lowdraglib.gui.util.ClickData> action) {
         addWidget(new ButtonWidget(
@@ -236,6 +258,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 action));
     }
 
+    // 绘制工具栏按钮背景图
     private void drawToolbarButtonBackgrounds(GuiGraphics graphics, int mouseX, int mouseY) {
         for (int index = 0; index < 3; index++) {
             int x = absX(TOOLBAR_X + index * TOOLBAR_BUTTON_STRIDE);
@@ -245,27 +268,13 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         }
     }
 
+    // 添加玩家背包格子控件
     private void addPlayerInventorySlots() {
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                addWidget(new SlotWidget(
-                                playerInventory,
-                                col + row * 9 + 9,
-                                PLAYER_INV_X + col * SLOT_SIZE,
-                                PLAYER_INV_Y + row * SLOT_SIZE,
-                                true,
-                                true)
-                        .setBackgroundTexture(IGuiTexture.EMPTY)
-                        .setLocationInfo(true, false));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            addWidget(new SlotWidget(playerInventory, col, PLAYER_INV_X + col * SLOT_SIZE, PLAYER_HOTBAR_Y, true, true)
-                    .setBackgroundTexture(IGuiTexture.EMPTY)
-                    .setLocationInfo(true, true));
-        }
+        NEPlayerInventoryWidgets.addPlayerInventorySlots(
+                this, playerInventory, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
     }
 
+    // 鼠标滚轮滚动任务面板
     @Override
     public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
         int total = currentState().recipeEntries().size();
@@ -278,6 +287,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return super.mouseWheelMove(mouseX, mouseY, wheelDelta);
     }
 
+    // 绘制模块预览区标签和网格
     private void drawModuleLabels(GuiGraphics g, NECraftingUiState state) {
         drawLine(
                 g,
@@ -305,6 +315,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawModulePlane(g, state);
     }
 
+    // 绘制模块网格（三行：上并行核心 / 工作核心 / 下并行核心）
     private void drawModulePlane(GuiGraphics g, NECraftingUiState state) {
         ModuleGrid grid = moduleGrid(state);
         if (grid.columns() <= 0) {
@@ -344,6 +355,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         }
     }
 
+    // 绘制单个模块格子（背景 + 核心纹理 + 发光纹理）
     private void drawModuleCell(
             GuiGraphics g, int x, int y, int size, NECraftingModuleCell cell, NECraftingModuleCell.Row row) {
         boolean active = cell != null;
@@ -354,6 +366,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawTexturedModuleSlot(g, absX(x), absY(y), size, baseTexture, overlayTexture, active);
     }
 
+    // 绘制带纹理的模块槽位（面板背景 + 底图 + 发光层 + 灰色遮罩）
     private void drawTexturedModuleSlot(
             GuiGraphics g,
             int x,
@@ -384,6 +397,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         }
     }
 
+    // 渲染模块悬浮提示（工作核心 / 并行核心详情）
     private boolean renderModuleTooltip(GuiGraphics g, int mouseX, int mouseY) {
         NECraftingUiState state = currentState();
         ModuleGrid grid = moduleGrid(state);
@@ -411,6 +425,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return false;
     }
 
+    // 工作核心悬浮提示（当前产出物品 + 坐标）
     private void renderWorkerTooltip(GuiGraphics g, NECraftingUiState state, int column, int mouseX, int mouseY) {
         ItemStack output = column >= 0 && column < state.workerCraftOutputs().size()
                 ? state.workerCraftOutputs().get(column)
@@ -431,6 +446,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 mouseY);
     }
 
+    // 并行核心悬浮提示（等级 / 每核心并行数 / 坐标）
     private void renderParallelCoreTooltip(
             GuiGraphics g, NECraftingUiState state, int column, NECraftingModuleCell.Row row, int mouseX, int mouseY) {
         NECraftingModuleCell cell = moduleCellAt(state, column, row);
@@ -620,15 +636,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     }
 
     private void drawPlayerInventorySlots(GuiGraphics graphics) {
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                NELDLibAe2StyleRenderer.drawAeSlot(
-                        graphics, absX(PLAYER_INV_X + col * SLOT_SIZE), absY(PLAYER_INV_Y + row * SLOT_SIZE));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            NELDLibAe2StyleRenderer.drawAeSlot(graphics, absX(PLAYER_INV_X + col * SLOT_SIZE), absY(PLAYER_HOTBAR_Y));
-        }
+        NEPlayerInventoryWidgets.drawPlayerInventorySlots(
+                graphics, this::absX, this::absY, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
     }
 
     private void drawTaskPanel(GuiGraphics g, NECraftingUiState state) {
@@ -753,14 +762,18 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         if (total <= visible) {
             return;
         }
-        int trackX = absX(TASK_PANEL_X + TASK_PANEL_W - 5);
-        int trackY = absY(TASK_CARD_Y);
-        int trackH = Math.max(1, TASK_LIST_BOTTOM_Y - TASK_CARD_Y - 1);
-        int thumbH = Math.max(10, trackH * visible / Math.max(1, total));
-        int maxScroll = Math.max(1, total - visible);
-        int thumbY = trackY + (trackH - thumbH) * taskScrollOffset / maxScroll;
-        g.fill(trackX, trackY, trackX + TASK_SCROLLBAR_W, trackY + trackH, 0xAA17141E);
-        g.fill(trackX, thumbY, trackX + TASK_SCROLLBAR_W, thumbY + thumbH, 0xFF8B83A0);
+        NELDLibScrollBar.drawVertical(
+                g,
+                absX(TASK_PANEL_X + TASK_PANEL_W - 5),
+                absY(TASK_CARD_Y),
+                TASK_SCROLLBAR_W,
+                Math.max(1, TASK_LIST_BOTTOM_Y - TASK_CARD_Y - 1),
+                total,
+                visible,
+                taskScrollOffset,
+                0xAA17141E,
+                0xFF8B83A0,
+                10);
     }
 
     private void drawTaskCardRect(GuiGraphics g, int x, int y, int w, int h, float alpha, int accentColor) {
@@ -1046,12 +1059,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     }
 
     private String fitText(String text, int maxWidth) {
-        int unscaledMaxWidth = Math.max(1, (int) Math.floor(maxWidth / TEXT_SCALE));
-        if (font().width(text) <= unscaledMaxWidth) {
-            return text;
-        }
-        String suffix = "...";
-        return font().plainSubstrByWidth(text, Math.max(1, unscaledMaxWidth - font().width(suffix))) + suffix;
+        return NELDLibTextRender.fitScaledWithEllipsis(font(), text, maxWidth, TEXT_SCALE);
     }
 
     private static String formatTaskAmount(long value) {

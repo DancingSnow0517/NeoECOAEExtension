@@ -9,7 +9,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlock
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPagedItemTransfer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
@@ -89,22 +91,7 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
             }
         }
 
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                addWidget(aeSlot(
-                                playerInventory,
-                                col + row * 9 + 9,
-                                INV_BG_X + col * SLOT_SIZE,
-                                INV_BG_Y + row * SLOT_SIZE,
-                                true,
-                                true)
-                        .setLocationInfo(true, false));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            addWidget(aeSlot(playerInventory, col, HOTBAR_BG_X + col * SLOT_SIZE, HOTBAR_BG_Y, true, true)
-                    .setLocationInfo(true, true));
-        }
+        NEPlayerInventoryWidgets.addPlayerInventorySlots(this, playerInventory, INV_BG_X, INV_BG_Y, HOTBAR_BG_Y);
 
         previousPageButton = (ButtonWidget) new ButtonWidget(
                 PAGE_PREV_BUTTON_X, PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H, IGuiTexture.EMPTY, click -> {
@@ -202,15 +189,8 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
                         graphics, absX(PATTERN_BG_X + col * SLOT_SIZE), absY(PATTERN_BG_Y + row * SLOT_SIZE));
             }
         }
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                NELDLibAe2StyleRenderer.drawAeSlot(
-                        graphics, absX(INV_BG_X + col * SLOT_SIZE), absY(INV_BG_Y + row * SLOT_SIZE));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            NELDLibAe2StyleRenderer.drawAeSlot(graphics, absX(HOTBAR_BG_X + col * SLOT_SIZE), absY(HOTBAR_BG_Y));
-        }
+        NEPlayerInventoryWidgets.drawPlayerInventorySlots(
+                graphics, this::absX, this::absY, INV_BG_X, INV_BG_Y, HOTBAR_BG_Y);
         drawGhostPatterns(graphics);
         drawPageButtonBackgrounds(graphics, mouseX, mouseY);
     }
@@ -342,19 +322,7 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
     }
 
     private Component truncateTitle(Component text, int maxWidth) {
-        String raw = text.getString();
-        if (maxWidth <= 0) {
-            return Component.empty();
-        }
-        if (font().width(raw) <= maxWidth) {
-            return text;
-        }
-        String ellipsis = "...";
-        int ellipsisWidth = font().width(ellipsis);
-        if (maxWidth <= ellipsisWidth) {
-            return Component.literal(font().plainSubstrByWidth(raw, maxWidth));
-        }
-        return Component.literal(font().plainSubstrByWidth(raw, maxWidth - ellipsisWidth) + ellipsis);
+        return NELDLibTextRender.truncateWithEllipsis(font(), text, maxWidth);
     }
 
     private ItemStack getPatternDisplay(ItemStack patternStack) {

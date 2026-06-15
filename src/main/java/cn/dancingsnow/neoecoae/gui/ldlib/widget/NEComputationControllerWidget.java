@@ -7,13 +7,15 @@ import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
-import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -220,36 +222,13 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private void addPlayerInventorySlots() {
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                addWidget(new SlotWidget(
-                                playerInventory,
-                                col + row * 9 + 9,
-                                PLAYER_INV_X + col * SLOT_SIZE,
-                                PLAYER_INV_Y + row * SLOT_SIZE,
-                                true,
-                                true)
-                        .setBackgroundTexture(IGuiTexture.EMPTY)
-                        .setLocationInfo(true, false));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            addWidget(new SlotWidget(playerInventory, col, PLAYER_INV_X + col * SLOT_SIZE, PLAYER_HOTBAR_Y, true, true)
-                    .setBackgroundTexture(IGuiTexture.EMPTY)
-                    .setLocationInfo(true, true));
-        }
+        NEPlayerInventoryWidgets.addPlayerInventorySlots(
+                this, playerInventory, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
     }
 
     private void drawPlayerInventorySlots(GuiGraphics graphics) {
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                NELDLibAe2StyleRenderer.drawAeSlot(
-                        graphics, absX(PLAYER_INV_X + col * SLOT_SIZE), absY(PLAYER_INV_Y + row * SLOT_SIZE));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            NELDLibAe2StyleRenderer.drawAeSlot(graphics, absX(PLAYER_INV_X + col * SLOT_SIZE), absY(PLAYER_HOTBAR_Y));
-        }
+        NEPlayerInventoryWidgets.drawPlayerInventorySlots(
+                graphics, this::absX, this::absY, PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
     }
 
     private void drawMainPanelText(GuiGraphics g, NEComputationUiState state) {
@@ -456,14 +435,18 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         if (total <= visible) {
             return;
         }
-        int trackX = absX(TASK_PANEL_X + TASK_PANEL_W - 5);
-        int trackY = absY(TASK_CARD_Y);
-        int trackH = Math.max(1, TASK_LIST_BOTTOM_Y - TASK_CARD_Y);
-        int thumbH = Math.max(10, trackH * visible / Math.max(1, total));
-        int maxScroll = Math.max(1, total - visible);
-        int thumbY = trackY + (trackH - thumbH) * taskScrollOffset / maxScroll;
-        g.fill(trackX, trackY, trackX + TASK_SCROLLBAR_W, trackY + trackH, 0xAA17141E);
-        g.fill(trackX, thumbY, trackX + TASK_SCROLLBAR_W, thumbY + thumbH, 0xFF8B83A0);
+        NELDLibScrollBar.drawVertical(
+                g,
+                absX(TASK_PANEL_X + TASK_PANEL_W - 5),
+                absY(TASK_CARD_Y),
+                TASK_SCROLLBAR_W,
+                Math.max(1, TASK_LIST_BOTTOM_Y - TASK_CARD_Y),
+                total,
+                visible,
+                taskScrollOffset,
+                0xAA17141E,
+                0xFF8B83A0,
+                10);
     }
 
     private boolean renderTaskTooltip(GuiGraphics g, int mouseX, int mouseY) {
@@ -582,11 +565,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private String fitText(String text, int maxWidth) {
-        if (font().width(text) <= maxWidth) {
-            return text;
-        }
-        String suffix = "...";
-        return font().plainSubstrByWidth(text, Math.max(1, maxWidth - font().width(suffix))) + suffix;
+        return NELDLibTextRender.fitWithEllipsis(font(), text, maxWidth);
     }
 
     private static String formatTaskAmount(long value) {

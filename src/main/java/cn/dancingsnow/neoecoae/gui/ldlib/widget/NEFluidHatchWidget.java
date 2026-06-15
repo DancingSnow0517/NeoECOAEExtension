@@ -3,10 +3,10 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeFluidStorage;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
-import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
@@ -98,42 +98,18 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
     }
 
     private void addPlayerInventorySlots() {
-        int inventoryX = inventoryX();
-        int inventoryY = inventoryY();
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                addWidget(new SlotWidget(
-                                playerInventory,
-                                col + row * 9 + 9,
-                                inventoryX + col * SLOT_SIZE,
-                                inventoryY + row * SLOT_SIZE,
-                                true,
-                                true)
-                        .setBackgroundTexture(IGuiTexture.EMPTY)
-                        .setLocationInfo(true, false));
-            }
-        }
-        int hotbarY = inventoryY + SLOT_SIZE * 3 + HOTBAR_GAP;
-        for (int col = 0; col < 9; col++) {
-            addWidget(new SlotWidget(playerInventory, col, inventoryX + col * SLOT_SIZE, hotbarY, true, true)
-                    .setBackgroundTexture(IGuiTexture.EMPTY)
-                    .setLocationInfo(true, true));
-        }
+        NEPlayerInventoryWidgets.addPlayerInventorySlots(
+                this, playerInventory, inventoryX(), inventoryY(), inventoryY() + SLOT_SIZE * 3 + HOTBAR_GAP);
     }
 
     private void drawPlayerInventoryBackground(GuiGraphics graphics) {
-        int inventoryX = inventoryX();
-        int inventoryY = inventoryY();
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                NELDLibAe2StyleRenderer.drawAeSlot(
-                        graphics, absX(inventoryX + col * SLOT_SIZE), absY(inventoryY + row * SLOT_SIZE));
-            }
-        }
-        int hotbarY = inventoryY + SLOT_SIZE * 3 + HOTBAR_GAP;
-        for (int col = 0; col < 9; col++) {
-            NELDLibAe2StyleRenderer.drawAeSlot(graphics, absX(inventoryX + col * SLOT_SIZE), absY(hotbarY));
-        }
+        NEPlayerInventoryWidgets.drawPlayerInventorySlots(
+                graphics,
+                this::absX,
+                this::absY,
+                inventoryX(),
+                inventoryY(),
+                inventoryY() + SLOT_SIZE * 3 + HOTBAR_GAP);
     }
 
     private int tankX() {

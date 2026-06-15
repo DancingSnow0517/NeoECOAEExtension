@@ -39,7 +39,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.pattern_bus.next_page", "Next page");
         provider.add("gui.neoecoae.pattern_bus.page", "Page %s / %s");
 
-        // short controller titles (LDLib2-style three-zone layout)
+        // short controller titles for the compact three-zone layout
         provider.add("gui.neoecoae.ui.storage_system.short", "ECO - %s Storage System");
         provider.add("gui.neoecoae.ui.computation_system.short", "ECO - %s Computation System");
         // legacy keys kept for backward compatibility

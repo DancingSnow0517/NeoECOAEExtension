@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEIntegratedWorkingStationUiSta
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
@@ -94,26 +95,8 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                     SlotAccess.INPUT_OUTPUT));
         }
 
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                addWidget(aeSlot(
-                                playerInventory,
-                                col + row * 9 + 9,
-                                mainX(PLAYER_INV_SLOT_X + col * SLOT_SIZE),
-                                PLAYER_INV_SLOT_Y + row * SLOT_SIZE,
-                                SlotAccess.INPUT_OUTPUT)
-                        .setLocationInfo(true, false));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            addWidget(aeSlot(
-                            playerInventory,
-                            col,
-                            mainX(HOTBAR_SLOT_X + col * SLOT_SIZE),
-                            HOTBAR_SLOT_Y,
-                            SlotAccess.INPUT_OUTPUT)
-                    .setLocationInfo(true, true));
-        }
+        NEPlayerInventoryWidgets.addPlayerInventorySlots(
+                this, playerInventory, mainX(PLAYER_INV_SLOT_X), PLAYER_INV_SLOT_Y, HOTBAR_SLOT_Y);
 
         autoExportButton = new NEAe2IconButtonWidget(
                 AUTO_EXPORT_BUTTON_X,
@@ -228,17 +211,8 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
         }
         NELDLibAe2StyleRenderer.drawAeInscriberOutputFrame(
                 graphics, absX(mainX(OUTPUT_FRAME_X)), absY(OUTPUT_FRAME_Y), OUTPUT_FRAME_W, OUTPUT_FRAME_H);
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                NELDLibAe2StyleRenderer.drawAeSlot(
-                        graphics,
-                        absX(mainX(PLAYER_INV_BG_X + col * SLOT_SIZE)),
-                        absY(PLAYER_INV_BG_Y + row * SLOT_SIZE));
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            NELDLibAe2StyleRenderer.drawAeSlot(graphics, absX(mainX(HOTBAR_BG_X + col * SLOT_SIZE)), absY(HOTBAR_BG_Y));
-        }
+        NEPlayerInventoryWidgets.drawPlayerInventorySlots(
+                graphics, localX -> absX(mainX(localX)), this::absY, PLAYER_INV_BG_X, PLAYER_INV_BG_Y, HOTBAR_BG_Y);
         drawFluidTanks(graphics, mouseX, mouseY);
         NELDLibAe2StyleRenderer.drawAeProgressBar(
                 graphics,
