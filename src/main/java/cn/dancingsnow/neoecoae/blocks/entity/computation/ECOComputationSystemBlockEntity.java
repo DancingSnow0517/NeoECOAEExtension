@@ -1,25 +1,25 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
-import appeng.core.localization.Tooltips;
+import appeng.api.config.CpuSelectionMode;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
+import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostMetric;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
+import cn.dancingsnow.neoecoae.gui.host.NEComputationHostUI;
+import cn.dancingsnow.neoecoae.gui.host.NECraftingTaskEntry;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
-import cn.dancingsnow.neoecoae.util.ComponentUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -38,6 +38,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -125,68 +126,38 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement buildWindow = buildPanel(holder);
-
-        UIElement details = ECOHostWidgets.detailArea(false);
-        ECOHostWidgets.addDetailChild(details, ECOHostWidgets.sectionTitle("gui.neoecoae.host.computation.capacity"));
-        ECOHostWidgets.addDetailChild(details, ECOHostWidgets.tileRow(List.of(
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.active_vcpu", () -> Component.literal(String.valueOf(getUsedThread()))),
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.max_vcpu", () -> Component.literal(String.valueOf(getTotalThread()))),
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.parallel_count", () -> Component.literal(String.valueOf(getParallelCount()))),
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.free_memory", () -> {
-                Tooltips.Amount byteAmount = Tooltips.getByteAmount(Math.max(getAvailableBytes(), 0));
-                return Component.literal(byteAmount.digit()+byteAmount.unit());
-            }
-        ))));
-
-        UIElement root = ECOHostWidgets.hostPanel(
-            () -> getItemFromBlockEntity().getDescription(),
-            () -> Component.translatable("gui.neoecoae.host.computation.subtitle"),
-            () -> Component.translatable(buildInProgress ? "gui.neoecoae.host.status.running" : "gui.neoecoae.host.status.online"),
-            List.of(
-                ECOHostMetric.ratio(
-                    () -> Component.translatable("gui.neoecoae.host.computation.cpu_storage"),
-                    () -> ComponentUtil.coloredBytesPair(getUsedComputationBytes(), getTotalBytes(), false),
-                    () -> ECOHostStyles.ratio(getUsedComputationBytes(), getTotalBytes())
-                ),
-                ECOHostMetric.ratio(
-                    () -> Component.translatable("gui.neoecoae.host.computation.thread_usage"),
-                    () -> ComponentUtil.coloredNumberPair(getUsedThread(), getTotalThread(), false),
-                    () -> ECOHostStyles.ratio(getUsedThread(), getTotalThread())
-                ),
-                ECOHostMetric.scalar(
-                    () -> Component.translatable("gui.neoecoae.host.computation.parallel_count"),
-                    () -> Component.literal(String.valueOf(getParallelCount()))
-                )
-            ),
-            details,
-            () -> Component.translatable("gui.neoecoae.host.computation.footer"),
-            buildWindow
-        );
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        return NEComputationHostUI.create(this, holder, buildPanel(holder));
     }
 
-    private long getUsedComputationBytes() {
+    public Component getHostTitle() {
+        return getItemFromBlockEntity().getDescription();
+    }
+
+    public long getUsedComputationBytes() {
         return Math.max(getTotalBytes() - getAvailableBytes(), 0);
     }
 
-    private int getUsedThread() {
+    public int getUsedThread() {
         return cluster == null ? 0 : cluster.getActiveCPUs().size();
     }
 
-    private int getTotalThread() {
+    public int getTotalThread() {
         return cluster == null ? 0 : cluster.getMaxThreads();
     }
 
-    private int getParallelCount() {
+    public int getParallelCount() {
         return cluster == null ? 0 : cluster.getParallelCores().stream().mapToInt(e -> e.getTier().getCPUAccelerators()).sum();
     }
 
-    private long getAvailableBytes() {
+    public int getAcceleratorCount() {
+        return cluster == null ? 0 : cluster.getCPUAccelerators();
+    }
+
+    public long getAvailableBytes() {
         return cluster == null ? 0 : cluster.getAvailableStorage();
     }
 
-    private long getTotalBytes() {
+    public long getTotalBytes() {
         if (cluster == null) {
             return 0;
         }
@@ -198,6 +169,77 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             total += getDriveBytes(drive);
         }
         return total;
+    }
+
+    public CpuSelectionMode getCpuSelectionMode() {
+        return cluster == null ? CpuSelectionMode.ANY : cluster.getSelectionMode();
+    }
+
+    public boolean isHostActive() {
+        return cluster != null && cluster.isActive();
+    }
+
+    public void cycleCpuSelectionMode() {
+        if (cluster == null) {
+            return;
+        }
+        cluster.cycleSelectionMode();
+        setChanged();
+        markForUpdate();
+    }
+
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
+
+    public List<NECraftingTaskEntry> createComputationTasks() {
+        if (cluster == null) {
+            return List.of();
+        }
+        List<ECOCraftingCPU> cpus = cluster.getActiveCPUs();
+        if (cpus.isEmpty()) {
+            return List.of();
+        }
+        List<NECraftingTaskEntry> entries = new ArrayList<>(cpus.size());
+        int index = 0;
+        for (ECOCraftingCPU cpu : cpus) {
+            NECraftingTaskEntry entry = createComputationTask(cpu, index++);
+            if (entry != null) {
+                entries.add(entry);
+            }
+        }
+        return List.copyOf(entries);
+    }
+
+    private NECraftingTaskEntry createComputationTask(ECOCraftingCPU cpu, int index) {
+        ECOCraftingCPULogic logic = cpu.getLogic();
+        if (!logic.hasJob()) {
+            return null;
+        }
+        GenericStack finalOutput = logic.getFinalJobOutput();
+        if (finalOutput == null || finalOutput.amount() <= 0 || !(finalOutput.what() instanceof AEItemKey itemKey)) {
+            return null;
+        }
+        ItemStack output = itemKey.toStack(1);
+        if (output.isEmpty()) {
+            return null;
+        }
+        ElapsedTimeTracker tracker = logic.getElapsedTimeTracker();
+        long total = 10_000L;
+        long remaining = Math.max(0L, Math.min(total, Math.round((1.0F - tracker.getProgress()) * total)));
+        NECraftingTaskEntry.Status status = logic.isCantStoreItems()
+            ? NECraftingTaskEntry.Status.WAITING_OUTPUT
+            : NECraftingTaskEntry.Status.RUNNING;
+        String owner = cpu.getOwner() == null ? "proxy" : Long.toString(cpu.getOwner().getBlockPos().asLong());
+        return new NECraftingTaskEntry(
+            "cpu:" + owner + ":" + index + ":" + finalOutput.what().hashCode(),
+            output,
+            finalOutput.amount(),
+            1L,
+            total,
+            remaining,
+            status
+        );
     }
 
     private static long getDriveBytes(ECOComputationDriveBlockEntity drive) {

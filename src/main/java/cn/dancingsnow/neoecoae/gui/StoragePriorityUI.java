@@ -1,18 +1,16 @@
 package cn.dancingsnow.neoecoae.gui;
 
-import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.gui.host.NEAeIconButtonCanvas;
+import cn.dancingsnow.neoecoae.gui.host.NEAeSprite;
+import cn.dancingsnow.neoecoae.gui.host.NEPriorityPanelCanvas;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
-import dev.vfyjxf.taffy.style.AlignContent;
-import dev.vfyjxf.taffy.style.AlignItems;
-import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyDisplay;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
@@ -22,9 +20,6 @@ import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
 public final class StoragePriorityUI {
-    private static final int[] POSITIVE_STEPS = {1, 10, 100, 1000};
-    private static final int[] NEGATIVE_STEPS = {-1, -10, -100, -1000};
-
     private StoragePriorityUI() {
     }
 
@@ -41,33 +36,27 @@ public final class StoragePriorityUI {
             layout.left(6);
             layout.top(6);
             layout.display(TaffyDisplay.NONE);
-            layout.paddingAll(4);
-            layout.gapAll(4);
-            layout.width(214);
-        }).addClass("panel_bg");
-
-        UIElement titleBar = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.SPACE_BETWEEN);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(4);
+            layout.width(NEPriorityPanelCanvas.WIDTH);
+            layout.height(NEPriorityPanelCanvas.HEIGHT);
         });
-        titleBar.addChild(new TextElement()
-            .setText(Component.translatable("gui.neoecoae.storage_priority.title"))
-            .textStyle(StoragePriorityUI::titleTextStyle));
-        titleBar.addChild(new Button()
-            .setText("X")
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)))
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.close"))
-            .layout(layout -> layout.width(16).height(16)));
-        WindowDragHelper.setDragMove(titleBar, window, null, null);
-        window.addChild(titleBar);
+        window.setOverflowVisible(true);
 
-        window.addChild(buttonRow(config, POSITIVE_STEPS));
+        UIElement dragArea = new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(0);
+            layout.top(0);
+            layout.width(NEPriorityPanelCanvas.WIDTH);
+            layout.height(24);
+        });
+        WindowDragHelper.setDragMove(dragArea, window, null, null);
+
+        window.addChild(new NEPriorityPanelCanvas(config.priority()));
+        window.addChild(dragArea);
+        window.addChild(closeButton(window));
+        for (int i = 0; i < NEPriorityPanelCanvas.STEP_VALUES.length; i++) {
+            window.addChild(priorityButton(i, config.changePriority()));
+        }
         window.addChild(priorityField(config));
-        window.addChild(buttonRow(config, NEGATIVE_STEPS));
-        window.addChild(helpText("gui.neoecoae.storage_priority.insert_hint"));
-        window.addChild(helpText("gui.neoecoae.storage_priority.extract_hint"));
         return window;
     }
 
@@ -76,40 +65,53 @@ public final class StoragePriorityUI {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(-22);
             layout.top(26);
-            layout.paddingAll(2);
-            layout.paddingBottom(4);
-        }).style(style -> style.background(NETextures.BACKGROUND));
+            layout.width(18);
+            layout.height(20);
+        });
+        priorityButtonPanel.addChild(new NEAeIconButtonCanvas(NEAeSprite.PRIORITY));
         priorityButtonPanel.addChild(new Button()
             .noText()
-            .addPostIcon(AETextures.icon(Icon.PRIORITY))
-            .setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.FLEX)))
+            .setOnClick(event -> window.setDisplay(true))
+            .buttonStyle(StoragePriorityUI::transparentButton)
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.open"))
             .layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(0);
+                layout.top(0);
                 layout.width(18);
                 layout.height(20);
             }));
         return priorityButtonPanel;
     }
 
-    private static UIElement buttonRow(Config config, int[] steps) {
-        UIElement row = new UIElement().layout(layout -> {
-            layout.flexDirection(FlexDirection.ROW);
-            layout.alignItems(AlignItems.CENTER);
-            layout.justifyContent(AlignContent.CENTER);
-            layout.gapAll(6);
+    private static Button closeButton(UIElement window) {
+        Button button = new Button();
+        button.noText();
+        button.setOnClick(event -> window.layout(layout -> layout.display(TaffyDisplay.NONE)));
+        button.buttonStyle(StoragePriorityUI::transparentButton);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = tooltip("gui.neoecoae.storage_priority.close"));
+        button.layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(NEPriorityPanelCanvas.BACK_X);
+            layout.top(NEPriorityPanelCanvas.BACK_Y);
+            layout.width(NEPriorityPanelCanvas.BACK_W);
+            layout.height(NEPriorityPanelCanvas.BACK_H);
         });
-        for (int step : steps) {
-            row.addChild(priorityButton(step, config.changePriority()));
-        }
-        return row;
+        return button;
     }
 
-    private static Button priorityButton(int step, IntConsumer changePriority) {
+    private static Button priorityButton(int index, IntConsumer changePriority) {
         Button button = new Button();
-        button.setText(step > 0 ? "+" + step : String.valueOf(step));
-        button.textStyle(StoragePriorityUI::buttonTextStyle);
-        button.setOnServerClick(event -> changePriority.accept(step));
-        button.layout(layout -> layout.width(step == 1000 || step == -1000 ? 50 : 36).height(18));
+        button.noText();
+        button.buttonStyle(StoragePriorityUI::transparentButton);
+        button.setOnServerClick(event -> changePriority.accept(NEPriorityPanelCanvas.STEP_VALUES[index]));
+        button.layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(NEPriorityPanelCanvas.STEP_X[index]);
+            layout.top(NEPriorityPanelCanvas.STEP_Y[index]);
+            layout.width(NEPriorityPanelCanvas.STEP_W[index]);
+            layout.height(NEPriorityPanelCanvas.STEP_H);
+        });
         return button;
     }
 
@@ -123,13 +125,18 @@ public final class StoragePriorityUI {
         ).build());
         field.textFieldStyle(style -> style
             .textColor(0xffffff)
+            .cursorColor(0xffffff)
             .textShadow(false)
-            .placeholder(Component.literal("0")));
-        field.style(style -> style.backgroundTexture(NETextures.CARD_BACKGROUND));
+            .placeholder(Component.literal("0"))
+            .focusOverlay(IGuiTexture.EMPTY));
+        field.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         field.layout(layout -> {
-            layout.width(96);
-            layout.height(16);
-            layout.alignSelf(AlignItems.CENTER);
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(NEPriorityPanelCanvas.INPUT_X);
+            layout.top(NEPriorityPanelCanvas.INPUT_Y);
+            layout.width(NEPriorityPanelCanvas.INPUT_W);
+            layout.height(NEPriorityPanelCanvas.INPUT_H);
+            layout.paddingAll(0);
         });
         return field;
     }
@@ -144,25 +151,13 @@ public final class StoragePriorityUI {
         }
     }
 
-    private static TextElement helpText(String key) {
-        return new TextElement()
-            .setText(Component.translatable(key))
-            .textStyle(StoragePriorityUI::helpTextStyle);
-    }
-
     private static HoverTooltips tooltip(String key) {
         return new HoverTooltips(List.of(Component.translatable(key)), null, null, null);
     }
 
-    private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
-    }
-
-    private static void buttonTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0xffffff).textShadow(false);
-    }
-
-    private static void helpTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+    private static void transparentButton(Button.ButtonStyle style) {
+        style.baseTexture(IGuiTexture.EMPTY)
+            .hoverTexture(IGuiTexture.EMPTY)
+            .pressedTexture(IGuiTexture.EMPTY);
     }
 }

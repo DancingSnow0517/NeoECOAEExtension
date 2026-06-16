@@ -134,6 +134,15 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         };
     }
 
+    public void cycleSelectionMode() {
+        selectionMode = switch (selectionMode) {
+            case ANY -> CpuSelectionMode.PLAYER_ONLY;
+            case PLAYER_ONLY -> CpuSelectionMode.MACHINE_ONLY;
+            case MACHINE_ONLY -> CpuSelectionMode.ANY;
+        };
+        updateGridForChangedCpu(this);
+    }
+
     public @Nullable IGridNode getNode() {
         return controller != null ? controller.getActionableNode() : null;
     }

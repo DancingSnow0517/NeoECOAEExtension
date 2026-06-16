@@ -8,24 +8,18 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.StoragePriority;
 import cn.dancingsnow.neoecoae.gui.StoragePriorityUI;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostMetric;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
+import cn.dancingsnow.neoecoae.gui.host.NEStorageHostUI;
+import cn.dancingsnow.neoecoae.gui.host.NEStorageMatrixCell;
+import cn.dancingsnow.neoecoae.gui.host.NEStorageTypeStat;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
-import cn.dancingsnow.neoecoae.util.ComponentUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
@@ -38,12 +32,17 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity> implements ISyncPersistRPCBlockEntity {
@@ -162,66 +161,35 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
-        UIElement buildWindow = buildPanel(holder);
-        UIElement priorityWindow = priorityPanel(holder);
-
-        ScrollerView channelList = ECOHostWidgets.scrollList(ECOHostStyles.STORAGE_DETAIL_HEIGHT - 13);
-        NERegistries.CELL_TYPE.stream()
-            .forEachOrdered(cellType -> {
-                int id = NERegistries.CELL_TYPE.getId(cellType);
-                channelList.addScrollViewChild(createStorageChannelCard(cellType, id));
-            });
-        UIElement details = ECOHostWidgets.storageDetailArea(channelList);
-
-        UIElement root = ECOHostWidgets.hostPanel(
-            () -> getItemFromBlockEntity().getDescription(),
-            () -> Component.translatable("gui.neoecoae.host.storage.subtitle"),
-            () -> Component.translatable(buildInProgress ? "gui.neoecoae.host.status.running" : "gui.neoecoae.host.status.online"),
-            List.of(
-                ECOHostMetric.ratio(
-                    () -> Component.translatable("gui.neoecoae.host.storage.type_usage"),
-                    () -> ComponentUtil.coloredNumberPair(getTotalUsedTypes(), getTotalTypes(), false),
-                    () -> ECOHostStyles.ratio(getTotalUsedTypes(), getTotalTypes())
-                ),
-                ECOHostMetric.ratio(
-                    () -> Component.translatable("gui.neoecoae.host.storage.storage_usage"),
-                    () -> ComponentUtil.coloredBytesPair(getTotalUsedBytes(), getTotalBytes(), false),
-                    () -> ECOHostStyles.ratio(getTotalUsedBytes(), getTotalBytes())
-                ),
-                ECOHostMetric.ratio(
-                    () -> Component.translatable("gui.neoecoae.host.storage.energy_buffer"),
-                    () -> ComponentUtil.coloredNumberPair(getStoredEnergy(), getMaxEnergy(), true),
-                    () -> ECOHostStyles.ratio(getStoredEnergy(), getMaxEnergy())
-                )
-            ),
-            details,
-            () -> Component.translatable("gui.neoecoae.host.storage.footer"),
-            buildWindow,
-            ECOHostStyles.STORAGE_PANEL_HEIGHT
-        );
-        root.addChild(StoragePriorityUI.createOpenButton(priorityWindow));
-        root.addChild(priorityWindow);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        return NEStorageHostUI.create(this, holder, buildPanel(holder), priorityPanel(holder));
     }
 
-    private long getTotalUsedTypes() {
+    public Component getHostTitle() {
+        return getItemFromBlockEntity().getDescription();
+    }
+
+    public boolean isBuildInProgress() {
+        return buildInProgress;
+    }
+
+    public long getTotalUsedTypes() {
         return getTotalStorageValue(StorageValue.USED_TYPES);
     }
 
-    private long getTotalTypes() {
+    public long getTotalTypes() {
         return getTotalStorageValue(StorageValue.TOTAL_TYPES);
     }
 
-    private long getTotalUsedBytes() {
+    public long getTotalUsedBytes() {
         return getTotalStorageValue(StorageValue.USED_BYTES);
     }
 
-    private long getTotalBytes() {
+    public long getTotalBytes() {
         return getTotalStorageValue(StorageValue.TOTAL_BYTES);
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private long getStoredEnergy() {
+    public long getStoredEnergy() {
         if (cluster == null) {
             return 0;
         }
@@ -233,7 +201,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private long getMaxEnergy() {
+    public long getMaxEnergy() {
         if (cluster == null) {
             return 0;
         }
@@ -256,6 +224,57 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         return total;
+    }
+
+    public List<NEStorageTypeStat> createStorageTypeStats() {
+        if (cluster == null) {
+            return List.of();
+        }
+        Map<Integer, NEStorageTypeStat> grouped = new LinkedHashMap<>();
+        for (ECOCellType cellType : NERegistries.CELL_TYPE) {
+            int id = NERegistries.CELL_TYPE.getId(cellType);
+            grouped.put(id, new NEStorageTypeStat(
+                NERegistries.CELL_TYPE.getKey(cellType),
+                cellType.desc(),
+                () -> getStorageValue(id, StorageValue.USED_TYPES),
+                () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
+                () -> getStorageValue(id, StorageValue.USED_BYTES),
+                () -> getStorageValue(id, StorageValue.TOTAL_BYTES)
+            ));
+        }
+        return grouped.values().stream()
+            .sorted(Comparator.comparing(stat -> stat.typeId().toString()))
+            .toList();
+    }
+
+    public List<NEStorageMatrixCell> createStorageMatrixCells() {
+        if (cluster == null) {
+            return List.of();
+        }
+        List<NEStorageMatrixCell> cells = new ArrayList<>(cluster.getDrives().size());
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            BlockPos offset = drive.getBlockPos().subtract(worldPosition);
+            int row = offset.getY();
+            int column = offset.getX() + offset.getZ();
+            ItemStack cellStack = drive.getCellStack();
+            IECOStorageCell inv = drive.getCellInventory();
+            if (inv == null || cellStack.isEmpty()) {
+                cells.add(new NEStorageMatrixCell(row, column, ItemStack.EMPTY, 0, 0L, 0L, 0L, 0L));
+                continue;
+            }
+            cells.add(new NEStorageMatrixCell(
+                row,
+                column,
+                new ItemStack(cellStack.getItem()),
+                Math.max(0, Math.min(3, inv.getTier().getTier())),
+                inv.getStoredItemTypes(),
+                inv.getTotalItemTypes(),
+                inv.getUsedBytes(),
+                inv.getTotalBytes()
+            ));
+        }
+        cells.sort(Comparator.comparingInt(NEStorageMatrixCell::row).thenComparingInt(NEStorageMatrixCell::column));
+        return List.copyOf(cells);
     }
 
     private long getStorageValue(int cellTypeId, StorageValue value) {
@@ -287,24 +306,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         TOTAL_TYPES,
         USED_BYTES,
         TOTAL_BYTES
-    }
-
-    private UIElement createStorageChannelCard(ECOCellType cellType, int id) {
-        UIElement card = ECOHostWidgets.card();
-        card.addChild(new Label()
-            .setText(cellType.desc())
-            .textStyle(ECOHostStyles::valueText));
-        card.addChild(ECOHostWidgets.statLine(
-            "gui.neoecoae.host.metric.types",
-            () -> ComponentUtil.coloredNumberPair(getStorageValue(id, StorageValue.USED_TYPES), getStorageValue(id, StorageValue.TOTAL_TYPES), false),
-            () -> ECOHostStyles.ratio(getStorageValue(id, StorageValue.USED_TYPES), getStorageValue(id, StorageValue.TOTAL_TYPES))
-        ));
-        card.addChild(ECOHostWidgets.statLine(
-            "gui.neoecoae.host.metric.bytes",
-            () -> ComponentUtil.coloredBytesPair(getStorageValue(id, StorageValue.USED_BYTES), getStorageValue(id, StorageValue.TOTAL_BYTES), false),
-            () -> ECOHostStyles.ratio(getStorageValue(id, StorageValue.USED_BYTES), getStorageValue(id, StorageValue.TOTAL_BYTES))
-        ));
-        return card;
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {

@@ -306,6 +306,17 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return runningThreads > 0;
     }
 
+    public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {
+        List<ECOCraftingThread.Snapshot> snapshots = new ArrayList<>();
+        for (ECOCraftingThread thread : craftingThreads) {
+            ECOCraftingThread.Snapshot snapshot = thread.createSnapshot();
+            if (snapshot.busy()) {
+                snapshots.add(snapshot);
+            }
+        }
+        return List.copyOf(snapshots);
+    }
+
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
