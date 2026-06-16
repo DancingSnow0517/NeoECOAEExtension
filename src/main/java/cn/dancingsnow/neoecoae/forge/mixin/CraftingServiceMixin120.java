@@ -20,9 +20,10 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.compat.advancedae.AdvancedAECraftingCompat;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
-import com.llamalad7.mixinextras.sugar.Local;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 import org.spongepowered.asm.mixin.Final;
@@ -108,8 +109,13 @@ public abstract class CraftingServiceMixin120 {
     }
 
     @Inject(method = "getCpus", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$getCpus(
-            CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir, @Local ImmutableSet.Builder<ICraftingCPU> cpus) {
+    private void neoecoae$getCpus(CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir) {
+        ImmutableSet.Builder<ICraftingCPU> cpus = ImmutableSet.builder();
+        ImmutableSet<ICraftingCPU> vanillaCpus = cir.getReturnValue();
+        if (vanillaCpus != null) {
+            cpus.addAll(vanillaCpus);
+        }
+
         List<NEComputationCluster> clusters = neoecoae$getComputationClusters();
         for (NEComputationCluster cluster : clusters) {
             List<ECOCraftingCPU> activeCpus = cluster.getActiveCPUs();
@@ -194,15 +200,20 @@ public abstract class CraftingServiceMixin120 {
     }
 
     @Unique private List<NEComputationCluster> neoecoae$getComputationClusters() {
-        List<NEComputationCluster> clusters = new ArrayList<>();
-        for (IECOComputationHost host : this.grid.getMachines(IECOComputationHost.class)) {
+        Set<NEComputationCluster> clusters = Collections.newSetFromMap(new IdentityHashMap<>());
+
+        for (var node : this.grid.getNodes()) {
+            Object owner = node.getOwner();
+            if (!(owner instanceof IECOComputationHost host)) {
+                continue;
+            }
             ECOComputationSystemBlockEntity blockEntity = host.getComputationHost();
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null && blockEntity.isFormed()) {
                 clusters.add(cluster);
             }
         }
-        return clusters;
+        return new ArrayList<>(clusters);
     }
 
     @Unique private NEComputationCluster neoecoae$findSuitableComputationCluster(ICraftingPlan job, IActionSource src) {
