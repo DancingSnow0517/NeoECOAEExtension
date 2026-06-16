@@ -49,12 +49,18 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final Comparator<NECraftingModuleCell> MODULE_CELL_ORDER = Comparator
+        .comparingInt(NECraftingModuleCell::column)
+        .thenComparingInt(cell -> cell.row().ordinal())
+        .thenComparingInt(NECraftingModuleCell::tier);
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
@@ -665,11 +671,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return List.of();
         }
         List<NECraftingModuleCell> cells = new ArrayList<>();
-        int maxColumn = -1;
         for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
             int column = moduleColumn(worker.getBlockPos());
             if (column >= 0) {
-                maxColumn = Math.max(maxColumn, column);
                 cells.add(new NECraftingModuleCell(column, NECraftingModuleCell.Row.WORKER, tier.getTier(), worker.getBlockPos()));
             }
         }
@@ -680,8 +684,40 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 cells.add(new NECraftingModuleCell(column, row, core.getTier().getTier(), core.getBlockPos()));
             }
         }
-        cells.sort(Comparator.comparingInt(NECraftingModuleCell::column).thenComparing(cell -> cell.row().ordinal()));
-        return List.copyOf(cells);
+        return List.copyOf(normalizeModuleCells(cells));
+    }
+
+    public List<ItemStack> createCraftingWorkerOutputs() {
+        if (cluster == null) {
+            return List.of();
+        }
+        Map<Integer, ItemStack> outputs = new HashMap<>();
+        int maxColumn = -1;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            int column = moduleColumn(worker.getBlockPos());
+            if (column < 0) {
+                continue;
+            }
+            maxColumn = Math.max(maxColumn, column);
+            outputs.put(column, workerOutputSnapshot(worker));
+        }
+        if (maxColumn < 0) {
+            return List.of();
+        }
+        List<ItemStack> normalized = new ArrayList<>(maxColumn + 1);
+        for (int column = 0; column <= maxColumn; column++) {
+            normalized.add(outputs.getOrDefault(column, ItemStack.EMPTY));
+        }
+        return List.copyOf(normalized);
+    }
+
+    private static ItemStack workerOutputSnapshot(ECOCraftingWorkerBlockEntity worker) {
+        for (ECOCraftingThread.Snapshot snapshot : worker.getThreadSnapshots()) {
+            if (snapshot.busy() && !snapshot.outputItem().isEmpty()) {
+                return snapshot.outputItem().copy();
+            }
+        }
+        return ItemStack.EMPTY;
     }
 
     private int moduleColumn(BlockPos pos) {
@@ -699,19 +735,45 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         int dx = pos.getX() - worldPosition.getX();
         int dy = pos.getY() - worldPosition.getY();
         int dz = pos.getZ() - worldPosition.getZ();
-        int vertical = dx * down.getStepX() + dy * down.getStepY() + dz * down.getStepZ();
-        if (vertical == 0) {
-            return NECraftingModuleCell.Row.WORKER;
+        if (dx * top.getStepX() + dy * top.getStepY() + dz * top.getStepZ() == 1) {
+            return NECraftingModuleCell.Row.UPPER_PARALLEL;
         }
-        return vertical > 0 ? NECraftingModuleCell.Row.LOWER_PARALLEL : NECraftingModuleCell.Row.UPPER_PARALLEL;
+        if (dx * down.getStepX() + dy * down.getStepY() + dz * down.getStepZ() == 1) {
+            return NECraftingModuleCell.Row.LOWER_PARALLEL;
+        }
+        return null;
     }
 
     private Direction moduleRightDirection() {
-        return getOrientation().getSide(appeng.api.orientation.RelativeSide.RIGHT);
+        Direction left = getOrientation().getSide(appeng.api.orientation.RelativeSide.RIGHT);
+        return mirrored ? left : left.getOpposite();
     }
 
     private Direction moduleTopDirection() {
         return getOrientation().getSide(appeng.api.orientation.RelativeSide.TOP);
+    }
+
+    private static List<NECraftingModuleCell> normalizeModuleCells(List<NECraftingModuleCell> cells) {
+        if (cells.isEmpty()) {
+            return List.of();
+        }
+        List<NECraftingModuleCell> sorted = new ArrayList<>(cells);
+        sorted.sort(MODULE_CELL_ORDER);
+        List<NECraftingModuleCell> normalized = new ArrayList<>(sorted.size());
+        for (NECraftingModuleCell cell : sorted) {
+            int lastIndex = normalized.size() - 1;
+            if (lastIndex >= 0) {
+                NECraftingModuleCell last = normalized.get(lastIndex);
+                if (last.column() == cell.column() && last.row() == cell.row()) {
+                    if (cell.tier() > last.tier()) {
+                        normalized.set(lastIndex, cell);
+                    }
+                    continue;
+                }
+            }
+            normalized.add(cell);
+        }
+        return normalized;
     }
 
     public Component buildOverclockSummaryComponent() {

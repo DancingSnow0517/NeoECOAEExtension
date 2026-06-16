@@ -44,6 +44,19 @@ public abstract class NEAeWidgetCanvas extends UIElement {
         context.graphics.drawString(context.mc.font, text, textX, textY, color, false);
     }
 
+    protected void drawPriorityValueSlot(GUIContext context, int x, int y, int w, int h, boolean focused) {
+        int ax = ix(x);
+        int ay = iy(y);
+        int edge = focused ? 0xFF4B6D93 : 0xFF5A5870;
+        context.graphics.fill(ax, ay, ax + w, ay + h, 0xFF2F2D3F);
+        context.graphics.fill(ax + 1, ay, ax + w - 1, ay + 1, 0xFFFAFBFF);
+        context.graphics.fill(ax + 1, ay + 1, ax + w - 1, ay + h - 1, 0xFFC9CBD6);
+        context.graphics.fill(ax + 2, ay + 2, ax + w - 2, ay + h - 2, 0xFFE7E9F1);
+        context.graphics.fill(ax, ay, ax + 1, ay + h, edge);
+        context.graphics.fill(ax + w - 1, ay, ax + w, ay + h, edge);
+        context.graphics.fill(ax, ay + h - 1, ax + w, ay + h, edge);
+    }
+
     protected void drawDisabledButton(GUIContext context, int x, int y, int w, int h, Component text) {
         context.graphics.blitSprite(BUTTON_DISABLED, ix(x), iy(y), w, h);
         int textX = ix(x) + (w - context.mc.font.width(text)) / 2;

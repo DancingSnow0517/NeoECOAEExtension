@@ -24,10 +24,14 @@ import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import appeng.api.storage.IStorageProvider;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -252,10 +256,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return List.of();
         }
         List<NEStorageMatrixCell> cells = new ArrayList<>(cluster.getDrives().size());
+        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
+        Direction top = strategy.getSide(getBlockState(), RelativeSide.TOP);
+        Direction left = strategy.getSide(getBlockState(), RelativeSide.RIGHT);
+        Direction right = mirrored ? left : left.getOpposite();
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             BlockPos offset = drive.getBlockPos().subtract(worldPosition);
-            int row = offset.getY();
-            int column = offset.getX() + offset.getZ();
+            int row = 1 - directionDistance(offset, top);
+            int column = directionDistance(offset, right) - 1;
             ItemStack cellStack = drive.getCellStack();
             IECOStorageCell inv = drive.getCellInventory();
             if (inv == null || cellStack.isEmpty()) {
@@ -275,6 +283,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         cells.sort(Comparator.comparingInt(NEStorageMatrixCell::row).thenComparingInt(NEStorageMatrixCell::column));
         return List.copyOf(cells);
+    }
+
+    private static int directionDistance(BlockPos offset, Direction direction) {
+        return offset.getX() * direction.getStepX()
+            + offset.getY() * direction.getStepY()
+            + offset.getZ() * direction.getStepZ();
     }
 
     private long getStorageValue(int cellTypeId, StorageValue value) {

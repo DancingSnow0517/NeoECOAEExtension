@@ -1,16 +1,21 @@
 package cn.dancingsnow.neoecoae.gui.host;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 abstract class NEHostCanvas extends UIElement {
     static final int PANEL_OUTER = 0xFF17141E;
@@ -26,10 +31,13 @@ abstract class NEHostCanvas extends UIElement {
     static final int TEXT_WARNING = 0xFFFFD65A;
     static final int TEXT_BLUE = 0xFF3FD6FF;
     static final int TEXT_ERROR = 0xFFFF6A75;
+    static final int TEXT_TITLE = 0xFF403E53;
 
     private final int panelWidth;
     private final int panelHeight;
     private byte[] cachedSnapshot = new byte[0];
+    private float localMouseX;
+    private float localMouseY;
 
     protected NEHostCanvas(int width, int height) {
         this.panelWidth = width;
@@ -70,11 +78,13 @@ abstract class NEHostCanvas extends UIElement {
 
     @Override
     public void drawBackgroundTexture(GUIContext guiContext) {
+        updateLocalMouse(guiContext);
         drawMainPanel(guiContext, 0, 0, panelWidth, panelHeight);
     }
 
     @Override
     public void drawBackgroundAdditional(GUIContext guiContext) {
+        updateLocalMouse(guiContext);
         drawHostBackground(guiContext);
     }
 
@@ -141,6 +151,14 @@ abstract class NEHostCanvas extends UIElement {
         drawScaledText(guiContext, text, rightX - guiContext.mc.font.width(text) * scale, y, scale, color);
     }
 
+    protected void drawScaledCenteredText(GUIContext guiContext, Component text, float x, float y, float width, float scale, int color) {
+        drawScaledText(guiContext, text, x + (width - guiContext.mc.font.width(text) * scale) / 2.0F, y, scale, color);
+    }
+
+    protected void drawScaledCenteredText(GUIContext guiContext, String text, float x, float y, float width, float scale, int color) {
+        drawScaledText(guiContext, text, x + (width - guiContext.mc.font.width(text) * scale) / 2.0F, y, scale, color);
+    }
+
     protected void drawInsetRect(GUIContext guiContext, float x, float y, float w, float h) {
         rectLocal(guiContext, x, y, w, h, PANEL_EDGE);
         rectLocal(guiContext, x + 1, y + 1, w - 2, h - 2, 0xFF0D0D11);
@@ -163,6 +181,42 @@ abstract class NEHostCanvas extends UIElement {
     protected void drawItem(GUIContext guiContext, ItemStack stack, float x, float y) {
         if (!stack.isEmpty()) {
             guiContext.graphics.renderItem(stack, Math.round(absX(x)), Math.round(absY(y)));
+        }
+    }
+
+    protected void drawItem(GUIContext guiContext, ItemStack stack, float x, float y, float alpha) {
+        if (stack.isEmpty() || alpha <= 0.02F) {
+            return;
+        }
+        float clamped = Mth.clamp(alpha, 0.0F, 1.0F);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, clamped);
+        try {
+            guiContext.graphics.renderItem(stack, Math.round(absX(x)), Math.round(absY(y)));
+        } finally {
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        }
+        if (clamped < 1.0F) {
+            rectLocal(guiContext, x, y, 16, 16, withAlpha(0xFF2C2735, 1.0F - clamped));
+        }
+    }
+
+    protected void drawScaledItem(GUIContext guiContext, ItemStack stack, float x, float y, float scale, float alpha) {
+        if (stack.isEmpty() || scale <= 0.0F || alpha <= 0.02F) {
+            return;
+        }
+        float clamped = Mth.clamp(alpha, 0.0F, 1.0F);
+        guiContext.graphics.pose().pushPose();
+        guiContext.graphics.pose().translate(absX(x), absY(y), 0.0F);
+        guiContext.graphics.pose().scale(scale, scale, 1.0F);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, clamped);
+        try {
+            guiContext.graphics.renderItem(stack, 0, 0);
+        } finally {
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            guiContext.graphics.pose().popPose();
+        }
+        if (clamped < 1.0F) {
+            rectLocal(guiContext, x, y, 16.0F * scale, 16.0F * scale, withAlpha(0xFF2C2735, 1.0F - clamped));
         }
     }
 
@@ -280,6 +334,14 @@ abstract class NEHostCanvas extends UIElement {
         return contains(absX(x), absY(y), w, h, mouseX, mouseY);
     }
 
+    protected float currentMouseX() {
+        return localMouseX;
+    }
+
+    protected float currentMouseY() {
+        return localMouseY;
+    }
+
     protected static boolean contains(float x, float y, float w, float h, double mouseX, double mouseY) {
         return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
@@ -330,11 +392,23 @@ abstract class NEHostCanvas extends UIElement {
         return (outAlpha << 24) | (color & 0x00FFFFFF);
     }
 
+    protected static List<Component> itemTooltip(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), stack));
+    }
+
     protected int panelWidth() {
         return panelWidth;
     }
 
     protected int panelHeight() {
         return panelHeight;
+    }
+
+    private void updateLocalMouse(GUIContext context) {
+        this.localMouseX = context.localMouseX;
+        this.localMouseY = context.localMouseY;
     }
 }

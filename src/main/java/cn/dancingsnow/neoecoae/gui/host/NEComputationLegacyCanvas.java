@@ -60,7 +60,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         bindSnapshot();
         addEventListener(UIEvents.MOUSE_WHEEL, this::onMouseWheel);
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            HoverTooltips tooltip = tooltipAt(event.x, event.y);
+            HoverTooltips tooltip = tooltipAt(currentMouseX(), currentMouseY());
             if (tooltip != null) {
                 event.hoverTooltips = tooltip;
             }
@@ -107,7 +107,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         drawInsetRect(context, MAIN_PANEL_X, MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
         drawInsetRect(context, TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
         drawToolbarButton(context, TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H,
-                containsLocal(TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H, context.mouseX, context.mouseY));
+                containsLocal(TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H, currentMouseX(), currentMouseY()));
         drawCpuModeIcon(context);
         drawHeader(context);
         drawMainStats(context);
@@ -125,7 +125,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         int width = Math.round((context.mc.font.width(formedLabel) + context.mc.font.width(formedValue)
                 + context.mc.font.width(activeLabel) + context.mc.font.width(activeValue)) * COMPACT_TEXT_SCALE);
         float x = Math.max(8, TOOLBAR_BUTTON_X - 4 - width);
-        drawFittedText(context, computation.getHostTitle(), 8, 8, Math.max(40, Math.round(x) - 12), TEXT_PRIMARY);
+        drawFittedText(context, computation.getHostTitle(), 8, 8, Math.max(40, Math.round(x) - 12), TEXT_TITLE);
         drawScaledText(context, formedLabel, x, 8, COMPACT_TEXT_SCALE, 0xFF4A4A4A);
         x += context.mc.font.width(formedLabel) * COMPACT_TEXT_SCALE;
         drawScaledText(context, formedValue, x, 8, COMPACT_TEXT_SCALE, snapshot.formed() ? TEXT_SUCCESS : TEXT_ERROR);
@@ -143,8 +143,8 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         drawProgressBar(context, THREAD_BAR_X, THREAD_BAR_Y, THREAD_BAR_W, THREAD_BAR_H,
                 snapshot.usedThreads(), snapshot.totalThreads(), TEXT_SUCCESS);
         y += 12;
-        drawFittedText(context, tr("gui.neoecoae.computation.parallel_count", "Parallel: %s", NEHostFormat.number(snapshot.parallelCount())),
-                x, y, MAIN_PANEL_W - 16, TEXT_PRIMARY);
+        drawText(context, tr("gui.neoecoae.computation.parallel_count", "Parallel Count: %s", NEHostFormat.number(snapshot.parallelCount())),
+                x, y, TEXT_PRIMARY);
         y += 12;
         drawModeLine(context, x, y);
         y += 24;
@@ -153,8 +153,8 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         drawProgressBar(context, STORAGE_BAR_X, STORAGE_BAR_Y, STORAGE_BAR_W, STORAGE_BAR_H,
                 snapshot.usedComputationBytes(), snapshot.totalBytes(), TEXT_BLUE);
         y += 12;
-        drawFittedText(context, tr("gui.neoecoae.computation.accelerators", "Accelerators: %s", NEHostFormat.number(snapshot.accelerators())),
-                x, y, MAIN_PANEL_W - 16, TEXT_PRIMARY);
+        drawText(context, tr("gui.neoecoae.computation.accelerators", "Accelerators: %s", NEHostFormat.number(snapshot.accelerators())),
+                x, y, TEXT_PRIMARY);
     }
 
     private void drawModeLine(GUIContext context, int x, int y) {
@@ -260,7 +260,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
 
     private void onMouseWheel(com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent event) {
         List<NECraftingTaskEntry> entries = snapshot.tasks();
-        if (containsLocal(TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H, event.x, event.y)
+        if (containsLocal(TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H, currentMouseX(), currentMouseY())
                 && entries.size() > visibleRows()) {
             taskScrollOffset = clampTaskScroll(taskScrollOffset + (event.deltaY < 0 ? 1 : -1), entries.size());
             event.stopPropagation();
@@ -300,8 +300,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
                 continue;
             }
             NECraftingTaskEntry entry = entries.get(taskScrollOffset + i);
-            List<Component> lines = new ArrayList<>();
-            lines.add(entry.output().getHoverName());
+            List<Component> lines = itemTooltip(entry.output());
             lines.add(Component.translatable(statusKey(entry.status())).withStyle(ChatFormatting.GRAY));
             lines.add(Component.translatable("gui.neoecoae.crafting.task.amount", NEHostFormat.number(entry.outputAmount())));
             if (entry.totalTicks() > 0L) {

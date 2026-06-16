@@ -10,15 +10,18 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 final class NECraftingLegacyCanvas extends NEHostCanvas {
     static final int UI_WIDTH = 304;
-    static final int UI_HEIGHT = 268;
-    private static final float TEXT_SCALE = 0.8F;
+    static final int UI_HEIGHT = 252;
+    private static final float TEXT_SCALE = 0.72F;
+    private static final float HEADER_TEXT_SCALE = 0.82F;
+    private static final float TASK_ITEM_SCALE = 0.82F;
     private static final long ENERGY_GAUGE_REFERENCE = 1_000_000_000L;
     private static final ResourceLocation CORE_SIDE = NeoECOAE.id("textures/block/crafting/core/core_side.png");
     private static final ResourceLocation PARALLEL_FRONT = NeoECOAE.id("textures/block/crafting/core/parallel_core_north.png");
@@ -30,7 +33,7 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
     private static final int MAIN_PANEL_Y = 20;
     private static final int MAIN_PANEL_W = UI_WIDTH - PANEL_MARGIN * 2;
-    private static final int MAIN_PANEL_H = 151;
+    private static final int MAIN_PANEL_H = 137;
     static final int TOOLBAR_BUTTON_SIZE = 14;
     static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 3;
     static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 3 - 3 * 2;
@@ -39,27 +42,27 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
     private static final int MODULE_AREA_X = MAIN_PANEL_X + 6;
     private static final int MODULE_AREA_Y = MAIN_PANEL_Y + 6;
     private static final int MODULE_AREA_W = MAIN_PANEL_W - 12;
-    private static final int MODULE_AREA_H = 62;
+    private static final int MODULE_AREA_H = 54;
     private static final int MODULE_GRID_X = MODULE_AREA_X + 6;
-    private static final int MODULE_GRID_Y = MODULE_AREA_Y + 14;
+    private static final int MODULE_GRID_Y = MODULE_AREA_Y + 13;
     private static final int MODULE_GRID_W = MODULE_AREA_W - 12;
-    private static final int MODULE_GRID_H = MODULE_AREA_H - 18;
-    private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 6;
+    private static final int MODULE_GRID_H = MODULE_AREA_H - 17;
+    private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 5;
     private static final int STATUS_AREA_X = MODULE_AREA_X;
     private static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATUS_AREA_W = 64;
-    private static final int STATUS_AREA_H = 70;
-    private static final int STATS_AREA_X = STATUS_AREA_X + STATUS_AREA_W + 6;
+    private static final int STATUS_AREA_W = 68;
+    private static final int STATUS_AREA_H = 64;
+    private static final int STATS_AREA_X = STATUS_AREA_X + STATUS_AREA_W + 5;
     private static final int STATS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATS_AREA_W = 126;
-    private static final int STATS_AREA_H = 70;
-    private static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + 6;
+    private static final int STATS_AREA_W = 124;
+    private static final int STATS_AREA_H = 64;
+    private static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + 5;
     private static final int GAUGE_AREA_Y = MIDDLE_AREA_Y;
     private static final int GAUGE_AREA_W = MODULE_AREA_X + MODULE_AREA_W - GAUGE_AREA_X;
-    private static final int GAUGE_AREA_H = 70;
-    private static final int GAUGE_BAR_Y = GAUGE_AREA_Y + 19;
-    private static final int GAUGE_BAR_H = 32;
-    private static final int GAUGE_BAR_W = 23;
+    private static final int GAUGE_AREA_H = 64;
+    private static final int GAUGE_BAR_Y = GAUGE_AREA_Y + 17;
+    private static final int GAUGE_BAR_H = 30;
+    private static final int GAUGE_BAR_W = 21;
     static final int PLAYER_INV_X = MODULE_AREA_X;
     private static final int PLAYER_INV_LABEL_Y = MAIN_PANEL_Y + MAIN_PANEL_H + 6;
     static final int PLAYER_INV_Y = PLAYER_INV_LABEL_Y + 10;
@@ -70,11 +73,12 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
     private static final int TASK_PANEL_W = UI_WIDTH - TASK_PANEL_X - PANEL_MARGIN;
     private static final int TASK_PANEL_H = PLAYER_HOTBAR_Y + 18 - TASK_PANEL_Y;
     private static final int TASK_CARD_X = TASK_PANEL_X + 8;
-    private static final int TASK_CARD_Y = TASK_PANEL_Y + 19;
+    private static final int TASK_CARD_Y = TASK_PANEL_Y + 17;
     private static final int TASK_CARD_W = TASK_PANEL_W - 16;
-    private static final int TASK_CARD_H = 16;
-    private static final int TASK_CARD_STRIDE = 18;
+    private static final int TASK_CARD_H = 15;
+    private static final int TASK_CARD_STRIDE = 17;
     private static final int TASK_LIST_BOTTOM_Y = TASK_PANEL_Y + TASK_PANEL_H - 1;
+    private static final int TASK_CONTENT_X = TASK_CARD_X + 19;
 
     private final ECOCraftingSystemBlockEntity crafting;
     private final NEAnimatedTaskCards taskCards = new NEAnimatedTaskCards();
@@ -87,7 +91,7 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
         bindSnapshot();
         addEventListener(UIEvents.MOUSE_WHEEL, this::onMouseWheel);
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            HoverTooltips tooltip = tooltipAt(event.x, event.y);
+            HoverTooltips tooltip = tooltipAt(currentMouseX(), currentMouseY());
             if (tooltip != null) {
                 event.hoverTooltips = tooltip;
             }
@@ -111,6 +115,7 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
             buf.writeVarLong(Math.max(0L, crafting.getMaxEnergyUsage()));
             NEHostSnapshots.writeTasks(buf, crafting.createCraftingTasks());
             NEHostSnapshots.writeModuleCells(buf, crafting.createCraftingModuleCells());
+            NEHostSnapshots.writeItemStacks(buf, crafting.createCraftingWorkerOutputs());
         });
     }
 
@@ -130,7 +135,8 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
             Math.max(0, buf.readVarInt()),
             Math.max(0L, buf.readVarLong()),
             NEHostSnapshots.readTasks(buf),
-            NEHostSnapshots.readModuleCells(buf)
+            NEHostSnapshots.readModuleCells(buf),
+            NEHostSnapshots.readItemStacks(buf)
         ));
     }
 
@@ -159,21 +165,22 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
         Component activeValue = boolText(snapshot.active());
         float right = TOOLBAR_X - 8;
         int width = Math.round((context.mc.font.width(formedLabel) + context.mc.font.width(formedValue)
-                + context.mc.font.width(activeLabel) + context.mc.font.width(activeValue)) * TEXT_SCALE);
+                + context.mc.font.width(activeLabel) + context.mc.font.width(activeValue)) * HEADER_TEXT_SCALE);
         float x = Math.max(8, right - width);
-        drawFittedText(context, crafting.getHostTitle(), 8, 8, Math.max(40, Math.round(x) - 12), TEXT_PRIMARY);
-        drawScaledText(context, formedLabel, x, 8, TEXT_SCALE, 0xFF5D5D5D);
-        x += context.mc.font.width(formedLabel) * TEXT_SCALE;
-        drawScaledText(context, formedValue, x, 8, TEXT_SCALE, snapshot.formed() ? 0xFF00A850 : 0xFFC03434);
-        x += context.mc.font.width(formedValue) * TEXT_SCALE;
-        drawScaledText(context, activeLabel, x, 8, TEXT_SCALE, 0xFF5D5D5D);
-        x += context.mc.font.width(activeLabel) * TEXT_SCALE;
-        drawScaledText(context, activeValue, x, 8, TEXT_SCALE, snapshot.active() ? 0xFF00A850 : 0xFF606060);
+        drawFittedText(context, crafting.getHostTitle(), 8, 8, Math.max(40, Math.round(x) - 12), TEXT_TITLE);
+        drawScaledText(context, formedLabel, x, 8, HEADER_TEXT_SCALE, 0xFF5D5D5D);
+        x += context.mc.font.width(formedLabel) * HEADER_TEXT_SCALE;
+        drawScaledText(context, formedValue, x, 8, HEADER_TEXT_SCALE, snapshot.formed() ? 0xFF00A850 : 0xFFC03434);
+        x += context.mc.font.width(formedValue) * HEADER_TEXT_SCALE;
+        drawScaledText(context, activeLabel, x, 8, HEADER_TEXT_SCALE, 0xFF5D5D5D);
+        x += context.mc.font.width(activeLabel) * HEADER_TEXT_SCALE;
+        drawScaledText(context, activeValue, x, 8, HEADER_TEXT_SCALE, snapshot.active() ? 0xFF00A850 : 0xFF606060);
     }
 
     private void drawToolbar(GUIContext context) {
         for (int i = 0; i < 3; i++) {
-            boolean hovered = containsLocal(TOOLBAR_X + i * TOOLBAR_BUTTON_STRIDE, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, context.mouseX, context.mouseY);
+            boolean hovered = containsLocal(TOOLBAR_X + i * TOOLBAR_BUTTON_STRIDE, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE,
+                    currentMouseX(), currentMouseY());
             drawToolbarButton(context, TOOLBAR_X + i * TOOLBAR_BUTTON_STRIDE, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, hovered);
         }
         drawToolbarIcon(context, 0, snapshot.overclocked() ? NEAeSprite.LEVEL_ENERGY : NEAeSprite.POWER_UNIT_AE);
@@ -194,7 +201,8 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
         drawScaledRightText(context, moduleCounts, MODULE_AREA_X + MODULE_AREA_W - 8, MODULE_AREA_Y + 5, TEXT_SCALE, TEXT_VALUE);
         Grid grid = moduleGrid();
         if (grid.columns <= 0) {
-            drawCenteredText(context, tr("gui.neoecoae.crafting.no_worker_cores", "No worker cores"), MODULE_AREA_X, MODULE_AREA_Y + 39, MODULE_AREA_W, TEXT_MUTED);
+            drawScaledCenteredText(context, tr("gui.neoecoae.crafting.no_worker_cores", "No worker cores"),
+                    MODULE_AREA_X, MODULE_AREA_Y + 36, MODULE_AREA_W, TEXT_SCALE, TEXT_MUTED);
             return;
         }
         for (int column = 0; column < grid.columns; column++) {
@@ -233,18 +241,18 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
     private void drawStatusArea(GUIContext context) {
         drawScaledFittedText(context, tr("gui.neoecoae.crafting.status", "Status"), STATUS_AREA_X + 8, STATUS_AREA_Y + 5,
                 TEXT_SCALE, STATUS_AREA_W - 16, TEXT_PRIMARY);
-        drawStatusRow(context, tr("gui.neoecoae.crafting.overclock", "OC"), snapshot.overclocked(), STATUS_AREA_Y + 21);
-        drawStatusRow(context, tr("gui.neoecoae.crafting.cooling_short", "Cool"), snapshot.activeCooling(), STATUS_AREA_Y + 36);
-        drawStatusRow(context, tr("gui.neoecoae.crafting.coolant_cache_short", "Cache"), snapshot.coolant() > 0, STATUS_AREA_Y + 51);
+        drawStatusRow(context, tr("gui.neoecoae.crafting.overclock", "OC"), snapshot.overclocked(), STATUS_AREA_Y + 19);
+        drawStatusRow(context, tr("gui.neoecoae.crafting.cooling_short", "Cool"), snapshot.activeCooling(), STATUS_AREA_Y + 33);
+        drawStatusRow(context, tr("gui.neoecoae.crafting.waste_short", "Waste"), snapshot.coolant() > 0, STATUS_AREA_Y + 47);
     }
 
     private void drawStatusRow(GUIContext context, Component label, boolean enabled, int y) {
-        drawInsetRect(context, STATUS_AREA_X + 4, y - 3, 13, 13);
-        fillLocal(context, STATUS_AREA_X + 8, y + 1, 5, 5, enabled ? TEXT_SUCCESS : TEXT_ERROR);
+        drawInsetRect(context, STATUS_AREA_X + 8, y - 3, 13, 13);
+        fillLocal(context, STATUS_AREA_X + 12, y + 1, 5, 5, enabled ? TEXT_SUCCESS : TEXT_ERROR);
         String value = trString(enabled ? "gui.neoecoae.common.on" : "gui.neoecoae.common.off", enabled ? "On" : "Off");
         int valueWidth = Math.round(context.mc.font.width(value) * TEXT_SCALE);
-        int labelMax = STATUS_AREA_W - 30 - valueWidth;
-        drawScaledFittedText(context, label, STATUS_AREA_X + 22, y, TEXT_SCALE, labelMax, TEXT_MUTED);
+        int labelMax = STATUS_AREA_W - 36 - valueWidth;
+        drawScaledFittedText(context, label, STATUS_AREA_X + 26, y, TEXT_SCALE, labelMax, TEXT_MUTED);
         drawScaledText(context, value, STATUS_AREA_X + STATUS_AREA_W - 6 - valueWidth, y, TEXT_SCALE,
                 enabled ? TEXT_SUCCESS : TEXT_ERROR);
     }
@@ -256,14 +264,14 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
         int y = STATS_AREA_Y + 19;
         drawScaledPairLine(context, trString("gui.neoecoae.crafting.recipe_slots", "Tasks") + ": ",
                 snapshot.runningThreadCount(), snapshot.threadCount(), x, y);
-        drawProgressBar(context, x, STATS_AREA_Y + 31, STATS_AREA_W - 16, 9, snapshot.runningThreadCount(), snapshot.threadCount(), TEXT_SUCCESS);
-        y += 25;
+        drawProgressBar(context, x, STATS_AREA_Y + 29, STATS_AREA_W - 16, 8, snapshot.runningThreadCount(), snapshot.threadCount(), TEXT_SUCCESS);
+        y += 23;
         drawScaledValueLine(context, trString("gui.neoecoae.crafting.batch_parallel", "Free") + ": ",
                 snapshot.availableThreads(), x, y, STATS_AREA_W - 16);
-        y += 11;
-        drawScaledValueLine(context, trString("gui.neoecoae.host.crafting.pattern_buses", "Buses") + ": ",
+        y += 10;
+        drawScaledValueLine(context, trString("gui.neoecoae.crafting.patterns_short", "Patterns") + ": ",
                 snapshot.patternBusCount(), x, y, 58);
-        drawScaledValueLine(context, trString("gui.neoecoae.host.crafting.parallel_cores", "Cores") + ": ",
+        drawScaledValueLine(context, trString("gui.neoecoae.crafting.ft_cores_short", "FT Cores") + ": ",
                 snapshot.parallelCount(), x + 62, y, STATS_AREA_W - 78);
     }
 
@@ -294,14 +302,14 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
         double coolantRatio = snapshot.coolant() <= 0 ? 0 : Math.min(1.0D, (double) snapshot.coolant() / ECOCraftingSystemBlockEntity.MAX_COOLANT);
         drawVerticalGauge(context, energyX, GAUGE_BAR_Y, GAUGE_BAR_W, GAUGE_BAR_H, energyRatio, energyRatio >= 0.9D ? TEXT_ERROR : energyRatio >= 0.5D ? TEXT_WARNING : TEXT_SUCCESS);
         drawVerticalGauge(context, coolantX, GAUGE_BAR_Y, GAUGE_BAR_W, GAUGE_BAR_H, coolantRatio, TEXT_BLUE);
-        drawScaledFittedText(context, tr("gui.neoecoae.crafting.energy_short", "AE"), energyX - 8, GAUGE_BAR_Y + GAUGE_BAR_H + 1,
-                TEXT_SCALE, 32, TEXT_MUTED);
-        drawScaledFittedText(context, tr("gui.neoecoae.crafting.cooling_short", "Cool"), coolantX - 8, GAUGE_BAR_Y + GAUGE_BAR_H + 1,
-                TEXT_SCALE, 32, TEXT_MUTED);
+        drawScaledCenteredText(context, tr("gui.neoecoae.crafting.energy_short", "AE"), energyX - 7, GAUGE_BAR_Y + GAUGE_BAR_H + 2,
+                GAUGE_BAR_W + 14, TEXT_SCALE, TEXT_MUTED);
+        drawScaledCenteredText(context, tr("gui.neoecoae.crafting.cooling_short", "Cool"), coolantX - 7, GAUGE_BAR_Y + GAUGE_BAR_H + 2,
+                GAUGE_BAR_W + 14, TEXT_SCALE, TEXT_MUTED);
     }
 
     private void drawInventory(GUIContext context) {
-        drawFittedText(context, tr("gui.neoecoae.common.inventory", "Inventory"), PLAYER_INV_X, PLAYER_INV_LABEL_Y, 18 * 9, TEXT_MUTED);
+        drawScaledFittedText(context, tr("gui.neoecoae.common.inventory", "Inventory"), PLAYER_INV_X, PLAYER_INV_LABEL_Y, TEXT_SCALE, 18 * 9, TEXT_MUTED);
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 drawSlot(context, PLAYER_INV_X + col * 18, PLAYER_INV_Y + row * 18);
@@ -321,40 +329,50 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
                 TASK_PANEL_X + TASK_PANEL_W - 8 - context.mc.font.width(NEHostFormat.number(entries.size())) * TEXT_SCALE,
                 TASK_PANEL_Y + 5, TEXT_SCALE, TEXT_VALUE);
         if (entries.isEmpty()) {
-            drawCenteredText(context, tr("gui.neoecoae.crafting.no_tasks", "No tasks"), TASK_PANEL_X + 6, TASK_PANEL_Y + 42, TASK_PANEL_W - 12, TEXT_MUTED);
+            drawScaledCenteredText(context, tr("gui.neoecoae.crafting.no_tasks", "No tasks"),
+                    TASK_PANEL_X + 6, TASK_PANEL_Y + 40, TASK_PANEL_W - 12, TEXT_SCALE, TEXT_MUTED);
             return;
         }
         context.graphics.flush();
         context.enableScissor(absX(TASK_CARD_X), absY(TASK_CARD_Y), TASK_CARD_W, TASK_LIST_BOTTOM_Y - TASK_CARD_Y + 1);
         for (NEAnimatedTaskCards.Frame frame : taskCards.update(entries, taskScrollOffset, visibleRows(), TASK_CARD_Y, TASK_CARD_STRIDE)) {
-            drawTaskCard(context, frame.entry(), frame.y(), frame.alpha());
+            drawTaskCard(context, frame.entry(), frame.y(), frame.alpha(), frame.exiting());
         }
         context.graphics.flush();
         context.disableScissor();
         drawTaskScrollbar(context, entries.size());
     }
 
-    private void drawTaskCard(GUIContext context, NECraftingTaskEntry entry, float y, float alpha) {
+    private void drawTaskCard(GUIContext context, NECraftingTaskEntry entry, float y, float alpha, boolean exiting) {
+        if (y + TASK_CARD_H <= TASK_CARD_Y || y >= TASK_LIST_BOTTOM_Y || alpha <= 0.02F) {
+            return;
+        }
         int color = statusColor(entry.status());
         fillLocal(context, TASK_CARD_X, y, TASK_CARD_W, TASK_CARD_H, withAlpha(0xFFD8D3E4, alpha));
         fillLocal(context, TASK_CARD_X + 1, y + 1, TASK_CARD_W - 2, TASK_CARD_H - 2, withAlpha(0xFF121016, alpha));
         fillLocal(context, TASK_CARD_X + 2, y + 2, TASK_CARD_W - 4, TASK_CARD_H - 4, withAlpha(0xFF4D4855, alpha));
         fillLocal(context, TASK_CARD_X + 3, y + 3, TASK_CARD_W - 6, TASK_CARD_H - 6, withAlpha(0xFF2C2735, alpha));
-        fillLocal(context, TASK_CARD_X + 3, y + TASK_CARD_H - 3, TASK_CARD_W - 6, 1, withAlpha(color, alpha));
-        drawItem(context, entry.output(), TASK_CARD_X + 1, y);
         String amount = "x" + NEHostFormat.number(entry.outputAmount());
         int amountW = Math.round(context.mc.font.width(amount) * TEXT_SCALE);
-        String name = NEHostDraw.fit(context, entry.output().getHoverName().getString(), Math.max(16, TASK_CARD_W - 28 - amountW));
-        drawScaledText(context, name, TASK_CARD_X + 20, y + 4, TEXT_SCALE, withAlpha(TEXT_PRIMARY, alpha));
-        drawScaledText(context, amount, TASK_CARD_X + TASK_CARD_W - 5 - amountW, y + 4, TEXT_SCALE, withAlpha(TEXT_VALUE, alpha));
+        int progressW = Math.max(12, TASK_CARD_W - 29 - amountW);
         long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
-        int fill = entry.status() == NECraftingTaskEntry.Status.WAITING_OUTPUT ? TASK_CARD_W - 25 : ratioWidth(done, entry.totalTicks(), TASK_CARD_W - 25);
+        int fill = entry.status() == NECraftingTaskEntry.Status.WAITING_OUTPUT ? progressW : ratioWidth(done, entry.totalTicks(), progressW);
         if (entry.status() == NECraftingTaskEntry.Status.QUEUED) {
             fill = 1;
         }
-        fillLocal(context, TASK_CARD_X + 20, y + TASK_CARD_H - 4, TASK_CARD_W - 25, 2, withAlpha(0xAA17141E, alpha));
+        fillLocal(context, TASK_CONTENT_X, y + TASK_CARD_H - 3, progressW, 2, withAlpha(0xAA17141E, alpha));
         if (fill > 0) {
-            fillLocal(context, TASK_CARD_X + 20, y + TASK_CARD_H - 4, fill, 2, withAlpha(color, alpha));
+            fillLocal(context, TASK_CONTENT_X, y + TASK_CARD_H - 3, fill, 2, withAlpha(color, alpha));
+        }
+        fillLocal(context, TASK_CARD_X + 3, y + TASK_CARD_H - 2, TASK_CARD_W - 6, 1, withAlpha(color, alpha));
+        boolean stableContent = !exiting && alpha > 0.90F && y >= TASK_CARD_Y && y + TASK_CARD_H <= TASK_LIST_BOTTOM_Y;
+        if (stableContent) {
+            drawScaledItem(context, entry.output(), TASK_CARD_X + 2, y + 1, TASK_ITEM_SCALE, alpha);
+        }
+        String name = NEHostDraw.fit(context, entry.output().getHoverName().getString(), Math.max(16, TASK_CARD_W - 30 - amountW));
+        if (stableContent) {
+            drawScaledText(context, name, TASK_CONTENT_X, y + 3, TEXT_SCALE, withAlpha(TEXT_PRIMARY, alpha));
+            drawScaledText(context, amount, TASK_CARD_X + TASK_CARD_W - 5 - amountW, y + 3, TEXT_SCALE, withAlpha(TEXT_VALUE, alpha));
         }
     }
 
@@ -371,7 +389,7 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
 
     private void onMouseWheel(com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent event) {
         List<NECraftingTaskEntry> entries = snapshot.tasks();
-        if (containsLocal(TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H, event.x, event.y)
+        if (containsLocal(TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H, currentMouseX(), currentMouseY())
                 && entries.size() > visibleRows()) {
             taskScrollOffset = clampTaskScroll(taskScrollOffset + (event.deltaY < 0 ? 1 : -1), entries.size());
             event.stopPropagation();
@@ -387,31 +405,77 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
         if (module != null) {
             return module;
         }
+        HoverTooltips status = statusTooltip(mouseX, mouseY);
+        if (status != null) {
+            return status;
+        }
         HoverTooltips task = taskTooltip(mouseX, mouseY);
         if (task != null) {
             return task;
         }
+        HoverTooltips stats = statsTooltip(mouseX, mouseY);
+        if (stats != null) {
+            return stats;
+        }
         if (containsLocal(GAUGE_AREA_X + 8, GAUGE_BAR_Y, GAUGE_BAR_W, GAUGE_BAR_H, mouseX, mouseY)) {
             return new HoverTooltips(List.of(tr("gui.neoecoae.crafting.energy_usage", "Energy Usage"),
-                    Component.literal(Tooltips.ofNumber(snapshot.maxEnergyUsage()).getString() + " AE")), null, null, null);
+                    Component.literal(Tooltips.ofNumber(snapshot.maxEnergyUsage()).getString() + " AE/t")), null, null, null);
         }
         if (containsLocal(GAUGE_AREA_X + GAUGE_AREA_W - 8 - GAUGE_BAR_W, GAUGE_BAR_Y, GAUGE_BAR_W, GAUGE_BAR_H, mouseX, mouseY)) {
-            return new HoverTooltips(List.of(tr("gui.neoecoae.host.crafting.coolant", "Coolant"),
-                    Component.literal(NEHostFormat.usedTotal(snapshot.coolant(), ECOCraftingSystemBlockEntity.MAX_COOLANT) + " mB")), null, null, null);
+            return new HoverTooltips(List.of(
+                    tr("gui.neoecoae.crafting.coolant", "Coolant"),
+                    tr("gui.neoecoae.crafting.coolant_amount", "Coolant: %s / %s",
+                            NEHostFormat.number(snapshot.coolant()), NEHostFormat.number(ECOCraftingSystemBlockEntity.MAX_COOLANT)),
+                    Component.literal(NEHostFormat.percent(snapshot.coolant(), ECOCraftingSystemBlockEntity.MAX_COOLANT))
+            ), null, null, null);
+        }
+        return null;
+    }
+
+    private HoverTooltips statusTooltip(double mouseX, double mouseY) {
+        if (containsLocal(STATUS_AREA_X + 8, STATUS_AREA_Y + 16, STATUS_AREA_W - 16, 13, mouseX, mouseY)) {
+            return new HoverTooltips(List.of(
+                    Component.translatable(snapshot.overclocked()
+                            ? "gui.neoecoae.crafting.overclock.on"
+                            : "gui.neoecoae.crafting.overclock.off"),
+                    Component.translatable("gui.neoecoae.crafting.overclocked.tooltip")
+            ), null, null, null);
+        }
+        if (containsLocal(STATUS_AREA_X + 8, STATUS_AREA_Y + 30, STATUS_AREA_W - 16, 13, mouseX, mouseY)) {
+            return new HoverTooltips(List.of(
+                    Component.translatable(snapshot.activeCooling()
+                            ? "gui.neoecoae.crafting.active_cooling.on"
+                            : "gui.neoecoae.crafting.active_cooling.off"),
+                    Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip")
+            ), null, null, null);
+        }
+        if (containsLocal(STATUS_AREA_X + 8, STATUS_AREA_Y + 44, STATUS_AREA_W - 16, 13, mouseX, mouseY)) {
+            return new HoverTooltips(List.of(
+                    tr("gui.neoecoae.crafting.coolant", "Coolant"),
+                    tr("gui.neoecoae.crafting.coolant_amount", "Coolant: %s / %s",
+                            NEHostFormat.number(snapshot.coolant()), NEHostFormat.number(ECOCraftingSystemBlockEntity.MAX_COOLANT)),
+                    Component.literal(NEHostFormat.percent(snapshot.coolant(), ECOCraftingSystemBlockEntity.MAX_COOLANT))
+            ), null, null, null);
         }
         return null;
     }
 
     private HoverTooltips toolbarTooltip(double mouseX, double mouseY) {
         if (containsLocal(TOOLBAR_X, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
-            return new HoverTooltips(List.of(Component.translatable(snapshot.overclocked()
-                    ? "gui.neoecoae.crafting.overclock.on"
-                    : "gui.neoecoae.crafting.overclock.off")), null, null, null);
+            return new HoverTooltips(List.of(
+                    Component.translatable(snapshot.overclocked()
+                            ? "gui.neoecoae.crafting.overclock.on"
+                            : "gui.neoecoae.crafting.overclock.off"),
+                    Component.translatable("gui.neoecoae.crafting.overclocked.tooltip")
+            ), null, null, null);
         }
         if (containsLocal(TOOLBAR_X + TOOLBAR_BUTTON_STRIDE, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
-            return new HoverTooltips(List.of(Component.translatable(snapshot.activeCooling()
-                    ? "gui.neoecoae.crafting.active_cooling.on"
-                    : "gui.neoecoae.crafting.active_cooling.off")), null, null, null);
+            return new HoverTooltips(List.of(
+                    Component.translatable(snapshot.activeCooling()
+                            ? "gui.neoecoae.crafting.active_cooling.on"
+                            : "gui.neoecoae.crafting.active_cooling.off"),
+                    Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip")
+            ), null, null, null);
         }
         if (containsLocal(TOOLBAR_X + TOOLBAR_BUTTON_STRIDE * 2, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
             return new HoverTooltips(List.of(
@@ -433,37 +497,90 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
             if (!containsLocal(x, y, grid.size, grid.size, mouseX, mouseY)) {
                 continue;
             }
+            if (cell.row() == NECraftingModuleCell.Row.WORKER) {
+                ItemStack output = workerOutputAt(cell.column());
+                if (!output.isEmpty()) {
+                    List<Component> lines = itemTooltip(output);
+                    lines.add(Component.translatable("block.neoecoae.crafting_worker").withStyle(ChatFormatting.GRAY));
+                    lines.add(Component.literal(modulePos(cell)).withStyle(ChatFormatting.GRAY));
+                    return new HoverTooltips(lines, output.getTooltipImage().orElse(null), null, output);
+                }
+            }
             Component name = cell.row() == NECraftingModuleCell.Row.WORKER
                     ? Component.translatable("block.neoecoae.crafting_worker")
                     : Component.translatable(parallelCoreNameKey(cell.tier()));
-            return new HoverTooltips(List.of(name,
-                    Component.literal("x=" + cell.pos().getX() + ", y=" + cell.pos().getY() + ", z=" + cell.pos().getZ()).withStyle(ChatFormatting.GRAY)), null, null, null);
+            List<Component> lines = new ArrayList<>();
+            lines.add(name);
+            if (cell.row() != NECraftingModuleCell.Row.WORKER) {
+                lines.add(Component.translatable("gui.neoecoae.crafting.parallel_per_core",
+                        NEHostFormat.number(parallelPerCore(cell.tier(), snapshot.overclocked()))));
+            }
+            lines.add(Component.literal(modulePos(cell)).withStyle(ChatFormatting.GRAY));
+            return new HoverTooltips(lines, null, null, null);
         }
         return null;
+    }
+
+    private ItemStack workerOutputAt(int column) {
+        if (column < 0 || column >= snapshot.workerOutputs().size()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack stack = snapshot.workerOutputs().get(column);
+        return stack == null ? ItemStack.EMPTY : stack;
     }
 
     private HoverTooltips taskTooltip(double mouseX, double mouseY) {
         List<NECraftingTaskEntry> entries = snapshot.tasks();
         taskScrollOffset = clampTaskScroll(taskScrollOffset, entries.size());
+        for (NEAnimatedTaskCards.Frame frame : taskCards.frames()) {
+            if (frame.exiting() || frame.alpha() < 0.35F) {
+                continue;
+            }
+            if (!containsLocal(TASK_CARD_X, frame.y(), TASK_CARD_W, TASK_CARD_H, mouseX, mouseY)) {
+                continue;
+            }
+            return taskTooltip(frame.entry());
+        }
         int visible = Math.min(visibleRows(), entries.size() - taskScrollOffset);
         for (int i = 0; i < visible; i++) {
             int y = TASK_CARD_Y + i * TASK_CARD_STRIDE;
             if (!containsLocal(TASK_CARD_X, y, TASK_CARD_W, TASK_CARD_H, mouseX, mouseY)) {
                 continue;
             }
-            NECraftingTaskEntry entry = entries.get(taskScrollOffset + i);
-            List<Component> lines = new ArrayList<>();
-            lines.add(entry.output().getHoverName());
-            lines.add(Component.translatable(statusKey(entry.status())).withStyle(ChatFormatting.GRAY));
-            lines.add(Component.translatable("gui.neoecoae.crafting.task.amount", NEHostFormat.number(entry.outputAmount())));
-            lines.add(Component.translatable("gui.neoecoae.crafting.task.crafts", NEHostFormat.number(entry.craftCount())));
-            if (entry.totalTicks() > 0L) {
-                long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
-                lines.add(Component.literal(NEHostFormat.percent(done, entry.totalTicks())).withStyle(ChatFormatting.AQUA));
-            }
-            return new HoverTooltips(lines, entry.output().getTooltipImage().orElse(null), null, entry.output());
+            return taskTooltip(entries.get(taskScrollOffset + i));
         }
         return null;
+    }
+
+    private HoverTooltips taskTooltip(NECraftingTaskEntry entry) {
+        List<Component> lines = itemTooltip(entry.output());
+        lines.add(Component.translatable(statusKey(entry.status())).withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("gui.neoecoae.crafting.task.amount", NEHostFormat.number(entry.outputAmount())));
+        lines.add(Component.translatable("gui.neoecoae.crafting.task.crafts", NEHostFormat.number(entry.craftCount())));
+        if (entry.totalTicks() > 0L) {
+            long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
+            lines.add(Component.translatable("gui.neoecoae.crafting.task.time",
+                    formatTaskTime(done), formatTaskTime(entry.totalTicks())).withStyle(ChatFormatting.AQUA));
+        }
+        return new HoverTooltips(lines, entry.output().getTooltipImage().orElse(null), null, entry.output());
+    }
+
+    private HoverTooltips statsTooltip(double mouseX, double mouseY) {
+        if (!containsLocal(STATS_AREA_X, STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H, mouseX, mouseY)) {
+            return null;
+        }
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("gui.neoecoae.crafting.parallel_core_tiers"));
+        lines.add(Component.literal("FT4: " + countTier(1) + " x " + parallelPerCore(1, snapshot.overclocked())));
+        lines.add(Component.literal("FT6: " + countTier(2) + " x " + parallelPerCore(2, snapshot.overclocked())));
+        lines.add(Component.literal("FT9: " + countTier(3) + " x " + parallelPerCore(3, snapshot.overclocked())));
+        lines.add(Component.translatable("gui.neoecoae.crafting.recipe_slots")
+                .append(": ")
+                .append(Component.literal(NEHostFormat.usedTotal(snapshot.runningThreadCount(), snapshot.threadCount()))));
+        lines.add(Component.translatable("gui.neoecoae.crafting.batch_parallel")
+                .append(": ")
+                .append(Component.literal(NEHostFormat.number(snapshot.availableThreads()))));
+        return new HoverTooltips(lines, null, null, null);
     }
 
     private int visibleRows() {
@@ -498,6 +615,42 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
             }
         }
         return null;
+    }
+
+    private int countTier(int tier) {
+        int count = 0;
+        for (NECraftingModuleCell cell : snapshot.moduleCells()) {
+            if (cell.row() != NECraftingModuleCell.Row.WORKER && cell.tier() == tier) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static int parallelPerCore(int tier, boolean overclocked) {
+        return switch (tier) {
+            case 3 -> overclocked ? 384 : 256;
+            case 2 -> overclocked ? 96 : 72;
+            default -> overclocked ? 32 : 24;
+        };
+    }
+
+    private static String modulePos(NECraftingModuleCell cell) {
+        return "x=" + cell.pos().getX() + ", y=" + cell.pos().getY() + ", z=" + cell.pos().getZ();
+    }
+
+    private static String formatTaskTime(long ticks) {
+        long safe = Math.max(0L, ticks);
+        if (safe < 20L) {
+            return safe + "t";
+        }
+        double seconds = safe / 20.0D;
+        if (seconds < 60.0D) {
+            return String.format(Locale.US, "%.1fs", seconds);
+        }
+        long minutes = (long) (seconds / 60.0D);
+        double remainder = seconds - minutes * 60.0D;
+        return String.format(Locale.US, "%dm %.0fs", minutes, remainder);
     }
 
     private static int rowIndex(NECraftingModuleCell.Row row) {
@@ -557,10 +710,11 @@ final class NECraftingLegacyCanvas extends NEHostCanvas {
         int coolant,
         long maxEnergyUsage,
         List<NECraftingTaskEntry> tasks,
-        List<NECraftingModuleCell> moduleCells
+        List<NECraftingModuleCell> moduleCells,
+        List<ItemStack> workerOutputs
     ) {
         private static final CraftingSnapshot EMPTY = new CraftingSnapshot(
-            false, false, 0, 0, 0, 0, 0, 0, false, false, 0, 0L, List.of(), List.of()
+            false, false, 0, 0, 0, 0, 0, 0, false, false, 0, 0L, List.of(), List.of(), List.of()
         );
     }
 }

@@ -16,6 +16,7 @@ final class NEAnimatedTaskCards {
     private static final long TASK_MOVE_MS = 140L;
 
     private final Map<String, TaskCardAnimation> animations = new LinkedHashMap<>();
+    private List<Frame> lastFrames = List.of();
     private int lastScrollOffset;
     private boolean initialized;
 
@@ -62,20 +63,25 @@ final class NEAnimatedTaskCards {
             if (animation.exiting && animation.alpha <= 0.02F) {
                 return true;
             }
-            frames.add(new Frame(animation.entry, animation.y, animation.alpha));
+            frames.add(new Frame(animation.entry, animation.y, animation.alpha, animation.exiting));
             return false;
         });
         frames.sort(Comparator.comparingDouble(Frame::y));
+        lastFrames = List.copyOf(frames);
         lastScrollOffset = scrollOffset;
         initialized = true;
         return frames;
+    }
+
+    List<Frame> frames() {
+        return lastFrames;
     }
 
     private static String taskEntryKey(NECraftingTaskEntry entry, int index) {
         return entry.id() == null || entry.id().isBlank() ? "task:" + index : entry.id();
     }
 
-    record Frame(NECraftingTaskEntry entry, float y, float alpha) {
+    record Frame(NECraftingTaskEntry entry, float y, float alpha, boolean exiting) {
     }
 
     private static final class TaskCardAnimation {

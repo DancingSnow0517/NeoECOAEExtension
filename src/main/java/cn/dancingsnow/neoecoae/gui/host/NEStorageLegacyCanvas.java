@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 final class NEStorageLegacyCanvas extends NEHostCanvas {
@@ -73,7 +74,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         bindSnapshot();
         addEventListener(UIEvents.MOUSE_WHEEL, this::onMouseWheel);
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            HoverTooltips tooltip = tooltipAt(event.x, event.y);
+            HoverTooltips tooltip = tooltipAt(currentMouseX(), currentMouseY());
             if (tooltip != null) {
                 event.hoverTooltips = tooltip;
             }
@@ -121,7 +122,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         Component value = boolText(snapshot.formed());
         int width = context.mc.font.width(label) + context.mc.font.width(value);
         int x = 316 - width;
-        drawFittedText(context, storage.getHostTitle(), 8, 8, Math.max(40, x - 12), TEXT_PRIMARY);
+        drawFittedText(context, storage.getHostTitle(), 8, 8, Math.max(40, x - 12), TEXT_TITLE);
         drawText(context, label, x, 8, 0xFF4A4A4A);
         drawText(context, value, x + context.mc.font.width(label), 8, snapshot.formed() ? 0xFF1F9D55 : 0xFFD13F3F);
     }
@@ -129,13 +130,13 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     private void drawStorageText(GUIContext context) {
         List<StorageLine> lines = storageLines();
         int viewportH = LEFT_PANEL_H - 16;
-        int contentH = Math.max(0, lines.size() * TEXT_LINE_STEP);
+        int contentH = Math.max(0, (lines.size() - 1) * TEXT_LINE_STEP + context.mc.font.lineHeight);
         leftScroll = Mth.clamp(leftScroll, 0.0F, Math.max(0, contentH - viewportH));
         context.graphics.flush();
         context.enableScissor(absX(LEFT_PANEL_X + 4), absY(LEFT_PANEL_Y + 4), LEFT_PANEL_W - 8, LEFT_PANEL_H - 8);
         float y = TEXT_START_Y - leftScroll;
         for (StorageLine line : lines) {
-            drawFittedText(context, line.text(), TEXT_START_X, y, LEFT_PANEL_W - 18, line.color());
+            line.draw(this, context, TEXT_START_X, y, LEFT_PANEL_W - 18);
             y += TEXT_LINE_STEP;
         }
         context.graphics.flush();
@@ -150,21 +151,36 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
 
     private List<StorageLine> storageLines() {
         List<StorageLine> lines = new ArrayList<>();
-        lines.add(new StorageLine(tr("gui.neoecoae.storage.energy", "Energy Monitor"), TEXT_PRIMARY));
-        lines.add(new StorageLine(Component.literal(trString("gui.neoecoae.storage.energy_storage", "Energy Storage")
-                + ": " + NEHostFormat.usedTotal(snapshot.storedEnergy(), snapshot.maxEnergy()) + " AE"), TEXT_MUTED));
-        for (NEStorageTypeStat stat : snapshot.typeStats()) {
-            lines.add(new StorageLine(stat.displayName(), accentColor(stat.typeId().getPath(), lines.size())));
-            lines.add(new StorageLine(Component.literal(trString("gui.neoecoae.host.metric.types", "Types")
-                    + ": " + NEHostFormat.usedTotal(stat.usedTypes().getAsLong(), stat.totalTypes().getAsLong())), TEXT_MUTED));
-            lines.add(new StorageLine(Component.literal(trString("gui.neoecoae.host.metric.bytes", "Bytes")
-                    + ": " + NEHostFormat.usedTotalBytes(stat.usedBytes().getAsLong(), stat.totalBytes().getAsLong())), TEXT_MUTED));
+        lines.add(StorageLine.plain(tr("gui.neoecoae.storage.energy", "Energy Monitor"), TEXT_PRIMARY));
+        lines.add(StorageLine.usedTotal(
+                trString("gui.neoecoae.storage.energy_storage", "Energy Storage") + ": ",
+                NEHostFormat.number(snapshot.storedEnergy()),
+                NEHostFormat.number(snapshot.maxEnergy()),
+                snapshot.storedEnergy(),
+                snapshot.maxEnergy(),
+                "AE"));
+        for (StorageMetric metric : storageMetrics()) {
+            lines.add(StorageLine.plain(metric.label(), metric.accentColor()));
+            lines.add(StorageLine.usedTotal(
+                    "",
+                    NEHostFormat.number(metric.usedTypes()),
+                    NEHostFormat.number(metric.totalTypes()),
+                    metric.usedTypes(),
+                    metric.totalTypes(),
+                    trString("gui.neoecoae.common.types", "Types")));
+            lines.add(StorageLine.usedTotal(
+                    "",
+                    NEHostFormat.bytes(metric.usedBytes()),
+                    NEHostFormat.bytes(metric.totalBytes()),
+                    metric.usedBytes(),
+                    metric.totalBytes(),
+                    trString("gui.neoecoae.storage.bytes_used", "bytes used")));
         }
         return lines;
     }
 
     private void drawMetricColumns(GUIContext context) {
-        List<NEStorageTypeStat> stats = columnStats();
+        List<StorageMetric> stats = columnStats();
         int contentW = stats.isEmpty() ? 0 : stats.size() * COLUMN_W + (stats.size() - 1) * COLUMN_GAP;
         float maxScroll = Math.max(0, contentW - COLUMN_VIEW_W);
         columnScrollTarget = Mth.clamp(columnScrollTarget, 0.0F, maxScroll);
@@ -179,12 +195,12 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
             fillLocal(context, COLUMN_VIEW_X, COLUMN_SCROLLBAR_Y, COLUMN_VIEW_W, COLUMN_SCROLLBAR_H, PANEL_OUTER);
             fillLocal(context, thumbX, COLUMN_SCROLLBAR_Y, thumbW, COLUMN_SCROLLBAR_H, PANEL_EDGE);
         }
-        animatedColumnRatios.keySet().removeIf(key -> stats.stream().noneMatch(stat -> stat.typeId().toString().equals(key)));
+        animatedColumnRatios.keySet().removeIf(key -> stats.stream().noneMatch(stat -> stat.key().equals(key)));
         float startX = contentW <= COLUMN_VIEW_W ? COLUMN_VIEW_X + (COLUMN_VIEW_W - contentW) / 2.0F : COLUMN_VIEW_X - columnScroll;
         context.graphics.flush();
         context.enableScissor(absX(COLUMN_VIEW_X), absY(METRIC_PANEL_Y + 18), COLUMN_VIEW_W, METRIC_PANEL_H - 23);
         for (int i = 0; i < stats.size(); i++) {
-            NEStorageTypeStat stat = stats.get(i);
+            StorageMetric stat = stats.get(i);
             float x = startX + i * (COLUMN_W + COLUMN_GAP);
             if (x + COLUMN_W <= COLUMN_VIEW_X || x >= COLUMN_VIEW_X + COLUMN_VIEW_W) {
                 continue;
@@ -196,8 +212,8 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         context.disableScissor();
     }
 
-    private void drawColumn(GUIContext context, NEStorageTypeStat stat, float x, float ratio) {
-        String label = NEHostDraw.fit(context, stat.displayName().getString(), COLUMN_W + 18);
+    private void drawColumn(GUIContext context, StorageMetric stat, float x, float ratio) {
+        String label = NEHostDraw.fit(context, stat.label().getString(), COLUMN_W + 18);
         drawCenteredText(context, label, x - 9, COLUMN_Y - 14, COLUMN_W + 18, TEXT_PRIMARY);
         drawSmallInsetRect(context, x, COLUMN_Y, COLUMN_W, COLUMN_H);
         float ix = x + 5;
@@ -205,11 +221,11 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         float iw = COLUMN_W - 10;
         float ih = COLUMN_H - 12;
         fillLocal(context, ix, iy, iw, ih, 0xAA17141E);
-        long used = stat.usedBytes().getAsLong();
-        long total = stat.totalBytes().getAsLong();
+        long used = stat.usedBytes();
+        long total = stat.totalBytes();
         int fillH = Math.round(ih * ratio);
         if (fillH > 0) {
-            int color = accentColor(stat.typeId().getPath(), 0);
+            int color = metricColor(stat.accentColor(), total, ratio);
             fillLocal(context, ix, iy + ih - fillH, iw, fillH, color);
             fillLocal(context, ix, iy + ih - fillH, iw, Math.min(2, fillH), 0x70FFFFFF);
         }
@@ -220,7 +236,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         }
         String percent = NEHostFormat.percent(used, total);
         drawSmallInsetRect(context, x - 2, COLUMN_Y + COLUMN_H + 5, COLUMN_W + 4, 15);
-        drawCenteredText(context, percent, x - 2, COLUMN_Y + COLUMN_H + 8, COLUMN_W + 4, total <= 0 ? TEXT_MUTED : accentColor(stat.typeId().getPath(), 0));
+        drawCenteredText(context, percent, x - 2, COLUMN_Y + COLUMN_H + 8, COLUMN_W + 4, total <= 0 ? TEXT_MUTED : metricColor(stat.accentColor(), total, ratio));
     }
 
     private void drawInventoryLabel(GUIContext context) {
@@ -281,7 +297,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     }
 
     private void drawMatrixCard(GUIContext context, NEStorageMatrixCell cell, float x, float y) {
-        boolean hovered = containsLocal(Math.max(x, MATRIX_VIEW_X), y, Math.min(x + MATRIX_CARD_W, MATRIX_VIEW_X + MATRIX_VIEW_W) - Math.max(x, MATRIX_VIEW_X), MATRIX_CARD_H, context.mouseX, context.mouseY);
+        boolean hovered = containsLocal(Math.max(x, MATRIX_VIEW_X), y, Math.min(x + MATRIX_CARD_W, MATRIX_VIEW_X + MATRIX_VIEW_W) - Math.max(x, MATRIX_VIEW_X), MATRIX_CARD_H, currentMouseX(), currentMouseY());
         int bg = hovered ? 0xFF3B3645 : 0xFF302C38;
         fillLocal(context, x + 2, y, MATRIX_CARD_W - 4, MATRIX_CARD_H, bg);
         fillLocal(context, x, y + 2, MATRIX_CARD_W, MATRIX_CARD_H - 4, bg);
@@ -296,21 +312,23 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     }
 
     private void onMouseWheel(com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent event) {
-        if (containsLocal(LEFT_PANEL_X, LEFT_PANEL_Y, LEFT_PANEL_W, LEFT_PANEL_H, event.x, event.y)) {
+        float mouseX = currentMouseX();
+        float mouseY = currentMouseY();
+        if (containsLocal(LEFT_PANEL_X, LEFT_PANEL_Y, LEFT_PANEL_W, LEFT_PANEL_H, mouseX, mouseY)) {
             int viewportH = LEFT_PANEL_H - 16;
-            int contentH = storageLines().size() * TEXT_LINE_STEP;
+            int contentH = Math.max(0, storageLines().size() * TEXT_LINE_STEP);
             leftScroll = Mth.clamp(leftScroll - event.deltaY * 13.0F, 0.0F, Math.max(0, contentH - viewportH));
             event.stopPropagation();
             return;
         }
-        if (containsLocal(METRIC_PANEL_X, METRIC_PANEL_Y, METRIC_PANEL_W, METRIC_PANEL_H, event.x, event.y)) {
-            List<NEStorageTypeStat> stats = columnStats();
+        if (containsLocal(METRIC_PANEL_X, METRIC_PANEL_Y, METRIC_PANEL_W, METRIC_PANEL_H, mouseX, mouseY)) {
+            List<StorageMetric> stats = columnStats();
             int contentW = stats.isEmpty() ? 0 : stats.size() * COLUMN_W + (stats.size() - 1) * COLUMN_GAP;
             columnScrollTarget = Mth.clamp(columnScrollTarget - event.deltaY * 18.0F, 0.0F, Math.max(0, contentW - COLUMN_VIEW_W));
             event.stopPropagation();
             return;
         }
-        if (containsLocal(MATRIX_PANEL_X, MATRIX_PANEL_Y, MATRIX_PANEL_W, MATRIX_PANEL_H, event.x, event.y)) {
+        if (containsLocal(MATRIX_PANEL_X, MATRIX_PANEL_Y, MATRIX_PANEL_W, MATRIX_PANEL_H, mouseX, mouseY)) {
             int columns = snapshot.matrixCells().stream()
                     .mapToInt(cell -> Math.max(0, cell.column()) + 1)
                     .max()
@@ -346,26 +364,25 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
                 continue;
             }
             ItemStack stack = cell.stack();
-            return new HoverTooltips(List.of(
-                    stack.getHoverName(),
-                    tr("gui.neoecoae.storage.matrix_card.title", "%s Storage", tierName(cell.tier())).withStyle(ChatFormatting.AQUA),
-                    tr("gui.neoecoae.host.metric.types", "Types")
-                            .append(": ")
-                            .append(Component.literal(NEHostFormat.usedTotal(cell.usedTypes(), cell.totalTypes())).withStyle(ChatFormatting.WHITE)),
-                    tr("gui.neoecoae.host.metric.bytes", "Bytes")
-                            .append(": ")
-                            .append(Component.literal(NEHostFormat.usedTotalBytes(cell.usedBytes(), cell.totalBytes())).withStyle(ChatFormatting.WHITE))
-            ), stack.getTooltipImage().orElse(null), null, stack);
+            List<Component> lines = itemTooltip(stack);
+            lines.add(tr("gui.neoecoae.storage.matrix_card.title", "%s Storage", tierName(cell.tier())).withStyle(ChatFormatting.AQUA));
+            lines.add(tr("gui.neoecoae.host.metric.types", "Types")
+                    .append(": ")
+                    .append(Component.literal(NEHostFormat.usedTotal(cell.usedTypes(), cell.totalTypes())).withStyle(ChatFormatting.WHITE)));
+            lines.add(tr("gui.neoecoae.host.metric.bytes", "Bytes")
+                    .append(": ")
+                    .append(Component.literal(NEHostFormat.usedTotalBytes(cell.usedBytes(), cell.totalBytes())).withStyle(ChatFormatting.WHITE)));
+            return new HoverTooltips(lines, stack.getTooltipImage().orElse(null), null, stack);
         }
         return null;
     }
 
     private HoverTooltips columnTooltip(double mouseX, double mouseY) {
-        List<NEStorageTypeStat> stats = columnStats();
+        List<StorageMetric> stats = columnStats();
         int contentW = stats.isEmpty() ? 0 : stats.size() * COLUMN_W + (stats.size() - 1) * COLUMN_GAP;
         float startX = contentW <= COLUMN_VIEW_W ? COLUMN_VIEW_X + (COLUMN_VIEW_W - contentW) / 2.0F : COLUMN_VIEW_X - columnScroll;
         for (int i = 0; i < stats.size(); i++) {
-            NEStorageTypeStat stat = stats.get(i);
+            StorageMetric stat = stats.get(i);
             float x = startX + i * (COLUMN_W + COLUMN_GAP);
             float clippedX = Math.max(x, COLUMN_VIEW_X);
             float clippedW = Math.min(x + COLUMN_W, COLUMN_VIEW_X + COLUMN_VIEW_W) - clippedX;
@@ -373,13 +390,13 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
                 continue;
             }
             return new HoverTooltips(List.of(
-                    stat.displayName(),
+                    stat.label(),
                     tr("gui.neoecoae.host.metric.bytes", "Bytes")
                             .append(": ")
-                            .append(Component.literal(NEHostFormat.usedTotalBytes(stat.usedBytes().getAsLong(), stat.totalBytes().getAsLong())).withStyle(ChatFormatting.WHITE)),
+                            .append(Component.literal(NEHostFormat.usedTotalBytes(stat.usedBytes(), stat.totalBytes())).withStyle(ChatFormatting.WHITE)),
                     tr("gui.neoecoae.host.metric.types", "Types")
                             .append(": ")
-                            .append(Component.literal(NEHostFormat.usedTotal(stat.usedTypes().getAsLong(), stat.totalTypes().getAsLong())).withStyle(ChatFormatting.WHITE))
+                            .append(Component.literal(NEHostFormat.usedTotal(stat.usedTypes(), stat.totalTypes())).withStyle(ChatFormatting.WHITE))
             ), null, null, null);
         }
         return null;
@@ -401,36 +418,147 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         };
     }
 
-    private static int accentColor(String key, int index) {
-        String lower = key.toLowerCase(java.util.Locale.ROOT);
-        if (lower.contains("fluid")) {
-            return 0xFF3A8FD6;
+    private List<StorageMetric> columnStats() {
+        List<StorageMetric> metrics = storageMetrics();
+        List<StorageMetric> stats = metrics.stream()
+                .filter(stat -> stat.totalBytes() > 0 || stat.totalTypes() > 0)
+                .toList();
+        return stats.isEmpty() ? metrics : stats;
+    }
+
+    private List<StorageMetric> storageMetrics() {
+        List<NEStorageTypeStat> stats = snapshot.typeStats();
+        List<StorageMetric> metrics = new ArrayList<>();
+        NEStorageTypeStat itemStat = findTypeStat(stats, "item");
+        NEStorageTypeStat fluidStat = findTypeStat(stats, "fluid");
+        metrics.add(createMetric("neoecoae:items", itemStat, tr("gui.neoecoae.storage.items", "Items"), 0xFF43B678));
+        metrics.add(createMetric("neoecoae:fluids", fluidStat, tr("gui.neoecoae.storage.fluids", "Fluids"), 0xFF3A8FD6));
+        for (NEStorageTypeStat stat : stats) {
+            if (matchesTypeStat(stat, "item") || matchesTypeStat(stat, "fluid")) {
+                continue;
+            }
+            metrics.add(createMetric(stat.typeId().toString(), stat, stat.displayName(), typeAccentColor(stat, metrics.size())));
         }
-        if (lower.contains("item")) {
-            return 0xFF43B678;
+        return List.copyOf(metrics);
+    }
+
+    private static StorageMetric createMetric(String key, NEStorageTypeStat stat, Component fallbackLabel, int accentColor) {
+        if (stat == null) {
+            return new StorageMetric(key, fallbackLabel, 0L, 0L, 0L, 0L, accentColor);
         }
-        if (lower.contains("chemical") || lower.contains("gas")) {
+        return new StorageMetric(
+                key,
+                fallbackLabel,
+                stat.usedBytes().getAsLong(),
+                stat.totalBytes().getAsLong(),
+                stat.usedTypes().getAsLong(),
+                stat.totalTypes().getAsLong(),
+                accentColor);
+    }
+
+    private static NEStorageTypeStat findTypeStat(List<NEStorageTypeStat> stats, String needle) {
+        String lowerNeedle = needle.toLowerCase(Locale.ROOT);
+        String pluralNeedle = lowerNeedle + "s";
+        for (NEStorageTypeStat stat : stats) {
+            String path = stat.typeId().getPath().toLowerCase(Locale.ROOT);
+            if (path.equals(lowerNeedle) || path.equals(pluralNeedle)) {
+                return stat;
+            }
+        }
+        for (NEStorageTypeStat stat : stats) {
+            String path = stat.typeId().getPath().toLowerCase(Locale.ROOT);
+            String name = stat.displayName().getString().toLowerCase(Locale.ROOT);
+            if (path.contains(lowerNeedle) || name.contains(lowerNeedle)) {
+                return stat;
+            }
+        }
+        return null;
+    }
+
+    private static boolean matchesTypeStat(NEStorageTypeStat stat, String needle) {
+        String lowerNeedle = needle.toLowerCase(Locale.ROOT);
+        String pluralNeedle = lowerNeedle + "s";
+        String path = stat.typeId().getPath().toLowerCase(Locale.ROOT);
+        return path.equals(lowerNeedle) || path.equals(pluralNeedle);
+    }
+
+    private static int typeAccentColor(NEStorageTypeStat stat, int index) {
+        String path = stat.typeId().getPath().toLowerCase(Locale.ROOT);
+        String name = stat.displayName().getString().toLowerCase(Locale.ROOT);
+        if (containsAny(path, name, "chemical", "chem", "gas", "infuse", "infusion", "pigment", "slurry")) {
             return 0xFF9A6AE8;
+        }
+        if (containsAny(path, name, "flux", "fe", "energy")) {
+            return 0xFFE8A84A;
+        }
+        if (containsAny(path, name, "mana")) {
+            return 0xFF33B6D8;
+        }
+        if (containsAny(path, name, "source")) {
+            return 0xFFB66AE8;
         }
         int[] palette = {0xFFE06C75, 0xFF61AFEF, 0xFF98C379, 0xFFD19A66, 0xFFC678DD};
         return palette[Math.floorMod(index, palette.length)];
     }
 
-    private List<NEStorageTypeStat> columnStats() {
-        List<NEStorageTypeStat> stats = snapshot.typeStats().stream()
-                .filter(stat -> stat.totalBytes().getAsLong() > 0 || stat.totalTypes().getAsLong() > 0)
-                .toList();
-        return stats.isEmpty() ? snapshot.typeStats() : stats;
+    private static boolean containsAny(String path, String name, String... needles) {
+        for (String needle : needles) {
+            if (path.contains(needle) || name.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    private float animatedColumnRatio(NEStorageTypeStat stat) {
-        long total = stat.totalBytes().getAsLong();
-        float target = total <= 0L ? 0.0F : Mth.clamp((float) stat.usedBytes().getAsLong() / (float) total, 0.0F, 1.0F);
-        String key = stat.typeId().toString();
+    private float animatedColumnRatio(StorageMetric stat) {
+        long total = stat.totalBytes();
+        float target = total <= 0L ? 0.0F : Mth.clamp((float) stat.usedBytes() / (float) total, 0.0F, 1.0F);
+        String key = stat.key();
         float current = animatedColumnRatios.getOrDefault(key, target);
         float next = approach(current, target);
         animatedColumnRatios.put(key, next);
         return next;
+    }
+
+    private static int usedValueColor(long used, long max) {
+        if (used <= 0 || max <= 0) {
+            return 0xFF00FC00;
+        }
+        double pct = (double) used / (double) max;
+        if (pct >= 1.0D) {
+            return TEXT_ERROR;
+        }
+        if (pct >= 0.9D) {
+            return 0xFFFF9A3D;
+        }
+        if (pct >= 0.75D) {
+            return TEXT_WARNING;
+        }
+        return 0xFF00FC00;
+    }
+
+    private static int metricColor(int accentColor, long max, double pct) {
+        if (max <= 0L) {
+            return TEXT_MUTED;
+        }
+        return lerpColor(darken(accentColor, 0.72D), accentColor, Mth.clamp(pct + 0.2D, 0.0D, 1.0D));
+    }
+
+    private static int darken(int color, double factor) {
+        int a = (color >>> 24) & 0xFF;
+        int r = (int) (((color >>> 16) & 0xFF) * factor);
+        int g = (int) (((color >>> 8) & 0xFF) * factor);
+        int b = (int) ((color & 0xFF) * factor);
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    private static int lerpColor(int start, int end, double t) {
+        double safeT = Mth.clamp(t, 0.0D, 1.0D);
+        int a = (int) Mth.lerp(safeT, (start >>> 24) & 0xFF, (end >>> 24) & 0xFF);
+        int r = (int) Mth.lerp(safeT, (start >>> 16) & 0xFF, (end >>> 16) & 0xFF);
+        int g = (int) Mth.lerp(safeT, (start >>> 8) & 0xFF, (end >>> 8) & 0xFF);
+        int b = (int) Mth.lerp(safeT, start & 0xFF, end & 0xFF);
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     private static float approach(float current, float target) {
@@ -438,7 +566,54 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         return Math.abs(next - target) < 0.05F ? target : next;
     }
 
-    private record StorageLine(Component text, int color) {
+    private record StorageMetric(String key, Component label, long usedBytes, long totalBytes, long usedTypes, long totalTypes, int accentColor) {
+    }
+
+    private sealed interface StorageLine permits PlainStorageLine, UsedTotalStorageLine {
+        void draw(NEStorageLegacyCanvas canvas, GUIContext context, float x, float y, int maxWidth);
+
+        static StorageLine plain(Component text, int color) {
+            return new PlainStorageLine(text, color);
+        }
+
+        static StorageLine usedTotal(String prefix, String usedText, String maxText, long used, long max, String suffix) {
+            return new UsedTotalStorageLine(prefix, usedText, maxText, used, max, suffix);
+        }
+    }
+
+    private record PlainStorageLine(Component text, int color) implements StorageLine {
+        @Override
+        public void draw(NEStorageLegacyCanvas canvas, GUIContext context, float x, float y, int maxWidth) {
+            canvas.drawFittedText(context, text, x, y, maxWidth, color);
+        }
+    }
+
+    private record UsedTotalStorageLine(String prefix, String usedText, String maxText, long used, long max, String suffix) implements StorageLine {
+        @Override
+        public void draw(NEStorageLegacyCanvas canvas, GUIContext context, float x, float y, int maxWidth) {
+            String safeSuffix = suffix == null || suffix.isBlank() ? "" : " " + suffix;
+            int fullWidth = context.mc.font.width(prefix + usedText + " / " + maxText + safeSuffix);
+            String renderedSuffix = safeSuffix;
+            if (fullWidth > maxWidth && !safeSuffix.isEmpty()) {
+                renderedSuffix = " " + NEStorageLegacyCanvas.trString("gui.neoecoae.storage.used_short", "used");
+            }
+            int cursor = 0;
+            cursor += canvas.drawSegment(context, prefix, x + cursor, y, TEXT_MUTED);
+            cursor += canvas.drawSegment(context, usedText, x + cursor, y, usedValueColor(used, max));
+            cursor += canvas.drawSegment(context, " / ", x + cursor, y, TEXT_MUTED);
+            cursor += canvas.drawSegment(context, maxText, x + cursor, y, TEXT_VALUE);
+            if (!renderedSuffix.isBlank()) {
+                canvas.drawSegment(context, renderedSuffix, x + cursor, y, TEXT_MUTED);
+            }
+        }
+    }
+
+    private int drawSegment(GUIContext context, String text, float x, float y, int color) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        drawText(context, text, x, y, color);
+        return context.mc.font.width(text);
     }
 
     private record StorageSnapshot(

@@ -17,6 +17,7 @@ final class NEHostSnapshots {
     static final int MAX_STORAGE_MATRIX = 256;
     static final int MAX_TASKS = 128;
     static final int MAX_MODULE_CELLS = 256;
+    static final int MAX_ITEM_STACKS = 256;
     static final byte[] EMPTY = new byte[0];
 
     private NEHostSnapshots() {
@@ -167,6 +168,24 @@ final class NEHostSnapshots {
             cells.add(new NECraftingModuleCell(column, rows[rowIndex], tier, pos));
         }
         return List.copyOf(cells);
+    }
+
+    static void writeItemStacks(RegistryFriendlyByteBuf buf, List<ItemStack> stacks) {
+        int size = Math.min(stacks.size(), MAX_ITEM_STACKS);
+        buf.writeVarInt(size);
+        for (int i = 0; i < size; i++) {
+            ItemStack stack = stacks.get(i);
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, stack == null ? ItemStack.EMPTY : stack);
+        }
+    }
+
+    static List<ItemStack> readItemStacks(RegistryFriendlyByteBuf buf) {
+        int size = safeListSize(buf.readVarInt(), MAX_ITEM_STACKS);
+        List<ItemStack> stacks = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            stacks.add(ItemStack.OPTIONAL_STREAM_CODEC.decode(buf));
+        }
+        return List.copyOf(stacks);
     }
 
     private static long safeLong(LongSupplier supplier) {

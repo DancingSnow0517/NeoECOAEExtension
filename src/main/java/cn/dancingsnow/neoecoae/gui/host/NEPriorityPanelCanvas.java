@@ -36,6 +36,7 @@ public final class NEPriorityPanelCanvas extends NEAeWidgetCanvas {
             drawAeButton(context, STEP_X[i], STEP_Y[i], STEP_W[i], STEP_H, text,
                     hovered(context, STEP_X[i], STEP_Y[i], STEP_W[i], STEP_H));
         }
+        drawPriorityValueSlot(context, INPUT_X, INPUT_Y, INPUT_W, INPUT_H, hovered(context, INPUT_X, INPUT_Y, INPUT_W, INPUT_H));
         drawToolbarIconButton(context, BACK_X + 1, BACK_Y + 1, NEAeSprite.BACK,
                 hovered(context, BACK_X, BACK_Y, BACK_W, BACK_H));
         drawDarkText(context, Component.translatableWithFallback("gui.neoecoae.storage_priority.insert_hint", "When inserting: higher-priority storage is preferred."), 8, 98);

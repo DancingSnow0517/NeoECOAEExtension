@@ -124,18 +124,18 @@ public final class StoragePriorityUI {
             text -> parsePriority(text, config.setPriority())
         ).build());
         field.textFieldStyle(style -> style
-            .textColor(0xffffff)
-            .cursorColor(0xffffff)
+            .textColor(0x3F3D52)
+            .cursorColor(0x3F3D52)
             .textShadow(false)
             .placeholder(Component.literal("0"))
             .focusOverlay(IGuiTexture.EMPTY));
         field.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         field.layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(NEPriorityPanelCanvas.INPUT_X);
-            layout.top(NEPriorityPanelCanvas.INPUT_Y);
-            layout.width(NEPriorityPanelCanvas.INPUT_W);
-            layout.height(NEPriorityPanelCanvas.INPUT_H);
+            layout.left(NEPriorityPanelCanvas.INPUT_X + 1);
+            layout.top(NEPriorityPanelCanvas.INPUT_Y + 1);
+            layout.width(NEPriorityPanelCanvas.INPUT_W - 2);
+            layout.height(NEPriorityPanelCanvas.INPUT_H - 2);
             layout.paddingAll(0);
         });
         return field;

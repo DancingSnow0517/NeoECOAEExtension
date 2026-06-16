@@ -31,13 +31,22 @@ public final class NECraftingHostUI {
             layout.height(NECraftingLegacyCanvas.UI_HEIGHT);
         });
         root.addChild(new NECraftingLegacyCanvas(crafting));
-        root.addChild(toolbarButton(0, () -> crafting.setOverclocked(!crafting.isOverclocked()), () -> Component.translatable(
-            crafting.isOverclocked() ? "gui.neoecoae.crafting.overclock.on" : "gui.neoecoae.crafting.overclock.off"
+        root.addChild(toolbarButton(0, () -> crafting.setOverclocked(!crafting.isOverclocked()), () -> List.of(
+            Component.translatable(crafting.isOverclocked()
+                ? "gui.neoecoae.crafting.overclock.on"
+                : "gui.neoecoae.crafting.overclock.off"),
+            Component.translatable("gui.neoecoae.crafting.overclocked.tooltip")
         )));
-        root.addChild(toolbarButton(1, () -> crafting.setActiveCooling(!crafting.isActiveCooling()), () -> Component.translatable(
-            crafting.isActiveCooling() ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off"
+        root.addChild(toolbarButton(1, () -> crafting.setActiveCooling(!crafting.isActiveCooling()), () -> List.of(
+            Component.translatable(crafting.isActiveCooling()
+                ? "gui.neoecoae.crafting.active_cooling.on"
+                : "gui.neoecoae.crafting.active_cooling.off"),
+            Component.translatable("gui.neoecoae.crafting.active_cooling.tooltip")
         )));
-        root.addChild(toolbarButton(2, crafting::clearCoolant, () -> Component.translatable("gui.neoecoae.crafting.clear_coolant")));
+        root.addChild(toolbarButton(2, crafting::clearCoolant, () -> List.of(
+            Component.translatable("gui.neoecoae.crafting.clear_coolant"),
+            Component.translatable("gui.neoecoae.crafting.clear_coolant.tooltip")
+        )));
         root.addChild(NELegacyInventorySlots.create(
             NECraftingLegacyCanvas.PLAYER_INV_X,
             NECraftingLegacyCanvas.PLAYER_INV_Y,
@@ -48,12 +57,12 @@ public final class NECraftingHostUI {
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
     }
 
-    private static Button toolbarButton(int index, Runnable serverAction, java.util.function.Supplier<Component> tooltip) {
+    private static Button toolbarButton(int index, Runnable serverAction, java.util.function.Supplier<List<Component>> tooltip) {
         Button button = new Button();
         button.noText();
         button.setOnServerClick(event -> serverAction.run());
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-            List.of(tooltip.get()),
+            tooltip.get(),
             null,
             null,
             null
