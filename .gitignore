@@ -27,6 +27,7 @@ run-data
 
 repo
 NeoSkills.md
+docs/audit/
 
 src/generated/resources/.cache/
 
