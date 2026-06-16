@@ -497,5 +497,17 @@
   "item.neoecoae.eco_source_cell_housing": "ECO魔源存储矩阵外壳",
   "item.neoecoae.eco_source_storage_cell_16m": "ECO - LE4 魔源存储矩阵",
   "item.neoecoae.eco_source_storage_cell_64m": "ECO - LE6 魔源存储矩阵",
-  "item.neoecoae.eco_source_storage_cell_256m": "ECO - LE9 魔源存储矩阵"
+  "item.neoecoae.eco_source_storage_cell_256m": "ECO - LE9 魔源存储矩阵",
+  "gui.neoecoae.storage_interface.title": "存储接口",
+  "gui.neoecoae.storage_interface.mode.storage": "存储",
+  "gui.neoecoae.storage_interface.mode.output": "输出",
+  "gui.neoecoae.storage_interface.structure": "结构",
+  "gui.neoecoae.storage_interface.network": "网络",
+  "gui.neoecoae.storage_interface.formed": "已成型",
+  "gui.neoecoae.storage_interface.unformed": "未成型",
+  "gui.neoecoae.storage_interface.connected": "已连接",
+  "gui.neoecoae.storage_interface.disconnected": "未连接",
+  "gui.neoecoae.storage_interface.export": "输出: %s / tick",
+  "gui.neoecoae.storage_interface.storage_mode": "模式: 作为 ECO 存储挂载",
+  "gui.neoecoae.storage_interface.output_tooltip": "输出模式会暂停 L 系列存储挂载，并将内容导出到外部 ME 网络。"
 }

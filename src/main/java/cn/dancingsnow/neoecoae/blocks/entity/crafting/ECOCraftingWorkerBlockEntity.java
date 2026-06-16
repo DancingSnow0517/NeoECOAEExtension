@@ -78,8 +78,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    private TickRateModulation doTickingRequest(
-            ECOCraftingSystemBlockEntity controller, int ticksSinceLastCall) {
+    private TickRateModulation doTickingRequest(ECOCraftingSystemBlockEntity controller, int ticksSinceLastCall) {
         if (controller != null) {
             int powerMultiply = 1;
             if (controller.isOverclocked() && !controller.isActiveCooling()) {

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.ldlib;
 
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
@@ -13,7 +14,9 @@ import cn.dancingsnow.neoecoae.gui.ldlib.widget.NECraftingPatternBusWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEFluidHatchWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEIntegratedWorkingStationWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStorageControllerWidget;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStorageInterfaceWidget;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStructureTerminalWidget;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import net.minecraft.world.entity.player.Player;
@@ -27,6 +30,13 @@ public final class NELDLibUis {
                         storage,
                         player)
                 .widget(new NEStorageControllerWidget(storage, player));
+    }
+
+    public static ModularUI createStorageInterface(
+            ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface, Player player) {
+        return new ModularUI(
+                        NEStorageInterfaceWidget.UI_WIDTH, NEStorageInterfaceWidget.UI_HEIGHT, storageInterface, player)
+                .widget(new NEStorageInterfaceWidget(storageInterface, player));
     }
 
     public static ModularUI createComputationController(ECOComputationSystemBlockEntity computation, Player player) {

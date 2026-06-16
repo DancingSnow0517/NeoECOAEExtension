@@ -96,7 +96,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (cluster != null && cluster.getController() != null) {
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
-            if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
+            if (cellInventory != null
+                    && !cluster.getController().isStorageInterfaceOutputMode()
+                    && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 power += cellInventory.getIdleDrain();
             }
         }
@@ -142,7 +144,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (cluster != null && cluster.getController() != null) {
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
-            if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
+            if (cellInventory != null
+                    && !cluster.getController().isStorageInterfaceOutputMode()
+                    && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 int priority = cluster.getController().getPriority();
                 storageMounts.mount(cellInventory, priority);
                 boolean mountedChanged = !mounted;

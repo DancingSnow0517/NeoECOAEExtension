@@ -5,9 +5,11 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageInterfaceUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -97,6 +99,27 @@ public final class NELDLibStateCodecs {
                     buf.readLong()));
         }
         return new NEStorageUiState(pos, types, matrices, storedEnergy, maxEnergy, formed);
+    }
+
+    public static void writeStorageInterface(FriendlyByteBuf buf, NEStorageInterfaceUiState state) {
+        buf.writeBlockPos(state.pos());
+        buf.writeBoolean(state.formed());
+        buf.writeEnum(state.mode());
+        buf.writeLong(Math.max(0L, state.exportedLastTick()));
+        buf.writeLong(Math.max(0L, state.exportedTotal()));
+        buf.writeBoolean(state.targetOnline());
+        buf.writeBoolean(state.hasController());
+    }
+
+    public static NEStorageInterfaceUiState readStorageInterface(FriendlyByteBuf buf) {
+        return new NEStorageInterfaceUiState(
+                buf.readBlockPos(),
+                buf.readBoolean(),
+                buf.readEnum(ECOStorageInterfaceMode.class),
+                buf.readLong(),
+                buf.readLong(),
+                buf.readBoolean(),
+                buf.readBoolean());
     }
 
     public static void writeComputation(FriendlyByteBuf buf, NEComputationUiState state) {

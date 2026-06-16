@@ -66,7 +66,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public static final int MAX_COOLANT = 1_000_000;
 
     private static final int COOLANT_PER_CRAFT = 5;
-    private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 60L;
+    private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
     private final IECOTier tier;
@@ -202,7 +202,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return coolant < targetCoolant ? TickRateModulation.URGENT : TickRateModulation.IDLE;
     }
 
-    public void recordPerformanceSample(long elapsedNanos) {
+    void recordPerformanceSample(long elapsedNanos) {
         if (elapsedNanos < 0L) {
             return;
         }
@@ -212,6 +212,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             performanceWindowStartTick = currentTick;
         }
 
+        performanceWindowNanos += elapsedNanos;
         long elapsedTicks = currentTick - performanceWindowStartTick;
         if (elapsedTicks >= PERFORMANCE_SAMPLE_WINDOW_TICKS) {
             long nextAverageNanos = performanceWindowNanos / Math.max(1L, elapsedTicks);
@@ -222,8 +223,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 markUiStateDirty();
             }
         }
-
-        performanceWindowNanos += elapsedNanos;
     }
 
     private void updateInfo() {

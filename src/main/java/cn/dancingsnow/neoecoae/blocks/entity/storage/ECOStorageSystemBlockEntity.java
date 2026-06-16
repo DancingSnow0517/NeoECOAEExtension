@@ -1,12 +1,16 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import appeng.api.config.Actionable;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.MEStorage;
 import appeng.helpers.IPriorityHost;
 import appeng.menu.ISubMenu;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -16,17 +20,20 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.mojang.logging.LogUtils;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -44,10 +51,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
         implements IGridTickable, INEMultiblockBuildHost, IPriorityHost, IUIHolder.BlockEntityUI {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
+    private static final int STORAGE_INTERFACE_EXPORT_KEYS_PER_TICK = 64;
 
     @Getter
     private final IECOTier tier;
@@ -108,9 +117,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         markStorageStatsDirty();
         updateInfos();
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            drive.requestStorageProviderUpdate();
-        }
+        requestProviderUpdates();
         setChanged();
         markForUpdate();
     }
@@ -122,6 +129,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        long exported = exportStorageInterfaceContents();
+        ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+        if (storageInterface != null) {
+            storageInterface.recordStorageInterfaceExport(exported);
+        }
         updateInfos();
         return TickRateModulation.URGENT;
     }
@@ -442,6 +454,131 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         storageStatsDirty = true;
     }
 
+    public boolean isStorageInterfaceOutputMode() {
+        ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+        return storageInterface != null && storageInterface.isStorageOutputMode();
+    }
+
+    public void onStorageInterfaceModeChanged() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        markStorageStatsDirty();
+        requestProviderUpdates();
+        markForUpdate();
+        setChanged();
+    }
+
+    @Nullable private ECOMachineInterfaceBlockEntity<NEStorageCluster> getStorageInterface() {
+        return cluster == null ? null : cluster.getTheInterface();
+    }
+
+    private long exportStorageInterfaceContents() {
+        if (!isStorageInterfaceOutputMode() || !formed || cluster == null) {
+            return 0L;
+        }
+        ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+        if (storageInterface == null || !storageInterface.getMainNode().isOnline()) {
+            return 0L;
+        }
+        var grid = storageInterface.getMainNode().getGrid();
+        if (grid == null) {
+            return 0L;
+        }
+
+        MEStorage target = grid.getStorageService().getInventory();
+        IActionSource source = IActionSource.ofMachine(storageInterface);
+        long exported = 0L;
+        int remainingKeys = STORAGE_INTERFACE_EXPORT_KEYS_PER_TICK;
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            if (remainingKeys <= 0) {
+                break;
+            }
+            IECOStorageCell cell = drive.getCellInventory();
+            if (cell == null || !canExportDriveCell(drive)) {
+                continue;
+            }
+            ExportResult result = exportFromStorageLimited(cell, target, source, remainingKeys);
+            exported = saturatedAdd(exported, result.exported());
+            remainingKeys -= result.keysVisited();
+        }
+        if (exported > 0L) {
+            markStorageStatsDirty();
+            setChanged();
+            markForUpdate();
+        }
+        return exported;
+    }
+
+    private boolean canExportDriveCell(ECODriveBlockEntity drive) {
+        if (!formed || cluster == null) {
+            return false;
+        }
+        ItemStack stack = drive.getCellStack();
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        IECOStorageCell cell = drive.getCellInventory();
+        return cell != null && tier.compareTo(cell.getTier()) >= 0;
+    }
+
+    private ExportResult exportFromStorageLimited(
+            MEStorage sourceStorage, MEStorage targetStorage, IActionSource source, int maxKeys) {
+        if (maxKeys <= 0) {
+            return new ExportResult(0L, 0);
+        }
+        appeng.api.stacks.KeyCounter available = new appeng.api.stacks.KeyCounter();
+        sourceStorage.getAvailableStacks(available);
+        long exported = 0L;
+        int keysVisited = 0;
+        for (Object2LongMap.Entry<AEKey> entry : available) {
+            if (keysVisited >= maxKeys) {
+                break;
+            }
+            long amount = entry.getLongValue();
+            if (amount <= 0L) {
+                continue;
+            }
+            keysVisited++;
+            long moved = exportKey(sourceStorage, targetStorage, source, entry.getKey(), amount);
+            if (moved > 0L) {
+                exported = saturatedAdd(exported, moved);
+            }
+        }
+        return new ExportResult(exported, keysVisited);
+    }
+
+    private long exportKey(
+            MEStorage sourceStorage, MEStorage targetStorage, IActionSource source, AEKey key, long availableAmount) {
+        long request = Math.max(0L, availableAmount);
+        if (request <= 0L) {
+            return 0L;
+        }
+        long accepted = targetStorage.insert(key, request, Actionable.SIMULATE, source);
+        if (accepted <= 0L) {
+            return 0L;
+        }
+        long extracted = sourceStorage.extract(key, Math.min(request, accepted), Actionable.MODULATE, source);
+        if (extracted <= 0L) {
+            return 0L;
+        }
+        long inserted = targetStorage.insert(key, extracted, Actionable.MODULATE, source);
+        if (inserted < extracted) {
+            long remainder = extracted - Math.max(0L, inserted);
+            sourceStorage.insert(key, remainder, Actionable.MODULATE, source);
+        }
+        return Math.max(0L, inserted);
+    }
+
+    private void requestProviderUpdates() {
+        if (cluster != null) {
+            for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                drive.requestStorageProviderUpdate();
+                drive.scheduleRenderUpdate();
+            }
+        }
+    }
+
     // IPriorityHost implementation
 
     @Override
@@ -453,12 +590,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     public void setPriority(int newValue) {
         this.priority = newValue;
         setChanged();
-        // Notify all drives to remount with the new priority
-        if (cluster != null) {
-            for (ECODriveBlockEntity drive : cluster.getDrives()) {
-                drive.requestStorageProviderUpdate();
-            }
-        }
+        requestProviderUpdates();
         markForUpdate();
     }
 
@@ -477,6 +609,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private int getCellTypeCount() {
         var reg = NERegistries.cellTypeRegistry();
         return Math.max(reg != null ? reg.size() : 1, 1);
+    }
+
+    private record ExportResult(long exported, int keysVisited) {}
+
+    private static long saturatedAdd(long left, long right) {
+        if (left == Long.MAX_VALUE || right == Long.MAX_VALUE || right > 0L && left > Long.MAX_VALUE - right) {
+            return Long.MAX_VALUE;
+        }
+        return left + right;
     }
 
     // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default

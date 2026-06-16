@@ -90,14 +90,14 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int MIDDLE_AREA_Y = MODULE_AREA_Y + MODULE_AREA_H + 6;
     private static final int STATUS_AREA_X = MODULE_AREA_X;
     private static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATUS_AREA_W = 64;
+    private static final int STATUS_AREA_W = 76;
     private static final int STATUS_AREA_H = 70;
     private static final int STATUS_ROW_X = STATUS_AREA_X + 8;
     private static final int STATUS_TEXT_GAP = 16;
-    private static final int STATUS_VALUE_RIGHT_PAD = 3;
+    private static final int STATUS_VALUE_RIGHT_PAD = 6;
     private static final int STATS_AREA_X = STATUS_AREA_X + STATUS_AREA_W + 6;
     private static final int STATS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATS_AREA_W = 138;
+    private static final int STATS_AREA_W = 126;
     private static final int STATS_AREA_H = 70;
     private static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + 6;
     private static final int GAUGE_AREA_Y = MIDDLE_AREA_Y;
@@ -511,6 +511,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 STATS_AREA_Y + 5,
                 NELDLibStyle.DARK_TEXT_PRIMARY);
         int x = STATS_AREA_X + 8;
+        int rightX = STATS_AREA_X + STATS_AREA_W - 8;
         int y = STATS_AREA_Y + 19;
         drawCompactPairLine(
                 g,
@@ -519,18 +520,18 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 state.maxRecipeSlots(),
                 x,
                 y);
+        drawScaledRight(
+                g,
+                Component.literal(formatPerformanceLine(state.performanceAverageNanos())),
+                absX(rightX),
+                absY(y),
+                NELDLibStyle.DARK_TEXT_VALUE);
         y += 25;
         drawInlineValueLine(
                 g,
                 Component.translatable("gui.neoecoae.crafting.batch_parallel").getString() + ": ",
                 state.batchParallel(),
                 x,
-                y);
-        drawInlineTextLine(
-                g,
-                Component.translatable("gui.neoecoae.crafting.performance_short").getString() + ":",
-                formatPerformance(state.performanceAverageNanos()),
-                x + 52,
                 y);
         y += 11;
         drawInlineValueLine(
@@ -1009,9 +1010,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         lines.add(Component.translatable("gui.neoecoae.crafting.batch_parallel")
                 .append(": ")
                 .append(Component.literal(NELDLibText.number(state.batchParallel()))));
-        lines.add(Component.translatable("gui.neoecoae.crafting.performance")
-                .append(": ")
-                .append(Component.literal(formatPerformance(state.performanceAverageNanos()))));
+        lines.add(Component.literal(formatPerformanceLine(state.performanceAverageNanos())));
         g.renderTooltip(font(), lines, Optional.empty(), mouseX, mouseY);
     }
 
@@ -1074,7 +1073,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return Math.round(font().width(text) * TEXT_SCALE);
     }
 
-    private static String formatPerformance(long averageNanos) {
+    private static String formatPerformanceLine(long averageNanos) {
+        return Component.translatable("gui.neoecoae.crafting.performance").getString() + ":"
+                + formatPerformanceValue(averageNanos);
+    }
+
+    private static String formatPerformanceValue(long averageNanos) {
         long safeNanos = Math.max(0L, averageNanos);
         long micros = Math.round(safeNanos / 1_000.0D);
         String millis = PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D);
