@@ -77,11 +77,11 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
                 // Returned to the stable value — accept immediately.
                 return new ActiveFlutterDebounce(rawActive, 0, 0);
             }
+            if (this.pendingRaw != 0 && currentTick - this.pendingSinceTick >= DEBOUNCE_TICKS) {
+                return new ActiveFlutterDebounce(rawActive, 0, 0);
+            }
             if (rawActive == this.pendingRaw && this.pendingRaw != 0) {
                 // Same pending value seen again — accept if stable long enough.
-                if (currentTick - this.pendingSinceTick >= DEBOUNCE_TICKS) {
-                    return new ActiveFlutterDebounce(rawActive, 0, 0);
-                }
                 return this; // Still debouncing.
             }
             // Different value — start a new debounce period.
@@ -140,9 +140,13 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             cancellable = true,
             require = 1)
     private void neoecoae$onSetCPU(ICraftingCPU selectedCpu, CallbackInfo ci) {
-        neoecoae$removeEcoListener();
+        if (selectedCpu == this.neoecoae$cpu) {
+            ci.cancel();
+            return;
+        }
 
         if (selectedCpu instanceof ECOCraftingCPU ecoCpu) {
+            neoecoae$removeEcoListener();
             if (this.cpu != null) {
                 this.cpu.craftingLogic.removeListener(this.cpuChangeListener);
             }
@@ -165,6 +169,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
             this.neoecoae$forceEcoStatusUpdate = true;
             this.neoecoae$broadcastEcoCpuChanges();
             ci.cancel();
+        } else {
+            neoecoae$removeEcoListener();
         }
     }
 
