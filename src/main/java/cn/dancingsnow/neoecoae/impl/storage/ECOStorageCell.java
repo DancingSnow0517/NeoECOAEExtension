@@ -6,7 +6,6 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
@@ -22,14 +21,7 @@ import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.mojang.logging.LogUtils;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongMaps;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.Getter;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -56,13 +48,8 @@ public class ECOStorageCell implements IECOStorageCell {
     private final ItemStack cellStack;
 
     private final int maxItemTypes;
-    private int storedItems;
 
-    @Getter
-    private long storedItemCount;
-
-    private Object2LongMap<AEKey> storedAmounts;
-    private boolean isPersisted = true;
+    private final ECOCellContents contents;
 
     @Getter
     private final IECOTier tier;
@@ -74,11 +61,7 @@ public class ECOStorageCell implements IECOStorageCell {
         if (cellStack.getItem() instanceof IBasicECOCellItem c) {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
-            var storedStacks = getStoredStacks();
-            this.storedItems = storedStacks.size();
-            this.storedItemCount =
-                    storedStacks.stream().mapToLong(GenericStack::amount).sum();
-            this.storedAmounts = null;
+            this.contents = new ECOCellContents(cellStack, maxItemTypes);
             this.cellType = c;
             this.tier = c.getTier();
 
@@ -108,35 +91,19 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public CellState getStatus() {
-        if (this.getStoredItemTypes() == 0) {
-            return CellState.EMPTY;
-        }
-        if (this.canHoldNewItem()) {
-            return CellState.NOT_EMPTY;
-        }
-        if (this.getRemainingItemCount() > 0) {
-            return CellState.TYPES_FULL;
-        }
-        return CellState.FULL;
+        return capacity().status();
     }
 
     public long getRemainingItemCount() {
-        final long remaining = this.getFreeBytes() * keyType.getAmountPerByte() + this.getUnusedItemCount();
-        return remaining > 0 ? remaining : 0;
+        return capacity().remainingItemCount();
     }
 
     public long getFreeBytes() {
-        return this.getTotalBytes() - this.getUsedBytes();
+        return capacity().freeBytes();
     }
 
     public int getUnusedItemCount() {
-        final int div = (int) (this.getStoredItemCount() % keyType.getAmountPerByte());
-
-        if (div == 0) {
-            return 0;
-        }
-
-        return keyType.getAmountPerByte() - div;
+        return capacity().unusedItemCount();
     }
 
     public int getBytesPerType() {
@@ -144,8 +111,7 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     public long getUsedBytes() {
-        var bytesForItemCount = (this.getStoredItemCount() + this.getUnusedItemCount()) / keyType.getAmountPerByte();
-        return this.getStoredItemTypes() * this.getBytesPerType() + bytesForItemCount;
+        return capacity().usedBytes();
     }
 
     public long getTotalBytes() {
@@ -157,51 +123,29 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     public long getRemainingItemTypes() {
-        var basedOnStorage = this.getFreeBytes() / this.getBytesPerType();
-        var baseOnTotal = this.getTotalItemTypes() - this.getStoredItemTypes();
-        return Math.min(basedOnStorage, baseOnTotal);
+        return capacity().remainingItemTypes();
     }
 
     private boolean canHoldNewItem() {
-        final long bytesFree = this.getFreeBytes();
-        return (bytesFree > this.getBytesPerType()
-                        || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0)
-                && this.getRemainingItemTypes() > 0;
+        return capacity().canHoldNewItem();
     }
 
     public long getStoredItemTypes() {
-        return storedItems;
+        return contents.storedItemTypes();
     }
 
-    private List<GenericStack> getStoredStacks() {
-        if (!cellStack.hasTag() || !cellStack.getTag().contains("eco_cell_contents", Tag.TAG_LIST)) {
-            return List.of();
-        }
-        ListTag list = cellStack.getTag().getList("eco_cell_contents", Tag.TAG_COMPOUND);
-        List<GenericStack> stacks = new ArrayList<>(list.size());
-        for (int i = 0; i < list.size(); i++) {
-            GenericStack stack = GenericStack.readTag(list.getCompound(i));
-            if (stack != null && stack.amount() > 0) {
-                stacks.add(stack);
-            }
-        }
-        return stacks;
+    public long getStoredItemCount() {
+        return contents.storedItemCount();
     }
 
-    protected Object2LongMap<AEKey> getCellItems() {
-        if (this.storedAmounts == null) {
-            this.storedAmounts = new Object2LongOpenHashMap<>(maxItemTypes);
-            this.loadCellItems();
-        }
-
-        return this.storedAmounts;
-    }
-
-    private void loadCellItems() {
-        var stacks = getStoredStacks();
-        for (var stack : stacks) {
-            storedAmounts.put(stack.what(), stack.amount());
-        }
+    private ECOCellCapacity capacity() {
+        return new ECOCellCapacity(
+                keyType,
+                getTotalBytes(),
+                getBytesPerType(),
+                getTotalItemTypes(),
+                getStoredItemTypes(),
+                getStoredItemCount());
     }
 
     @Override
@@ -211,29 +155,11 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public void persist() {
-        if (this.isPersisted) {
+        if (this.contents.isPersisted()) {
             return;
         }
 
-        var itemCount = 0L;
-        var stacks = new ArrayList<GenericStack>(storedAmounts.size());
-
-        for (var entry : this.storedAmounts.object2LongEntrySet()) {
-            long amount = entry.getLongValue();
-            itemCount += amount;
-
-            if (amount > 0) {
-                stacks.add(new GenericStack(entry.getKey(), amount));
-            }
-        }
-
-        ListTag list = new ListTag();
-        for (GenericStack stack : stacks) {
-            list.add(GenericStack.writeTag(stack));
-        }
-        cellStack.getOrCreateTag().put("eco_cell_contents", list);
-
-        int actualTypes = this.storedAmounts.size();
+        int actualTypes = contents.persist();
         if (actualTypes > this.maxItemTypes) {
             LOGGER.warn(
                     "ECO storage cell contains more types than allowed: actual={} max={} stack={}",
@@ -241,14 +167,10 @@ public class ECOStorageCell implements IECOStorageCell {
                     this.maxItemTypes,
                     cellStack);
         }
-        this.storedItems = actualTypes;
-
-        this.storedItemCount = itemCount;
-        this.isPersisted = true;
     }
 
     protected void saveChanges() {
-        this.isPersisted = false;
+        this.contents.markDirty();
         if (this.container == null) {
             this.persist();
         } else if (this.container instanceof IBatchedECOCellSaveProvider) {
@@ -280,7 +202,7 @@ public class ECOStorageCell implements IECOStorageCell {
         // ensure it doesn't void any items
         // that the cell isn't even storing and cannot store to begin with
         if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
-            return getCellItems().containsKey(what) ? amount : inserted;
+            return contents.contains(what) ? amount : inserted;
         }
 
         return hasVoidUpgrade ? amount : inserted;
@@ -296,7 +218,7 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
 
-        var currentAmount = this.getCellItems().getLong(what);
+        var currentAmount = contents.getAmount(what);
         long remainingItemCount = this.getRemainingItemCount();
 
         if (currentAmount <= 0) {
@@ -318,12 +240,7 @@ public class ECOStorageCell implements IECOStorageCell {
         }
 
         if (mode == Actionable.MODULATE) {
-            long newAmount = currentAmount + amount;
-            getCellItems().put(what, newAmount);
-            if (currentAmount <= 0) {
-                storedItems++;
-            }
-            storedItemCount = saturatedAdd(storedItemCount, amount);
+            contents.add(what, amount);
             this.saveChanges();
         }
 
@@ -332,21 +249,18 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        var currentAmount = getCellItems().getLong(what);
+        var currentAmount = contents.getAmount(what);
         if (currentAmount > 0) {
             if (amount >= currentAmount) {
                 if (mode == Actionable.MODULATE) {
-                    getCellItems().remove(what, currentAmount);
-                    storedItems = Math.max(0, storedItems - 1);
-                    storedItemCount = Math.max(0, storedItemCount - currentAmount);
+                    contents.remove(what, currentAmount);
                     this.saveChanges();
                 }
 
                 return currentAmount;
             } else {
                 if (mode == Actionable.MODULATE) {
-                    getCellItems().put(what, currentAmount - amount);
-                    storedItemCount = Math.max(0, storedItemCount - amount);
+                    contents.subtract(what, amount);
                     this.saveChanges();
                 }
 
@@ -359,14 +273,12 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public boolean canFitInsideCell() {
-        return getAvailableStacks().isEmpty();
+        return contents.isEmpty();
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        for (var entry : Object2LongMaps.fastIterable(this.getCellItems())) {
-            out.add(entry.getKey(), entry.getLongValue());
-        }
+        contents.addTo(out);
     }
 
     @Override
@@ -376,7 +288,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
-        boolean used = !this.getCellItems().isEmpty() && this.insert(what, 1, Actionable.SIMULATE, source) == 1;
+        boolean used = !contents.isEmpty() && this.insert(what, 1, Actionable.SIMULATE, source) == 1;
         boolean sameItem = this.extract(what, 1, Actionable.SIMULATE, source) > 0;
         return used || sameItem;
     }
@@ -392,10 +304,5 @@ public class ECOStorageCell implements IECOStorageCell {
 
     public ConfigInventory getConfigInventory() {
         return ((ECOStorageCellItem) cellStack.getItem()).getConfigInventory(cellStack);
-    }
-
-    private static long saturatedAdd(long a, long b) {
-        long result = a + b;
-        return result < 0 ? Long.MAX_VALUE : result;
     }
 }

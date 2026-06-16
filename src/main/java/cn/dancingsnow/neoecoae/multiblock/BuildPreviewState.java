@@ -14,7 +14,7 @@ import org.jetbrains.annotations.Nullable;
  * component logic so that adding a new preview field requires only one edit.
  * </p>
  * <p>
- * Instances are mutable by design — the controller BE owns the state and
+ * Instances are mutable by design; the controller BE owns the state and
  * mutates fields via {@link #syncPreview(int, int, int, int, String, int, int)}
  * during build ticks.
  * </p>
@@ -37,7 +37,7 @@ public final class BuildPreviewState implements Cloneable {
 
     @Nullable public transient UUID buildPlayerId;
 
-    // ── NBT keys (centralised so they stay consistent across all controllers) ──
+    // NBT keys, centralised so they stay consistent across all controllers.
     private static final String NBT_SELECTED_BUILD_LENGTH = "selectedBuildLength";
     private static final String NBT_PREVIEW_MISSING = "previewMissingBlocks";
     private static final String NBT_PREVIEW_CONFLICT = "previewConflictBlocks";

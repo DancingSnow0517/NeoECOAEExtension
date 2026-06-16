@@ -30,7 +30,7 @@
 - 生产环境稳定性仍缺普通客户端 jar smoke test，尤其是 mixin refmap/obfuscation 行为。
 - ECO crafting 与 Storage 的新保护逻辑缺自动化/可重复测试，当前依赖手动场景验证。
 - Native UI 与网络状态同步代码增长较快，硬编码布局、颜色、文字和重复绘制 helper 已经影响维护。
-- compat 边界存在历史包路径残留，`compat/appmek` 与被 source exclude 的 `integration/appmek` 同时存在，容易造成误改和 datagen/文档混淆。
+- compat 边界的历史包路径残留已清理：`integration/**` 旧源码和失效 `kubejs.plugins.txt` 已移除，当前活跃路径为 `compat/**`。
 
 ## 3. P0 问题清单
 
@@ -60,7 +60,7 @@
 
 4. **optional compat 无 AppMek/Mekanism 环境需要 dedicated server smoke**
 
-   `compat/appmek` 已做 integration gating，但源码中仍有 `integration/appmek` 历史目录，且 AppMek/Mekanism 类引用较多。虽然 `sourceSets.main.java` exclude 了 `integration/**`，维护者很容易误改旧目录或引入主路径强引用。
+   `compat/appmek` 已做 integration gating，旧的 `integration/**` 源码树和失效 KubeJS 插件入口已清理。后续风险主要来自 AppMek/Mekanism 类引用较多，维护时仍需避免把 optional compat 类引入主加载路径。
 
    影响：无 AppMek/Mekanism 的 dedicated server 可能因 classloading 边界回归而崩溃。
 
@@ -120,9 +120,9 @@
 
    `NumberFormat`、`String.format`、`Component.literal` 在 render path 仍较多。这个不是当前最大服务端热点，建议只在客户端 profile 证明后再做缓存。
 
-4. **旧 package 残留清理需要谨慎**
+4. **旧 package 残留已清理**
 
-   `src/main/java/cn/dancingsnow/neoecoae/integration/appmek` 与 active `compat/appmek` 并存。清理可能影响历史 datagen 或迁移脚本，建议先确认 sourceSets/excludes 和资源输出。
+   `src/main/java/cn/dancingsnow/neoecoae/integration/**` 已删除，active compat 实现保留在 `compat/**`。后续新增 optional compat 时应继续放在 `compat/**`，并同步检查资源入口，避免重新出现未编译旧包。
 
 ## 6. 可精简/可抽象代码区域
 
@@ -187,7 +187,7 @@ P1：
 - 拆分 `NENetwork` packet records。
 - 拆分 IWS recipe/runtime/export/UI sync 职责。
 - 对 `markForUpdate` 建立使用规范：外观变化才调用。
-- 清理或明确标注 inactive `integration/appmek` 旧目录。
+- 保持 inactive `integration/**` 不再回流；新增 compat 只放在 `compat/**` 并同步资源入口。
 
 P2：
 

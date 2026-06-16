@@ -16,20 +16,14 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -59,17 +53,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private final BuildPreviewState buildPreview = new BuildPreviewState();
 
     private long uiRevision = 0L;
-    private int selectedBuildLength = 1;
-    private int previewMissingBlocks;
-    private int previewConflictBlocks;
-    private int previewReusedBlocks;
-    private int previewRequiredItems;
-    private String previewStatusKey = "gui.neoecoae.multiblock.status.idle";
-    private int previewStatusArg1;
-    private int previewStatusArg2;
-    private boolean buildInProgress;
-    private transient MultiBlockBuildSession buildSession;
-    private transient UUID buildPlayerId;
 
     public ECOComputationSystemBlockEntity(
             BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
@@ -155,65 +138,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
-            return;
-        }
-
-        ServerPlayer buildPlayer = buildPlayerId == null
-                ? null
-                : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
-        if (buildPlayer == null) {
-            int remainingBlocks = buildSession.getRemainingBlockCount();
-            buildSession = null;
-            buildPlayerId = null;
-            buildInProgress = false;
-            syncPreview(
-                    remainingBlocks,
-                    0,
-                    previewReusedBlocks,
-                    previewRequiredItems,
-                    "gui.neoecoae.multiblock.status.builder_unavailable");
-            return;
-        }
-
-        switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
-            case WAITING -> {}
-            case ADVANCED -> syncPreview(
-                    buildSession.getRemainingBlockCount(),
-                    buildSession.getSkippedBlockCount(),
-                    previewReusedBlocks,
-                    previewRequiredItems,
-                    "gui.neoecoae.multiblock.status.building",
-                    buildSession.getPlacedBlockCount(),
-                    buildSession.getTotalBlocks());
-            case COMPLETED -> {
-                int skippedBlocks = buildSession.getSkippedBlockCount();
-                buildSession = null;
-                buildPlayerId = null;
-                buildInProgress = false;
-                rebuildMultiblock();
-                syncPreview(
-                        0,
-                        skippedBlocks,
-                        previewReusedBlocks,
-                        previewRequiredItems,
-                        skippedBlocks > 0
-                                ? "gui.neoecoae.multiblock.status.conflicts_detected"
-                                : "gui.neoecoae.multiblock.status.build_complete");
-            }
-            case BLOCKED -> {
-                int remainingBlocks = buildSession.getRemainingBlockCount();
-                buildSession = null;
-                buildPlayerId = null;
-                buildInProgress = false;
-                syncPreview(
-                        remainingBlocks,
-                        1,
-                        previewReusedBlocks,
-                        previewRequiredItems,
-                        "gui.neoecoae.multiblock.status.build_interrupted");
-            }
-        }
+        tickBuild(level);
     }
 
     public int getUsedThread() {
@@ -364,98 +289,32 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return NEMultiBlocks.getComputationSystemDefinition(tier);
     }
 
-    @Override
-    public void setSelectedBuildLength(int length) {
-        this.selectedBuildLength = Mth.clamp(length, getMinBuildLength(), getMaxBuildLength());
-    }
-
-    @Override
-    public int getMinBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMin();
-    }
-
-    @Override
-    public int getMaxBuildLength() {
-        MultiBlockDefinition definition = getBuildDefinition();
-        return definition == null ? 1 : definition.getExpandMax();
-    }
-
-    @Override
-    public void previewStructure(ServerPlayer player, int displayLength) {
-        previewStructure(player, displayLength, false);
-    }
-
-    @Override
-    public void previewStructure(ServerPlayer player, int displayLength, boolean mirrored) {
-        setSelectedBuildLength(displayLength);
-        previewStructure((Player) player, mirrored);
-    }
-
-    @Override
-    public void autoBuild(ServerPlayer player, int displayLength) {
-        autoBuild(player, displayLength, false);
-    }
-
-    @Override
-    public void autoBuild(ServerPlayer player, int displayLength, boolean mirrored) {
-        setSelectedBuildLength(displayLength);
-        autoBuild((Player) player, mirrored);
-    }
-
     @Deprecated
     @Override
     public void previewStructure(ServerPlayer player) {
-        previewStructure((Player) player);
+        previewStructure(player, false);
     }
 
     @Deprecated
     @Override
     public void autoBuild(ServerPlayer player) {
-        autoBuild((Player) player);
-    }
-
-    @Override
-    public void dismantle(ServerPlayer player) {
-        if (!(level instanceof ServerLevel serverLevel)) {
-            return;
-        }
-        player.closeContainer();
-        boolean dismantled = MultiBlockPlacementService.dismantle(serverLevel, this, player);
-        syncPreview(
-                0,
-                0,
-                0,
-                0,
-                dismantled
-                        ? "gui.neoecoae.multiblock.status.dismantled"
-                        : "gui.neoecoae.multiblock.status.dismantle_failed");
-    }
-
-    // Legacy public accessors
-
-    public int getSelectedBuildLength() {
-        return selectedBuildLength;
+        autoBuild(player, false);
     }
 
     public int getPreviewMissingBlocks() {
-        return previewMissingBlocks;
+        return buildPreview.previewMissingBlocks;
     }
 
     public int getPreviewConflictBlocks() {
-        return previewConflictBlocks;
+        return buildPreview.previewConflictBlocks;
     }
 
     public int getPreviewReusedBlocks() {
-        return previewReusedBlocks;
+        return buildPreview.previewReusedBlocks;
     }
 
     public int getPreviewRequiredItems() {
-        return previewRequiredItems;
-    }
-
-    public boolean isBuildInProgress() {
-        return buildInProgress;
+        return buildPreview.previewRequiredItems;
     }
 
     // Multi-block builder methods invoked by LDLib UI actions.
@@ -465,176 +324,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Override
     public BuildPreviewState getBuildPreview() {
         return buildPreview;
-    }
-
-    public void previewStructure(Player player) {
-        previewStructure(player, false);
-    }
-
-    public void previewStructure(Player player, boolean mirrored) {
-        if (!(level instanceof ServerLevel serverLevel)) {
-            return;
-        }
-        if (formed) {
-            syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.controller_formed");
-            return;
-        }
-        if (buildInProgress && buildSession != null) {
-            syncPreview(
-                    buildSession.getRemainingBlockCount(),
-                    0,
-                    previewReusedBlocks,
-                    previewRequiredItems,
-                    "gui.neoecoae.multiblock.status.building",
-                    buildSession.getPlacedBlockCount(),
-                    buildSession.getTotalBlocks());
-            return;
-        }
-        MultiBlockDefinition definition = getBuildDefinition();
-        if (definition == null) {
-            syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
-            return;
-        }
-        selectedBuildLength =
-                net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
-                serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrored);
-        boolean hasMaterials = player instanceof ServerPlayer serverPlayer
-                && MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems());
-        String statusKey = plan.getConflictPositions().isEmpty()
-                ? (plan.getMissingBlocks().isEmpty()
-                        ? "gui.neoecoae.multiblock.status.structure_ready"
-                        : (hasMaterials
-                                ? "gui.neoecoae.multiblock.status.ready_to_build"
-                                : "gui.neoecoae.multiblock.status.not_enough_items"))
-                : "gui.neoecoae.multiblock.status.conflicts_detected";
-        syncPreview(
-                plan.getMissingBlocks().size(),
-                plan.getConflictPositions().size(),
-                plan.getReusedBlockCount(),
-                plan.getRequiredItemCount(),
-                statusKey);
-    }
-
-    public void autoBuild(Player player) {
-        autoBuild(player, false);
-    }
-
-    public void autoBuild(Player player, boolean mirrored) {
-        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
-            return;
-        }
-        serverPlayer.closeContainer();
-        if (formed) {
-            syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.controller_formed");
-            return;
-        }
-        if (buildInProgress) {
-            syncPreview(
-                    previewMissingBlocks,
-                    previewConflictBlocks,
-                    previewReusedBlocks,
-                    previewRequiredItems,
-                    "gui.neoecoae.multiblock.status.build_already_in_progress");
-            return;
-        }
-        MultiBlockDefinition definition = getBuildDefinition();
-        if (definition == null) {
-            syncPreview(0, 0, 0, 0, "gui.neoecoae.multiblock.status.no_definition");
-            return;
-        }
-        selectedBuildLength =
-                net.minecraft.util.Mth.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
-                serverLevel, worldPosition, getBlockState(), definition, selectedBuildLength, mirrored);
-        if (!serverPlayer.isCreative()
-                && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
-            syncPreview(
-                    plan.getMissingBlocks().size(),
-                    plan.getConflictPositions().size(),
-                    plan.getReusedBlockCount(),
-                    plan.getRequiredItemCount(),
-                    "gui.neoecoae.multiblock.status.not_enough_items");
-            return;
-        }
-        if (plan.getMissingBlocks().isEmpty()) {
-            rebuildMultiblock();
-            int conflicts = plan.getConflictPositions().size();
-            syncPreview(
-                    0,
-                    conflicts,
-                    plan.getReusedBlockCount(),
-                    plan.getRequiredItemCount(),
-                    conflicts > 0
-                            ? "gui.neoecoae.multiblock.status.conflicts_detected"
-                            : "gui.neoecoae.multiblock.status.build_complete");
-            return;
-        }
-        if (serverPlayer.isCreative()) {
-            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan)) {
-                syncPreview(
-                        plan.getMissingBlocks().size(),
-                        plan.getConflictPositions().size(),
-                        plan.getReusedBlockCount(),
-                        plan.getRequiredItemCount(),
-                        "gui.neoecoae.multiblock.status.build_failed");
-                return;
-            }
-            rebuildMultiblock();
-            int conflicts = plan.getConflictPositions().size();
-            syncPreview(
-                    0,
-                    conflicts,
-                    plan.getReusedBlockCount(),
-                    plan.getRequiredItemCount(),
-                    conflicts > 0
-                            ? "gui.neoecoae.multiblock.status.conflicts_detected"
-                            : "gui.neoecoae.multiblock.status.build_complete");
-            return;
-        }
-        buildSession = MultiBlockPlacementService.createBuildSession(serverLevel, plan);
-        buildPlayerId = serverPlayer.getUUID();
-        buildInProgress = true;
-        syncPreview(
-                plan.getMissingBlocks().size(),
-                plan.getConflictPositions().size(),
-                plan.getReusedBlockCount(),
-                plan.getRequiredItemCount(),
-                "gui.neoecoae.multiblock.status.building",
-                buildSession.getPlacedBlockCount(),
-                buildSession.getTotalBlocks());
-    }
-
-    @Override
-    public void resetPreview(String statusKey) {
-        syncPreview(0, 0, 0, 0, statusKey);
-    }
-
-    private void syncPreview(
-            int missingBlocks, int conflictBlocks, int reusedBlocks, int requiredItems, String statusKey) {
-        syncPreview(missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, 0, 0);
-    }
-
-    private void syncPreview(
-            int missingBlocks,
-            int conflictBlocks,
-            int reusedBlocks,
-            int requiredItems,
-            String statusKey,
-            int statusArg1,
-            int statusArg2) {
-        previewMissingBlocks = missingBlocks;
-        previewConflictBlocks = conflictBlocks;
-        previewReusedBlocks = reusedBlocks;
-        previewRequiredItems = requiredItems;
-        previewStatusKey = statusKey;
-        previewStatusArg1 = statusArg1;
-        previewStatusArg2 = statusArg2;
-        // Keep BuildPreviewState in sync
-        buildPreview.syncPreview(
-                missingBlocks, conflictBlocks, reusedBlocks, requiredItems, statusKey, statusArg1, statusArg2);
-        setChanged();
-        markUiStateDirty();
     }
 
     @Override
@@ -649,15 +338,14 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
-        tag.putInt("selectedBuildLength", selectedBuildLength);
+        tag.putInt("selectedBuildLength", getSelectedBuildLength());
         tag.putInt("cpuSelectionMode", cpuSelectionMode.ordinal());
     }
 
     @Override
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
-        selectedBuildLength = tag.getInt("selectedBuildLength");
-        if (selectedBuildLength < 1) selectedBuildLength = 1;
+        buildPreview.selectedBuildLength = Math.max(1, tag.getInt("selectedBuildLength"));
         if (tag.contains("cpuSelectionMode")) {
             int ordinal = tag.getInt("cpuSelectionMode");
             CpuSelectionMode[] values = CpuSelectionMode.values();
@@ -665,14 +353,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 cpuSelectionMode = values[ordinal];
             }
         }
-        buildInProgress = false;
-        previewMissingBlocks = 0;
-        previewConflictBlocks = 0;
-        previewReusedBlocks = 0;
-        previewRequiredItems = 0;
-        previewStatusKey = "gui.neoecoae.multiblock.status.idle";
-        previewStatusArg1 = 0;
-        previewStatusArg2 = 0;
+        buildPreview.buildInProgress = false;
+        buildPreview.resetPreview(BuildPreviewState.DEFAULT_STATUS_KEY);
     }
 
     // UI sync (Layer 1: chunk-load NBT)
@@ -685,9 +367,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         tag.putInt("neo_parallelCount", parallelCount);
         tag.putLong("neo_availableBytes", availableBytes);
         tag.putLong("neo_totalBytes", totalBytes);
-        // Build/preview state is delegated to BuildPreviewState
-        // Note: individual preview fields still exist alongside buildPreview;
-        // syncPreview()/resetPreview() update both.
         buildPreview.writeToTag(tag);
     }
 
@@ -698,20 +377,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         if (tag.contains("neo_parallelCount")) parallelCount = tag.getInt("neo_parallelCount");
         if (tag.contains("neo_availableBytes")) availableBytes = tag.getLong("neo_availableBytes");
         if (tag.contains("neo_totalBytes")) totalBytes = tag.getLong("neo_totalBytes");
-        // Build/preview state is delegated to BuildPreviewState
-        // Keep individual field reads for backward compat; buildPreview syncs alongside.
         buildPreview.readFromTag(tag);
-        if (tag.contains("selectedBuildLength")) selectedBuildLength = tag.getInt("selectedBuildLength");
-        if (tag.contains("previewMissingBlocks")) previewMissingBlocks = tag.getInt("previewMissingBlocks");
-        if (tag.contains("previewConflictBlocks")) previewConflictBlocks = tag.getInt("previewConflictBlocks");
-        if (tag.contains("previewReusedBlocks")) previewReusedBlocks = tag.getInt("previewReusedBlocks");
-        if (tag.contains("previewRequiredItems")) previewRequiredItems = tag.getInt("previewRequiredItems");
-        if (tag.contains("previewStatusKey")) previewStatusKey = tag.getString("previewStatusKey");
-        if (tag.contains("previewStatusArg1")) previewStatusArg1 = tag.getInt("previewStatusArg1");
-        if (tag.contains("previewStatusArg2")) previewStatusArg2 = tag.getInt("previewStatusArg2");
-        if (tag.contains("buildInProgress")) buildInProgress = tag.getBoolean("buildInProgress");
-        if (buildInProgress && buildSession == null) {
-            buildInProgress = false;
-        }
     }
 }
