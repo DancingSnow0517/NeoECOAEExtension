@@ -994,13 +994,7 @@ public class ECOCraftingCPULogic {
     private void endStatusChangeBatchSafely() {
         try {
             endStatusChangeBatch();
-        } catch (RuntimeException e) {
-            batchingStatusChanges = false;
-            batchedStatusChanges.clear();
-            batchedAnyStatusChange = false;
-            batchedFullStatusChange = false;
-            throw e;
-        } catch (Error e) {
+        } catch (RuntimeException | Error e) {
             batchingStatusChanges = false;
             batchedStatusChanges.clear();
             batchedAnyStatusChange = false;

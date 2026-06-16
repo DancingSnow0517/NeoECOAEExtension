@@ -146,7 +146,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (this.progress >= MAX_PROGRESS) {
             outputsReady = true;
             setChanged();
-            return TickRateModulation.URGENT;
         }
         return TickRateModulation.URGENT;
     }

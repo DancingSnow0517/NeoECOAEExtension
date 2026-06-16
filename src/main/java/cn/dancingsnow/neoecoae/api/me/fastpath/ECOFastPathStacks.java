@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -148,33 +149,14 @@ public final class ECOFastPathStacks {
         for (GenericStack stack : stacks) {
             sortable.add(new SortableStack(stack, keySortId(stack.what())));
         }
-        sortDecoratedStacks(sortable);
+        sortable.sort(Comparator.comparing(SortableStack::sortId)
+                .thenComparingLong(stack -> stack.stack().amount()));
 
         List<GenericStack> sorted = new ArrayList<>(sortable.size());
         for (SortableStack sortableStack : sortable) {
             sorted.add(sortableStack.stack());
         }
         return List.copyOf(sorted);
-    }
-
-    private static void sortDecoratedStacks(List<SortableStack> stacks) {
-        for (int i = 1; i < stacks.size(); i++) {
-            SortableStack current = stacks.get(i);
-            int j = i - 1;
-            while (j >= 0 && compare(stacks.get(j), current) > 0) {
-                stacks.set(j + 1, stacks.get(j));
-                j--;
-            }
-            stacks.set(j + 1, current);
-        }
-    }
-
-    private static int compare(SortableStack left, SortableStack right) {
-        int keyCompare = left.sortId().compareTo(right.sortId());
-        if (keyCompare != 0) {
-            return keyCompare;
-        }
-        return Long.compare(left.stack().amount(), right.stack().amount());
     }
 
     public static String keySortId(@Nullable AEKey key) {

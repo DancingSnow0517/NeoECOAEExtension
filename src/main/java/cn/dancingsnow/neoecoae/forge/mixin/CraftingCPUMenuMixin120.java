@@ -176,7 +176,10 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         }
     }
 
-    @Inject(method = {"broadcastChanges()V", "m_38946_()V"}, at = @At("HEAD"), require = 1)
+    @Inject(
+            method = {"broadcastChanges()V", "m_38946_()V"},
+            at = @At("HEAD"),
+            require = 1)
     private void neoecoae$onBroadcastChanges(CallbackInfo ci) {
         this.neoecoae$broadcastEcoCpuChanges();
     }

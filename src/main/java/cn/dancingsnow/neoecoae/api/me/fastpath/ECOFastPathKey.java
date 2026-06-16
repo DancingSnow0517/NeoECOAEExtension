@@ -4,6 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,7 +53,7 @@ public final class ECOFastPathKey {
                         }
                     }
                 }
-                sortEntries(entries);
+                entries.sort(Comparator.comparing(EntrySignature::sortId).thenComparingLong(EntrySignature::amount));
                 slots.add(new SlotSignature(entries));
             }
             return Optional.of(new ECOFastPathKey(patternIdentity, dimension, reloadGeneration, slots));
@@ -86,26 +87,5 @@ public final class ECOFastPathKey {
         }
     }
 
-    private static void sortEntries(List<EntrySignature> entries) {
-        for (int i = 1; i < entries.size(); i++) {
-            EntrySignature current = entries.get(i);
-            int j = i - 1;
-            while (j >= 0 && entries.get(j).compareTo(current) > 0) {
-                entries.set(j + 1, entries.get(j));
-                j--;
-            }
-            entries.set(j + 1, current);
-        }
-    }
-
-    private record EntrySignature(AEKey key, long amount, String sortId) implements Comparable<EntrySignature> {
-        @Override
-        public int compareTo(EntrySignature other) {
-            int keyCompare = this.sortId.compareTo(other.sortId);
-            if (keyCompare != 0) {
-                return keyCompare;
-            }
-            return Long.compare(this.amount, other.amount);
-        }
-    }
+    private record EntrySignature(AEKey key, long amount, String sortId) {}
 }

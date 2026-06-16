@@ -20,11 +20,18 @@ package cn.dancingsnow.neoecoae.api.me;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import com.google.common.math.LongMath;
 import it.unimi.dsi.fastutil.objects.Reference2LongMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
 
+/**
+ * Local fork of AE2's elapsed time tracker.
+ *
+ * <p>AE2's implementation is public, but its mutation methods are package-private,
+ * while ECO crafting logic needs to update work counters from this package.
+ */
 public class ElapsedTimeTracker {
     private static final String NBT_ELAPSED_TIME = "elapsedTime";
     private static final String NBT_STARTED_WORK = "startedWork";
@@ -78,8 +85,7 @@ public class ElapsedTimeTracker {
     }
 
     private long saturatedSum(long a, long b) {
-        var result = a + b;
-        return result < 0 ? Long.MAX_VALUE : result;
+        return LongMath.saturatedAdd(a, b);
     }
 
     void addMaxItems(long itemDiff, AEKeyType keyType) {

@@ -66,27 +66,10 @@ public final class ECOBatchCraftingHelper {
         }
     }
 
-    public static void insertAll(ListCraftingInventory inventory, List<GenericStack> stacks) {
-        insertAllOrThrow(inventory, stacks);
-    }
-
     public static void insertAllOrThrow(ListCraftingInventory inventory, List<GenericStack> stacks) {
         for (GenericStack stack : stacks) {
-            long before = inventory.extract(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE);
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
-            long after = inventory.extract(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE);
-            if (after < before || after - before != stack.amount()) {
-                throw new IllegalStateException("Failed to insert exact fast-path batch stack");
-            }
         }
-    }
-
-    public static KeyCounter toCounter(List<GenericStack> stacks) {
-        KeyCounter counter = new KeyCounter();
-        for (GenericStack stack : stacks) {
-            counter.add(stack.what(), stack.amount());
-        }
-        return counter;
     }
 
     private static List<GenericStack> copyCounter(KeyCounter counter) {

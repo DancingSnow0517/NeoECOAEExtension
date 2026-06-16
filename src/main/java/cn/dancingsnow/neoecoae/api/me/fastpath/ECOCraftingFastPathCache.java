@@ -31,9 +31,7 @@ public final class ECOCraftingFastPathCache {
     private long coolantRejectCount;
     private long noThreadRejectCount;
     private long expectedMismatchCount;
-    private long containerMismatchCount;
     private long nonItemKeyCount;
-    private long postCraftingEventCount;
     private long keyBuildFailedCount;
     private long exceptionCount;
     private long lastStatsLogTick = Long.MIN_VALUE;
@@ -137,16 +135,8 @@ public final class ECOCraftingFastPathCache {
         expectedMismatchCount++;
     }
 
-    public void recordContainerMismatch() {
-        containerMismatchCount++;
-    }
-
     public void recordNonItemKey() {
         nonItemKeyCount++;
-    }
-
-    public void recordPostCraftingEvent() {
-        postCraftingEventCount++;
     }
 
     public void recordKeyBuildFailed() {
@@ -165,7 +155,7 @@ public final class ECOCraftingFastPathCache {
         long positiveLookups = hitCount + missCount + negativeHitCount;
         double hitRate = positiveLookups <= 0 ? 0.0D : (hitCount * 100.0D / positiveLookups);
         LOGGER.debug(
-                "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={} negativeHit={} verified={} rejected={} fallbackReason[disabled={} unverified={} expectedMismatch={} containerMismatch={} nonItemKey={} postCraftingEvent={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
+                "ECO fast path [{}]: size={}/{} hit={} miss={} hitRate={} negativeHit={} verified={} rejected={} fallbackReason[disabled={} unverified={} expectedMismatch={} nonItemKey={} keyBuildFailed={} exception={}] fastAccepted={} slowAccepted={} coolantReject={} noThreadReject={}",
                 owner,
                 size(),
                 limit,
@@ -178,9 +168,7 @@ public final class ECOCraftingFastPathCache {
                 disabledCount,
                 fallbackSlowPathCount,
                 expectedMismatchCount,
-                containerMismatchCount,
                 nonItemKeyCount,
-                postCraftingEventCount,
                 keyBuildFailedCount,
                 exceptionCount,
                 fastPathAcceptedCount,

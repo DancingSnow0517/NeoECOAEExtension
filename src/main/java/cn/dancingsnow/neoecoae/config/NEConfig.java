@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import com.google.common.math.LongMath;
+import net.minecraft.util.Mth;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
@@ -92,8 +94,7 @@ public class NEConfig {
         CRAFTING_SYSTEM_MAX_LENGTH.set(Math.max(CRAFTING_SYSTEM_MIN_LENGTH, craftingMaxLength));
         COMPUTATION_SYSTEM_MAX_LENGTH.set(Math.max(COMPUTATION_SYSTEM_MIN_LENGTH, computationMaxLength));
         STORAGE_SYSTEM_MAX_LENGTH.set(Math.max(STORAGE_SYSTEM_MIN_LENGTH, storageMaxLength));
-        CRAFTING_PATTERN_BUS_PAGES.set(
-                Math.max(PATTERN_BUS_MIN_PAGES, Math.min(PATTERN_BUS_MAX_PAGES, patternBusPages)));
+        CRAFTING_PATTERN_BUS_PAGES.set(Mth.clamp(patternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES));
         INCREASE_STORAGE_CELL_CAPACITY.set(increaseCapacity);
         SPEC.save();
         syncValues();
@@ -118,7 +119,7 @@ public class NEConfig {
     }
 
     public static int getCraftingPatternBusPages() {
-        return Math.max(PATTERN_BUS_MIN_PAGES, Math.min(PATTERN_BUS_MAX_PAGES, craftingPatternBusPages));
+        return Mth.clamp(craftingPatternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
     }
 
     public static int getCraftingPatternBusSlotCount() {
@@ -154,17 +155,7 @@ public class NEConfig {
         if (!increaseStorageCellCapacity) {
             return fallbackBytes;
         }
-        return saturatedMultiply(fallbackBytes, 16L);
-    }
-
-    private static long saturatedMultiply(long value, long multiplier) {
-        if (value <= 0L || multiplier <= 0L) {
-            return 0L;
-        }
-        if (value > Long.MAX_VALUE / multiplier) {
-            return Long.MAX_VALUE;
-        }
-        return value * multiplier;
+        return LongMath.saturatedMultiply(Math.max(0L, fallbackBytes), 16L);
     }
 
     private static boolean isGtmLoaded() {

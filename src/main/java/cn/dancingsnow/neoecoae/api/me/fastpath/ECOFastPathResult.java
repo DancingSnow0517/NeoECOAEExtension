@@ -42,10 +42,6 @@ public final class ECOFastPathResult {
         return negative;
     }
 
-    public boolean isVerified() {
-        return verified;
-    }
-
     public List<GenericStack> outputEntries() {
         return outputEntries;
     }
@@ -64,10 +60,6 @@ public final class ECOFastPathResult {
                 && outputEntries.equals(execution.expectedOutputs())
                 && remainingEntries.equals(execution.expectedContainerItems())
                 && inputEntries.equals(execution.inputItems());
-    }
-
-    public long getLastAccessTick() {
-        return lastAccessTick;
     }
 
     public void touch(long tick) {
