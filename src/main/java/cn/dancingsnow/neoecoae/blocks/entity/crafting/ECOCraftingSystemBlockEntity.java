@@ -61,11 +61,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     /**
      * Internal coolant cache maximum: the crafting controller's own cooling
      * buffer, <em>not</em> the fluid hatch tank capacity.
-     * Maintains the 1.21.1 value of 1,000,000.
+     * This value is part of the current Forge 1.20.1 controller balance.
      */
     public static final int MAX_COOLANT = 1_000_000;
 
     private static final int COOLANT_PER_CRAFT = 5;
+    private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 60L;
 
     @Getter
     private final IECOTier tier;
@@ -101,6 +102,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private long uiRevision = 0L;
     private long lastCoolantConsumeDirtyTick = Long.MIN_VALUE;
     private long lastThreadCountValidationTick = Long.MIN_VALUE;
+    private long performanceWindowStartTick = Long.MIN_VALUE;
+    private long performanceWindowNanos = 0L;
+    private long performanceAverageNanos = 0L;
 
     public ECOCraftingSystemBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
@@ -166,6 +170,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        long startNanos = System.nanoTime();
+        try {
+            return doTickingRequest(node, ticksSinceLastCall);
+        } finally {
+            recordPerformanceSample(System.nanoTime() - startNanos);
+        }
+    }
+
+    private TickRateModulation doTickingRequest(IGridNode node, int ticksSinceLastCall) {
         if (!activeCooling) {
             return TickRateModulation.IDLE;
         }
@@ -187,6 +200,30 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return TickRateModulation.IDLE;
         }
         return coolant < targetCoolant ? TickRateModulation.URGENT : TickRateModulation.IDLE;
+    }
+
+    public void recordPerformanceSample(long elapsedNanos) {
+        if (elapsedNanos < 0L) {
+            return;
+        }
+
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (performanceWindowStartTick == Long.MIN_VALUE) {
+            performanceWindowStartTick = currentTick;
+        }
+
+        long elapsedTicks = currentTick - performanceWindowStartTick;
+        if (elapsedTicks >= PERFORMANCE_SAMPLE_WINDOW_TICKS) {
+            long nextAverageNanos = performanceWindowNanos / Math.max(1L, elapsedTicks);
+            performanceWindowStartTick = currentTick;
+            performanceWindowNanos = 0L;
+            if (performanceAverageNanos != nextAverageNanos) {
+                performanceAverageNanos = nextAverageNanos;
+                markUiStateDirty();
+            }
+        }
+
+        performanceWindowNanos += elapsedNanos;
     }
 
     private void updateInfo() {
@@ -668,6 +705,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 maxRecipeSlots,
                 occupiedRecipeSlots,
                 batchParallel,
+                performanceAverageNanos,
                 recipeEntries,
                 craftOutputs,
                 coreTiers,
@@ -952,7 +990,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        tickBuild(level);
+        long startNanos = System.nanoTime();
+        try {
+            tickBuild(level);
+        } finally {
+            recordPerformanceSample(System.nanoTime() - startNanos);
+        }
     }
 
     // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default

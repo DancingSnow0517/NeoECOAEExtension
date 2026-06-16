@@ -122,6 +122,8 @@
   "gui.neoecoae.crafting.stats": "Crafting Stats",
   "gui.neoecoae.crafting.max_parallel": "Max Parallel",
   "gui.neoecoae.crafting.patterns_short": "Patterns",
+  "gui.neoecoae.crafting.performance": "Performance",
+  "gui.neoecoae.crafting.performance_short": "Perf",
   "gui.neoecoae.crafting.workers_short": "Workers",
   "gui.neoecoae.crafting.recipe_slots": "Recipe Slots",
   "gui.neoecoae.crafting.batch_parallel": "Throughput",

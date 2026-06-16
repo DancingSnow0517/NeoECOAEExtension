@@ -137,6 +137,8 @@
   "gui.neoecoae.crafting.overclocked.tooltip": "Boosting performance within a limited range while consuming more 搂cEnergy搂f.",
   "gui.neoecoae.crafting.parallel_core_count": "Parallel Cores: %d",
   "gui.neoecoae.crafting.pattern_bus_count": "Pattern Buses: %d",
+  "gui.neoecoae.crafting.performance": "Performance",
+  "gui.neoecoae.crafting.performance_short": "Perf",
   "gui.neoecoae.crafting.recipe_slots": "Recipe Slots",
   "gui.neoecoae.crafting.task.amount": "Amount: %s",
   "gui.neoecoae.crafting.task.crafts": "Crafts: %s",

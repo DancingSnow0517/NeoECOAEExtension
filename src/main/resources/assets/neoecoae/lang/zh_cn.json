@@ -446,6 +446,8 @@
   "gui.neoecoae.crafting.stats": "合成统计",
   "gui.neoecoae.crafting.max_parallel": "最大上限并行",
   "gui.neoecoae.crafting.patterns_short": "样板",
+  "gui.neoecoae.crafting.performance": "性能",
+  "gui.neoecoae.crafting.performance_short": "性能",
   "gui.neoecoae.crafting.workers_short": "工作",
   "gui.neoecoae.crafting.recipe_slots": "配方槽",
   "gui.neoecoae.crafting.batch_parallel": "吞吐",

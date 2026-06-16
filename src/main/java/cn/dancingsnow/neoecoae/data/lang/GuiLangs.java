@@ -160,6 +160,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.recipe_slots", "Recipe Slots");
         provider.add("gui.neoecoae.crafting.batch_parallel", "Throughput");
         provider.add("gui.neoecoae.crafting.ft_cores_short", "FT Cores");
+        provider.add("gui.neoecoae.crafting.performance", "Performance");
+        provider.add("gui.neoecoae.crafting.performance_short", "Perf");
         provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");
         provider.add("gui.neoecoae.crafting.no_tasks", "No active tasks");
         provider.add("gui.neoecoae.crafting.task.amount", "Amount: %s");

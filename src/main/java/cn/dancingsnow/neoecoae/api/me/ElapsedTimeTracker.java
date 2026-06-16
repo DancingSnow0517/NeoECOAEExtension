@@ -109,7 +109,7 @@ public class ElapsedTimeTracker {
         }
     }
 
-    // TODO: 1.21.4 Change the network packet and screen to use this rather than the counts below
+    // TODO: Change the network packet and screen to use this rather than the counts below.
     public float getProgress() {
         double startedUnits = 0;
         double completedUnits = 0;

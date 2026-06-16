@@ -67,8 +67,20 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        if (cluster != null && cluster.getController() != null) {
-            ECOCraftingSystemBlockEntity controller = cluster.getController();
+        long startNanos = System.nanoTime();
+        ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
+        try {
+            return doTickingRequest(controller, ticksSinceLastCall);
+        } finally {
+            if (controller != null) {
+                controller.recordPerformanceSample(System.nanoTime() - startNanos);
+            }
+        }
+    }
+
+    private TickRateModulation doTickingRequest(
+            ECOCraftingSystemBlockEntity controller, int ticksSinceLastCall) {
+        if (controller != null) {
             int powerMultiply = 1;
             if (controller.isOverclocked() && !controller.isActiveCooling()) {
                 powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();

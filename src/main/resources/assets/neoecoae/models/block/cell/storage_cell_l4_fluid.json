@@ -1,6 +1,4 @@
 {
-	"format_version": "1.21.11",
-	"credit": "Made with Blockbench",
 	"render_type": "cutout",
 	"textures": {
 		"level": "neoecoae:block/storage/drive/cell_level",

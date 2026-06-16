@@ -16,6 +16,8 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -48,6 +50,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int HEADER_STATUS_SUCCESS_COLOR = 0xFF00A850;
     private static final int HEADER_STATUS_ERROR_COLOR = 0xFFC03434;
     private static final int HEADER_STATUS_MUTED_COLOR = 0xFF606060;
+    private static final ThreadLocal<DecimalFormat> PERFORMANCE_MS_FORMAT =
+            ThreadLocal.withInitial(() -> new DecimalFormat("0.###", DecimalFormatSymbols.getInstance(Locale.US)));
 
     // 模块贴图资源路径
     private static final ResourceLocation MODULE_CORE_SIDE =
@@ -88,9 +92,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
     private static final int STATUS_AREA_W = 64;
     private static final int STATUS_AREA_H = 70;
+    private static final int STATUS_ROW_X = STATUS_AREA_X + 8;
+    private static final int STATUS_TEXT_GAP = 16;
+    private static final int STATUS_VALUE_RIGHT_PAD = 3;
     private static final int STATS_AREA_X = STATUS_AREA_X + STATUS_AREA_W + 6;
     private static final int STATS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATS_AREA_W = 126;
+    private static final int STATS_AREA_W = 138;
     private static final int STATS_AREA_H = 70;
     private static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + 6;
     private static final int GAUGE_AREA_Y = MIDDLE_AREA_Y;
@@ -118,7 +125,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int TASK_CARD_W = TASK_PANEL_W - 16;
     private static final int TASK_CARD_H = 16;
     private static final int TASK_CARD_STRIDE = 18;
-    private static final int TASK_LIST_BOTTOM_Y = TASK_PANEL_Y + TASK_PANEL_H - 1;
+    private static final int TASK_LIST_BOTTOM_Y = TASK_PANEL_Y + TASK_PANEL_H - 4;
     private static final int TASK_SCROLLBAR_W = 3;
 
     // 任务卡片动画时间常量
@@ -478,24 +485,20 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 NELDLibStyle.DARK_TEXT_PRIMARY);
         int y = STATUS_AREA_Y + 21;
         drawStatusRow(
-                g,
-                Component.translatable("gui.neoecoae.crafting.overclock"),
-                state.overclocked(),
-                STATUS_AREA_X + 4,
-                y);
+                g, Component.translatable("gui.neoecoae.crafting.overclock"), state.overclocked(), STATUS_ROW_X, y);
         y += 15;
         drawStatusRow(
                 g,
                 Component.translatable("gui.neoecoae.crafting.cooling_short"),
                 state.activeCooling(),
-                STATUS_AREA_X + 4,
+                STATUS_ROW_X,
                 y);
         y += 15;
         drawStatusRow(
                 g,
                 Component.translatable("gui.neoecoae.crafting.waste_short"),
                 state.autoClearCoolingWaste(),
-                STATUS_AREA_X + 4,
+                STATUS_ROW_X,
                 y);
     }
 
@@ -522,6 +525,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 Component.translatable("gui.neoecoae.crafting.batch_parallel").getString() + ": ",
                 state.batchParallel(),
                 x,
+                y);
+        drawInlineTextLine(
+                g,
+                Component.translatable("gui.neoecoae.crafting.performance_short").getString() + ":",
+                formatPerformance(state.performanceAverageNanos()),
+                x + 52,
                 y);
         y += 11;
         drawInlineValueLine(
@@ -610,11 +619,11 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         NELDLibClientStyle.drawDarkInsetRect(g, absX, absY - 3, 13, 13);
         int light = enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR;
         g.fill(absX + 4, absY + 1, absX + 9, absY + 6, light);
-        drawScaledString(g, label, absX + 18, absY, NELDLibStyle.DARK_TEXT_MUTED);
-        drawScaledString(
+        drawScaledString(g, label, absX + STATUS_TEXT_GAP, absY, NELDLibStyle.DARK_TEXT_MUTED);
+        drawScaledRight(
                 g,
                 Component.translatable(enabled ? "gui.neoecoae.common.on" : "gui.neoecoae.common.off"),
-                absX + 40,
+                absX(STATUS_AREA_X + STATUS_AREA_W - STATUS_VALUE_RIGHT_PAD),
                 absY,
                 enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
     }
@@ -1000,6 +1009,9 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         lines.add(Component.translatable("gui.neoecoae.crafting.batch_parallel")
                 .append(": ")
                 .append(Component.literal(NELDLibText.number(state.batchParallel()))));
+        lines.add(Component.translatable("gui.neoecoae.crafting.performance")
+                .append(": ")
+                .append(Component.literal(formatPerformance(state.performanceAverageNanos()))));
         g.renderTooltip(font(), lines, Optional.empty(), mouseX, mouseY);
     }
 
@@ -1012,6 +1024,11 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private void drawInlineValueLine(GuiGraphics g, String label, long value, int x, int y) {
         int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
         drawScaledString(g, NELDLibText.number(value), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
+    }
+
+    private void drawInlineTextLine(GuiGraphics g, String label, String value, int x, int y) {
+        int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
+        drawScaledString(g, value, absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
     }
 
     // 绘制紧凑成对行（label: current / max）
@@ -1055,6 +1072,13 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private int scaledWidth(String text) {
         return Math.round(font().width(text) * TEXT_SCALE);
+    }
+
+    private static String formatPerformance(long averageNanos) {
+        long safeNanos = Math.max(0L, averageNanos);
+        long micros = Math.round(safeNanos / 1_000.0D);
+        String millis = PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D);
+        return micros + " \u03bcs/" + millis + " ms";
     }
 
     // 统计指定等级的并行核心数量

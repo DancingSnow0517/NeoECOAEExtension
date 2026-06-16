@@ -196,6 +196,7 @@ public final class NELDLibStateCodecs {
         buf.writeVarInt(state.maxRecipeSlots());
         buf.writeVarInt(state.occupiedRecipeSlots());
         buf.writeVarInt(state.batchParallel());
+        buf.writeVarLong(Math.max(0L, state.performanceAverageNanos()));
 
         List<NECraftingRecipeUiEntry> recipes = state.recipeEntries();
         buf.writeVarInt(Math.min(recipes.size(), MAX_CRAFTING_RECIPE_ENTRIES));
@@ -276,6 +277,7 @@ public final class NELDLibStateCodecs {
         int maxRecipeSlots = buf.readVarInt();
         int occupiedRecipeSlots = buf.readVarInt();
         int batchParallel = buf.readVarInt();
+        long performanceAverageNanos = buf.readVarLong();
 
         int recipeCount = buf.readVarInt();
         if (recipeCount > MAX_CRAFTING_RECIPE_ENTRIES) {
@@ -353,6 +355,7 @@ public final class NELDLibStateCodecs {
                 maxRecipeSlots,
                 occupiedRecipeSlots,
                 batchParallel,
+                performanceAverageNanos,
                 recipes,
                 outputs,
                 tiers,

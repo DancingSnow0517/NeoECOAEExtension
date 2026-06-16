@@ -137,6 +137,8 @@
   "gui.neoecoae.crafting.overclocked.tooltip": "允许该控制器使用超频。",
   "gui.neoecoae.crafting.parallel_core_count": "并行核心：%d",
   "gui.neoecoae.crafting.pattern_bus_count": "样板总线：%d",
+  "gui.neoecoae.crafting.performance": "UNLOCALIZED: Performance",
+  "gui.neoecoae.crafting.performance_short": "UNLOCALIZED: Perf",
   "gui.neoecoae.crafting.recipe_slots": "UNLOCALIZED: Recipe Slots",
   "gui.neoecoae.crafting.task.amount": "UNLOCALIZED: Amount: %s",
   "gui.neoecoae.crafting.task.crafts": "UNLOCALIZED: Crafts: %s",

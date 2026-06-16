@@ -105,8 +105,7 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
 
     public NEBlockEntityBuilder<T, P> registerCapability(
             Consumer<CapabilityRegistrationEvent> registerCapabilitiesEvent) {
-        // Forge 1.20.1 exposes block-entity capabilities through getCapability,
-        // not NeoForge's RegisterCapabilitiesEvent#registerBlockEntity API.
+        // Forge 1.20.1 exposes block-entity capabilities through getCapability.
         // Keep the builder chain source-compatible while the actual providers
         // are moved onto the block entities.
         return this;

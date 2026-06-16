@@ -137,6 +137,8 @@
   "gui.neoecoae.crafting.overclocked.tooltip": "在有限范围内提升性能，但会消耗更多§c能量§f。",
   "gui.neoecoae.crafting.parallel_core_count": "并行核心数量: %d",
   "gui.neoecoae.crafting.pattern_bus_count": "样板总线数量: %d",
+  "gui.neoecoae.crafting.performance": "性能",
+  "gui.neoecoae.crafting.performance_short": "性能",
   "gui.neoecoae.crafting.recipe_slots": "配方槽",
   "gui.neoecoae.crafting.task.amount": "数量：%s",
   "gui.neoecoae.crafting.task.crafts": "合成次数：%s",

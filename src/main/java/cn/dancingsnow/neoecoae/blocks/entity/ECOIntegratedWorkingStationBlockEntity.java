@@ -54,9 +54,7 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -198,13 +196,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public IItemHandler getInputItemHandler() {
         return (IItemHandler) inputExposed.toItemHandler();
-    }
-
-    /**
-     * Returns a GUI-safe input handler that allows extraction (not insert-only).
-     */
-    public IItemHandler getInputGuiItemHandler() {
-        return (IItemHandler) this.inputInv.toItemHandler();
     }
 
     public IItemHandler getOutputItemHandler() {
@@ -383,6 +374,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     public void onChangeTank() {
+        if (level != null && level.isClientSide) {
+            return;
+        }
         markInventoryChanged();
     }
 
@@ -789,68 +783,34 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     // ── Client sync (fluid tanks + processing state) ──
 
     @Override
-    public CompoundTag getUpdateTag() {
-        var tag = super.getUpdateTag();
-        writeUiSyncTag(tag);
-        return tag;
+    protected void writeToStream(FriendlyByteBuf data) {
+        super.writeToStream(data);
+        data.writeNbt(inputTank.writeToNBT(new CompoundTag()));
+        data.writeNbt(outputTank.writeToNBT(new CompoundTag()));
+        data.writeVarInt(processingTime);
+        data.writeBoolean(working);
+        data.writeBoolean(shouldAutoExport);
     }
 
     @Override
-    public void handleUpdateTag(CompoundTag tag) {
-        super.handleUpdateTag(tag);
-        readUiSyncTag(tag);
-    }
-
-    @Override
-    @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    private void writeUiSyncTag(CompoundTag tag) {
-        tag.put("neo_inputInv", writeInventorySync(inputInv));
-        tag.put("neo_outputInv", writeInventorySync(outputInv));
-        tag.put("neo_inputTank", inputTank.writeToNBT(new CompoundTag()));
-        tag.put("neo_outputTank", outputTank.writeToNBT(new CompoundTag()));
-        tag.putInt("neo_processingTime", processingTime);
-        tag.putBoolean("neo_working", working);
-        tag.putBoolean("neo_autoExport", shouldAutoExport);
-    }
-
-    private void readUiSyncTag(CompoundTag tag) {
-        if (tag.contains("neo_inputInv")) readInventorySync(inputInv, tag.getList("neo_inputInv", Tag.TAG_COMPOUND));
-        if (tag.contains("neo_outputInv")) readInventorySync(outputInv, tag.getList("neo_outputInv", Tag.TAG_COMPOUND));
-        if (tag.contains("neo_inputTank")) inputTank.readFromNBT(tag.getCompound("neo_inputTank"));
-        if (tag.contains("neo_outputTank")) outputTank.readFromNBT(tag.getCompound("neo_outputTank"));
-        if (tag.contains("neo_processingTime")) processingTime = tag.getInt("neo_processingTime");
-        if (tag.contains("neo_working")) working = tag.getBoolean("neo_working");
-        if (tag.contains("neo_autoExport")) shouldAutoExport = tag.getBoolean("neo_autoExport");
-    }
-
-    private static ListTag writeInventorySync(InternalInventory inventory) {
-        ListTag list = new ListTag();
-        for (int slot = 0; slot < inventory.size(); slot++) {
-            ItemStack stack = inventory.getStackInSlot(slot);
-            if (!stack.isEmpty()) {
-                CompoundTag slotTag = new CompoundTag();
-                slotTag.putInt("slot", slot);
-                slotTag.put("stack", stack.save(new CompoundTag()));
-                list.add(slotTag);
-            }
+    protected boolean readFromStream(FriendlyByteBuf data) {
+        boolean changed = super.readFromStream(data);
+        if (data.readableBytes() <= 0) {
+            return changed;
         }
-        return list;
-    }
 
-    private static void readInventorySync(InternalInventory inventory, ListTag list) {
-        for (int slot = 0; slot < inventory.size(); slot++) {
-            inventory.setItemDirect(slot, ItemStack.EMPTY);
+        CompoundTag inputTankTag = data.readNbt();
+        CompoundTag outputTankTag = data.readNbt();
+        if (inputTankTag != null) {
+            inputTank.readFromNBT(inputTankTag);
         }
-        for (int i = 0; i < list.size(); i++) {
-            CompoundTag slotTag = list.getCompound(i);
-            int slot = slotTag.getInt("slot");
-            if (slot >= 0 && slot < inventory.size()) {
-                inventory.setItemDirect(slot, ItemStack.of(slotTag.getCompound("stack")));
-            }
+        if (outputTankTag != null) {
+            outputTank.readFromNBT(outputTankTag);
         }
+        processingTime = data.readVarInt();
+        working = data.readBoolean();
+        shouldAutoExport = data.readBoolean();
+        return true;
     }
 
     @Override
