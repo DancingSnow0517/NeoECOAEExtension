@@ -59,7 +59,7 @@ public class NEAppFluxItems {
             appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE4 Storage Matrix (FE)")
-        .model(ECOModelUtil.cellModel("fe", "16m"))
+        .model(() -> ECOModelUtil.cellModel("fe", "16m"))
         .register();
 
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_64M = REGISTRATE
@@ -80,7 +80,7 @@ public class NEAppFluxItems {
             appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE6 Storage Matrix (FE)")
-        .model(ECOModelUtil.cellModel("fe", "64m"))
+        .model(() -> ECOModelUtil.cellModel("fe", "64m"))
         .register();
 
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_256M = REGISTRATE
@@ -101,7 +101,7 @@ public class NEAppFluxItems {
             appFluxInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE9 Storage Matrix (FE)")
-        .model(ECOModelUtil.cellModel("fe", "256m"))
+        .model(() -> ECOModelUtil.cellModel("fe", "256m"))
         .register();
 
     public static void register() {

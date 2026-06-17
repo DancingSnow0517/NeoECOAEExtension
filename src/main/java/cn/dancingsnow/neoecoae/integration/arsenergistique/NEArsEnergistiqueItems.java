@@ -70,7 +70,7 @@ public class NEArsEnergistiqueItems {
             arsengInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE4 Storage Matrix (Source)")
-        .model(ECOModelUtil.cellModel("source", "16m"))
+        .model(() -> ECOModelUtil.cellModel("source", "16m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_64M = REGISTRATE
@@ -92,7 +92,7 @@ public class NEArsEnergistiqueItems {
             arsengInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE6 Storage Matrix (Source)")
-        .model(ECOModelUtil.cellModel("source", "64m"))
+        .model(() -> ECOModelUtil.cellModel("source", "64m"))
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_256M = REGISTRATE
@@ -114,7 +114,7 @@ public class NEArsEnergistiqueItems {
             arsengInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE9 Storage Matrix (Source)")
-        .model(ECOModelUtil.cellModel("source", "256m"))
+        .model(() -> ECOModelUtil.cellModel("source", "256m"))
         .register();
 
     public static void register() {

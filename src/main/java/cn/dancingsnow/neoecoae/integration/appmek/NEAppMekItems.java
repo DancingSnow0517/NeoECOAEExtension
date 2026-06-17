@@ -61,7 +61,7 @@ public class NEAppMekItems {
             appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE4 Storage Matrix (Chemical)")
-        .model(ECOModelUtil.cellModel("chemical", "16m"))
+        .model(() -> ECOModelUtil.cellModel("chemical", "16m"))
         .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_64M = REGISTRATE
@@ -81,7 +81,7 @@ public class NEAppMekItems {
             appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE6 Storage Matrix (Chemical)")
-        .model(ECOModelUtil.cellModel("chemical", "64m"))
+        .model(() -> ECOModelUtil.cellModel("chemical", "64m"))
         .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_256M = REGISTRATE
@@ -101,7 +101,7 @@ public class NEAppMekItems {
             appmekInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
         .lang("ECO - LE9 Storage Matrix (Chemical)")
-        .model(ECOModelUtil.cellModel("chemical", "256m"))
+        .model(() -> ECOModelUtil.cellModel("chemical", "256m"))
         .register();
 
     public static void register() {

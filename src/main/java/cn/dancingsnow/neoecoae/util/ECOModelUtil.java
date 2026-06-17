@@ -1,9 +1,20 @@
 package cn.dancingsnow.neoecoae.util;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
+import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationDrive;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationParallelCore;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationThreadingCore;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationTransmitter;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingPatternBus;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
+import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
+import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.client.item.ECOStorageCellStateTintSource;
 import cn.dancingsnow.neoecoae.client.model.ECOComputationDriveModel;
 import cn.dancingsnow.neoecoae.client.model.ECODriveModel;
@@ -146,6 +157,242 @@ public class ECOModelUtil {
 
             prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).withUnbaked(createDriverFacingDispatch()));
             prov.registerSimpleItemModel(ctx.get(), NeoECOAE.id("block/computation_drive_empty"));
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> integratedWorkingStation() {
+        return (ctx, prov) -> {
+            var model = ctx.getId().withPrefix("block/");
+            var workingModel = ctx.getId().withPrefix("block/").withSuffix("_on");
+
+            var propertyDispatch = PropertyDispatch.initial(ECOIntegratedWorkingStation.WORKING)
+                .select(false, BlockModelGenerators.plainVariant(model))
+                .select(true, BlockModelGenerators.plainVariant(workingModel));
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), model);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> computationTransmitter() {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/computation_transmitter");
+            var formedModel = prov.modLoc("block/computation_transmitter_formed");
+
+            var propertyDispatch = PropertyDispatch.initial(ECOComputationTransmitter.FORMED)
+                .select(false, BlockModelGenerators.plainVariant(unformedModel))
+                .select(true, BlockModelGenerators.plainVariant(formedModel));
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> craftingWorker() {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/crafting_worker");
+            var formedModel = prov.modLoc("block/crafting_worker_formed");
+            var workingModel = prov.modLoc("block/crafting_worker_working");
+
+            var propertyDispatch = PropertyDispatch.initial(ECOCraftingWorker.FORMED, ECOCraftingWorker.WORKING).generate((formed, working) -> {
+                if (formed) {
+                    if (working) {
+                        return BlockModelGenerators.plainVariant(workingModel);
+                    } else {
+                        return BlockModelGenerators.plainVariant(formedModel);
+                    }
+                } else {
+                    return BlockModelGenerators.plainVariant(formedModel);
+                }
+            });
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), unformedModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> craftingPatternBus() {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/crafting_pattern_bus");
+            var formedModel = prov.modLoc("block/crafting_pattern_bus_formed");
+
+            var propertyDispatch = PropertyDispatch.initial(ECOCraftingPatternBus.FORMED)
+                .select(true, BlockModelGenerators.plainVariant(formedModel))
+                .select(false, BlockModelGenerators.plainVariant(unformedModel));
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), unformedModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> craftingVent() {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/crafting_vent");
+            var formedModel = prov.modLoc("block/crafting_vent_formed");
+
+            var propertyDispatch = PropertyDispatch.initial(ECOMachineCasing.FORMED)
+                .select(true, BlockModelGenerators.plainVariant(formedModel))
+                .select(false, BlockModelGenerators.plainVariant(unformedModel));
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), unformedModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> craftingCasing() {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/crafting_casing");
+            var formedModel = prov.modLoc("block/crafting_casing_formed");
+
+            var propertyDispatch = PropertyDispatch.initial(ECOMachineCasing.FORMED)
+                .select(true, BlockModelGenerators.plainVariant(formedModel))
+                .select(false, BlockModelGenerators.plainVariant(unformedModel));
+
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch));
+            prov.registerSimpleItemModel(ctx.get(), unformedModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> storageSystem(String level) {
+        return (ctx, prov) -> {
+            var offModel = prov.modLoc("block/storage_controller/controller_%s_off".formatted(level));
+            var formedModel = prov.modLoc("block/storage_controller/controller_%s_formed".formatted(level));
+            var formedMirroredModel = prov.modLoc("block/storage_controller/controller_%s_formed_mirrored".formatted(level));
+
+            var propertyDispatch = PropertyDispatch.initial(ECOStorageSystemBlock.FORMED, ECOStorageSystemBlock.MIRRORED).generate((formed, mirrored) -> {
+                if (formed) {
+                    if (mirrored) {
+                        return BlockModelGenerators.plainVariant(formedMirroredModel);
+                    } else {
+                        return BlockModelGenerators.plainVariant(formedModel);
+                    }
+                } else {
+                    return BlockModelGenerators.plainVariant(offModel);
+                }
+            });
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), offModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> craftingParallelCore(String level) {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/crafting_core/parallel_core_%s".formatted(level));
+            var formedModel = prov.modLoc("block/crafting_core/parallel_core_%s_formed".formatted(level));
+
+            var propertyDispatch = PropertyDispatch.initial(ECOComputationParallelCore.FORMED).generate((formed) -> {
+                if (formed) {
+                    return BlockModelGenerators.plainVariant(formedModel);
+                } else {
+                    return BlockModelGenerators.plainVariant(unformedModel);
+                }
+            });
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), unformedModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> craftingSystem(String level) {
+        return (ctx, prov) -> {
+            var offModel = prov.modLoc("block/crafting_controller/controller_%s_off".formatted(level));
+            var formedModel = prov.modLoc("block/crafting_controller/controller_%s_formed".formatted(level));
+            var formedMirroredModel = prov.modLoc("block/crafting_controller/controller_%s_formed_mirrored".formatted(level));
+
+            var propertyDispatch = PropertyDispatch.initial(ECOCraftingSystem.FORMED, ECOCraftingSystem.MIRRORED).generate((formed, mirrored) -> {
+                if (formed) {
+                    if (mirrored) {
+                        return BlockModelGenerators.plainVariant(formedMirroredModel);
+                    } else {
+                        return BlockModelGenerators.plainVariant(formedModel);
+                    }
+                } else {
+                    return BlockModelGenerators.plainVariant(offModel);
+                }
+            });
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), offModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> computationSystem(String level) {
+        return (ctx, prov) -> {
+            var offModel = prov.modLoc("block/computation_controller/controller_%s_off".formatted(level));
+            var formedModel = prov.modLoc("block/computation_controller/controller_%s_formed".formatted(level));
+            var formedMirroredModel = prov.modLoc("block/computation_controller/controller_%s_formed_mirrored".formatted(level));
+
+            var propertyDispatch = PropertyDispatch.initial(ECOComputationSystem.FORMED, ECOComputationSystem.MIRRORED).generate((formed, mirrored) -> {
+                if (formed) {
+                    if (mirrored) {
+                        return BlockModelGenerators.plainVariant(formedMirroredModel);
+                    } else {
+                        return BlockModelGenerators.plainVariant(formedModel);
+                    }
+                } else {
+                    return BlockModelGenerators.plainVariant(offModel);
+                }
+            });
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), offModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> computationParallelCore(String level) {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/computation_core/parallel_core_%s".formatted(level));
+            var formedModel = prov.modLoc("block/computation_core/parallel_core_%s_formed".formatted(level));
+
+            var propertyDispatch = PropertyDispatch.initial(ECOComputationParallelCore.FORMED).generate((formed) -> {
+                if (formed) {
+                    return BlockModelGenerators.plainVariant(formedModel);
+                } else {
+                    return BlockModelGenerators.plainVariant(unformedModel);
+                }
+            });
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), unformedModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> computationThreadingCore(String level) {
+        return (ctx, prov) -> {
+            var unformedModel = prov.modLoc("block/computation_core/threading_core_%s".formatted(level));
+            var formedModel = prov.modLoc("block/computation_core/threading_core_%s_formed".formatted(level));
+            var workingModel = prov.modLoc("block/computation_core/threading_core_%s_working".formatted(level));
+
+            var propertyDispatch = PropertyDispatch.initial(ECOComputationThreadingCore.FORMED, ECOComputationThreadingCore.WORKING).generate((formed, working) -> {
+                if (formed) {
+                    if (working) {
+                        return BlockModelGenerators.plainVariant(workingModel);
+                    } else {
+                        return BlockModelGenerators.plainVariant(formedModel);
+                    }
+                } else {
+                    return BlockModelGenerators.plainVariant(unformedModel);
+                }
+            });
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), unformedModel);
+        };
+    }
+
+    public static <T extends Block> NonNullBiConsumer<DataGenContext<Block, T>, RegistrateBlockModelGenerator> computationCoolingController(String level) {
+        return (ctx, prov) -> {
+            var offModel = prov.modLoc("block/computation_cooling_controller/controller_%s_off".formatted(level));
+            var formedModel = prov.modLoc("block/computation_cooling_controller/controller_%s_formed".formatted(level));
+            var formedMirroredModel = prov.modLoc("block/computation_cooling_controller/controller_%s_formed_mirrored".formatted(level));
+
+            var propertyDispatch = PropertyDispatch.initial(ECOComputationCoolingController.FORMED, ECOComputationCoolingController.MIRRORED).generate((formed, mirrored) -> {
+                if (formed) {
+                    if (mirrored) {
+                        return BlockModelGenerators.plainVariant(formedMirroredModel);
+                    } else {
+                        return BlockModelGenerators.plainVariant(formedModel);
+                    }
+                } else {
+                    return BlockModelGenerators.plainVariant(offModel);
+                }
+            });
+            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
+            prov.registerSimpleItemModel(ctx.get(), offModel);
         };
     }
 

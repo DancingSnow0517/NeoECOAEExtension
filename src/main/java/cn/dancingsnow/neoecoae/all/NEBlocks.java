@@ -38,9 +38,6 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.ECOModelUtil;
 import cn.dancingsnow.neoecoae.util.LootTableUtil;
 import com.tterrag.registrate.util.entry.BlockEntry;
-import net.minecraft.client.data.models.BlockModelGenerators;
-import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
-import net.minecraft.client.data.models.blockstates.PropertyDispatch;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.tags.BlockTags;
@@ -178,7 +175,7 @@ public class NEBlocks {
         .block("aluminum_alloy_casing", CasingBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL)
-        .blockstate(ECOModelUtil::casing)
+        .blockstate(() -> ECOModelUtil.casing())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("ABA")
@@ -217,7 +214,7 @@ public class NEBlocks {
         .block("black_tungsten_alloy_casing", CasingBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_IRON_TOOL)
-        .blockstate(ECOModelUtil::casing)
+        .blockstate(() -> ECOModelUtil.casing())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get(), 1)
                 .pattern("ABA")
@@ -358,7 +355,7 @@ public class NEBlocks {
         .block("small_energized_crystal_bud", p -> new CertusQuartzClusterBlock(3, 4, p))
         .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
         .properties(p -> p.sound(SoundType.SMALL_AMETHYST_BUD).lightLevel(s -> 1))
-        .blockstate(ECOModelUtil::quartzCluster)
+        .blockstate(() -> ECOModelUtil.quartzCluster())
         .loot(LootTableUtil::energizedBud)
         .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
@@ -371,7 +368,7 @@ public class NEBlocks {
         .block("medium_energized_crystal_bud", p -> new CertusQuartzClusterBlock(4, 3, p))
         .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
         .properties(p -> p.sound(SoundType.MEDIUM_AMETHYST_BUD).lightLevel(s -> 2))
-        .blockstate(ECOModelUtil::quartzCluster)
+        .blockstate(() -> ECOModelUtil.quartzCluster())
         .loot(LootTableUtil::energizedBud)
         .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
@@ -384,7 +381,7 @@ public class NEBlocks {
         .block("large_energized_crystal_bud", p -> new CertusQuartzClusterBlock(5, 3, p))
         .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
         .properties(p -> p.sound(SoundType.LARGE_AMETHYST_BUD).lightLevel(s -> 3))
-        .blockstate(ECOModelUtil::quartzCluster)
+        .blockstate(() -> ECOModelUtil.quartzCluster())
         .loot(LootTableUtil::energizedBud)
         .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
@@ -396,7 +393,7 @@ public class NEBlocks {
         .block("energized_crystal_cluster", p -> new CertusQuartzClusterBlock(7, 3, p))
         .initialProperties(() -> Blocks.AMETHYST_CLUSTER)
         .properties(p -> p.sound(SoundType.AMETHYST_CLUSTER).lightLevel(s -> 4))
-        .blockstate(ECOModelUtil::quartzCluster)
+        .blockstate(() -> ECOModelUtil.quartzCluster())
         .loot(LootTableUtil::energizedCluster)
         .tag(Tags.Blocks.CLUSTERS, BlockTags.MINEABLE_WITH_PICKAXE)
         .item()
@@ -425,17 +422,7 @@ public class NEBlocks {
         .block("integrated_working_station", ECOIntegratedWorkingStation::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate(() -> (ctx, prov) -> {
-            var model = ctx.getId().withPrefix("block/");
-            var workingModel = ctx.getId().withPrefix("block/").withSuffix("_on");
-
-            var propertyDispatch = PropertyDispatch.initial(ECOIntegratedWorkingStation.WORKING)
-                .select(false, BlockModelGenerators.plainVariant(model))
-                .select(true, BlockModelGenerators.plainVariant(workingModel));
-
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-            prov.registerSimpleItemModel(ctx.get(), model);
-        })
+        .blockstate(() -> ECOModelUtil.integratedWorkingStation())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABC")
@@ -474,7 +461,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
-        .blockstate(ECOModelUtil::simpleExisting)
+        .blockstate(() -> ECOModelUtil.simpleExisting())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
@@ -558,7 +545,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate(ECOModelUtil::drive)
+        .blockstate(() -> ECOModelUtil.drive())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ADA")
@@ -580,7 +567,7 @@ public class NEBlocks {
         .block("storage_vent", ECOStorageVentBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate(ECOModelUtil::horizontalExisting)
+        .blockstate(() -> ECOModelUtil.horizontalExisting())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
@@ -613,7 +600,7 @@ public class NEBlocks {
                 .unlockedBy("has_aluminum_alloy_casing", prov.has(NEBlocks.ALUMINUM_ALLOY_CASING))
                 .save(prov);
         })
-        .blockstate(ECOModelUtil::simpleExisting)
+        .blockstate(() -> ECOModelUtil.simpleExisting())
         .simpleItem()
         .register();
     //endregion
@@ -694,7 +681,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
-        .blockstate(ECOModelUtil::simpleExisting)
+        .blockstate(() -> ECOModelUtil.simpleExisting())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
@@ -714,16 +701,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
-        .blockstate(() -> (ctx, prov) -> {
-            var unformedModel = prov.modLoc("block/computation_transmitter");
-            var formedModel = prov.modLoc("block/computation_transmitter_formed");
-
-            var propertyDispatch = PropertyDispatch.initial(ECOComputationTransmitter.FORMED)
-                .select(false, BlockModelGenerators.plainVariant(unformedModel))
-                .select(true, BlockModelGenerators.plainVariant(formedModel));
-
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-        })
+        .blockstate(() -> ECOModelUtil.computationTransmitter())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
@@ -746,7 +724,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .properties(BlockBehaviour.Properties::noOcclusion)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate(ECOModelUtil::computationDrive)
+        .blockstate(() -> ECOModelUtil.computationDrive())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
@@ -782,7 +760,7 @@ public class NEBlocks {
                 .unlockedBy("has_aluminum_alloy_casing", prov.has(NEBlocks.ALUMINUM_ALLOY_CASING))
                 .save(prov);
         })
-        .blockstate(ECOModelUtil::simpleExisting)
+        .blockstate(() -> ECOModelUtil.simpleExisting())
         .simpleItem()
         .register();
     //endregion
@@ -812,7 +790,7 @@ public class NEBlocks {
                 .unlockedBy("has_crafting_casing", prov.has(NEBlocks.CRAFTING_CASING))
                 .save(prov);
         })
-        .blockstate(ECOModelUtil::simpleExisting)
+        .blockstate(() -> ECOModelUtil.simpleExisting())
         .simpleItem()
         .register();
 
@@ -854,26 +832,7 @@ public class NEBlocks {
         .properties(p -> p.rarity(Rarity.RARE))
         .build()
         .lang("ECO - FX Worker")
-        .blockstate(() -> (ctx, prov) -> {
-            var unformedModel = prov.modLoc("block/crafting_worker");
-            var formedModel = prov.modLoc("block/crafting_worker_formed");
-            var workingModel = prov.modLoc("block/crafting_worker_working");
-
-            var propertyDispatch = PropertyDispatch.initial(ECOCraftingWorker.FORMED, ECOCraftingWorker.WORKING).generate((formed, working) -> {
-                if (formed) {
-                    if (working) {
-                        return BlockModelGenerators.plainVariant(workingModel);
-                    } else{
-                        return BlockModelGenerators.plainVariant(formedModel);
-                    }
-                } else {
-                    return BlockModelGenerators.plainVariant(formedModel);
-                }
-            });
-
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-            prov.registerSimpleItemModel(ctx.get(), unformedModel);
-        })
+        .blockstate(() -> ECOModelUtil.craftingWorker())
         .register();
 
     public static final BlockEntry<ECOCraftingPatternBus> CRAFTING_PATTERN_BUS = REGISTRATE
@@ -892,17 +851,7 @@ public class NEBlocks {
                 .unlockedBy("has_crafting_casing", prov.has(NEBlocks.CRAFTING_CASING))
                 .save(prov);
         })
-        .blockstate(() -> (ctx, prov) -> {
-            var unformedModel = prov.modLoc("block/crafting_pattern_bus");
-            var formedModel = prov.modLoc("block/crafting_pattern_bus_formed");
-
-            var propertyDispatch = PropertyDispatch.initial(ECOCraftingPatternBus.FORMED)
-                .select(true, BlockModelGenerators.plainVariant(formedModel))
-                .select(false, BlockModelGenerators.plainVariant(unformedModel));
-
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-            prov.registerSimpleItemModel(ctx.get(), unformedModel);
-        })
+        .blockstate(() -> ECOModelUtil.craftingPatternBus())
         .item()
         .properties(p -> p.rarity(Rarity.RARE))
         .build()
@@ -913,7 +862,7 @@ public class NEBlocks {
         .block("input_hatch", ECOFluidInputHatchBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate(ECOModelUtil::simpleExisting)
+        .blockstate(() -> ECOModelUtil.simpleExisting())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
@@ -933,7 +882,7 @@ public class NEBlocks {
         .block("output_hatch", ECOFluidOutputHatchBlock::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate(ECOModelUtil::simpleExisting)
+        .blockstate(() -> ECOModelUtil.simpleExisting())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
@@ -954,17 +903,7 @@ public class NEBlocks {
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .simpleItem()
-        .blockstate(() -> (ctx, prov) -> {
-            var unformedModel = prov.modLoc("block/crafting_vent");
-            var formedModel = prov.modLoc("block/crafting_vent_formed");
-
-            var propertyDispatch = PropertyDispatch.initial(ECOMachineCasing.FORMED)
-                .select(true, BlockModelGenerators.plainVariant(formedModel))
-                .select(false, BlockModelGenerators.plainVariant(unformedModel));
-
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-            prov.registerSimpleItemModel(ctx.get(), unformedModel);
-        })
+        .blockstate(() -> ECOModelUtil.craftingVent())
         .recipe((ctx, prov) -> {
             ShapedRecipeBuilder.shaped(prov.itemLookup(), RecipeCategory.MISC, ctx.get())
                 .pattern("ABA")
@@ -995,17 +934,7 @@ public class NEBlocks {
                 .unlockedBy("has_black_tungsten_alloy_casing", prov.has(NEBlocks.BLACK_TUNGSTEN_ALLOY_CASING))
                 .save(prov);
         })
-        .blockstate(() -> (ctx, prov) -> {
-            var unformedModel = prov.modLoc("block/crafting_casing");
-            var formedModel = prov.modLoc("block/crafting_casing_formed");
-
-            var propertyDispatch = PropertyDispatch.initial(ECOMachineCasing.FORMED)
-                .select(true, BlockModelGenerators.plainVariant(formedModel))
-                .select(false, BlockModelGenerators.plainVariant(unformedModel));
-
-            prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch));
-            prov.registerSimpleItemModel(ctx.get(), unformedModel);
-        })
+        .blockstate(() -> ECOModelUtil.craftingCasing())
         .simpleItem()
         .register();
     //endregion
@@ -1015,25 +944,7 @@ public class NEBlocks {
             .block("storage_system_" + level, ECOStorageSystemBlock::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate(() -> (ctx, prov) -> {
-                var offModel = prov.modLoc("block/storage_controller/controller_%s_off".formatted(level));
-                var formedModel = prov.modLoc("block/storage_controller/controller_%s_formed".formatted(level));
-                var formedMirroredModel = prov.modLoc("block/storage_controller/controller_%s_formed_mirrored".formatted(level));
-
-                var propertyDispatch = PropertyDispatch.initial(ECOStorageSystemBlock.FORMED, ECOStorageSystemBlock.MIRRORED).generate((formed, mirrored) -> {
-                    if (formed) {
-                        if (mirrored) {
-                            return BlockModelGenerators.plainVariant(formedMirroredModel);
-                        } else {
-                            return BlockModelGenerators.plainVariant(formedModel);
-                        }
-                    } else {
-                        return BlockModelGenerators.plainVariant(offModel);
-                    }
-                });
-                prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-                prov.registerSimpleItemModel(ctx.get(), offModel);
-            })
+            .blockstate(() -> ECOModelUtil.storageSystem(level))
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
@@ -1046,20 +957,7 @@ public class NEBlocks {
             .block("crafting_parallel_core_" + level, p -> new ECOCraftingParallelCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate(() -> (ctx, prov) -> {
-                var unformedModel = prov.modLoc("block/crafting_core/parallel_core_%s".formatted(level));
-                var formedModel = prov.modLoc("block/crafting_core/parallel_core_%s_formed".formatted(level));
-
-                var propertyDispatch = PropertyDispatch.initial(ECOComputationParallelCore.FORMED).generate((formed) -> {
-                    if (formed) {
-                        return BlockModelGenerators.plainVariant(formedModel);
-                    } else {
-                        return BlockModelGenerators.plainVariant(unformedModel);
-                    }
-                });
-                prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-                prov.registerSimpleItemModel(ctx.get(), unformedModel);
-            })
+            .blockstate(() -> ECOModelUtil.craftingParallelCore(level))
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
@@ -1072,25 +970,7 @@ public class NEBlocks {
             .block("crafting_system_" + level, ECOCraftingSystem::new)
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate(() -> (ctx, prov) -> {
-                var offModel = prov.modLoc("block/crafting_controller/controller_%s_off".formatted(level));
-                var formedModel = prov.modLoc("block/crafting_controller/controller_%s_formed".formatted(level));
-                var formedMirroredModel = prov.modLoc("block/crafting_controller/controller_%s_formed_mirrored".formatted(level));
-
-                var propertyDispatch = PropertyDispatch.initial(ECOCraftingSystem.FORMED, ECOCraftingSystem.MIRRORED).generate((formed, mirrored) -> {
-                    if (formed) {
-                        if (mirrored) {
-                            return BlockModelGenerators.plainVariant(formedMirroredModel);
-                        } else {
-                            return BlockModelGenerators.plainVariant(formedModel);
-                        }
-                    } else {
-                        return BlockModelGenerators.plainVariant(offModel);
-                    }
-                });
-                prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-                prov.registerSimpleItemModel(ctx.get(), offModel);
-            })
+            .blockstate(() -> ECOModelUtil.craftingSystem(level))
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
@@ -1104,25 +984,7 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .properties(BlockBehaviour.Properties::noOcclusion)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate(() -> (ctx, prov) -> {
-                var offModel = prov.modLoc("block/computation_controller/controller_%s_off".formatted(level));
-                var formedModel = prov.modLoc("block/computation_controller/controller_%s_formed".formatted(level));
-                var formedMirroredModel = prov.modLoc("block/computation_controller/controller_%s_formed_mirrored".formatted(level));
-
-                var propertyDispatch = PropertyDispatch.initial(ECOComputationSystem.FORMED, ECOComputationSystem.MIRRORED).generate((formed, mirrored) -> {
-                    if (formed) {
-                        if (mirrored) {
-                            return BlockModelGenerators.plainVariant(formedMirroredModel);
-                        } else {
-                            return BlockModelGenerators.plainVariant(formedModel);
-                        }
-                    } else {
-                        return BlockModelGenerators.plainVariant(offModel);
-                    }
-                });
-                prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-                prov.registerSimpleItemModel(ctx.get(), offModel);
-            })
+            .blockstate(() -> ECOModelUtil.computationSystem(level))
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
@@ -1135,20 +997,7 @@ public class NEBlocks {
             .block("computation_parallel_core_" + level, p -> new ECOComputationParallelCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate(() -> (ctx, prov) -> {
-                var unformedModel = prov.modLoc("block/computation_core/parallel_core_%s".formatted(level));
-                var formedModel = prov.modLoc("block/computation_core/parallel_core_%s_formed".formatted(level));
-
-                var propertyDispatch = PropertyDispatch.initial(ECOComputationParallelCore.FORMED).generate((formed) -> {
-                    if (formed) {
-                        return BlockModelGenerators.plainVariant(formedModel);
-                    } else {
-                        return BlockModelGenerators.plainVariant(unformedModel);
-                    }
-                });
-                prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-                prov.registerSimpleItemModel(ctx.get(), unformedModel);
-            })
+            .blockstate(() -> ECOModelUtil.computationParallelCore(level))
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
@@ -1163,25 +1012,7 @@ public class NEBlocks {
             .block("computation_threading_core_" + level, p -> new ECOComputationThreadingCore(p, tier))
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate(() -> (ctx, prov) -> {
-                var unformedModel = prov.modLoc("block/computation_core/threading_core_%s".formatted(level));
-                var formedModel = prov.modLoc("block/computation_core/threading_core_%s_formed".formatted(level));
-                var workingModel = prov.modLoc("block/computation_core/threading_core_%s_working".formatted(level));
-
-                var propertyDispatch = PropertyDispatch.initial(ECOComputationThreadingCore.FORMED, ECOComputationThreadingCore.WORKING).generate((formed, working) -> {
-                    if (formed) {
-                        if (working) {
-                            return BlockModelGenerators.plainVariant(workingModel);
-                        } else {
-                            return BlockModelGenerators.plainVariant(formedModel);
-                        }
-                    } else {
-                        return BlockModelGenerators.plainVariant(unformedModel);
-                    }
-                });
-                prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-                prov.registerSimpleItemModel(ctx.get(), unformedModel);
-            })
+            .blockstate(() -> ECOModelUtil.computationThreadingCore(level))
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
@@ -1195,25 +1026,7 @@ public class NEBlocks {
             .initialProperties(() -> Blocks.IRON_BLOCK)
             .properties(BlockBehaviour.Properties::noOcclusion)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-            .blockstate(() -> (ctx, prov) -> {
-                var offModel = prov.modLoc("block/computation_cooling_controller/controller_%s_off".formatted(level));
-                var formedModel = prov.modLoc("block/computation_cooling_controller/controller_%s_formed".formatted(level));
-                var formedMirroredModel = prov.modLoc("block/computation_cooling_controller/controller_%s_formed_mirrored".formatted(level));
-
-                var propertyDispatch = PropertyDispatch.initial(ECOComputationCoolingController.FORMED, ECOComputationCoolingController.MIRRORED).generate((formed, mirrored) -> {
-                    if (formed) {
-                        if (mirrored) {
-                            return BlockModelGenerators.plainVariant(formedMirroredModel);
-                        } else {
-                            return BlockModelGenerators.plainVariant(formedModel);
-                        }
-                    } else {
-                        return BlockModelGenerators.plainVariant(offModel);
-                    }
-                });
-                prov.blockStateOutput.accept(MultiVariantGenerator.dispatch(ctx.get()).with(propertyDispatch).with(BlockModelGenerators.ROTATION_HORIZONTAL_FACING));
-                prov.registerSimpleItemModel(ctx.get(), offModel);
-            })
+            .blockstate(() -> ECOModelUtil.computationCoolingController(level))
             .item()
             .properties(p -> p.rarity(rarity))
             .build()
