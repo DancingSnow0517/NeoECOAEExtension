@@ -75,14 +75,12 @@ public class NETextures {
     public static final IGuiTexture OVERCLOCK_ON = widgetTexture("crafting/overclock_on.png");
     public static final IGuiTexture OVERCLOCK_ON_DOWN = widgetTexture("crafting/overclock_on_down.png");
 
-    public static final IGuiTexture PROGRESS_BAR_COOLANT =
-        SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/coolant_progress.png"));
-    public static final IGuiTexture PROGRESS_BAR_HOT_COOLANT =
-        SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/hot_coolant_progress.png"));
-    public static final IGuiTexture PROGRESS_BAR_CRAFTING =
-        SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/crafting_progress.png"));
-    public static final IGuiTexture PROGRESS_BAR_LIMIT =
-        SpriteTexture.of(NeoECOAE.id("textures/gui/crafting/limit_progress.png"));
+    public static final IGuiTexture COOLING_PROGRESS_EMPTY = SpriteTexture.of(NeoECOAE.id("textures/gui/jei/cooling_progress_empty.png"))
+        .setSpriteSize(Size.of(30, 30))
+        .setWrapMode(SpriteTexture.WrapMode.REPEAT);
+    public static final IGuiTexture COOLING_PROGRESS = SpriteTexture.of(NeoECOAE.id("textures/gui/jei/cooling_progress.png"))
+        .setSpriteSize(Size.of(30, 30))
+        .setWrapMode(SpriteTexture.WrapMode.REPEAT);
 
     private static IGuiTexture widgetTexture(String path) {
         return SpriteTexture.of(NeoECOAE.id("textures/gui/widget/" + path));

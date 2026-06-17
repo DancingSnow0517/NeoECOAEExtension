@@ -7,14 +7,21 @@ import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.ModularUIRecipeCategory;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
+import mezz.jei.api.gui.inputs.RecipeSlotUnderMouse;
+import mezz.jei.api.gui.widgets.IRecipeExtrasBuilder;
+import mezz.jei.api.gui.widgets.ISlottedRecipeWidget;
 import mezz.jei.api.helpers.IGuiHelper;
 import mezz.jei.api.recipe.IFocusGroup;
-import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.types.IRecipeType;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
+import net.minecraft.client.gui.navigation.ScreenPosition;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
+
+import java.util.List;
+import java.util.Optional;
 
 public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockInfoWrapper> {
 
@@ -29,7 +36,25 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, MultiBlockInfoWrapper recipe, IFocusGroup focuses) {
         super.setRecipe(builder, recipe, focuses);
-        builder.addInvisibleIngredients(RecipeIngredientRole.OUTPUT).add(recipe.getDefinition().getOwner().value());
+        builder.addOutputSlot().add(recipe.getDefinition().getOwner().value()).setSlotName("multiblock_output");
+    }
+
+    @Override
+    public void createRecipeExtras(IRecipeExtrasBuilder builder, MultiBlockInfoWrapper recipe, IFocusGroup focuses) {
+        super.createRecipeExtras(builder, recipe, focuses);
+        builder.getRecipeSlots().findSlotByName("multiblock_output").ifPresent(slot -> {
+            builder.addSlottedWidget(new ISlottedRecipeWidget() {
+                @Override
+                public @NonNull Optional<RecipeSlotUnderMouse> getSlotUnderMouse(double mouseX, double mouseY) {
+                    return Optional.empty();
+                }
+
+                @Override
+                public @NonNull ScreenPosition getPosition() {
+                    return new ScreenPosition(0, 0);
+                }
+            }, List.of(slot));
+        });
     }
 
     @Override

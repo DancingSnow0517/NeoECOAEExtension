@@ -97,7 +97,7 @@ public record IntegratedWorkingStationRecipeWrapper(IntegratedWorkingStationReci
         for (int x = 0; x < 3; x++) {
             UIElement row = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int y = 0; y < 3; y++) {
-                int index = x + y * 3;
+                int index = x * 3 + y;
                 row.addChild(inputItemSlot(index, inputItems));
             }
             inputSlots.addChild(row);
