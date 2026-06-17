@@ -87,6 +87,8 @@ repositories {
 }
 
 spotless {
+    lineEndings 'UNIX'
+
     java {
         target 'src/**/*.java'
         targetExclude 'build/**', 'run/**', 'src/generated/**'
