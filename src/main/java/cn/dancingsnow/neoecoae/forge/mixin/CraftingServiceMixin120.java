@@ -11,25 +11,13 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingLink;
-import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.service.CraftingService;
-import cn.dancingsnow.neoecoae.api.IECOComputationHost;
-import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
-import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.compat.advancedae.AdvancedAECraftingCompat;
-import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import com.google.common.collect.ImmutableSet;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Set;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -37,11 +25,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = CraftingService.class, remap = false)
 public abstract class CraftingServiceMixin120 {
-    @Unique private static final Comparator<NEComputationCluster> NEOECOAE_FAST_FIRST = Comparator.comparingInt(
-                    NEComputationCluster::getCPUAccelerators)
-            .reversed()
-            .thenComparingLong(NEComputationCluster::getAvailableStorage);
-
     @Shadow
     @Final
     private IGrid grid;
@@ -62,70 +45,34 @@ public abstract class CraftingServiceMixin120 {
 
     @Inject(method = "addNode", at = @At("TAIL"))
     private void neoecoae$onAddNode(IGridNode gridNode, net.minecraft.nbt.CompoundTag savedData, CallbackInfo ci) {
-        if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
-                && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
+        if (NeoECOCraftingServiceBridge.isComputationClusterNode(gridNode)) {
             this.updateList = true;
         }
     }
 
     @Inject(method = "removeNode", at = @At("TAIL"))
     private void neoecoae$onRemoveNode(IGridNode gridNode, CallbackInfo ci) {
-        if (gridNode.getOwner() instanceof NEBlockEntity<?, ?> blockEntity
-                && blockEntity.getCluster() instanceof NEComputationCluster cluster) {
+        if (NeoECOCraftingServiceBridge.isComputationClusterNode(gridNode)) {
             this.updateList = true;
         }
     }
 
     @Inject(method = "updateCPUClusters", at = @At("TAIL"))
     private void neoecoae$onUpdateCPUClusters(CallbackInfo ci) {
-        for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-                var maybeLink = cpu.getLogic().getLastLink();
-                if (maybeLink instanceof CraftingLink link) {
-                    this.addLink(link);
-                }
-            }
-        }
+        NeoECOCraftingServiceBridge.addRestoredLinks((CraftingService) (Object) this, this.grid);
     }
 
     @Inject(method = "onServerEndTick", at = @At("HEAD"))
     private void neoecoae$tickComputationCpus(CallbackInfo ci) {
-        for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-                boolean wasBusy = cpu.isBusy();
-                boolean hadRemainingItems = cpu.hasRemainingItems();
-
-                cpu.getLogic().tickCraftingLogic(this.energyGrid, (CraftingService) (Object) this);
-
-                boolean isBusy = cpu.isBusy();
-                boolean hasRemainingItems = cpu.hasRemainingItems();
-                if (wasBusy != isBusy || hadRemainingItems != hasRemainingItems) {
-                    this.updateList = true;
-                }
-
-                cpu.getLogic().getAllWaitingFor(this.currentlyCrafting);
-            }
+        if (NeoECOCraftingServiceBridge.tickComputationCpus(
+                (CraftingService) (Object) this, this.grid, this.energyGrid, this.currentlyCrafting)) {
+            this.updateList = true;
         }
     }
 
     @Inject(method = "getCpus", at = @At("RETURN"), cancellable = true)
     private void neoecoae$getCpus(CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir) {
-        ImmutableSet.Builder<ICraftingCPU> cpus = ImmutableSet.builder();
-        ImmutableSet<ICraftingCPU> vanillaCpus = cir.getReturnValue();
-        if (vanillaCpus != null) {
-            cpus.addAll(vanillaCpus);
-        }
-
-        List<NEComputationCluster> clusters = neoecoae$getComputationClusters();
-        for (NEComputationCluster cluster : clusters) {
-            List<ECOCraftingCPU> activeCpus = cluster.getActiveCPUs();
-            cpus.addAll(activeCpus);
-            if (cluster.isActive() && cluster.hasFreeThread()) {
-                cpus.add(cluster.getFakeCPU());
-            }
-        }
-        AdvancedAECraftingCompat.addCpus(this.grid, cpus);
-        cir.setReturnValue(cpus.build());
+        cir.setReturnValue(NeoECOCraftingServiceBridge.getCpus(this.grid, cir.getReturnValue()));
     }
 
     @Inject(method = "submitJob", at = @At("HEAD"), cancellable = true)
@@ -136,100 +83,31 @@ public abstract class CraftingServiceMixin120 {
             boolean prioritizePower,
             IActionSource src,
             CallbackInfoReturnable<ICraftingSubmitResult> cir) {
-        if (target instanceof ECOCraftingCPU ecoCpu) {
-            ICraftingSubmitResult result = ecoCpu.isAllocationProxy()
-                    ? ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine)
-                    : CraftingSubmitResult.CPU_BUSY;
+        ICraftingSubmitResult result =
+                NeoECOCraftingServiceBridge.submitJob(this.grid, job, requestingMachine, target, src);
+        if (result != null) {
             if (result.successful()) {
                 this.updateList = true;
             }
             cir.setReturnValue(result);
-            return;
-        }
-
-        if (target != null) {
-            return;
-        }
-
-        NEComputationCluster cluster = neoecoae$findSuitableComputationCluster(job, src);
-        if (cluster != null) {
-            ICraftingSubmitResult result = cluster.submitJob(this.grid, job, src, requestingMachine);
-            if (result.successful()) {
-                this.updateList = true;
-                cir.setReturnValue(result);
-            }
         }
     }
 
     @Inject(method = "insertIntoCpus", at = @At("RETURN"), cancellable = true)
     private void neoecoae$insertIntoCpus(AEKey what, long amount, Actionable type, CallbackInfoReturnable<Long> cir) {
-        long inserted = cir.getReturnValue();
-        for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-                inserted += cpu.getLogic().insert(what, amount - inserted, type);
-            }
-        }
-        cir.setReturnValue(inserted);
+        cir.setReturnValue(
+                NeoECOCraftingServiceBridge.insertIntoCpus(this.grid, what, amount, type, cir.getReturnValue()));
     }
 
     @Inject(method = "getRequestedAmount", at = @At("RETURN"), cancellable = true)
     private void neoecoae$getRequestedAmount(AEKey what, CallbackInfoReturnable<Long> cir) {
-        long requested = cir.getReturnValue();
-        for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
-                requested += cpu.getLogic().getWaitingFor(what);
-            }
-        }
-        cir.setReturnValue(requested);
+        cir.setReturnValue(NeoECOCraftingServiceBridge.getRequestedAmount(this.grid, what, cir.getReturnValue()));
     }
 
     @Inject(method = "hasCpu", at = @At("HEAD"), cancellable = true)
     private void neoecoae$hasCpu(ICraftingCPU cpu, CallbackInfoReturnable<Boolean> cir) {
-        for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
-            if (cluster.hasFreeThread() && cluster.getFakeCPU() == cpu) {
-                cir.setReturnValue(true);
-                return;
-            }
-            for (ECOCraftingCPU activeCpu : cluster.getActiveCPUs()) {
-                if (activeCpu == cpu) {
-                    cir.setReturnValue(true);
-                    return;
-                }
-            }
+        if (NeoECOCraftingServiceBridge.hasCpu(this.grid, cpu)) {
+            cir.setReturnValue(true);
         }
-    }
-
-    @Unique private List<NEComputationCluster> neoecoae$getComputationClusters() {
-        Set<NEComputationCluster> clusters = Collections.newSetFromMap(new IdentityHashMap<>());
-
-        for (var node : this.grid.getNodes()) {
-            Object owner = node.getOwner();
-            if (!(owner instanceof IECOComputationHost host)) {
-                continue;
-            }
-            ECOComputationSystemBlockEntity blockEntity = host.getComputationHost();
-            NEComputationCluster cluster = blockEntity.getCluster();
-            if (cluster != null && blockEntity.isFormed()) {
-                clusters.add(cluster);
-            }
-        }
-        return new ArrayList<>(clusters);
-    }
-
-    @Unique private NEComputationCluster neoecoae$findSuitableComputationCluster(ICraftingPlan job, IActionSource src) {
-        List<NEComputationCluster> candidates = new ArrayList<>();
-        for (NEComputationCluster cluster : neoecoae$getComputationClusters()) {
-            if (cluster.isActive()
-                    && cluster.hasFreeThread()
-                    && cluster.getAvailableStorage() >= job.bytes()
-                    && cluster.canBeAutoSelectedFor(src)) {
-                candidates.add(cluster);
-            }
-        }
-        if (candidates.isEmpty()) {
-            return null;
-        }
-        candidates.sort(NEOECOAE_FAST_FIRST);
-        return candidates.get(0);
     }
 }

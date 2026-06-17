@@ -54,7 +54,6 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -216,9 +215,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 MAX_PROCESSING_STEPS,
                 task == null ? 0 : task.energy(),
                 working,
-                isAutoExportEnabled(),
-                inputTank.getFluid().copy(),
-                outputTank.getFluid().copy());
+                isAutoExportEnabled());
     }
 
     @Override
@@ -781,37 +778,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
     }
 
     // ── Client sync (fluid tanks + processing state) ──
-
-    @Override
-    protected void writeToStream(FriendlyByteBuf data) {
-        super.writeToStream(data);
-        data.writeNbt(inputTank.writeToNBT(new CompoundTag()));
-        data.writeNbt(outputTank.writeToNBT(new CompoundTag()));
-        data.writeVarInt(processingTime);
-        data.writeBoolean(working);
-        data.writeBoolean(shouldAutoExport);
-    }
-
-    @Override
-    protected boolean readFromStream(FriendlyByteBuf data) {
-        boolean changed = super.readFromStream(data);
-        if (data.readableBytes() <= 0) {
-            return changed;
-        }
-
-        CompoundTag inputTankTag = data.readNbt();
-        CompoundTag outputTankTag = data.readNbt();
-        if (inputTankTag != null) {
-            inputTank.readFromNBT(inputTankTag);
-        }
-        if (outputTankTag != null) {
-            outputTank.readFromNBT(outputTankTag);
-        }
-        processingTime = data.readVarInt();
-        working = data.readBoolean();
-        shouldAutoExport = data.readBoolean();
-        return true;
-    }
 
     @Override
     public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {

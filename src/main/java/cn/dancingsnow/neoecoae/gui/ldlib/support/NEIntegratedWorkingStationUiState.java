@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.support;
 
-import net.minecraftforge.fluids.FluidStack;
-
 public record NEIntegratedWorkingStationUiState(
         long energy,
         long maxEnergy,
@@ -9,10 +7,8 @@ public record NEIntegratedWorkingStationUiState(
         int maxProgress,
         int requiredEnergy,
         boolean working,
-        boolean autoExport,
-        FluidStack inputFluid,
-        FluidStack outputFluid) {
+        boolean autoExport) {
     public static NEIntegratedWorkingStationUiState empty() {
-        return new NEIntegratedWorkingStationUiState(0, 0, 0, 0, 0, false, false, FluidStack.EMPTY, FluidStack.EMPTY);
+        return new NEIntegratedWorkingStationUiState(0, 0, 0, 0, 0, false, false);
     }
 }

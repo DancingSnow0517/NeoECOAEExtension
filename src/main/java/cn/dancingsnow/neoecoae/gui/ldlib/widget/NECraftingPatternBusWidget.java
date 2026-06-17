@@ -6,7 +6,6 @@ import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.EncodedPatternItem;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
-import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
@@ -96,18 +95,32 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
 
         NEPlayerInventoryWidgets.addPlayerInventorySlots(this, playerInventory, INV_BG_X, INV_BG_Y, HOTBAR_BG_Y);
 
-        previousPageButton = (ButtonWidget) new ButtonWidget(
-                PAGE_PREV_BUTTON_X, PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H, IGuiTexture.EMPTY, click -> {
+        previousPageButton = new NEAe2TextButtonWidget(
+                PAGE_PREV_BUTTON_X,
+                PAGE_BUTTON_Y,
+                PAGE_BUTTON_W,
+                PAGE_BUTTON_H,
+                () -> Component.literal("<"),
+                click -> {
                     if (click.isRemote) {
                         writeClientAction(PAGE_ACTION_ID, buf -> buf.writeVarInt(currentPage - 1));
                     }
-                });
-        nextPageButton = (ButtonWidget) new ButtonWidget(
-                PAGE_NEXT_BUTTON_X, PAGE_BUTTON_Y, PAGE_BUTTON_W, PAGE_BUTTON_H, IGuiTexture.EMPTY, click -> {
+                },
+                () -> false,
+                NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
+        nextPageButton = new NEAe2TextButtonWidget(
+                PAGE_NEXT_BUTTON_X,
+                PAGE_BUTTON_Y,
+                PAGE_BUTTON_W,
+                PAGE_BUTTON_H,
+                () -> Component.literal(">"),
+                click -> {
                     if (click.isRemote) {
                         writeClientAction(PAGE_ACTION_ID, buf -> buf.writeVarInt(currentPage + 1));
                     }
-                });
+                },
+                () -> false,
+                NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
         addWidget(previousPageButton);
         addWidget(nextPageButton);
         updatePageButtons();
@@ -208,14 +221,12 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
                 graphics, this::absX, this::absY, INV_BG_X, INV_BG_Y, HOTBAR_BG_Y);
         drawGhostPatterns(graphics);
-        drawPageButtonBackgrounds(graphics, mouseX, mouseY);
     }
 
     @Override
     protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         drawTitleAndPage(graphics);
         drawLocalString(graphics, playerInventory.getDisplayName(), INV_LABEL_X, INV_LABEL_Y, TEXT_MUTED);
-        drawPageButtonText(graphics);
     }
 
     @Override
@@ -338,32 +349,6 @@ public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
             int pageTextX = PAGE_TEXT_RIGHT_X - font().width(pageText);
             graphics.drawString(font(), pageText, absX(pageTextX), absY(TITLE_Y), PAGE_TEXT_COLOR, true);
         }
-    }
-
-    private void drawPageButtonText(GuiGraphics graphics) {
-        if (previousPageButton != null && previousPageButton.isVisible()) {
-            int color = previousPageButton.isActive() ? TEXT_PRIMARY : TEXT_MUTED;
-            graphics.drawString(font(), "<", absX(PAGE_PREV_BUTTON_X + 3), absY(PAGE_BUTTON_Y + 3), color, false);
-        }
-        if (nextPageButton != null && nextPageButton.isVisible()) {
-            int color = nextPageButton.isActive() ? TEXT_PRIMARY : TEXT_MUTED;
-            graphics.drawString(font(), ">", absX(PAGE_NEXT_BUTTON_X + 3), absY(PAGE_BUTTON_Y + 3), color, false);
-        }
-    }
-
-    private void drawPageButtonBackgrounds(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (previousPageButton != null && previousPageButton.isVisible()) {
-            drawPageButtonBackground(graphics, mouseX, mouseY, PAGE_PREV_BUTTON_X);
-        }
-        if (nextPageButton != null && nextPageButton.isVisible()) {
-            drawPageButtonBackground(graphics, mouseX, mouseY, PAGE_NEXT_BUTTON_X);
-        }
-    }
-
-    private void drawPageButtonBackground(GuiGraphics graphics, int mouseX, int mouseY, int localX) {
-        int x = absX(localX);
-        int y = absY(PAGE_BUTTON_Y);
-        NELDLibClientStyle.drawAeToolbarButton(graphics, mouseX, mouseY, x, y, PAGE_BUTTON_W, PAGE_BUTTON_H, false);
     }
 
     private Component truncateTitle(Component text, int maxWidth) {

@@ -6,7 +6,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
@@ -16,8 +15,6 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -72,6 +69,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private final ECOComputationSystemBlockEntity computation;
     private final Inventory playerInventory;
     private int taskScrollOffset;
+    private NEAe2IconButtonWidget cpuModeButton;
 
     public NEComputationControllerWidget(ECOComputationSystemBlockEntity computation, Player player) {
         super(
@@ -94,8 +92,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     @Override
     protected void initLdWidgets() {
-        addWidget(new ButtonWidget(
-                TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H, IGuiTexture.EMPTY, click -> {
+        cpuModeButton = new NEAe2IconButtonWidget(
+                TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H, cpuModeIcon(), click -> {
                     if (!click.isRemote) {
                         NEComputationCluster cluster = computation.getCluster();
                         if (cluster != null) {
@@ -105,7 +103,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                             syncStateNow();
                         }
                     }
-                }));
+                });
+        addWidget(cpuModeButton);
         addPlayerInventorySlots();
     }
 
@@ -113,19 +112,11 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         int ox = getPositionX();
         int oy = getPositionY();
+        cpuModeButton.setIcon(cpuModeIcon());
         NELDLibClientStyle.drawDarkInsetRect(
                 graphics, ox + MAIN_PANEL_X, oy + MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
         NELDLibClientStyle.drawDarkInsetRect(
                 graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
-        NELDLibClientStyle.drawAeToolbarButton(
-                graphics,
-                mouseX,
-                mouseY,
-                ox + TOOLBAR_BUTTON_X,
-                oy + TOOLBAR_BUTTON_Y,
-                TOOLBAR_BUTTON_W,
-                TOOLBAR_BUTTON_H,
-                false);
         drawPlayerInventorySlots(graphics);
 
         NEComputationUiState state = currentState();
@@ -154,7 +145,6 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         drawLocalString(graphics, title, 8, 8, TEXT_PRIMARY);
         drawHeaderMachineStatus(graphics, currentState());
-        drawCpuModeIcon(graphics);
         drawMainPanelText(graphics, currentState());
         drawLocalString(
                 graphics,
@@ -354,18 +344,12 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         drawTaskScrollbar(g, state.recipeEntries().size(), visibleTaskCardCount());
     }
 
-    private void drawCpuModeIcon(GuiGraphics graphics) {
-        Icon icon =
-                switch (currentState().cpuSelectionMode()) {
-                    case PLAYER_ONLY -> Icon.CRAFT_HAMMER;
-                    case MACHINE_ONLY -> Icon.BACKGROUND_WIRELESS_TERM;
-                    case ANY -> Icon.TYPE_FILTER_ALL;
-                };
-        NELDLibAe2StyleRenderer.drawAeIcon(
-                graphics,
-                icon,
-                absX(TOOLBAR_BUTTON_X + (TOOLBAR_BUTTON_W - icon.width) / 2),
-                absY(TOOLBAR_BUTTON_Y + (TOOLBAR_BUTTON_H - icon.height) / 2));
+    private Icon cpuModeIcon() {
+        return switch (currentState().cpuSelectionMode()) {
+            case PLAYER_ONLY -> Icon.CRAFT_HAMMER;
+            case MACHINE_ONLY -> Icon.BACKGROUND_WIRELESS_TERM;
+            case ANY -> Icon.TYPE_FILTER_ALL;
+        };
     }
 
     private void drawHorizontalUsageBar(GuiGraphics g, int x, int y, int w, int h, long used, long max, int color) {

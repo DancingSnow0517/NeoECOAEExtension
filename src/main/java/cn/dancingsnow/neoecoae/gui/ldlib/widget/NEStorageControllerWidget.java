@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibValueText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStorageMetricsModel.Metric;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStorageMetricsModel.StorageMetrics;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -200,10 +201,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     @Override
     public boolean mouseWheelMove(double mouseX, double mouseY, double wheelDelta) {
-        if (mouseX >= absX(LEFT_PANEL_X)
-                && mouseX < absX(LEFT_PANEL_X + LEFT_PANEL_W)
-                && mouseY >= absY(LEFT_PANEL_Y)
-                && mouseY < absY(LEFT_PANEL_Y + LEFT_PANEL_H)) {
+        if (Widget.isMouseOver(absX(LEFT_PANEL_X), absY(LEFT_PANEL_Y), LEFT_PANEL_W, LEFT_PANEL_H, mouseX, mouseY)) {
             double maxScroll = maxLeftScrollPixels();
             double previous = leftScrollPixels;
             leftScrollPixels = Mth.clamp(leftScrollPixels - wheelDelta * LEFT_SCROLL_SPEED, 0.0D, maxScroll);
@@ -214,10 +212,13 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             List<Metric> columns = NEStorageMetricsModel.columnMetrics(NEStorageMetricsModel.from(currentState()));
             return metricColumnPanel.scrollBy(columns, wheelDelta);
         }
-        if (mouseX >= absX(NEStorageMatrixPanel.panelX())
-                && mouseX < absX(NEStorageMatrixPanel.panelX() + NEStorageMatrixPanel.panelW())
-                && mouseY >= absY(NEStorageMatrixPanel.panelY())
-                && mouseY < absY(NEStorageMatrixPanel.panelY() + NEStorageMatrixPanel.panelH())) {
+        if (Widget.isMouseOver(
+                absX(NEStorageMatrixPanel.panelX()),
+                absY(NEStorageMatrixPanel.panelY()),
+                NEStorageMatrixPanel.panelW(),
+                NEStorageMatrixPanel.panelH(),
+                mouseX,
+                mouseY)) {
             double oldTarget = matrixScrollTargetPixels;
             matrixScrollTargetPixels = Mth.clamp(
                     matrixScrollTargetPixels - wheelDelta * MATRIX_SCROLL_SPEED,
@@ -233,10 +234,13 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0
                 && matrixPanel.maxScrollPixels(currentState()) > 0.0D
-                && mouseX >= absX(NEStorageMatrixPanel.viewX())
-                && mouseX < absX(NEStorageMatrixPanel.viewX() + NEStorageMatrixPanel.viewW())
-                && mouseY >= absY(NEStorageMatrixPanel.scrollbarY())
-                && mouseY < absY(NEStorageMatrixPanel.scrollbarY() + NEStorageMatrixPanel.scrollbarH())) {
+                && Widget.isMouseOver(
+                        absX(NEStorageMatrixPanel.viewX()),
+                        absY(NEStorageMatrixPanel.scrollbarY()),
+                        NEStorageMatrixPanel.viewW(),
+                        NEStorageMatrixPanel.scrollbarH(),
+                        mouseX,
+                        mouseY)) {
             matrixScrollbarDragging = true;
             matrixPanel.updateScrollFromMouse(currentState(), mouseX);
             return true;

@@ -1,18 +1,13 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeFluidStorage;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
-import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 
 public class NEFluidHatchWidget extends NELDLibMachineWidget {
@@ -44,10 +39,7 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
     @Override
     protected void initLdWidgets() {
         addWidget(new TankWidget(new NEForgeFluidStorage(tank), tankX(), TANK_Y, TANK_W, tankHeight(), true, true)
-                .setBackground(IGuiTexture.EMPTY)
                 .setShowAmount(false)
-                .setDrawHoverTips(false)
-                .setDrawHoverOverlay(false)
                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
                 .setAllowClickFilled(true)
                 .setAllowClickDrained(true)
@@ -57,36 +49,7 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
     }
 
     @Override
-    protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!isMouseIn(tankX(), TANK_Y, TANK_W, tankHeight(), mouseX, mouseY)) {
-            return;
-        }
-        FluidStack stack = tank.getFluid();
-        Component name =
-                stack.isEmpty() ? Component.translatable("gui.neoecoae.fluid_tank.empty") : stack.getDisplayName();
-        graphics.renderComponentTooltip(font(), List.of(name, amountText()), mouseX, mouseY);
-    }
-
-    @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        FluidStack stack = tank.getFluid();
-        NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
-                graphics,
-                absX(tankX()),
-                absY(TANK_Y),
-                TANK_W,
-                tankHeight(),
-                stack,
-                Math.max(0, tank.getFluidAmount()),
-                Math.max(0, tank.getCapacity()));
-        if (isMouseIn(tankX(), TANK_Y, TANK_W, tankHeight(), mouseX, mouseY)) {
-            graphics.fill(
-                    absX(tankX() + 1),
-                    absY(TANK_Y + 1),
-                    absX(tankX() + TANK_W - 1),
-                    absY(TANK_Y + tankHeight() - 1),
-                    NELDLibStyle.HOVER_OVERLAY);
-        }
         drawPlayerInventoryBackground(graphics);
     }
 

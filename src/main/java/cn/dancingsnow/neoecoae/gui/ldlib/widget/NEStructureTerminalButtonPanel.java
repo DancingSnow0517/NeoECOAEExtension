@@ -1,19 +1,14 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
-import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEStructureTerminalConfigState;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalHostType;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMode;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 final class NEStructureTerminalButtonPanel {
@@ -132,43 +127,6 @@ final class NEStructureTerminalButtonPanel {
         }
     }
 
-    void drawBackgrounds(NEStructureTerminalRenderContext context, GuiGraphics graphics, int mouseX, int mouseY) {
-        for (RenderedButton button : renderedButtons) {
-            if (!button.visible().getAsBoolean()) {
-                continue;
-            }
-            int x = context.absX(button.x());
-            int y = context.absY(button.y());
-            boolean hover = mouseX >= x && mouseX < x + button.w() && mouseY >= y && mouseY < y + button.h();
-            NELDLibClientStyle.drawInsetButton(
-                    graphics,
-                    x,
-                    y,
-                    button.w(),
-                    button.h(),
-                    hover,
-                    false,
-                    button.selected().getAsBoolean());
-        }
-    }
-
-    void drawLabels(NEStructureTerminalRenderContext context, GuiGraphics graphics) {
-        for (RenderedButton button : renderedButtons) {
-            if (!button.visible().getAsBoolean()) {
-                continue;
-            }
-            int color =
-                    button.selected().getAsBoolean() ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_MUTED;
-            context.drawCenteredFitted(
-                    graphics,
-                    button.label().get(),
-                    button.x(),
-                    button.y() + (button.h() - context.font().lineHeight) / 2,
-                    button.w(),
-                    color);
-        }
-    }
-
     private void addHostButton(StructureTerminalHostType hostType, int index, NEStructureTerminalWidget.Action action) {
         addServerButton(
                 NEStructureTerminalLayout.HOST_X
@@ -253,17 +211,24 @@ final class NEStructureTerminalButtonPanel {
             Runnable action,
             BooleanSupplier visible,
             List<Widget> group) {
-        ButtonWidget button = (ButtonWidget) new ButtonWidget(x, y, w, h, IGuiTexture.EMPTY, click -> {
-            if (click.isRemote) {
-                action.run();
-                refreshWidgetVisibility();
-            }
-        });
+        NEAe2TextButtonWidget button = new NEAe2TextButtonWidget(
+                x,
+                y,
+                w,
+                h,
+                label,
+                click -> {
+                    if (click.isRemote) {
+                        action.run();
+                        refreshWidgetVisibility();
+                    }
+                },
+                selected);
         owner.addWidget(button);
         if (group != null) {
             group.add(button);
         }
-        renderedButtons.add(new RenderedButton(x, y, w, h, button, label, selected, visible));
+        renderedButtons.add(new RenderedButton(button, visible));
     }
 
     private void addServerButton(
@@ -276,16 +241,23 @@ final class NEStructureTerminalButtonPanel {
             BooleanSupplier selected,
             BooleanSupplier visible,
             List<Widget> group) {
-        ButtonWidget button = (ButtonWidget) new ButtonWidget(x, y, w, h, IGuiTexture.EMPTY, click -> {
-            if (click.isRemote) {
-                actionSender.accept(action);
-            }
-        });
+        NEAe2TextButtonWidget button = new NEAe2TextButtonWidget(
+                x,
+                y,
+                w,
+                h,
+                label,
+                click -> {
+                    if (click.isRemote) {
+                        actionSender.accept(action);
+                    }
+                },
+                selected);
         owner.addWidget(button);
         if (group != null) {
             group.add(button);
         }
-        renderedButtons.add(new RenderedButton(x, y, w, h, button, label, selected, visible));
+        renderedButtons.add(new RenderedButton(button, visible));
     }
 
     private NEStructureTerminalConfigState state() {
@@ -316,13 +288,5 @@ final class NEStructureTerminalButtonPanel {
         return prefix + level;
     }
 
-    private record RenderedButton(
-            int x,
-            int y,
-            int w,
-            int h,
-            ButtonWidget button,
-            Supplier<Component> label,
-            BooleanSupplier selected,
-            BooleanSupplier visible) {}
+    private record RenderedButton(NEAe2TextButtonWidget button, BooleanSupplier visible) {}
 }

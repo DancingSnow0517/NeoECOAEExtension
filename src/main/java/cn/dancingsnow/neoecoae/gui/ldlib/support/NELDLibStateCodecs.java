@@ -15,7 +15,6 @@ import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
 
 public final class NELDLibStateCodecs {
     private static final int MAX_STORAGE_UI_TYPES = 64;
@@ -393,8 +392,6 @@ public final class NELDLibStateCodecs {
         buf.writeVarInt(Math.max(0, state.requiredEnergy()));
         buf.writeBoolean(state.working());
         buf.writeBoolean(state.autoExport());
-        state.inputFluid().writeToPacket(buf);
-        state.outputFluid().writeToPacket(buf);
     }
 
     public static NEIntegratedWorkingStationUiState readIntegratedWorkingStation(FriendlyByteBuf buf) {
@@ -405,9 +402,7 @@ public final class NELDLibStateCodecs {
                 buf.readVarInt(),
                 buf.readVarInt(),
                 buf.readBoolean(),
-                buf.readBoolean(),
-                FluidStack.readFromPacket(buf),
-                FluidStack.readFromPacket(buf));
+                buf.readBoolean());
     }
 
     public static void writeStructureTerminal(FriendlyByteBuf buf, NEStructureTerminalConfigState state) {

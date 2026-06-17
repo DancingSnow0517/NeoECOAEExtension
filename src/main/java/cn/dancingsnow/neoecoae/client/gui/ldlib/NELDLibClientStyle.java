@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client.gui.ldlib;
 
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -154,6 +155,6 @@ public final class NELDLibClientStyle {
     }
 
     private static boolean isMouseIn(int x, int y, int width, int height, int mouseX, int mouseY) {
-        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+        return Widget.isMouseOver(x, y, width, height, mouseX, mouseY);
     }
 }

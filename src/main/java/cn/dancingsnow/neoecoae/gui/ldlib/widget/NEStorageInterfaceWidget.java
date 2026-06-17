@@ -8,8 +8,6 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.FriendlyByteBuf;
@@ -67,46 +65,21 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
     }
 
     private void addModeButton(int x, Component label, ECOStorageInterfaceMode mode) {
-        addWidget(
-                new ButtonWidget(x, MODE_BUTTON_Y, MODE_BUTTON_W, MODE_BUTTON_H, IGuiTexture.EMPTY, click -> {
+        addWidget(new NEAe2TextButtonWidget(
+                x,
+                MODE_BUTTON_Y,
+                MODE_BUTTON_W,
+                MODE_BUTTON_H,
+                () -> label,
+                click -> {
                     if (click.isRemote) {
                         writeClientAction(ACTION_SET_MODE, buf -> buf.writeEnum(mode));
                     } else {
                         storageInterface.setStorageInterfaceMode(mode);
                         syncStateNow();
                     }
-                }) {
-                    @Override
-                    public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-                        boolean selected = currentState().mode() == mode;
-                        boolean hover = isMouseIn(x, MODE_BUTTON_Y, MODE_BUTTON_W, MODE_BUTTON_H, mouseX, mouseY);
-                        NELDLibClientStyle.drawInsetButton(
-                                graphics,
-                                getPositionX(),
-                                getPositionY(),
-                                MODE_BUTTON_W,
-                                MODE_BUTTON_H,
-                                hover,
-                                false,
-                                selected);
-                        super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
-                    }
-
-                    @Override
-                    public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-                        super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
-                        NELDLibClientStyle.drawCenteredFitted(
-                                graphics,
-                                NEStorageInterfaceWidget.this.font(),
-                                label,
-                                getPositionX(),
-                                getPositionY() + 6,
-                                MODE_BUTTON_W,
-                                currentState().mode() == mode
-                                        ? NELDLibStyle.DARK_TEXT_SUCCESS
-                                        : NELDLibStyle.DARK_TEXT_PRIMARY);
-                    }
-                });
+                },
+                () -> currentState().mode() == mode));
     }
 
     @Override

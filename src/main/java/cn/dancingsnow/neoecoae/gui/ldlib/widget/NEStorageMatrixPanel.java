@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibValueText;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.List;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
@@ -234,10 +235,9 @@ final class NEStorageMatrixPanel {
     }
 
     private boolean isMouseInCard(int x, int y, int mouseX, int mouseY) {
-        return mouseX >= absX(Math.max(x, VIEW_X))
-                && mouseX < absX(Math.min(x + CARD_W, VIEW_X + VIEW_W))
-                && mouseY >= absY(y)
-                && mouseY < absY(y + CARD_H);
+        int clippedX = Math.max(x, VIEW_X);
+        int clippedW = Math.min(x + CARD_W, VIEW_X + VIEW_W) - clippedX;
+        return clippedW > 0 && Widget.isMouseOver(absX(clippedX), absY(y), clippedW, CARD_H, mouseX, mouseY);
     }
 
     private int matrixX(NEStorageUiMatrixState matrix) {

@@ -98,7 +98,6 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                 context.absY(NEStructureTerminalLayout.INFO_PANEL_Y),
                 NEStructureTerminalLayout.INFO_PANEL_W,
                 NEStructureTerminalLayout.INFO_PANEL_H);
-        buttonPanel.drawBackgrounds(context, graphics, mouseX, mouseY);
         materialPanel.drawSlots(context, graphics);
     }
 
@@ -107,7 +106,6 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
         NEStructureTerminalRenderContext context = renderContext();
         drawLocalString(graphics, title, 8, 8, TEXT_PRIMARY);
         drawControlValues(context, graphics);
-        buttonPanel.drawLabels(context, graphics);
         infoPanel.draw(context, graphics);
     }
 

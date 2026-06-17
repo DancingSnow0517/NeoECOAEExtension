@@ -6,7 +6,6 @@ import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
@@ -15,8 +14,6 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTaskCards;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -137,6 +134,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private final ECOCraftingSystemBlockEntity crafting;
     private final Inventory playerInventory;
     private final Map<String, TaskCardAnimation> taskAnimations = new LinkedHashMap<>();
+    private final NEAe2IconButtonWidget[] toolbarButtons = new NEAe2IconButtonWidget[3];
     private int taskScrollOffset;
     private int lastTaskScrollOffset;
 
@@ -191,6 +189,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         int ox = getPositionX();
         int oy = getPositionY();
         NECraftingUiState state = currentState();
+        updateToolbarIcons(state);
 
         NELDLibClientStyle.drawDarkInsetRect(
                 graphics, ox + MAIN_PANEL_X, oy + MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
@@ -214,7 +213,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawPlayerInventorySlots(graphics);
         NELDLibClientStyle.drawDarkInsetRect(
                 graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
-        drawToolbarButtonBackgrounds(graphics, mouseX, mouseY);
     }
 
     // 绘制前景层（标题 + 状态 / 统计 / 模块 / 仪表盘 / 任务面板）
@@ -223,7 +221,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         NECraftingUiState state = currentState();
         drawLine(graphics, title, 8, 8, TEXT_PRIMARY);
         drawHeaderMachineStatus(graphics, state);
-        drawToolbarIcons(graphics, state);
         drawModuleLabels(graphics, state);
         drawStatusArea(graphics, state);
         drawStatsArea(graphics, state);
@@ -258,23 +255,14 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     // 添加工具栏按钮（超频 / 主动冷却 / 自动清理）
     private void addToolbarButton(
             int index, java.util.function.Consumer<com.lowdragmc.lowdraglib.gui.util.ClickData> action) {
-        addWidget(new ButtonWidget(
+        toolbarButtons[index] = new NEAe2IconButtonWidget(
                 TOOLBAR_X + index * TOOLBAR_BUTTON_STRIDE,
                 TOOLBAR_Y,
                 TOOLBAR_BUTTON_SIZE,
                 TOOLBAR_BUTTON_SIZE,
-                IGuiTexture.EMPTY,
-                action));
-    }
-
-    // 绘制工具栏按钮背景图
-    private void drawToolbarButtonBackgrounds(GuiGraphics graphics, int mouseX, int mouseY) {
-        for (int index = 0; index < 3; index++) {
-            int x = absX(TOOLBAR_X + index * TOOLBAR_BUTTON_STRIDE);
-            int y = absY(TOOLBAR_Y);
-            NELDLibClientStyle.drawAeToolbarButton(
-                    graphics, mouseX, mouseY, x, y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, false);
-        }
+                toolbarIcon(currentState(), index),
+                action);
+        addWidget(toolbarButtons[index]);
     }
 
     // 添加玩家背包格子控件
@@ -505,14 +493,20 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     // 绘制统计区域（配方槽 / 批量并行 / 样板数 / 核心数）
     private void drawStatsArea(GuiGraphics g, NECraftingUiState state) {
+        int x = STATS_AREA_X + 8;
+        int rightX = STATS_AREA_X + STATS_AREA_W - 8;
         drawLine(
                 g,
                 Component.translatable("gui.neoecoae.crafting.stats"),
-                STATS_AREA_X + 8,
+                x,
                 STATS_AREA_Y + 5,
                 NELDLibStyle.DARK_TEXT_PRIMARY);
-        int x = STATS_AREA_X + 8;
-        int rightX = STATS_AREA_X + STATS_AREA_W - 8;
+        drawScaledRight(
+                g,
+                Component.literal(formatPerformanceCornerValue(state.performanceAverageNanos())),
+                absX(rightX),
+                absY(STATS_AREA_Y + 5),
+                NELDLibStyle.DARK_TEXT_VALUE);
         int y = STATS_AREA_Y + 19;
         drawCompactPairLine(
                 g,
@@ -521,12 +515,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 state.maxRecipeSlots(),
                 x,
                 y);
-        drawScaledRight(
-                g,
-                Component.literal(formatPerformanceLine(state.performanceAverageNanos())),
-                absX(rightX),
-                absY(y),
-                NELDLibStyle.DARK_TEXT_VALUE);
         y += 25;
         drawInlineValueLine(
                 g,
@@ -594,24 +582,20 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 NELDLibStyle.DARK_TEXT_MUTED);
     }
 
-    // 绘制工具栏图标（超频 / 冷却 / 清理状态图标）
-    private void drawToolbarIcons(GuiGraphics graphics, NECraftingUiState state) {
-        drawToolbarIcon(graphics, 0, state.overclocked() ? Icon.LEVEL_ENERGY : Icon.POWER_UNIT_AE);
-        drawToolbarIcon(
-                graphics,
-                1,
-                state.activeCooling() ? Icon.FLUID_SUBSTITUTION_ENABLED : Icon.FLUID_SUBSTITUTION_DISABLED);
-        drawToolbarIcon(
-                graphics, 2, state.autoClearCoolingWaste() ? Icon.CONDENSER_OUTPUT_TRASH : Icon.BACKGROUND_TRASH);
+    private void updateToolbarIcons(NECraftingUiState state) {
+        for (int index = 0; index < toolbarButtons.length; index++) {
+            if (toolbarButtons[index] != null) {
+                toolbarButtons[index].setIcon(toolbarIcon(state, index));
+            }
+        }
     }
 
-    // 绘制单个工具栏图标
-    private void drawToolbarIcon(GuiGraphics graphics, int index, Icon icon) {
-        NELDLibAe2StyleRenderer.drawAeIcon(
-                graphics,
-                icon,
-                absX(TOOLBAR_X + index * TOOLBAR_BUTTON_STRIDE + (TOOLBAR_BUTTON_SIZE - icon.width) / 2),
-                absY(TOOLBAR_Y + (TOOLBAR_BUTTON_SIZE - icon.height) / 2));
+    private static Icon toolbarIcon(NECraftingUiState state, int index) {
+        return switch (index) {
+            case 0 -> state.overclocked() ? Icon.LEVEL_ENERGY : Icon.POWER_UNIT_AE;
+            case 1 -> state.activeCooling() ? Icon.FLUID_SUBSTITUTION_ENABLED : Icon.FLUID_SUBSTITUTION_DISABLED;
+            default -> state.autoClearCoolingWaste() ? Icon.CONDENSER_OUTPUT_TRASH : Icon.BACKGROUND_TRASH;
+        };
     }
 
     // 绘制状态行（指示灯 + 开关状态文字）
@@ -1050,6 +1034,15 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static String formatPerformanceLine(long averageNanos) {
         return Component.translatable("gui.neoecoae.crafting.performance").getString() + ":"
                 + formatPerformanceValue(averageNanos);
+    }
+
+    private static String formatPerformanceCornerValue(long averageNanos) {
+        long safeNanos = Math.max(0L, averageNanos);
+        long micros = Math.round(safeNanos / 1_000.0D);
+        if (micros < 1_000L) {
+            return micros + " \u03bcs";
+        }
+        return PERFORMANCE_MS_FORMAT.get().format(safeNanos / 1_000_000.0D) + " ms";
     }
 
     private static String formatPerformanceValue(long averageNanos) {

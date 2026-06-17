@@ -10,6 +10,7 @@ import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ProgressWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TextTextureWidget;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
@@ -135,7 +136,7 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
     }
 
     protected boolean isMouseIn(int x, int y, int w, int h, int mouseX, int mouseY) {
-        return mouseX >= absX(x) && mouseX < absX(x) + w && mouseY >= absY(y) && mouseY < absY(y) + h;
+        return Widget.isMouseOver(absX(x), absY(y), w, h, mouseX, mouseY);
     }
 
     protected Component boolText(boolean value) {

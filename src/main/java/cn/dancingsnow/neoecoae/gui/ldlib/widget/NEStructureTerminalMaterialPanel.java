@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEStructureTerminalConfigState;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -106,14 +107,13 @@ final class NEStructureTerminalMaterialPanel {
     }
 
     boolean isMouseOverGrid(NEStructureTerminalRenderContext context, double mouseX, double mouseY) {
-        return mouseX >= context.absX(NEStructureTerminalLayout.INFO_PANEL_X)
-                && mouseX
-                        < context.absX(NEStructureTerminalLayout.INFO_PANEL_X + NEStructureTerminalLayout.INFO_PANEL_W)
-                && mouseY >= context.absY(NEStructureTerminalLayout.PATTERN_MATERIAL_Y)
-                && mouseY
-                        < context.absY(NEStructureTerminalLayout.PATTERN_MATERIAL_Y
-                                + NEStructureTerminalLayout.PATTERN_MATERIAL_ROWS
-                                        * NEStructureTerminalLayout.SLOT_SIZE);
+        return Widget.isMouseOver(
+                context.absX(NEStructureTerminalLayout.INFO_PANEL_X),
+                context.absY(NEStructureTerminalLayout.PATTERN_MATERIAL_Y),
+                NEStructureTerminalLayout.INFO_PANEL_W,
+                NEStructureTerminalLayout.PATTERN_MATERIAL_ROWS * NEStructureTerminalLayout.SLOT_SIZE,
+                mouseX,
+                mouseY);
     }
 
     private void renderMaterialItem(
@@ -136,10 +136,8 @@ final class NEStructureTerminalMaterialPanel {
         for (int i = 0; i < NEStructureTerminalLayout.patternVisibleSlots(); i++) {
             int x = context.absX(NEStructureTerminalLayout.patternSlotX(i));
             int y = context.absY(NEStructureTerminalLayout.patternSlotY(i));
-            if (mouseX >= x
-                    && mouseX < x + NEStructureTerminalLayout.SLOT_SIZE
-                    && mouseY >= y
-                    && mouseY < y + NEStructureTerminalLayout.SLOT_SIZE) {
+            if (Widget.isMouseOver(
+                    x, y, NEStructureTerminalLayout.SLOT_SIZE, NEStructureTerminalLayout.SLOT_SIZE, mouseX, mouseY)) {
                 return i;
             }
         }

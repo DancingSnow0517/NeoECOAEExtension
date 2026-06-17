@@ -9,7 +9,6 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEIntegratedWorkingStationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
@@ -23,7 +22,6 @@ import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraftforge.fluids.FluidStack;
 
 public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<NEIntegratedWorkingStationUiState> {
     public static final int UI_WIDTH = -TOGGLE_BTN_X + UPGRADE_PANEL_X + UPGRADE_PANEL_W;
@@ -121,10 +119,7 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                         FLUID_IN_H,
                         true,
                         true)
-                .setBackground(IGuiTexture.EMPTY)
                 .setShowAmount(false)
-                .setDrawHoverTips(false)
-                .setDrawHoverOverlay(false)
                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
                 .setAllowClickFilled(true)
                 .setAllowClickDrained(true)
@@ -137,10 +132,7 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                         FLUID_OUT_H,
                         true,
                         true)
-                .setBackground(IGuiTexture.EMPTY)
                 .setShowAmount(false)
-                .setDrawHoverTips(false)
-                .setDrawHoverOverlay(false)
                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
                 .setAllowClickFilled(false)
                 .setAllowClickDrained(true)
@@ -191,6 +183,7 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
             } else {
                 station.clearFluidOut();
             }
+            station.onGuiStateChanged();
             syncStateNow();
             return;
         }
@@ -213,7 +206,6 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                 graphics, absX(mainX(OUTPUT_FRAME_X)), absY(OUTPUT_FRAME_Y), OUTPUT_FRAME_W, OUTPUT_FRAME_H);
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
                 graphics, localX -> absX(mainX(localX)), this::absY, PLAYER_INV_BG_X, PLAYER_INV_BG_Y, HOTBAR_BG_Y);
-        drawFluidTanks(graphics, mouseX, mouseY);
         NELDLibAe2StyleRenderer.drawAeProgressBar(
                 graphics,
                 absX(mainX(PROGRESS_X)),
@@ -246,12 +238,6 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
         if (renderProgressTooltip(graphics, mouseX, mouseY)) {
             return;
         }
-        if (renderFluidTooltip(graphics, mouseX, mouseY, true)) {
-            return;
-        }
-        if (renderFluidTooltip(graphics, mouseX, mouseY, false)) {
-            return;
-        }
         renderUpgradeTooltip(graphics, mouseX, mouseY);
     }
 
@@ -268,48 +254,11 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                 NELDLibAe2StyleRenderer.drawAeIcon(
                         graphics,
                         Icon.BACKGROUND_UPGRADE,
-                        absX(mainX(UPGRADE_SLOT_X)),
-                        absY(UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE),
+                        absX(mainX(UPGRADE_SLOT_X + (SLOT_SIZE - Icon.BACKGROUND_UPGRADE.width) / 2)),
+                        absY(UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE + (SLOT_SIZE - Icon.BACKGROUND_UPGRADE.height) / 2),
                         0.4F);
             }
         }
-    }
-
-    private void drawFluidTanks(GuiGraphics graphics, int mouseX, int mouseY) {
-        FluidStack input = currentState().inputFluid();
-        FluidStack output = currentState().outputFluid();
-        NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
-                graphics,
-                absX(mainX(FLUID_IN_X)),
-                absY(FLUID_IN_Y),
-                FLUID_IN_W,
-                FLUID_IN_H,
-                input,
-                Math.max(0, input.getAmount()),
-                Math.max(0, station.getInputTank().getCapacity()));
-        NELDLibAe2StyleRenderer.drawAeFluidTankSimple(
-                graphics,
-                absX(mainX(FLUID_OUT_X)),
-                absY(FLUID_OUT_Y),
-                FLUID_OUT_W,
-                FLUID_OUT_H,
-                output,
-                Math.max(0, output.getAmount()),
-                Math.max(0, station.getOutputTank().getCapacity()));
-        drawFluidHover(graphics, mouseX, mouseY, true);
-        drawFluidHover(graphics, mouseX, mouseY, false);
-    }
-
-    private void drawFluidHover(GuiGraphics graphics, int mouseX, int mouseY, boolean input) {
-        int x = input ? FLUID_IN_X : FLUID_OUT_X;
-        int y = input ? FLUID_IN_Y : FLUID_OUT_Y;
-        int w = input ? FLUID_IN_W : FLUID_OUT_W;
-        int h = input ? FLUID_IN_H : FLUID_OUT_H;
-        if (!isMouseIn(x, y, w, h, mouseX, mouseY)) {
-            return;
-        }
-        graphics.fill(
-                absX(mainX(x + 1)), absY(y + 1), absX(mainX(x + w - 1)), absY(y + h - 1), NELDLibStyle.HOVER_OVERLAY);
     }
 
     private void drawClearFluidButtons(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -376,30 +325,6 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                 List.of(Component.translatable("gui.neoecoae.integrated_working_station.progress_percent", pct)),
                 mouseX,
                 mouseY);
-        return true;
-    }
-
-    private boolean renderFluidTooltip(GuiGraphics graphics, int mouseX, int mouseY, boolean input) {
-        int x = input ? FLUID_IN_X : FLUID_OUT_X;
-        int y = input ? FLUID_IN_Y : FLUID_OUT_Y;
-        int w = input ? FLUID_IN_W : FLUID_OUT_W;
-        int h = input ? FLUID_IN_H : FLUID_OUT_H;
-        if (!isMouseIn(x, y, w, h, mouseX, mouseY)) {
-            return false;
-        }
-
-        FluidStack stack = input ? currentState().inputFluid() : currentState().outputFluid();
-        Component name =
-                stack.isEmpty() ? Component.translatable("gui.neoecoae.fluid_tank.empty") : stack.getDisplayName();
-        Component volume = Component.translatable(
-                "gui.neoecoae.fluid_tank.amount",
-                fmt(Math.max(0, stack.getAmount())),
-                fmt(Math.max(
-                        0,
-                        input
-                                ? station.getInputTank().getCapacity()
-                                : station.getOutputTank().getCapacity())));
-        graphics.renderComponentTooltip(font(), List.of(name, volume), mouseX, mouseY);
         return true;
     }
 

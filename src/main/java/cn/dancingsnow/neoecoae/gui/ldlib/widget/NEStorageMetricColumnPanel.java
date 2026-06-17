@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEStorageMetricsModel.Metric;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.DoubleConsumer;
@@ -66,18 +67,12 @@ final class NEStorageMetricColumnPanel {
     }
 
     boolean isMouseInPanel(double mouseX, double mouseY) {
-        return mouseX >= absX(PANEL_X)
-                && mouseX < absX(PANEL_X + PANEL_W)
-                && mouseY >= absY(PANEL_Y)
-                && mouseY < absY(PANEL_Y + PANEL_H);
+        return Widget.isMouseOver(absX(PANEL_X), absY(PANEL_Y), PANEL_W, PANEL_H, mouseX, mouseY);
     }
 
     boolean isMouseInScrollbar(List<Metric> metrics, double mouseX, double mouseY) {
         return maxScrollPixels(metrics) > 0.0D
-                && mouseX >= absX(VIEW_X)
-                && mouseX < absX(VIEW_X + VIEW_W)
-                && mouseY >= absY(SCROLLBAR_Y)
-                && mouseY < absY(SCROLLBAR_Y + SCROLLBAR_H);
+                && Widget.isMouseOver(absX(VIEW_X), absY(SCROLLBAR_Y), VIEW_W, SCROLLBAR_H, mouseX, mouseY);
     }
 
     boolean scrollBy(List<Metric> metrics, double wheelDelta) {
@@ -262,10 +257,7 @@ final class NEStorageMetricColumnPanel {
     }
 
     private boolean isMouseIn(int localX, int localY, int width, int height, int mouseX, int mouseY) {
-        return mouseX >= absX(localX)
-                && mouseX < absX(localX + width)
-                && mouseY >= absY(localY)
-                && mouseY < absY(localY + height);
+        return Widget.isMouseOver(absX(localX), absY(localY), width, height, mouseX, mouseY);
     }
 
     private void setScrollPixels(double value) {
