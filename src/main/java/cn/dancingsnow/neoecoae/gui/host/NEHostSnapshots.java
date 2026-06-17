@@ -2,17 +2,22 @@ package cn.dancingsnow.neoecoae.gui.host;
 
 import com.lowdragmc.lowdraglib2.Platform;
 import com.lowdragmc.lowdraglib2.utils.ByteBufUtil;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.LongSupplier;
 
 final class NEHostSnapshots {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+
     static final int MAX_STORAGE_TYPES = 256;
     static final int MAX_STORAGE_MATRIX = 256;
     static final int MAX_TASKS = 128;
@@ -26,7 +31,8 @@ final class NEHostSnapshots {
     static byte[] encode(Consumer<RegistryFriendlyByteBuf> writer) {
         try {
             return ByteBufUtil.writeCustomData(writer, Platform.getFrozenRegistry());
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException e) {
+            LOGGER.warn("Failed to encode NeoECOAE host UI snapshot", e);
             return EMPTY;
         }
     }
@@ -38,7 +44,8 @@ final class NEHostSnapshots {
         try {
             ByteBufUtil.readCustomData(snapshot, reader, Platform.getFrozenRegistry());
             return true;
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException e) {
+            LOGGER.warn("Failed to decode NeoECOAE host UI snapshot ({} bytes)", snapshot.length, e);
             return false;
         }
     }
@@ -49,11 +56,11 @@ final class NEHostSnapshots {
         for (int i = 0; i < size; i++) {
             NEStorageTypeStat stat = stats.get(i);
             buf.writeResourceLocation(stat.typeId());
-            buf.writeUtf(stat.displayName().getString());
-            buf.writeVarLong(safeLong(stat.usedTypes()));
-            buf.writeVarLong(safeLong(stat.totalTypes()));
-            buf.writeVarLong(safeLong(stat.usedBytes()));
-            buf.writeVarLong(safeLong(stat.totalBytes()));
+            ComponentSerialization.STREAM_CODEC.encode(buf, stat.displayName());
+            buf.writeVarLong(safeValue(stat.usedTypes()));
+            buf.writeVarLong(safeValue(stat.totalTypes()));
+            buf.writeVarLong(safeValue(stat.usedBytes()));
+            buf.writeVarLong(safeValue(stat.totalBytes()));
         }
     }
 
@@ -62,19 +69,12 @@ final class NEHostSnapshots {
         List<NEStorageTypeStat> stats = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             ResourceLocation typeId = buf.readResourceLocation();
-            String displayName = buf.readUtf(256);
+            var displayName = ComponentSerialization.STREAM_CODEC.decode(buf);
             long usedTypes = safeValue(buf.readVarLong());
             long totalTypes = safeValue(buf.readVarLong());
             long usedBytes = safeValue(buf.readVarLong());
             long totalBytes = safeValue(buf.readVarLong());
-            stats.add(new NEStorageTypeStat(
-                typeId,
-                net.minecraft.network.chat.Component.literal(displayName),
-                constant(usedTypes),
-                constant(totalTypes),
-                constant(usedBytes),
-                constant(totalBytes)
-            ));
+            stats.add(new NEStorageTypeStat(typeId, displayName, usedTypes, totalTypes, usedBytes, totalBytes));
         }
         return List.copyOf(stats);
     }
@@ -188,16 +188,8 @@ final class NEHostSnapshots {
         return List.copyOf(stacks);
     }
 
-    private static long safeLong(LongSupplier supplier) {
-        return safeValue(supplier.getAsLong());
-    }
-
     private static long safeValue(long value) {
         return Math.max(0L, value);
-    }
-
-    private static LongSupplier constant(long value) {
-        return () -> value;
     }
 
     private static int safeListSize(int size, int max) {

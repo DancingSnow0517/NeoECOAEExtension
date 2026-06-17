@@ -8,9 +8,9 @@ import net.minecraft.resources.ResourceLocation;
 
 public abstract class NEAeWidgetCanvas extends UIElement {
     static final ResourceLocation PRIORITY_BACKGROUND = AppEng.makeId("textures/guis/priority.png");
+    private static final ResourceLocation TEXT_FIELD = AppEng.makeId("textures/guis/text_field.png");
     private static final ResourceLocation BUTTON = AppEng.makeId("button");
     private static final ResourceLocation BUTTON_HIGHLIGHTED = AppEng.makeId("button_highlighted");
-    private static final ResourceLocation BUTTON_DISABLED = AppEng.makeId("button_disabled");
     private static final int TEXT_DARK = 0xFF3F3D52;
     private static final int TEXT_BUTTON = 0xFFF2F2F2;
     private static final int TEXT_BUTTON_HOVER = 0xFF517497;
@@ -47,21 +47,10 @@ public abstract class NEAeWidgetCanvas extends UIElement {
     protected void drawPriorityValueSlot(GUIContext context, int x, int y, int w, int h, boolean focused) {
         int ax = ix(x);
         int ay = iy(y);
-        int edge = focused ? 0xFF4B6D93 : 0xFF5A5870;
-        context.graphics.fill(ax, ay, ax + w, ay + h, 0xFF2F2D3F);
-        context.graphics.fill(ax + 1, ay, ax + w - 1, ay + 1, 0xFFFAFBFF);
-        context.graphics.fill(ax + 1, ay + 1, ax + w - 1, ay + h - 1, 0xFFC9CBD6);
-        context.graphics.fill(ax + 2, ay + 2, ax + w - 2, ay + h - 2, 0xFFE7E9F1);
-        context.graphics.fill(ax, ay, ax + 1, ay + h, edge);
-        context.graphics.fill(ax + w - 1, ay, ax + w, ay + h, edge);
-        context.graphics.fill(ax, ay + h - 1, ax + w, ay + h, edge);
-    }
-
-    protected void drawDisabledButton(GUIContext context, int x, int y, int w, int h, Component text) {
-        context.graphics.blitSprite(BUTTON_DISABLED, ix(x), iy(y), w, h);
-        int textX = ix(x) + (w - context.mc.font.width(text)) / 2;
-        int textY = iy(y) + (h - 9) / 2 + 1;
-        context.graphics.drawString(context.mc.font, text, textX, textY, 0xFF413F54, false);
+        int middleWidth = Math.max(0, w - 2);
+        context.graphics.blit(TEXT_FIELD, ax, ay, 0, 0, 1, h, 128, 128);
+        context.graphics.blit(TEXT_FIELD, ax + 1, ay, 1, 0, middleWidth, h, 128, 128);
+        context.graphics.blit(TEXT_FIELD, ax + w - 1, ay, 127, 0, 1, h, 128, 128);
     }
 
     protected void drawToolbarIconButton(GUIContext context, int x, int y, NEAeSprite icon, boolean hovered) {
@@ -69,6 +58,12 @@ public abstract class NEAeWidgetCanvas extends UIElement {
         NEAeSprite bg = hovered ? NEAeSprite.TOOLBAR_BUTTON_BACKGROUND_HOVER : NEAeSprite.TOOLBAR_BUTTON_BACKGROUND;
         bg.draw(context, ix(x - 1), iy(y + yOffset), 18, 20);
         icon.draw(context, ix(x), iy(y + 1 + yOffset));
+    }
+
+    protected void drawTabIconButton(GUIContext context, int x, int y, NEAeSprite icon, boolean focused) {
+        NEAeSprite bg = focused ? NEAeSprite.TAB_BUTTON_BACKGROUND_FOCUS : NEAeSprite.TAB_BUTTON_BACKGROUND;
+        bg.draw(context, ix(x), iy(y));
+        icon.draw(context, ix(x + 2), iy(y + 1));
     }
 
     protected void drawText(GUIContext context, Component text, int x, int y, int color) {

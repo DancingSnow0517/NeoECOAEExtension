@@ -18,6 +18,9 @@ import java.util.Arrays;
 import java.util.List;
 
 abstract class NEHostCanvas extends UIElement {
+    static final int SLOT_SIZE = 18;
+    static final int PLAYER_INVENTORY_WIDTH = SLOT_SIZE * 9;
+
     static final int PANEL_OUTER = 0xFF17141E;
     static final int PANEL_MIDDLE = 0xFF2B2834;
     static final int PANEL_INNER = 0xFF665F6D;
@@ -174,10 +177,6 @@ abstract class NEHostCanvas extends UIElement {
         rectLocal(guiContext, x + 2, y + 2, w - 4, h - 4, PANEL_MIDDLE);
     }
 
-    protected void drawSlot(GUIContext guiContext, float x, float y) {
-        NEAeSprite.SLOT_BACKGROUND.draw(guiContext, absX(x), absY(y));
-    }
-
     protected void drawItem(GUIContext guiContext, ItemStack stack, float x, float y) {
         if (!stack.isEmpty()) {
             guiContext.graphics.renderItem(stack, Math.round(absX(x)), Math.round(absY(y)));
@@ -224,21 +223,6 @@ abstract class NEHostCanvas extends UIElement {
         icon.draw(guiContext, absX(x), absY(y));
     }
 
-    protected void drawToolbarButton(GUIContext guiContext, float x, float y, float w, float h, boolean hovered) {
-        NEAeSprite bg = hovered ? NEAeSprite.TOOLBAR_BUTTON_BACKGROUND_HOVER : NEAeSprite.TOOLBAR_BUTTON_BACKGROUND;
-        bg.draw(guiContext, absX(x), absY(y), Math.round(w), Math.round(h));
-    }
-
-    protected void drawHoverOverlay(GUIContext guiContext, float x, float y, float w, float h, boolean pressed) {
-        float ax = absX(x);
-        float ay = absY(y);
-        if (pressed) {
-            guiContext.graphics.fill(Math.round(ax) + 1, Math.round(ay) + 1, Math.round(ax + w) - 1, Math.round(ay + h) - 1, 0x38000000);
-        } else {
-            guiContext.graphics.fill(Math.round(ax) + 1, Math.round(ay) + 1, Math.round(ax + w) - 1, Math.round(ay + h) - 1, 0x28FFFFFF);
-        }
-    }
-
     protected void drawProgressBar(GUIContext guiContext, float x, float y, float w, float h, long used, long total, int fillColor) {
         drawSmallInsetRect(guiContext, x, y, w, h);
         float ix = x + 3;
@@ -274,6 +258,31 @@ abstract class NEHostCanvas extends UIElement {
     protected void drawScroller(GUIContext guiContext, float x, float y, float w, float h, float thumbY, float thumbH) {
         fillLocal(guiContext, x, y, w, h, 0xAA17141E);
         fillLocal(guiContext, x, thumbY, w, thumbH, 0xFF8B83A0);
+    }
+
+    protected void drawListScrollbar(
+        GUIContext guiContext,
+        int total,
+        int visible,
+        int scrollOffset,
+        float x,
+        float y,
+        float w,
+        float h
+    ) {
+        if (total <= visible || visible <= 0 || h <= 0.0F) {
+            return;
+        }
+        float thumbH = Math.max(10.0F, h * visible / total);
+        float thumbY = y + (h - thumbH) * scrollOffset / Math.max(1.0F, total - visible);
+        drawScroller(guiContext, x, y, w, h, thumbY, thumbH);
+    }
+
+    protected void drawTaskCardFrame(GUIContext guiContext, float x, float y, float w, float h, float alpha) {
+        fillLocal(guiContext, x, y, w, h, withAlpha(0xFFD8D3E4, alpha));
+        fillLocal(guiContext, x + 1, y + 1, w - 2, h - 2, withAlpha(0xFF121016, alpha));
+        fillLocal(guiContext, x + 2, y + 2, w - 4, h - 4, withAlpha(0xFF4D4855, alpha));
+        fillLocal(guiContext, x + 3, y + 3, w - 6, h - 6, withAlpha(0xFF2C2735, alpha));
     }
 
     protected void drawMainPanel(GUIContext guiContext, float x, float y, float w, float h) {
@@ -352,6 +361,15 @@ abstract class NEHostCanvas extends UIElement {
         }
         long clamped = Math.max(0L, Math.min(used, total));
         return (int) Math.max(1L, Math.min(width, clamped * width / total));
+    }
+
+    protected static int visibleRows(int firstY, int bottomY, int rowHeight, int rowStride) {
+        int space = bottomY - firstY;
+        return Math.max(1, 1 + Math.max(0, space - rowHeight) / rowStride);
+    }
+
+    protected static int clampScroll(int value, int total, int visibleRows) {
+        return Mth.clamp(value, 0, Math.max(0, total - visibleRows));
     }
 
     protected static Component boolText(boolean value) {

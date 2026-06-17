@@ -234,19 +234,26 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (cluster == null) {
             return List.of();
         }
-        Map<Integer, NEStorageTypeStat> grouped = new LinkedHashMap<>();
+        Map<Integer, StorageTypeTotals> grouped = new LinkedHashMap<>();
         for (ECOCellType cellType : NERegistries.CELL_TYPE) {
             int id = NERegistries.CELL_TYPE.getId(cellType);
-            grouped.put(id, new NEStorageTypeStat(
-                NERegistries.CELL_TYPE.getKey(cellType),
-                cellType.desc(),
-                () -> getStorageValue(id, StorageValue.USED_TYPES),
-                () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
-                () -> getStorageValue(id, StorageValue.USED_BYTES),
-                () -> getStorageValue(id, StorageValue.TOTAL_BYTES)
-            ));
+            grouped.put(id, new StorageTypeTotals(NERegistries.CELL_TYPE.getKey(cellType), cellType.desc()));
         }
+
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell inv = drive.getCellInventory();
+            if (inv == null) {
+                continue;
+            }
+            int id = NERegistries.CELL_TYPE.getId(inv.getCellType());
+            StorageTypeTotals totals = grouped.get(id);
+            if (totals != null) {
+                totals.add(inv);
+            }
+        }
+
         return grouped.values().stream()
+            .map(StorageTypeTotals::toStat)
             .sorted(Comparator.comparing(stat -> stat.typeId().toString()))
             .toList();
     }
@@ -291,21 +298,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             + offset.getZ() * direction.getStepZ();
     }
 
-    private long getStorageValue(int cellTypeId, StorageValue value) {
-        if (cluster == null || cellTypeId < 0) {
-            return 0;
-        }
-        long total = 0;
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            IECOStorageCell inv = drive.getCellInventory();
-            if (inv == null || NERegistries.CELL_TYPE.getId(inv.getCellType()) != cellTypeId) {
-                continue;
-            }
-            total += getCellValue(inv, value);
-        }
-        return total;
-    }
-
     private static long getCellValue(IECOStorageCell inv, StorageValue value) {
         return switch (value) {
             case USED_TYPES -> inv.getStoredItemTypes();
@@ -313,6 +305,31 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             case USED_BYTES -> inv.getUsedBytes();
             case TOTAL_BYTES -> inv.getTotalBytes();
         };
+    }
+
+    private static final class StorageTypeTotals {
+        private final net.minecraft.resources.ResourceLocation typeId;
+        private final Component displayName;
+        private long usedTypes;
+        private long totalTypes;
+        private long usedBytes;
+        private long totalBytes;
+
+        private StorageTypeTotals(net.minecraft.resources.ResourceLocation typeId, Component displayName) {
+            this.typeId = typeId;
+            this.displayName = displayName;
+        }
+
+        private void add(IECOStorageCell inv) {
+            usedTypes += inv.getStoredItemTypes();
+            totalTypes += inv.getTotalItemTypes();
+            usedBytes += inv.getUsedBytes();
+            totalBytes += inv.getTotalBytes();
+        }
+
+        private NEStorageTypeStat toStat() {
+            return new NEStorageTypeStat(typeId, displayName, usedTypes, totalTypes, usedBytes, totalBytes);
+        }
     }
 
     private enum StorageValue {

@@ -2,12 +2,16 @@ package cn.dancingsnow.neoecoae.gui.host;
 
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECOStorageSystemBlockEntity;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -16,7 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-final class NEStorageLegacyCanvas extends NEHostCanvas {
+final class NEStorageAeCanvas extends NEHostCanvas {
     static final int UI_WIDTH = 344;
     static final int UI_HEIGHT = 252;
     private static final int LEFT_PANEL_X = 8;
@@ -30,11 +34,11 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     private static final int METRIC_PANEL_Y = 24;
     private static final int METRIC_PANEL_W = 106;
     private static final int METRIC_PANEL_H = 132;
-    private static final int PLAYER_INV_X = 8;
+    static final int PLAYER_INV_X = 8;
     private static final int PLAYER_INV_LABEL_Y = 159;
     static final int PLAYER_INV_Y = 171;
     static final int PLAYER_HOTBAR_Y = 229;
-    private static final int MATRIX_PANEL_X = PLAYER_INV_X + 18 * 9 + 4;
+    private static final int MATRIX_PANEL_X = PLAYER_INV_X + PLAYER_INVENTORY_WIDTH + 4;
     private static final int MATRIX_PANEL_Y = PLAYER_INV_Y;
     private static final int MATRIX_PANEL_W = UI_WIDTH - MATRIX_PANEL_X - 4;
     private static final int MATRIX_PANEL_H = 249 - MATRIX_PANEL_Y;
@@ -58,21 +62,24 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     private static final int COLUMN_GAP = 8;
     private static final int COLUMN_SCROLLBAR_Y = METRIC_PANEL_Y + 8;
     private static final int COLUMN_SCROLLBAR_H = 3;
+    private static final Map<ScrollStateKey, ScrollState> SCROLL_STATES = new HashMap<>();
 
     private final ECOStorageSystemBlockEntity storage;
     private final Map<String, Float> animatedColumnRatios = new HashMap<>();
-    private float leftScroll;
-    private float matrixScroll;
-    private float matrixScrollTarget;
-    private float columnScroll;
-    private float columnScrollTarget;
+    private final ScrollStateKey scrollStateKey;
+    private final ScrollModel leftScroll = new ScrollModel();
+    private final ScrollModel columnScroll = new ScrollModel();
+    private final ScrollModel matrixScroll = new ScrollModel();
+    private boolean restoredScroll;
     private StorageSnapshot snapshot = StorageSnapshot.EMPTY;
 
-    NEStorageLegacyCanvas(ECOStorageSystemBlockEntity storage) {
+    NEStorageAeCanvas(ECOStorageSystemBlockEntity storage) {
         super(UI_WIDTH, UI_HEIGHT);
         this.storage = storage;
+        this.scrollStateKey = ScrollStateKey.of(storage);
         bindSnapshot();
         addEventListener(UIEvents.MOUSE_WHEEL, this::onMouseWheel);
+        addEventListener(UIEvents.REMOVED, event -> saveScrollState());
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             HoverTooltips tooltip = tooltipAt(currentMouseX(), currentMouseY());
             if (tooltip != null) {
@@ -94,13 +101,16 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
 
     @Override
     protected void acceptSnapshot(byte[] snapshotData) {
-        NEHostSnapshots.decode(snapshotData, buf -> this.snapshot = new StorageSnapshot(
-            buf.readBoolean(),
-            Math.max(0L, buf.readVarLong()),
-            Math.max(0L, buf.readVarLong()),
-            NEHostSnapshots.readTypeStats(buf),
-            NEHostSnapshots.readMatrixCells(buf)
-        ));
+        NEHostSnapshots.decode(snapshotData, buf -> {
+            this.snapshot = new StorageSnapshot(
+                buf.readBoolean(),
+                Math.max(0L, buf.readVarLong()),
+                Math.max(0L, buf.readVarLong()),
+                NEHostSnapshots.readTypeStats(buf),
+                NEHostSnapshots.readMatrixCells(buf)
+            );
+            restoreScrollState();
+        });
     }
 
     @Override
@@ -112,8 +122,8 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         drawHeader(context);
         drawStorageText(context);
         drawMetricColumns(context);
-        drawInventoryLabel(context);
-        drawInventorySlots(context);
+        drawFittedText(context, tr("gui.neoecoae.common.inventory", "Inventory"),
+                PLAYER_INV_X, PLAYER_INV_LABEL_Y, PLAYER_INVENTORY_WIDTH, TEXT_MUTED);
         drawMatrix(context);
     }
 
@@ -131,10 +141,11 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         List<StorageLine> lines = storageLines();
         int viewportH = LEFT_PANEL_H - 16;
         int contentH = Math.max(0, (lines.size() - 1) * TEXT_LINE_STEP + context.mc.font.lineHeight);
-        leftScroll = Mth.clamp(leftScroll, 0.0F, Math.max(0, contentH - viewportH));
+        leftScroll.update(contentH, viewportH);
+        saveScrollState();
         context.graphics.flush();
         context.enableScissor(absX(LEFT_PANEL_X + 4), absY(LEFT_PANEL_Y + 4), LEFT_PANEL_W - 8, LEFT_PANEL_H - 8);
-        float y = TEXT_START_Y - leftScroll;
+        float y = TEXT_START_Y - leftScroll.offset();
         for (StorageLine line : lines) {
             line.draw(this, context, TEXT_START_X, y, LEFT_PANEL_W - 18);
             y += TEXT_LINE_STEP;
@@ -144,7 +155,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         if (contentH > viewportH) {
             float trackH = LEFT_PANEL_H - 10;
             float thumbH = Math.max(12.0F, trackH * viewportH / contentH);
-            float thumbY = LEFT_PANEL_Y + 5 + (trackH - thumbH) * leftScroll / Math.max(1.0F, contentH - viewportH);
+            float thumbY = LEFT_PANEL_Y + 5 + (trackH - thumbH) * leftScroll.offset() / Math.max(1.0F, contentH - viewportH);
             drawScroller(context, LEFT_PANEL_X + LEFT_PANEL_W - 5, LEFT_PANEL_Y + 5, 2, trackH, thumbY, thumbH);
         }
     }
@@ -182,21 +193,16 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     private void drawMetricColumns(GUIContext context) {
         List<StorageMetric> stats = columnStats();
         int contentW = stats.isEmpty() ? 0 : stats.size() * COLUMN_W + (stats.size() - 1) * COLUMN_GAP;
-        float maxScroll = Math.max(0, contentW - COLUMN_VIEW_W);
-        columnScrollTarget = Mth.clamp(columnScrollTarget, 0.0F, maxScroll);
-        columnScroll = approach(columnScroll, columnScrollTarget);
-        if (maxScroll <= 0.0F) {
-            columnScroll = 0.0F;
-            columnScrollTarget = 0.0F;
-        }
+        columnScroll.update(contentW, COLUMN_VIEW_W);
+        saveScrollState();
         if (contentW > COLUMN_VIEW_W) {
             float thumbW = Math.max(12.0F, COLUMN_VIEW_W * COLUMN_VIEW_W / contentW);
-            float thumbX = COLUMN_VIEW_X + (COLUMN_VIEW_W - thumbW) * columnScroll / Math.max(1.0F, maxScroll);
+            float thumbX = COLUMN_VIEW_X + (COLUMN_VIEW_W - thumbW) * columnScroll.offset() / Math.max(1.0F, columnScroll.max());
             fillLocal(context, COLUMN_VIEW_X, COLUMN_SCROLLBAR_Y, COLUMN_VIEW_W, COLUMN_SCROLLBAR_H, PANEL_OUTER);
             fillLocal(context, thumbX, COLUMN_SCROLLBAR_Y, thumbW, COLUMN_SCROLLBAR_H, PANEL_EDGE);
         }
         animatedColumnRatios.keySet().removeIf(key -> stats.stream().noneMatch(stat -> stat.key().equals(key)));
-        float startX = contentW <= COLUMN_VIEW_W ? COLUMN_VIEW_X + (COLUMN_VIEW_W - contentW) / 2.0F : COLUMN_VIEW_X - columnScroll;
+        float startX = contentW <= COLUMN_VIEW_W ? COLUMN_VIEW_X + (COLUMN_VIEW_W - contentW) / 2.0F : COLUMN_VIEW_X - columnScroll.offset();
         context.graphics.flush();
         context.enableScissor(absX(COLUMN_VIEW_X), absY(METRIC_PANEL_Y + 18), COLUMN_VIEW_W, METRIC_PANEL_H - 23);
         for (int i = 0; i < stats.size(); i++) {
@@ -213,7 +219,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     }
 
     private void drawColumn(GUIContext context, StorageMetric stat, float x, float ratio) {
-        String label = NEHostDraw.fit(context, stat.label().getString(), COLUMN_W + 18);
+        String label = fit(context, stat.label().getString(), COLUMN_W + 18);
         drawCenteredText(context, label, x - 9, COLUMN_Y - 14, COLUMN_W + 18, TEXT_PRIMARY);
         drawSmallInsetRect(context, x, COLUMN_Y, COLUMN_W, COLUMN_H);
         float ix = x + 5;
@@ -239,37 +245,17 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         drawCenteredText(context, percent, x - 2, COLUMN_Y + COLUMN_H + 8, COLUMN_W + 4, total <= 0 ? TEXT_MUTED : metricColor(stat.accentColor(), total, ratio));
     }
 
-    private void drawInventoryLabel(GUIContext context) {
-        drawFittedText(context, tr("gui.neoecoae.common.inventory", "Inventory"), PLAYER_INV_X, PLAYER_INV_LABEL_Y, 18 * 9, TEXT_MUTED);
-    }
-
-    private void drawInventorySlots(GUIContext context) {
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                drawSlot(context, PLAYER_INV_X + col * 18, PLAYER_INV_Y + row * 18);
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            drawSlot(context, PLAYER_INV_X + col * 18, PLAYER_HOTBAR_Y);
-        }
-    }
-
     private void drawMatrix(GUIContext context) {
         List<NEStorageMatrixCell> cells = snapshot.matrixCells().stream()
                 .sorted(Comparator.comparingInt(NEStorageMatrixCell::row).thenComparingInt(NEStorageMatrixCell::column))
                 .toList();
         int columns = cells.stream().mapToInt(cell -> Math.max(0, cell.column()) + 1).max().orElse(0);
         int contentW = columns <= 0 ? 0 : (columns - 1) * MATRIX_CARD_STRIDE + MATRIX_CARD_W;
-        float maxScroll = Math.max(0, contentW - MATRIX_VIEW_W);
-        matrixScrollTarget = Mth.clamp(matrixScrollTarget, 0.0F, maxScroll);
-        matrixScroll = approach(matrixScroll, matrixScrollTarget);
-        if (maxScroll <= 0.0F) {
-            matrixScroll = 0.0F;
-            matrixScrollTarget = 0.0F;
-        }
+        matrixScroll.update(contentW, MATRIX_VIEW_W);
+        saveScrollState();
         if (contentW > MATRIX_VIEW_W) {
             float thumbW = Math.max(12.0F, MATRIX_VIEW_W * MATRIX_VIEW_W / contentW);
-            float thumbX = MATRIX_VIEW_X + (MATRIX_VIEW_W - thumbW) * matrixScroll / Math.max(1.0F, maxScroll);
+            float thumbX = MATRIX_VIEW_X + (MATRIX_VIEW_W - thumbW) * matrixScroll.offset() / Math.max(1.0F, matrixScroll.max());
             fillLocal(context, MATRIX_VIEW_X, MATRIX_SCROLLBAR_Y, MATRIX_VIEW_W, MATRIX_SCROLLBAR_H, PANEL_OUTER);
             fillLocal(context, thumbX, MATRIX_SCROLLBAR_Y, thumbW, MATRIX_SCROLLBAR_H, PANEL_MIDDLE);
             fillLocal(context, thumbX, MATRIX_SCROLLBAR_Y, thumbW, 1, PANEL_EDGE);
@@ -285,7 +271,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
             if (!cell.hasCell() || cell.row() < 0 || cell.row() >= MATRIX_ROWS) {
                 continue;
             }
-            float x = MATRIX_VIEW_X + cell.column() * MATRIX_CARD_STRIDE - matrixScroll;
+            float x = MATRIX_VIEW_X + cell.column() * MATRIX_CARD_STRIDE - matrixScroll.offset();
             float y = MATRIX_CARD_FIRST_Y + cell.row() * MATRIX_ROW_STEP;
             if (x + MATRIX_CARD_W <= MATRIX_VIEW_X || x >= MATRIX_VIEW_X + MATRIX_VIEW_W) {
                 continue;
@@ -311,20 +297,22 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
                 tierColor(cell.tier()));
     }
 
-    private void onMouseWheel(com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent event) {
+    private void onMouseWheel(UIEvent event) {
         float mouseX = currentMouseX();
         float mouseY = currentMouseY();
         if (containsLocal(LEFT_PANEL_X, LEFT_PANEL_Y, LEFT_PANEL_W, LEFT_PANEL_H, mouseX, mouseY)) {
             int viewportH = LEFT_PANEL_H - 16;
             int contentH = Math.max(0, storageLines().size() * TEXT_LINE_STEP);
-            leftScroll = Mth.clamp(leftScroll - event.deltaY * 13.0F, 0.0F, Math.max(0, contentH - viewportH));
+            leftScroll.scrollBy((float) -event.deltaY * 13.0F, contentH, viewportH, false);
+            saveScrollState();
             event.stopPropagation();
             return;
         }
         if (containsLocal(METRIC_PANEL_X, METRIC_PANEL_Y, METRIC_PANEL_W, METRIC_PANEL_H, mouseX, mouseY)) {
             List<StorageMetric> stats = columnStats();
             int contentW = stats.isEmpty() ? 0 : stats.size() * COLUMN_W + (stats.size() - 1) * COLUMN_GAP;
-            columnScrollTarget = Mth.clamp(columnScrollTarget - event.deltaY * 18.0F, 0.0F, Math.max(0, contentW - COLUMN_VIEW_W));
+            columnScroll.scrollBy((float) -event.deltaY * 18.0F, contentW, COLUMN_VIEW_W, true);
+            saveScrollState();
             event.stopPropagation();
             return;
         }
@@ -334,9 +322,28 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
                     .max()
                     .orElse(0);
             int contentW = columns <= 0 ? 0 : (columns - 1) * MATRIX_CARD_STRIDE + MATRIX_CARD_W;
-            matrixScrollTarget = Mth.clamp(matrixScrollTarget - event.deltaY * 18.0F, 0.0F, Math.max(0, contentW - MATRIX_VIEW_W));
+            matrixScroll.scrollBy((float) -event.deltaY * 18.0F, contentW, MATRIX_VIEW_W, true);
+            saveScrollState();
             event.stopPropagation();
         }
+    }
+
+    private void restoreScrollState() {
+        if (restoredScroll) {
+            return;
+        }
+        restoredScroll = true;
+        ScrollState state = SCROLL_STATES.get(scrollStateKey);
+        if (state == null) {
+            return;
+        }
+        leftScroll.restore(state.leftScroll());
+        columnScroll.restore(state.columnScroll());
+        matrixScroll.restore(state.matrixScroll());
+    }
+
+    private void saveScrollState() {
+        SCROLL_STATES.put(scrollStateKey, new ScrollState(leftScroll.target(), columnScroll.target(), matrixScroll.target()));
     }
 
     private HoverTooltips tooltipAt(double mouseX, double mouseY) {
@@ -356,15 +363,14 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
             if (!cell.hasCell() || cell.row() < 0 || cell.row() >= MATRIX_ROWS) {
                 continue;
             }
-            float x = MATRIX_VIEW_X + cell.column() * MATRIX_CARD_STRIDE - matrixScroll;
+            float x = MATRIX_VIEW_X + cell.column() * MATRIX_CARD_STRIDE - matrixScroll.offset();
             float y = MATRIX_CARD_FIRST_Y + cell.row() * MATRIX_ROW_STEP;
             float clippedX = Math.max(x, MATRIX_VIEW_X);
             float clippedW = Math.min(x + MATRIX_CARD_W, MATRIX_VIEW_X + MATRIX_VIEW_W) - clippedX;
             if (clippedW <= 0 || !containsLocal(clippedX, y, clippedW, MATRIX_CARD_H, mouseX, mouseY)) {
                 continue;
             }
-            ItemStack stack = cell.stack();
-            List<Component> lines = itemTooltip(stack);
+            List<Component> lines = new ArrayList<>();
             lines.add(tr("gui.neoecoae.storage.matrix_card.title", "%s Storage", tierName(cell.tier())).withStyle(ChatFormatting.AQUA));
             lines.add(tr("gui.neoecoae.host.metric.types", "Types")
                     .append(": ")
@@ -372,7 +378,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
             lines.add(tr("gui.neoecoae.host.metric.bytes", "Bytes")
                     .append(": ")
                     .append(Component.literal(NEHostFormat.usedTotalBytes(cell.usedBytes(), cell.totalBytes())).withStyle(ChatFormatting.WHITE)));
-            return new HoverTooltips(lines, stack.getTooltipImage().orElse(null), null, stack);
+            return new HoverTooltips(lines, null, null, null);
         }
         return null;
     }
@@ -380,7 +386,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     private HoverTooltips columnTooltip(double mouseX, double mouseY) {
         List<StorageMetric> stats = columnStats();
         int contentW = stats.isEmpty() ? 0 : stats.size() * COLUMN_W + (stats.size() - 1) * COLUMN_GAP;
-        float startX = contentW <= COLUMN_VIEW_W ? COLUMN_VIEW_X + (COLUMN_VIEW_W - contentW) / 2.0F : COLUMN_VIEW_X - columnScroll;
+        float startX = contentW <= COLUMN_VIEW_W ? COLUMN_VIEW_X + (COLUMN_VIEW_W - contentW) / 2.0F : COLUMN_VIEW_X - columnScroll.offset();
         for (int i = 0; i < stats.size(); i++) {
             StorageMetric stat = stats.get(i);
             float x = startX + i * (COLUMN_W + COLUMN_GAP);
@@ -449,10 +455,10 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         return new StorageMetric(
                 key,
                 fallbackLabel,
-                stat.usedBytes().getAsLong(),
-                stat.totalBytes().getAsLong(),
-                stat.usedTypes().getAsLong(),
-                stat.totalTypes().getAsLong(),
+                stat.usedBytes(),
+                stat.totalBytes(),
+                stat.usedTypes(),
+                stat.totalTypes(),
                 accentColor);
     }
 
@@ -514,7 +520,7 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
         long total = stat.totalBytes();
         float target = total <= 0L ? 0.0F : Mth.clamp((float) stat.usedBytes() / (float) total, 0.0F, 1.0F);
         String key = stat.key();
-        float current = animatedColumnRatios.getOrDefault(key, target);
+        float current = animatedColumnRatios.getOrDefault(key, 0.0F);
         float next = approach(current, target);
         animatedColumnRatios.put(key, next);
         return next;
@@ -569,8 +575,63 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
     private record StorageMetric(String key, Component label, long usedBytes, long totalBytes, long usedTypes, long totalTypes, int accentColor) {
     }
 
+    private static final class ScrollModel {
+        private float offset;
+        private float target;
+        private float max;
+
+        void update(int contentSize, int viewportSize) {
+            max = Math.max(0, contentSize - viewportSize);
+            target = Mth.clamp(target, 0.0F, max);
+            offset = max <= 0.0F ? 0.0F : approach(offset, target);
+            if (max <= 0.0F) {
+                target = 0.0F;
+            }
+        }
+
+        void scrollBy(float delta, int contentSize, int viewportSize, boolean snap) {
+            update(contentSize, viewportSize);
+            target = Mth.clamp(target + delta, 0.0F, max);
+            if (snap) {
+                offset = target;
+            }
+        }
+
+        void restore(float value) {
+            offset = Math.max(0.0F, value);
+            target = offset;
+        }
+
+        float offset() {
+            return offset;
+        }
+
+        float target() {
+            return target;
+        }
+
+        float max() {
+            return max;
+        }
+    }
+
+    private record ScrollState(float leftScroll, float columnScroll, float matrixScroll) {
+    }
+
+    private record ScrollStateKey(ResourceLocation dimension, BlockPos pos) {
+        private static ScrollStateKey of(ECOStorageSystemBlockEntity storage) {
+            Level level = storage.getLevel();
+            ResourceLocation dimension = level == null ? ResourceLocation.withDefaultNamespace("overworld") : dimension(level.dimension());
+            return new ScrollStateKey(dimension, storage.getBlockPos());
+        }
+
+        private static ResourceLocation dimension(ResourceKey<Level> dimension) {
+            return dimension.location();
+        }
+    }
+
     private sealed interface StorageLine permits PlainStorageLine, UsedTotalStorageLine {
-        void draw(NEStorageLegacyCanvas canvas, GUIContext context, float x, float y, int maxWidth);
+        void draw(NEStorageAeCanvas canvas, GUIContext context, float x, float y, int maxWidth);
 
         static StorageLine plain(Component text, int color) {
             return new PlainStorageLine(text, color);
@@ -583,19 +644,19 @@ final class NEStorageLegacyCanvas extends NEHostCanvas {
 
     private record PlainStorageLine(Component text, int color) implements StorageLine {
         @Override
-        public void draw(NEStorageLegacyCanvas canvas, GUIContext context, float x, float y, int maxWidth) {
+        public void draw(NEStorageAeCanvas canvas, GUIContext context, float x, float y, int maxWidth) {
             canvas.drawFittedText(context, text, x, y, maxWidth, color);
         }
     }
 
     private record UsedTotalStorageLine(String prefix, String usedText, String maxText, long used, long max, String suffix) implements StorageLine {
         @Override
-        public void draw(NEStorageLegacyCanvas canvas, GUIContext context, float x, float y, int maxWidth) {
+        public void draw(NEStorageAeCanvas canvas, GUIContext context, float x, float y, int maxWidth) {
             String safeSuffix = suffix == null || suffix.isBlank() ? "" : " " + suffix;
             int fullWidth = context.mc.font.width(prefix + usedText + " / " + maxText + safeSuffix);
             String renderedSuffix = safeSuffix;
             if (fullWidth > maxWidth && !safeSuffix.isEmpty()) {
-                renderedSuffix = " " + NEStorageLegacyCanvas.trString("gui.neoecoae.storage.used_short", "used");
+                renderedSuffix = " " + NEStorageAeCanvas.trString("gui.neoecoae.storage.used_short", "used");
             }
             int cursor = 0;
             cursor += canvas.drawSegment(context, prefix, x + cursor, y, TEXT_MUTED);

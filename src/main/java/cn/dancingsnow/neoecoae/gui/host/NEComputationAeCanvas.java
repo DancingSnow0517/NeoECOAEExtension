@@ -3,27 +3,28 @@ package cn.dancingsnow.neoecoae.gui.host;
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
-final class NEComputationLegacyCanvas extends NEHostCanvas {
+final class NEComputationAeCanvas extends NEHostCanvas {
     static final int UI_WIDTH = 344;
     static final int UI_HEIGHT = 252;
     private static final int PANEL_MARGIN = 7;
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
     private static final int MAIN_PANEL_Y = 24;
-    private static final int MAIN_PANEL_W = 18 * 9 + 2;
+    private static final int MAIN_PANEL_W = PLAYER_INVENTORY_WIDTH + 2;
     private static final int MAIN_PANEL_H = 132;
-    static final int TOOLBAR_BUTTON_X = UI_WIDTH - PANEL_MARGIN - 18;
+    static final int TOOLBAR_BUTTON_X = UI_WIDTH - PANEL_MARGIN - 16;
     static final int TOOLBAR_BUTTON_Y = 4;
-    static final int TOOLBAR_BUTTON_W = 18;
-    static final int TOOLBAR_BUTTON_H = 20;
+    static final int TOOLBAR_BUTTON_W = 16;
+    static final int TOOLBAR_BUTTON_H = 16;
     private static final int THREAD_BAR_X = MAIN_PANEL_X + 78;
     private static final int THREAD_BAR_Y = MAIN_PANEL_Y + 20;
     private static final int THREAD_BAR_W = MAIN_PANEL_X + MAIN_PANEL_W - THREAD_BAR_X - 12;
@@ -48,15 +49,23 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
     private static final int TASK_CARD_STRIDE = 20;
     private static final int TASK_LIST_BOTTOM_Y = TASK_PANEL_Y + TASK_PANEL_H - 3;
     private static final float COMPACT_TEXT_SCALE = 0.85F;
+    private static final NEAnimatedTaskCards.Layout TASK_LAYOUT = new NEAnimatedTaskCards.Layout(
+            TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H,
+            TASK_CARD_X, TASK_CARD_Y, TASK_CARD_W, TASK_CARD_H, TASK_CARD_STRIDE, TASK_LIST_BOTTOM_Y,
+            TASK_PANEL_X + 4, TASK_PANEL_W - 8,
+            TASK_PANEL_X + TASK_PANEL_W - 5, 3, TASK_LIST_BOTTOM_Y - TASK_CARD_Y
+    );
+    private static final NEAnimatedTaskCards.CardStyle TASK_CARD_STYLE = NEAnimatedTaskCards.CardStyle.computation();
 
     private final ECOComputationSystemBlockEntity computation;
+    private final Consumer<CpuSelectionMode> cpuModeConsumer;
     private final NEAnimatedTaskCards taskCards = new NEAnimatedTaskCards();
-    private int taskScrollOffset;
     private ComputationSnapshot snapshot = ComputationSnapshot.EMPTY;
 
-    NEComputationLegacyCanvas(ECOComputationSystemBlockEntity computation) {
+    NEComputationAeCanvas(ECOComputationSystemBlockEntity computation, Consumer<CpuSelectionMode> cpuModeConsumer) {
         super(UI_WIDTH, UI_HEIGHT);
         this.computation = computation;
+        this.cpuModeConsumer = cpuModeConsumer;
         bindSnapshot();
         addEventListener(UIEvents.MOUSE_WHEEL, this::onMouseWheel);
         addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
@@ -75,7 +84,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
             buf.writeVarInt(Math.max(0, computation.getUsedThread()));
             buf.writeVarInt(Math.max(0, computation.getTotalThread()));
             buf.writeVarInt(Math.max(0, computation.getParallelCount()));
-            buf.writeVarInt(Math.max(0, computation.getAcceleratorCount()));
+            buf.writeVarInt(Math.max(0, computation.getParallelCoreCount()));
             buf.writeVarLong(Math.max(0L, computation.getUsedComputationBytes()));
             buf.writeVarLong(Math.max(0L, computation.getTotalBytes()));
             buf.writeVarInt(computation.getCpuSelectionMode().ordinal());
@@ -87,18 +96,28 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
     protected void acceptSnapshot(byte[] snapshotData) {
         NEHostSnapshots.decode(snapshotData, buf -> {
             CpuSelectionMode[] modes = CpuSelectionMode.values();
+            boolean formed = buf.readBoolean();
+            boolean active = buf.readBoolean();
+            int usedThreads = Math.max(0, buf.readVarInt());
+            int totalThreads = Math.max(0, buf.readVarInt());
+            int parallelCount = Math.max(0, buf.readVarInt());
+            int parallelCores = Math.max(0, buf.readVarInt());
+            long usedComputationBytes = Math.max(0L, buf.readVarLong());
+            long totalBytes = Math.max(0L, buf.readVarLong());
+            CpuSelectionMode cpuSelectionMode = modes[Math.clamp(buf.readVarInt(), 0, modes.length - 1)];
             this.snapshot = new ComputationSnapshot(
-                buf.readBoolean(),
-                buf.readBoolean(),
-                Math.max(0, buf.readVarInt()),
-                Math.max(0, buf.readVarInt()),
-                Math.max(0, buf.readVarInt()),
-                Math.max(0, buf.readVarInt()),
-                Math.max(0L, buf.readVarLong()),
-                Math.max(0L, buf.readVarLong()),
-                modes[Math.clamp(buf.readVarInt(), 0, modes.length - 1)],
+                formed,
+                active,
+                usedThreads,
+                totalThreads,
+                parallelCount,
+                parallelCores,
+                usedComputationBytes,
+                totalBytes,
+                cpuSelectionMode,
                 NEHostSnapshots.readTasks(buf)
             );
+            cpuModeConsumer.accept(cpuSelectionMode);
         });
     }
 
@@ -106,9 +125,6 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
     protected void drawHostBackground(GUIContext context) {
         drawInsetRect(context, MAIN_PANEL_X, MAIN_PANEL_Y, MAIN_PANEL_W, MAIN_PANEL_H);
         drawInsetRect(context, TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
-        drawToolbarButton(context, TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H,
-                containsLocal(TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H, currentMouseX(), currentMouseY()));
-        drawCpuModeIcon(context);
         drawHeader(context);
         drawMainStats(context);
         drawInventory(context);
@@ -143,7 +159,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         drawProgressBar(context, THREAD_BAR_X, THREAD_BAR_Y, THREAD_BAR_W, THREAD_BAR_H,
                 snapshot.usedThreads(), snapshot.totalThreads(), TEXT_SUCCESS);
         y += 12;
-        drawText(context, tr("gui.neoecoae.computation.parallel_count", "Parallel Count: %s", NEHostFormat.number(snapshot.parallelCount())),
+        drawText(context, tr("gui.neoecoae.computation.parallel_count", "Parallel Capacity: %s", NEHostFormat.number(snapshot.parallelCount())),
                 x, y, TEXT_PRIMARY);
         y += 12;
         drawModeLine(context, x, y);
@@ -153,7 +169,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         drawProgressBar(context, STORAGE_BAR_X, STORAGE_BAR_Y, STORAGE_BAR_W, STORAGE_BAR_H,
                 snapshot.usedComputationBytes(), snapshot.totalBytes(), TEXT_BLUE);
         y += 12;
-        drawText(context, tr("gui.neoecoae.computation.accelerators", "Accelerators: %s", NEHostFormat.number(snapshot.accelerators())),
+        drawText(context, tr("gui.neoecoae.computation.parallel_cores", "Parallel Cores: %s", NEHostFormat.number(snapshot.parallelCores())),
                 x, y, TEXT_PRIMARY);
     }
 
@@ -178,103 +194,29 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         drawText(context, total, x + cursor, y, TEXT_VALUE);
     }
 
-    private void drawCpuModeIcon(GUIContext context) {
-        NEAeSprite icon = switch (snapshot.cpuSelectionMode()) {
-            case PLAYER_ONLY -> NEAeSprite.CRAFT_HAMMER;
-            case MACHINE_ONLY -> NEAeSprite.BACKGROUND_WIRELESS_TERM;
-            case ANY -> NEAeSprite.TYPE_FILTER_ALL;
-        };
-        drawIcon(context, icon,
-                TOOLBAR_BUTTON_X + (TOOLBAR_BUTTON_W - icon.width()) / 2.0F,
-                TOOLBAR_BUTTON_Y + (TOOLBAR_BUTTON_H - icon.height()) / 2.0F);
-    }
-
     private void drawInventory(GUIContext context) {
-        drawFittedText(context, tr("gui.neoecoae.common.inventory", "Inventory"), PLAYER_INV_X, PLAYER_INV_LABEL_Y, 18 * 9, TEXT_MUTED);
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                drawSlot(context, PLAYER_INV_X + col * 18, PLAYER_INV_Y + row * 18);
-            }
-        }
-        for (int col = 0; col < 9; col++) {
-            drawSlot(context, PLAYER_INV_X + col * 18, PLAYER_HOTBAR_Y);
-        }
+        drawFittedText(context, tr("gui.neoecoae.common.inventory", "Inventory"),
+                PLAYER_INV_X, PLAYER_INV_LABEL_Y, PLAYER_INVENTORY_WIDTH, TEXT_MUTED);
     }
 
     private void drawTasks(GUIContext context) {
         List<NECraftingTaskEntry> entries = snapshot.tasks();
-        taskScrollOffset = clampTaskScroll(taskScrollOffset, entries.size());
         drawFittedText(context, tr("gui.neoecoae.crafting.tasks", "Crafting Tasks"), TASK_PANEL_X + 8, TASK_PANEL_Y + 6, TASK_PANEL_W - 32, TEXT_PRIMARY);
         drawRightText(context, NEHostFormat.number(entries.size()), TASK_PANEL_X + TASK_PANEL_W - 8, TASK_PANEL_Y + 6, TEXT_VALUE);
         if (entries.isEmpty()) {
+            taskCards.resetIfEmpty(entries);
             drawCenteredText(context, tr("gui.neoecoae.crafting.no_tasks", "No tasks"),
                     TASK_PANEL_X, TASK_PANEL_Y + TASK_PANEL_H / 2.0F - 4, TASK_PANEL_W, TEXT_MUTED);
             return;
         }
-        context.graphics.flush();
-        context.enableScissor(absX(TASK_PANEL_X + 4), absY(TASK_CARD_Y), TASK_PANEL_W - 8, TASK_LIST_BOTTOM_Y - TASK_CARD_Y + 1);
-        for (NEAnimatedTaskCards.Frame frame : taskCards.update(entries, taskScrollOffset, visibleRows(), TASK_CARD_Y, TASK_CARD_STRIDE)) {
-            drawTaskCard(context, frame.entry(), frame.y(), frame.alpha());
-        }
-        context.graphics.flush();
-        context.disableScissor();
-        drawTaskScrollbar(context, entries.size());
+        taskCards.draw(this, context, entries, TASK_LAYOUT, TASK_CARD_STYLE);
     }
 
-    private void drawTaskCard(GUIContext context, NECraftingTaskEntry entry, float y, float alpha) {
-        int color = statusColor(entry.status());
-        fillLocal(context, TASK_CARD_X, y, TASK_CARD_W, TASK_CARD_H, withAlpha(0xFFD8D3E4, alpha));
-        fillLocal(context, TASK_CARD_X + 1, y + 1, TASK_CARD_W - 2, TASK_CARD_H - 2, withAlpha(0xFF121016, alpha));
-        fillLocal(context, TASK_CARD_X + 2, y + 2, TASK_CARD_W - 4, TASK_CARD_H - 4, withAlpha(0xFF4D4855, alpha));
-        fillLocal(context, TASK_CARD_X + 3, y + 3, TASK_CARD_W - 6, TASK_CARD_H - 6, withAlpha(0xFF2C2735, alpha));
-        fillLocal(context, TASK_CARD_X + 3, y + TASK_CARD_H - 3, TASK_CARD_W - 6, 1, withAlpha(color, alpha));
-        drawItem(context, entry.output(), TASK_CARD_X + 1, y + 1);
-        String amount = "x" + NEHostFormat.number(entry.outputAmount());
-        int amountW = context.mc.font.width(amount);
-        String name = NEHostDraw.fit(context, entry.output().getHoverName().getString(), Math.max(16, TASK_CARD_W - 31 - amountW));
-        drawText(context, name, TASK_CARD_X + 21, y + 5, withAlpha(TEXT_PRIMARY, alpha));
-        drawRightText(context, amount, TASK_CARD_X + TASK_CARD_W - 5, y + 5, withAlpha(TEXT_VALUE, alpha));
-        long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
-        int fill = entry.status() == NECraftingTaskEntry.Status.WAITING_OUTPUT
-                ? TASK_CARD_W - 26
-                : ratioWidth(done, entry.totalTicks(), TASK_CARD_W - 26);
-        if (entry.status() == NECraftingTaskEntry.Status.QUEUED) {
-            fill = 1;
-        }
-        fillLocal(context, TASK_CARD_X + 21, y + TASK_CARD_H - 4, TASK_CARD_W - 26, 2, withAlpha(0xAA17141E, alpha));
-        if (fill > 0) {
-            fillLocal(context, TASK_CARD_X + 21, y + TASK_CARD_H - 4, fill, 2, withAlpha(color, alpha));
-        }
-    }
-
-    private void drawTaskScrollbar(GUIContext context, int total) {
-        int visible = visibleRows();
-        if (total <= visible) {
-            return;
-        }
-        float height = TASK_LIST_BOTTOM_Y - TASK_CARD_Y;
-        float thumbH = Math.max(10.0F, height * visible / total);
-        float thumbY = TASK_CARD_Y + (height - thumbH) * taskScrollOffset / Math.max(1.0F, total - visible);
-        drawScroller(context, TASK_PANEL_X + TASK_PANEL_W - 5, TASK_CARD_Y, 3, height, thumbY, thumbH);
-    }
-
-    private void onMouseWheel(com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent event) {
-        List<NECraftingTaskEntry> entries = snapshot.tasks();
-        if (containsLocal(TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H, currentMouseX(), currentMouseY())
-                && entries.size() > visibleRows()) {
-            taskScrollOffset = clampTaskScroll(taskScrollOffset + (event.deltaY < 0 ? 1 : -1), entries.size());
-            event.stopPropagation();
-        }
+    private void onMouseWheel(UIEvent event) {
+        taskCards.onMouseWheel(this, event, snapshot.tasks().size(), TASK_LAYOUT);
     }
 
     private HoverTooltips tooltipAt(double mouseX, double mouseY) {
-        if (containsLocal(TOOLBAR_BUTTON_X, TOOLBAR_BUTTON_Y, TOOLBAR_BUTTON_W, TOOLBAR_BUTTON_H, mouseX, mouseY)) {
-            return new HoverTooltips(List.of(
-                    Component.translatable("gui.neoecoae.computation.cpu_selection_mode"),
-                    cpuModeTooltip(snapshot.cpuSelectionMode()),
-                    tr("gui.neoecoae.computation.cpu_selection_mode.click", "Click to switch")
-            ), null, null, null);
-        }
         if (containsLocal(THREAD_BAR_X, THREAD_BAR_Y, THREAD_BAR_W, THREAD_BAR_H, mouseX, mouseY)) {
             return new HoverTooltips(List.of(
                     tr("gui.neoecoae.computation.threads", "Threads"),
@@ -291,34 +233,7 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
     }
 
     private HoverTooltips taskTooltip(double mouseX, double mouseY) {
-        List<NECraftingTaskEntry> entries = snapshot.tasks();
-        taskScrollOffset = clampTaskScroll(taskScrollOffset, entries.size());
-        int visible = Math.min(visibleRows(), entries.size() - taskScrollOffset);
-        for (int i = 0; i < visible; i++) {
-            int y = TASK_CARD_Y + i * TASK_CARD_STRIDE;
-            if (!containsLocal(TASK_CARD_X, y, TASK_CARD_W, TASK_CARD_H, mouseX, mouseY)) {
-                continue;
-            }
-            NECraftingTaskEntry entry = entries.get(taskScrollOffset + i);
-            List<Component> lines = itemTooltip(entry.output());
-            lines.add(Component.translatable(statusKey(entry.status())).withStyle(ChatFormatting.GRAY));
-            lines.add(Component.translatable("gui.neoecoae.crafting.task.amount", NEHostFormat.number(entry.outputAmount())));
-            if (entry.totalTicks() > 0L) {
-                long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
-                lines.add(Component.literal(NEHostFormat.percent(done, entry.totalTicks())).withStyle(ChatFormatting.AQUA));
-            }
-            return new HoverTooltips(lines, entry.output().getTooltipImage().orElse(null), null, entry.output());
-        }
-        return null;
-    }
-
-    private int visibleRows() {
-        int space = TASK_LIST_BOTTOM_Y - TASK_CARD_Y;
-        return Math.max(1, 1 + Math.max(0, space - TASK_CARD_H) / TASK_CARD_STRIDE);
-    }
-
-    private int clampTaskScroll(int value, int total) {
-        return Mth.clamp(value, 0, Math.max(0, total - visibleRows()));
+        return taskCards.tooltipAt(this, snapshot.tasks(), TASK_LAYOUT, mouseX, mouseY);
     }
 
     private static Component cpuModeShortLabel(CpuSelectionMode mode) {
@@ -329,37 +244,13 @@ final class NEComputationLegacyCanvas extends NEHostCanvas {
         };
     }
 
-    private static Component cpuModeTooltip(CpuSelectionMode mode) {
-        return switch (mode) {
-            case PLAYER_ONLY -> tr("gui.neoecoae.computation.cpu_selection_mode.player_only", "Only accepts crafting requests from players.");
-            case MACHINE_ONLY -> tr("gui.neoecoae.computation.cpu_selection_mode.machine_only", "Only accepts crafting requests from machines.");
-            case ANY -> tr("gui.neoecoae.computation.cpu_selection_mode.any", "Accepts all crafting requests.");
-        };
-    }
-
-    private static int statusColor(NECraftingTaskEntry.Status status) {
-        return switch (status) {
-            case RUNNING -> TEXT_SUCCESS;
-            case QUEUED -> TEXT_WARNING;
-            case WAITING_OUTPUT -> TEXT_BLUE;
-        };
-    }
-
-    private static String statusKey(NECraftingTaskEntry.Status status) {
-        return switch (status) {
-            case RUNNING -> "gui.neoecoae.crafting.task.status.running";
-            case QUEUED -> "gui.neoecoae.crafting.task.status.queued";
-            case WAITING_OUTPUT -> "gui.neoecoae.crafting.task.status.waiting_output";
-        };
-    }
-
     private record ComputationSnapshot(
         boolean formed,
         boolean active,
         int usedThreads,
         int totalThreads,
         int parallelCount,
-        int accelerators,
+        int parallelCores,
         long usedComputationBytes,
         long totalBytes,
         CpuSelectionMode cpuSelectionMode,

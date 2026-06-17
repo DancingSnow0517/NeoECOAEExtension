@@ -3,8 +3,6 @@ package cn.dancingsnow.neoecoae.gui.host;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import net.minecraft.network.chat.Component;
 
-import java.util.function.IntSupplier;
-
 public final class NEPriorityPanelCanvas extends NEAeWidgetCanvas {
     public static final int WIDTH = 176;
     public static final int HEIGHT = 125;
@@ -23,7 +21,7 @@ public final class NEPriorityPanelCanvas extends NEAeWidgetCanvas {
     public static final int[] STEP_W = {22, 28, 32, 38, 22, 28, 32, 38};
     public static final int STEP_H = 20;
 
-    public NEPriorityPanelCanvas(IntSupplier priority) {
+    public NEPriorityPanelCanvas() {
         super(WIDTH, HEIGHT);
     }
 
@@ -36,10 +34,11 @@ public final class NEPriorityPanelCanvas extends NEAeWidgetCanvas {
             drawAeButton(context, STEP_X[i], STEP_Y[i], STEP_W[i], STEP_H, text,
                     hovered(context, STEP_X[i], STEP_Y[i], STEP_W[i], STEP_H));
         }
-        drawPriorityValueSlot(context, INPUT_X, INPUT_Y, INPUT_W, INPUT_H, hovered(context, INPUT_X, INPUT_Y, INPUT_W, INPUT_H));
-        drawToolbarIconButton(context, BACK_X + 1, BACK_Y + 1, NEAeSprite.BACK,
+        drawPriorityValueSlot(context, INPUT_X, INPUT_Y, INPUT_W, INPUT_H,
+                hovered(context, INPUT_X, INPUT_Y, INPUT_W, INPUT_H));
+        drawTabIconButton(context, BACK_X, BACK_Y, NEAeSprite.BACK,
                 hovered(context, BACK_X, BACK_Y, BACK_W, BACK_H));
-        drawDarkText(context, Component.translatableWithFallback("gui.neoecoae.storage_priority.insert_hint", "When inserting: higher-priority storage is preferred."), 8, 98);
-        drawDarkText(context, Component.translatableWithFallback("gui.neoecoae.storage_priority.extract_hint", "When extracting: lower-priority storage is preferred."), 8, 110);
+        drawDarkText(context, Component.translatableWithFallback("gui.ae2.PriorityInsertionHint", "Insertion: Higher priority first"), 8, 98);
+        drawDarkText(context, Component.translatableWithFallback("gui.ae2.PriorityExtractionHint", "Extraction: Lower priority first"), 8, 110);
     }
 }
