@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -41,11 +42,6 @@ record NEStructureTerminalRenderContext(int originX, int originY) {
     }
 
     private Component fitted(Component text, int width) {
-        String value = text.getString();
-        Font font = font();
-        if (font.width(value) > width) {
-            value = font.plainSubstrByWidth(value, Math.max(1, width - font.width("..."))) + "...";
-        }
-        return Component.literal(value);
+        return NELDLibTextRender.truncateWithEllipsis(font(), text, width);
     }
 }

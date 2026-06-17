@@ -4,7 +4,6 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.world.level.Level;
@@ -41,21 +40,29 @@ public final class ECOExtractedPatternExecution {
     public static ECOExtractedPatternExecution create(
             IPatternDetails details,
             ECOCompiledFastPathPattern compiledPattern,
+            @Nullable ECOFastPathPatternMetadata metadata,
             KeyCounter[] craftingContainer,
-            KeyCounter expectedContainerItems,
+            List<GenericStack> expectedContainerItems,
+            boolean canBuildFastPath,
             Level level) {
         List<GenericStack> outputs = compiledPattern.outputs();
-        List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
-        boolean canBuildFastPath = NEConfig.isEcoAe2FastPathEnabled()
-                && !NEConfig.postCraftingEvent
-                && compiledPattern.canBuildFastPath(containers);
-
-        List<GenericStack> inputs = canBuildFastPath ? ECOFastPathStacks.copyCounters(craftingContainer) : List.of();
-        Optional<ECOFastPathKey> key =
-                canBuildFastPath ? compiledPattern.buildKey(craftingContainer, level) : Optional.empty();
-        boolean eligible = key.isPresent() && ECOFastPathStacks.isSafeForFastPath(inputs, true);
+        List<GenericStack> inputs = List.of();
+        @Nullable ECOFastPathKey key = null;
+        boolean eligible = false;
+        if (canBuildFastPath) {
+            if (metadata != null && metadata.isCurrent(compiledPattern, level)) {
+                inputs = metadata.inputItems();
+                key = metadata.key();
+                eligible = metadata.fastPathEligible();
+            } else {
+                inputs = ECOFastPathStacks.copyCounters(craftingContainer);
+                Optional<ECOFastPathKey> builtKey = compiledPattern.buildKey(craftingContainer, level);
+                key = builtKey.orElse(null);
+                eligible = builtKey.isPresent() && ECOFastPathStacks.isSafeForFastPath(inputs, true);
+            }
+        }
         return new ECOExtractedPatternExecution(
-                details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible);
+                details, craftingContainer, outputs, expectedContainerItems, inputs, key, eligible);
     }
 
     public static ECOExtractedPatternExecution slow(IPatternDetails details, KeyCounter[] craftingContainer) {

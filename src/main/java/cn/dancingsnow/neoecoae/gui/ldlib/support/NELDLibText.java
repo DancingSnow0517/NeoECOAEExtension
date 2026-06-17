@@ -45,14 +45,6 @@ public final class NELDLibText {
         return number(Math.max(0L, used)) + " / " + number(Math.max(0L, max));
     }
 
-    public static String usedTotalBytes(long used, long max) {
-        return storageBytes(Math.max(0L, used)) + " / " + storageBytes(Math.max(0L, max));
-    }
-
-    public static String usedTotalFull(long used, long max) {
-        return number(Math.max(0L, used)) + " / " + number(Math.max(0L, max));
-    }
-
     public static String storageBytes(long value) {
         long safe = Math.max(0L, value);
         if (safe < BYTES_IN_G) {
@@ -69,6 +61,31 @@ public final class NELDLibText {
             suffix = "T";
         }
         return COMPACT_DECIMAL.get().format((double) safe / (double) unit) + suffix;
+    }
+
+    public static String compactDecimal(long value, long unit, String suffix) {
+        double scaled = (double) Math.max(0L, value) / (double) unit;
+        if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
+            return String.format(Locale.US, "%.0f%s", scaled, suffix);
+        }
+        return String.format(Locale.US, "%.1f%s", scaled, suffix);
+    }
+
+    public static String compactTaskAmount(long value) {
+        long safe = Math.max(0L, value);
+        if (safe < 1_000L) {
+            return Long.toString(safe);
+        }
+        if (safe < 1_000_000L) {
+            return compactDecimal(safe, 1_000L, "K");
+        }
+        if (safe < 1_000_000_000L) {
+            return compactDecimal(safe, 1_000_000L, "M");
+        }
+        if (safe < 1_000_000_000_000L) {
+            return compactDecimal(safe, 1_000_000_000L, "G");
+        }
+        return compactDecimal(safe, 1_000_000_000_000L, "T");
     }
 
     public static String compactCount(long value) {

@@ -49,6 +49,8 @@ public class ECOStorageCell implements IECOStorageCell {
 
     private final int maxItemTypes;
 
+    private final long maxItemsPerType;
+
     private final ECOCellContents contents;
 
     @Getter
@@ -84,9 +86,28 @@ public class ECOStorageCell implements IECOStorageCell {
             partitionList = builder.build();
 
             this.hasVoidUpgrade = upgrades.isInstalled(AEItems.VOID_CARD);
+            this.maxItemsPerType = calculateMaxItemsPerType(upgrades, config, isFuzzy);
         } else {
             throw new IllegalArgumentException("itemStack must be an ECOStorageCellItem");
         }
+    }
+
+    private long calculateMaxItemsPerType(IUpgradeInventory upgrades, ConfigInventory config, boolean isFuzzy) {
+        if (!upgrades.isInstalled(AEItems.EQUAL_DISTRIBUTION_CARD)) {
+            return Long.MAX_VALUE;
+        }
+
+        long distributedTypes = Integer.MAX_VALUE;
+        if (!isFuzzy
+                && partitionListMode == IncludeExclude.WHITELIST
+                && !config.keySet().isEmpty()) {
+            distributedTypes = config.keySet().size();
+        }
+        distributedTypes = Math.max(1, Math.min(distributedTypes, maxItemTypes));
+
+        long remainingItemCapacity =
+                (getTotalBytes() - (long) getBytesPerType() * distributedTypes) * keyType.getAmountPerByte();
+        return Math.max(0, (remainingItemCapacity + distributedTypes - 1) / distributedTypes);
     }
 
     @Override
@@ -233,7 +254,7 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
 
-        remainingItemCount = Math.max(0, Math.min(Long.MAX_VALUE - currentAmount, remainingItemCount));
+        remainingItemCount = Math.max(0, Math.min(maxItemsPerType - currentAmount, remainingItemCount));
 
         if (amount > remainingItemCount) {
             amount = remainingItemCount;

@@ -58,6 +58,20 @@ public final class AE2PatternIntrospection {
         }
     }
 
+    public static boolean hasStableFastPathInputs(IPatternDetails details) {
+        if (!(details instanceof AECraftingPattern pattern)
+                || !(details instanceof AECraftingPatternAccessor accessor)) {
+            return false;
+        }
+        try {
+            var recipe = accessor.neoecoae$getRecipe();
+            return recipe != null && !recipe.isSpecial() && !pattern.canSubstitute() && !pattern.canSubstituteFluids();
+        } catch (RuntimeException | LinkageError e) {
+            disableOnce(e);
+            return false;
+        }
+    }
+
     public static Optional<ECOFastPathKey> buildFastPathKey(
             IPatternDetails details, KeyCounter[] craftingContainer, Level level) {
         if (!isAvailable()) {

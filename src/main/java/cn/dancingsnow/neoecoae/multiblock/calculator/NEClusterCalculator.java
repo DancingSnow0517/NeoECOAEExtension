@@ -16,7 +16,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("BooleanMethodIsAlwaysInverted")
 public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
@@ -69,47 +68,6 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     protected void setMirroredStructure(boolean mirroredStructure) {
         this.mirroredStructure = mirroredStructure;
     }
-
-    /** Hook for calculator-specific validation diagnostics. */
-    protected void logVerifyFailure(
-            ServerLevel level, String step, BlockPos pos, String expected, @Nullable Direction expectedFacing) {}
-
-    /** Hook for calculator-specific validation diagnostics. */
-    protected void logVerifyFailure(
-            ServerLevel level,
-            @Nullable BlockPos min,
-            @Nullable BlockPos max,
-            String step,
-            BlockPos pos,
-            String expected,
-            @Nullable Direction expectedFacing) {}
-
-    /** Hook for calculator-specific validation diagnostics. */
-    protected void logVerifyContext(
-            ServerLevel level,
-            BlockPos min,
-            BlockPos max,
-            BlockPos controllerPos,
-            BlockState controllerState,
-            Direction front,
-            Direction back,
-            Direction left,
-            Direction right,
-            Direction top,
-            Direction down) {}
-
-    /** Hook for calculator-specific validation diagnostics. */
-    protected void logLineProbe(ServerLevel level, String step, BlockPos start, Direction direction, int maxSamples) {}
-
-    /** Hook for calculator-specific validation diagnostics. */
-    protected void logLineProbe(
-            ServerLevel level,
-            @Nullable BlockPos min,
-            @Nullable BlockPos max,
-            String step,
-            BlockPos start,
-            Direction direction,
-            int maxSamples) {}
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {

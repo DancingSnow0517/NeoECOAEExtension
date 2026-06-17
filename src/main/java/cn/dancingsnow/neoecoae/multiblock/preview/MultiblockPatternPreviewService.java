@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlanContext;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation;
 import cn.dancingsnow.neoecoae.multiblock.placement.PlannedBlock;
+import cn.dancingsnow.neoecoae.util.ItemStacks;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -51,7 +52,7 @@ public final class MultiblockPatternPreviewService {
                     .computeIfAbsent(entry.layerY(), ignored -> new ArrayList<>())
                     .add(entry);
             if (!entry.controller()) {
-                mergeItem(materials, entry.requiredItem());
+                ItemStacks.merge(materials, entry.requiredItem());
             }
             BlockPos pos = entry.relativePos();
             if (!hasBounds) {
@@ -82,22 +83,9 @@ public final class MultiblockPatternPreviewService {
         List<ItemStack> materials = new ArrayList<>();
         for (PatternBlockEntry entry : blocks) {
             if (!entry.controller()) {
-                mergeItem(materials, entry.requiredItem());
+                ItemStacks.merge(materials, entry.requiredItem());
             }
         }
         return materials;
-    }
-
-    private static void mergeItem(List<ItemStack> materials, ItemStack toAdd) {
-        if (toAdd.isEmpty()) {
-            return;
-        }
-        for (ItemStack material : materials) {
-            if (ItemStack.isSameItemSameTags(material, toAdd)) {
-                material.grow(toAdd.getCount());
-                return;
-            }
-        }
-        materials.add(toAdd.copy());
     }
 }

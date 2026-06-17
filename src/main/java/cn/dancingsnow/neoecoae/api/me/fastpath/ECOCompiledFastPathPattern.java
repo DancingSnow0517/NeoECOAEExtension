@@ -16,6 +16,7 @@ public final class ECOCompiledFastPathPattern {
 
     private final List<GenericStack> outputs;
     private final boolean knownSafePatternType;
+    private final boolean cacheableFastPathInputs;
     private final boolean safeOutputs;
 
     private ECOCompiledFastPathPattern(
@@ -23,11 +24,13 @@ public final class ECOCompiledFastPathPattern {
             @Nullable Object patternIdentity,
             List<GenericStack> outputs,
             boolean knownSafePatternType,
+            boolean cacheableFastPathInputs,
             boolean safeOutputs) {
         this.reloadGeneration = reloadGeneration;
         this.patternIdentity = patternIdentity;
         this.outputs = List.copyOf(outputs);
         this.knownSafePatternType = knownSafePatternType;
+        this.cacheableFastPathInputs = cacheableFastPathInputs;
         this.safeOutputs = safeOutputs;
     }
 
@@ -37,9 +40,10 @@ public final class ECOCompiledFastPathPattern {
         List<GenericStack> outputs = ECOFastPathStacks.copyStacks(details.getOutputs());
         Object patternIdentity = available ? AE2PatternIntrospection.getStablePatternIdentity(details) : null;
         boolean knownSafePatternType = available && AE2PatternIntrospection.isKnownSafePatternType(details);
+        boolean cacheableFastPathInputs = available && AE2PatternIntrospection.hasStableFastPathInputs(details);
         boolean safeOutputs = outputs.size() == 1 && ECOFastPathStacks.isSafeForFastPath(outputs, false);
         return new ECOCompiledFastPathPattern(
-                reloadGeneration, patternIdentity, outputs, knownSafePatternType, safeOutputs);
+                reloadGeneration, patternIdentity, outputs, knownSafePatternType, cacheableFastPathInputs, safeOutputs);
     }
 
     public boolean isCurrent() {
@@ -55,6 +59,10 @@ public final class ECOCompiledFastPathPattern {
                 && knownSafePatternType
                 && safeOutputs
                 && ECOFastPathStacks.isSafeForFastPath(containers, false);
+    }
+
+    public boolean canCacheFastPathInputs() {
+        return patternIdentity != null && cacheableFastPathInputs && safeOutputs;
     }
 
     public Optional<ECOFastPathKey> buildKey(KeyCounter[] craftingContainer, @Nullable Level level) {

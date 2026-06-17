@@ -133,14 +133,4 @@ public class ElapsedTimeTracker {
     public long getSyntheticStartItemCount() {
         return Integer.MAX_VALUE;
     }
-
-    @Deprecated(forRemoval = true)
-    public long getRemainingItemCount() {
-        return getSyntheticRemainingItemCount();
-    }
-
-    @Deprecated(forRemoval = true)
-    public long getStartItemCount() {
-        return getSyntheticStartItemCount();
-    }
 }

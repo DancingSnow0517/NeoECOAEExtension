@@ -31,7 +31,10 @@ import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCompiledFastPathPattern;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathPatternMetadata;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -348,11 +351,42 @@ public class ExecutingCraftingJob {
 
         @Nullable private ECOCompiledFastPathPattern compiledFastPathPattern;
 
+        @Nullable private ECOFastPathPatternMetadata fastPathMetadata;
+
         ECOCompiledFastPathPattern getCompiledFastPathPattern(IPatternDetails details) {
             if (compiledFastPathPattern == null || !compiledFastPathPattern.isCurrent()) {
                 compiledFastPathPattern = ECOCompiledFastPathPattern.compile(details);
+                fastPathMetadata = null;
             }
             return compiledFastPathPattern;
+        }
+
+        ECOExtractedPatternExecution createPatternExecution(
+                IPatternDetails details,
+                KeyCounter[] craftingContainer,
+                KeyCounter expectedContainerItems,
+                Level level) {
+            ECOCompiledFastPathPattern compiledPattern = getCompiledFastPathPattern(details);
+            List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
+            boolean canBuildFastPath = NEConfig.isEcoAe2FastPathEnabled()
+                    && !NEConfig.postCraftingEvent
+                    && compiledPattern.canBuildFastPath(containers);
+            ECOFastPathPatternMetadata metadata =
+                    canBuildFastPath ? getFastPathMetadata(compiledPattern, craftingContainer, level) : null;
+            return ECOExtractedPatternExecution.create(
+                    details, compiledPattern, metadata, craftingContainer, containers, canBuildFastPath, level);
+        }
+
+        @Nullable private ECOFastPathPatternMetadata getFastPathMetadata(
+                ECOCompiledFastPathPattern compiledPattern, KeyCounter[] craftingContainer, Level level) {
+            if (!compiledPattern.canCacheFastPathInputs()) {
+                fastPathMetadata = null;
+                return null;
+            }
+            if (fastPathMetadata == null || !fastPathMetadata.isCurrent(compiledPattern, level)) {
+                fastPathMetadata = ECOFastPathPatternMetadata.create(compiledPattern, craftingContainer, level);
+            }
+            return fastPathMetadata;
         }
     }
 }

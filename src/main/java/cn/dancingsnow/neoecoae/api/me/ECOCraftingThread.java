@@ -430,15 +430,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return isBusy && outputsReady;
     }
 
-    public void appendReadyOutputs(KeyCounter outputs) {
-        if (!isOutputReady()) {
-            return;
-        }
-        for (Object2LongMap.Entry<AEKey> entry : collectOutputItems()) {
-            outputs.add(entry.getKey(), entry.getLongValue());
-        }
-    }
-
     public void applyOutputFlush(KeyCounter acceptedOutputs) {
         if (!isOutputReady()) {
             return;

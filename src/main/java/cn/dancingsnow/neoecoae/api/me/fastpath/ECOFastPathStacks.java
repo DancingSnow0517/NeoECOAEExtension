@@ -6,7 +6,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -16,7 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathStacks {
-    private static final Map<AEKey, String> KEY_SORT_ID_CACHE = Collections.synchronizedMap(new WeakHashMap<>());
+    private static final ThreadLocal<Map<AEKey, String>> KEY_SORT_ID_CACHE = ThreadLocal.withInitial(WeakHashMap::new);
 
     private ECOFastPathStacks() {}
 
@@ -163,7 +162,7 @@ public final class ECOFastPathStacks {
         if (key == null) {
             return "";
         }
-        return KEY_SORT_ID_CACHE.computeIfAbsent(key, ECOFastPathStacks::createKeySortId);
+        return KEY_SORT_ID_CACHE.get().computeIfAbsent(key, ECOFastPathStacks::createKeySortId);
     }
 
     private static String createKeySortId(AEKey key) {

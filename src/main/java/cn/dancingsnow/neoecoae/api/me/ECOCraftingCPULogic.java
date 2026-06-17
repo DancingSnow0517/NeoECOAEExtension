@@ -333,23 +333,6 @@ public class ECOCraftingCPULogic {
         return Math.min(cpuLimit, ECO_CPU_PUSH_TICK_LIMIT);
     }
 
-    /**
-     * Try to push patterns into available interfaces, i.e. do the actual crafting
-     * execution.
-     *
-     * @return How many patterns were successfully pushed.
-     */
-    public int executeCrafting(
-            int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
-        return executeCrafting(
-                maxPatterns,
-                maxPatterns,
-                craftingService,
-                energyService,
-                level,
-                new FastPathBatchBudget(Math.min(ECO_BATCH_FAST_PATH_TICK_LIMIT, maxPatterns)));
-    }
-
     static int totalPatternBudget(int slowPatternBudget, int batchPatternBudget) {
         return Math.max(Math.max(0, slowPatternBudget), Math.max(0, batchPatternBudget));
     }
@@ -496,12 +479,8 @@ public class ECOCraftingCPULogic {
             return null;
         }
 
-        ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
-                details,
-                progress.getCompiledFastPathPattern(details),
-                craftingContainer,
-                expectedContainerItems,
-                level);
+        ECOExtractedPatternExecution execution =
+                progress.createPatternExecution(details, craftingContainer, expectedContainerItems, level);
         double patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
         return new ExtractedPatternAttempt(craftingContainer, execution, patternPower);
     }

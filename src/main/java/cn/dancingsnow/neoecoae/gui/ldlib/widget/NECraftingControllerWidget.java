@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTaskCards;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
@@ -760,7 +761,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         int absX = absX(x);
         int absY = absY(y);
 
-        drawTaskCardRect(g, absX, absY, TASK_CARD_W, TASK_CARD_H, alpha, taskStatusColor(entry.status()));
+        NELDLibTaskCards.drawCardRect(
+                g, absX, absY, TASK_CARD_W, TASK_CARD_H, alpha, NELDLibTaskCards.statusColor(entry.status()));
         if (alpha > 0.22F && !entry.output().isEmpty()) {
             NELDLibGuiRenderState.beginVanillaGuiItemBatch(g);
             try {
@@ -772,18 +774,19 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
         int textX = x + 20;
         int textY = y + 4;
-        String amountText = "x" + formatTaskAmount(entry.outputAmount());
+        String amountText = "x" + NELDLibText.compactTaskAmount(entry.outputAmount());
         int amountW = scaledWidth(amountText);
         int maxNameW = Math.max(16, TASK_CARD_W - 28 - amountW);
         String name = fitText(entry.output().getHoverName().getString(), maxNameW);
-        drawScaledString(g, name, absX(textX), absY(textY), withAlpha(NELDLibStyle.DARK_TEXT_PRIMARY, alpha));
+        drawScaledString(
+                g, name, absX(textX), absY(textY), NELDLibTaskCards.withAlpha(NELDLibStyle.DARK_TEXT_PRIMARY, alpha));
         drawScaledRight(
                 g,
                 Component.literal(amountText),
                 absX(TASK_CARD_X + TASK_CARD_W - 5),
                 absY(textY),
-                withAlpha(NELDLibStyle.DARK_TEXT_VALUE, alpha));
-        drawTaskProgressBar(g, absX + 20, absY + TASK_CARD_H - 4, TASK_CARD_W - 25, 2, entry, alpha);
+                NELDLibTaskCards.withAlpha(NELDLibStyle.DARK_TEXT_VALUE, alpha));
+        NELDLibTaskCards.drawProgressBar(g, absX + 20, absY + TASK_CARD_H - 4, TASK_CARD_W - 25, 2, entry, alpha);
     }
 
     // 绘制任务面板滚动条
@@ -805,30 +808,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 10);
     }
 
-    // 绘制任务卡片多层嵌套矩形背景
-    private void drawTaskCardRect(GuiGraphics g, int x, int y, int w, int h, float alpha, int accentColor) {
-        g.fill(x, y, x + w, y + h, withAlpha(0xFFD8D3E4, alpha));
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, withAlpha(0xFF121016, alpha));
-        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, withAlpha(0xFF4D4855, alpha));
-        g.fill(x + 3, y + 3, x + w - 3, y + h - 3, withAlpha(0xFF2C2735, alpha));
-        g.fill(x + 3, y + h - 3, x + w - 3, y + h - 2, withAlpha(accentColor, alpha));
-    }
-
-    // 绘制任务进度条（根据状态显示不同填充宽度）
-    private void drawTaskProgressBar(
-            GuiGraphics g, int x, int y, int w, int h, NECraftingRecipeUiEntry entry, float alpha) {
-        g.fill(x, y, x + w, y + h, withAlpha(0xAA17141E, alpha));
-        int fillW = ratioWidth(Math.max(0L, entry.totalTicks() - entry.remainingTicks()), entry.totalTicks(), w);
-        if (entry.status() == NECraftingRecipeUiEntry.Status.WAITING_OUTPUT) {
-            fillW = w;
-        } else if (entry.status() == NECraftingRecipeUiEntry.Status.QUEUED) {
-            fillW = 1;
-        }
-        if (fillW > 0) {
-            g.fill(x, y, x + fillW, y + h, withAlpha(taskStatusColor(entry.status()), alpha));
-        }
-    }
-
     // 渲染任务卡片悬浮提示（物品信息 + 状态 + 数量 + 进度）
     private boolean renderTaskTooltip(GuiGraphics g, int mouseX, int mouseY) {
         taskScrollOffset = clampTaskScrollOffset(
@@ -843,9 +822,9 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             }
             NECraftingRecipeUiEntry entry = card.entry;
             List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), entry.output()));
-            lines.add(Component.translatable(taskStatusKey(entry.status())));
+            lines.add(Component.translatable(NELDLibTaskCards.statusKey(entry.status())));
             lines.add(Component.translatable(
-                    "gui.neoecoae.crafting.task.amount", formatTaskAmount(entry.outputAmount())));
+                    "gui.neoecoae.crafting.task.amount", NELDLibText.compactTaskAmount(entry.outputAmount())));
             lines.add(Component.translatable(
                     "gui.neoecoae.crafting.task.crafts", NELDLibText.number(entry.craftCount())));
             if (entry.totalTicks() > 0L) {
@@ -1025,11 +1004,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         drawScaledString(g, NELDLibText.number(value), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
     }
 
-    private void drawInlineTextLine(GuiGraphics g, String label, String value, int x, int y) {
-        int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
-        drawScaledString(g, value, absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
-    }
-
     // 绘制紧凑成对行（label: current / max）
     private void drawCompactPairLine(GuiGraphics g, String label, long current, long max, int x, int y) {
         int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
@@ -1110,54 +1084,9 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return entry.id() == null || entry.id().isBlank() ? "task:" + index : entry.id();
     }
 
-    // 任务状态 → 颜色映射
-    private static int taskStatusColor(NECraftingRecipeUiEntry.Status status) {
-        return switch (status) {
-            case RUNNING -> NELDLibStyle.DARK_TEXT_SUCCESS;
-            case QUEUED -> NELDLibStyle.DARK_TEXT_WARNING;
-            case WAITING_OUTPUT -> NELDLibStyle.DARK_TEXT_BLUE;
-        };
-    }
-
-    // 任务状态 → 语言键映射
-    private static String taskStatusKey(NECraftingRecipeUiEntry.Status status) {
-        return switch (status) {
-            case RUNNING -> "gui.neoecoae.crafting.task.status.running";
-            case QUEUED -> "gui.neoecoae.crafting.task.status.queued";
-            case WAITING_OUTPUT -> "gui.neoecoae.crafting.task.status.waiting_output";
-        };
-    }
-
     // 文本截断（缩放适配 + 省略号）
     private String fitText(String text, int maxWidth) {
         return NELDLibTextRender.fitScaledWithEllipsis(font(), text, maxWidth, TEXT_SCALE);
-    }
-
-    // 格式化任务产出数量（自动 K/M/G/T 缩写）
-    private static String formatTaskAmount(long value) {
-        long safe = Math.max(0L, value);
-        if (safe < 1_000L) {
-            return Long.toString(safe);
-        }
-        if (safe < 1_000_000L) {
-            return compactDecimal(safe, 1_000L, "K");
-        }
-        if (safe < 1_000_000_000L) {
-            return compactDecimal(safe, 1_000_000L, "M");
-        }
-        if (safe < 1_000_000_000_000L) {
-            return compactDecimal(safe, 1_000_000_000L, "G");
-        }
-        return compactDecimal(safe, 1_000_000_000_000L, "T");
-    }
-
-    // 紧凑小数格式化（整数显示无小数，否则一位小数）
-    private static String compactDecimal(long value, long unit, String suffix) {
-        double scaled = (double) value / (double) unit;
-        if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
-            return String.format(Locale.US, "%.0f%s", scaled, suffix);
-        }
-        return String.format(Locale.US, "%.1f%s", scaled, suffix);
     }
 
     // 格式化 tick 为可读时间（t / s / m s）
@@ -1174,21 +1103,9 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         return (wholeSeconds / 60L) + "m " + (wholeSeconds % 60L) + "s";
     }
 
-    // 给颜色加上透明度比例
-    private static int withAlpha(int color, float alpha) {
-        float clamped = Mth.clamp(alpha, 0.0F, 1.0F);
-        int baseAlpha = (color >>> 24) & 0xFF;
-        int outAlpha = Mth.clamp(Math.round(baseAlpha * clamped), 0, 255);
-        return (outAlpha << 24) | (color & 0x00FFFFFF);
-    }
-
     // 计算比例宽度（current / max * fullWidth）
     private static int ratioWidth(long current, long max, int fullWidth) {
-        if (fullWidth <= 0 || max <= 0 || current <= 0) {
-            return 0;
-        }
-        long clamped = Math.max(0L, Math.min(current, max));
-        return (int) Math.max(1L, Math.min(fullWidth, clamped * fullWidth / max));
+        return NELDLibTaskCards.ratioWidth(current, max, fullWidth);
     }
 
     // 安全计算比例（0~1 之间）

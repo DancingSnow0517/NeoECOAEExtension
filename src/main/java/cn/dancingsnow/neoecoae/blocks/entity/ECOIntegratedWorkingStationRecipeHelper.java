@@ -1,14 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.inventories.InternalInventory;
-import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
-import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
-import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -19,22 +13,6 @@ import org.jetbrains.annotations.Nullable;
 final class ECOIntegratedWorkingStationRecipeHelper {
 
     private ECOIntegratedWorkingStationRecipeHelper() {}
-
-    /**
-     * Find a matching Integrated Working Station recipe from the current inputs.
-     */
-    @Nullable static IntegratedWorkingStationRecipe findRecipe(Level level, InternalInventory inputInv, FluidStack inputFluid) {
-        List<ItemStack> inputs = new ArrayList<>();
-        for (int x = 0; x < inputInv.size(); x++) {
-            inputs.add(inputInv.getStackInSlot(x));
-        }
-        return level.getRecipeManager()
-                .getRecipeFor(
-                        NERecipeTypes.INTEGRATED_WORKING_STATION.get(),
-                        new IntegratedWorkingStationRecipe.Input(inputs, inputFluid),
-                        level)
-                .orElse(null);
-    }
 
     @Nullable static int[] createItemConsumptionPlan(InternalInventory inputInv, List<SizedIngredient> ingredients) {
         int[] available = new int[inputInv.size()];

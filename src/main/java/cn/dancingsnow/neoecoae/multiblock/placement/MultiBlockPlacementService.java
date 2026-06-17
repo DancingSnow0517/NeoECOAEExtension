@@ -4,6 +4,7 @@ import appeng.blockentity.AEBaseBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.util.ItemStacks;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -98,7 +99,7 @@ public final class MultiBlockPlacementService {
             }
             if (existingState.isAir() || existingState.canBeReplaced()) {
                 missingBlocks.add(worldBlock);
-                mergeItem(requiredItems, worldBlock.requiredItem());
+                ItemStacks.merge(requiredItems, worldBlock.requiredItem());
                 continue;
             }
             conflictPositions.add(worldPos);
@@ -312,16 +313,6 @@ public final class MultiBlockPlacementService {
             remaining = consumeFromStack(itemHandler.getStackInSlot(slot), target, remaining, visitedHandlers);
         }
         return remaining;
-    }
-
-    private static void mergeItem(List<ItemStack> requiredItems, ItemStack toAdd) {
-        for (ItemStack requiredItem : requiredItems) {
-            if (ItemStack.isSameItemSameTags(requiredItem, toAdd)) {
-                requiredItem.grow(toAdd.getCount());
-                return;
-            }
-        }
-        requiredItems.add(toAdd.copy());
     }
 
     private static void giveOrDrop(ServerLevel level, ServerPlayer player, ItemStack stack) {

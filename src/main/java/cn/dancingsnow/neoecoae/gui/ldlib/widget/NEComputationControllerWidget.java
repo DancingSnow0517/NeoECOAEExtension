@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTaskCards;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
@@ -19,7 +20,6 @@ import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -202,7 +202,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                     font(),
                     List.of(
                             Component.translatable("gui.neoecoae.computation.available_storage"),
-                            Component.literal(NELDLibText.usedTotalFull(
+                            Component.literal(NELDLibText.usedTotal(
                                             usedStorage, currentState().totalStorage()) + " bytes")),
                     Optional.empty(),
                     mouseX,
@@ -389,7 +389,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         int x = TASK_CARD_X;
         int absX = absX(x);
         int absY = absY(y);
-        drawTaskCardRect(g, absX, absY, TASK_CARD_W, TASK_CARD_H, taskStatusColor(entry.status()));
+        NELDLibTaskCards.drawCardRect(
+                g, absX, absY, TASK_CARD_W, TASK_CARD_H, NELDLibTaskCards.statusColor(entry.status()));
         if (!entry.output().isEmpty()) {
             NELDLibGuiRenderState.beginVanillaGuiItemBatch(g);
             try {
@@ -401,7 +402,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
         int textX = x + 21;
         int textY = y + 5;
-        String amountText = "x" + formatTaskAmount(entry.outputAmount());
+        String amountText = "x" + NELDLibText.compactTaskAmount(entry.outputAmount());
         int amountW = font().width(amountText);
         int maxNameW = Math.max(16, TASK_CARD_W - 31 - amountW);
         String name = fitText(entry.output().getHoverName().getString(), maxNameW);
@@ -413,28 +414,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 absX(TASK_CARD_X + TASK_CARD_W - 5),
                 absY(textY),
                 NELDLibStyle.DARK_TEXT_VALUE);
-        drawTaskProgressBar(g, absX + 21, absY + TASK_CARD_H - 4, TASK_CARD_W - 26, 2, entry);
-    }
-
-    private void drawTaskCardRect(GuiGraphics g, int x, int y, int w, int h, int accentColor) {
-        g.fill(x, y, x + w, y + h, 0xFFD8D3E4);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, 0xFF121016);
-        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, 0xFF4D4855);
-        g.fill(x + 3, y + 3, x + w - 3, y + h - 3, 0xFF2C2735);
-        g.fill(x + 3, y + h - 3, x + w - 3, y + h - 2, accentColor);
-    }
-
-    private void drawTaskProgressBar(GuiGraphics g, int x, int y, int w, int h, NECraftingRecipeUiEntry entry) {
-        g.fill(x, y, x + w, y + h, 0xAA17141E);
-        int fillW = ratioWidth(Math.max(0L, entry.totalTicks() - entry.remainingTicks()), entry.totalTicks(), w);
-        if (entry.status() == NECraftingRecipeUiEntry.Status.WAITING_OUTPUT) {
-            fillW = w;
-        } else if (entry.status() == NECraftingRecipeUiEntry.Status.QUEUED) {
-            fillW = 1;
-        }
-        if (fillW > 0) {
-            g.fill(x, y, x + fillW, y + h, taskStatusColor(entry.status()));
-        }
+        NELDLibTaskCards.drawProgressBar(g, absX + 21, absY + TASK_CARD_H - 4, TASK_CARD_W - 26, 2, entry);
     }
 
     private void drawTaskScrollbar(GuiGraphics g, int total, int visible) {
@@ -466,9 +446,9 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
             }
             NECraftingRecipeUiEntry entry = entries.get(taskScrollOffset + i);
             List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), entry.output()));
-            lines.add(Component.translatable(taskStatusKey(entry.status())));
+            lines.add(Component.translatable(NELDLibTaskCards.statusKey(entry.status())));
             lines.add(Component.translatable(
-                    "gui.neoecoae.crafting.task.amount", formatTaskAmount(entry.outputAmount())));
+                    "gui.neoecoae.crafting.task.amount", NELDLibText.compactTaskAmount(entry.outputAmount())));
             if (entry.totalTicks() > 0L) {
                 long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
                 lines.add(Component.literal(NELDLibText.percentOrNA(done, entry.totalTicks())));
@@ -519,23 +499,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         NELDLibClientStyle.drawSegment(g, font(), max, x + cursor, y, NELDLibStyle.DARK_TEXT_VALUE);
     }
 
-    private void drawBooleanLine(GuiGraphics g, String prefix, boolean value, int x, int y) {
-        int cursor = NELDLibClientStyle.drawSegment(g, font(), prefix, x, y, NELDLibStyle.DARK_TEXT_MUTED);
-        NELDLibClientStyle.drawSegment(
-                g,
-                font(),
-                boolText(value),
-                x + cursor,
-                y,
-                value ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
-    }
-
     private static int ratioWidth(long current, long max, int fullWidth) {
-        if (fullWidth <= 0 || max <= 0 || current <= 0) {
-            return 0;
-        }
-        long clamped = Math.max(0L, Math.min(current, max));
-        return (int) Math.max(1L, Math.min(fullWidth, clamped * fullWidth / max));
+        return NELDLibTaskCards.ratioWidth(current, max, fullWidth);
     }
 
     private static Component cpuModeShortLabel(CpuSelectionMode mode) {
@@ -554,48 +519,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         };
     }
 
-    private static int taskStatusColor(NECraftingRecipeUiEntry.Status status) {
-        return switch (status) {
-            case RUNNING -> NELDLibStyle.DARK_TEXT_SUCCESS;
-            case QUEUED -> NELDLibStyle.DARK_TEXT_WARNING;
-            case WAITING_OUTPUT -> NELDLibStyle.DARK_TEXT_BLUE;
-        };
-    }
-
-    private static String taskStatusKey(NECraftingRecipeUiEntry.Status status) {
-        return switch (status) {
-            case RUNNING -> "gui.neoecoae.crafting.task.status.running";
-            case QUEUED -> "gui.neoecoae.crafting.task.status.queued";
-            case WAITING_OUTPUT -> "gui.neoecoae.crafting.task.status.waiting_output";
-        };
-    }
-
     private String fitText(String text, int maxWidth) {
         return NELDLibTextRender.fitWithEllipsis(font(), text, maxWidth);
-    }
-
-    private static String formatTaskAmount(long value) {
-        long safe = Math.max(0L, value);
-        if (safe < 1_000L) {
-            return Long.toString(safe);
-        }
-        if (safe < 1_000_000L) {
-            return compactDecimal(safe, 1_000L, "K");
-        }
-        if (safe < 1_000_000_000L) {
-            return compactDecimal(safe, 1_000_000L, "M");
-        }
-        if (safe < 1_000_000_000_000L) {
-            return compactDecimal(safe, 1_000_000_000L, "G");
-        }
-        return compactDecimal(safe, 1_000_000_000_000L, "T");
-    }
-
-    private static String compactDecimal(long value, long unit, String suffix) {
-        double scaled = (double) value / (double) unit;
-        if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
-            return String.format(Locale.US, "%.0f%s", scaled, suffix);
-        }
-        return String.format(Locale.US, "%.1f%s", scaled, suffix);
     }
 }
