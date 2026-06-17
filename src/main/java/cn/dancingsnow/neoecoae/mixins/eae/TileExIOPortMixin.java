@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.mixins.aae;
+package cn.dancingsnow.neoecoae.mixins.eae;
 
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
@@ -15,11 +15,11 @@ import org.spongepowered.asm.mixin.injection.At;
 @Pseudo
 public class TileExIOPortMixin {
     @WrapOperation(method = "tickingRequest", at = @At(value = "INVOKE", target = "Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;"))
-    private StorageCell wrapGetCellInventory(ItemStack inventory, ISaveProvider ch, Operation<StorageCell> original) {
-        StorageCell invOriginal = original.call(inventory, ch);
+    private StorageCell wrapGetCellInventory(ItemStack is, ISaveProvider host, Operation<StorageCell> original) {
+        StorageCell invOriginal = original.call(is, host);
         if (invOriginal != null) {
             return invOriginal;
         }
-        return ECOStorageCells.getCellInventory(inventory, ch);
+        return ECOStorageCells.getCellInventory(is, host);
     }
 }

@@ -15,7 +15,9 @@
     "LightningBoltMixin",
     "PatternEncodingTermMenuMixin",
     "StoredEnergyAmountMixin",
-    "ae2.AECraftingPatternAccessor"
+    "ae2.AECraftingPatternAccessor",
+    "eae.ContainerExIOPortMixin",
+    "eae.TileExIOPortMixin"
   ],
   "client": [
     "PatternEncodingTermScreenMixin"
