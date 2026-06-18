@@ -204,16 +204,6 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         }
     }
 
-    @Inject(method = "toggleScheduling", at = @At("TAIL"), require = 0)
-    private void neoecoae$onToggleScheduling(CallbackInfo ci) {
-        if (!this.isClientSide() && this.neoecoae$cpu != null) {
-            ECOCraftingCPULogic logic = this.neoecoae$cpu.getLogic();
-            logic.setJobSuspended(!logic.isJobSuspended());
-            this.neoecoae$trackAllKnownEcoKeys();
-            this.neoecoae$forceEcoStatusUpdate = true;
-        }
-    }
-
     @Override
     public void neoecoae$cleanupEcoCpuListener() {
         neoecoae$removeEcoListener();

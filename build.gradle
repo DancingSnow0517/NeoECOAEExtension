@@ -303,6 +303,22 @@ jar {
     }
 }
 
+def slimJarFile = layout.buildDirectory.file("libs/${base.archivesName.get()}-${version}-slim.jar")
+
+tasks.matching { it.name == 'reobfJar' }.configureEach {
+    outputs.file(slimJarFile)
+
+    doLast {
+        def output = slimJarFile.get().asFile
+        output.parentFile.mkdirs()
+        output.delete()
+        ant.zip(destfile: output) {
+            zipfileset(src: tasks.named('jar', Jar).get().archiveFile.get().asFile, excludes: 'META-INF/jarjar/**')
+        }
+        logger.lifecycle("Slim jar written to ${output}")
+    }
+}
+
 tasks.register('verifyReleaseJar') {
     group = 'verification'
     description = 'Verifies that the distributable jar is reobfuscated and contains the expected production mixins.'
