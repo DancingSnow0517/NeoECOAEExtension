@@ -88,7 +88,7 @@ file="META-INF/accesstransformer.cfg"
 [[dependencies.${mod_id}]]
     modId="ae2"
     type="required"
-    versionRange="[19.2.17,)"
+    versionRange="[26.1.10-beta,)"
     ordering="NONE"
     side="BOTH"
     [dependencies.${mod_id}.mc-publish]
@@ -98,7 +98,7 @@ file="META-INF/accesstransformer.cfg"
 [[dependencies.${mod_id}]]
     modId="ldlib2"
     type="required"
-    versionRange="[2.2.1,)"
+    versionRange="[26.1.2.22,)"
     ordering="NONE"
     side="BOTH"
     [dependencies.${mod_id}.mc-publish]
@@ -115,4 +115,4 @@ file="META-INF/accesstransformer.cfg"
     modrinth="udZtKfzP"
     curseforge=1460639
     loaders=["neoforge"]
-    game-versions=["1.21.1"]
+    game-versions=["26.1.2"]
