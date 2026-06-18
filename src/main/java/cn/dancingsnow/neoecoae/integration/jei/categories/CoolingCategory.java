@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.client.NEClientRecipe;
 import cn.dancingsnow.neoecoae.integration.jei.NEJeiRecipeType;
 import cn.dancingsnow.neoecoae.integration.xei.recipe.CoolingRecipeWrapper;
+import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.lowdragmc.lowdraglib2.integration.xei.jei.ModularUIRecipeCategory;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.helpers.IGuiHelper;
@@ -12,21 +13,24 @@ import mezz.jei.api.recipe.types.IRecipeType;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import org.jetbrains.annotations.Nullable;
 
-public class CoolingCategory extends ModularUIRecipeCategory<CoolingRecipeWrapper> {
+import java.util.List;
+
+public class CoolingCategory extends ModularUIRecipeCategory<RecipeHolder<CoolingRecipe>> {
     private final IDrawable icon;
     private final Component title;
 
 
     public CoolingCategory(IGuiHelper helper) {
-        super(CoolingRecipeWrapper::createModularUI);
+        super(recipe -> new CoolingRecipeWrapper(recipe).createModularUI());
         icon = helper.createDrawableItemStack(NEBlocks.CRAFTING_SYSTEM_L9.asStack());
         title = Component.translatable("category.neoecoae.cooling");
     }
 
     @Override
-    public IRecipeType<CoolingRecipeWrapper> getRecipeType() {
+    public IRecipeType<RecipeHolder<CoolingRecipe>> getRecipeType() {
         return NEJeiRecipeType.COOLING;
     }
 
@@ -58,9 +62,7 @@ public class CoolingCategory extends ModularUIRecipeCategory<CoolingRecipeWrappe
     public static void registerRecipes(IRecipeRegistration registration) {
         registration.addRecipes(
             NEJeiRecipeType.COOLING,
-            NEClientRecipe.getSyncedRecipes(NERecipeTypes.COOLING.get()).stream()
-                .map(CoolingRecipeWrapper::new)
-                .toList()
+            List.copyOf(NEClientRecipe.getSyncedRecipes(NERecipeTypes.COOLING.get()))
         );
     }
 
