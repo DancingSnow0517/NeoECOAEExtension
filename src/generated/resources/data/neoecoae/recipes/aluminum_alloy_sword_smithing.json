@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "addition": {
+    "tag": "forge:ingots/aluminum_alloy"
+  },
+  "base": {
+    "item": "neoecoae:aluminum_sword"
+  },
+  "result": {
+    "item": "neoecoae:aluminum_alloy_sword"
+  },
+  "template": {
+    "item": "neoecoae:aluminum_alloy_upgrade_smithing_template"
+  }
+}

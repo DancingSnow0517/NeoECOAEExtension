@@ -1,0 +1,35 @@
+{
+  "type": "advanced_ae:reaction",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "advanced_ae"
+    }
+  ],
+  "energy": 500000,
+  "fluid": {
+    "fluidStack": {
+      "Amount": 500,
+      "FluidName": "minecraft:water"
+    }
+  },
+  "input_items": [
+    {
+      "amount": 64,
+      "ingredient": {
+        "tag": "forge:dusts/energized_crystal"
+      }
+    },
+    {
+      "amount": 64,
+      "ingredient": {
+        "tag": "forge:gems/fluix"
+      }
+    }
+  ],
+  "output": {
+    "#": 64,
+    "#c": "ae2:i",
+    "id": "neoecoae:energized_fluix_crystal"
+  }
+}

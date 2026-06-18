@@ -1,12 +1,11 @@
 package cn.dancingsnow.neoecoae.api.integration;
 
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.Objects;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public final class IntegrationInstance {
@@ -19,10 +18,7 @@ public final class IntegrationInstance {
     private MethodHandle clientLoader;
 
     @SneakyThrows
-    public IntegrationInstance(
-        String modid,
-        String className
-    ) {
+    public IntegrationInstance(String modid, String className) {
         this.modid = modid;
         this.className = className;
     }
@@ -36,13 +32,13 @@ public final class IntegrationInstance {
             MethodHandle loader;
             try {
                 loader = lookup.findVirtual(clazz, "apply", MethodType.methodType(void.class));
-            } catch (Throwable e) {
+            } catch (NoSuchMethodException e) {
                 loader = null;
             }
             this.loader = loader;
             try {
                 loader = lookup.findVirtual(clazz, "applyClient", MethodType.methodType(void.class));
-            } catch (Throwable e) {
+            } catch (NoSuchMethodException e) {
                 loader = null;
             }
             this.clientLoader = loader;
@@ -83,9 +79,9 @@ public final class IntegrationInstance {
         if (obj == null || obj.getClass() != this.getClass()) return false;
         var that = (IntegrationInstance) obj;
         return Objects.equals(this.modid, that.modid)
-            && Objects.equals(this.instance, that.instance)
-            && Objects.equals(this.loader, that.loader)
-            && Objects.equals(this.clientLoader, that.clientLoader);
+                && Objects.equals(this.instance, that.instance)
+                && Objects.equals(this.loader, that.loader)
+                && Objects.equals(this.clientLoader, that.clientLoader);
     }
 
     @Override
@@ -96,11 +92,10 @@ public final class IntegrationInstance {
     @Override
     public String toString() {
         return "IntegrationInstance["
-            + "modid=" + modid + ", "
-            + "instance=" + instance + ", "
-            + "loader=" + loader + ", "
-            + "clientLoader=" + clientLoader
-            + ']';
+                + "modid=" + modid + ", "
+                + "instance=" + instance + ", "
+                + "loader=" + loader + ", "
+                + "clientLoader=" + clientLoader
+                + ']';
     }
-
 }

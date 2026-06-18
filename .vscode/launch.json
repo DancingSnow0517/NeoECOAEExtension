@@ -1,0 +1,63 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "runAeGuide",
+      "request": "launch",
+      "projectName": "NeoECOAEExtension-main",
+      "cwd": "${workspaceFolder}\\run\\client",
+      "vmArgs": "-Dforge.logging.console.level\u003ddebug -Dguideme.ae2.guide.sourcesNamespace\u003dneoecoae -Dneoecoae.validateChemicalCells\u003dfalse -Dforge.logging.markers\u003dREGISTRIES -Dneoecoae.debugMultiblockMirror\u003dtrue -Dmixin.env.remapRefMap\u003dtrue \"-Dmixin.env.refMapRemappingFile\u003dE:\\Minecraft Project\\NeoECOAEExtension-main\\build\\createSrgToMcp\\output.srg\" \"-Dguideme.ae2.guide.sources\u003dE:\\Minecraft Project\\NeoECOAEExtension-main\\guidebook\"",
+      "args": "--width 1920 --height 1080",
+      "env": {
+        "MOD_CLASSES": "neoecoae%%${workspaceFolder}\\build\\resources\\main;neoecoae%%${workspaceFolder}\\build\\classes\\java\\main"
+      },
+      "preLaunchTask": "prepareRunAeGuideCompile"
+    },
+    {
+      "type": "java",
+      "name": "runClient",
+      "request": "launch",
+      "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+      "projectName": "NeoECOAEExtension-main",
+      "cwd": "${workspaceFolder}\\run\\client",
+      "vmArgs": "-Dforge.logging.console.level\u003ddebug -Dneoecoae.validateChemicalCells\u003dfalse -Dforge.logging.markers\u003dREGISTRIES \"-DlegacyClassPath.file\u003dE:\\Minecraft Project\\NeoECOAEExtension-main\\build\\classpath\\runClient_minecraftClasspath.txt\" -Dneoecoae.debugMultiblockMirror\u003dtrue -Dmixin.env.remapRefMap\u003dtrue \"-Dmixin.env.refMapRemappingFile\u003dE:\\Minecraft Project\\NeoECOAEExtension-main\\build\\createSrgToMcp\\output.srg\" -DignoreList\u003dbootstraplauncher,securejarhandler,asm-commons,asm-util,asm-analysis,asm-tree,asm,JarJarFileSystems,client-extra,fmlcore,javafmllanguage,lowcodelanguage,mclanguage,forge- -DmergeModules\u003djna-5.10.0.jar,jna-platform-5.10.0.jar -Dforge.enableGameTest\u003dtrue -Djava.net.preferIPv6Addresses\u003dsystem -p C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\cpw.mods\\bootstraplauncher\\1.1.2\\c546e00443d8432cda6baa1c860346980742628\\bootstraplauncher-1.1.2.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\cpw.mods\\securejarhandler\\2.1.10\\51e6a22c6c716beb11e244bf5b8be480f51dd6b5\\securejarhandler-2.1.10.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-commons\\9.9.1\\ab35de4c537184a09339069f1a3b3aacf2289149\\asm-commons-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-util\\9.9.1\\e51f5b0ae0b0c1960687ae970a2a3434d39d8abb\\asm-util-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-analysis\\9.9.1\\1ab8d9316ef7a67240087919a708246c37ed1660\\asm-analysis-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-tree\\9.9.1\\b6b1b3366296163b4b1f540731aad0a2baa484d8\\asm-tree-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm\\9.9.1\\2ceea6ab43bcae1979b2a6d85fc0ca429877e5ab\\asm-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\net.minecraftforge\\JarJarFileSystems\\0.3.19\\2464eb7d6b9ddb9db36a82cf8a95193e5c6fe020\\JarJarFileSystems-0.3.19.jar --add-modules ALL-MODULE-PATH --add-opens java.base/java.util.jar\u003dcpw.mods.securejarhandler --add-opens java.base/java.lang.invoke\u003dcpw.mods.securejarhandler --add-exports java.base/sun.security.util\u003dcpw.mods.securejarhandler --add-exports jdk.naming.dns/com.sun.jndi.dns\u003djava.naming -XX:HeapDumpPath\u003dMojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump",
+      "args": "--launchTarget forgeclientuserdev --version MOD_DEV --assetIndex 5 --assetsDir C:\\Users\\hnhjy\\.gradle\\caches\\forge_gradle\\assets --gameDir . --fml.forgeVersion 47.4.20 --fml.mcVersion 1.20.1 --fml.forgeGroup net.minecraftforge --fml.mcpVersion 20230612.114412 --width 1920 --height 1080",
+      "env": {
+        "MOD_CLASSES": "neoecoae%%${workspaceFolder}\\build\\resources\\main;neoecoae%%${workspaceFolder}\\build\\classes\\java\\main",
+        "MCP_MAPPINGS": "official_1.20.1"
+      },
+      "preLaunchTask": "prepareRunClientCompile"
+    },
+    {
+      "type": "java",
+      "name": "runData",
+      "request": "launch",
+      "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+      "projectName": "NeoECOAEExtension-main",
+      "cwd": "${workspaceFolder}\\run\\data",
+      "vmArgs": "-Dforge.logging.console.level\u003ddebug -Dforge.logging.markers\u003dREGISTRIES \"-DlegacyClassPath.file\u003dE:\\Minecraft Project\\NeoECOAEExtension-main\\build\\classpath\\runData_minecraftClasspath.txt\" -Dmixin.env.remapRefMap\u003dtrue \"-Dmixin.env.refMapRemappingFile\u003dE:\\Minecraft Project\\NeoECOAEExtension-main\\build\\createSrgToMcp\\output.srg\" -DignoreList\u003dbootstraplauncher,securejarhandler,asm-commons,asm-util,asm-analysis,asm-tree,asm,JarJarFileSystems,client-extra,fmlcore,javafmllanguage,lowcodelanguage,mclanguage,forge- -DmergeModules\u003djna-5.10.0.jar,jna-platform-5.10.0.jar -Djava.net.preferIPv6Addresses\u003dsystem -p C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\cpw.mods\\bootstraplauncher\\1.1.2\\c546e00443d8432cda6baa1c860346980742628\\bootstraplauncher-1.1.2.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\cpw.mods\\securejarhandler\\2.1.10\\51e6a22c6c716beb11e244bf5b8be480f51dd6b5\\securejarhandler-2.1.10.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-commons\\9.9.1\\ab35de4c537184a09339069f1a3b3aacf2289149\\asm-commons-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-util\\9.9.1\\e51f5b0ae0b0c1960687ae970a2a3434d39d8abb\\asm-util-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-analysis\\9.9.1\\1ab8d9316ef7a67240087919a708246c37ed1660\\asm-analysis-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-tree\\9.9.1\\b6b1b3366296163b4b1f540731aad0a2baa484d8\\asm-tree-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm\\9.9.1\\2ceea6ab43bcae1979b2a6d85fc0ca429877e5ab\\asm-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\net.minecraftforge\\JarJarFileSystems\\0.3.19\\2464eb7d6b9ddb9db36a82cf8a95193e5c6fe020\\JarJarFileSystems-0.3.19.jar --add-modules ALL-MODULE-PATH --add-opens java.base/java.util.jar\u003dcpw.mods.securejarhandler --add-opens java.base/java.lang.invoke\u003dcpw.mods.securejarhandler --add-exports java.base/sun.security.util\u003dcpw.mods.securejarhandler --add-exports jdk.naming.dns/com.sun.jndi.dns\u003djava.naming",
+      "args": "--launchTarget forgedatauserdev --assetIndex 5 --assetsDir C:\\Users\\hnhjy\\.gradle\\caches\\forge_gradle\\assets --gameDir . --fml.forgeVersion 47.4.20 --fml.mcVersion 1.20.1 --fml.forgeGroup net.minecraftforge --fml.mcpVersion 20230612.114412 --mod neoecoae --all --output \"E:\\Minecraft Project\\NeoECOAEExtension-main\\src\\generated\\resources\" --existing \"E:\\Minecraft Project\\NeoECOAEExtension-main\\src\\main\\resources\"",
+      "env": {
+        "MOD_CLASSES": "neoecoae%%${workspaceFolder}\\build\\resources\\main;neoecoae%%${workspaceFolder}\\build\\classes\\java\\main",
+        "MCP_MAPPINGS": "official_1.20.1"
+      },
+      "preLaunchTask": "prepareRunDataCompile"
+    },
+    {
+      "type": "java",
+      "name": "runServer",
+      "request": "launch",
+      "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+      "projectName": "NeoECOAEExtension-main",
+      "cwd": "${workspaceFolder}\\run\\server",
+      "vmArgs": "-Dforge.logging.console.level\u003ddebug -Dneoecoae.validateChemicalCells\u003dfalse -Dforge.logging.markers\u003dREGISTRIES \"-DlegacyClassPath.file\u003dE:\\Minecraft Project\\NeoECOAEExtension-main\\build\\classpath\\runServer_minecraftClasspath.txt\" -Dneoecoae.debugMultiblockMirror\u003dtrue -Dmixin.env.remapRefMap\u003dtrue \"-Dmixin.env.refMapRemappingFile\u003dE:\\Minecraft Project\\NeoECOAEExtension-main\\build\\createSrgToMcp\\output.srg\" -DignoreList\u003dbootstraplauncher,securejarhandler,asm-commons,asm-util,asm-analysis,asm-tree,asm,JarJarFileSystems,client-extra,fmlcore,javafmllanguage,lowcodelanguage,mclanguage,forge- -DmergeModules\u003djna-5.10.0.jar,jna-platform-5.10.0.jar -Dforge.enableGameTest\u003dtrue -Djava.net.preferIPv6Addresses\u003dsystem -p C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\cpw.mods\\bootstraplauncher\\1.1.2\\c546e00443d8432cda6baa1c860346980742628\\bootstraplauncher-1.1.2.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\cpw.mods\\securejarhandler\\2.1.10\\51e6a22c6c716beb11e244bf5b8be480f51dd6b5\\securejarhandler-2.1.10.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-commons\\9.9.1\\ab35de4c537184a09339069f1a3b3aacf2289149\\asm-commons-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-util\\9.9.1\\e51f5b0ae0b0c1960687ae970a2a3434d39d8abb\\asm-util-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-analysis\\9.9.1\\1ab8d9316ef7a67240087919a708246c37ed1660\\asm-analysis-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm-tree\\9.9.1\\b6b1b3366296163b4b1f540731aad0a2baa484d8\\asm-tree-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\org.ow2.asm\\asm\\9.9.1\\2ceea6ab43bcae1979b2a6d85fc0ca429877e5ab\\asm-9.9.1.jar;C:\\Users\\hnhjy\\.gradle\\caches\\modules-2\\files-2.1\\net.minecraftforge\\JarJarFileSystems\\0.3.19\\2464eb7d6b9ddb9db36a82cf8a95193e5c6fe020\\JarJarFileSystems-0.3.19.jar --add-modules ALL-MODULE-PATH --add-opens java.base/java.util.jar\u003dcpw.mods.securejarhandler --add-opens java.base/java.lang.invoke\u003dcpw.mods.securejarhandler --add-exports java.base/sun.security.util\u003dcpw.mods.securejarhandler --add-exports jdk.naming.dns/com.sun.jndi.dns\u003djava.naming",
+      "args": "--launchTarget forgeserveruserdev --gameDir . --fml.forgeVersion 47.4.20 --fml.mcVersion 1.20.1 --fml.forgeGroup net.minecraftforge --fml.mcpVersion 20230612.114412 --nogui",
+      "env": {
+        "MOD_CLASSES": "neoecoae%%${workspaceFolder}\\build\\resources\\main;neoecoae%%${workspaceFolder}\\build\\classes\\java\\main",
+        "MCP_MAPPINGS": "official_1.20.1"
+      },
+      "preLaunchTask": "prepareRunServerCompile"
+    }
+  ]
+}

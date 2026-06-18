@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "minecraft:blue_ice"
+    },
+    "B": {
+      "item": "neoecoae:computation_casing"
+    },
+    "C": {
+      "item": "neoecoae:superconducting_processor"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "BCB",
+    "ABA"
+  ],
+  "result": {
+    "item": "neoecoae:computation_cooling_controller_l4"
+  },
+  "show_notification": true
+}

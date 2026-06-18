@@ -1,0 +1,11 @@
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "gradle.java.home": "C:\\Program Files\\Microsoft\\jdk-17.0.10.7-hotspot",
+    "java.import.gradle.java.home": "C:\\Program Files\\Microsoft\\jdk-17.0.10.7-hotspot",
+    "java.format.enabled": false,
+    "editor.formatOnSave": false,
+    "[java]": {
+        "editor.formatOnSave": false
+    }
+}

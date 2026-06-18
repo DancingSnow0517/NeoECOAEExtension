@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "tag": "forge:gems/energized_crystal"
+    }
+  },
+  "pattern": [
+    "AA",
+    "AA"
+  ],
+  "result": {
+    "item": "neoecoae:energized_crystal_block"
+  },
+  "show_notification": true
+}

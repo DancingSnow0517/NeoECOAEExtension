@@ -1,0 +1,25 @@
+{
+  "type": "expatternprovider:circuit_cutter",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "expatternprovider"
+    }
+  ],
+  "fluid_input": {
+    "amount": 100,
+    "ingredient": {
+      "fluid": "minecraft:water"
+    }
+  },
+  "item_input": {
+    "amount": 1,
+    "ingredient": {
+      "item": "neoecoae:energized_superconductive_block"
+    }
+  },
+  "output": {
+    "count": 9,
+    "item": "neoecoae:superconducting_processor_print"
+  }
+}

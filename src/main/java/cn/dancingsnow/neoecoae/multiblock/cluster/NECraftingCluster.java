@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
@@ -8,24 +9,31 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidInputHatchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOFluidOutputHatchBlockEntity;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
+
+    @Getter
     private final List<ECOCraftingParallelCoreBlockEntity> parallelCores = new ArrayList<>();
+
     @Getter
     private final List<ECOCraftingWorkerBlockEntity> workers = new ArrayList<>();
+
     @Getter
     private final List<ECOCraftingPatternBusBlockEntity> patternBuses = new ArrayList<>();
+
     @Getter
     private ECOCraftingSystemBlockEntity controller = null;
+
     @Getter
     private ECOFluidInputHatchBlockEntity inputHatch = null;
+
     @Getter
     private ECOFluidOutputHatchBlockEntity outputHatch = null;
 
@@ -63,6 +71,17 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         }
         if (blockEntity instanceof ECOFluidOutputHatchBlockEntity outputHatchBlockEntity) {
             this.outputHatch = outputHatchBlockEntity;
+        }
+        if (controller != null) {
+            controller.markStructureStatsDirty();
+        }
+    }
+
+    @Override
+    public void updateFormed(boolean formed) {
+        super.updateFormed(formed);
+        if (controller != null) {
+            controller.markStructureStatsDirty();
         }
     }
 }

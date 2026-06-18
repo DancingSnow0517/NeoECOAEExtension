@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.util;
 
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandler;
 
 public class CellHostItemHandler implements IItemHandler {
     private final ICellHost host;
@@ -17,7 +17,14 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack getStackInSlot(int slot) {
-        return host.getCellStack() != null ? host.getCellStack() : ItemStack.EMPTY;
+        // AE2 writes running crafting task state into the computation cell's ItemStack NBT.
+        // Must return the real stack reference; returning a copy causes task state to be lost on reload.
+        var stack = host.getCellStack();
+        if (stack != null) {
+            host.notifyPersistence();
+            return stack;
+        }
+        return ItemStack.EMPTY;
     }
 
     @Override
@@ -39,7 +46,7 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        if (host.getCellStack() == null) {
+        if (host.getCellStack() == null || !host.canExtractCell()) {
             return ItemStack.EMPTY;
         }
         if (amount <= 0) {

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "forge:storage_blocks/energized_fluix_crystal"
+    }
+  ],
+  "result": {
+    "count": 4,
+    "item": "neoecoae:energized_fluix_crystal"
+  }
+}

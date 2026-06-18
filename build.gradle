@@ -2,8 +2,9 @@ plugins {
     id 'idea'
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.78'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
     id 'io.freefair.lombok' version '8.7.1'
+    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 tasks.named('wrapper', Wrapper).configure {
@@ -13,16 +14,18 @@ tasks.named('wrapper', Wrapper).configure {
 version = mod_version
 group = mod_group_id
 
-
 base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+jarJar.enable()
 
 repositories {
     mavenLocal()
     mavenCentral()
+    maven { url = 'https://maven.minecraftforge.net' }
     maven {
         name = "Modrinth Maven"
         url = "https://api.modrinth.com/maven"
@@ -32,164 +35,235 @@ repositories {
     }
     maven {
         name = "CurseForge Maven"
-        url "https://cursemaven.com"
+        url = "https://cursemaven.com"
         content {
             includeGroup "curse.maven"
         }
     }
-    maven { // Registrate Fork
+    maven {
         name = "Ithundxr Maven"
         url = "https://maven.ithundxr.dev/snapshots"
     }
-    maven {// Ldlib
-        name "firstdarkdev"
-        url "https://maven.firstdarkdev.xyz/snapshots"
+    maven {
+        name = "firstdarkdev"
+        url = "https://maven.firstdarkdev.xyz/snapshots"
     }
     maven {
-        // location of the maven that hosts JEI files since January 2023
         name = "Jared's maven"
         url = "https://maven.blamejared.com/"
     }
     maven {
-        // location of a maven mirror for JEI files, as a fallback
+        name = "Curios Maven"
+        url = "https://maven.theillusivec4.top/"
+    }
+    maven {
+        name = "GeckoLib Maven"
+        url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+    }
+    maven {
         name = "ModMaven"
         url = "https://modmaven.dev"
     }
     maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
-    maven { url = "https://maven.createmod.net" } // Create, Ponder, Flywheel
+    maven { url = "https://maven.createmod.net" }
     maven {
-        // kubejs
-        url "https://maven.latvian.dev/releases"
+        url = "https://maven.latvian.dev/releases"
         content {
             includeGroup "dev.latvian.mods"
             includeGroup "dev.latvian.apps"
         }
     }
     maven {
-        name = 'GeckoLib'
-        url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
-        content {
-            includeGroup("software.bernie.geckolib")
-        }
-    }
-
-    maven {
-        // emi
         name = "TerraformersMC"
         url = "https://maven.terraformersmc.com/"
     }
-
     maven {
-        url 'https://jitpack.io'
+        url = 'https://jitpack.io'
         content {
             includeGroup "com.github.rtyley"
         }
     }
-    maven { url "https://maven.shedaniel.me/" }
+    maven { url = "https://maven.shedaniel.me/" }
 }
 
-dependencies {
-    api("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
-    jarJar("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
+spotless {
+    lineEndings 'UNIX'
 
-    compileOnly("org.appliedenergistics:guideme:21.1.1:api")
-    runtimeOnly("org.appliedenergistics:guideme:21.1.1")
+    java {
+        target 'src/**/*.java'
+        targetExclude 'build/**', 'run/**', 'src/generated/**'
 
-    implementation("org.appliedenergistics:appliedenergistics2:19.2.17")
-
-    implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }
-    compileOnly("org.appliedenergistics.yoga:yoga:${yoga_version}")
-    compileOnly("dev.vfyjxf:taffy:${taffy_version}")
-
-    implementation("curse.maven:mekanism-268560:7132168")
-    implementation("curse.maven:applied-mekanistics-574300:7096962")
-
-    implementation("curse.maven:glodium-957920:5821676")
-    implementation("curse.maven:ex-pattern-provider-892005:7478960")
-
-    implementation("curse.maven:advancedae-1084104:7374386")
-
-    implementation("curse.maven:jade-324717:7428884")
-
-    compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
-    runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
-    compileOnly("dev.emi:emi-neoforge:${emi_version}")
-
-    implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
-
-    api("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
-    interfaceInjectionData("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
-}
-
-neoForge {
-    version = project.neo_version
-
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
+        importOrder()
+        removeUnusedImports()
+        palantirJavaFormat('2.28.0')
+        formatAnnotations()
     }
+
+    groovyGradle {
+        target '*.gradle', 'gradle/**/*.gradle'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    format 'json', {
+        target 'src/main/resources/**/*.json'
+        targetExclude 'src/generated/**'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    format 'misc', {
+        target '*.md', '.gitignore', '.gitattributes'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+minecraft {
+    mappings channel: 'official', version: minecraft_version
+    copyIdeResources = true
 
     runs {
         client {
-            client()
-
-            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            workingDirectory project.file('run/client')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'info'
+            property 'neoecoae.validateChemicalCells', System.getProperty('neoecoae.validateChemicalCells', 'false')
+            property 'neoecoae.debugMultiblockMirror', System.getProperty('neoecoae.debugMultiblockMirror', 'false')
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            args '--width', '1920', '--height', '1080'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
         }
 
         aeGuide {
-            client()
-
-            systemProperty 'guideme.ae2.guide.sources', file('guidebook').absolutePath
-            systemProperty 'guideme.ae2.guide.sourcesNamespace', 'neoecoae'
+            parent runs.client
+            property 'guideme.ae2.guide.sources', file('guidebook').absolutePath
+            property 'guideme.ae2.guide.sourcesNamespace', 'neoecoae'
         }
 
         server {
-            server()
-            programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        gameTestServer {
-            type = "gameTestServer"
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            workingDirectory project.file('run/server')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'info'
+            property 'neoecoae.validateChemicalCells', System.getProperty('neoecoae.validateChemicalCells', 'false')
+            property 'neoecoae.debugMultiblockMirror', System.getProperty('neoecoae.debugMultiblockMirror', 'false')
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            args '--nogui'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
         }
 
         data {
-            data()
-
-            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
-        }
-
-        configureEach {
-            systemProperty 'forge.logging.markers', 'REGISTRIES'
-            jvmArgument '-XX:+IgnoreUnrecognizedVMOptions'
-            jvmArgument '-XX:+AllowEnhancedClassRedefinition'
-            logLevel = org.slf4j.event.Level.DEBUG
+            workingDirectory project.file('run/data')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'info'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            args '--mod', project.mod_id, '--all',
+                    '--output', file('src/generated/resources/').absolutePath,
+                    '--existing', file('src/main/resources/').absolutePath
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
         }
     }
+}
 
-    mods {
-        "${mod_id}" {
-            sourceSet(sourceSets.main)
-        }
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    testImplementation platform("org.junit:junit-bom:5.10.2")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testImplementation fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
+
+    implementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
+    jarJar(fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")) {
+        jarJar.ranged(it, "[${registrate_version},)")
+    }
+    implementation fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
+
+    compileOnly("org.appliedenergistics:guideme:${guideme_version}:api")
+    runtimeOnly fg.deobf("org.appliedenergistics:guideme:${guideme_version}")
+
+    compileOnly("dev.vfyjxf:taffy:${taffy_version}")
+
+    compileOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")
+    runtimeOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")
+    compileOnly fg.deobf("curse.maven:applied-mekanistics-574300:${appmek_file_id}")
+    runtimeOnly fg.deobf("curse.maven:applied-mekanistics-574300:${appmek_file_id}")
+    compileOnly fg.deobf("curse.maven:applied-flux-965012:${appflux_file_id}")
+    runtimeOnly fg.deobf("curse.maven:applied-flux-965012:${appflux_file_id}")
+    runtimeOnly fg.deobf("curse.maven:glodium-957920:${glodium_file_id}")
+    compileOnly fg.deobf("curse.maven:applied-botanics-addon-610632:${appbot_file_id}")
+    runtimeOnly fg.deobf("curse.maven:applied-botanics-addon-610632:${appbot_file_id}")
+    compileOnly fg.deobf("vazkii.botania:Botania:${botania_version}")
+    runtimeOnly fg.deobf("vazkii.botania:Botania:${botania_version}")
+    runtimeOnly fg.deobf("vazkii.patchouli:Patchouli:${patchouli_version}")
+    compileOnly fg.deobf("curse.maven:ars-energistique-905641:${arseng_file_id}")
+    runtimeOnly fg.deobf("curse.maven:ars-energistique-905641:${arseng_file_id}")
+    compileOnly fg.deobf("com.hollingsworth.ars_nouveau:ars_nouveau-1.20.1:${ars_nouveau_version}")
+    runtimeOnly fg.deobf("com.hollingsworth.ars_nouveau:ars_nouveau-1.20.1:${ars_nouveau_version}")
+    runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:${curios_version}")
+    runtimeOnly fg.deobf("software.bernie.geckolib:geckolib-forge-1.20.1:${geckolib_version}")
+
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
+    compileOnly("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
+    runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
+    compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
+    // runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
+    annotationProcessor "dev.emi:emi-forge:${emi_version}"
+
+    compileOnly fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
+    runtimeOnly fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
+
+    compileOnly fg.deobf("maven.modrinth:jade:${jade_version}")
+    runtimeOnly fg.deobf("maven.modrinth:jade:${jade_version}")
+
+    compileOnly("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
+    annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
+    annotationProcessor("org.spongepowered:mixin:0.8.7:processor")
+    runtimeOnly fg.deobf("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")
+    jarJar(fg.deobf("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")) {
+        jarJar.ranged(it, "[${mixinextras_version},)")
     }
 }
 
 sourceSets.main.resources {
-    srcDirs 'src/generated/resources', 'src/guidebook/resources'
+    srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources'
 }
 
-configurations {
-    runtimeClasspath.extendsFrom localRuntime
+sourceSets.main.output.dir(layout.buildDirectory.dir('generated/refmap'), builtBy: 'compileJava')
+
+def forge120JavaExcludes = [
+        'cn/dancingsnow/neoecoae/mixins/**',
+        'cn/dancingsnow/neoecoae/client/model/**',
+        'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java',
+        'cn/dancingsnow/neoecoae/client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java',
+        'cn/dancingsnow/neoecoae/all/NEDataComponents.java',
+        'cn/dancingsnow/neoecoae/api/components/**'
+]
+
+sourceSets.main.java {
+    exclude forge120JavaExcludes
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
     var replaceProperties = [
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
-            neo_version_range      : neo_version_range,
+            forge_version          : forge_version,
+            forge_version_range    : forge_version_range,
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
@@ -206,7 +280,106 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 
 sourceSets.main.resources.srcDir generateModMetadata
 
-neoForge.ideSyncTask generateModMetadata
+processResources.dependsOn generateModMetadata
+processResources.dependsOn 'copyGuidebook'
+tasks.named('processResources', ProcessResources).configure {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+jar {
+    finalizedBy 'reobfJar'
+
+    manifest {
+        attributes([
+                "Specification-Title"     : mod_id,
+                "Specification-Vendor"    : mod_authors,
+                "Specification-Version"   : "1",
+                "Implementation-Title"    : project.name,
+                "Implementation-Version"  : project.jar.archiveVersion,
+                "Implementation-Vendor"   : mod_authors,
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                "MixinConfigs"            : "${mod_id}.mixins.json"
+        ])
+    }
+}
+
+def slimJarFile = layout.buildDirectory.file("libs/${base.archivesName.get()}-${version}-slim.jar")
+
+tasks.matching { it.name == 'reobfJar' }.configureEach {
+    outputs.file(slimJarFile)
+
+    doLast {
+        def output = slimJarFile.get().asFile
+        output.parentFile.mkdirs()
+        output.delete()
+        ant.zip(destfile: output) {
+            zipfileset(src: tasks.named('jar', Jar).get().archiveFile.get().asFile, excludes: 'META-INF/jarjar/**')
+        }
+        logger.lifecycle("Slim jar written to ${output}")
+    }
+}
+
+tasks.register('verifyReleaseJar') {
+    group = 'verification'
+    description = 'Verifies that the distributable jar is reobfuscated and contains the expected production mixins.'
+    dependsOn 'reobfJar'
+
+    doLast {
+        def jarFile = tasks.named('jar', Jar).get().archiveFile.get().asFile
+        def zip = new java.util.zip.ZipFile(jarFile)
+
+        try {
+            def creativeTabsEntry = zip.getEntry('cn/dancingsnow/neoecoae/all/NECreativeTabs.class')
+            if (creativeTabsEntry == null) {
+                throw new GradleException("Release jar is missing NECreativeTabs.class: ${jarFile}")
+            }
+
+            def creativeTabsClass = new String(
+                    zip.getInputStream(creativeTabsEntry).bytes,
+                    java.nio.charset.StandardCharsets.ISO_8859_1)
+            if (creativeTabsClass.contains('CREATIVE_MODE_TAB')) {
+                throw new GradleException(
+                        "Release jar is not reobfuscated. Run reobfJar before distributing: ${jarFile}")
+            }
+
+            if (zip.getEntry('cn/dancingsnow/neoecoae/forge/mixin/StorageCellsMixin120.class') == null) {
+                throw new GradleException("Release jar is missing StorageCellsMixin120.class: ${jarFile}")
+            }
+
+            if (zip.getEntry('cn/dancingsnow/neoecoae/gui/ldlib/support/NEPagedItemTransfer.class') == null) {
+                throw new GradleException("Release jar is missing NEPagedItemTransfer.class: ${jarFile}")
+            }
+
+            if (zip.getEntry('cn/dancingsnow/neoecoae/forge/mixin/IOPortBlockEntityMixin120.class') != null) {
+                throw new GradleException("Release jar still contains the removed IO port ticking mixin: ${jarFile}")
+            }
+
+            def mixinConfigEntry = zip.getEntry("${mod_id}.mixins.json")
+            if (mixinConfigEntry == null) {
+                throw new GradleException("Release jar is missing ${mod_id}.mixins.json: ${jarFile}")
+            }
+        } finally {
+            zip.close()
+        }
+    }
+}
+
+tasks.register('release', Copy) {
+    group = 'build'
+    description = 'Builds the production reobfuscated mod jar and copies it to build/release.'
+    dependsOn 'verifyReleaseJar'
+
+    from(tasks.named('jar', Jar).flatMap { it.archiveFile })
+    into(layout.buildDirectory.dir('release'))
+
+    doFirst {
+        delete layout.buildDirectory.dir('release')
+    }
+
+    doLast {
+        logger.lifecycle("Release jar written to ${destinationDir}")
+    }
+}
 
 publishing {
     publications {
@@ -216,13 +389,33 @@ publishing {
     }
     repositories {
         maven {
-            url "file://${project.projectDir}/repo"
+            url = "file://${project.projectDir}/repo"
         }
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
+tasks.named('check').configure {
+    dependsOn 'spotlessCheck'
+}
+
+tasks.named('compileJava', JavaCompile).configure {
+    dependsOn 'createMcpToSrg'
+    def refmapFile = layout.buildDirectory.file("generated/refmap/${mod_id}.refmap.json").get().asFile
+    def tsrgFile = layout.buildDirectory.file('createMcpToSrg/output.tsrg').get().asFile
+    options.compilerArgs += [
+            "-AoutRefMapFile=${refmapFile.absolutePath}",
+            "-AdefaultObfuscationEnv=searge",
+            "-AreobfTsrgFile=${tsrgFile.absolutePath}"
+    ]
+    outputs.file(refmapFile)
 }
 
 tasks.register('copyGuidebook', Copy) {
@@ -240,15 +433,13 @@ idea {
 }
 
 tasks.register('sourcesJar', Jar) {
-    dependsOn delombok
-    from delombok.outputs.files
+    from sourceSets.main.java
     archiveClassifier = "sources"
 }
 
 artifacts {
     archives sourcesJar
 }
-
 
 lombok {
     version = "1.18.34"

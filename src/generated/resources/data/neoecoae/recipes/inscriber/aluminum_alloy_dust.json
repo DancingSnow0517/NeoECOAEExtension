@@ -1,0 +1,12 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "tag": "forge:ingots/aluminum_alloy"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "item": "neoecoae:aluminum_alloy_dust"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "addition": {
+    "tag": "forge:ingots/aluminum_alloy"
+  },
+  "base": {
+    "item": "neoecoae:aluminum_shovel"
+  },
+  "result": {
+    "item": "neoecoae:aluminum_alloy_shovel"
+  },
+  "template": {
+    "item": "neoecoae:aluminum_alloy_upgrade_smithing_template"
+  }
+}

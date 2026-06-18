@@ -1,0 +1,12 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "tag": "forge:ingots/tungsten"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "item": "neoecoae:tungsten_dust"
+  }
+}

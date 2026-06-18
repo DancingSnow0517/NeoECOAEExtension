@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "ae2:sky_dust"
+    },
+    "B": {
+      "item": "neoecoae:cryotheum"
+    }
+  },
+  "pattern": [
+    "AAA",
+    "ABA",
+    "AAA"
+  ],
+  "result": {
+    "item": "neoecoae:cryotheum_crystal"
+  },
+  "show_notification": true
+}

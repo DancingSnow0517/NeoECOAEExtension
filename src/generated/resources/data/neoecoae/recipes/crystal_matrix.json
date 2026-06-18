@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:crystal_ingot"
+    }
+  },
+  "pattern": [
+    "A A",
+    " A ",
+    "A A"
+  ],
+  "result": {
+    "item": "neoecoae:crystal_matrix"
+  },
+  "show_notification": true
+}

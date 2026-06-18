@@ -18,16 +18,6 @@
 
 package cn.dancingsnow.neoecoae.api.me;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
@@ -36,15 +26,37 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCompiledFastPathPattern;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathPatternMetadata;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.config.NEConfig;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 
 public class ExecutingCraftingJob {
     private static final String NBT_LINK = "link";
     private static final String NBT_PLAYER_ID = "playerId";
     private static final String NBT_FINAL_OUTPUT = "finalOutput";
     private static final String NBT_WAITING_FOR = "waitingFor";
+    private static final String NBT_IN_FLIGHT_OUTPUTS = "inFlightOutputs";
     private static final String NBT_TIME_TRACKER = "timeTracker";
     private static final String NBT_REMAINING_AMOUNT = "remainingAmount";
     private static final String NBT_TASKS = "tasks";
@@ -53,12 +65,17 @@ public class ExecutingCraftingJob {
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
-    final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
+    final KeyCounter inFlightOutputs = new KeyCounter();
+    final Map<IPatternDetails, TaskProgress> tasks = new LinkedHashMap<>();
+    final Map<IPatternDetails, List<IPatternDetails>> dependencies = new IdentityHashMap<>();
+    final Map<IPatternDetails, List<AEKey>> inputKeys = new IdentityHashMap<>();
+    final Map<IPatternDetails, List<AEKey>> dependencyOutputKeys = new IdentityHashMap<>();
     final ElapsedTimeTracker timeTracker;
     GenericStack finalOutput;
     long remainingAmount;
-    @Nullable
-    Integer playerId;
+
+    @Nullable Integer playerId;
+
     boolean suspended;
 
     @FunctionalInterface
@@ -66,7 +83,11 @@ public class ExecutingCraftingJob {
         void onCraftingDifference(AEKey what);
     }
 
-    ExecutingCraftingJob(ICraftingPlan plan, CraftingDifferenceListener postCraftingDifference, CraftingLink link,
+    ExecutingCraftingJob(
+            ICraftingPlan plan,
+            CraftingDifferenceListener postCraftingDifference,
+            CraftingLink link,
+            Level level,
             @Nullable Integer playerId) {
         this.finalOutput = plan.finalOutput();
         this.remainingAmount = this.finalOutput.amount();
@@ -85,23 +106,28 @@ public class ExecutingCraftingJob {
                 timeTracker.addMaxItems(amount, output.what().getType());
             }
         }
+        rebuildTaskOrderAndDependencies(level);
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
     }
 
-    ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
-            CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic logic) {
+    ExecutingCraftingJob(
+            CompoundTag data,
+            HolderLookup.Provider registries,
+            CraftingDifferenceListener postCraftingDifference,
+            ECOCraftingCPULogic logic) {
         this.link = new CraftingLink(data.getCompound(NBT_LINK), logic.cpu);
         IGrid grid = logic.cpu.getGrid();
         if (grid != null) {
             ((CraftingService) grid.getCraftingService()).addLink(link);
         }
 
-        this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
+        this.finalOutput = GenericStack.readTag(data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
-        this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
+        this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND));
+        readCounter(inFlightOutputs, data.getList(NBT_IN_FLIGHT_OUTPUTS, Tag.TAG_COMPOUND));
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);
@@ -112,7 +138,7 @@ public class ExecutingCraftingJob {
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
-            var pattern = AEItemKey.fromTag(registries, item);
+            var pattern = AEItemKey.fromTag(item);
             var details = PatternDetailsHelper.decodePattern(pattern, logic.cpu.getLevel());
             if (details != null) {
                 final TaskProgress tp = new TaskProgress();
@@ -120,6 +146,7 @@ public class ExecutingCraftingJob {
                 this.tasks.put(details, tp);
             }
         }
+        rebuildTaskOrderAndDependencies(logic.cpu.getLevel());
 
         this.suspended = data.getBoolean(NBT_SUSPENDED);
     }
@@ -131,14 +158,15 @@ public class ExecutingCraftingJob {
         link.writeToNBT(linkData);
         data.put(NBT_LINK, linkData);
 
-        data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(registries, finalOutput));
+        data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(finalOutput));
 
-        data.put(NBT_WAITING_FOR, waitingFor.writeToNBT(registries));
+        data.put(NBT_WAITING_FOR, waitingFor.writeToNBT());
+        data.put(NBT_IN_FLIGHT_OUTPUTS, writeCounter(inFlightOutputs));
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
 
         final ListTag list = new ListTag();
         for (var e : this.tasks.entrySet()) {
-            var item = e.getKey().getDefinition().toTag(registries);
+            var item = e.getKey().getDefinition().toTag();
             item.putLong(NBT_CRAFTING_PROGRESS, e.getValue().value);
             list.add(item);
         }
@@ -153,7 +181,212 @@ public class ExecutingCraftingJob {
         return data;
     }
 
+    DispatchBlock getDispatchBlock(IPatternDetails details) {
+        for (AEKey inputKey : inputKeys.getOrDefault(details, List.of())) {
+            if (inFlightOutputs.get(inputKey) > 0) {
+                return DispatchBlock.IN_FLIGHT_OUTPUT;
+            }
+        }
+        for (AEKey outputKey : dependencyOutputKeys.getOrDefault(details, List.of())) {
+            if (inFlightOutputs.get(outputKey) > 0) {
+                return DispatchBlock.IN_FLIGHT_OUTPUT;
+            }
+        }
+
+        for (IPatternDetails dependency : dependencies.getOrDefault(details, List.of())) {
+            TaskProgress progress = tasks.get(dependency);
+            if (progress != null && progress.value > 0) {
+                return DispatchBlock.UNFINISHED_DEPENDENCY;
+            }
+        }
+
+        return DispatchBlock.NONE;
+    }
+
+    void addInFlightOutputs(List<GenericStack> stacks, int multiplier) {
+        int count = Math.max(1, multiplier);
+        for (GenericStack stack : stacks) {
+            inFlightOutputs.add(stack.what(), stack.amount() * count);
+        }
+    }
+
+    void removeInFlightOutput(AEKey what, long amount) {
+        long tracked = inFlightOutputs.get(what);
+        if (tracked <= 0) {
+            return;
+        }
+        inFlightOutputs.remove(what, Math.min(tracked, amount));
+        inFlightOutputs.removeZeros();
+    }
+
+    private void rebuildTaskOrderAndDependencies(Level level) {
+        dependencies.clear();
+        inputKeys.clear();
+        dependencyOutputKeys.clear();
+
+        List<IPatternDetails> taskDetails = new ArrayList<>(tasks.keySet());
+        taskDetails.sort((left, right) -> patternSortId(left).compareTo(patternSortId(right)));
+
+        for (IPatternDetails task : taskDetails) {
+            Set<AEKey> inputs = new LinkedHashSet<>();
+            for (IPatternDetails.IInput input : task.getInputs()) {
+                for (GenericStack possibleInput : input.getPossibleInputs()) {
+                    if (possibleInput != null && possibleInput.amount() > 0) {
+                        inputs.add(possibleInput.what());
+                    }
+                }
+            }
+            inputKeys.put(task, List.copyOf(inputs));
+
+            Set<IPatternDetails> upstream = Collections.newSetFromMap(new IdentityHashMap<>());
+            Set<AEKey> upstreamOutputs = new LinkedHashSet<>();
+            for (IPatternDetails producer : taskDetails) {
+                if (producer == task) {
+                    continue;
+                }
+                for (GenericStack output : producer.getOutputs()) {
+                    if (canUseOutputAsInput(task, output.what(), level)) {
+                        upstream.add(producer);
+                        upstreamOutputs.add(output.what());
+                        break;
+                    }
+                }
+            }
+            dependencyOutputKeys.put(task, List.copyOf(upstreamOutputs));
+
+            List<IPatternDetails> orderedUpstream = new ArrayList<>(upstream);
+            orderedUpstream.sort((left, right) -> patternSortId(left).compareTo(patternSortId(right)));
+            dependencies.put(task, List.copyOf(orderedUpstream));
+        }
+
+        Map<IPatternDetails, Integer> depths = new IdentityHashMap<>();
+        List<Map.Entry<IPatternDetails, TaskProgress>> orderedTasks = new ArrayList<>(tasks.entrySet());
+        orderedTasks.sort((left, right) -> {
+            int depthCompare = Integer.compare(
+                    dependencyDepth(left.getKey(), depths, Collections.newSetFromMap(new IdentityHashMap<>())),
+                    dependencyDepth(right.getKey(), depths, Collections.newSetFromMap(new IdentityHashMap<>())));
+            if (depthCompare != 0) {
+                return depthCompare;
+            }
+            return patternSortId(left.getKey()).compareTo(patternSortId(right.getKey()));
+        });
+
+        tasks.clear();
+        for (var entry : orderedTasks) {
+            tasks.put(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private static boolean canUseOutputAsInput(IPatternDetails consumer, AEKey outputKey, Level level) {
+        for (IPatternDetails.IInput input : consumer.getInputs()) {
+            try {
+                if (input.isValid(outputKey, level)) {
+                    return true;
+                }
+            } catch (RuntimeException e) {
+                for (GenericStack possibleInput : input.getPossibleInputs()) {
+                    if (possibleInput != null && outputKey.equals(possibleInput.what())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private int dependencyDepth(
+            IPatternDetails details, Map<IPatternDetails, Integer> depths, Set<IPatternDetails> visiting) {
+        Integer cached = depths.get(details);
+        if (cached != null) {
+            return cached;
+        }
+        if (!visiting.add(details)) {
+            return 0;
+        }
+
+        int depth = 0;
+        for (IPatternDetails dependency : dependencies.getOrDefault(details, List.of())) {
+            depth = Math.max(depth, 1 + dependencyDepth(dependency, depths, visiting));
+        }
+        visiting.remove(details);
+        depths.put(details, depth);
+        return depth;
+    }
+
+    private static String patternSortId(IPatternDetails details) {
+        try {
+            return ECOFastPathStacks.keySortId(details.getDefinition());
+        } catch (RuntimeException e) {
+            return details.getClass().getName() + ":" + System.identityHashCode(details);
+        }
+    }
+
+    private static ListTag writeCounter(KeyCounter counter) {
+        ListTag list = new ListTag();
+        for (Object2LongMap.Entry<AEKey> entry : counter) {
+            if (entry.getLongValue() > 0) {
+                list.add(GenericStack.writeTag(new GenericStack(entry.getKey(), entry.getLongValue())));
+            }
+        }
+        return list;
+    }
+
+    private static void readCounter(KeyCounter counter, ListTag list) {
+        for (int i = 0; i < list.size(); i++) {
+            GenericStack stack = GenericStack.readTag(list.getCompound(i));
+            if (stack != null && stack.amount() > 0) {
+                counter.add(stack.what(), stack.amount());
+            }
+        }
+    }
+
+    enum DispatchBlock {
+        NONE,
+        UNFINISHED_DEPENDENCY,
+        IN_FLIGHT_OUTPUT
+    }
+
     static class TaskProgress {
         long value = 0;
+
+        @Nullable private ECOCompiledFastPathPattern compiledFastPathPattern;
+
+        @Nullable private ECOFastPathPatternMetadata fastPathMetadata;
+
+        ECOCompiledFastPathPattern getCompiledFastPathPattern(IPatternDetails details) {
+            if (compiledFastPathPattern == null || !compiledFastPathPattern.isCurrent()) {
+                compiledFastPathPattern = ECOCompiledFastPathPattern.compile(details);
+                fastPathMetadata = null;
+            }
+            return compiledFastPathPattern;
+        }
+
+        ECOExtractedPatternExecution createPatternExecution(
+                IPatternDetails details,
+                KeyCounter[] craftingContainer,
+                KeyCounter expectedContainerItems,
+                Level level) {
+            ECOCompiledFastPathPattern compiledPattern = getCompiledFastPathPattern(details);
+            List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
+            boolean canBuildFastPath = NEConfig.isEcoAe2FastPathEnabled()
+                    && !NEConfig.postCraftingEvent
+                    && compiledPattern.canBuildFastPath(containers);
+            ECOFastPathPatternMetadata metadata =
+                    canBuildFastPath ? getFastPathMetadata(compiledPattern, craftingContainer, level) : null;
+            return ECOExtractedPatternExecution.create(
+                    details, compiledPattern, metadata, craftingContainer, containers, canBuildFastPath, level);
+        }
+
+        @Nullable private ECOFastPathPatternMetadata getFastPathMetadata(
+                ECOCompiledFastPathPattern compiledPattern, KeyCounter[] craftingContainer, Level level) {
+            if (!compiledPattern.canCacheFastPathInputs()) {
+                fastPathMetadata = null;
+                return null;
+            }
+            if (fastPathMetadata == null || !fastPathMetadata.isCurrent(compiledPattern, level)) {
+                fastPathMetadata = ECOFastPathPatternMetadata.create(compiledPattern, craftingContainer, level);
+            }
+            return fastPathMetadata;
+        }
     }
 }

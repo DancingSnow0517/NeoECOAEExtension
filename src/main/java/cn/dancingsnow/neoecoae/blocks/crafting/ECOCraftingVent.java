@@ -16,10 +16,7 @@ public class ECOCraftingVent extends NEBlock<ECOCraftingVentBlockEntity> {
 
     public ECOCraftingVent(Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(FACING, Direction.NORTH)
-        );
+        registerDefaultState(getStateDefinition().any().setValue(FORMED, false).setValue(FACING, Direction.NORTH));
     }
 
     @Override

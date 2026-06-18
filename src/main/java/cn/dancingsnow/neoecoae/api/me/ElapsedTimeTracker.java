@@ -18,15 +18,20 @@
 
 package cn.dancingsnow.neoecoae.api.me;
 
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEKeyTypes;
+import com.google.common.math.LongMath;
+import it.unimi.dsi.fastutil.objects.Reference2LongMap;
+import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
 
-import it.unimi.dsi.fastutil.objects.Reference2LongMap;
-import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
-
-import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.AEKeyTypes;
-
+/**
+ * Local fork of AE2's elapsed time tracker.
+ *
+ * <p>AE2's implementation is public, but its mutation methods are package-private,
+ * while ECO crafting logic needs to update work counters from this package.
+ */
 public class ElapsedTimeTracker {
     private static final String NBT_ELAPSED_TIME = "elapsedTime";
     private static final String NBT_STARTED_WORK = "startedWork";
@@ -35,13 +40,10 @@ public class ElapsedTimeTracker {
     private long lastTime = System.nanoTime();
     private long elapsedTime = 0;
 
-    private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(
-            AEKeyTypes.getAll().size());
-    private final Reference2LongMap<AEKeyType> completedWorkByType = new Reference2LongOpenHashMap<>(
-            AEKeyTypes.getAll().size());
+    private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(4);
+    private final Reference2LongMap<AEKeyType> completedWorkByType = new Reference2LongOpenHashMap<>(4);
 
-    public ElapsedTimeTracker() {
-    }
+    public ElapsedTimeTracker() {}
 
     public ElapsedTimeTracker(CompoundTag data) {
         this.elapsedTime = data.getLong(NBT_ELAPSED_TIME);
@@ -83,8 +85,7 @@ public class ElapsedTimeTracker {
     }
 
     private long saturatedSum(long a, long b) {
-        var result = a + b;
-        return result < 0 ? Long.MAX_VALUE : result;
+        return LongMath.saturatedAdd(a, b);
     }
 
     void addMaxItems(long itemDiff, AEKeyType keyType) {
@@ -108,7 +109,7 @@ public class ElapsedTimeTracker {
         }
     }
 
-    // TODO: 1.21.4 Change the network packet and screen to use this rather than the counts below
+    // TODO: Change the network packet and screen to use this rather than the counts below.
     public float getProgress() {
         double startedUnits = 0;
         double completedUnits = 0;
@@ -119,16 +120,17 @@ public class ElapsedTimeTracker {
             completedUnits += completedForType / (double) keyType.getAmountPerUnit();
         }
 
+        if (startedUnits <= 0) {
+            return 1;
+        }
         return Mth.clamp((float) (completedUnits / startedUnits), 0, 1);
     }
 
-    @Deprecated(forRemoval = true)
-    public long getRemainingItemCount() {
+    public long getSyntheticRemainingItemCount() {
         return (int) (Integer.MAX_VALUE - (double) getProgress() * Integer.MAX_VALUE);
     }
 
-    @Deprecated(forRemoval = true)
-    public long getStartItemCount() {
+    public long getSyntheticStartItemCount() {
         return Integer.MAX_VALUE;
     }
 }

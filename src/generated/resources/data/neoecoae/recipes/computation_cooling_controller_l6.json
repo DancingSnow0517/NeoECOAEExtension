@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:cryotheum_crystal"
+    },
+    "B": {
+      "item": "neoecoae:crystal_ingot"
+    },
+    "C": {
+      "item": "neoecoae:computation_cooling_controller_l4"
+    },
+    "D": {
+      "item": "neoecoae:superconducting_processor"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "DCD",
+    "ABA"
+  ],
+  "result": {
+    "item": "neoecoae:computation_cooling_controller_l6"
+  },
+  "show_notification": true
+}

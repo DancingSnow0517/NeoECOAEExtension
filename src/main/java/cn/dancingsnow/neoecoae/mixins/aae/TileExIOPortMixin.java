@@ -14,7 +14,13 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(TileExIOPort.class)
 @Pseudo
 public class TileExIOPortMixin {
-    @WrapOperation(method = "tickingRequest", at = @At(value = "INVOKE", target = "Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;"))
+    @WrapOperation(
+            method = "tickingRequest",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/api/storage/StorageCells;getCellInventory(Lnet/minecraft/world/item/ItemStack;Lappeng/api/storage/cells/ISaveProvider;)Lappeng/api/storage/cells/StorageCell;"))
     private StorageCell wrapGetCellInventory(ItemStack inventory, ISaveProvider ch, Operation<StorageCell> original) {
         StorageCell invOriginal = original.call(inventory, ch);
         if (invOriginal != null) {

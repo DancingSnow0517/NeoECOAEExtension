@@ -18,11 +18,11 @@ public class ECOCraftingWorker extends NEBlock<ECOCraftingWorkerBlockEntity> {
 
     public ECOCraftingWorker(Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(FACING, Direction.NORTH)
-            .setValue(WORKING, false)
-        );
+        registerDefaultState(getStateDefinition()
+                .any()
+                .setValue(FORMED, false)
+                .setValue(FACING, Direction.NORTH)
+                .setValue(WORKING, false));
     }
 
     @Override

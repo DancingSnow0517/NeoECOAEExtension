@@ -1,0 +1,365 @@
+package cn.dancingsnow.neoecoae.gui.ldlib.widget;
+
+import static cn.dancingsnow.neoecoae.gui.ldlib.layout.NEIntegratedWorkingStationLayout.*;
+
+import appeng.client.gui.Icon;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeFluidStorage;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEIntegratedWorkingStationUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
+import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
+import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
+import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
+import com.lowdragmc.lowdraglib.side.item.IItemTransfer;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Inventory;
+
+public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<NEIntegratedWorkingStationUiState> {
+    public static final int UI_WIDTH = -TOGGLE_BTN_X + UPGRADE_PANEL_X + UPGRADE_PANEL_W;
+    public static final int UI_HEIGHT = PANEL_H;
+    private static final int MAIN_X = -TOGGLE_BTN_X;
+    private static final int AUTO_EXPORT_BUTTON_X = 0;
+    private static final int CLEAR_FLUID_ACTION_ID = 2;
+
+    private final ECOIntegratedWorkingStationBlockEntity station;
+    private final Inventory playerInventory;
+    private NEAe2IconButtonWidget autoExportButton;
+
+    public NEIntegratedWorkingStationWidget(ECOIntegratedWorkingStationBlockEntity station, Inventory playerInventory) {
+        super(
+                station.getBlockState().getBlock().getName(),
+                UI_WIDTH,
+                UI_HEIGHT,
+                NEIntegratedWorkingStationUiState.empty(),
+                station::createIntegratedWorkingStationUiState,
+                NELDLibStateCodecs::writeIntegratedWorkingStation,
+                NELDLibStateCodecs::readIntegratedWorkingStation,
+                10);
+        this.station = station;
+        this.playerInventory = playerInventory;
+    }
+
+    @Override
+    protected boolean shouldAddTitleWidget() {
+        return false;
+    }
+
+    @Override
+    protected boolean shouldDrawBasePanel() {
+        return false;
+    }
+
+    @Override
+    protected void initLdWidgets() {
+        var inputContainer = station.getInput().toContainer();
+        var outputContainer = station.getOutput().toContainer();
+        var upgradeTransfer = new NEForgeItemTransfer(station.getUpgradeItemHandler(), station::onGuiInventoryChanged);
+
+        for (int row = 0; row < INPUT_ROWS; row++) {
+            for (int col = 0; col < INPUT_COLS; col++) {
+                addWidget(aeSlot(
+                        inputContainer,
+                        col + row * INPUT_COLS,
+                        mainX(INPUT_SLOT_X + col * SLOT_SIZE),
+                        INPUT_SLOT_Y + row * SLOT_SIZE,
+                        SlotAccess.INPUT_OUTPUT,
+                        station::onGuiInventoryChanged));
+            }
+        }
+
+        addWidget(aeSlot(
+                outputContainer,
+                0,
+                mainX(OUTPUT_SLOT_X),
+                OUTPUT_SLOT_Y,
+                SlotAccess.OUTPUT_ONLY,
+                station::onGuiInventoryChanged));
+
+        for (int i = 0; i < UPGRADE_COUNT; i++) {
+            addWidget(aeSlot(
+                    upgradeTransfer,
+                    i,
+                    mainX(UPGRADE_SLOT_X),
+                    UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE,
+                    SlotAccess.INPUT_OUTPUT));
+        }
+
+        NEPlayerInventoryWidgets.addPlayerInventorySlots(
+                this, playerInventory, mainX(PLAYER_INV_SLOT_X), PLAYER_INV_SLOT_Y, HOTBAR_SLOT_Y);
+
+        autoExportButton = new NEAe2IconButtonWidget(
+                AUTO_EXPORT_BUTTON_X,
+                TOGGLE_BTN_Y,
+                TOGGLE_BTN_W,
+                TOGGLE_BTN_H,
+                currentState().autoExport() ? Icon.AUTO_EXPORT_ON : Icon.AUTO_EXPORT_OFF,
+                click -> {
+                    if (!click.isRemote) {
+                        station.toggleAutoExport();
+                        station.onGuiStateChanged();
+                        syncStateNow();
+                    }
+                });
+        addWidget(autoExportButton);
+
+        addWidget(new TankWidget(
+                        new NEForgeFluidStorage(station.getInputTank()),
+                        mainX(FLUID_IN_X),
+                        FLUID_IN_Y,
+                        FLUID_IN_W,
+                        FLUID_IN_H,
+                        true,
+                        true)
+                .setShowAmount(false)
+                .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
+                .setAllowClickFilled(true)
+                .setAllowClickDrained(true)
+                .setChangeListener(station::onGuiInventoryChanged));
+        addWidget(new TankWidget(
+                        new NEForgeFluidStorage(station.getOutputTank()),
+                        mainX(FLUID_OUT_X),
+                        FLUID_OUT_Y,
+                        FLUID_OUT_W,
+                        FLUID_OUT_H,
+                        true,
+                        true)
+                .setShowAmount(false)
+                .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
+                .setAllowClickFilled(false)
+                .setAllowClickDrained(true)
+                .setChangeListener(station::onGuiInventoryChanged));
+    }
+
+    private SlotWidget aeSlot(IItemTransfer transfer, int index, int x, int y, boolean canTake, boolean canPut) {
+        return new SlotWidget(transfer, index, x, y, canTake, canPut).setBackgroundTexture(IGuiTexture.EMPTY);
+    }
+
+    private SlotWidget aeSlot(Container container, int index, int x, int y, boolean canTake, boolean canPut) {
+        return new SlotWidget(container, index, x, y, canTake, canPut).setBackgroundTexture(IGuiTexture.EMPTY);
+    }
+
+    private SlotWidget aeSlot(IItemTransfer transfer, int index, int x, int y, SlotAccess access) {
+        return aeSlot(transfer, index, x, y, access.canTake, access.canPut);
+    }
+
+    private SlotWidget aeSlot(Container container, int index, int x, int y, SlotAccess access) {
+        return aeSlot(container, index, x, y, access.canTake, access.canPut);
+    }
+
+    private SlotWidget aeSlot(
+            Container container, int index, int x, int y, SlotAccess access, Runnable changeListener) {
+        return aeSlot(container, index, x, y, access).setChangeListener(changeListener);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            if (isMouseIn(CLEAR_BTN_IN_X, CLEAR_BTN_IN_Y, CLEAR_BTN_W, CLEAR_BTN_H, (int) mouseX, (int) mouseY)) {
+                writeClientAction(CLEAR_FLUID_ACTION_ID, buf -> buf.writeBoolean(true));
+                return true;
+            }
+            if (isMouseIn(CLEAR_BTN_OUT_X, CLEAR_BTN_OUT_Y, CLEAR_BTN_W, CLEAR_BTN_H, (int) mouseX, (int) mouseY)) {
+                writeClientAction(CLEAR_FLUID_ACTION_ID, buf -> buf.writeBoolean(false));
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public void handleClientAction(int id, net.minecraft.network.FriendlyByteBuf buffer) {
+        if (id == CLEAR_FLUID_ACTION_ID) {
+            if (buffer.readBoolean()) {
+                station.clearFluid();
+            } else {
+                station.clearFluidOut();
+            }
+            station.onGuiStateChanged();
+            syncStateNow();
+            return;
+        }
+        super.handleClientAction(id, buffer);
+    }
+
+    @Override
+    protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        NELDLibAe2StyleRenderer.drawAeMainPanel(graphics, absX(MAIN_X), absY(0), PANEL_W, PANEL_H);
+        NELDLibAe2StyleRenderer.drawAeUpgradePanel(
+                graphics, absX(mainX(UPGRADE_PANEL_X)), absY(UPGRADE_PANEL_Y), UPGRADE_COUNT);
+
+        for (int row = 0; row < INPUT_ROWS; row++) {
+            for (int col = 0; col < INPUT_COLS; col++) {
+                NELDLibAe2StyleRenderer.drawAeSlot(
+                        graphics, absX(mainX(INPUT_BG_X + col * SLOT_SIZE)), absY(INPUT_BG_Y + row * SLOT_SIZE));
+            }
+        }
+        NELDLibAe2StyleRenderer.drawAeInscriberOutputFrame(
+                graphics, absX(mainX(OUTPUT_FRAME_X)), absY(OUTPUT_FRAME_Y), OUTPUT_FRAME_W, OUTPUT_FRAME_H);
+        NEPlayerInventoryWidgets.drawPlayerInventorySlots(
+                graphics, localX -> absX(mainX(localX)), this::absY, PLAYER_INV_BG_X, PLAYER_INV_BG_Y, HOTBAR_BG_Y);
+        NELDLibAe2StyleRenderer.drawAeProgressBar(
+                graphics,
+                absX(mainX(PROGRESS_X)),
+                absY(PROGRESS_Y),
+                PROGRESS_W,
+                PROGRESS_H,
+                currentState().progress(),
+                currentState().maxProgress());
+        drawUpgradePlaceholders(graphics);
+        drawClearFluidButtons(graphics, mouseX, mouseY);
+    }
+
+    @Override
+    protected void drawMachineForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        autoExportButton.setIcon(currentState().autoExport() ? Icon.AUTO_EXPORT_ON : Icon.AUTO_EXPORT_OFF);
+        drawLocalString(graphics, title, mainX(TITLE_X), TITLE_Y, TEXT_PRIMARY);
+        drawLocalString(
+                graphics,
+                Component.translatable("gui.neoecoae.common.inventory"),
+                mainX(INV_LABEL_X),
+                INV_LABEL_Y,
+                TEXT_MUTED);
+    }
+
+    @Override
+    protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (renderAutoExportTooltip(graphics, mouseX, mouseY)) {
+            return;
+        }
+        if (renderProgressTooltip(graphics, mouseX, mouseY)) {
+            return;
+        }
+        renderUpgradeTooltip(graphics, mouseX, mouseY);
+    }
+
+    @Override
+    public List<Rect2i> getGuiExtraAreas(Rect2i guiRect, List<Rect2i> list) {
+        List<Rect2i> areas = new ArrayList<>(super.getGuiExtraAreas(guiRect, list));
+        areas.add(new Rect2i(absX(mainX(UPGRADE_PANEL_X)), absY(UPGRADE_PANEL_Y), UPGRADE_PANEL_W, UPGRADE_PANEL_H));
+        return areas;
+    }
+
+    private void drawUpgradePlaceholders(GuiGraphics graphics) {
+        for (int i = 0; i < UPGRADE_COUNT; i++) {
+            if (station.getUpgradeItemHandler().getStackInSlot(i).isEmpty()) {
+                NELDLibAe2StyleRenderer.drawAeIcon(
+                        graphics,
+                        Icon.BACKGROUND_UPGRADE,
+                        absX(mainX(UPGRADE_SLOT_X + (SLOT_SIZE - Icon.BACKGROUND_UPGRADE.width) / 2)),
+                        absY(UPGRADE_FIRST_SLOT_Y + i * SLOT_SIZE + (SLOT_SIZE - Icon.BACKGROUND_UPGRADE.height) / 2),
+                        0.4F);
+            }
+        }
+    }
+
+    private void drawClearFluidButtons(GuiGraphics graphics, int mouseX, int mouseY) {
+        boolean hoverIn = isMouseIn(CLEAR_BTN_IN_X, CLEAR_BTN_IN_Y, CLEAR_BTN_W, CLEAR_BTN_H, mouseX, mouseY);
+        boolean hoverOut = isMouseIn(CLEAR_BTN_OUT_X, CLEAR_BTN_OUT_Y, CLEAR_BTN_W, CLEAR_BTN_H, mouseX, mouseY);
+
+        drawClearBar(graphics, absX(mainX(CLEAR_BTN_IN_X)), absY(CLEAR_BTN_IN_Y));
+        drawClearBar(graphics, absX(mainX(CLEAR_BTN_OUT_X)), absY(CLEAR_BTN_OUT_Y));
+
+        if (hoverIn) {
+            drawSmallX5(graphics, absX(mainX(CLEAR_BTN_IN_X + 2)), absY(CLEAR_BTN_IN_Y + 2), 0x40000000);
+            drawSmallX5(graphics, absX(mainX(CLEAR_BTN_IN_X + 1)), absY(CLEAR_BTN_IN_Y + 1), 0xFFFFFFFF);
+        }
+        if (hoverOut) {
+            drawSmallX5(graphics, absX(mainX(CLEAR_BTN_OUT_X + 2)), absY(CLEAR_BTN_OUT_Y + 2), 0x40000000);
+            drawSmallX5(graphics, absX(mainX(CLEAR_BTN_OUT_X + 1)), absY(CLEAR_BTN_OUT_Y + 1), 0xFFFFFFFF);
+        }
+    }
+
+    private void drawClearBar(GuiGraphics graphics, int x, int y) {
+        graphics.fill(x, y, x + 8, y + 8, 0x80505050);
+        graphics.fill(x, y, x + 8, y + 1, 0xA0303030);
+        graphics.fill(x, y, x + 1, y + 8, 0xA0303030);
+        graphics.fill(x, y + 7, x + 8, y + 8, 0xA0FFFFFF);
+        graphics.fill(x + 7, y, x + 8, y + 8, 0xA0FFFFFF);
+    }
+
+    private void drawSmallX5(GuiGraphics graphics, int x, int y, int color) {
+        graphics.fill(x, y, x + 1, y + 1, color);
+        graphics.fill(x + 1, y + 1, x + 2, y + 2, color);
+        graphics.fill(x + 2, y + 2, x + 3, y + 3, color);
+        graphics.fill(x + 3, y + 3, x + 4, y + 4, color);
+        graphics.fill(x + 4, y + 4, x + 5, y + 5, color);
+        graphics.fill(x + 4, y, x + 5, y + 1, color);
+        graphics.fill(x + 3, y + 1, x + 4, y + 2, color);
+        graphics.fill(x + 2, y + 2, x + 3, y + 3, color);
+        graphics.fill(x + 1, y + 3, x + 2, y + 4, color);
+        graphics.fill(x, y + 4, x + 1, y + 5, color);
+    }
+
+    private boolean renderAutoExportTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!super.isMouseIn(AUTO_EXPORT_BUTTON_X, TOGGLE_BTN_Y, TOGGLE_BTN_W, TOGGLE_BTN_H, mouseX, mouseY)) {
+            return false;
+        }
+        graphics.renderComponentTooltip(
+                font(),
+                List.of(Component.translatable(
+                        currentState().autoExport()
+                                ? "gui.neoecoae.integrated_working_station.auto_io.on"
+                                : "gui.neoecoae.integrated_working_station.auto_io.off")),
+                mouseX,
+                mouseY);
+        return true;
+    }
+
+    private boolean renderProgressTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!isMouseIn(PROGRESS_X, PROGRESS_Y, PROGRESS_W, PROGRESS_H, mouseX, mouseY)) {
+            return false;
+        }
+        int maxProgress = currentState().maxProgress();
+        int pct = maxProgress > 0 ? currentState().progress() * 100 / maxProgress : 0;
+        graphics.renderComponentTooltip(
+                font(),
+                List.of(Component.translatable("gui.neoecoae.integrated_working_station.progress_percent", pct)),
+                mouseX,
+                mouseY);
+        return true;
+    }
+
+    private void renderUpgradeTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!isMouseIn(UPGRADE_PANEL_X, UPGRADE_PANEL_Y, UPGRADE_PANEL_W, UPGRADE_PANEL_H, mouseX, mouseY)) {
+            return;
+        }
+        graphics.renderComponentTooltip(
+                font(),
+                List.of(
+                        Component.translatable("gui.neoecoae.integrated_working_station.available_upgrades"),
+                        Component.translatable("gui.neoecoae.integrated_working_station.speed_card_upgrade", 4)),
+                mouseX,
+                mouseY);
+    }
+
+    private static int mainX(int x) {
+        return MAIN_X + x;
+    }
+
+    @Override
+    protected boolean isMouseIn(int x, int y, int w, int h, int mouseX, int mouseY) {
+        return super.isMouseIn(mainX(x), y, w, h, mouseX, mouseY);
+    }
+
+    private enum SlotAccess {
+        INPUT_OUTPUT(true, true),
+        OUTPUT_ONLY(true, false);
+
+        private final boolean canTake;
+        private final boolean canPut;
+
+        SlotAccess(boolean canTake, boolean canPut) {
+            this.canTake = canTake;
+            this.canPut = canPut;
+        }
+    }
+}

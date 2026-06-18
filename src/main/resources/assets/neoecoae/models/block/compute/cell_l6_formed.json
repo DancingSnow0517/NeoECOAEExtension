@@ -12,7 +12,7 @@
 			"from": [-4, -4, -3],
 			"to": [4, 4, -3],
 			"faces": {
-				"north": {"uv": [4, 4, 12, 12], "texture": "#base", "neoforge_data": {"block_light": 15, "sky_light": 15}}
+				"north": {"uv": [4, 4, 12, 12], "texture": "#base", "forge_data": {"block_light": 15, "sky_light": 15}}
 			}
 		},
 		{

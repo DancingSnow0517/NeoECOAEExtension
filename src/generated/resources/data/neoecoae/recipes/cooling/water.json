@@ -1,0 +1,19 @@
+{
+  "type": "neoecoae:cooling",
+  "conditions": [
+    {
+      "type": "forge:not",
+      "value": {
+        "type": "forge:mod_loaded",
+        "modid": "mekanism"
+      }
+    }
+  ],
+  "coolant": 1500,
+  "input": {
+    "amount": 100,
+    "tag": "minecraft:water"
+  },
+  "max_overclock": 2,
+  "output": {}
+}

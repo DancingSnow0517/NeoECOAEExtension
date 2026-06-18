@@ -12,16 +12,16 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
-public class ECOComputationCoolingControllerRenderer implements IFixedBlockEntityRenderer<ECOComputationCoolingControllerBlockEntity> {
+public class ECOComputationCoolingControllerRenderer
+        implements IFixedBlockEntityRenderer<ECOComputationCoolingControllerBlockEntity> {
     @Override
     public void renderFixed(
-        ECOComputationCoolingControllerBlockEntity blockEntity,
-        float partialTick,
-        PoseStack poseStack,
-        MultiBufferSource bufferSource,
-        int packedLight,
-        int packedOverlay
-    ) {
+            ECOComputationCoolingControllerBlockEntity blockEntity,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight,
+            int packedOverlay) {
         BlockState blockState = blockEntity.getBlockState();
         if (!blockState.getValue(NEBlock.FORMED)) return;
         Direction facing = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING);
@@ -30,13 +30,12 @@ public class ECOComputationCoolingControllerRenderer implements IFixedBlockEntit
         translate(poseStack, facing);
         poseStack.mulPose(Axis.YP.rotationDegrees(rotation));
         tessellateModel(
-            poseStack,
-            bufferSource,
-            NEExtraModels.COMPUTATION_COOLING_CONTROLLER_GLASS,
-            packedLight,
-            packedOverlay,
-            RenderType.translucent()
-        );
+                poseStack,
+                bufferSource,
+                NEExtraModels.COMPUTATION_COOLING_CONTROLLER_GLASS,
+                packedLight,
+                packedOverlay,
+                RenderType.translucent());
         poseStack.popPose();
     }
 

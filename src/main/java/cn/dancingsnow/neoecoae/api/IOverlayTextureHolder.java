@@ -5,8 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 public interface IOverlayTextureHolder {
-    @Nullable
-    ResourceLocation neoecoae$getOverlay();
+    @Nullable ResourceLocation neoecoae$getOverlay();
 
     void neoecoae$setOverlay(@Nullable ResourceLocation overlay);
 

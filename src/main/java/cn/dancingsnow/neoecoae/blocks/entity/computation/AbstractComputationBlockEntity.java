@@ -7,7 +7,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
-public abstract class AbstractComputationBlockEntity<T extends AbstractComputationBlockEntity<T>> extends NEBlockEntity<NEComputationCluster, T> {
+public abstract class AbstractComputationBlockEntity<T extends AbstractComputationBlockEntity<T>>
+        extends NEBlockEntity<NEComputationCluster, T> {
     public AbstractComputationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState, NEComputationClusterCalculator::new);
     }

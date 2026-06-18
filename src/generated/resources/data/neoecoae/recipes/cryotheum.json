@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:ice"
+    },
+    {
+      "tag": "forge:dusts/certus_quartz"
+    },
+    {
+      "item": "ae2:sky_dust"
+    },
+    {
+      "item": "minecraft:snowball"
+    },
+    {
+      "tag": "forge:dusts/energized_crystal"
+    },
+    {
+      "tag": "forge:dusts/energized_crystal"
+    },
+    {
+      "tag": "forge:dusts/energized_crystal"
+    },
+    {
+      "tag": "forge:dusts/energized_crystal"
+    }
+  ],
+  "result": {
+    "item": "neoecoae:cryotheum"
+  }
+}

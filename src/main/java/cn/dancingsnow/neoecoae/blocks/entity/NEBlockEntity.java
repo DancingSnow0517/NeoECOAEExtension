@@ -5,50 +5,55 @@ import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.orientation.BlockOrientation;
-import appeng.blockentity.grid.AENetworkedBlockEntity;
+import appeng.blockentity.grid.AENetworkBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
-import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
-import lombok.Getter;
-import lombok.Setter;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.state.BlockState;
-import org.jetbrains.annotations.MustBeInvokedByOverriders;
-import org.jetbrains.annotations.Nullable;
-
+import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import lombok.Getter;
+import lombok.Setter;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.jetbrains.annotations.MustBeInvokedByOverriders;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
-public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
-    extends AENetworkedBlockEntity implements IAEMultiBlock<C> {
+public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>> extends AENetworkBlockEntity
+        implements IAEMultiBlock<C> {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final boolean DEBUG_MIRROR_BUILD = Boolean.getBoolean("neoecoae.debugMultiblockMirror");
 
     @Setter
     @Getter
     protected boolean formed = false;
 
     @Getter
-    @Nullable
-    protected C cluster;
+    @Nullable protected C cluster;
+
     @Getter
     protected final NEClusterCalculator<C> calculator;
 
-    public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
+    public NEBlockEntity(
+            BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
         super(type, pos, blockState);
         this.calculator = calculator.create(this);
-        getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
-            .addService(IGridMultiblock.class, this::getMultiblockNodes);
+        getMainNode()
+                .setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
+                .addService(IGridMultiblock.class, this::getMultiblockNodes);
         onGridConnectableSidesChanged();
     }
 
@@ -58,6 +63,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         onGridConnectableSidesChanged();
         if (level instanceof ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
+            serverLevel.getServer().executeIfPossible(() -> {
+                if (level instanceof ServerLevel delayedLevel && !isRemoved()) {
+                    calculator.calculateMultiblock(delayedLevel, worldPosition);
+                }
+            });
         }
         getMainNode().setIdlePowerUsage(16);
     }
@@ -100,30 +110,62 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @MustBeInvokedByOverriders
     public void updateState(boolean updateExposed) {
-        if (this.level == null || this.notLoaded() || this.isRemoved()) {
+        if (this.level == null || this.isRemoved()) {
             return;
         }
-        BlockState newState = level.getBlockState(worldPosition);
+        BlockState oldState = level.getBlockState(worldPosition);
+        BlockState newState = oldState;
         if (newState.hasProperty(NEBlock.FORMED)) {
             newState = newState.setValue(NEBlock.FORMED, formed);
         }
-        level.setBlock(
-            worldPosition,
-            newState,
-            Block.UPDATE_CLIENTS
-        );
+        if (newState.hasProperty(NEBlock.MIRRORED)) {
+            newState = newState.setValue(NEBlock.MIRRORED, cluster != null && cluster.isMirrored());
+        }
+        if (DEBUG_MIRROR_BUILD) {
+            LOGGER.debug(
+                    "NE multiblock updateState: pos={} block={} formed={} clusterPresent={} clusterMirrored={} oldState={} newState={}",
+                    worldPosition,
+                    ForgeRegistries.BLOCKS.getKey(oldState.getBlock()),
+                    formed,
+                    cluster != null,
+                    cluster != null && cluster.isMirrored(),
+                    oldState,
+                    newState);
+        }
+        if (!oldState.equals(newState)) {
+            level.setBlock(worldPosition, newState, Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS);
+        }
         if (updateExposed) {
             onGridConnectableSidesChanged();
         }
     }
 
+    // UI sync template methods.
+    // Subclasses override writeUiSyncTag/readUiSyncTag without needing to
+    // duplicate getUpdateTag/handleUpdateTag/getUpdatePacket boilerplate.
+
+    /** Override to include UI state in the chunk-sync update tag. */
+    protected void writeUiSyncTag(CompoundTag tag) {}
+
+    /** Override to read UI state from a received chunk-sync update tag. */
+    protected void readUiSyncTag(CompoundTag tag) {}
+
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        CompoundTag tag = super.getUpdateTag(registries);
-        if (this instanceof ISyncMangedHolder syncMangedHolder) {
-            tag.put(syncMangedHolder.getSyncTag(), syncMangedHolder.serializeInitialData(registries));
-        }
+    public CompoundTag getUpdateTag() {
+        var tag = super.getUpdateTag();
+        writeUiSyncTag(tag);
         return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        readUiSyncTag(tag);
+    }
+
+    @Override
+    @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {
@@ -139,7 +181,6 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             }
         }
         return nodes.listIterator();
-
     }
 
     public void updateCluster(@Nullable C cluster) {
@@ -166,6 +207,7 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     public void breakCluster() {
         if (this.cluster != null) {
+            cluster.onStructureBroken();
             cluster.destroy();
         }
     }

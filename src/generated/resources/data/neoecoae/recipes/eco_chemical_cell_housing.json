@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appmek"
+    }
+  ],
+  "key": {
+    "A": {
+      "item": "neoecoae:crystal_matrix"
+    },
+    "B": {
+      "tag": "forge:dusts/redstone"
+    },
+    "C": {
+      "tag": "forge:ingots/black_tungsten_alloy"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "B B",
+    "CCC"
+  ],
+  "result": {
+    "item": "neoecoae:eco_chemical_cell_housing"
+  },
+  "show_notification": true
+}

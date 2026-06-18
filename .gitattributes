@@ -1,5 +1,15 @@
-# Disable autocrlf on generated files, they always generate with LF
-# Add any extra files or paths here to make git stop saying they
-# are changed when only line endings change.
+# Keep checkout line endings stable across Windows/Linux/macOS so Spotless
+# produces the same result for every contributor.
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.nbt binary
+*.zip binary
+
 src/generated/**/.cache/cache text eol=lf
-src/generated/**/*.json text eol=lf

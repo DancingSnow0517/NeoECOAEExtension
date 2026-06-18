@@ -22,17 +22,24 @@ import org.jetbrains.annotations.Nullable;
 public class ECOCraftingCPU implements ICraftingCPU {
 
     private long fakeStorage = 0;
+
+    @Getter
     private final NEComputationCluster cluster;
+
     @Getter
     private ICraftingPlan plan;
+
     @Getter
     private final ECOCraftingCPULogic logic = new ECOCraftingCPULogic(this);
+
     @Getter
     private final ECOComputationThreadingCoreBlockEntity owner;
+
     @Getter
     private final IECOTier tier;
 
-    public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan, ECOComputationThreadingCoreBlockEntity owner) {
+    public ECOCraftingCPU(
+            NEComputationCluster cluster, ICraftingPlan plan, ECOComputationThreadingCoreBlockEntity owner) {
         this.cluster = cluster;
         this.plan = plan;
         this.owner = owner;
@@ -52,30 +59,28 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return logic.hasJob();
     }
 
-    @SuppressWarnings("removal")
     @Override
     public @Nullable CraftingJobStatus getJobStatus() {
         var finalOutput = logic.getFinalJobOutput();
         if (finalOutput != null) {
             var elapsedTimeTracker = logic.getElapsedTimeTracker();
-            var progress =
-                Math.max(0, elapsedTimeTracker.getStartItemCount() - elapsedTimeTracker.getRemainingItemCount());
-            return new CraftingJobStatus(
-                finalOutput, elapsedTimeTracker.getStartItemCount(), progress, elapsedTimeTracker.getElapsedTime());
+            var startItems = elapsedTimeTracker.getSyntheticStartItemCount();
+            var remainingItems = elapsedTimeTracker.getSyntheticRemainingItemCount();
+            var progress = Math.max(0, startItems - remainingItems);
+            return new CraftingJobStatus(finalOutput, startItems, progress, elapsedTimeTracker.getElapsedTime());
         } else {
             return null;
         }
     }
 
-
     @Override
     public void cancelJob() {
-        if (this.plan == null) {
+        if (this.isAllocationProxy()) {
             return;
         }
 
         logic.cancel();
-        this.cluster.cancelJob(plan);
+        this.cluster.cancelJob(this);
     }
 
     @Override
@@ -88,9 +93,14 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return cluster.getCPUAccelerators();
     }
 
+    /**
+     * Returns a shortened display name for the AE2 crafting status CPU list.
+     * Uses literal text to avoid the longer translated form (e.g. "ECO 合成CPU")
+     * that causes text overflow in the narrow CPU list UI.
+     */
     @Override
     public @Nullable Component getName() {
-        return null;
+        return Component.literal(tier.toString() + " ECO CPU");
     }
 
     @Override
@@ -108,16 +118,21 @@ public class ECOCraftingCPU implements ICraftingCPU {
         return cluster.isActive();
     }
 
+    public boolean isAllocationProxy() {
+        return this.owner == null;
+    }
+
     public void deactivate() {
-        this.cluster.deactivate(this.plan);
+        if (!this.isAllocationProxy()) {
+            this.cluster.deactivate(this);
+        }
     }
 
     public Level getLevel() {
         return cluster.getController().getLevel();
     }
 
-    @Nullable
-    public IGrid getGrid() {
+    @Nullable public IGrid getGrid() {
         IGridNode gridNode = cluster.getController().getGridNode();
         return gridNode != null ? gridNode.getGrid() : null;
     }
@@ -127,7 +142,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
     }
 
     private void writeCraftingPlanToNBT(ICraftingPlan plan, CompoundTag tag, HolderLookup.Provider registries) {
-        CompoundTag outputTag = GenericStack.writeTag(registries, plan.finalOutput());
+        CompoundTag outputTag = GenericStack.writeTag(plan.finalOutput());
         tag.put("output", outputTag);
         tag.putLong("bytes", plan.bytes());
         tag.putBoolean("simulation", plan.simulation());
@@ -135,7 +150,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
     }
 
     private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        GenericStack output = GenericStack.readTag(registries, tag.getCompound("output"));
+        GenericStack output = GenericStack.readTag(tag.getCompound("output"));
         long bytes = tag.getLong("bytes");
         boolean simulation = tag.getBoolean("simulation");
         boolean multiplePaths = tag.getBoolean("multiplePaths");

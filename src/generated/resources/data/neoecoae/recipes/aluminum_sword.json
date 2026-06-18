@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "A": {
+      "tag": "forge:ingots/aluminum"
+    },
+    "B": {
+      "item": "minecraft:stick"
+    }
+  },
+  "pattern": [
+    "A",
+    "A",
+    "B"
+  ],
+  "result": {
+    "item": "neoecoae:aluminum_sword"
+  },
+  "show_notification": true
+}

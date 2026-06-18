@@ -1,17 +1,23 @@
 package cn.dancingsnow.neoecoae.blocks;
 
 import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.crafting.CraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.phys.HitResult;
 
 public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntityBlock<T> {
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
+    public static final BooleanProperty MIRRORED = BooleanProperty.create("mirrored");
 
     protected NEBlock(Properties properties) {
         super(properties.lightLevel(state -> state.getValue(FORMED) ? 1 : 0));
@@ -22,6 +28,18 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(FORMED);
+    }
+
+    @Override
+    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (level.isClientSide || oldState.getBlock() == state.getBlock()) {
+            return;
+        }
+        final T be = this.getBlockEntity(level, pos);
+        if (be != null) {
+            be.rebuildMultiblock();
+        }
     }
 
     @Override
@@ -39,10 +57,30 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
     }
 
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+    public void neighborChanged(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Block neighborBlock,
+            BlockPos neighborPos,
+            boolean movedByPiston) {
         final NEBlockEntity<?, T> be = this.getBlockEntity(level, pos);
         if (be != null) {
             be.updateMultiBlock(neighborPos);
         }
+    }
+
+    /**
+     * Returns the item stack for this block, used by AE2 wrench dismantle
+     * and pick-block. Returns empty for blocks without an item form.
+     */
+    @Override
+    public ItemStack getCloneItemStack(
+            BlockState state, HitResult target, BlockGetter level, BlockPos pos, Player player) {
+        Item item = asItem();
+        if (item == Items.AIR) {
+            return ItemStack.EMPTY;
+        }
+        return new ItemStack(item);
     }
 }

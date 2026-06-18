@@ -13,35 +13,40 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FastColor;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec2;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 
-public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity>, IFixedBlockEntityRenderer<ECODriveBlockEntity> {
-    private static final ThreadLocal<RandomSource> RNG = ThreadLocal.withInitial(RandomSource::createNewThreadLocalInstance);
+public class ECODriveRenderer
+        implements BlockEntityRenderer<ECODriveBlockEntity>, IFixedBlockEntityRenderer<ECODriveBlockEntity> {
+    public ECODriveRenderer() {}
 
-    public ECODriveRenderer() {
-    }
-
-    public ECODriveRenderer(BlockEntityRendererProvider.Context context) {
-    }
+    public ECODriveRenderer(BlockEntityRendererProvider.Context context) {}
 
     @Override
-    public void render(ECODriveBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight, int packedOverlay) {
+    public void render(
+            ECODriveBlockEntity blockEntity,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight,
+            int packedOverlay) {
+        renderFixed(blockEntity, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
         if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
             return;
         }
         IECOStorageCell cellInventory = blockEntity.getCellInventory();
         if (cellInventory != null) {
-            int stateColor = FastColor.ARGB32.color(255, cellInventory.getStatus().getStateColor());
+            int stateColor = cellInventory.getStatus().getStateColor();
+            int red = stateColor >> 16 & 255;
+            int green = stateColor >> 8 & 255;
+            int blue = stateColor & 255;
 
             BlockState blockState = blockEntity.getBlockState();
-            Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
+            Direction face =
+                    blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
 
             poseStack.pushPose();
 
@@ -64,10 +69,16 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
             VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
 
-            consumer.addVertex(matrix, xStart, 0, zStart).setColor(stateColor);
-            consumer.addVertex(matrix, xEnd, 0, zStart).setColor(stateColor);
-            consumer.addVertex(matrix, xEnd, 0, zEnd).setColor(stateColor);
-            consumer.addVertex(matrix, xStart, 0, zEnd).setColor(stateColor);
+            consumer.vertex(matrix, xStart, 0, zStart)
+                    .color(red, green, blue, 255)
+                    .endVertex();
+            consumer.vertex(matrix, xEnd, 0, zStart)
+                    .color(red, green, blue, 255)
+                    .endVertex();
+            consumer.vertex(matrix, xEnd, 0, zEnd).color(red, green, blue, 255).endVertex();
+            consumer.vertex(matrix, xStart, 0, zEnd)
+                    .color(red, green, blue, 255)
+                    .endVertex();
 
             poseStack.popPose();
         }
@@ -75,50 +86,32 @@ public class ECODriveRenderer implements BlockEntityRenderer<ECODriveBlockEntity
 
     @Override
     public void renderFixed(
-        ECODriveBlockEntity blockEntity,
-        float partialTick,
-        PoseStack poseStack,
-        MultiBufferSource bufferSource,
-        int packedLight,
-        int packedOverlay
-    ) {
+            ECODriveBlockEntity blockEntity,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight,
+            int packedOverlay) {
         ItemStack cellStack = blockEntity.getCellStack();
         if (cellStack == null || cellStack.isEmpty()) return;
-        Direction blockFacing = blockEntity.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
-        Quaternionf rotation = Axis.YP.rotationDegrees(-blockFacing.toYRot() + 180);
+        Direction facing = blockEntity.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
         poseStack.pushPose();
-
-        switch (blockFacing) {
-            case NORTH -> poseStack.translate(
-                2 / 16f,
-                2 / 16f,
-                0 / 16f
-            );
-            case SOUTH -> poseStack.translate(
-                14 / 16f,
-                2 / 16f,
-                16 / 16f
-            );
-            case WEST -> poseStack.translate(
-                0 / 16f,
-                2 / 16f,
-                14 / 16f
-            );
-            case EAST -> poseStack.translate(
-                16 / 16f,
-                2 / 16f,
-                2 / 16f
-            );
-        }
-        poseStack.mulPose(rotation);
+        poseStack.translate(0.5, 0.5, 0.5);
+        poseStack.mulPose(Axis.YN.rotationDegrees(yRotForFacing(facing)));
+        poseStack.translate(-0.5, -0.5, -0.5);
+        poseStack.translate(2 / 16f, 2 / 16f, 0 / 16f);
         ResourceLocation modelLocation = ECOCellModels.getModelLocation(cellStack.getItem());
-        tessellateModel(
-            poseStack,
-            bufferSource,
-            modelLocation,
-            packedLight,
-            packedOverlay
-        );
+        tessellateModel(blockEntity, poseStack, bufferSource, modelLocation, packedLight, packedOverlay);
         poseStack.popPose();
+    }
+
+    private static float yRotForFacing(Direction facing) {
+        return switch (facing) {
+            case NORTH -> 0f;
+            case EAST -> 90f;
+            case SOUTH -> 180f;
+            case WEST -> 270f;
+            default -> 0f;
+        };
     }
 }

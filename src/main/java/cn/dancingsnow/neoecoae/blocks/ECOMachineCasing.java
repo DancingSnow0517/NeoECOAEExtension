@@ -20,10 +20,7 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
 
     public ECOMachineCasing(Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(INVISIBLE, false)
-        );
+        registerDefaultState(getStateDefinition().any().setValue(FORMED, false).setValue(INVISIBLE, false));
     }
 
     @Override
@@ -33,7 +30,7 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
     }
 
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
+    public RenderShape getRenderShape(BlockState state) {
         if (state.getValue(INVISIBLE)) {
             return RenderShape.INVISIBLE;
         }
@@ -41,22 +38,22 @@ public class ECOMachineCasing<C extends NECluster<C>> extends NEBlock<ECOMachine
     }
 
     @Override
-    protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
+    public boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
         return state.getValue(INVISIBLE);
     }
 
     @Override
-    protected float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
+    public float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
         return state.getValue(INVISIBLE) ? 1 : 0.2f;
     }
 
     @Override
-    protected VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return state.getValue(INVISIBLE) ? Shapes.empty() : super.getVisualShape(state, level, pos, context);
     }
 
     @Override
-    protected boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
+    public boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
         return state.getValue(INVISIBLE);
     }
 }

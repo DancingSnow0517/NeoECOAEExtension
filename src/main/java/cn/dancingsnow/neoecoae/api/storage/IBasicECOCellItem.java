@@ -8,11 +8,21 @@ import net.minecraft.world.item.ItemStack;
 
 public interface IBasicECOCellItem extends ICellWorkbenchItem {
     IECOTier getTier();
+
     AEKeyType getKeyType();
+
     long getBytes();
+
+    default long getIdleDrainBytes() {
+        return getBytes();
+    }
+
     int getBytesPerType();
+
     int getTotalTypes();
+
     ECOCellType getCellType();
+
     default boolean isBlackListed(ItemStack cellStack, AEKey what) {
         return false;
     }

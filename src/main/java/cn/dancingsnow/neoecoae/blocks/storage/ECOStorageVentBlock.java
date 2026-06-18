@@ -17,10 +17,7 @@ public class ECOStorageVentBlock extends NEBlock<ECOStorageVentBlockEntity> {
 
     public ECOStorageVentBlock(Properties properties) {
         super(properties);
-        registerDefaultState(getStateDefinition().any()
-            .setValue(FORMED, false)
-            .setValue(FACING, Direction.NORTH)
-        );
+        registerDefaultState(getStateDefinition().any().setValue(FORMED, false).setValue(FACING, Direction.NORTH));
     }
 
     @Override
