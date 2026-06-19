@@ -11,6 +11,8 @@ import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import com.lowdragmc.lowdraglib2.Platform;
+import com.lowdragmc.lowdraglib2.syncdata.holder.IPersistManagedHolder;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,6 +24,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.ValueInput;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.Nullable;
 
@@ -124,6 +128,27 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
             tag.put(syncMangedHolder.getSyncTag(), syncMangedHolder.serializeInitialData(registries));
         }
         return tag;
+    }
+
+    @Override
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+        if (this instanceof ISyncMangedHolder syncMangedHolder) {
+            var initial = input.read(syncMangedHolder.getSyncTag(), CompoundTag.CODEC);
+            if (initial.isPresent()) {
+                HolderLookup.Provider provider;
+                if (input instanceof TagValueInput tagInput) {
+                    provider = tagInput.context.lookup();
+                } else {
+                    provider = Platform.getFrozenRegistry();
+                }
+                syncMangedHolder.deserializeInitialData(provider, initial.get());
+                return;
+            }
+        }
+        if (this instanceof IPersistManagedHolder persistManagedHolder) {
+            persistManagedHolder.loadManagedPersistentData(input);
+        }
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {
