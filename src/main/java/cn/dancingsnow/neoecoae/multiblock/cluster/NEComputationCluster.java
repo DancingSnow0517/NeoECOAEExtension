@@ -188,7 +188,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
         this.availableStorage = totalStorage - usedStorage;
         if (this.availableStorage < 0) {
-            for (ICraftingPlan plan : this.activeCpus.keySet()) {
+            for (ICraftingPlan plan : new ArrayList<>(this.activeCpus.keySet())) {
                 this.killCpu(plan, false, false);
             }
             recalculateRemainingStorage();
