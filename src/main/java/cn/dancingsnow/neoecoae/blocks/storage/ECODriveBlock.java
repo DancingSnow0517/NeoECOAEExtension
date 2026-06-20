@@ -35,7 +35,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     protected InteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (heldItem.getItem() instanceof ECOStorageCellItem) {
             if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
-                if (be.getCellStack() == null) {
+                if (be.getCellStack().isEmpty()) {
                     if (level.isClientSide()) return InteractionResult.SUCCESS;
                     be.setCellStack(heldItem);
                     player.setItemInHand(hand, ItemStack.EMPTY);
@@ -49,10 +49,10 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
-            if (be.getCellStack() != null && player.isShiftKeyDown()) {
+            if (!be.getCellStack().isEmpty() && player.isShiftKeyDown()) {
                 if (level.isClientSide()) return InteractionResult.SUCCESS;
                 ItemStack cellStack = be.getCellStack();
-                be.setCellStack(null);
+                be.setCellStack(ItemStack.EMPTY);
                 player.setItemInHand(InteractionHand.MAIN_HAND, cellStack);
                 return InteractionResult.SUCCESS_SERVER;
             }

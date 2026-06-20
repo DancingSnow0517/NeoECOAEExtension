@@ -22,7 +22,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -40,8 +39,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @DescSynced
     @Persisted
     @RequireRerender
-    @Nullable
-    private ItemStack cellStack = null;
+    private ItemStack cellStack = ItemStack.EMPTY;
 
     @Getter
     @DescSynced
@@ -60,9 +58,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     @Override
-    public void setCellStack(@Nullable ItemStack cellStack) {
+    public void setCellStack(ItemStack cellStack) {
         this.cellStack = cellStack;
-        if (cellStack != null) {
+        if (!cellStack.isEmpty()) {
             getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, true));
         } else {
             getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, false));
@@ -98,14 +96,14 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        if (cellStack != null) {
+        if (!cellStack.isEmpty()) {
             drops.add(cellStack);
         }
     }
 
     @Nullable
     public IECOStorageCell getCellInventory() {
-        if (cellStack != null) {
+        if (!cellStack.isEmpty()) {
             return ECOStorageCells.getCellInventory(cellStack, null);
         }
         return null;

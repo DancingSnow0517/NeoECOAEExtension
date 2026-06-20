@@ -13,10 +13,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.access.ItemAccess;
 import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -138,15 +138,24 @@ public final class MultiBlockPlacementService {
     }
 
     public static int countMatchingItems(Player player, ItemStack target) {
-        Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        return countMatchingItems(player.getInventory().getNonEquipmentItems(), target, visitedHandlers)
-            + countMatchingItems(player.getInventory().getItem(net.minecraft.world.entity.player.Inventory.SLOT_OFFHAND), target, visitedHandlers);
+        Set<ResourceHandler<ItemResource>> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        int count = 0;
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+            count += countMatchingItems(stack, target, visitedHandlers);
+        }
+        count += countMatchingItems(player.getInventory().getItem(net.minecraft.world.entity.player.Inventory.SLOT_OFFHAND), target, visitedHandlers);
+        return count;
     }
 
     private static boolean consumeRequiredItem(Player player, ItemStack requiredItem) {
-        Set<IItemHandler> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<ResourceHandler<ItemResource>> visitedHandlers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         int remaining = requiredItem.getCount();
-        remaining = consumeFromIterable(player.getInventory().getNonEquipmentItems(), requiredItem, remaining, visitedHandlers);
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+            if (remaining <= 0) {
+                break;
+            }
+            remaining = consumeFromStack(stack, requiredItem, remaining, visitedHandlers);
+        }
         if (remaining > 0) {
             remaining = consumeFromStack(player.getInventory().getItem(net.minecraft.world.entity.player.Inventory.SLOT_OFFHAND), requiredItem, remaining, visitedHandlers);
         }
@@ -157,60 +166,35 @@ public final class MultiBlockPlacementService {
         return true;
     }
 
-    private static int countMatchingItems(List<ItemStack> stacks, ItemStack target, Set<IItemHandler> visitedHandlers) {
-        int count = 0;
-        for (ItemStack stack : stacks) {
-            count += countMatchingItems(stack, target, visitedHandlers);
-        }
-        return count;
-    }
-
-    private static int countMatchingItems(Iterable<ItemStack> stacks, ItemStack target, Set<IItemHandler> visitedHandlers) {
-        int count = 0;
-        for (ItemStack stack : stacks) {
-            count += countMatchingItems(stack, target, visitedHandlers);
-        }
-        return count;
-    }
-
-    private static int countMatchingItems(ItemStack stack, ItemStack target, Set<IItemHandler> visitedHandlers) {
+    private static int countMatchingItems(ItemStack stack, ItemStack target, Set<ResourceHandler<ItemResource>> visitedHandlers) {
         if (stack.isEmpty()) {
             return 0;
         }
 
         int count = ItemStack.isSameItemSameComponents(stack, target) ? stack.getCount() : 0;
-        IItemHandler itemHandler = legacyItemHandler(stack);
-        if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
-            return count;
+        return count + countMatchingItems(itemHandler(stack), target, visitedHandlers);
+    }
+
+    private static int countMatchingItems(ResourceHandler<ItemResource> handler, ItemStack target, Set<ResourceHandler<ItemResource>> visitedHandlers) {
+        if (handler == null || !visitedHandlers.add(handler)) {
+            return 0;
         }
 
-        for (int slot = 0; slot < itemHandler.getSlots(); slot++) {
-            count += countMatchingItems(itemHandler.getStackInSlot(slot), target, visitedHandlers);
+        int count = 0;
+        for (int slot = 0; slot < handler.size(); slot++) {
+            ItemResource resource = handler.getResource(slot);
+            if (resource.isEmpty()) {
+                continue;
+            }
+            if (resource.matches(target)) {
+                count += handler.getAmountAsInt(slot);
+            }
+            count += countMatchingItems(nestedHandler(handler, slot), target, visitedHandlers);
         }
         return count;
     }
 
-    private static int consumeFromList(List<ItemStack> stacks, ItemStack target, int remaining, Set<IItemHandler> visitedHandlers) {
-        for (ItemStack stack : stacks) {
-            if (remaining <= 0) {
-                return 0;
-            }
-            remaining = consumeFromStack(stack, target, remaining, visitedHandlers);
-        }
-        return remaining;
-    }
-
-    private static int consumeFromIterable(Iterable<ItemStack> stacks, ItemStack target, int remaining, Set<IItemHandler> visitedHandlers) {
-        for (ItemStack stack : stacks) {
-            if (remaining <= 0) {
-                return 0;
-            }
-            remaining = consumeFromStack(stack, target, remaining, visitedHandlers);
-        }
-        return remaining;
-    }
-
-    private static int consumeFromStack(ItemStack stack, ItemStack target, int remaining, Set<IItemHandler> visitedHandlers) {
+    private static int consumeFromStack(ItemStack stack, ItemStack target, int remaining, Set<ResourceHandler<ItemResource>> visitedHandlers) {
         if (remaining <= 0 || stack.isEmpty()) {
             return remaining;
         }
@@ -224,37 +208,45 @@ public final class MultiBlockPlacementService {
             }
         }
 
-        IItemHandler itemHandler = legacyItemHandler(stack);
-        if (itemHandler == null || !visitedHandlers.add(itemHandler)) {
+        return consumeFromHandler(itemHandler(stack), target, remaining, visitedHandlers);
+    }
+
+    private static int consumeFromHandler(ResourceHandler<ItemResource> handler, ItemStack target, int remaining, Set<ResourceHandler<ItemResource>> visitedHandlers) {
+        if (handler == null || remaining <= 0 || !visitedHandlers.add(handler)) {
             return remaining;
         }
 
-        for (int slot = 0; slot < itemHandler.getSlots(); slot++) {
+        for (int slot = 0; slot < handler.size(); slot++) {
             if (remaining <= 0) {
                 return 0;
             }
 
-            ItemStack slotStack = itemHandler.getStackInSlot(slot);
-            if (slotStack.isEmpty()) {
+            ItemResource resource = handler.getResource(slot);
+            if (resource.isEmpty()) {
                 continue;
             }
-            if (ItemStack.isSameItemSameComponents(slotStack, target)) {
-                int toExtract = Math.min(slotStack.getCount(), remaining);
-                ItemStack extracted = itemHandler.extractItem(slot, toExtract, false);
-                remaining -= extracted.getCount();
+            if (resource.matches(target)) {
+                try (Transaction transaction = Transaction.openRoot()) {
+                    int extracted = handler.extract(slot, resource, remaining, transaction);
+                    transaction.commit();
+                    remaining -= extracted;
+                }
                 if (remaining <= 0) {
                     return 0;
                 }
             }
 
-            remaining = consumeFromStack(itemHandler.getStackInSlot(slot), target, remaining, visitedHandlers);
+            remaining = consumeFromHandler(nestedHandler(handler, slot), target, remaining, visitedHandlers);
         }
         return remaining;
     }
 
-    private static IItemHandler legacyItemHandler(ItemStack stack) {
-        ResourceHandler<ItemResource> handler = stack.getCapability(Capabilities.Item.ITEM, ItemAccess.forStack(stack));
-        return handler instanceof IItemHandler itemHandler ? itemHandler : null;
+    private static ResourceHandler<ItemResource> itemHandler(ItemStack stack) {
+        return stack.getCapability(Capabilities.Item.ITEM, ItemAccess.forStack(stack));
+    }
+
+    private static ResourceHandler<ItemResource> nestedHandler(ResourceHandler<ItemResource> handler, int slot) {
+        return ItemAccess.forHandlerIndex(handler, slot).getCapability(Capabilities.Item.ITEM);
     }
 
     private static void mergeItem(List<ItemStack> requiredItems, ItemStack toAdd) {

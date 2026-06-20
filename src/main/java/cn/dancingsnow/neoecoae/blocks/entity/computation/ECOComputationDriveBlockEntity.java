@@ -33,7 +33,6 @@ public class ECOComputationDriveBlockEntity
     @DescSynced
     @Persisted
     @RequireRerender
-    @Nullable
     private ItemStack cellStack = null;
 
     @DescSynced
@@ -66,9 +65,10 @@ public class ECOComputationDriveBlockEntity
         super(type, pos, blockState);
     }
 
-    public void setCellStack(@Nullable ItemStack cellStack) {
+    @Override
+    public void setCellStack(ItemStack cellStack) {
         this.cellStack = cellStack;
-        if (cellStack != null) {
+        if (!cellStack.isEmpty()) {
             getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, true));
         } else {
             getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECOComputationDrive.HAS_CELL, false));
@@ -92,7 +92,7 @@ public class ECOComputationDriveBlockEntity
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        if (cellStack != null) {
+        if (!cellStack.isEmpty()) {
             drops.add(cellStack);
         }
     }

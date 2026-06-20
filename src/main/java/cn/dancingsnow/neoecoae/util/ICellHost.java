@@ -1,12 +1,12 @@
 package cn.dancingsnow.neoecoae.util;
 
 import net.minecraft.world.item.ItemStack;
-import org.jspecify.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
 
 public interface ICellHost {
-    void setCellStack(@Nullable ItemStack itemStack);
+    void setCellStack(@NonNull ItemStack itemStack);
 
-    @Nullable ItemStack getCellStack();
+    @NonNull ItemStack getCellStack();
 
-    boolean isItemValid(ItemStack stack);
+    boolean isItemValid(@NonNull ItemStack stack);
 }
