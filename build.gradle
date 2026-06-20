@@ -118,9 +118,9 @@ dependencies {
 
     implementation("curse.maven:jade-324717:7428884")
 
-    implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
+    // implementation("vazkii.botania:botania-neoforge-1.21.1:454-SNAPSHOT")
     // implementation("curse.maven:applied-botanics-addon-610632:7234122")
-    implementation(name: "appbot-1.6.0")
+    // implementation(name: "appbot-1.6.0")
 
     implementation("com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:5.9.4.1182")
     implementation("curse.maven:ars-energistique-905641:6203425")
@@ -188,6 +188,10 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+}
+
+sourceSets.main.java {
+    exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
 }
 
 sourceSets.main.resources {
