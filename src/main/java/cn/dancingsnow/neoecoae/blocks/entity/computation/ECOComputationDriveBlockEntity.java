@@ -33,7 +33,7 @@ public class ECOComputationDriveBlockEntity
     @DescSynced
     @Persisted
     @RequireRerender
-    private ItemStack cellStack = null;
+    private ItemStack cellStack = ItemStack.EMPTY;
 
     @DescSynced
     @RequireRerender
