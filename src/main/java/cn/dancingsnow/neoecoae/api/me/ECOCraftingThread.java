@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     public static final int MAX_PROGRESS = 100;
+    private static final String SAVED_COUNT_TAG = "neoecoae_count";
 
     private enum RecoveryState {
         ACTIVE,
@@ -720,6 +721,26 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return outputItems.isEmpty() ? ItemStack.EMPTY : outputItems.get(0);
     }
 
+    private static CompoundTag saveStackWithExtendedCount(ItemStack stack, HolderLookup.Provider provider) {
+        int count = stack.getCount();
+        ItemStack savedStack = stack.copy();
+        savedStack.setCount(Math.max(1, Math.min(count, 99)));
+        Tag savedTag = savedStack.saveOptional(provider);
+        CompoundTag tag = savedTag instanceof CompoundTag compoundTag ? compoundTag : new CompoundTag();
+        if (count != savedStack.getCount()) {
+            tag.putInt(SAVED_COUNT_TAG, count);
+        }
+        return tag;
+    }
+
+    private static ItemStack parseStackWithExtendedCount(HolderLookup.Provider provider, CompoundTag tag) {
+        ItemStack stack = ItemStack.parseOptional(provider, tag);
+        if (!stack.isEmpty() && tag.contains(SAVED_COUNT_TAG, Tag.TAG_INT)) {
+            stack.setCount(tag.getInt(SAVED_COUNT_TAG));
+        }
+        return stack;
+    }
+
     public int getOccupiedThreadSlots() {
         return isBusy ? Math.max(1, occupiedThreadSlots) : 0;
     }
@@ -741,23 +762,23 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
         }
-        tag.put("outputItem", firstOutputItem().saveOptional(provider));
+        tag.put("outputItem", saveStackWithExtendedCount(firstOutputItem(), provider));
 
         ListTag outputs = new ListTag();
         for (ItemStack outputItem : outputItems) {
-            outputs.add(outputItem.saveOptional(provider));
+            outputs.add(saveStackWithExtendedCount(outputItem, provider));
         }
         tag.put("outputItems", outputs);
 
         ListTag inputs = new ListTag();
         for (ItemStack inputItem : inputItems) {
-            inputs.add(inputItem.saveOptional(provider));
+            inputs.add(saveStackWithExtendedCount(inputItem, provider));
         }
         tag.put("inputItems", inputs);
 
         ListTag remaining = new ListTag();
         for (ItemStack remainingItem : remainingItems) {
-            remaining.add(remainingItem.saveOptional(provider));
+            remaining.add(saveStackWithExtendedCount(remainingItem, provider));
         }
         tag.put("remainingItems", remaining);
         return tag;
@@ -779,13 +800,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ListTag outputs = nbt.getList("outputItems", Tag.TAG_COMPOUND);
         if (!outputs.isEmpty()) {
             for (int i = 0; i < outputs.size(); i++) {
-                ItemStack output = ItemStack.parseOptional(provider, outputs.getCompound(i));
+                ItemStack output = parseStackWithExtendedCount(provider, outputs.getCompound(i));
                 if (!output.isEmpty()) {
                     outputItems.add(output);
                 }
             }
         } else {
-            ItemStack output = ItemStack.parseOptional(provider, nbt.getCompound("outputItem"));
+            ItemStack output = parseStackWithExtendedCount(provider, nbt.getCompound("outputItem"));
             if (!output.isEmpty()) {
                 outputItems.add(output);
             }
@@ -794,7 +815,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         inputItems.clear();
         ListTag inputs = nbt.getList("inputItems", Tag.TAG_COMPOUND);
         for (int i = 0; i < inputs.size(); i++) {
-            ItemStack input = ItemStack.parseOptional(provider, inputs.getCompound(i));
+            ItemStack input = parseStackWithExtendedCount(provider, inputs.getCompound(i));
             if (!input.isEmpty()) {
                 inputItems.add(input);
             }
@@ -803,7 +824,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         remainingItems.clear();
         ListTag remaining = nbt.getList("remainingItems", Tag.TAG_COMPOUND);
         for (int i = 0; i < remaining.size(); i++) {
-            ItemStack remainingItem = ItemStack.parseOptional(provider, remaining.getCompound(i));
+            ItemStack remainingItem = parseStackWithExtendedCount(provider, remaining.getCompound(i));
             if (!remainingItem.isEmpty()) {
                 remainingItems.add(remainingItem);
             }
