@@ -428,8 +428,8 @@ public class ECOCraftingCPULogic {
     }
 
     private boolean canAttemptBatchFastPath(ECOExtractedPatternExecution execution) {
-        return execution.key() != null
-                && execution.fastPathEligible()
+        return execution.fastPathEligible()
+                && execution.key() != null
                 && NEConfig.ecoAe2FastPathEnabled
                 && !NEConfig.postCraftingEvent;
     }

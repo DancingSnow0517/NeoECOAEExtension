@@ -62,23 +62,8 @@ public final class ECOFastPathStacks {
         return Optional.of(copySorted(counter));
     }
 
-    public static Optional<ItemStack> toSingleItemStack(List<GenericStack> stacks) {
-        if (stacks.size() != 1) {
-            return Optional.empty();
-        }
-        return toItemStack(stacks.get(0));
-    }
-
-    public static Optional<List<ItemStack>> toItemStacks(List<GenericStack> stacks) {
-        List<ItemStack> result = new ArrayList<>(stacks.size());
-        for (GenericStack stack : stacks) {
-            Optional<ItemStack> itemStack = toItemStack(stack);
-            if (itemStack.isEmpty()) {
-                return Optional.empty();
-            }
-            result.add(itemStack.get());
-        }
-        return Optional.of(List.copyOf(result));
+    public static List<GenericStack> copyGenericStacks(List<GenericStack> stacks) {
+        return List.copyOf(stacks);
     }
 
     public static boolean isSafeForFastPath(List<GenericStack> stacks, boolean input) {
@@ -104,7 +89,7 @@ public final class ECOFastPathStacks {
         return !input || !itemStack.getItem().hasCraftingRemainingItem(itemStack);
     }
 
-    private static Optional<ItemStack> toItemStack(GenericStack stack) {
+    public static Optional<ItemStack> toItemStack(GenericStack stack) {
         if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
             return Optional.empty();
         }

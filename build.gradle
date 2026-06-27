@@ -137,6 +137,7 @@ dependencies {
 
 configurations.configureEach {
     resolutionStrategy.force(
+            "dev.latvian.apps:tiny-java-server:1.0.0-build.33",
             "dev.latvian.mods:better-advanced-tooltips:2101.1.0-build.1"
     )
 }

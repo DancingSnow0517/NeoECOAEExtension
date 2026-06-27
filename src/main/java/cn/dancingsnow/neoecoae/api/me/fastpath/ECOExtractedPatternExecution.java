@@ -14,29 +14,39 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOExtractedPatternExecution {
     private final IPatternDetails details;
     private final KeyCounter[] craftingContainer;
-    private final List<GenericStack> expectedOutputs;
-    private final List<GenericStack> expectedContainerItems;
-    private final List<GenericStack> inputItems;
+    private final KeyCounter expectedOutputsCounter;
+    private final KeyCounter expectedContainerItemsCounter;
+    private final Level level;
+    private List<GenericStack> expectedOutputs;
+    private List<GenericStack> expectedContainerItems;
+    private List<GenericStack> inputItems;
 
     @Nullable
-    private final ECOFastPathKey key;
+    private ECOFastPathKey key;
 
-    private final boolean fastPathEligible;
+    @Nullable
+    private Boolean fastPathEligible;
 
     private ECOExtractedPatternExecution(
         IPatternDetails details,
         KeyCounter[] craftingContainer,
+        KeyCounter expectedOutputsCounter,
+        KeyCounter expectedContainerItemsCounter,
+        @Nullable Level level,
         List<GenericStack> expectedOutputs,
         List<GenericStack> expectedContainerItems,
         List<GenericStack> inputItems,
         @Nullable ECOFastPathKey key,
-        boolean fastPathEligible
+        @Nullable Boolean fastPathEligible
     ) {
         this.details = details;
         this.craftingContainer = craftingContainer;
-        this.expectedOutputs = List.copyOf(expectedOutputs);
-        this.expectedContainerItems = List.copyOf(expectedContainerItems);
-        this.inputItems = List.copyOf(inputItems);
+        this.expectedOutputsCounter = expectedOutputsCounter;
+        this.expectedContainerItemsCounter = expectedContainerItemsCounter;
+        this.level = level;
+        this.expectedOutputs = expectedOutputs;
+        this.expectedContainerItems = expectedContainerItems;
+        this.inputItems = inputItems;
         this.key = key;
         this.fastPathEligible = fastPathEligible;
     }
@@ -48,21 +58,17 @@ public final class ECOExtractedPatternExecution {
         KeyCounter expectedContainerItems,
         Level level
     ) {
-        List<GenericStack> outputs = ECOFastPathStacks.copyCounter(expectedOutputs);
-        List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
-        List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
-        Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
-        boolean eligible = key.isPresent()
-            && NEConfig.ecoAe2FastPathEnabled
-            && !NEConfig.postCraftingEvent
-            && AE2PatternIntrospection.isAvailable()
-            && AE2PatternIntrospection.isKnownSafePatternType(details)
-            && outputs.size() == 1
-            && ECOFastPathStacks.isSafeForFastPath(outputs, false)
-            && ECOFastPathStacks.isSafeForFastPath(containers, false)
-            && ECOFastPathStacks.isSafeForFastPath(inputs, true);
         return new ECOExtractedPatternExecution(
-            details, craftingContainer, outputs, containers, inputs, key.orElse(null), eligible
+            details,
+            craftingContainer,
+            expectedOutputs,
+            expectedContainerItems,
+            level,
+            null,
+            null,
+            null,
+            null,
+            null
         );
     }
 
@@ -70,9 +76,12 @@ public final class ECOExtractedPatternExecution {
         return new ECOExtractedPatternExecution(
             details,
             craftingContainer,
+            new KeyCounter(),
+            new KeyCounter(),
+            null,
             List.of(),
             List.of(),
-            ECOFastPathStacks.copyCounters(craftingContainer),
+            null,
             null,
             false
         );
@@ -87,24 +96,55 @@ public final class ECOExtractedPatternExecution {
     }
 
     public List<GenericStack> expectedOutputs() {
+        if (expectedOutputs == null) {
+            expectedOutputs = ECOFastPathStacks.copyCounter(expectedOutputsCounter);
+        }
         return expectedOutputs;
     }
 
     public List<GenericStack> expectedContainerItems() {
+        if (expectedContainerItems == null) {
+            expectedContainerItems = ECOFastPathStacks.copyCounter(expectedContainerItemsCounter);
+        }
         return expectedContainerItems;
     }
 
     public List<GenericStack> inputItems() {
+        if (inputItems == null) {
+            inputItems = ECOFastPathStacks.copyCounters(craftingContainer);
+        }
         return inputItems;
     }
 
     @Nullable
     public ECOFastPathKey key() {
+        if (key == null && canAttemptFastPath()) {
+            key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level).orElse(null);
+        }
         return key;
     }
 
     public boolean fastPathEligible() {
+        if (fastPathEligible == null) {
+            fastPathEligible = computeFastPathEligible();
+        }
         return fastPathEligible;
+    }
+
+    private boolean computeFastPathEligible() {
+        return key() != null
+            && canAttemptFastPath()
+            && expectedOutputs().size() == 1
+            && ECOFastPathStacks.isSafeForFastPath(expectedOutputs(), false)
+            && ECOFastPathStacks.isSafeForFastPath(expectedContainerItems(), false)
+            && ECOFastPathStacks.isSafeForFastPath(inputItems(), true);
+    }
+
+    private boolean canAttemptFastPath() {
+        return NEConfig.ecoAe2FastPathEnabled
+            && !NEConfig.postCraftingEvent
+            && AE2PatternIntrospection.isAvailable()
+            && AE2PatternIntrospection.isKnownSafePatternType(details);
     }
 
     @Nullable
