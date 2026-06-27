@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.host;
 
 import appeng.core.localization.Tooltips;
+import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
+import net.minecraft.network.chat.Component;
 
 import java.util.Locale;
 
@@ -36,6 +38,21 @@ public final class NEHostFormat {
 
     public static String usedTotalBytes(long used, long total) {
         return bytes(used) + " / " + bytes(total);
+    }
+
+    public static Component coloredUsedTotal(long used, long total) {
+        return coloredUsedTotal(number(used), number(total));
+    }
+
+    public static Component coloredUsedTotalBytes(long used, long total) {
+        return coloredUsedTotal(bytes(used), bytes(total));
+    }
+
+    private static Component coloredUsedTotal(String used, String total) {
+        return Component.empty()
+            .append(Component.literal(used).withColor(ECOHostStyles.HOST_STAT_USED))
+            .append(Component.literal(" / ").withColor(ECOHostStyles.HOST_STAT_SEPARATOR))
+            .append(Component.literal(total).withColor(ECOHostStyles.HOST_STAT_TOTAL));
     }
 
     public static String percent(long used, long total) {

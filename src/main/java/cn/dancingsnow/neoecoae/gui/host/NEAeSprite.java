@@ -13,6 +13,7 @@ public record NEAeSprite(int x, int y, int width, int height) {
     static final int TEXTURE_HEIGHT = 256;
 
     static final NEAeSprite TYPE_FILTER_ALL = new NEAeSprite(160, 16);
+    static final NEAeSprite TYPE_FILTER_FLUIDS = new NEAeSprite(144, 16);
     public static final NEAeSprite HELP = new NEAeSprite(176, 0);
     static final NEAeSprite BACK = new NEAeSprite(96, 16);
     static final NEAeSprite BACKGROUND_DUST = new NEAeSprite(240, 32);

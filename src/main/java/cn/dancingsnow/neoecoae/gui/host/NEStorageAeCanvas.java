@@ -16,6 +16,7 @@ import net.minecraft.world.level.Level;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -62,7 +63,13 @@ final class NEStorageAeCanvas extends NEHostCanvas {
     private static final int COLUMN_GAP = 8;
     private static final int COLUMN_SCROLLBAR_Y = METRIC_PANEL_Y + 8;
     private static final int COLUMN_SCROLLBAR_H = 3;
-    private static final Map<ScrollStateKey, ScrollState> SCROLL_STATES = new HashMap<>();
+    private static final int MAX_SCROLL_STATES = 128;
+    private static final Map<ScrollStateKey, ScrollState> SCROLL_STATES = new LinkedHashMap<>(16, 0.75F, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<ScrollStateKey, ScrollState> eldest) {
+            return size() > MAX_SCROLL_STATES;
+        }
+    };
 
     private final ECOStorageSystemBlockEntity storage;
     private final Map<String, Float> animatedColumnRatios = new HashMap<>();

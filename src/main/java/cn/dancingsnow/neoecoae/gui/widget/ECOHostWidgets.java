@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.widget;
 
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.NETextures;
+import com.lowdragmc.lowdraglib2.gui.sync.SyncValue;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
@@ -10,11 +11,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Scroller;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -224,18 +227,44 @@ public final class ECOHostWidgets {
         return grid;
     }
 
+    public static UIElement statLine(String key, Supplier<Component> value, Supplier<Float> ratio, String tooltipTitleKey) {
+        return statLineWithTooltipTitle(key, value, ratio, tooltipTitleKey);
+    }
+
     public static UIElement statLine(String key, Supplier<Component> value, Supplier<Float> ratio) {
+        return statLineWithTooltipTitle(key, value, ratio, key);
+    }
+
+    private static UIElement statLineWithTooltipTitle(
+        String key,
+        Supplier<Component> value,
+        Supplier<Float> ratio,
+        String tooltipTitleKey
+    ) {
         UIElement row = new UIElement().layout(layout -> {
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.gapAll(1);
+            layout.height(18);
+        }).addClass("eco-host-stat-line");
+        row.addChild(new Label()
+            .setText(Component.translatable(key))
+            .textStyle(ECOHostStyles::hostStatTitleText)
+            .layout(layout -> layout.widthPercent(100).height(8)));
+        TooltipCache tooltipCache = new TooltipCache();
+        SyncValue<Component> tooltipSync = DataBindingBuilder.componentS2C(value).build().getSyncValue();
+        tooltipSync.addListener(component -> tooltipCache.set(Component.translatable(tooltipTitleKey), component));
+        row.addSyncValue(tooltipSync);
+        row.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+            event.hoverTooltips = new HoverTooltips(tooltipCache.lines(), null, null, null);
+            event.stopPropagation();
+        });
+        UIElement valueRow = new UIElement().layout(layout -> {
             layout.flexDirection(FlexDirection.ROW);
             layout.alignItems(AlignItems.CENTER);
             layout.gapAll(4);
             layout.height(9);
-        }).addClass("eco-host-stat-line");
-        row.addChild(new Label()
-            .setText(Component.translatable(key))
-            .textStyle(ECOHostStyles::compactLabelText)
-            .layout(layout -> layout.width(42)));
-        row.addChild(new ProgressBar()
+        });
+        valueRow.addChild(new ProgressBar()
             .label(label -> label.setText(""))
             .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
             .bind(DataBindingBuilder.floatValS2C(ratio::get).build())
@@ -243,10 +272,23 @@ public final class ECOHostWidgets {
             .addClass("eco-host-progress"));
         Label valueLabel = new Label();
         valueLabel.bind(DataBindingBuilder.componentS2C(value).build());
-        valueLabel.textStyle(ECOHostStyles::compactValueText);
-        valueLabel.layout(layout -> layout.width(60));
-        row.addChild(valueLabel);
+        valueLabel.textStyle(ECOHostStyles::hostStatValueText);
+        valueLabel.layout(layout -> layout.flexGrow(1));
+        valueRow.addChild(valueLabel);
+        row.addChild(valueRow);
         return row;
+    }
+
+    private static final class TooltipCache {
+        private List<Component> lines = List.of();
+
+        private void set(Component title, Component value) {
+            this.lines = List.of(title, value == null ? Component.empty() : value.copy().withStyle(ChatFormatting.WHITE));
+        }
+
+        private List<Component> lines() {
+            return lines;
+        }
     }
 
     public static UIElement footer(Supplier<Component> hint) {

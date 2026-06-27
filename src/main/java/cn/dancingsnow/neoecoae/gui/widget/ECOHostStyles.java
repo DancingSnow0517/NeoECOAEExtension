@@ -14,6 +14,10 @@ public final class ECOHostStyles {
     public static final int MUTED = 0xffffff;
     public static final int SOFT = 0x7d8a91;
     public static final int ACCENT = 0x403e53;
+    public static final int HOST_STAT_TITLE = 0xD3CEDD;
+    public static final int HOST_STAT_USED = 0x00F900;
+    public static final int HOST_STAT_TOTAL = 0x8176FC;
+    public static final int HOST_STAT_SEPARATOR = 0xD3CEDD;
 
     private ECOHostStyles() {
     }
@@ -44,6 +48,14 @@ public final class ECOHostStyles {
 
     public static void compactLabelText(TextElement.TextStyle style) {
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).fontSize(9.0f).textColor(MUTED).textShadow(false);
+    }
+
+    public static void hostStatTitleText(TextElement.TextStyle style) {
+        style.adaptiveHeight(true).adaptiveWidth(false).textWrap(TextWrap.HOVER_ROLL).fontSize(9.0f).textColor(HOST_STAT_TITLE).textShadow(false);
+    }
+
+    public static void hostStatValueText(TextElement.TextStyle style) {
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).fontSize(9.0f).textColor(HOST_STAT_USED).textShadow(false);
     }
 
     public static void hintText(TextElement.TextStyle style) {

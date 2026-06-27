@@ -28,6 +28,18 @@ final class NEHostSnapshots {
     private NEHostSnapshots() {
     }
 
+    /** Encodes a crafting/computation task list into a self-contained snapshot for UI sync. */
+    public static byte[] encodeTasks(List<NECraftingTaskEntry> tasks) {
+        return encode(buf -> writeTasks(buf, tasks));
+    }
+
+    /** Decodes a task-list snapshot produced by {@link #encodeTasks}. */
+    public static List<NECraftingTaskEntry> decodeTasks(byte[] snapshot) {
+        List<NECraftingTaskEntry> tasks = new ArrayList<>();
+        decode(snapshot, buf -> tasks.addAll(readTasks(buf)));
+        return tasks;
+    }
+
     static byte[] encode(Consumer<RegistryFriendlyByteBuf> writer) {
         try {
             return ByteBufUtil.writeCustomData(writer, Platform.getFrozenRegistry());

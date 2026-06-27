@@ -9,4 +9,10 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface AECraftingPatternAccessor {
     @Accessor("definition")
     AEItemKey neoecoae$getDefinitionKey();
+
+    @Accessor("canSubstitute")
+    boolean neoecoae$canSubstitute();
+
+    @Accessor("canSubstituteFluids")
+    boolean neoecoae$canSubstituteFluids();
 }

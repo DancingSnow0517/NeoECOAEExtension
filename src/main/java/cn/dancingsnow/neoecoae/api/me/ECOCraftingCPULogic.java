@@ -43,6 +43,7 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -348,10 +349,13 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
+        ECOFastPathResult fastPathResult = selectedOffer.result();
+        int adaptiveRequested = fastPathResult.getRecommendedBatchSize(requested);
+        int batchSize = Math.min(adaptiveRequested, selectedOffer.maxBatchSize());
         batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
         batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
         if (batchSize <= 1) {
+            fastPathResult.recordBatchFailure(adaptiveRequested);
             return 0;
         }
 
@@ -360,6 +364,7 @@ public class ECOCraftingCPULogic {
                 extraCrafts);
         batchSize = Math.min(batchSize, availableExtraCrafts + 1);
         if (batchSize <= 1) {
+            fastPathResult.recordBatchFailure(adaptiveRequested);
             return 0;
         }
 
@@ -367,10 +372,12 @@ public class ECOCraftingCPULogic {
         boolean extraInputsExtracted = false;
         try {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
+                fastPathResult.recordBatchFailure(batchSize);
                 return 0;
             }
             if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE,
                     PowerMultiplier.CONFIG) < patternPower * batchSize - 0.01) {
+                fastPathResult.recordBatchFailure(batchSize);
                 return 0;
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
@@ -385,17 +392,21 @@ public class ECOCraftingCPULogic {
                     job.link.getCraftingID());
             if (!selectedPatternBus.pushBatch(request)) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
+                fastPathResult.recordBatchFailure(batchSize);
                 return -1;
             }
             energyService.extractAEPower(patternPower * batchSize, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            fastPathResult.recordBatchSuccess(batchSize, requested);
             recordPushedPattern(execution, batchSize);
             return batchSize;
         } catch (RuntimeException e) {
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
+            fastPathResult.recordBatchFailure(batchSize);
             selectedOffer.worker().getFastPathCache().recordException();
             return -1;
         } catch (Error e) {
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
+            fastPathResult.recordBatchFailure(batchSize);
             selectedOffer.worker().getFastPathCache().recordException();
             throw e;
         }
@@ -697,6 +708,10 @@ public class ECOCraftingCPULogic {
     @Nullable
     public GenericStack getFinalJobOutput() {
         return this.job != null ? this.job.finalOutput : null;
+    }
+
+    public long getRemainingJobOutputAmount() {
+        return this.job == null ? 0L : Math.max(0L, this.job.remainingAmount);
     }
 
     public ElapsedTimeTracker getElapsedTimeTracker() {

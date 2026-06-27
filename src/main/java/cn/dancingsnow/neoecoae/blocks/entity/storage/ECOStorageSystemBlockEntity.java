@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import appeng.api.ids.AEComponents;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -280,7 +281,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             cells.add(new NEStorageMatrixCell(
                 row,
                 column,
-                new ItemStack(cellStack.getItem()),
+                displayCellStack(cellStack),
                 Math.max(0, Math.min(3, inv.getTier().getTier())),
                 inv.getStoredItemTypes(),
                 inv.getTotalItemTypes(),
@@ -290,6 +291,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         cells.sort(Comparator.comparingInt(NEStorageMatrixCell::row).thenComparingInt(NEStorageMatrixCell::column));
         return List.copyOf(cells);
+    }
+
+    private static ItemStack displayCellStack(ItemStack cellStack) {
+        ItemStack displayStack = cellStack.copyWithCount(1);
+        displayStack.remove(AEComponents.STORAGE_CELL_INV);
+        return displayStack;
     }
 
     private static int directionDistance(BlockPos offset, Direction direction) {

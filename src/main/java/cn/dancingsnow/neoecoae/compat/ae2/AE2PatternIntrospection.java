@@ -47,7 +47,17 @@ public final class AE2PatternIntrospection {
     }
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
-        return details instanceof AECraftingPattern;
+        return isFastPathSafePattern(details);
+    }
+
+    public static boolean isFastPathSafePattern(IPatternDetails details) {
+        if (!(details instanceof AECraftingPattern)) {
+            return false;
+        }
+        if (details instanceof AECraftingPatternAccessor accessor) {
+            return !accessor.neoecoae$canSubstitute() && !accessor.neoecoae$canSubstituteFluids();
+        }
+        return false;
     }
 
     public static Optional<ECOFastPathKey> buildFastPathKey(

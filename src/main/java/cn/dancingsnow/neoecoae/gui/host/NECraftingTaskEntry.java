@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.host;
 
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.Util;
 
 import java.util.Locale;
 
@@ -11,23 +12,36 @@ public record NECraftingTaskEntry(
     long craftCount,
     long totalTicks,
     long remainingTicks,
-    Status status
+    Status status,
+    long receivedAtMillis
 ) {
+    public NECraftingTaskEntry(
+        String id,
+        ItemStack output,
+        long outputAmount,
+        long craftCount,
+        long totalTicks,
+        long remainingTicks,
+        Status status
+    ) {
+        this(id, output, outputAmount, craftCount, totalTicks, remainingTicks, status, Util.getMillis());
+    }
+
     public enum Status {
         RUNNING,
         QUEUED,
         WAITING_OUTPUT
     }
 
-    int statusColor() {
+    public int statusColor() {
         return switch (status) {
-            case RUNNING -> NEHostCanvas.TEXT_SUCCESS;
-            case QUEUED -> NEHostCanvas.TEXT_WARNING;
-            case WAITING_OUTPUT -> NEHostCanvas.TEXT_BLUE;
+            case RUNNING -> 0xFF6CFFA0;
+            case QUEUED -> 0xFFFFD65A;
+            case WAITING_OUTPUT -> 0xFF3FD6FF;
         };
     }
 
-    String statusKey() {
+    public String statusKey() {
         return switch (status) {
             case RUNNING -> "gui.neoecoae.crafting.task.status.running";
             case QUEUED -> "gui.neoecoae.crafting.task.status.queued";
@@ -36,10 +50,10 @@ public record NECraftingTaskEntry(
     }
 
     long elapsedTicks() {
-        return Math.max(0L, totalTicks - remainingTicks);
+        return Math.max(0L, totalTicks - liveRemainingTicks());
     }
 
-    int progressWidth(int width) {
+    public int progressWidth(int width) {
         if (width <= 0) {
             return 0;
         }
@@ -52,12 +66,20 @@ public record NECraftingTaskEntry(
         return ratioWidth(elapsedTicks(), totalTicks, width);
     }
 
-    String elapsedTimeText() {
+    public String elapsedTimeText() {
         return formatTicks(elapsedTicks());
     }
 
-    String totalTimeText() {
+    public String totalTimeText() {
         return formatTicks(totalTicks);
+    }
+
+    private long liveRemainingTicks() {
+        if (status != Status.RUNNING || remainingTicks <= 0L) {
+            return Math.max(0L, remainingTicks);
+        }
+        long elapsedTicks = Math.max(0L, (Util.getMillis() - receivedAtMillis) / 50L);
+        return Math.max(0L, remainingTicks - elapsedTicks);
     }
 
     private static int ratioWidth(long used, long total, int width) {

@@ -238,6 +238,7 @@
   "gui.neoecoae.crafting.stats": "統",
   "gui.neoecoae.crafting.status": "態",
   "gui.neoecoae.crafting.task.time": "時: %s / %s",
+  "gui.neoecoae.crafting.task.elapsed_time": "已行: %s",
   "gui.neoecoae.crafting.waste_short": "廢",
   "gui.neoecoae.storage_priority.title": "優先",
   "gui.neoecoae.storage_priority.open": "啟優先之板",

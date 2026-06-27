@@ -19,6 +19,8 @@ import java.util.Set;
 final class NEAnimatedTaskCards {
     private static final long TASK_FADE_MS = 360L;
     private static final long TASK_MOVE_MS = 140L;
+    private static final int MIN_TASK_NAME_WIDTH = 16;
+    private static final int MIN_TASK_AMOUNT_WIDTH = 10;
 
     private final Map<String, TaskCardAnimation> animations = new LinkedHashMap<>();
     private List<Frame> lastFrames = List.of();
@@ -216,9 +218,12 @@ final class NEAnimatedTaskCards {
         int color = entry.statusColor();
         canvas.drawTaskCardFrame(context, layout.cardX(), y, layout.cardW(), layout.cardH(), alpha);
         float contentX = layout.cardX() + style.contentInsetX();
-        String amount = "x" + NEHostFormat.number(entry.outputAmount());
+        int textRight = layout.cardX() + layout.cardW() - style.amountRightInset();
+        int availableTextW = Math.max(0, Math.round((textRight - contentX) / Math.max(0.01F, style.textScale())));
+        int amountMax = amountMaxWidth(availableTextW);
+        String amount = canvas.fit(context, "x" + NEHostFormat.number(entry.outputAmount()), amountMax);
         int amountW = Math.round(context.mc.font.width(amount) * style.textScale());
-        float amountX = layout.cardX() + layout.cardW() - style.amountRightInset() - amountW;
+        float amountX = textRight - amountW;
         int progressW = layout.cardW() - style.contentInsetX() - style.progressRightInset();
         if (style.progressReservesAmount()) {
             progressW -= amountW;
@@ -240,10 +245,18 @@ final class NEAnimatedTaskCards {
         }
         canvas.drawScaledItem(context, entry.output(), layout.cardX() + style.itemInsetX(), y + style.itemInsetY(),
                 style.itemScale(), alpha);
-        int nameWidth = Math.round((amountX - contentX - style.amountGap()) / Math.max(0.01F, style.textScale()));
-        String name = canvas.fit(context, entry.output().getHoverName().getString(), Math.max(16, nameWidth));
+        int nameWidth = Math.max(0, Math.round((amountX - contentX - style.amountGap()) / Math.max(0.01F, style.textScale())));
+        String name = canvas.fit(context, entry.output().getHoverName().getString(), nameWidth);
         canvas.drawScaledText(context, name, contentX, y + style.textOffsetY(), style.textScale(), canvas.withAlpha(NEHostCanvas.TEXT_PRIMARY, alpha));
         canvas.drawScaledText(context, amount, amountX, y + style.textOffsetY(), style.textScale(), canvas.withAlpha(NEHostCanvas.TEXT_VALUE, alpha));
+    }
+
+    private static int amountMaxWidth(int availableTextW) {
+        if (availableTextW <= MIN_TASK_AMOUNT_WIDTH) {
+            return Math.max(0, availableTextW);
+        }
+        int maxAfterName = Math.max(MIN_TASK_AMOUNT_WIDTH, availableTextW - MIN_TASK_NAME_WIDTH);
+        return Math.min(availableTextW, maxAfterName);
     }
 
     private static HoverTooltips taskTooltip(NECraftingTaskEntry entry) {
@@ -252,8 +265,8 @@ final class NEAnimatedTaskCards {
         lines.add(Component.translatable("gui.neoecoae.crafting.task.amount", NEHostFormat.number(entry.outputAmount())));
         lines.add(Component.translatable("gui.neoecoae.crafting.task.crafts", NEHostFormat.number(entry.craftCount())));
         if (entry.totalTicks() > 0L) {
-            lines.add(Component.translatable("gui.neoecoae.crafting.task.time",
-                    entry.elapsedTimeText(), entry.totalTimeText()).withStyle(ChatFormatting.AQUA));
+            lines.add(Component.translatable("gui.neoecoae.crafting.task.elapsed_time",
+                    entry.elapsedTimeText()).withStyle(ChatFormatting.AQUA));
         }
         return new HoverTooltips(lines, entry.output().getTooltipImage().orElse(null), null, entry.output());
     }

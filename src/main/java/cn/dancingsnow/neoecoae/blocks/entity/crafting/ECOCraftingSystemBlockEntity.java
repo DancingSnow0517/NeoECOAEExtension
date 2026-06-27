@@ -652,18 +652,43 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (output.isEmpty()) {
                     continue;
                 }
+                long outputAmount = craftingTaskOutputAmount(output, snapshot.remainingItems());
                 entries.add(new NECraftingTaskEntry(
-                    "worker:" + worker.getBlockPos().asLong() + ":" + index++,
+                    craftingTaskId(worker, snapshot, output, outputAmount, index++),
                     output,
-                    output.getCount(),
+                    outputAmount,
                     Math.max(1L, snapshot.occupiedThreadSlots()),
                     snapshot.maxProgress(),
                     Math.max(0L, snapshot.maxProgress() - snapshot.progress()),
-                    NECraftingTaskEntry.Status.RUNNING
+                    snapshot.outputsReady() ? NECraftingTaskEntry.Status.WAITING_OUTPUT : NECraftingTaskEntry.Status.RUNNING
                 ));
             }
         }
         return List.copyOf(entries);
+    }
+
+    private static String craftingTaskId(
+        ECOCraftingWorkerBlockEntity worker,
+        ECOCraftingThread.Snapshot snapshot,
+        ItemStack output,
+        long outputAmount,
+        int index
+    ) {
+        return "worker:" + worker.getBlockPos().asLong()
+            + ":" + index
+            + ":" + output.getItemHolder().unwrapKey().map(key -> key.location().toString()).orElse(output.getItem().toString())
+            + ":" + outputAmount
+            + ":" + snapshot.maxProgress();
+    }
+
+    private static long craftingTaskOutputAmount(ItemStack output, List<ItemStack> remainingItems) {
+        long amount = 0L;
+        for (ItemStack remaining : remainingItems) {
+            if (ItemStack.isSameItemSameComponents(output, remaining)) {
+                amount += Math.max(0, remaining.getCount());
+            }
+        }
+        return amount > 0L ? amount : Math.max(1, output.getCount());
     }
 
     public List<NECraftingModuleCell> createCraftingModuleCells() {

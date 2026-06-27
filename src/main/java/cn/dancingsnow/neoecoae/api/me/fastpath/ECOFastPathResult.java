@@ -10,6 +10,8 @@ public final class ECOFastPathResult {
     private final List<GenericStack> remainingEntries;
     private final List<GenericStack> inputEntries;
     private long lastAccessTick;
+    private static final int INITIAL_RECOMMENDED_BATCH_SIZE = 4;
+    private int recommendedBatchSize = INITIAL_RECOMMENDED_BATCH_SIZE;
 
     private ECOFastPathResult(
         boolean negative,
@@ -74,5 +76,25 @@ public final class ECOFastPathResult {
 
     public long getLastAccessTick() {
         return lastAccessTick;
+    }
+
+    public int getRecommendedBatchSize(int requested) {
+        return Math.max(1, Math.min(requested, recommendedBatchSize));
+    }
+
+    public void recordBatchSuccess(int batchSize, int requested) {
+        if (batchSize <= 1) {
+            return;
+        }
+        int next = batchSize >= recommendedBatchSize ? batchSize * 2 : recommendedBatchSize;
+        recommendedBatchSize = Math.max(1, Math.min(requested, next));
+    }
+
+    public void recordBatchFailure(int attemptedBatchSize) {
+        if (attemptedBatchSize <= 1) {
+            recommendedBatchSize = INITIAL_RECOMMENDED_BATCH_SIZE;
+            return;
+        }
+        recommendedBatchSize = Math.max(1, attemptedBatchSize / 2);
     }
 }

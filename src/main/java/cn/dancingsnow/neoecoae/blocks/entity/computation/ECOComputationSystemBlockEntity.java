@@ -221,7 +221,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             return null;
         }
         GenericStack finalOutput = logic.getFinalJobOutput();
-        if (finalOutput == null || finalOutput.amount() <= 0 || !(finalOutput.what() instanceof AEItemKey itemKey)) {
+        long remainingAmount = logic.getRemainingJobOutputAmount();
+        if (finalOutput == null || remainingAmount <= 0 || !(finalOutput.what() instanceof AEItemKey itemKey)) {
             return null;
         }
         ItemStack output = itemKey.toStack(1);
@@ -238,7 +239,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return new NECraftingTaskEntry(
             "cpu:" + owner + ":" + index + ":" + finalOutput.what().hashCode(),
             output,
-            finalOutput.amount(),
+            remainingAmount,
             1L,
             total,
             remaining,

@@ -1,12 +1,18 @@
 package cn.dancingsnow.neoecoae.gui.host;
 
 import appeng.core.localization.Tooltips;
+import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,8 +26,14 @@ final class NECraftingAeCanvas extends NEHostCanvas {
     private static final int HEADER_Y = EDGE;
     private static final float TEXT_SCALE = 0.95F;
     private static final float HEADER_TEXT_SCALE = 0.95F;
+    private static final float MODULE_TEXT_SCALE = 0.82F;
     private static final float TASK_ITEM_SCALE = 0.95F;
     private static final long ENERGY_GAUGE_REFERENCE = 1_000_000_000L;
+    private static final ResourceLocation CORE_SIDE = NeoECOAE.id("textures/block/crafting/core/core_side.png");
+    private static final ResourceLocation PARALLEL_FRONT = NeoECOAE.id("textures/block/crafting/core/parallel_core_north.png");
+    private static final ResourceLocation LIGHT_L4 = NeoECOAE.id("textures/block/crafting/core/parallel_core_light_a.png");
+    private static final ResourceLocation LIGHT_L6 = NeoECOAE.id("textures/block/crafting/core/parallel_core_light_b.png");
+    private static final ResourceLocation LIGHT_L9 = NeoECOAE.id("textures/block/crafting/core/parallel_core_light_c.png");
 
     static final int TOOLBAR_BUTTON_SIZE = 16;
     private static final int TOOLBAR_BUTTON_GAP = 3;
@@ -38,10 +50,10 @@ final class NECraftingAeCanvas extends NEHostCanvas {
     private static final int STATUS_AREA_W = 66;
     private static final int STATUS_AREA_H = TOP_AREA_H;
     private static final int STATUS_LIGHT_SIZE = 15;
-    private static final int STATUS_LIGHT_GAP = 11;
+    private static final int STATUS_LIGHT_GAP = 6;
     private static final int STATUS_LIGHT_GROUP_H = STATUS_LIGHT_SIZE * 3 + STATUS_LIGHT_GAP * 2;
     private static final int STATUS_LIGHT_X = STATUS_AREA_X + EDGE;
-    private static final int STATUS_LIGHT_START_Y = STATUS_AREA_Y + 26;
+    private static final int STATUS_LIGHT_START_Y = STATUS_AREA_Y + 19;
     private static final int STATUS_ROW_0_Y = STATUS_LIGHT_START_Y + 4;
     private static final int STATUS_ROW_1_Y = STATUS_ROW_0_Y + STATUS_LIGHT_SIZE + STATUS_LIGHT_GAP;
     private static final int STATUS_ROW_2_Y = STATUS_ROW_1_Y + STATUS_LIGHT_SIZE + STATUS_LIGHT_GAP;
@@ -49,6 +61,19 @@ final class NECraftingAeCanvas extends NEHostCanvas {
     private static final int STATS_AREA_Y = TOP_AREA_Y;
     private static final int STATS_AREA_W = 132;
     private static final int STATS_AREA_H = TOP_AREA_H;
+    private static final int MODULE_AREA_X = STATS_AREA_X;
+    private static final int MODULE_AREA_Y = STATS_AREA_Y;
+    private static final int MODULE_AREA_W = STATS_AREA_W;
+    private static final int MODULE_AREA_H = STATS_AREA_H;
+    private static final int MODULE_GRID_X = MODULE_AREA_X + EDGE;
+    private static final int MODULE_GRID_Y = MODULE_AREA_Y + 24;
+    private static final int MODULE_GRID_W = MODULE_AREA_W - EDGE * 2;
+    private static final int MODULE_GRID_H = 37;
+    private static final int MODULE_SCROLLBAR_Y = MODULE_GRID_Y + MODULE_GRID_H + 2;
+    private static final int MODULE_SCROLLBAR_H = 3;
+    private static final int MODULE_STATS_Y = MODULE_SCROLLBAR_Y + MODULE_SCROLLBAR_H + 3;
+    private static final int MODULE_PROGRESS_Y = MODULE_AREA_Y + MODULE_AREA_H - 8;
+    private static final int MODULE_PROGRESS_H = 4;
     private static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + GAP;
     private static final int GAUGE_AREA_Y = TOP_AREA_Y;
     private static final int GAUGE_AREA_W = TOP_AREA_X + TOP_AREA_W - GAUGE_AREA_X;
@@ -85,6 +110,7 @@ final class NECraftingAeCanvas extends NEHostCanvas {
 
     private final ECOCraftingSystemBlockEntity crafting;
     private final NEAnimatedTaskCards taskCards = new NEAnimatedTaskCards();
+    private final ScrollModel moduleScroll = new ScrollModel();
     private CraftingSnapshot snapshot = CraftingSnapshot.EMPTY;
 
     NECraftingAeCanvas(ECOCraftingSystemBlockEntity crafting) {
@@ -116,6 +142,8 @@ final class NECraftingAeCanvas extends NEHostCanvas {
             buf.writeVarInt(Math.max(0, crafting.getCoolant()));
             buf.writeVarLong(Math.max(0L, crafting.getMaxEnergyUsage()));
             NEHostSnapshots.writeTasks(buf, crafting.createCraftingTasks());
+            NEHostSnapshots.writeModuleCells(buf, crafting.createCraftingModuleCells());
+            NEHostSnapshots.writeItemStacks(buf, crafting.createCraftingWorkerOutputs());
         });
     }
 
@@ -134,7 +162,9 @@ final class NECraftingAeCanvas extends NEHostCanvas {
             buf.readBoolean(),
             Math.max(0, buf.readVarInt()),
             Math.max(0L, buf.readVarLong()),
-            NEHostSnapshots.readTasks(buf)
+            NEHostSnapshots.readTasks(buf),
+            NEHostSnapshots.readModuleCells(buf),
+            NEHostSnapshots.readItemStacks(buf)
         ));
     }
 
@@ -146,7 +176,7 @@ final class NECraftingAeCanvas extends NEHostCanvas {
         drawInsetRect(context, TASK_PANEL_X, TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
         drawHeader(context);
         drawStatusArea(context);
-        drawStatsArea(context);
+        drawModulePreview(context);
         drawGaugeArea(context);
         drawInventory(context);
         drawTasks(context);
@@ -191,42 +221,91 @@ final class NECraftingAeCanvas extends NEHostCanvas {
                 enabled ? TEXT_SUCCESS : TEXT_ERROR);
     }
 
-    private void drawStatsArea(GUIContext context) {
-        drawScaledFittedText(context, tr("gui.neoecoae.crafting.stats", "Stats"), STATS_AREA_X + EDGE, STATS_AREA_Y + EDGE,
-                TEXT_SCALE, STATS_AREA_W - EDGE * 2, TEXT_PRIMARY);
-        int x = STATS_AREA_X + EDGE;
-        int y = STATS_AREA_Y + 23;
-        drawScaledPairLine(context, trString("gui.neoecoae.crafting.recipe_slots", "Tasks") + ": ",
-                snapshot.runningThreadCount(), snapshot.threadCount(), x, y);
-        drawProgressBar(context, x, y + 12, STATS_AREA_W - EDGE * 2, 9, snapshot.runningThreadCount(), snapshot.threadCount(), TEXT_SUCCESS);
-        y += 31;
-        drawScaledValueLine(context, trString("gui.neoecoae.crafting.batch_parallel", "Free") + ": ",
-                snapshot.availableThreads(), x, y, STATS_AREA_W - EDGE * 2);
-        y += 16;
-        drawScaledValueLine(context, trString("gui.neoecoae.crafting.patterns_short", "Patterns") + ": ",
-                snapshot.patternBusCount(), x, y, 60);
-        drawScaledValueLine(context, trString("gui.neoecoae.crafting.ft_cores_short", "FT Cores") + ": ",
-                snapshot.parallelCount(), x + 66, y, STATS_AREA_W - EDGE * 2 - 66);
+    private void drawModulePreview(GUIContext context) {
+        String moduleCounts = "FT " + NEHostFormat.number(snapshot.parallelCount()) + "   FX " + NEHostFormat.number(snapshot.workerCount());
+        int countWidth = Math.round(context.mc.font.width(moduleCounts) * MODULE_TEXT_SCALE);
+        drawScaledFittedText(context, tr("gui.neoecoae.crafting.module_preview", "Structure Preview"),
+                MODULE_AREA_X + EDGE, MODULE_AREA_Y + EDGE, MODULE_TEXT_SCALE,
+                MODULE_AREA_W - EDGE * 2 - countWidth - 5, TEXT_PRIMARY);
+        drawScaledRightText(context, moduleCounts, MODULE_AREA_X + MODULE_AREA_W - EDGE, MODULE_AREA_Y + EDGE,
+                MODULE_TEXT_SCALE, TEXT_VALUE);
+        Grid grid = moduleGrid();
+        if (grid.columns <= 0) {
+            drawScaledCenteredText(context, tr("gui.neoecoae.crafting.no_worker_cores", "No worker cores"),
+                    MODULE_AREA_X, MODULE_AREA_Y + 47, MODULE_AREA_W, MODULE_TEXT_SCALE, TEXT_MUTED);
+            drawModuleStats(context);
+            return;
+        }
+        if (grid.contentW > MODULE_GRID_W) {
+            float thumbW = Math.max(12.0F, MODULE_GRID_W * MODULE_GRID_W / grid.contentW);
+            float thumbX = MODULE_GRID_X + (MODULE_GRID_W - thumbW) * moduleScroll.offset() / Math.max(1.0F, moduleScroll.max());
+            fillLocal(context, MODULE_GRID_X, MODULE_SCROLLBAR_Y, MODULE_GRID_W, MODULE_SCROLLBAR_H, PANEL_OUTER);
+            fillLocal(context, thumbX, MODULE_SCROLLBAR_Y, thumbW, MODULE_SCROLLBAR_H, PANEL_MIDDLE);
+            fillLocal(context, thumbX, MODULE_SCROLLBAR_Y, thumbW, 1, PANEL_EDGE);
+        }
+        context.graphics.flush();
+        context.enableScissor(absX(MODULE_GRID_X), absY(MODULE_GRID_Y), MODULE_GRID_W, MODULE_GRID_H);
+        for (int column = 0; column < grid.columns; column++) {
+            float x = grid.x + column * grid.size;
+            if (x + grid.size <= MODULE_GRID_X || x >= MODULE_GRID_X + MODULE_GRID_W) {
+                continue;
+            }
+            drawModuleCell(context, column, NECraftingModuleCell.Row.UPPER_PARALLEL, grid);
+            drawModuleCell(context, column, NECraftingModuleCell.Row.WORKER, grid);
+            drawModuleCell(context, column, NECraftingModuleCell.Row.LOWER_PARALLEL, grid);
+        }
+        context.graphics.flush();
+        context.disableScissor();
+        drawModuleStats(context);
     }
 
-    private void drawScaledValueLine(GUIContext context, String label, long value, int x, int y, int maxWidth) {
-        String valueText = fullNumber(value);
-        int valueWidth = Math.round(context.mc.font.width(valueText) * TEXT_SCALE);
-        drawScaledFittedText(context, label, x, y, TEXT_SCALE, Math.max(0, maxWidth - valueWidth), TEXT_MUTED);
-        drawScaledText(context, valueText, x + maxWidth - valueWidth, y, TEXT_SCALE, TEXT_VALUE);
+    private void drawModuleCell(GUIContext context, int column, NECraftingModuleCell.Row row, Grid grid) {
+        NECraftingModuleCell cell = moduleCellAt(column, row);
+        boolean active = cell != null;
+        float x = grid.x + column * grid.size;
+        float y = grid.y + rowIndex(row) * grid.size;
+        if (grid.size >= 10.0F) {
+            drawInsetRect(context, x, y, grid.size, grid.size);
+        } else {
+            fillLocal(context, x, y, grid.size, grid.size, 0xFF1B1822);
+        }
+        float pad = grid.size >= 10.0F ? 2.0F : 1.0F;
+        float inner = Math.max(1.0F, grid.size - pad * 2.0F);
+        float ix = x + pad;
+        float iy = y + pad;
+        fillLocal(context, ix, iy, inner, inner, 0xAA17141E);
+        if (active) {
+            ResourceLocation base = row == NECraftingModuleCell.Row.WORKER ? CORE_SIDE : PARALLEL_FRONT;
+            context.graphics.blit(base, Math.round(absX(ix)), Math.round(absY(iy)), Math.round(inner), Math.round(inner), 0, 0, 16, 16, 16, 16);
+            if (row != NECraftingModuleCell.Row.WORKER) {
+                context.graphics.blit(lightForTier(cell.tier()), Math.round(absX(ix)), Math.round(absY(iy)), Math.round(inner), Math.round(inner), 0, 0, 16, 16, 16, 16);
+            }
+        } else {
+            fillLocal(context, ix + 1.0F, iy + 1.0F, Math.max(0.0F, inner - 2.0F), Math.max(0.0F, inner - 2.0F), 0x66000000);
+        }
     }
 
-    private void drawScaledPairLine(GUIContext context, String label, long used, long total, int x, int y) {
-        float cursor = x;
-        drawScaledText(context, label, cursor, y, TEXT_SCALE, TEXT_MUTED);
-        cursor += context.mc.font.width(label) * TEXT_SCALE;
-        String usedText = fullNumber(used);
-        String totalText = fullNumber(total);
-        drawScaledText(context, usedText, cursor, y, TEXT_SCALE, TEXT_SUCCESS);
-        cursor += context.mc.font.width(usedText) * TEXT_SCALE;
-        drawScaledText(context, " / ", cursor, y, TEXT_SCALE, TEXT_MUTED);
-        cursor += context.mc.font.width(" / ") * TEXT_SCALE;
-        drawScaledText(context, totalText, cursor, y, TEXT_SCALE, TEXT_VALUE);
+    private void drawModuleStats(GUIContext context) {
+        String tasks = trString("gui.neoecoae.crafting.recipe_slots", "Task Slots") + " "
+                + NEHostFormat.usedTotal(snapshot.runningThreadCount(), snapshot.threadCount());
+        String free = trString("gui.neoecoae.crafting.batch_parallel", "Free Parallel") + " "
+                + NEHostFormat.number(snapshot.availableThreads());
+        int freeWidth = Math.round(context.mc.font.width(free) * MODULE_TEXT_SCALE);
+        drawScaledFittedText(context, tasks, MODULE_AREA_X + EDGE, MODULE_STATS_Y, MODULE_TEXT_SCALE,
+                MODULE_AREA_W - EDGE * 2 - freeWidth - 5, TEXT_MUTED);
+        drawScaledRightText(context, free, MODULE_AREA_X + MODULE_AREA_W - EDGE, MODULE_STATS_Y,
+                MODULE_TEXT_SCALE, TEXT_VALUE);
+        drawMiniProgressBar(context, MODULE_AREA_X + EDGE, MODULE_PROGRESS_Y, MODULE_AREA_W - EDGE * 2,
+                MODULE_PROGRESS_H, snapshot.runningThreadCount(), snapshot.threadCount());
+    }
+
+    private void drawMiniProgressBar(GUIContext context, int x, int y, int w, int h, long used, long total) {
+        fillLocal(context, x, y, w, h, 0xAA17141E);
+        int fill = ratioWidth(used, total, w);
+        if (fill > 0) {
+            fillLocal(context, x, y, fill, h, TEXT_SUCCESS);
+            fillLocal(context, x, y, fill, 1, 0x70FFFFFF);
+        }
     }
 
     private static String fullNumber(long value) {
@@ -268,6 +347,13 @@ final class NECraftingAeCanvas extends NEHostCanvas {
     }
 
     private void onMouseWheel(UIEvent event) {
+        Grid grid = moduleGrid();
+        if (containsLocal(MODULE_AREA_X, MODULE_AREA_Y, MODULE_AREA_W, MODULE_AREA_H, currentMouseX(), currentMouseY())
+                && grid.contentW > MODULE_GRID_W) {
+            moduleScroll.scrollBy((float) -event.deltaY * Math.max(8.0F, grid.size), grid.contentW, MODULE_GRID_W, true);
+            event.stopPropagation();
+            return;
+        }
         taskCards.onMouseWheel(this, event, snapshot.tasks().size(), TASK_LAYOUT);
     }
 
@@ -275,6 +361,10 @@ final class NECraftingAeCanvas extends NEHostCanvas {
         HoverTooltips status = statusTooltip(mouseX, mouseY);
         if (status != null) {
             return status;
+        }
+        HoverTooltips module = moduleTooltip(mouseX, mouseY);
+        if (module != null) {
+            return module;
         }
         HoverTooltips task = taskTooltip(mouseX, mouseY);
         if (task != null) {
@@ -297,6 +387,51 @@ final class NECraftingAeCanvas extends NEHostCanvas {
             ), null, null, null);
         }
         return null;
+    }
+
+    private HoverTooltips moduleTooltip(double mouseX, double mouseY) {
+        Grid grid = moduleGrid();
+        if (grid.columns <= 0) {
+            return null;
+        }
+        for (NECraftingModuleCell cell : snapshot.moduleCells()) {
+            float x = grid.x + cell.column() * grid.size;
+            float y = grid.y + rowIndex(cell.row()) * grid.size;
+            float clippedX = Math.max(x, MODULE_GRID_X);
+            float clippedW = Math.min(x + grid.size, MODULE_GRID_X + MODULE_GRID_W) - clippedX;
+            if (clippedW <= 0.0F || !containsLocal(clippedX, y, clippedW, grid.size, mouseX, mouseY)) {
+                continue;
+            }
+            if (cell.row() == NECraftingModuleCell.Row.WORKER) {
+                ItemStack output = workerOutputAt(cell.column());
+                if (!output.isEmpty()) {
+                    List<Component> lines = itemTooltip(output);
+                    lines.add(Component.translatable("block.neoecoae.crafting_worker").withStyle(ChatFormatting.GRAY));
+                    lines.add(Component.literal(modulePos(cell)).withStyle(ChatFormatting.GRAY));
+                    return new HoverTooltips(lines, output.getTooltipImage().orElse(null), null, output);
+                }
+            }
+            Component name = cell.row() == NECraftingModuleCell.Row.WORKER
+                    ? Component.translatable("block.neoecoae.crafting_worker")
+                    : Component.translatable(parallelCoreNameKey(cell.tier()));
+            List<Component> lines = new ArrayList<>();
+            lines.add(name);
+            if (cell.row() != NECraftingModuleCell.Row.WORKER) {
+                lines.add(Component.translatable("gui.neoecoae.crafting.parallel_per_core",
+                        NEHostFormat.number(parallelPerCore(cell.tier(), snapshot.overclocked()))));
+            }
+            lines.add(Component.literal(modulePos(cell)).withStyle(ChatFormatting.GRAY));
+            return new HoverTooltips(lines, null, null, null);
+        }
+        return null;
+    }
+
+    private ItemStack workerOutputAt(int column) {
+        if (column < 0 || column >= snapshot.workerOutputs().size()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack stack = snapshot.workerOutputs().get(column);
+        return stack == null ? ItemStack.EMPTY : stack;
     }
 
     private HoverTooltips statusTooltip(double mouseX, double mouseY) {
@@ -332,12 +467,18 @@ final class NECraftingAeCanvas extends NEHostCanvas {
     }
 
     private HoverTooltips statsTooltip(double mouseX, double mouseY) {
-        if (!containsLocal(STATS_AREA_X, STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H, mouseX, mouseY)) {
+        boolean titleHit = containsLocal(MODULE_AREA_X + EDGE, MODULE_AREA_Y + EDGE,
+                MODULE_AREA_W - EDGE * 2, 10, mouseX, mouseY);
+        boolean statsHit = containsLocal(MODULE_AREA_X + EDGE, MODULE_STATS_Y - 1,
+                MODULE_AREA_W - EDGE * 2, MODULE_AREA_Y + MODULE_AREA_H - EDGE - MODULE_STATS_Y + 1, mouseX, mouseY);
+        if (!titleHit && !statsHit) {
             return null;
         }
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.translatable("gui.neoecoae.crafting.stats"));
-        lines.add(Component.translatable("gui.neoecoae.crafting.parallel_core_count", snapshot.parallelCount()));
+        lines.add(Component.translatable("gui.neoecoae.crafting.parallel_core_tiers"));
+        lines.add(Component.literal("FT4: " + countTier(1) + " x " + parallelPerCore(1, snapshot.overclocked())));
+        lines.add(Component.literal("FT6: " + countTier(2) + " x " + parallelPerCore(2, snapshot.overclocked())));
+        lines.add(Component.literal("FT9: " + countTier(3) + " x " + parallelPerCore(3, snapshot.overclocked())));
         lines.add(Component.translatable("gui.neoecoae.crafting.worker_count", snapshot.workerCount()));
         lines.add(Component.translatable("gui.neoecoae.crafting.pattern_bus_count", snapshot.patternBusCount()));
         lines.add(Component.translatable("gui.neoecoae.crafting.recipe_slots")
@@ -347,6 +488,125 @@ final class NECraftingAeCanvas extends NEHostCanvas {
                 .append(": ")
                 .append(Component.literal(fullNumber(snapshot.availableThreads()))));
         return new HoverTooltips(lines, null, null, null);
+    }
+
+    private Grid moduleGrid() {
+        int maxColumn = -1;
+        for (NECraftingModuleCell cell : snapshot.moduleCells()) {
+            maxColumn = Math.max(maxColumn, cell.column());
+        }
+        int columns = Math.max(maxColumn + 1, snapshot.workerCount());
+        if (columns <= 0) {
+            moduleScroll.update(0.0F, MODULE_GRID_W);
+            return new Grid(MODULE_GRID_X, MODULE_GRID_Y, 0, 18.0F, 0.0F);
+        }
+        float size = Math.min(18.0F, Math.max(6.0F, Math.min((float) MODULE_GRID_W / columns, MODULE_GRID_H / 3.0F)));
+        float contentW = columns * size;
+        moduleScroll.update(contentW, MODULE_GRID_W);
+        float x = contentW <= MODULE_GRID_W
+                ? MODULE_GRID_X + Math.max(0.0F, (MODULE_GRID_W - contentW) / 2.0F)
+                : MODULE_GRID_X - moduleScroll.offset();
+        float y = MODULE_GRID_Y + Math.max(0.0F, (MODULE_GRID_H - size * 3.0F) / 2.0F);
+        return new Grid(x, y, columns, size, contentW);
+    }
+
+    private NECraftingModuleCell moduleCellAt(int column, NECraftingModuleCell.Row row) {
+        for (NECraftingModuleCell cell : snapshot.moduleCells()) {
+            if (cell.column() == column && cell.row() == row) {
+                return cell;
+            }
+        }
+        return null;
+    }
+
+    private int countTier(int tier) {
+        int count = 0;
+        for (NECraftingModuleCell cell : snapshot.moduleCells()) {
+            if (cell.row() != NECraftingModuleCell.Row.WORKER && cell.tier() == tier) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static int parallelPerCore(int tier, boolean overclocked) {
+        ECOTier ecoTier = ecoTier(tier);
+        return ecoTier.getCrafterParallel() + (overclocked ? ecoTier.getOverclockedCrafterParallel() : 0);
+    }
+
+    private static ECOTier ecoTier(int tier) {
+        return switch (tier) {
+            case 3 -> ECOTier.L9;
+            case 2 -> ECOTier.L6;
+            default -> ECOTier.L4;
+        };
+    }
+
+    private static String modulePos(NECraftingModuleCell cell) {
+        return "x=" + cell.pos().getX() + ", y=" + cell.pos().getY() + ", z=" + cell.pos().getZ();
+    }
+
+    private static int rowIndex(NECraftingModuleCell.Row row) {
+        return switch (row) {
+            case UPPER_PARALLEL -> 0;
+            case WORKER -> 1;
+            case LOWER_PARALLEL -> 2;
+        };
+    }
+
+    private static ResourceLocation lightForTier(int tier) {
+        return switch (tier) {
+            case 3 -> LIGHT_L9;
+            case 2 -> LIGHT_L6;
+            default -> LIGHT_L4;
+        };
+    }
+
+    private static String parallelCoreNameKey(int tier) {
+        return switch (tier) {
+            case 3 -> "block.neoecoae.crafting_parallel_core_l9";
+            case 2 -> "block.neoecoae.crafting_parallel_core_l6";
+            default -> "block.neoecoae.crafting_parallel_core_l4";
+        };
+    }
+
+    private static float approach(float current, float target) {
+        float next = Mth.lerp(0.16F, current, target);
+        return Math.abs(next - target) < 0.05F ? target : next;
+    }
+
+    private static final class ScrollModel {
+        private float offset;
+        private float target;
+        private float max;
+
+        void update(float contentSize, float viewportSize) {
+            max = Math.max(0.0F, contentSize - viewportSize);
+            target = Mth.clamp(target, 0.0F, max);
+            offset = max <= 0.0F ? 0.0F : approach(offset, target);
+            if (max <= 0.0F) {
+                target = 0.0F;
+            }
+        }
+
+        void scrollBy(float delta, float contentSize, float viewportSize, boolean snap) {
+            update(contentSize, viewportSize);
+            target = Mth.clamp(target + delta, 0.0F, max);
+            if (snap) {
+                offset = target;
+            }
+        }
+
+        float offset() {
+            return offset;
+        }
+
+        float max() {
+            return max;
+        }
+    }
+
+    private record Grid(float x, float y, int columns, float size, float contentW) {
     }
 
     private record CraftingSnapshot(
@@ -362,10 +622,12 @@ final class NECraftingAeCanvas extends NEHostCanvas {
         boolean activeCooling,
         int coolant,
         long maxEnergyUsage,
-        List<NECraftingTaskEntry> tasks
+        List<NECraftingTaskEntry> tasks,
+        List<NECraftingModuleCell> moduleCells,
+        List<ItemStack> workerOutputs
     ) {
         private static final CraftingSnapshot EMPTY = new CraftingSnapshot(
-            false, false, 0, 0, 0, 0, 0, 0, false, false, 0, 0L, List.of()
+            false, false, 0, 0, 0, 0, 0, 0, false, false, 0, 0L, List.of(), List.of(), List.of()
         );
     }
 }

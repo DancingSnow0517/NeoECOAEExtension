@@ -165,6 +165,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
         provider.add("gui.neoecoae.crafting.task.time", "Time: %s / %s");
+        provider.add("gui.neoecoae.crafting.task.elapsed_time", "Elapsed: %s");
         provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");
         provider.add("gui.neoecoae.crafting.waste_short", "Waste");
         provider.add("gui.neoecoae.host.crafting.working_threads", "Working Threads");
