@@ -135,6 +135,12 @@ dependencies {
     interfaceInjectionData("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
 }
 
+configurations.configureEach {
+    resolutionStrategy.force(
+            "dev.latvian.mods:better-advanced-tooltips:2101.1.0-build.1"
+    )
+}
+
 neoForge {
     version = project.neo_version
 
