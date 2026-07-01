@@ -103,11 +103,28 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         protected void onContentsChanged() {
             onChangeTank();
         }
+
+        @Override
+        public FluidTank readFromNBT(CompoundTag nbt) {
+            super.readFromNBT(nbt);
+            // Manually trigger onContentsChanged after NBT restore since readFromNBT doesn't auto-notify
+            // This ensures UI refreshes when tank data is synced from server
+            onContentsChanged();
+            return this;
+        }
     };
     private final FluidTank outputTank = new FluidTank(MAX_TANK_CAPACITY) {
         @Override
         protected void onContentsChanged() {
             onChangeTank();
+        }
+
+        @Override
+        public FluidTank readFromNBT(CompoundTag nbt) {
+            super.readFromNBT(nbt);
+            // Manually trigger onContentsChanged after NBT restore
+            onContentsChanged();
+            return this;
         }
     };
 
@@ -374,6 +391,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
     public void onChangeTank() {
         if (level != null && level.isClientSide) {
+            // On client side, notify UI state change for proper rendering update
+            onGuiStateChanged();
             return;
         }
         markInventoryChanged();

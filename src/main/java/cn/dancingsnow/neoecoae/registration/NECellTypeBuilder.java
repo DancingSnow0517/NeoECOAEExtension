@@ -7,8 +7,8 @@ import com.tterrag.registrate.builders.AbstractBuilder;
 import com.tterrag.registrate.builders.BuilderCallback;
 import com.tterrag.registrate.util.entry.RegistryEntry;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.registries.RegistryObject;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.registries.RegistryObject;
 
 public class NECellTypeBuilder<P> extends AbstractBuilder<ECOCellType, ECOCellType, P, NECellTypeBuilder<P>> {
     private final ECOCellType.Builder builder = ECOCellType.builder();

@@ -39,8 +39,7 @@ public class ConfigLangs {
                         + "Fast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics.");
         provider.add("neoecoae.configuration.debugEcoFastPath", "Debug ECO Fast Path");
         provider.add(
-                "neoecoae.configuration.debugEcoFastPath.tooltip",
-                "Periodically log ECO fast path cache statistics.");
+                "neoecoae.configuration.debugEcoFastPath.tooltip", "Periodically log ECO fast path cache statistics.");
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
                 "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",

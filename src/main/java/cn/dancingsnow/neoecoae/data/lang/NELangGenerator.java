@@ -15,7 +15,7 @@ public class NELangGenerator {
 
         provider.add("jade.neoecoae.drive_mounted", "ECO drive mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO drive unmounted");
-        provider.add("jade.neoecoae.worker_threads", "Threads: %d/%d");
+        provider.add("jade.neoecoae.worker_threads", "Threads: %s/%s");
         provider.add("jade.neoecoae.formed", "Formed: %s");
         provider.add("jade.neoecoae.running", "Running: %s");
         provider.add("jade.neoecoae.yes", "Yes");
@@ -30,10 +30,10 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.recipes_suffix", " recipes");
         provider.add("jade.neoecoae.overclocked", "Overclock enabled");
         provider.add("jade.neoecoae.activeCooling", "Active cooling enabled");
-        provider.add("jade.neoecoae.coolant", "Coolant: %d");
-        provider.add("jade.neoecoae.coolant_max_overclock", "Coolant max overclock: %d");
+        provider.add("jade.neoecoae.coolant", "Coolant: %s");
+        provider.add("jade.neoecoae.coolant_max_overclock", "Coolant max overclock: %s");
         provider.add("jade.neoecoae.coolant_max_overclock.none", "Coolant max overclock: None");
-        provider.add("jade.neoecoae.overclock_status", "Theoretical/Effective overclock: %d/%d");
+        provider.add("jade.neoecoae.overclock_status", "Theoretical/Effective overclock: %s/%s");
         provider.add("jade.neoecoae.crafting.worker_count", "Worker core count: %s");
         provider.add("jade.neoecoae.crafting.thread_usage", "Working threads: %s/%s");
         provider.add("jade.neoecoae.crafting.progress", "Batch progress: %s / %s t");
@@ -66,7 +66,7 @@ public class NELangGenerator {
         provider.add("emi.category.neoecoae.cooling", "Cooling");
 
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] for more info");
-        provider.add("tooltip.neoecoae.max_lenth", "§7§oMax structure length: %d");
+        provider.add("tooltip.neoecoae.max_lenth", "§7§oMax structure length: %s");
 
         provider.add("tooltip.neoecoae.storage_system", "§7§oThe core of the storage system");
         addLangs(
@@ -79,7 +79,7 @@ public class NELangGenerator {
         provider.add(
                 "tooltip.neoecoae.crafting_parallels",
                 "§7§oParallel cores provide parallel processing for the crafting subsystem");
-        provider.add("tooltip.neoecoae.max_parallel_count", "§7§oMax parallel +%d");
+        provider.add("tooltip.neoecoae.max_parallel_count", "§7§oMax parallel +%s");
         provider.add("tooltip.neoecoae.overclocked", "§7§oWhen overclocked:");
         provider.add("tooltip.neoecoae.active_cooling", "§7§oWhen active cooling is enabled:");
         provider.add("tooltip.neoecoae.clear_negative_effect", "§7§oClears negative effects caused by overclocking");
@@ -89,12 +89,12 @@ public class NELangGenerator {
                 "tooltip.neoecoae.crafting_worker",
                 "§7§oECO - FX Worker Core is a primary component of the crafting subsystem",
                 "§7§oECO - FX worker core can store 32 crafting jobs and processes one at a time");
-        provider.add("tooltip.neoecoae.crafting_jobs_l4", "§7§oStores crafting jobs: x%d [L4]");
-        provider.add("tooltip.neoecoae.crafting_jobs_l6", "§7§oStores crafting jobs: x%d [L6]");
-        provider.add("tooltip.neoecoae.crafting_jobs_l9", "§7§oStores crafting jobs: x%d [L9]");
-        provider.add("tooltip.neoecoae.power_multiply_l4", "§7§oPower multiplier: x%d [L4]");
-        provider.add("tooltip.neoecoae.power_multiply_l6", "§7§oPower multiplier: x%d [L6]");
-        provider.add("tooltip.neoecoae.power_multiply_l9", "§7§oPower multiplier: x%d [L9]");
+        provider.add("tooltip.neoecoae.crafting_jobs_l4", "§7§oStores crafting jobs: x%s [L4]");
+        provider.add("tooltip.neoecoae.crafting_jobs_l6", "§7§oStores crafting jobs: x%s [L6]");
+        provider.add("tooltip.neoecoae.crafting_jobs_l9", "§7§oStores crafting jobs: x%s [L9]");
+        provider.add("tooltip.neoecoae.power_multiply_l4", "§7§oPower multiplier: x%s [L4]");
+        provider.add("tooltip.neoecoae.power_multiply_l6", "§7§oPower multiplier: x%s [L6]");
+        provider.add("tooltip.neoecoae.power_multiply_l9", "§7§oPower multiplier: x%s [L9]");
 
         addLangs(
                 provider,
@@ -124,7 +124,7 @@ public class NELangGenerator {
                 "§7§oThreading cores are the main component of the computation subsystem and provide threads to the Controller",
                 "§7§oThreads determine the maximum number of virtual craft processors (vCPUs)",
                 "§7§oWhen dismantled, compressed CPU data is saved to the drop");
-        provider.add("tooltip.neoecoae.max_thread_count", "§7§oMax threads +%d");
+        provider.add("tooltip.neoecoae.max_thread_count", "§7§oMax threads +%s");
         addLangs(
                 provider,
                 "tooltip.neoecoae.computation_parallel_core",

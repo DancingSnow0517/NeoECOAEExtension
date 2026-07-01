@@ -153,11 +153,12 @@ public class NEConfig {
         enableEcoAe2FastPath = ENABLE_ECO_AE2_FAST_PATH.get();
         debugEcoFastPath = getBooleanProperty("neoecoae.debugEcoFastPath", DEBUG_ECO_FAST_PATH.get());
         ecoCpuPushTickLimit = getPositiveIntProperty("neoecoae.ecoCpuPushTickLimit", ECO_CPU_PUSH_TICK_LIMIT.get());
-        ecoBatchFastPathLimit = getPositiveIntProperty("neoecoae.ecoBatchFastPathLimit", ECO_BATCH_FAST_PATH_LIMIT.get());
+        ecoBatchFastPathLimit =
+                getPositiveIntProperty("neoecoae.ecoBatchFastPathLimit", ECO_BATCH_FAST_PATH_LIMIT.get());
         ecoBatchFastPathTickLimit =
                 getPositiveIntProperty("neoecoae.ecoBatchFastPathTickLimit", ECO_BATCH_FAST_PATH_TICK_LIMIT.get());
-        ecoFastPathCacheSize = Math.max(
-                16, getPositiveIntProperty("neoecoae.ecoFastPathCacheSize", ECO_FAST_PATH_CACHE_SIZE.get()));
+        ecoFastPathCacheSize =
+                Math.max(16, getPositiveIntProperty("neoecoae.ecoFastPathCacheSize", ECO_FAST_PATH_CACHE_SIZE.get()));
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
     }

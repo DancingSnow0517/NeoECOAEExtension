@@ -38,7 +38,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.common.hide_builder", "Hide Builder");
         provider.add("gui.neoecoae.common.close", "Close");
         provider.add("gui.neoecoae.pattern_bus.patterns", "Patterns");
-        provider.add("gui.neoecoae.pattern_bus.patterns_page", "Patterns %d - %d");
+        provider.add("gui.neoecoae.pattern_bus.patterns_page", "Patterns %s - %s");
         provider.add("gui.neoecoae.pattern_bus.previous_page", "Previous page");
         provider.add("gui.neoecoae.pattern_bus.next_page", "Next page");
         provider.add("gui.neoecoae.pattern_bus.page", "Page %s / %s");
@@ -78,7 +78,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.close_builder", "Close Builder");
         provider.add("gui.neoecoae.multiblock.decrease_length", "Decrease Length");
         provider.add("gui.neoecoae.multiblock.increase_length", "Increase Length");
-        provider.add("gui.neoecoae.multiblock.length", "Length: %d");
+        provider.add("gui.neoecoae.multiblock.length", "Length: %s");
         provider.add("gui.neoecoae.multiblock.preview", "Preview");
         provider.add("gui.neoecoae.multiblock.pattern", "Pattern");
         provider.add("gui.neoecoae.multiblock.layer", "Layer");
@@ -103,10 +103,10 @@ public class GuiLangs {
                 "gui.neoecoae.multiblock.no_linked_host_hint",
                 "Open the terminal on a nearby controller to link on-site checks.");
         provider.add("gui.neoecoae.multiblock.build", "Build");
-        provider.add("gui.neoecoae.multiblock.reused", "Reused: %d");
-        provider.add("gui.neoecoae.multiblock.missing", "Missing: %d");
-        provider.add("gui.neoecoae.multiblock.conflicts", "Conflicts: %d");
-        provider.add("gui.neoecoae.multiblock.required_items", "Required Items: %d");
+        provider.add("gui.neoecoae.multiblock.reused", "Reused: %s");
+        provider.add("gui.neoecoae.multiblock.missing", "Missing: %s");
+        provider.add("gui.neoecoae.multiblock.conflicts", "Conflicts: %s");
+        provider.add("gui.neoecoae.multiblock.required_items", "Required Items: %s");
         provider.add("emi.neoecoae.multiblock.requirements", "Block count requirements");
         provider.add("emi.neoecoae.multiblock.change_length", "Change structure length");
         provider.add("emi.neoecoae.multiblock.show_all_layers", "Show all layers");
@@ -168,7 +168,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.status.build_failed", "Build failed");
         provider.add("gui.neoecoae.multiblock.status.dismantled", "Dismantled");
         provider.add("gui.neoecoae.multiblock.status.dismantle_failed", "Dismantle failed");
-        provider.add("gui.neoecoae.multiblock.status.building", "Building %d/%d");
+        provider.add("gui.neoecoae.multiblock.status.building", "Building %s/%s");
         provider.add("gui.neoecoae.relative_side.front", "Front");
         provider.add("gui.neoecoae.relative_side.back", "Back");
         provider.add("gui.neoecoae.relative_side.left", "Left");
@@ -178,7 +178,7 @@ public class GuiLangs {
 
         // storage
         provider.add("gui.neoecoae.storage.energy", "Energy Monitor");
-        provider.add("gui.neoecoae.storage.energy_status", "Energy Storage: %sAE / %sAE (%d%%)");
+        provider.add("gui.neoecoae.storage.energy_status", "Energy Storage: %sAE / %sAE (%s%%)");
         provider.add("gui.neoecoae.storage.matrix_card.title", "%s Storage Matrix");
         provider.add("gui.neoecoae.storage.matrix_card.types", "%s / %s types used");
         provider.add("gui.neoecoae.storage.matrix_card.bytes", "%s / %s bytes used");
@@ -223,8 +223,8 @@ public class GuiLangs {
                 "Output mode pauses L-series storage mounting and exports contents to the external ME network.");
 
         // computation
-        provider.add("gui.neoecoae.computation.thread_info", "Used Threads: %d / %d");
-        provider.add("gui.neoecoae.computation.parallel_info", "Parallel: %d");
+        provider.add("gui.neoecoae.computation.thread_info", "Used Threads: %s / %s");
+        provider.add("gui.neoecoae.computation.parallel_info", "Parallel: %s");
         provider.add("gui.neoecoae.computation.storage_info", "Used Storage: %s / %s");
         provider.add("gui.neoecoae.computation.threads", "Threads");
         provider.add("gui.neoecoae.computation.accelerators", "Accelerators: %s");
@@ -245,12 +245,12 @@ public class GuiLangs {
                 "This computation cell cannot be removed while crafting jobs are active.");
 
         // crafting
-        provider.add("gui.neoecoae.crafting.pattern_bus_count", "Pattern Bus Count: %d");
-        provider.add("gui.neoecoae.crafting.parallel_core_count", "Parallel Core Count: %d");
-        provider.add("gui.neoecoae.crafting.worker_count", "Worker Core Count: %d");
-        provider.add("gui.neoecoae.crafting.working_threads", "Working Threads: %d / %d (%d%%)");
+        provider.add("gui.neoecoae.crafting.pattern_bus_count", "Pattern Bus Count: %s");
+        provider.add("gui.neoecoae.crafting.parallel_core_count", "Parallel Core Count: %s");
+        provider.add("gui.neoecoae.crafting.worker_count", "Worker Core Count: %s");
+        provider.add("gui.neoecoae.crafting.working_threads", "Working Threads: %s / %s (%s%%)");
         provider.add("gui.neoecoae.crafting.coolant_amount", "Coolant: %s / %s");
-        provider.add("gui.neoecoae.crafting.total_parallelism", "Total Parallelism: %d");
+        provider.add("gui.neoecoae.crafting.total_parallelism", "Total Parallelism: %s");
         provider.add("gui.neoecoae.crafting.recipe_slots", "Recipe Slots");
         provider.add("gui.neoecoae.crafting.batch_parallel", "Throughput");
         provider.add("gui.neoecoae.crafting.ft_cores_short", "FT Cores");
@@ -281,11 +281,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
-        provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %d (%d%%)");
+        provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %s (%s%%)");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy: §b%s AE");
         provider.add(
                 "gui.neoecoae.crafting.overclock_status",
-                "Theoretical Structure Overclock: %d, Current Effective Overclock: %d");
+                "Theoretical Structure Overclock: %s, Current Effective Overclock: %s");
         provider.add(
                 "gui.neoecoae.crafting.overclock_status.disabled",
                 "Theoretical Structure Overclock: 0, Current Effective Overclock: 0");
@@ -311,7 +311,7 @@ public class GuiLangs {
         provider.add(
                 "gui.neoecoae.crafting.clear_coolant.tooltip",
                 "Clear the currently cached coolant value to switch to another coolant.");
-        provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Max overclock supported by current coolant: %d");
+        provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Max overclock supported by current coolant: %s");
         provider.add(
                 "gui.neoecoae.crafting.coolant_max_overclock.none", "Max overclock supported by current coolant: None");
 

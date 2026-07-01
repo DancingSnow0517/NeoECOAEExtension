@@ -29,6 +29,15 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
             setChanged();
             markForUpdate();
         }
+
+        @Override
+        public FluidTank readFromNBT(CompoundTag nbt) {
+            super.readFromNBT(nbt);
+            // Manually trigger onContentsChanged after NBT restore since readFromNBT doesn't auto-notify
+            // This ensures UI refreshes when tank data is synced from server
+            onContentsChanged();
+            return this;
+        }
     };
     private final LazyOptional<IFluidHandler> fluidHandlerCap = LazyOptional.of(() -> tank);
 
