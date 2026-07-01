@@ -13,7 +13,7 @@ import net.minecraft.world.item.Rarity;
 public class NEArsEnergistiqueItems {
     public static final ItemEntry<MaterialItem> ECO_SOURCE_CELL_HOUSING = REGISTRATE
             .item("eco_source_cell_housing", MaterialItem::new)
-            .lang("ECO Storage Matrix Housing (Source)")
+            .lang("ECO Source Storage Matrix Housing")
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_16M = REGISTRATE
@@ -24,7 +24,7 @@ public class NEArsEnergistiqueItems {
                             ECOTier.L4,
                             ArsEnergistiqueCompat.getSourceKeyType(),
                             NECellTypes.SOURCE))
-            .lang("ECO - LE4 Storage Matrix (Source)")
+            .lang("ECO - LE4 Source Storage Matrix")
             .model(ItemModelUtil.cellModel("source", "16m"))
             .register();
 
@@ -36,7 +36,7 @@ public class NEArsEnergistiqueItems {
                             ECOTier.L6,
                             ArsEnergistiqueCompat.getSourceKeyType(),
                             NECellTypes.SOURCE))
-            .lang("ECO - LE6 Storage Matrix (Source)")
+            .lang("ECO - LE6 Source Storage Matrix")
             .model(ItemModelUtil.cellModel("source", "64m"))
             .register();
 
@@ -48,7 +48,7 @@ public class NEArsEnergistiqueItems {
                             ECOTier.L9,
                             ArsEnergistiqueCompat.getSourceKeyType(),
                             NECellTypes.SOURCE))
-            .lang("ECO - LE9 Storage Matrix (Source)")
+            .lang("ECO - LE9 Source Storage Matrix")
             .model(ItemModelUtil.cellModel("source", "256m"))
             .register();
 

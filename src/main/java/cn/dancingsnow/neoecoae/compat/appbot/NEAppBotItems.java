@@ -13,7 +13,7 @@ import net.minecraft.world.item.Rarity;
 public class NEAppBotItems {
     public static final ItemEntry<MaterialItem> ECO_MANA_CELL_HOUSING = REGISTRATE
             .item("eco_mana_cell_housing", MaterialItem::new)
-            .lang("ECO Storage Matrix Housing (Mana)")
+            .lang("ECO Mana Storage Matrix Housing")
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_16M = REGISTRATE
@@ -24,7 +24,7 @@ public class NEAppBotItems {
                             ECOTier.L4,
                             AppBotCompat.getManaKeyType(),
                             NECellTypes.MANA))
-            .lang("ECO - LE4 Storage Matrix (Mana)")
+            .lang("ECO - LE4 Mana Storage Matrix")
             .model(ItemModelUtil.cellModel("mana", "16m"))
             .register();
 
@@ -36,7 +36,7 @@ public class NEAppBotItems {
                             ECOTier.L6,
                             AppBotCompat.getManaKeyType(),
                             NECellTypes.MANA))
-            .lang("ECO - LE6 Storage Matrix (Mana)")
+            .lang("ECO - LE6 Mana Storage Matrix")
             .model(ItemModelUtil.cellModel("mana", "64m"))
             .register();
 
@@ -48,7 +48,7 @@ public class NEAppBotItems {
                             ECOTier.L9,
                             AppBotCompat.getManaKeyType(),
                             NECellTypes.MANA))
-            .lang("ECO - LE9 Storage Matrix (Mana)")
+            .lang("ECO - LE9 Mana Storage Matrix")
             .model(ItemModelUtil.cellModel("mana", "256m"))
             .register();
 

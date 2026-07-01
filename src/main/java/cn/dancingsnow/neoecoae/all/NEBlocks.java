@@ -571,7 +571,7 @@ public class NEBlocks {
                 prov.withExistingParent(ctx.getName(), prov.modLoc("block/integrated_working_station"));
             })
             .build()
-            .lang("ECO Integrated Working Station")
+            .lang("ECO - Integrated Working Station")
             .register();
 
     // ************************************ //
@@ -604,6 +604,7 @@ public class NEBlocks {
                         .unlockedBy("has_storage_casing", RegistrateRecipeProvider.has(NEBlocks.STORAGE_CASING))
                         .save(prov);
             })
+            .lang("Storage Subsystem Communication Interface")
             .register();
 
     public static final BlockEntry<ECOEnergyCellBlock> ENERGY_CELL_L4 = REGISTRATE
@@ -791,7 +792,7 @@ public class NEBlocks {
                         .save(prov);
             })
             .simpleItem()
-            .lang("Storage System Heat Sink")
+            .lang("Storage Subsystem Radiator")
             .register();
 
     public static final BlockEntry<ECOMachineCasing<NEStorageCluster>> STORAGE_CASING = REGISTRATE
@@ -815,6 +816,7 @@ public class NEBlocks {
             })
             .blockstate(BlockStateUtil::simpleExistingBlockState)
             .simpleItem()
+            .lang("Storage Subsystem Casing")
             .register();
     // endregion
 
@@ -877,6 +879,7 @@ public class NEBlocks {
                         .unlockedBy("has_computation_casing", RegistrateRecipeProvider.has(NEBlocks.COMPUTATION_CASING))
                         .save(prov);
             })
+            .lang("Computation Subsystem Communication Interface")
             .register();
 
     public static final BlockEntry<ECOComputationTransmitter> COMPUTATION_TRANSMITTER = REGISTRATE
@@ -920,7 +923,7 @@ public class NEBlocks {
                                 RegistrateRecipeProvider.has(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT))
                         .save(prov);
             })
-            .lang("ECO - CI Superconductive Transmitting Bus")
+            .lang("ECO - CI Superconductive Bus")
             .register();
 
     public static final BlockEntry<ECOComputationDrive> COMPUTATION_DRIVE = REGISTRATE
@@ -955,7 +958,7 @@ public class NEBlocks {
             .model((ctx, prov) -> compactBlockItemModel(
                     prov.withExistingParent(ctx.getName(), prov.modLoc("block/computation_drive_empty"))))
             .build()
-            .lang("ECO - CD Crystal Matrix Drive")
+            .lang("ECO - CD Crystal Drive")
             .register();
 
     public static final BlockEntry<ECOMachineCasing<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
@@ -981,6 +984,7 @@ public class NEBlocks {
                 prov.simpleBlock(ctx.get(), prov.models().getExistingFile(prov.modLoc("block/" + ctx.getName())));
             })
             .simpleItem()
+            .lang("Computation Subsystem Casing")
             .register();
     // endregion
 
@@ -1011,6 +1015,7 @@ public class NEBlocks {
             })
             .blockstate(BlockStateUtil::simpleExistingBlockState)
             .simpleItem()
+            .lang("Crafting Subsystem Communication Interface")
             .register();
 
     public static final BlockEntry<ECOCraftingParallelCore> CRAFTING_PARALLEL_CORE_L4 =
@@ -1041,7 +1046,7 @@ public class NEBlocks {
             .item()
             .properties(p -> p.rarity(Rarity.RARE))
             .build()
-            .lang("ECO - FX Worker")
+            .lang("ECO - FX Worker Core")
             .blockstate((ctx, prov) -> {
                 ModelFile modelFile = prov.models().getExistingFile(prov.modLoc("block/crafting_worker"));
                 ModelFile modelFileFormed = prov.models().getExistingFile(prov.modLoc("block/crafting_worker_formed"));
@@ -1172,6 +1177,7 @@ public class NEBlocks {
                         .unlockedBy("has_crafting_casing", RegistrateRecipeProvider.has(NEBlocks.CRAFTING_CASING))
                         .save(prov);
             })
+            .lang("Crafting Subsystem Radiator")
             .register();
 
     public static final BlockEntry<ECOMachineCasing<NECraftingCluster>> CRAFTING_CASING = REGISTRATE
@@ -1201,6 +1207,7 @@ public class NEBlocks {
                         .build());
             })
             .simpleItem()
+            .lang("Crafting Subsystem Casing")
             .register();
     // endregion
 
@@ -1237,7 +1244,7 @@ public class NEBlocks {
                             ctx.getName(), prov.modLoc("block/storage_controller/controller_" + level + "_off"));
                 })
                 .build()
-                .lang("ECO - %s Extensible Storage Subsystem Controller".formatted(level.toUpperCase(Locale.ROOT)))
+                .lang("ECO - %s Storage Controller".formatted(level.toUpperCase(Locale.ROOT)))
                 .register();
     }
 
@@ -1308,7 +1315,7 @@ public class NEBlocks {
                             ctx.getName(), prov.modLoc("block/crafting_controller/controller_" + level + "_off"));
                 })
                 .build()
-                .lang("ECO - %s Extensible Crafting Controller"
+                .lang("ECO - %s Crafting Controller"
                         .formatted(level.toUpperCase(Locale.ROOT))
                         .replace("L", "F"))
                 .register();
@@ -1348,7 +1355,7 @@ public class NEBlocks {
                 })
                 .properties(p -> p.rarity(rarity))
                 .build()
-                .lang("ECO - %s Extensible Computation Subsystem Controller"
+                .lang("ECO - %s Computation Controller"
                         .formatted(level.toUpperCase(Locale.ROOT))
                         .replace("L", "C"))
                 .register();
@@ -1474,7 +1481,7 @@ public class NEBlocks {
                         ctx.getName(),
                         prov.modLoc("block/computation_cooling_controller/controller_" + level + "_off")))
                 .build()
-                .lang("Cooling System Controller - %s"
+                .lang("Cooling Controller - %s"
                         .formatted(level.toUpperCase(Locale.ROOT).replace("L", "C")))
                 .register();
     }

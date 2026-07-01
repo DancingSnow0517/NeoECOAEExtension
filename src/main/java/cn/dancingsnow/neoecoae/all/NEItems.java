@@ -203,7 +203,7 @@ public class NEItems {
                                     .addLang(
                                             "item",
                                             NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.applies_to"),
-                                            "Aluminum Equipment")
+                                            "Aluminum gear")
                                     .withStyle(ChatFormatting.BLUE),
                             REGISTRATE
                                     .addLang(
@@ -217,11 +217,11 @@ public class NEItems {
                             REGISTRATE.addLang(
                                     "item",
                                     NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.base_slot_description"),
-                                    "Add Aluminum weapon, or tool"),
+                                    "Add aluminum weapon or tool"),
                             REGISTRATE.addLang(
                                     "item",
                                     NeoECOAE.id("smithing_template.aluminum_alloy_upgrade.additions_slot_description"),
-                                    "Add Aluminum Alloy Ingot"),
+                                    "Add Aluminum Alloy Ingots"),
                             List.of(
                                     ResourceLocation.withDefaultNamespace("item/empty_slot_hoe"),
                                     ResourceLocation.withDefaultNamespace("item/empty_slot_axe"),
@@ -324,7 +324,7 @@ public class NEItems {
                                     .addLang(
                                             "item",
                                             NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.applies_to"),
-                                            "Tungsten Equipment")
+                                            "Tungsten gear")
                                     .withStyle(ChatFormatting.BLUE),
                             REGISTRATE
                                     .addLang(
@@ -341,12 +341,12 @@ public class NEItems {
                             REGISTRATE.addLang(
                                     "item",
                                     NeoECOAE.id("smithing_template.black_tungsten_alloy_upgrade.base_slot_description"),
-                                    "Add Tungsten weapon, or tool"),
+                                    "Add tungsten weapon or tool"),
                             REGISTRATE.addLang(
                                     "item",
                                     NeoECOAE.id(
                                             "smithing_template.black_tungsten_alloy_upgrade.additions_slot_description"),
-                                    "Add Black Tungsten Alloy Ingot"),
+                                    "Add Black Tungsten Alloy Ingots"),
                             List.of(
                                     ResourceLocation.withDefaultNamespace("item/empty_slot_hoe"),
                                     ResourceLocation.withDefaultNamespace("item/empty_slot_axe"),
@@ -729,6 +729,7 @@ public class NEItems {
 
     public static final ItemEntry<MaterialItem> CRYOTHEUM = REGISTRATE
             .item("cryotheum", MaterialItem::new)
+            .lang("Cryotheum Powder")
             .recipe((ctx, prov) -> {
                 ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ctx.get())
                         .requires(Items.ICE)
@@ -745,6 +746,7 @@ public class NEItems {
 
     public static final ItemEntry<MaterialItem> CRYOTHEUM_CRYSTAL = REGISTRATE
             .item("cryotheum_crystal", MaterialItem::new)
+            .lang("Extraterrestrial Frost")
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
                         .pattern("AAA")
@@ -759,6 +761,7 @@ public class NEItems {
 
     public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR_PRESS = REGISTRATE
             .item("superconducting_processor_press", MaterialItem::new)
+            .lang("Superconductor Pressing Die")
             .tag(ConventionTags.INSCRIBER_PRESSES)
             .recipe((ctx, prov) -> {
                 ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
@@ -782,6 +785,7 @@ public class NEItems {
 
     public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR_PRINT = REGISTRATE
             .item("superconducting_processor_print", MaterialItem::new)
+            .lang("ECO - SA Superconducting Circuit Board")
             .recipe((ctx, prov) -> {
                 InscriberRecipeBuilder.inscribe(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, ctx.get(), 1)
                         .setMode(InscriberProcessType.INSCRIBE)
@@ -792,6 +796,7 @@ public class NEItems {
 
     public static final ItemEntry<MaterialItem> SUPERCONDUCTING_PROCESSOR = REGISTRATE
             .item("superconducting_processor", MaterialItem::new)
+            .lang("ECO - SA Superconducting Processor")
             .recipe((ctx, prov) -> {
                 InscriberRecipeBuilder.inscribe(Ingredient.of(NEItems.CRYSTAL_MATRIX), ctx.get(), 1)
                         .setMode(InscriberProcessType.PRESS)
@@ -861,7 +866,7 @@ public class NEItems {
                         .unlockedBy("has_aluminum", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
                         .save(prov);
             })
-            .lang("ECO Storage Matrix Housing (Item)")
+            .lang("ECO Item Storage Matrix Housing")
             .register();
 
     public static final ItemEntry<MaterialItem> ECO_FLUID_CELL_HOUSING = REGISTRATE
@@ -880,7 +885,7 @@ public class NEItems {
                                 "has_aluminum_allot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_ALLOY_INGOT))
                         .save(prov);
             })
-            .lang("ECO Storage Matrix Housing (Fluid)")
+            .lang("ECO Fluid Storage Matrix Housing")
             .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_ITEM_CELL_16M = REGISTRATE
@@ -895,7 +900,7 @@ public class NEItems {
                         .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
                         .save(prov);
             })
-            .lang("ECO - LE4 Storage Matrix (Item)")
+            .lang("ECO - LE4 Item Storage Matrix")
             .model(ItemModelUtil.cellModel("item", "16m"))
             .register();
 
@@ -911,7 +916,7 @@ public class NEItems {
                         .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
                         .save(prov);
             })
-            .lang("ECO - LE6 Storage Matrix (Item)")
+            .lang("ECO - LE6 Item Storage Matrix")
             .model(ItemModelUtil.cellModel("item", "64m"))
             .register();
 
@@ -927,7 +932,7 @@ public class NEItems {
                         .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
                         .save(prov);
             })
-            .lang("ECO - LE9 Storage Matrix (Item)")
+            .lang("ECO - LE9 Item Storage Matrix")
             .model(ItemModelUtil.cellModel("item", "256m"))
             .register();
 
@@ -943,7 +948,7 @@ public class NEItems {
                         .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
                         .save(prov);
             })
-            .lang("ECO - LE4 Storage Matrix (Fluid)")
+            .lang("ECO - LE4 Fluid Storage Matrix")
             .model(ItemModelUtil.cellModel("fluid", "16m"))
             .register();
 
@@ -959,7 +964,7 @@ public class NEItems {
                         .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
                         .save(prov);
             })
-            .lang("ECO - LE6 Storage Matrix (Fluid)")
+            .lang("ECO - LE6 Fluid Storage Matrix")
             .model(ItemModelUtil.cellModel("fluid", "64m"))
             .register();
 
@@ -975,7 +980,7 @@ public class NEItems {
                         .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
                         .save(prov);
             })
-            .lang("ECO - LE9 Storage Matrix (Fluid)")
+            .lang("ECO - LE9 Fluid Storage Matrix")
             .model(ItemModelUtil.cellModel("fluid", "256m"))
             .register();
 
@@ -993,7 +998,7 @@ public class NEItems {
                 .item(
                         "eco_computation_cell_" + tierString,
                         p -> new ECOComputationCellItem(p.stacksTo(1).rarity(rarity), tier))
-                .lang("ECO - %s Flash Crystal Matrix".formatted(tierString.replace("l", "CE")))
+                .lang("ECO - %s Flash Crystal Array".formatted(tierString.replace("l", "CE")))
                 .model((ctx, prov) -> {})
                 .register();
     }

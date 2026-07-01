@@ -50,7 +50,7 @@ public class NEAppMekItems {
                                 RegistrateRecipeProvider.has(NETags.Items.BLACK_TUNGSTEN_ALLOY_INGOT))
                         .save(appmekInstalled);
             })
-            .lang("ECO Storage Matrix Housing (Chemical)")
+            .lang("ECO Chemical Storage Matrix Housing")
             .register();
 
     public static final ItemEntry<ECOChemicalStorageCellItem> ECO_CHEMICAL_CELL_16M = REGISTRATE
@@ -65,7 +65,7 @@ public class NEAppMekItems {
                         .unlockedBy("has_16m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_16M))
                         .save(appmekInstalled);
             })
-            .lang("ECO - LE4 Storage Matrix (Chemical)")
+            .lang("ECO - LE4 Chemical Storage Matrix")
             .model(ItemModelUtil.cellModel("chemical", "16m"))
             .register();
 
@@ -81,7 +81,7 @@ public class NEAppMekItems {
                         .unlockedBy("has_64m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_64M))
                         .save(appmekInstalled);
             })
-            .lang("ECO - LE6 Storage Matrix (Chemical)")
+            .lang("ECO - LE6 Chemical Storage Matrix")
             .model(ItemModelUtil.cellModel("chemical", "64m"))
             .register();
 
@@ -97,7 +97,7 @@ public class NEAppMekItems {
                         .unlockedBy("has_256m_component", RegistrateRecipeProvider.has(NEItems.ECO_CELL_COMPONENT_256M))
                         .save(appmekInstalled);
             })
-            .lang("ECO - LE9 Storage Matrix (Chemical)")
+            .lang("ECO - LE9 Chemical Storage Matrix")
             .model(ItemModelUtil.cellModel("chemical", "256m"))
             .register();
 

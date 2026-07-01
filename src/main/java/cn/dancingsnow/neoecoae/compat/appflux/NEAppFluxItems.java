@@ -12,14 +12,14 @@ import net.minecraft.world.item.Rarity;
 public class NEAppFluxItems {
     public static final ItemEntry<MaterialItem> ECO_FE_CELL_HOUSING = REGISTRATE
             .item("eco_fe_cell_housing", MaterialItem::new)
-            .lang("ECO Storage Matrix Housing (FE)")
+            .lang("ECO FE Storage Matrix Housing")
             .register();
 
     public static final ItemEntry<ECOFeStorageCellItem> ECO_FE_CELL_16M = REGISTRATE
             .item(
                     "eco_fe_storage_cell_16m",
                     p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.UNCOMMON), ECOTier.L4))
-            .lang("ECO - LE4 Storage Matrix (FE)")
+            .lang("ECO - LE4 FE Storage Matrix")
             .model(ItemModelUtil.cellModel("fe", "16m"))
             .register();
 
@@ -27,7 +27,7 @@ public class NEAppFluxItems {
             .item(
                     "eco_fe_storage_cell_64m",
                     p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.RARE), ECOTier.L6))
-            .lang("ECO - LE6 Storage Matrix (FE)")
+            .lang("ECO - LE6 FE Storage Matrix")
             .model(ItemModelUtil.cellModel("fe", "64m"))
             .register();
 
@@ -35,7 +35,7 @@ public class NEAppFluxItems {
             .item(
                     "eco_fe_storage_cell_256m",
                     p -> new ECOFeStorageCellItem(p.stacksTo(1).rarity(Rarity.EPIC), ECOTier.L9))
-            .lang("ECO - LE9 Storage Matrix (FE)")
+            .lang("ECO - LE9 FE Storage Matrix")
             .model(ItemModelUtil.cellModel("fe", "256m"))
             .register();
 

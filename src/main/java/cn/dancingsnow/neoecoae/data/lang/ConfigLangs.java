@@ -6,36 +6,36 @@ public class ConfigLangs {
     public static void accept(RegistrateLangProvider provider) {
         provider.add("neoecoae.configuration.structure", "Structure");
         provider.add("neoecoae.configuration.structure.tooltip", "Multiblock structure size limits.");
-        provider.add("neoecoae.configuration.craftingSystemMaxLength", "Max Length of Crafting System");
+        provider.add("neoecoae.configuration.craftingSystemMaxLength", "Crafting System Max Length");
         provider.add(
                 "neoecoae.configuration.craftingSystemMaxLength.tooltip",
-                "Maximum length (in blocks) allowed for the Crafting System multiblock.\n"
-                        + "Higher values allow longer expansions but may increase structure check cost.");
-        provider.add("neoecoae.configuration.computationSystemMaxLength", "Max Length of Computation System");
+                "Maximum allowed length (in blocks) for crafting subsystem multiblock structures.\n"
+                        + "Higher values allow longer scalable modules/components but may increase structure detection overhead.");
+        provider.add("neoecoae.configuration.computationSystemMaxLength", "Computation System Max Length");
         provider.add(
                 "neoecoae.configuration.computationSystemMaxLength.tooltip",
-                "Maximum length (in blocks) allowed for the Computation System multiblock.\n"
-                        + "Higher values allow longer expansions but may increase structure check cost.");
-        provider.add("neoecoae.configuration.storageSystemMaxLength", "Max Length of Storage System");
+                "Maximum allowed length (in blocks) for computation subsystem multiblock structures.\n"
+                        + "Higher values allow longer scalable modules/components but may increase structure detection overhead.");
+        provider.add("neoecoae.configuration.storageSystemMaxLength", "Storage System Max Length");
         provider.add(
                 "neoecoae.configuration.storageSystemMaxLength.tooltip",
-                "Maximum length (in blocks) allowed for the Storage System multiblock.\n"
-                        + "Higher values allow longer expansions but may increase structure check cost.");
-        provider.add("neoecoae.configuration.postCraftingEvent", "Post Crafting Event");
+                "Maximum allowed length (in blocks) for storage subsystem multiblock structures.\n"
+                        + "Higher values allow longer scalable modules/components but may increase structure detection overhead.");
+        provider.add("neoecoae.configuration.postCraftingEvent", "Trigger Crafting Event");
         provider.add(
                 "neoecoae.configuration.postCraftingEvent.tooltip",
-                "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n"
-                        + "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed.");
+                "Whether to fire the vanilla crafting event (ItemCraftedEvent) when the crafting subsystem completes a recipe.\n"
+                        + "Enabling this may introduce additional event/listener overhead; it can be noticeable when mods like Balm are installed.");
         provider.add("neoecoae.configuration.craftingPatternBusPages", "Smart Pattern Bus Pages");
         provider.add(
                 "neoecoae.configuration.craftingPatternBusPages.tooltip",
-                "Number of 63-slot pages in each smart crafting pattern bus. Range: 1-8.\n"
-                        + "Changes are fully applied after re-entering the world or restarting the server.");
+                "Number of 63-slot pages per smart pattern bus, range 1-8.\n"
+                        + "Changes require re-entering the world or restarting the server to fully apply.");
         provider.add("neoecoae.configuration.increaseStorageCellCapacity", "Increase ECO Capacity");
         provider.add(
                 "neoecoae.configuration.increaseStorageCellCapacity.tooltip",
-                "Increase ECO Storage Matrix capacity and multiply computation flash capacity by 16.\n"
-                        + "Defaults to enabled when GregTech Modern/GTCEu is loaded.\n"
+                "Increase ECO storage matrix capacity and enlarge computation flash capacity by 16x.\n"
+                        + "Defaults to enabled when GregTech Modern/GTCEu is detected.\n"
                         + "Changes are fully applied after re-entering the world or restarting the server.");
     }
 }
