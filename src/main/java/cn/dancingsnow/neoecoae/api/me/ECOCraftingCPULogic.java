@@ -29,6 +29,7 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.compat.ae2.ExtendedAEPlusVirtualCraftingCompat;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
@@ -50,14 +51,6 @@ import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
-    static final int DEFAULT_BATCH_FAST_PATH_LIMIT = 5632;
-    static final int DEFAULT_BATCH_FAST_PATH_TICK_LIMIT = 5632;
-    private static final int ECO_CPU_PUSH_TICK_LIMIT =
-            Math.max(1, Integer.getInteger("neoecoae.ecoCpuPushTickLimit", Integer.MAX_VALUE));
-    private static final int ECO_BATCH_FAST_PATH_LIMIT =
-            Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathLimit", DEFAULT_BATCH_FAST_PATH_LIMIT));
-    private static final int ECO_BATCH_FAST_PATH_TICK_LIMIT =
-            Math.max(1, Integer.getInteger("neoecoae.ecoBatchFastPathTickLimit", DEFAULT_BATCH_FAST_PATH_TICK_LIMIT));
 
     final ECOCraftingCPU cpu;
 
@@ -224,7 +217,7 @@ public class ECOCraftingCPULogic {
         }
 
         int slowPatternBudget = getOperationLimit();
-        var batchBudget = new FastPathBatchBudget(ECO_BATCH_FAST_PATH_TICK_LIMIT);
+        var batchBudget = new FastPathBatchBudget(NEConfig.ecoBatchFastPathTickLimit);
         int totalPatternBudget = totalPatternBudget(slowPatternBudget, batchBudget.remaining());
         executeCrafting(slowPatternBudget, totalPatternBudget, cc, eg, cpu.getLevel(), batchBudget);
     }
@@ -330,7 +323,7 @@ public class ECOCraftingCPULogic {
 
     private int getOperationLimit() {
         int cpuLimit = Math.max(1, cpu.getCoProcessors() + 1);
-        return Math.min(cpuLimit, ECO_CPU_PUSH_TICK_LIMIT);
+        return Math.min(cpuLimit, NEConfig.ecoCpuPushTickLimit);
     }
 
     static int totalPatternBudget(int slowPatternBudget, int batchPatternBudget) {
@@ -619,7 +612,7 @@ public class ECOCraftingCPULogic {
 
         int requested = (int) Math.min(
                 Math.min(taskRemaining, totalBudgetRemaining),
-                Math.min(ECO_BATCH_FAST_PATH_LIMIT, batchBudgetRemaining));
+                Math.min(NEConfig.ecoBatchFastPathLimit, batchBudgetRemaining));
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
@@ -1174,6 +1167,10 @@ public class ECOCraftingCPULogic {
 
     @Nullable public GenericStack getFinalJobOutput() {
         return this.job != null ? this.job.finalOutput : null;
+    }
+
+    public long getRemainingJobOutputAmount() {
+        return this.job == null ? 0L : Math.max(0L, this.job.remainingAmount);
     }
 
     public ElapsedTimeTracker getElapsedTimeTracker() {

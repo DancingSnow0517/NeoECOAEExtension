@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.compat.appflux.item;
 
 import appeng.api.stacks.AEKey;
-import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.compat.appflux.AppFluxCompat;
+import cn.dancingsnow.neoecoae.compat.appflux.NEAppFluxCellTypes;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.glodblock.github.appflux.common.me.key.FluxKey;
 import com.glodblock.github.appflux.common.me.key.type.EnergyType;
@@ -15,7 +15,7 @@ import net.minecraft.world.item.TooltipFlag;
 
 public class ECOFeStorageCellItem extends ECOStorageCellItem {
     public ECOFeStorageCellItem(Properties properties, IECOTier tier) {
-        super(properties, tier, AppFluxCompat.getFluxKeyType(), NECellTypes.FE);
+        super(properties, tier, AppFluxCompat.getFluxKeyType(), NEAppFluxCellTypes.FE);
     }
 
     @Override

@@ -22,6 +22,7 @@ import net.minecraftforge.fml.loading.FMLEnvironment;
 public class AppBotaniaIntegration {
     public void apply() {
         ECOAETypeCounts.register(AppBotCompat.getManaKeyType(), 1);
+        NEAppBotCellTypes.register();
         NEAppBotItems.register();
 
         if (FMLEnvironment.dist == Dist.CLIENT) {

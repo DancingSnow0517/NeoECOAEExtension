@@ -51,6 +51,7 @@ final class NEStructureTerminalLayout {
     static final int FOOTER_MIRROR_BUTTON_W = 58;
     static final int FOOTER_BUTTON_GAP = 4;
     static final int FOOTER_BUTTON_Y = FOOTER_Y - 1;
+    static final int FOOTER_HINT_Y = FOOTER_BUTTON_Y + (CONTROL_H - 9) / 2;
     static final int FOOTER_HINT_X = 7 + FOOTER_BUTTON_W * 2 + FOOTER_MIRROR_BUTTON_W + FOOTER_BUTTON_GAP * 2 + 7;
     static final int FORMED_PREVIEW_W = 65;
     static final int FORMED_PREVIEW_X = PATTERN_PANEL_X + 7;

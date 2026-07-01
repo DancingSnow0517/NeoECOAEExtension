@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.compat.arsenergistique;
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 import appeng.items.materials.MaterialItem;
-import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
@@ -23,7 +22,7 @@ public class NEArsEnergistiqueItems {
                             p.stacksTo(1).rarity(Rarity.UNCOMMON),
                             ECOTier.L4,
                             ArsEnergistiqueCompat.getSourceKeyType(),
-                            NECellTypes.SOURCE))
+                            NEArsEnergistiqueCellTypes.SOURCE))
             .lang("ECO - LE4 Source Storage Matrix")
             .model(ItemModelUtil.cellModel("source", "16m"))
             .register();
@@ -35,7 +34,7 @@ public class NEArsEnergistiqueItems {
                             p.stacksTo(1).rarity(Rarity.RARE),
                             ECOTier.L6,
                             ArsEnergistiqueCompat.getSourceKeyType(),
-                            NECellTypes.SOURCE))
+                            NEArsEnergistiqueCellTypes.SOURCE))
             .lang("ECO - LE6 Source Storage Matrix")
             .model(ItemModelUtil.cellModel("source", "64m"))
             .register();
@@ -47,7 +46,7 @@ public class NEArsEnergistiqueItems {
                             p.stacksTo(1).rarity(Rarity.EPIC),
                             ECOTier.L9,
                             ArsEnergistiqueCompat.getSourceKeyType(),
-                            NECellTypes.SOURCE))
+                            NEArsEnergistiqueCellTypes.SOURCE))
             .lang("ECO - LE9 Source Storage Matrix")
             .model(ItemModelUtil.cellModel("source", "256m"))
             .register();

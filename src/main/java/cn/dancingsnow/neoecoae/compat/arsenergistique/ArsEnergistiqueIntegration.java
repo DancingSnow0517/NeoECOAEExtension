@@ -22,6 +22,7 @@ import net.minecraftforge.fml.loading.FMLEnvironment;
 public class ArsEnergistiqueIntegration {
     public void apply() {
         ECOAETypeCounts.register(ArsEnergistiqueCompat.getSourceKeyType(), 1);
+        NEArsEnergistiqueCellTypes.register();
         NEArsEnergistiqueItems.register();
 
         if (FMLEnvironment.dist == Dist.CLIENT) {

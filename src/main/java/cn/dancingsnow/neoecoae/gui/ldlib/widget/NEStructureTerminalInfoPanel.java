@@ -82,7 +82,7 @@ final class NEStructureTerminalInfoPanel {
                 graphics,
                 Component.translatable("gui.neoecoae.structure_terminal.hint_shift_build"),
                 NEStructureTerminalLayout.FOOTER_HINT_X,
-                NEStructureTerminalLayout.FOOTER_Y,
+                NEStructureTerminalLayout.FOOTER_HINT_Y,
                 NEStructureTerminalLayout.WIDTH - NEStructureTerminalLayout.FOOTER_HINT_X - 7,
                 NELDLibMachineWidget.TEXT_MUTED);
     }

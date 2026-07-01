@@ -75,6 +75,7 @@ final class NEStructureTerminalButtonPanel {
                 NEStructureTerminalLayout.MIRROR_W,
                 NEStructureTerminalLayout.CONTROL_H,
                 () -> Component.translatable("gui.neoecoae.structure_terminal.preview_mirrored"),
+                shortLabel("gui.neoecoae.structure_terminal.preview_mirrored.short"),
                 NEStructureTerminalWidget.Action.TOGGLE_PREVIEW_MIRRORED,
                 () -> state().previewMirrored(),
                 () -> true,
@@ -93,6 +94,7 @@ final class NEStructureTerminalButtonPanel {
                 NEStructureTerminalLayout.FORMED_PREVIEW_W,
                 NEStructureTerminalLayout.CONTROL_H,
                 () -> Component.translatable("gui.neoecoae.structure_terminal.preview_formed"),
+                shortLabel("gui.neoecoae.structure_terminal.preview_formed.short"),
                 NEStructureTerminalWidget.Action.TOGGLE_PREVIEW_FORMED,
                 () -> state().previewFormed(),
                 () -> true,
@@ -101,16 +103,19 @@ final class NEStructureTerminalButtonPanel {
                 0,
                 NEStructureTerminalLayout.FOOTER_BUTTON_W,
                 Component.translatable("gui.neoecoae.structure_terminal.mode.build"),
+                shortLabel("gui.neoecoae.structure_terminal.mode.build.short"),
                 NEStructureTerminalWidget.Action.BUILD_LINKED);
         addFooterActionButton(
                 1,
                 NEStructureTerminalLayout.FOOTER_MIRROR_BUTTON_W,
                 Component.translatable("gui.neoecoae.structure_terminal.mode.mirrored_build"),
+                shortLabel("gui.neoecoae.structure_terminal.mode.mirrored_build.short"),
                 NEStructureTerminalWidget.Action.BUILD_MIRRORED_LINKED);
         addFooterActionButton(
                 2,
                 NEStructureTerminalLayout.FOOTER_BUTTON_W,
                 Component.translatable("gui.neoecoae.structure_terminal.mode.dismantle"),
+                shortLabel("gui.neoecoae.structure_terminal.mode.dismantle.short"),
                 NEStructureTerminalWidget.Action.DISMANTLE_LINKED);
         refreshWidgetVisibility();
     }
@@ -135,6 +140,7 @@ final class NEStructureTerminalButtonPanel {
                 NEStructureTerminalLayout.HOST_W,
                 NEStructureTerminalLayout.CONTROL_H,
                 () -> Component.translatable(hostTypeKey(hostType)),
+                shortLabel(hostTypeShortKey(hostType)),
                 action,
                 () -> state().hostType() == hostType,
                 () -> true,
@@ -168,13 +174,19 @@ final class NEStructureTerminalButtonPanel {
                 patternWidgets);
     }
 
-    private void addFooterActionButton(int index, int width, Component label, NEStructureTerminalWidget.Action action) {
+    private void addFooterActionButton(
+            int index,
+            int width,
+            Component label,
+            Supplier<Component> shortLabel,
+            NEStructureTerminalWidget.Action action) {
         addServerButton(
                 NEStructureTerminalLayout.footerButtonX(index),
                 NEStructureTerminalLayout.FOOTER_BUTTON_Y,
                 width,
                 NEStructureTerminalLayout.CONTROL_H,
                 () -> label,
+                shortLabel,
                 action,
                 () -> switch (action) {
                     case BUILD_LINKED -> state().operationModePending()
@@ -211,12 +223,27 @@ final class NEStructureTerminalButtonPanel {
             Runnable action,
             BooleanSupplier visible,
             List<Widget> group) {
+        addLocalButton(x, y, w, h, label, List.of(), selected, action, visible, group);
+    }
+
+    private void addLocalButton(
+            int x,
+            int y,
+            int w,
+            int h,
+            Supplier<Component> label,
+            List<Supplier<Component>> labelFallbacks,
+            BooleanSupplier selected,
+            Runnable action,
+            BooleanSupplier visible,
+            List<Widget> group) {
         NEAe2TextButtonWidget button = new NEAe2TextButtonWidget(
                 x,
                 y,
                 w,
                 h,
                 label,
+                labelFallbacks,
                 click -> {
                     if (click.isRemote) {
                         action.run();
@@ -241,12 +268,41 @@ final class NEStructureTerminalButtonPanel {
             BooleanSupplier selected,
             BooleanSupplier visible,
             List<Widget> group) {
+        addServerButton(x, y, w, h, label, List.of(), action, selected, visible, group);
+    }
+
+    private void addServerButton(
+            int x,
+            int y,
+            int w,
+            int h,
+            Supplier<Component> label,
+            Supplier<Component> labelFallback,
+            NEStructureTerminalWidget.Action action,
+            BooleanSupplier selected,
+            BooleanSupplier visible,
+            List<Widget> group) {
+        addServerButton(x, y, w, h, label, List.of(labelFallback), action, selected, visible, group);
+    }
+
+    private void addServerButton(
+            int x,
+            int y,
+            int w,
+            int h,
+            Supplier<Component> label,
+            List<Supplier<Component>> labelFallbacks,
+            NEStructureTerminalWidget.Action action,
+            BooleanSupplier selected,
+            BooleanSupplier visible,
+            List<Widget> group) {
         NEAe2TextButtonWidget button = new NEAe2TextButtonWidget(
                 x,
                 y,
                 w,
                 h,
                 label,
+                labelFallbacks,
                 click -> {
                     if (click.isRemote) {
                         actionSender.accept(action);
@@ -260,6 +316,10 @@ final class NEStructureTerminalButtonPanel {
         renderedButtons.add(new RenderedButton(button, visible));
     }
 
+    private static Supplier<Component> shortLabel(String key) {
+        return () -> Component.translatable(key);
+    }
+
     private NEStructureTerminalConfigState state() {
         return stateSupplier.get();
     }
@@ -269,6 +329,14 @@ final class NEStructureTerminalButtonPanel {
             case CRAFTING -> "gui.neoecoae.structure_terminal.target.crafting";
             case STORAGE -> "gui.neoecoae.structure_terminal.target.storage";
             case COMPUTATION -> "gui.neoecoae.structure_terminal.target.computation";
+        };
+    }
+
+    private static String hostTypeShortKey(StructureTerminalHostType hostType) {
+        return switch (hostType) {
+            case CRAFTING -> "gui.neoecoae.structure_terminal.target.crafting.short";
+            case STORAGE -> "gui.neoecoae.structure_terminal.target.storage.short";
+            case COMPUTATION -> "gui.neoecoae.structure_terminal.target.computation.short";
         };
     }
 

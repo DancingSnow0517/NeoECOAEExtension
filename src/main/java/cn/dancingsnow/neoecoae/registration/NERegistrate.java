@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.registration;
 
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.api.IECOTier;
-import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
@@ -91,14 +90,12 @@ public class NERegistrate extends AbstractRegistrate<NERegistrate> {
         return this.generic(parent, name, NERegistries.Keys.ECO_TIER, factory);
     }
 
-    public NoConfigBuilder<ECOCellType, ECOCellType, NERegistrate> cellType(
-            String name, NonNullSupplier<ECOCellType> factory) {
-        return cellType(self(), name, factory);
+    public NECellTypeBuilder<NERegistrate> cellType(String name) {
+        return cellType(self(), name);
     }
 
-    public <P> NoConfigBuilder<ECOCellType, ECOCellType, P> cellType(
-            P parent, String name, NonNullSupplier<ECOCellType> factory) {
-        return this.generic(parent, name, NERegistries.Keys.CELL_TYPE, factory);
+    public <P> NECellTypeBuilder<P> cellType(P parent, String name) {
+        return this.entry(name, callback -> NECellTypeBuilder.create(this, parent, name, callback));
     }
 
     public NERegistrate clearDefaultCreativeTab() {

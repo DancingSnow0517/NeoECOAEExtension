@@ -69,7 +69,13 @@ public record IntegratedWorkingStationRecipe(
         if (inputFluid.ingredient().isEmpty()) {
             return true;
         }
-        return providedFluid != null && !providedFluid.isEmpty() && inputFluid.test(providedFluid);
+        if (providedFluid == null || providedFluid.isEmpty()) {
+            return false;
+        }
+        if (!inputFluid.test(providedFluid)) {
+            return false;
+        }
+        return providedFluid.getAmount() >= inputFluid.amount();
     }
 
     @Override

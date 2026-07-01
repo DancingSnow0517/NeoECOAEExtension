@@ -3,7 +3,6 @@ package cn.dancingsnow.neoecoae.compat.appbot;
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 import appeng.items.materials.MaterialItem;
-import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.util.ItemModelUtil;
@@ -23,7 +22,7 @@ public class NEAppBotItems {
                             p.stacksTo(1).rarity(Rarity.UNCOMMON),
                             ECOTier.L4,
                             AppBotCompat.getManaKeyType(),
-                            NECellTypes.MANA))
+                            NEAppBotCellTypes.MANA))
             .lang("ECO - LE4 Mana Storage Matrix")
             .model(ItemModelUtil.cellModel("mana", "16m"))
             .register();
@@ -35,7 +34,7 @@ public class NEAppBotItems {
                             p.stacksTo(1).rarity(Rarity.RARE),
                             ECOTier.L6,
                             AppBotCompat.getManaKeyType(),
-                            NECellTypes.MANA))
+                            NEAppBotCellTypes.MANA))
             .lang("ECO - LE6 Mana Storage Matrix")
             .model(ItemModelUtil.cellModel("mana", "64m"))
             .register();
@@ -47,7 +46,7 @@ public class NEAppBotItems {
                             p.stacksTo(1).rarity(Rarity.EPIC),
                             ECOTier.L9,
                             AppBotCompat.getManaKeyType(),
-                            NECellTypes.MANA))
+                            NEAppBotCellTypes.MANA))
             .lang("ECO - LE9 Mana Storage Matrix")
             .model(ItemModelUtil.cellModel("mana", "256m"))
             .register();

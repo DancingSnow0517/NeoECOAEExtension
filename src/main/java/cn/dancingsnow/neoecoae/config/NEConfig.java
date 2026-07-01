@@ -52,10 +52,50 @@ public class NEConfig {
                     "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed.")
             .define("postCraftingEvent", false);
 
+    static {
+        BUILDER.comment(
+                        "ECO AE2 fast path cache and batch crafting options.",
+                        "Disable or lower these values if a modpack has recipe compatibility issues.")
+                .push("fastPath");
+    }
+
     private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AE2_FAST_PATH = BUILDER.comment(
-                    "Enable the verified AE2-assisted fast path for ECO crafting workers.",
+                    "Enable ECO AE2 fast path batch crafting cache.",
+                    "This can greatly reduce repeated pattern execution cost. If recipe compatibility issues occur in a modpack, disable this option to fall back to the slow path.",
+                    "Fast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics.",
                     "Set JVM property -Dneoecoae.ecoFastPath=false to force-disable this optimization without editing the config.")
             .define("ecoAe2FastPathEnabled", true);
+
+    private static final ForgeConfigSpec.BooleanValue DEBUG_ECO_FAST_PATH = BUILDER.comment(
+                    "Periodically log ECO fast path cache statistics.",
+                    "Set JVM property -Dneoecoae.debugEcoFastPath=true to force-enable this without editing the config.")
+            .define("debugEcoFastPath", false);
+
+    private static final ForgeConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER.comment(
+                    "Maximum normal crafting pattern pushes a CPU may attempt per tick.",
+                    "The effective value is still capped by available co-processors.",
+                    "Set JVM property -Dneoecoae.ecoCpuPushTickLimit=<value> to override this config.")
+            .defineInRange("ecoCpuPushTickLimit", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
+
+    private static final ForgeConfigSpec.IntValue ECO_BATCH_FAST_PATH_LIMIT = BUILDER.comment(
+                    "Maximum crafts merged into a single fast path batch push.",
+                    "Set JVM property -Dneoecoae.ecoBatchFastPathLimit=<value> to override this config.")
+            .defineInRange("ecoBatchFastPathLimit", 64, 1, Integer.MAX_VALUE);
+
+    private static final ForgeConfigSpec.IntValue ECO_BATCH_FAST_PATH_TICK_LIMIT = BUILDER.comment(
+                    "Maximum fast path batch crafts a CPU may push per tick.",
+                    "Set JVM property -Dneoecoae.ecoBatchFastPathTickLimit=<value> to override this config.")
+            .defineInRange("ecoBatchFastPathTickLimit", 256, 1, Integer.MAX_VALUE);
+
+    private static final ForgeConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER.comment(
+                    "Maximum recipe entries kept in each ECO fast path cache.",
+                    "Set JVM property -Dneoecoae.ecoFastPathCacheSize=<value> to override this config.",
+                    "Changes fully apply to newly created caches after re-entering the world or restarting the server.")
+            .defineInRange("ecoFastPathCacheSize", 512, 16, Integer.MAX_VALUE);
+
+    static {
+        BUILDER.pop();
+    }
 
     private static final ForgeConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER.comment(
                     "Number of 63-slot pages available in each smart crafting pattern bus.",
@@ -77,6 +117,11 @@ public class NEConfig {
     public static int storageSystemMaxLength = 15;
     public static boolean postCraftingEvent;
     public static boolean enableEcoAe2FastPath;
+    public static boolean debugEcoFastPath;
+    public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
+    public static int ecoBatchFastPathLimit = 64;
+    public static int ecoBatchFastPathTickLimit = 256;
+    public static int ecoFastPathCacheSize = 512;
     public static int craftingPatternBusPages = 2;
     public static boolean increaseStorageCellCapacity;
 
@@ -106,12 +151,21 @@ public class NEConfig {
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         enableEcoAe2FastPath = ENABLE_ECO_AE2_FAST_PATH.get();
+        debugEcoFastPath = getBooleanProperty("neoecoae.debugEcoFastPath", DEBUG_ECO_FAST_PATH.get());
+        ecoCpuPushTickLimit = getPositiveIntProperty("neoecoae.ecoCpuPushTickLimit", ECO_CPU_PUSH_TICK_LIMIT.get());
+        ecoBatchFastPathLimit = getPositiveIntProperty("neoecoae.ecoBatchFastPathLimit", ECO_BATCH_FAST_PATH_LIMIT.get());
+        ecoBatchFastPathTickLimit =
+                getPositiveIntProperty("neoecoae.ecoBatchFastPathTickLimit", ECO_BATCH_FAST_PATH_TICK_LIMIT.get());
+        ecoFastPathCacheSize = Math.max(
+                16, getPositiveIntProperty("neoecoae.ecoFastPathCacheSize", ECO_FAST_PATH_CACHE_SIZE.get()));
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
     }
 
     public static boolean isEcoAe2FastPathEnabled() {
-        return enableEcoAe2FastPath && !"false".equalsIgnoreCase(System.getProperty("neoecoae.ecoFastPath", "true"));
+        return enableEcoAe2FastPath
+                && !postCraftingEvent
+                && !"false".equalsIgnoreCase(System.getProperty("neoecoae.ecoFastPath", "true"));
     }
 
     public static boolean isIncreaseStorageCellCapacity() {
@@ -128,6 +182,24 @@ public class NEConfig {
 
     public static int getMaxCraftingPatternBusSlotCount() {
         return PATTERN_BUS_SLOTS_PER_PAGE * PATTERN_BUS_MAX_PAGES;
+    }
+
+    private static boolean getBooleanProperty(String name, boolean fallback) {
+        String value = System.getProperty(name);
+        return value == null ? fallback : Boolean.parseBoolean(value);
+    }
+
+    private static int getPositiveIntProperty(String name, int fallback) {
+        String value = System.getProperty(name);
+        if (value == null) {
+            return Math.max(1, fallback);
+        }
+        try {
+            return Math.max(1, Integer.parseInt(value));
+        } catch (NumberFormatException e) {
+            LOGGER.warn("Ignoring invalid integer system property {}={}", name, value);
+            return Math.max(1, fallback);
+        }
     }
 
     public static long getEcoStorageCellCapacity(IECOTier tier, long fallbackBytes) {

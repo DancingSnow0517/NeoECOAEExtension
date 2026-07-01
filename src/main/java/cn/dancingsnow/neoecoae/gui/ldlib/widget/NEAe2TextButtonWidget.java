@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.util.ClickData;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -14,6 +15,7 @@ import net.minecraft.network.chat.Component;
 
 public class NEAe2TextButtonWidget extends ButtonWidget {
     private final Supplier<Component> labelSupplier;
+    private final List<Supplier<Component>> labelFallbacks;
     private final BooleanSupplier selectedSupplier;
     private final BackgroundStyle style;
     private int normalColor = NELDLibStyle.DARK_TEXT_PRIMARY;
@@ -40,8 +42,34 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
             Consumer<ClickData> onPress,
             BooleanSupplier selectedSupplier,
             BackgroundStyle style) {
+        this(x, y, width, height, labelSupplier, List.of(), onPress, selectedSupplier, style);
+    }
+
+    public NEAe2TextButtonWidget(
+            int x,
+            int y,
+            int width,
+            int height,
+            Supplier<Component> labelSupplier,
+            List<Supplier<Component>> labelFallbacks,
+            Consumer<ClickData> onPress,
+            BooleanSupplier selectedSupplier) {
+        this(x, y, width, height, labelSupplier, labelFallbacks, onPress, selectedSupplier, BackgroundStyle.INSET);
+    }
+
+    public NEAe2TextButtonWidget(
+            int x,
+            int y,
+            int width,
+            int height,
+            Supplier<Component> labelSupplier,
+            List<Supplier<Component>> labelFallbacks,
+            Consumer<ClickData> onPress,
+            BooleanSupplier selectedSupplier,
+            BackgroundStyle style) {
         super(x, y, width, height, IGuiTexture.EMPTY, onPress);
         this.labelSupplier = labelSupplier;
+        this.labelFallbacks = List.copyOf(labelFallbacks);
         this.selectedSupplier = selectedSupplier;
         this.style = style;
         setHoverTexture(IGuiTexture.EMPTY);
@@ -87,8 +115,26 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
         var font = Minecraft.getInstance().font;
         int color = !isActive() ? inactiveColor : selectedSupplier.getAsBoolean() ? selectedColor : normalColor;
         int labelY = getPositionY() + (getSizeHeight() - font.lineHeight) / 2;
-        NELDLibClientStyle.drawCenteredFitted(
-                graphics, font, labelSupplier.get(), getPositionX(), labelY, getSizeWidth(), color);
+        NELDLibClientStyle.drawCenteredClipped(
+                graphics, font, fittedLabel(), getPositionX(), labelY, getSizeWidth(), color);
+    }
+
+    private Component fittedLabel() {
+        var font = Minecraft.getInstance().font;
+        int maxWidth = Math.max(1, getSizeWidth() - 4);
+        Component label = labelSupplier.get();
+        if (font.width(label) <= maxWidth) {
+            return label;
+        }
+        for (Supplier<Component> fallback : labelFallbacks) {
+            Component fallbackLabel = fallback.get();
+            if (font.width(fallbackLabel) <= maxWidth) {
+                return fallbackLabel;
+            }
+        }
+        return labelFallbacks.isEmpty()
+                ? label
+                : labelFallbacks.get(labelFallbacks.size() - 1).get();
     }
 
     public enum BackgroundStyle {

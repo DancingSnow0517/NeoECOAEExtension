@@ -30,6 +30,7 @@ import appeng.core.definitions.AEItems;
 import appeng.me.storage.CompositeStorage;
 import appeng.parts.automation.StackWorldBehaviors;
 import appeng.util.ConfigManager;
+import appeng.util.SettingsFrom;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
@@ -40,6 +41,7 @@ import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEIntegratedWorkingStationUiState;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.util.AutoExportSidesNbt;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
@@ -729,6 +731,25 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         super.addAdditionalDrops(level, pos, drops);
         for (var upgrade : upgrades) {
             drops.add(upgrade);
+        }
+    }
+
+    @Override
+    public void exportSettings(SettingsFrom mode, CompoundTag data, @Nullable Player player) {
+        super.exportSettings(mode, data, player);
+        if (mode == SettingsFrom.MEMORY_CARD) {
+            AutoExportSidesNbt.saveToTag(data, allowOutputs);
+        }
+    }
+
+    @Override
+    public void importSettings(SettingsFrom mode, CompoundTag data, @Nullable Player player) {
+        super.importSettings(mode, data, player);
+        if (mode == SettingsFrom.MEMORY_CARD && AutoExportSidesNbt.hasSavedSides(data)) {
+            this.allowOutputs.clear();
+            this.allowOutputs.addAll(AutoExportSidesNbt.loadFromTag(data));
+            this.exportStrategies.clear();
+            markContentsChanged();
         }
     }
 

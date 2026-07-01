@@ -733,9 +733,10 @@ public class NEBlocks {
             .properties(BlockBehaviour.Properties::noOcclusion)
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, provider) -> {
-                ModelFile modelFile = provider.models().getExistingFile(provider.modLoc("block/eco_drive_empty"));
+                ModelFile modelFileEmpty = provider.models().getExistingFile(provider.modLoc("block/eco_drive_empty"));
+                ModelFile modelFileFull = provider.models().getExistingFile(provider.modLoc("block/eco_drive_full"));
                 provider.getVariantBuilder(ctx.get()).forAllStates(state -> ConfiguredModel.builder()
-                        .modelFile(modelFile)
+                        .modelFile(state.getValue(ECODriveBlock.FORMED) ? modelFileFull : modelFileEmpty)
                         .rotationY(((int) state.getValue(BlockStateProperties.HORIZONTAL_FACING)
                                                 .toYRot()
                                         + 180)
@@ -933,12 +934,13 @@ public class NEBlocks {
             .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
             .blockstate((ctx, prov) -> {
                 ModelFile modelFileEmpty = prov.models().getExistingFile(prov.modLoc("block/computation_drive_empty"));
+                ModelFile modelFileFull = prov.models().getExistingFile(prov.modLoc("block/computation_drive_full"));
                 prov.getVariantBuilder(ctx.get()).forAllStates(s -> ConfiguredModel.builder()
                         .rotationY(((int) s.getValue(BlockStateProperties.HORIZONTAL_FACING)
                                                 .toYRot()
                                         + 180)
                                 % 360)
-                        .modelFile(modelFileEmpty)
+                        .modelFile(s.getValue(ECOComputationDrive.FORMED) ? modelFileFull : modelFileEmpty)
                         .build());
             })
             .recipe((ctx, prov) -> {

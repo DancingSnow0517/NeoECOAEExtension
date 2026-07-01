@@ -33,23 +33,24 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
     private static final int MAIN_PANEL_Y = 24;
     private static final int SLOT_SIZE = 18;
-    private static final int MAIN_PANEL_W = SLOT_SIZE * 9 + 2;
+    private static final int MAIN_PANEL_W = 164;
     private static final int MAIN_PANEL_H = 132;
-    private static final int TOOLBAR_BUTTON_X = UI_WIDTH - PANEL_MARGIN - 18;
+    private static final int TOOLBAR_BUTTON_X = UI_WIDTH - PANEL_MARGIN - 16;
     private static final int TOOLBAR_BUTTON_Y = 4;
-    private static final int TOOLBAR_BUTTON_W = 18;
-    private static final int TOOLBAR_BUTTON_H = 20;
+    private static final int TOOLBAR_BUTTON_W = 16;
+    private static final int TOOLBAR_BUTTON_H = 16;
     private static final int HEADER_STATUS_RIGHT = TOOLBAR_BUTTON_X - 4;
 
-    private static final int THREAD_BAR_X = MAIN_PANEL_X + 78;
-    private static final int THREAD_BAR_Y = MAIN_PANEL_Y + 20;
-    private static final int THREAD_BAR_W = MAIN_PANEL_X + MAIN_PANEL_W - THREAD_BAR_X - 12;
-    private static final int THREAD_BAR_H = 9;
-    private static final int STORAGE_BAR_X = THREAD_BAR_X;
-    private static final int STORAGE_BAR_Y = MAIN_PANEL_Y + 67;
-    private static final int STORAGE_BAR_W = THREAD_BAR_W;
-    private static final int STORAGE_BAR_H = 9;
-    private static final int PLAYER_INV_X = MAIN_PANEL_X + 1;
+    private static final int STAT_X = MAIN_PANEL_X + 8;
+    private static final int STAT_TEXT_MAX_W = MAIN_PANEL_W - 16;
+    private static final int STAT_BAR_X = MAIN_PANEL_X + 12;
+    private static final int STAT_BAR_W = MAIN_PANEL_W - 24;
+    private static final int STAT_BAR_H = 8;
+    private static final int THREAD_BAR_Y = MAIN_PANEL_Y + 21;
+    private static final int STORAGE_TEXT_Y = MAIN_PANEL_Y + 78;
+    private static final int STORAGE_BAR_Y = MAIN_PANEL_Y + 93;
+    private static final int PARALLEL_CORES_Y = MAIN_PANEL_Y + 108;
+    private static final int PLAYER_INV_X = 8;
     private static final int PLAYER_INV_LABEL_Y = 159;
     private static final int PLAYER_INV_Y = 171;
     private static final int PLAYER_HOTBAR_Y = 229;
@@ -61,8 +62,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private static final int TASK_CARD_X = TASK_PANEL_X + 8;
     private static final int TASK_CARD_Y = TASK_PANEL_Y + 19;
     private static final int TASK_CARD_W = TASK_PANEL_W - 16;
-    private static final int TASK_CARD_H = 18;
-    private static final int TASK_CARD_STRIDE = 20;
+    private static final int TASK_CARD_H = 24;
+    private static final int TASK_CARD_STRIDE = 26;
     private static final int TASK_LIST_BOTTOM_Y = TASK_PANEL_Y + TASK_PANEL_H - 3;
     private static final int TASK_SCROLLBAR_W = 3;
 
@@ -122,20 +123,20 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         NEComputationUiState state = currentState();
         drawHorizontalUsageBar(
                 graphics,
-                ox + THREAD_BAR_X,
+                ox + STAT_BAR_X,
                 oy + THREAD_BAR_Y,
-                THREAD_BAR_W,
-                THREAD_BAR_H,
+                STAT_BAR_W,
+                STAT_BAR_H,
                 state.usedThreads(),
                 state.maxThreads(),
                 NELDLibStyle.DARK_TEXT_SUCCESS);
         long usedStorage = Math.max(0L, state.totalStorage() - state.availableStorage());
         drawHorizontalUsageBar(
                 graphics,
-                ox + STORAGE_BAR_X,
+                ox + STAT_BAR_X,
                 oy + STORAGE_BAR_Y,
-                STORAGE_BAR_W,
-                STORAGE_BAR_H,
+                STAT_BAR_W,
+                STAT_BAR_H,
                 usedStorage,
                 state.totalStorage(),
                 NELDLibStyle.DARK_TEXT_BLUE);
@@ -173,7 +174,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                     mouseY);
             return;
         }
-        if (isMouseIn(THREAD_BAR_X, THREAD_BAR_Y, THREAD_BAR_W, THREAD_BAR_H, mouseX, mouseY)) {
+        if (isMouseIn(STAT_BAR_X, THREAD_BAR_Y, STAT_BAR_W, STAT_BAR_H, mouseX, mouseY)) {
             graphics.renderTooltip(
                     font(),
                     List.of(
@@ -185,7 +186,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                     mouseY);
             return;
         }
-        if (isMouseIn(STORAGE_BAR_X, STORAGE_BAR_Y, STORAGE_BAR_W, STORAGE_BAR_H, mouseX, mouseY)) {
+        if (isMouseIn(STAT_BAR_X, STORAGE_BAR_Y, STAT_BAR_W, STAT_BAR_H, mouseX, mouseY)) {
             long usedStorage =
                     Math.max(0L, currentState().totalStorage() - currentState().availableStorage());
             graphics.renderTooltip(
@@ -223,7 +224,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private void drawMainPanelText(GuiGraphics g, NEComputationUiState state) {
-        int x = absX(MAIN_PANEL_X + 8);
+        int x = absX(STAT_X);
         int y = absY(MAIN_PANEL_Y + 8);
         int line = 12;
 
@@ -235,7 +236,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 "",
                 x,
                 y);
-        y += line;
+        y = absY(MAIN_PANEL_Y + 43);
         NELDLibClientStyle.drawSegment(
                 g,
                 font(),
@@ -246,24 +247,16 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 NELDLibStyle.DARK_TEXT_PRIMARY);
         y += line;
         drawModeLine(g, state, x, y);
-        y += line * 2;
 
         long usedStorage = Math.max(0L, state.totalStorage() - state.availableStorage());
-        drawPairTextLine(
-                g,
-                Component.translatable("gui.neoecoae.computation.storage_used").getString() + ": ",
-                NELDLibText.storageBytes(usedStorage),
-                NELDLibText.storageBytes(state.totalStorage()),
-                x,
-                y);
-        y += line;
+        drawStorageUsedLine(g, usedStorage, state.totalStorage(), x, absY(STORAGE_TEXT_Y));
         NELDLibClientStyle.drawSegment(
                 g,
                 font(),
                 Component.translatable(
                         "gui.neoecoae.computation.accelerators", NELDLibText.number(state.accelerators())),
                 x,
-                y,
+                absY(PARALLEL_CORES_Y),
                 NELDLibStyle.DARK_TEXT_PRIMARY);
     }
 
@@ -378,17 +371,17 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         if (!entry.output().isEmpty()) {
             NELDLibGuiRenderState.beginVanillaGuiItemBatch(g);
             try {
-                NELDLibGuiRenderState.renderVanillaSlotItem(g, font(), entry.output(), absX + 1, absY + 1, "");
+                NELDLibGuiRenderState.renderVanillaSlotItem(g, font(), entry.output(), absX + 4, absY + 4, "");
             } finally {
                 NELDLibGuiRenderState.endVanillaGuiItemBatch(g);
             }
         }
 
-        int textX = x + 21;
-        int textY = y + 5;
+        int textX = x + 24;
+        int textY = y + 4;
         String amountText = "x" + NELDLibText.compactTaskAmount(entry.outputAmount());
         int amountW = font().width(amountText);
-        int maxNameW = Math.max(16, TASK_CARD_W - 31 - amountW);
+        int maxNameW = Math.max(16, TASK_CARD_W - 34 - amountW);
         String name = fitText(entry.output().getHoverName().getString(), maxNameW);
         g.drawString(font(), name, absX(textX), absY(textY), NELDLibStyle.DARK_TEXT_PRIMARY, false);
         NELDLibClientStyle.drawRight(
@@ -396,9 +389,9 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 font(),
                 Component.literal(amountText),
                 absX(TASK_CARD_X + TASK_CARD_W - 5),
-                absY(textY),
+                absY(y + 11),
                 NELDLibStyle.DARK_TEXT_VALUE);
-        NELDLibTaskCards.drawProgressBar(g, absX + 21, absY + TASK_CARD_H - 4, TASK_CARD_W - 26, 2, entry);
+        NELDLibTaskCards.drawProgressBar(g, absX + 24, absY + TASK_CARD_H - 5, TASK_CARD_W - 29, 2, entry);
     }
 
     private void drawTaskScrollbar(GuiGraphics g, int total, int visible) {
@@ -481,6 +474,22 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         cursor += NELDLibClientStyle.drawSegment(g, font(), current, x + cursor, y, NELDLibStyle.DARK_TEXT_SUCCESS);
         cursor += NELDLibClientStyle.drawSegment(g, font(), " / ", x + cursor, y, NELDLibStyle.DARK_TEXT_MUTED);
         NELDLibClientStyle.drawSegment(g, font(), max, x + cursor, y, NELDLibStyle.DARK_TEXT_VALUE);
+    }
+
+    private void drawStorageUsedLine(GuiGraphics g, long usedStorage, long totalStorage, int x, int y) {
+        String prefix =
+                Component.translatable("gui.neoecoae.computation.storage_used").getString() + ": ";
+        String usedText = NELDLibText.storageBytes(usedStorage);
+        String totalText = NELDLibText.storageBytes(totalStorage);
+        if (pairLineWidth(prefix, usedText, totalText) > STAT_TEXT_MAX_W) {
+            usedText = NELDLibText.storageBytesCompact(usedStorage);
+            totalText = NELDLibText.storageBytesCompact(totalStorage);
+        }
+        drawPairTextLine(g, prefix, usedText, totalText, x, y);
+    }
+
+    private int pairLineWidth(String prefix, String current, String max) {
+        return font().width(prefix + current + " / " + max);
     }
 
     private static int ratioWidth(long current, long max, int fullWidth) {

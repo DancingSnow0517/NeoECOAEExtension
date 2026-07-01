@@ -230,6 +230,10 @@ dependencies {
     compileOnly fg.deobf("maven.modrinth:jade:${jade_version}")
     runtimeOnly fg.deobf("maven.modrinth:jade:${jade_version}")
 
+    compileOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
+    compileOnly fg.deobf("dev.latvian.mods:rhino-forge:2001.2.2-build.17")
+    compileOnly fg.deobf("dev.architectury:architectury-forge:9.1.12")
+
     compileOnly("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
     annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}")
     annotationProcessor("org.spongepowered:mixin:0.8.7:processor")

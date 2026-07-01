@@ -24,11 +24,7 @@ import net.minecraft.world.entity.player.Player;
 public final class NELDLibUis {
 
     public static ModularUI createStorageController(ECOStorageSystemBlockEntity storage, Player player) {
-        return new ModularUI(
-                        NEStorageControllerWidget.UI_WIDTH,
-                        NEStorageControllerWidget.uiHeight(storage),
-                        storage,
-                        player)
+        return new ModularUI(NEStorageControllerWidget.UI_WIDTH, NEStorageControllerWidget.UI_HEIGHT, storage, player)
                 .widget(new NEStorageControllerWidget(storage, player));
     }
 

@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.compat.arsenergistique;
 
 import appeng.api.storage.cells.ISaveProvider;
-import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -16,7 +15,7 @@ public final class ECOSourceCellHandler implements IECOCellHandler {
     @Override
     public boolean isCell(ItemStack stack) {
         if (stack.getItem() instanceof ECOStorageCellItem item) {
-            return item.getCellType() == NECellTypes.SOURCE.get()
+            return item.getCellType() == NEArsEnergistiqueCellTypes.SOURCE.get()
                     && item.getKeyType() == ArsEnergistiqueCompat.getSourceKeyType();
         }
         return false;

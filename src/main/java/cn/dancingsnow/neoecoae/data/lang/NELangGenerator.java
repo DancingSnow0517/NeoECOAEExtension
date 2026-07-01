@@ -20,6 +20,14 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.running", "Running: %s");
         provider.add("jade.neoecoae.yes", "Yes");
         provider.add("jade.neoecoae.no", "No");
+        provider.add("jade.neoecoae.thread_label", "Threads: ");
+        provider.add("jade.neoecoae.storage_label", "Storage: ");
+        provider.add("jade.neoecoae.energy_per_tick_label", "Energy: ");
+        provider.add("jade.neoecoae.time_multiplier_label", "Time multiplier: ");
+        provider.add("jade.neoecoae.overclock_multiplier_label", "Overclock multiplier: ");
+        provider.add("jade.neoecoae.recipes_per_operation_label", "Recipes per operation: ");
+        provider.add("jade.neoecoae.working_crafts_label", "Working crafts: ");
+        provider.add("jade.neoecoae.recipes_suffix", " recipes");
         provider.add("jade.neoecoae.overclocked", "Overclock enabled");
         provider.add("jade.neoecoae.activeCooling", "Active cooling enabled");
         provider.add("jade.neoecoae.coolant", "Coolant: %d");

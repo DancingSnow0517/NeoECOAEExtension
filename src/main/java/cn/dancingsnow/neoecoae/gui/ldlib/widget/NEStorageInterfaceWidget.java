@@ -15,7 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorageInterfaceUiState> {
-    public static final int UI_WIDTH = 176;
+    public static final int UI_WIDTH = 224;
     public static final int UI_HEIGHT = 116;
 
     private static final int ACTION_SET_MODE = 2;
@@ -24,13 +24,14 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
     private static final int PANEL_W = UI_WIDTH - 16;
     private static final int PANEL_H = UI_HEIGHT - 32;
     private static final int MODE_BUTTON_Y = PANEL_Y + 10;
-    private static final int MODE_BUTTON_W = 72;
+    private static final int MODE_BUTTON_W = 88;
     private static final int MODE_BUTTON_H = 20;
     private static final int STORAGE_BUTTON_X = PANEL_X + 8;
     private static final int OUTPUT_BUTTON_X = PANEL_X + PANEL_W - MODE_BUTTON_W - 8;
     private static final int TEXT_X = PANEL_X + 10;
     private static final int TEXT_Y = PANEL_Y + 40;
     private static final int TEXT_STEP = 12;
+    private static final int STATUS_VALUE_X = TEXT_X + 72;
 
     private final ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface;
 
@@ -142,7 +143,7 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
     private void drawStatusLine(GuiGraphics graphics, Component label, Component value, boolean ok, int y) {
         drawLocalString(graphics, label.copy().append(": "), TEXT_X, y, NELDLibStyle.DARK_TEXT_MUTED);
         drawLocalString(
-                graphics, value, TEXT_X + 34, y, ok ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
+                graphics, value, STATUS_VALUE_X, y, ok ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
     }
 
     @Override

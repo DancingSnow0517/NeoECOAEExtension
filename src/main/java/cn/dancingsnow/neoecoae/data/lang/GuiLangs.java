@@ -91,10 +91,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.close_build_assist", "Close Build Assist");
         provider.add("gui.neoecoae.multiblock.build_assist", "On-site Build Assist");
         provider.add("gui.neoecoae.multiblock.mirror", "Mirror");
-        provider.add("gui.neoecoae.multiblock.preview_only_hint", "This only shows the standard pattern; world blocks are not checked.");
+        provider.add(
+                "gui.neoecoae.multiblock.preview_only_hint",
+                "This only shows the standard pattern; world blocks are not checked.");
         provider.add("gui.neoecoae.multiblock.linked_host", "Linked Host");
         provider.add("gui.neoecoae.multiblock.inventory_materials", "Inventory Materials");
-        provider.add("gui.neoecoae.multiblock.build_assist_hint", "Preview and check the linked Controller before building.");
+        provider.add(
+                "gui.neoecoae.multiblock.build_assist_hint",
+                "Preview and check the linked Controller before building.");
         provider.add(
                 "gui.neoecoae.multiblock.no_linked_host_hint",
                 "Open the terminal on a nearby controller to link on-site checks.");
@@ -115,17 +119,25 @@ public class GuiLangs {
         provider.add("gui.neoecoae.structure_terminal.target.crafting", "Crafting");
         provider.add("gui.neoecoae.structure_terminal.target.storage", "Storage");
         provider.add("gui.neoecoae.structure_terminal.target.computation", "Computation");
+        provider.add("gui.neoecoae.structure_terminal.target.crafting.short", "Craft");
+        provider.add("gui.neoecoae.structure_terminal.target.storage.short", "Store");
+        provider.add("gui.neoecoae.structure_terminal.target.computation.short", "Comp");
         provider.add("gui.neoecoae.structure_terminal.target.crafting.tooltip", "Crafting Subsystem");
         provider.add("gui.neoecoae.structure_terminal.target.storage.tooltip", "Storage Subsystem");
         provider.add("gui.neoecoae.structure_terminal.target.computation.tooltip", "Computation Subsystem");
         provider.add("gui.neoecoae.structure_terminal.mode.build", "Build");
         provider.add("gui.neoecoae.structure_terminal.mode.mirrored_build", "Mirrored");
         provider.add("gui.neoecoae.structure_terminal.mode.dismantle", "Dismantle");
+        provider.add("gui.neoecoae.structure_terminal.mode.build.short", "Build");
+        provider.add("gui.neoecoae.structure_terminal.mode.mirrored_build.short", "Mirror");
+        provider.add("gui.neoecoae.structure_terminal.mode.dismantle.short", "Dism.");
         provider.add("gui.neoecoae.structure_terminal.mode.build.tooltip", "Build the standard structure");
         provider.add("gui.neoecoae.structure_terminal.mode.mirrored_build.tooltip", "Build a mirrored structure");
         provider.add("gui.neoecoae.structure_terminal.mode.dismantle.tooltip", "Dismantle the current structure");
         provider.add("gui.neoecoae.structure_terminal.preview_formed", "Form Preview");
         provider.add("gui.neoecoae.structure_terminal.preview_mirrored", "Mirrored Preview");
+        provider.add("gui.neoecoae.structure_terminal.preview_formed.short", "Form");
+        provider.add("gui.neoecoae.structure_terminal.preview_mirrored.short", "Mirror");
         provider.add("gui.neoecoae.structure_terminal.preview_unformed", "Prototype");
         provider.add("gui.neoecoae.structure_terminal.reset", "Reset");
         provider.add("gui.neoecoae.structure_terminal.variable_sections", "Variable Sections: %s [%s-%s]");
@@ -177,6 +189,20 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.used_short", "Used");
         provider.add("gui.neoecoae.storage.bytes_used", "Bytes Used");
         provider.add("gui.neoecoae.storage.energy_storage", "Energy Storage");
+        provider.add("gui.neoecoae.storage.usage", "Usage");
+        provider.add("gui.neoecoae.storage.system_load", "System Load");
+        provider.add("gui.neoecoae.storage.current_load", "Current Load");
+        provider.add("gui.neoecoae.storage.max_load", "Max Load");
+        provider.add("gui.neoecoae.storage.avg_load", "Avg Load");
+        provider.add("gui.neoecoae.storage.status", "Status");
+        provider.add("gui.neoecoae.storage.status.ok", "Normal");
+        provider.add("gui.neoecoae.storage.status.capacity_full", "%s capacity full");
+        provider.add("gui.neoecoae.storage.idle_matrices", "Idle");
+        provider.add("gui.neoecoae.storage.matrices", "Storage Matrices");
+        provider.add("gui.neoecoae.storage.matrix", "Storage Matrix");
+        provider.add("gui.neoecoae.storage.no_matrix_installed", "No storage matrix installed");
+        provider.add("gui.neoecoae.storage.load_distribution", "Load Distribution");
+        provider.add("gui.neoecoae.storage.legend.empty", "Empty");
         provider.add("gui.neoecoae.storage.tooltip.items_used", "Item storage used %s");
         provider.add("gui.neoecoae.storage.tooltip.fluids_used", "Fluid storage used %s");
         provider.add("gui.neoecoae.storage.tooltip.chemicals_used", "Chemical storage used %s");
@@ -257,9 +283,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %d (%d%%)");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy: §b%s AE");
-        provider.add("gui.neoecoae.crafting.overclock_status", "Theoretical Structure Overclock: %d, Current Effective Overclock: %d");
         provider.add(
-                "gui.neoecoae.crafting.overclock_status.disabled", "Theoretical Structure Overclock: 0, Current Effective Overclock: 0");
+                "gui.neoecoae.crafting.overclock_status",
+                "Theoretical Structure Overclock: %d, Current Effective Overclock: %d");
+        provider.add(
+                "gui.neoecoae.crafting.overclock_status.disabled",
+                "Theoretical Structure Overclock: 0, Current Effective Overclock: 0");
         provider.add("gui.neoecoae.crafting.enable_overlock", "Enable Overlock: ");
         provider.add("gui.neoecoae.crafting.enable_overclock", "Enable Overclock: ");
         provider.add("gui.neoecoae.crafting.overclock", "Overclock");
@@ -283,7 +312,8 @@ public class GuiLangs {
                 "gui.neoecoae.crafting.clear_coolant.tooltip",
                 "Clear the currently cached coolant value to switch to another coolant.");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Max overclock supported by current coolant: %d");
-        provider.add("gui.neoecoae.crafting.coolant_max_overclock.none", "Max overclock supported by current coolant: None");
+        provider.add(
+                "gui.neoecoae.crafting.coolant_max_overclock.none", "Max overclock supported by current coolant: None");
 
         // machine status panels
         provider.add("gui.neoecoae.machine.accelerators", "Accelerators: %s");
@@ -317,7 +347,8 @@ public class GuiLangs {
         provider.add("screen.neoecoae.config.title", "Neo ECO AE Extension Config");
         provider.add("screen.neoecoae.config.save", "Save");
         provider.add("screen.neoecoae.config.cancel", "Cancel");
-        provider.add("screen.neoecoae.config.invalid", "Please enter positive integers; pattern bus pages must be 1-8.");
+        provider.add(
+                "screen.neoecoae.config.invalid", "Please enter positive integers; pattern bus pages must be 1-8.");
         provider.add(
                 "screen.neoecoae.config.restart_notice",
                 "Changes are fully applied after re-entering the world or restarting the server.");

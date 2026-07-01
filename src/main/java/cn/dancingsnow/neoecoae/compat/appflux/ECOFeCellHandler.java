@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.compat.appflux;
 
 import appeng.api.storage.cells.ISaveProvider;
-import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -16,7 +15,8 @@ public final class ECOFeCellHandler implements IECOCellHandler {
     @Override
     public boolean isCell(ItemStack stack) {
         if (stack.getItem() instanceof ECOStorageCellItem item) {
-            return item.getCellType() == NECellTypes.FE.get() && item.getKeyType() == AppFluxCompat.getFluxKeyType();
+            return item.getCellType() == NEAppFluxCellTypes.FE.get()
+                    && item.getKeyType() == AppFluxCompat.getFluxKeyType();
         }
         return false;
     }

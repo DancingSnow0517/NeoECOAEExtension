@@ -22,6 +22,7 @@ import net.minecraftforge.fml.loading.FMLEnvironment;
 public class AppFluxIntegration {
     public void apply() {
         ECOAETypeCounts.register(AppFluxCompat.getFluxKeyType(), 1);
+        NEAppFluxCellTypes.register();
         NEAppFluxItems.register();
 
         if (FMLEnvironment.dist == Dist.CLIENT) {

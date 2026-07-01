@@ -96,6 +96,14 @@ public final class NELDLibClientStyle {
         g.pose().popPose();
     }
 
+    public static void drawCenteredClipped(GuiGraphics g, Font font, Component text, int x, int y, int w, int color) {
+        int clipX = x + 2;
+        int clipW = Math.max(1, w - 4);
+        g.enableScissor(clipX, y - 1, clipX + clipW, y + font.lineHeight + 1);
+        drawCentered(g, font, text, x, y, w, color);
+        g.disableScissor();
+    }
+
     public static void drawCenteredScaledString(
             GuiGraphics g, Font font, String text, int boxX, int boxY, int boxW, int boxH, int color, float maxScale) {
         float scale = Math.min(maxScale, Math.max(0.55F, (float) (boxW - 4) / Math.max(1.0F, font.width(text))));

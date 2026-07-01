@@ -2,9 +2,11 @@ package cn.dancingsnow.neoecoae.client.multiblock.preview;
 
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockItemFormResolver;
+import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation;
 import cn.dancingsnow.neoecoae.multiblock.preview.MultiblockPatternPreviewService;
 import cn.dancingsnow.neoecoae.multiblock.preview.MultiblockPatternSnapshot;
 import cn.dancingsnow.neoecoae.multiblock.preview.PatternBlockEntry;
@@ -25,6 +27,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
 
     private final boolean mirrored;
     private final boolean formed;
+    private final boolean computationSystem;
     private final LinkedHashMap<BlockPos, BlockState> blocks = new LinkedHashMap<>();
     private final List<BlockPos> posList = new ArrayList<>();
     private final List<ItemStack> requiredItems = new ArrayList<>();
@@ -55,6 +58,7 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
         this.repeats = repeats;
         this.mirrored = mirrored;
         this.formed = formed;
+        this.computationSystem = definition != null && definition.getOwner().value() instanceof ECOComputationSystem;
     }
 
     public static MultiblockPreviewScene createScene(MultiBlockDefinition definition, int expand) {
@@ -192,18 +196,33 @@ public final class MultiblockPreviewContext extends MultiBlockContext {
         if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
             // Keep the terminal preview silhouette readable even for computation hosts,
             // whose formed world state hides every casing block.
-            boolean invisible = pos.getCenter().distanceToSqr(controllerCenter()) <= 3.0D;
+            boolean invisible =
+                    pos.getCenter().distanceToSqr(controllerCenter()) <= 3.0D || isComputationCoolingEndCap(pos);
             state = state.setValue(ECOMachineCasing.INVISIBLE, invisible);
         }
         return state;
+    }
+
+    private boolean isComputationCoolingEndCap(BlockPos pos) {
+        if (!computationSystem) {
+            return false;
+        }
+        BlockPos endOrigin = new BlockPos(-1 - repeats, pos.getY(), pos.getZ());
+        if (mirrored) {
+            endOrigin = MultiBlockRotation.transformLocalPos(endOrigin, true);
+        }
+        return pos.getX() == endOrigin.getX()
+                && pos.getY() >= 0
+                && pos.getY() <= 2
+                && pos.getZ() >= 0
+                && pos.getZ() <= 1;
     }
 
     private Vec3 controllerCenter() {
         if (!mirrored) {
             return CONTROLLER_CENTER;
         }
-        BlockPos controllerPos = cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.transformLocalPos(
-                cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockRotation.CONTROLLER_ANCHOR, true);
+        BlockPos controllerPos = MultiBlockRotation.transformLocalPos(MultiBlockRotation.CONTROLLER_ANCHOR, true);
         return controllerPos.getCenter();
     }
 }

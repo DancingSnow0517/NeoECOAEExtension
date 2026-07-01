@@ -63,6 +63,30 @@ public final class NELDLibText {
         return COMPACT_DECIMAL.get().format((double) safe / (double) unit) + suffix;
     }
 
+    public static String storageBytesCompact(long value) {
+        long safe = Math.max(0L, value);
+        if (safe < BYTES_IN_K) {
+            return Long.toString(safe);
+        }
+
+        long unit = BYTES_IN_K;
+        String suffix = "K";
+        if (safe >= BYTES_IN_P) {
+            unit = BYTES_IN_P;
+            suffix = "P";
+        } else if (safe >= BYTES_IN_T) {
+            unit = BYTES_IN_T;
+            suffix = "T";
+        } else if (safe >= BYTES_IN_G) {
+            unit = BYTES_IN_G;
+            suffix = "G";
+        } else if (safe >= BYTES_IN_M) {
+            unit = BYTES_IN_M;
+            suffix = "M";
+        }
+        return COMPACT_DECIMAL.get().format((double) safe / (double) unit) + suffix;
+    }
+
     public static String compactDecimal(long value, long unit, String suffix) {
         double scaled = (double) Math.max(0L, value) / (double) unit;
         if (scaled >= 100.0D || Math.abs(scaled - Math.rint(scaled)) < 0.05D) {
@@ -99,6 +123,9 @@ public final class NELDLibText {
         if (safe < 1_000_000_000L) {
             return (safe / 1_000_000L) + "M";
         }
-        return (safe / 1_000_000_000L) + "B";
+        if (safe < 1_000_000_000_000L) {
+            return (safe / 1_000_000_000L) + "B";
+        }
+        return compactDecimal(safe, 1_000_000_000_000L, "T");
     }
 }

@@ -22,6 +22,11 @@ public final class CompatStorageMatrixRecipes {
         saveCells(provider, "appflux", "fe");
         saveCells(provider, "appbot", "mana");
         saveCells(provider, "arseng", "source");
+
+        saveDisassemblyCells(provider, "appmek", "chemical");
+        saveDisassemblyCells(provider, "appflux", "fe");
+        saveDisassemblyCells(provider, "appbot", "mana");
+        saveDisassemblyCells(provider, "arseng", "source");
     }
 
     private static void saveShapedHousing(
@@ -113,6 +118,29 @@ public final class CompatStorageMatrixRecipes {
                 });
     }
 
+    private static void saveDisassemblyCells(RegistrateRecipeProvider provider, String modid, String type) {
+        saveDisassemblyCell(provider, modid, type, "16m");
+        saveDisassemblyCell(provider, modid, type, "64m");
+        saveDisassemblyCell(provider, modid, type, "256m");
+    }
+
+    private static void saveDisassemblyCell(RegistrateRecipeProvider provider, String modid, String type, String size) {
+        provider.accept(
+                new JsonRecipe(
+                        NeoECOAE.id("disassembly/eco_" + type + "_storage_cell_" + size),
+                        new ModLoadedCondition(modid)) {
+                    @Override
+                    protected void write(JsonObject json) {
+                        json.addProperty("type", "neoecoae:storage_cell_disassembly");
+                        json.addProperty("cell", "neoecoae:eco_" + type + "_storage_cell_" + size);
+                        JsonArray items = new JsonArray();
+                        items.add(stack("neoecoae:eco_" + type + "_cell_housing"));
+                        items.add(stack("neoecoae:eco_cell_component_" + size));
+                        json.add("cell_disassembly_items", items);
+                    }
+                });
+    }
+
     private static JsonObject ingredient(String type, String value) {
         return switch (type) {
             case "item" -> item(value);
@@ -136,6 +164,13 @@ public final class CompatStorageMatrixRecipes {
     private static JsonObject result(String id) {
         JsonObject json = new JsonObject();
         json.addProperty("item", id);
+        return json;
+    }
+
+    private static JsonObject stack(String id) {
+        JsonObject json = new JsonObject();
+        json.addProperty("id", id);
+        json.addProperty("count", 1);
         return json;
     }
 

@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.compat.appmek;
 
 import appeng.api.storage.cells.ISaveProvider;
-import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
@@ -19,7 +18,7 @@ public final class ECOChemicalCellHandler implements IECOCellHandler {
     @Override
     public boolean isCell(ItemStack stack) {
         if (stack.getItem() instanceof ECOStorageCellItem item) {
-            return item.getCellType() == NECellTypes.CHEMICAL.get()
+            return item.getCellType() == NEAppMekCellTypes.CHEMICAL.get()
                     && item.getKeyType() == AppMekCompat.getChemicalKeyType();
         }
         return false;

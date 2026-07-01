@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import net.minecraft.core.registries.Registries;
@@ -26,6 +27,12 @@ public class NERecipeTypes {
     public static final RegistryObject<RecipeSerializer<IntegratedWorkingStationRecipe>>
             INTEGRATED_WORKING_STATION_SERIALIZER = RECIPE_SERIALIZER.register(
                     "integrated_working_station", IntegratedWorkingStationRecipe.Serializer::new);
+
+    public static final RegistryObject<RecipeType<StorageCellDisassemblyRecipe>> STORAGE_CELL_DISASSEMBLY =
+            registerRecipe("storage_cell_disassembly");
+    public static final RegistryObject<RecipeSerializer<StorageCellDisassemblyRecipe>>
+            STORAGE_CELL_DISASSEMBLY_SERIALIZER = RECIPE_SERIALIZER.register(
+                    "storage_cell_disassembly", StorageCellDisassemblyRecipe.Serializer::new);
 
     private static <T extends Recipe<?>> RegistryObject<RecipeType<T>> registerRecipe(String name) {
         return RECIPE_TYPE.register(name, () -> new RecipeType<>() {

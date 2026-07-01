@@ -35,6 +35,7 @@ public class AppMekIntegration {
 
     public void apply() {
         ECOAETypeCounts.register(AppMekCompat.getChemicalKeyType(), 25);
+        NEAppMekCellTypes.register();
         NEAppMekItems.register();
 
         // Defer registry-entry access to mod bus events. Registrate has not
