@@ -43,13 +43,12 @@ jobs:
         uses: christian-draeger/read-properties@1.1.1
         with:
           path: gradle.properties
-          properties: 'mod_id mod_name'
+          properties: 'mod_id mod_name mod_version'
 
       - name: Get Version
         id: var
         run: |
-          MESSAGE=$(ls build/libs/* | grep sources.jar -v | grep shadow.jar -v | grep slim.jar -v | awk -F '${{ steps.properties.outputs.mod_id }}-|.jar' '{print $2}')
-          echo version=$MESSAGE >> $GITHUB_OUTPUT
+          echo "version=${{ steps.properties.outputs.mod_version }}" >> $GITHUB_OUTPUT
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4.3.3
