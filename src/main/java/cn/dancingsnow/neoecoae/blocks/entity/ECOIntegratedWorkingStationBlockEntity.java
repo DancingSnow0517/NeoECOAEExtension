@@ -172,8 +172,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         }
     };
 
-    private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> exposedItemHandler);
-    private final LazyOptional<IFluidHandler> fluidHandlerCap = LazyOptional.of(() -> fluidCombined);
+    private LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> exposedItemHandler);
+    private LazyOptional<IFluidHandler> fluidHandlerCap = LazyOptional.of(() -> fluidCombined);
 
     @Getter
     private boolean working = false;
@@ -293,6 +293,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         this.outputTank.readFromNBT(data.getCompound("outputTank"));
         this.upgrades.readFromNBT(data, "upgrades");
         this.configManager.readFromNBT(data);
+        this.processingTime = data.getInt("processingTime");
+        if (AutoExportSidesNbt.hasSavedSides(data)) {
+            this.allowOutputs.clear();
+            this.allowOutputs.addAll(AutoExportSidesNbt.loadFromTag(data));
+        }
         shouldAutoExport = configManager.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
     }
 
@@ -303,6 +308,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         data.put("outputTank", this.outputTank.writeToNBT(new CompoundTag()));
         upgrades.writeToNBT(data, "upgrades");
         configManager.writeToNBT(data);
+        data.putInt("processingTime", this.processingTime);
+        AutoExportSidesNbt.saveToTag(data, allowOutputs);
     }
 
     @Override
@@ -576,14 +583,6 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
             return false;
         }
 
-        if (!itemOutput.isEmpty() && !outputInv.insertItem(0, itemOutput, false).isEmpty()) {
-            return false;
-        }
-        if (!fluidOutput.isEmpty()
-                && outputTank.fill(fluidOutput, IFluidHandler.FluidAction.EXECUTE) != fluidOutput.getAmount()) {
-            return false;
-        }
-
         for (int slot = 0; slot < itemConsumption.length; slot++) {
             int amount = itemConsumption[slot];
             if (amount > 0) {
@@ -593,6 +592,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         int fluidAmount = recipe.inputFluid().amount();
         if (fluidAmount > 0) {
             inputTank.drain(fluidAmount, IFluidHandler.FluidAction.EXECUTE);
+        }
+        if (!itemOutput.isEmpty()) {
+            outputInv.insertItem(0, itemOutput, false);
+        }
+        if (!fluidOutput.isEmpty()) {
+            outputTank.fill(fluidOutput, IFluidHandler.FluidAction.EXECUTE);
         }
         markContentsChanged();
         return true;
@@ -835,5 +840,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         super.invalidateCaps();
         itemHandlerCap.invalidate();
         fluidHandlerCap.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        itemHandlerCap = LazyOptional.of(() -> exposedItemHandler);
+        fluidHandlerCap = LazyOptional.of(() -> fluidCombined);
     }
 }

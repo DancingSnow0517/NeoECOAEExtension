@@ -46,7 +46,7 @@ public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEnti
     @Getter
     private final IItemHandler itemHandler = new CellHostItemHandler(this);
 
-    private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> itemHandler);
+    private LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> itemHandler);
 
     public ECOComputationDriveBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -260,5 +260,11 @@ public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEnti
     public void invalidateCaps() {
         super.invalidateCaps();
         itemHandlerCap.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        itemHandlerCap = LazyOptional.of(() -> itemHandler);
     }
 }

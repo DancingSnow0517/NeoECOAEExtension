@@ -311,6 +311,9 @@ public class GuiLangs {
         provider.add(
                 "gui.neoecoae.crafting.clear_coolant.tooltip",
                 "Clear the currently cached coolant value to switch to another coolant.");
+        provider.add("gui.neoecoae.crafting.coolant_fluid", "Coolant Fluid: %s");
+        provider.add("gui.neoecoae.crafting.coolant_fluid.none", "None");
+        provider.add("gui.neoecoae.crafting.coolant_fluid.unknown", "Unknown");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Max overclock supported by current coolant: %s");
         provider.add(
                 "gui.neoecoae.crafting.coolant_max_overclock.none", "Max overclock supported by current coolant: None");
@@ -349,6 +352,9 @@ public class GuiLangs {
         provider.add("screen.neoecoae.config.cancel", "Cancel");
         provider.add(
                 "screen.neoecoae.config.invalid", "Please enter positive integers; pattern bus pages must be 1-8.");
+        provider.add(
+                "screen.neoecoae.config.remote_server_locked",
+                "Local common config cannot be changed while connected to a remote server.");
         provider.add(
                 "screen.neoecoae.config.restart_notice",
                 "Changes are fully applied after re-entering the world or restarting the server.");

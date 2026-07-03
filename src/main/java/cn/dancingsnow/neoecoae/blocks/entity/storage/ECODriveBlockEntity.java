@@ -32,7 +32,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         implements IStorageProvider, ICellHost {
 
     public final IItemHandler HANDLER = new CellHostItemHandler(this);
-    private final LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> HANDLER);
+    private LazyOptional<IItemHandler> itemHandlerCap = LazyOptional.of(() -> HANDLER);
     private final IBatchedECOCellSaveProvider cellSaveProvider = this::markCellContentDirty;
 
     @Nullable private ItemStack cellStack = null;
@@ -356,5 +356,11 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void invalidateCaps() {
         super.invalidateCaps();
         itemHandlerCap.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        itemHandlerCap = LazyOptional.of(() -> HANDLER);
     }
 }

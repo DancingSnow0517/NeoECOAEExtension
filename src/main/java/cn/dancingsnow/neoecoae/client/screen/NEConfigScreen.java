@@ -41,6 +41,11 @@ public class NEConfigScreen extends Screen {
         this.computationLength = createIntBox(x + LABEL_WIDTH, y + 28, NEConfig.computationSystemMaxLength);
         this.storageLength = createIntBox(x + LABEL_WIDTH, y + 56, NEConfig.storageSystemMaxLength);
         this.patternBusPages = createIntBox(x + LABEL_WIDTH, y + 84, NEConfig.getCraftingPatternBusPages());
+        boolean canEdit = canEditLocalConfig();
+        this.craftingLength.setEditable(canEdit);
+        this.computationLength.setEditable(canEdit);
+        this.storageLength.setEditable(canEdit);
+        this.patternBusPages.setEditable(canEdit);
 
         addRenderableWidget(this.craftingLength);
         addRenderableWidget(this.computationLength);
@@ -53,15 +58,21 @@ public class NEConfigScreen extends Screen {
                 })
                 .bounds(x + LABEL_WIDTH, y + 112, FIELD_WIDTH, 20)
                 .build();
+        this.capacityButton.active = canEdit;
         addRenderableWidget(this.capacityButton);
 
         int buttonY = this.height - 34;
-        addRenderableWidget(Button.builder(Component.translatable("screen.neoecoae.config.save"), button -> save())
+        Button saveButton = Button.builder(Component.translatable("screen.neoecoae.config.save"), button -> save())
                 .bounds(this.width / 2 - 155, buttonY, 150, 20)
-                .build());
+                .build();
+        saveButton.active = canEdit;
+        addRenderableWidget(saveButton);
         addRenderableWidget(Button.builder(Component.translatable("screen.neoecoae.config.cancel"), button -> close())
                 .bounds(this.width / 2 + 5, buttonY, 150, 20)
                 .build());
+        if (!canEdit) {
+            this.error = Component.translatable("screen.neoecoae.config.remote_server_locked");
+        }
     }
 
     @Override
@@ -164,6 +175,10 @@ public class NEConfigScreen extends Screen {
     }
 
     private void save() {
+        if (!canEditLocalConfig()) {
+            this.error = Component.translatable("screen.neoecoae.config.remote_server_locked");
+            return;
+        }
         try {
             int crafting = parsePositiveInt(this.craftingLength.getValue());
             int computation = parsePositiveInt(this.computationLength.getValue());
@@ -174,6 +189,12 @@ public class NEConfigScreen extends Screen {
         } catch (NumberFormatException ignored) {
             this.error = Component.translatable("screen.neoecoae.config.invalid");
         }
+    }
+
+    private boolean canEditLocalConfig() {
+        return this.minecraft == null
+                || this.minecraft.getConnection() == null
+                || this.minecraft.hasSingleplayerServer();
     }
 
     private static int parsePositiveInt(String value) {

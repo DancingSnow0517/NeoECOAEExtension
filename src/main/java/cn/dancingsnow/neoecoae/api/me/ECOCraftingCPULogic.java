@@ -516,6 +516,16 @@ public class ECOCraftingCPULogic {
             ExtractedPatternAttempt attempt,
             CraftingExecutionProgress executionProgress,
             IEnergyService energyService) {
+        PendingPatternAccounting accounting;
+        try {
+            accounting = preparePushedPatternAccounting(attempt.execution(), 1);
+        } catch (RuntimeException e) {
+            LOGGER.error("Unable to account pushed crafting pattern; suspending ECO CPU job", e);
+            reinjectExtractedInputs(attempt);
+            job.suspended = true;
+            return PushResult.notPushed();
+        }
+
         for (ICraftingProvider provider : providers.all()) {
             if (provider.isBusy()) {
                 continue;
@@ -538,7 +548,7 @@ public class ECOCraftingCPULogic {
                     finishJob(true);
                     return PushResult.jobFinished(1);
                 }
-                recordPushedPattern(attempt.execution(), 1);
+                recordPushedPattern(accounting);
                 return PushResult.pushed(1);
             }
         }
@@ -649,6 +659,15 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
+        PendingPatternAccounting accounting;
+        try {
+            accounting = preparePushedPatternAccounting(execution, batchSize);
+        } catch (RuntimeException e) {
+            LOGGER.warn("ECO batch fast path accounting preflight failed; falling back to the slow path", e);
+            selectedOffer.worker().getFastPathCache().recordException();
+            return 0;
+        }
+
         var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
         boolean extraInputsExtracted = false;
         boolean batchAccepted = false;
@@ -676,15 +695,16 @@ public class ECOCraftingCPULogic {
             }
             batchAccepted = true;
             energyService.extractAEPower(patternPower * batchSize, Actionable.MODULATE, PowerMultiplier.CONFIG);
-            recordPushedPattern(execution, batchSize);
+            recordPushedPattern(accounting);
             return batchSize;
         } catch (RuntimeException e) {
             if (batchAccepted) {
                 LOGGER.error(
-                        "ECO batch fast path was accepted but post-accept accounting failed; preserving transferred inputs",
+                        "ECO batch fast path was accepted but post-accept accounting failed; suspending ECO CPU job",
                         e);
                 selectedOffer.worker().getFastPathCache().recordException();
-                return batchSize;
+                job.suspended = true;
+                return -1;
             }
             LOGGER.warn("ECO batch fast path failed, reinjecting inputs and falling back to the slow path", e);
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
@@ -736,24 +756,48 @@ public class ECOCraftingCPULogic {
     }
 
     private void recordPushedPattern(ECOExtractedPatternExecution execution, int craftCount) {
+        recordPushedPattern(preparePushedPatternAccounting(execution, craftCount));
+    }
+
+    private static PendingPatternAccounting preparePushedPatternAccounting(
+            ECOExtractedPatternExecution execution, int craftCount) {
         int multiplier = Math.max(1, craftCount);
-        job.addInFlightOutputs(execution.expectedOutputs(), multiplier);
-        for (var expectedOutput : execution.expectedOutputs()) {
-            job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount() * multiplier, Actionable.MODULATE);
+        return new PendingPatternAccounting(
+                multiplyStacks(execution.expectedOutputs(), multiplier),
+                multiplyStacks(execution.expectedContainerItems(), multiplier));
+    }
+
+    private static List<GenericStack> multiplyStacks(List<GenericStack> stacks, int multiplier) {
+        List<GenericStack> multiplied = new ArrayList<>(stacks.size());
+        for (GenericStack stack : stacks) {
+            long amount = Math.multiplyExact(stack.amount(), multiplier);
+            if (amount <= 0) {
+                throw new ArithmeticException("Invalid pushed pattern amount: " + amount);
+            }
+            multiplied.add(new GenericStack(stack.what(), amount));
         }
-        postGenericStackKeysChange(execution.expectedOutputs());
-        job.addInFlightOutputs(execution.expectedContainerItems(), multiplier);
-        for (var expectedContainerItem : execution.expectedContainerItems()) {
-            job.waitingFor.insert(
-                    expectedContainerItem.what(), expectedContainerItem.amount() * multiplier, Actionable.MODULATE);
+        return multiplied;
+    }
+
+    private void recordPushedPattern(PendingPatternAccounting accounting) {
+        job.addInFlightOutputs(accounting.expectedOutputs(), 1);
+        for (var expectedOutput : accounting.expectedOutputs()) {
+            job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount(), Actionable.MODULATE);
+        }
+        postGenericStackKeysChange(accounting.expectedOutputs());
+        job.addInFlightOutputs(accounting.expectedContainerItems(), 1);
+        for (var expectedContainerItem : accounting.expectedContainerItems()) {
+            job.waitingFor.insert(expectedContainerItem.what(), expectedContainerItem.amount(), Actionable.MODULATE);
             job.timeTracker.addMaxItems(
-                    expectedContainerItem.amount() * multiplier,
-                    expectedContainerItem.what().getType());
+                    expectedContainerItem.amount(), expectedContainerItem.what().getType());
         }
-        postGenericStackKeysChange(execution.expectedContainerItems());
+        postGenericStackKeysChange(accounting.expectedContainerItems());
 
         cpu.markDirty();
     }
+
+    private record PendingPatternAccounting(
+            List<GenericStack> expectedOutputs, List<GenericStack> expectedContainerItems) {}
 
     /**
      * Called by the CraftingService with an Integer.MAX_VALUE priority to inject
@@ -778,16 +822,13 @@ public class ECOCraftingCPULogic {
             amount = waitingFor;
         }
 
-        if (type == Actionable.MODULATE) {
-            job.timeTracker.decrementItems(amount, what.getType());
-            job.waitingFor.extract(what, amount, Actionable.MODULATE);
-            job.removeInFlightOutput(what, amount);
-            cpu.markDirty();
-        }
-
         if (what.matches(job.finalOutput)) {
             long accepted = job.link.insert(what, amount, type);
             if (type == Actionable.MODULATE) {
+                job.timeTracker.decrementItems(amount, what.getType());
+                job.waitingFor.extract(what, amount, Actionable.MODULATE);
+                job.removeInFlightOutput(what, amount);
+                cpu.markDirty();
                 postChange(what);
                 job.remainingAmount = Math.max(0, job.remainingAmount - amount);
                 if (job.remainingAmount <= 0) {
@@ -799,6 +840,10 @@ public class ECOCraftingCPULogic {
         }
 
         if (type == Actionable.MODULATE) {
+            job.timeTracker.decrementItems(amount, what.getType());
+            job.waitingFor.extract(what, amount, Actionable.MODULATE);
+            job.removeInFlightOutput(what, amount);
+            cpu.markDirty();
             postChange(what);
             inventory.insert(what, amount, Actionable.MODULATE);
             // Explicitly notify stored count changed in addition to inventory callback

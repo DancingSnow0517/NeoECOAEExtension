@@ -121,7 +121,7 @@ final class ECOCellContents {
         }
         cellStack.getOrCreateTag().put(CONTENTS_TAG, list);
 
-        storedItemTypes = items().size();
+        storedItemTypes = stacks.size();
         storedItemCount = itemCount;
         persisted = true;
         return storedItemTypes;

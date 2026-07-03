@@ -213,6 +213,8 @@ public final class NELDLibStateCodecs {
         buf.writeVarLong(state.energyUsage());
         buf.writeVarLong(state.coolantAmount());
         buf.writeVarLong(state.coolantCapacity());
+        buf.writeUtf(state.coolantFluidId(), 256);
+        buf.writeVarInt(state.coolantMaxOverclock());
         buf.writeVarInt(state.availableThreads());
         buf.writeVarInt(state.effectiveParallel());
         buf.writeVarInt(state.maxRecipeSlots());
@@ -294,6 +296,8 @@ public final class NELDLibStateCodecs {
         long energyUsage = buf.readVarLong();
         long coolantAmount = buf.readVarLong();
         long coolantCapacity = buf.readVarLong();
+        String coolantFluidId = buf.readUtf(256);
+        int coolantMaxOverclock = buf.readVarInt();
         int availableThreads = buf.readVarInt();
         int effectiveParallel = buf.readVarInt();
         int maxRecipeSlots = buf.readVarInt();
@@ -372,6 +376,8 @@ public final class NELDLibStateCodecs {
                 energyUsage,
                 coolantAmount,
                 coolantCapacity,
+                coolantFluidId,
+                coolantMaxOverclock,
                 availableThreads,
                 effectiveParallel,
                 maxRecipeSlots,

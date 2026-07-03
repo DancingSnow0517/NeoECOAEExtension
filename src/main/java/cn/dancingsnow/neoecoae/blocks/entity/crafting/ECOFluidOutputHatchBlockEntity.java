@@ -39,7 +39,7 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
             return this;
         }
     };
-    private final LazyOptional<IFluidHandler> fluidHandlerCap = LazyOptional.of(() -> tank);
+    private LazyOptional<IFluidHandler> fluidHandlerCap = LazyOptional.of(() -> tank);
 
     public ECOFluidOutputHatchBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -83,6 +83,9 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
+        if (!isFormed()) {
+            return;
+        }
         for (Direction face : Direction.values()) {
             BlockEntity blockEntity = level.getBlockEntity(pos.relative(face));
             IFluidHandler targetHandler = blockEntity == null
@@ -111,5 +114,11 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
     public void invalidateCaps() {
         super.invalidateCaps();
         fluidHandlerCap.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        fluidHandlerCap = LazyOptional.of(() -> tank);
     }
 }

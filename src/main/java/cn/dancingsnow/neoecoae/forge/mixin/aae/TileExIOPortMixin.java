@@ -1,9 +1,8 @@
-package cn.dancingsnow.neoecoae.mixins.aae;
+package cn.dancingsnow.neoecoae.forge.mixin.aae;
 
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
-import com.glodblock.github.extendedae.common.tileentities.TileExIOPort;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.world.item.ItemStack;
@@ -11,7 +10,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(TileExIOPort.class)
+@Mixin(targets = "com.glodblock.github.extendedae.common.tileentities.TileExIOPort")
 @Pseudo
 public class TileExIOPortMixin {
     @WrapOperation(

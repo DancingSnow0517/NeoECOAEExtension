@@ -79,6 +79,7 @@ public final class IntegrationInstance {
         if (obj == null || obj.getClass() != this.getClass()) return false;
         var that = (IntegrationInstance) obj;
         return Objects.equals(this.modid, that.modid)
+                && Objects.equals(this.className, that.className)
                 && Objects.equals(this.instance, that.instance)
                 && Objects.equals(this.loader, that.loader)
                 && Objects.equals(this.clientLoader, that.clientLoader);
@@ -86,7 +87,7 @@ public final class IntegrationInstance {
 
     @Override
     public int hashCode() {
-        return Objects.hash(modid, instance, loader, clientLoader);
+        return Objects.hash(modid, className, instance, loader, clientLoader);
     }
 
     @Override

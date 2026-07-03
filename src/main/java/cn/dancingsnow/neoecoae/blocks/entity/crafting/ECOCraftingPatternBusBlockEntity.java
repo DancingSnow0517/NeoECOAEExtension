@@ -62,7 +62,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;
-    private final LazyOptional<IItemHandlerModifiable> itemHandlerCap;
+    private LazyOptional<IItemHandlerModifiable> itemHandlerCap;
     private int nextWorkerIndex = 0;
     private int activePages = NEConfig.getCraftingPatternBusPages();
     private boolean preservePatternsOnBreak = true;
@@ -367,6 +367,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public void invalidateCaps() {
         super.invalidateCaps();
         itemHandlerCap.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        itemHandlerCap = LazyOptional.of(() -> this.itemHandler);
     }
 
     public int getPageCount() {

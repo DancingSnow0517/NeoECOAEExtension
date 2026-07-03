@@ -37,6 +37,9 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraftingUiState> {
     // UI 尺寸与布局常量
@@ -937,15 +940,40 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                     font(),
                     List.of(
                             Component.translatable("gui.neoecoae.crafting.coolant"),
+                            Component.translatable("gui.neoecoae.crafting.coolant_fluid", coolantFluidName(state)),
                             Component.literal(
                                     NELDLibText.usedTotal(state.coolantAmount(), state.coolantCapacity()) + " mB"),
-                            Component.literal(NELDLibText.percentOrNA(state.coolantAmount(), state.coolantCapacity()))),
+                            Component.literal(NELDLibText.percentOrNA(state.coolantAmount(), state.coolantCapacity())),
+                            coolantMaxOverclockLine(state)),
                     Optional.empty(),
                     mouseX,
                     mouseY);
             return true;
         }
         return false;
+    }
+
+    private Component coolantFluidName(NECraftingUiState state) {
+        if (state.coolantAmount() <= 0) {
+            return Component.translatable("gui.neoecoae.crafting.coolant_fluid.none");
+        }
+        if (state.coolantFluidId().isBlank()) {
+            return Component.translatable("gui.neoecoae.crafting.coolant_fluid.unknown");
+        }
+        ResourceLocation id = ResourceLocation.tryParse(state.coolantFluidId());
+        Fluid fluid = id == null ? null : ForgeRegistries.FLUIDS.getValue(id);
+        if (fluid == null) {
+            return Component.literal(state.coolantFluidId());
+        }
+        return new FluidStack(fluid, 1).getDisplayName();
+    }
+
+    private Component coolantMaxOverclockLine(NECraftingUiState state) {
+        int maxOverclock = state.coolantMaxOverclock();
+        if (state.coolantAmount() <= 0 || maxOverclock < 0) {
+            return Component.translatable("gui.neoecoae.crafting.coolant_max_overclock.none");
+        }
+        return Component.translatable("gui.neoecoae.crafting.coolant_max_overclock", maxOverclock);
     }
 
     // 渲染统计区域悬浮提示（核心等级分布 / 并行数详情）

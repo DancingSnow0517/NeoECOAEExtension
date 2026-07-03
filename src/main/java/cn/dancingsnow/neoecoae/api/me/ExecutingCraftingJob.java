@@ -50,8 +50,12 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ExecutingCraftingJob {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExecutingCraftingJob.class);
+
     private static final String NBT_LINK = "link";
     private static final String NBT_PLAYER_ID = "playerId";
     private static final String NBT_FINAL_OUTPUT = "finalOutput";
@@ -136,6 +140,7 @@ public class ExecutingCraftingJob {
         }
 
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
+        boolean missingTaskPattern = false;
         for (int i = 0; i < tasksTag.size(); ++i) {
             final CompoundTag item = tasksTag.getCompound(i);
             var pattern = AEItemKey.fromTag(item);
@@ -144,11 +149,16 @@ public class ExecutingCraftingJob {
                 final TaskProgress tp = new TaskProgress();
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
                 this.tasks.put(details, tp);
+            } else {
+                missingTaskPattern = true;
+                LOGGER.warn(
+                        "Unable to decode saved ECO crafting task pattern; restoring job as suspended. jobId={}",
+                        this.link.getCraftingID());
             }
         }
         rebuildTaskOrderAndDependencies(logic.cpu.getLevel());
 
-        this.suspended = data.getBoolean(NBT_SUSPENDED);
+        this.suspended = data.getBoolean(NBT_SUSPENDED) || missingTaskPattern;
     }
 
     CompoundTag writeToNBT(HolderLookup.Provider registries) {

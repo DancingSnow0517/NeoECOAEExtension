@@ -57,7 +57,7 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
 
     @Override
     public boolean shouldCasingHide(NEBlockEntity<NEStorageCluster, ?> blockEntity) {
-        if (blockEntity instanceof ECOMachineCasingBlockEntity) {
+        if (blockEntity instanceof ECOMachineCasingBlockEntity && controller != null) {
             Vec3 casingPos = blockEntity.getBlockPos().getCenter();
             Vec3 controllerPos = controller.getBlockPos().getCenter();
             return casingPos.distanceToSqr(controllerPos) <= 3;

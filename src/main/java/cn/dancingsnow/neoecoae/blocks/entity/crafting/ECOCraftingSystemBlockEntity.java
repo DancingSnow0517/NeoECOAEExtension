@@ -35,6 +35,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -45,6 +46,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +88,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     @Getter
     private int coolantMaxOverclock = -1;
 
+    @Nullable private ResourceLocation coolantFluidId;
+
     private int patternBusCount, parallelCount, workerCount = 0;
 
     private int runningThreadCount = 0;
@@ -121,6 +125,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         tag.putBoolean("autoClearCoolingWaste", autoClearCoolingWaste);
         tag.putInt("coolant", coolant);
         tag.putInt("coolantMaxOverclock", coolantMaxOverclock);
+        if (coolantFluidId != null) {
+            tag.putString("coolantFluid", coolantFluidId.toString());
+        }
         tag.putInt("selectedBuildLength", getSelectedBuildLength());
     }
 
@@ -133,6 +140,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         coolant = Mth.clamp(tag.getInt("coolant"), 0, MAX_COOLANT);
         coolantMaxOverclock = tag.getInt("coolantMaxOverclock");
         if (!tag.contains("coolantMaxOverclock")) coolantMaxOverclock = -1;
+        coolantFluidId = readCoolantFluidId(tag);
         buildPreview.selectedBuildLength = Math.max(1, tag.getInt("selectedBuildLength"));
         buildPreview.buildInProgress = false;
         buildPreview.resetPreview(BuildPreviewState.DEFAULT_STATUS_KEY);
@@ -186,7 +194,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (recipe == null) {
             return TickRateModulation.IDLE;
         }
-        if (!canRefillWith(recipe.maxOverclock())) {
+        if (!canRefillWith(recipe)) {
             return TickRateModulation.IDLE;
         }
 
@@ -328,6 +336,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (coolant <= 0) {
             coolant = 0;
             coolantMaxOverclock = -1;
+            coolantFluidId = null;
         }
         markCoolantConsumed();
         return true;
@@ -378,6 +387,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     public void clearCoolant() {
         coolant = 0;
         coolantMaxOverclock = -1;
+        coolantFluidId = null;
         setChanged();
         markUiStateDirty();
     }
@@ -699,6 +709,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 getCurrentEnergyPerTick(),
                 coolant,
                 MAX_COOLANT,
+                coolantFluidId == null ? "" : coolantFluidId.toString(),
+                coolantMaxOverclock,
                 availThreads,
                 effParallel,
                 maxRecipeSlots,
@@ -900,8 +912,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 .orElse(null);
     }
 
-    private boolean canRefillWith(int maxOverclock) {
-        return coolant <= 0 || coolantMaxOverclock < 0 || coolantMaxOverclock == maxOverclock;
+    private boolean canRefillWith(CoolingRecipe recipe) {
+        if (coolant <= 0 || coolantMaxOverclock < 0 || coolantFluidId == null) {
+            return true;
+        }
+        ResourceLocation inputFluidId = currentCoolingInputFluidId();
+        return coolantMaxOverclock == recipe.maxOverclock() && coolantFluidId.equals(inputFluidId);
     }
 
     private int getRequiredCoolingOverclock() {
@@ -932,6 +948,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         FluidTank inputHatch = cluster.getInputHatch().tank;
         FluidTank outputHatch = cluster.getOutputHatch().tank;
+        ResourceLocation inputFluidId = fluidId(inputHatch.getFluid());
         int inputAmount = recipe.inputAmount();
         if (deficit <= 0 || inputAmount <= 0 || recipe.coolant() <= 0) {
             return 0;
@@ -963,6 +980,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         coolant = Math.min(MAX_COOLANT, coolant + coolantGain);
         coolantMaxOverclock = recipe.maxOverclock();
+        coolantFluidId = inputFluidId;
         setChanged();
         markUiStateDirty();
         return coolantGain;
@@ -1057,6 +1075,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         tag.putBoolean("autoClearCoolingWaste", autoClearCoolingWaste);
         tag.putInt("coolant", coolant);
         tag.putInt("coolantMaxOverclock", coolantMaxOverclock);
+        if (coolantFluidId != null) {
+            tag.putString("coolantFluid", coolantFluidId.toString());
+        }
         tag.putInt("patternBusCount", patternBusCount);
         tag.putInt("parallelCount", parallelCount);
         tag.putInt("workerCount", workerCount);
@@ -1073,11 +1094,33 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (tag.contains("coolant")) coolant = Mth.clamp(tag.getInt("coolant"), 0, MAX_COOLANT);
         if (tag.contains("coolantMaxOverclock")) coolantMaxOverclock = tag.getInt("coolantMaxOverclock");
         else coolantMaxOverclock = -1;
+        coolantFluidId = readCoolantFluidId(tag);
         if (tag.contains("patternBusCount")) patternBusCount = tag.getInt("patternBusCount");
         if (tag.contains("parallelCount")) parallelCount = tag.getInt("parallelCount");
         if (tag.contains("workerCount")) workerCount = tag.getInt("workerCount");
         if (tag.contains("threadCount")) threadCount = tag.getInt("threadCount");
         if (tag.contains("runningThreadCount")) runningThreadCount = tag.getInt("runningThreadCount");
         buildPreview.readFromTag(tag);
+    }
+
+    @Nullable private ResourceLocation currentCoolingInputFluidId() {
+        if (cluster == null || cluster.getInputHatch() == null) {
+            return null;
+        }
+        return fluidId(cluster.getInputHatch().tank.getFluid());
+    }
+
+    @Nullable private static ResourceLocation fluidId(FluidStack stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
+        return ForgeRegistries.FLUIDS.getKey(stack.getFluid());
+    }
+
+    @Nullable private static ResourceLocation readCoolantFluidId(CompoundTag tag) {
+        if (!tag.contains("coolantFluid") || tag.getString("coolantFluid").isBlank()) {
+            return null;
+        }
+        return ResourceLocation.tryParse(tag.getString("coolantFluid"));
     }
 }

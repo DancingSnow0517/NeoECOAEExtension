@@ -1,10 +1,9 @@
-package cn.dancingsnow.neoecoae.mixins.aae;
+package cn.dancingsnow.neoecoae.forge.mixin.aae;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.menu.SlotSemantic;
 import appeng.menu.slot.RestrictedInputSlot;
 import cn.dancingsnow.neoecoae.menu.WithECORestrictedInputSlot;
-import com.glodblock.github.extendedae.container.ContainerExIOPort;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -13,7 +12,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(ContainerExIOPort.class)
+@Mixin(targets = "com.glodblock.github.extendedae.container.ContainerExIOPort")
 @Pseudo
 public class ContainerExIOPortMixin {
     @WrapOperation(
@@ -25,7 +24,7 @@ public class ContainerExIOPortMixin {
                                     "Lcom/glodblock/github/extendedae/container/ContainerExIOPort;addSlot(Lnet/minecraft/world/inventory/Slot;Lappeng/menu/SlotSemantic;)Lnet/minecraft/world/inventory/Slot;",
                             ordinal = 0))
     private Slot wrapSlot(
-            ContainerExIOPort instance,
+            Object instance,
             Slot slot,
             SlotSemantic slotSemantic,
             Operation<Slot> original,

@@ -43,7 +43,7 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     @Override
     public boolean shouldCasingHide(NEBlockEntity<NECraftingCluster, ?> blockEntity) {
-        if (blockEntity instanceof ECOMachineCasingBlockEntity) {
+        if (blockEntity instanceof ECOMachineCasingBlockEntity && controller != null) {
             Vec3 casingPos = blockEntity.getBlockPos().getCenter();
             Vec3 controllerPos = controller.getBlockPos().getCenter();
             return casingPos.distanceToSqr(controllerPos) <= 3;

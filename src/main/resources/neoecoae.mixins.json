@@ -12,7 +12,9 @@
     "IOPortMenuMixin120",
     "PatternEncodingTermMenuMixin120",
     "StorageCellsMixin120",
-    "ae2.AECraftingPatternAccessor"
+    "ae2.AECraftingPatternAccessor",
+    "aae.ContainerExIOPortMixin",
+    "aae.TileExIOPortMixin"
   ],
   "client": [
     "CraftingCPUScreenMixin120",
