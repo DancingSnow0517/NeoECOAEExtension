@@ -15,5 +15,4 @@ final class CameraFit {
         float scale = Math.min(width, height) * padding / Math.max(1.0F, radius * 2.0F);
         return scale;
     }
-
 }

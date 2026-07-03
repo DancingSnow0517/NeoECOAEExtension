@@ -103,14 +103,7 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
         if (style == BackgroundStyle.TOOLBAR) {
             NELDLibClientStyle.drawAeToolbarButton(
-                    graphics,
-                    mouseX,
-                    mouseY,
-                    getPositionX(),
-                    getPositionY(),
-                    getSizeWidth(),
-                    getSizeHeight(),
-                    pressed);
+                    graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), pressed);
         } else {
             NELDLibClientStyle.drawInsetButton(
                     graphics,
