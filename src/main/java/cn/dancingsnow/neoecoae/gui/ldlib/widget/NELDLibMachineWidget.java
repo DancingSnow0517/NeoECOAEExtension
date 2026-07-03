@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibUiConstants;
 import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
@@ -13,7 +13,6 @@ import com.lowdragmc.lowdraglib.gui.widget.TextTextureWidget;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import java.util.function.Supplier;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -65,7 +64,7 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
     @Override
     public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         if (shouldDrawBasePanel()) {
-            NELDLibAe2StyleRenderer.drawAeMainPanel(graphics, getPositionX(), getPositionY(), width, height);
+            NELDLibClientStyle.drawAeMainPanel(graphics, getPositionX(), getPositionY(), width, height);
         }
         drawMachineBackground(graphics, mouseX, mouseY, partialTicks);
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
@@ -152,7 +151,7 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
     }
 
     protected Font font() {
-        return Minecraft.getInstance().font;
+        return NELDLibClientStyle.font();
     }
 
     protected static String fmt(long value) {

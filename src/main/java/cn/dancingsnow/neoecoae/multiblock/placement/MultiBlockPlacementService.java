@@ -128,8 +128,7 @@ public final class MultiBlockPlacementService {
         }
 
         BlockPos hostPos = host.getHostPos();
-        hostBlockEntity.breakCluster();
-        boolean removedAny = false;
+        List<DismantledBlockDrops> blockDrops = new ArrayList<>();
         for (BlockPos pos : positions) {
             if (pos.equals(hostPos)) {
                 continue;
@@ -144,8 +143,15 @@ public final class MultiBlockPlacementService {
             if (blockEntity instanceof AEBaseBlockEntity aeBlockEntity) {
                 aeBlockEntity.addAdditionalDrops(level, pos, drops);
             }
+            blockDrops.add(new DismantledBlockDrops(pos, drops));
+        }
+
+        hostBlockEntity.breakCluster();
+        boolean removedAny = false;
+        for (DismantledBlockDrops blockDrop : blockDrops) {
+            BlockPos pos = blockDrop.pos();
             level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-            for (ItemStack drop : drops) {
+            for (ItemStack drop : blockDrop.drops()) {
                 giveOrDrop(level, player, drop);
             }
             removedAny = true;
@@ -328,6 +334,8 @@ public final class MultiBlockPlacementService {
     private static int nextPlacementDelay(ServerLevel level) {
         return 1;
     }
+
+    private record DismantledBlockDrops(BlockPos pos, List<ItemStack> drops) {}
 
     private static void sortByHostExtension(
             List<WorldPlannedBlock> worldBlocks, BlockPos controllerPos, Direction extensionDirection) {

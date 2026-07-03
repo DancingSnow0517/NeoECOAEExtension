@@ -219,9 +219,11 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             readShard(shard);
         }
         replayWal();
+        Set<Integer> recoveredDirtyShards = new HashSet<>(dirtyShards);
         rebuildIndexes();
         dirtyDeltas.clear();
         dirtyShards.clear();
+        dirtyShards.addAll(recoveredDirtyShards);
     }
 
     private void rebuildIndexes() {

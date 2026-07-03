@@ -9,6 +9,8 @@ import java.text.NumberFormat;
 import java.util.Locale;
 
 public final class NELDLibText {
+    private static final int MAX_EXACT_HUGE_DIGITS = 120;
+    private static final int COMPACT_HUGE_SIGNIFICANT_DIGITS = 3;
     private static final long BYTES_IN_K = 1024L;
     private static final long BYTES_IN_M = BYTES_IN_K * 1024L;
     private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
@@ -93,6 +95,10 @@ public final class NELDLibText {
     }
 
     public static String hugeAmount(String decimalAmount) {
+        String compact = compactHugeDecimal(decimalAmount);
+        if (compact != null) {
+            return compact;
+        }
         BigInteger value;
         try {
             value = new BigInteger(decimalAmount);
@@ -115,6 +121,59 @@ public final class NELDLibText {
 
         BigDecimal scaled = new BigDecimal(value).divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
         return scaled.toPlainString() + HUGE_SUFFIXES[unitIndex];
+    }
+
+    public static String compactHugeAmountForSync(String decimalAmount) {
+        String compact = compactHugeDecimal(decimalAmount);
+        if (compact != null) {
+            return compact;
+        }
+        String normalized = normalizeUnsignedDecimal(decimalAmount);
+        if (normalized != null) {
+            return normalized;
+        }
+        return bounded(decimalAmount, 128);
+    }
+
+    public static String bounded(String text, int maxLength) {
+        if (text == null || maxLength <= 0) {
+            return "";
+        }
+        return text.length() <= maxLength ? text : text.substring(0, maxLength);
+    }
+
+    private static String compactHugeDecimal(String decimalAmount) {
+        String normalized = normalizeUnsignedDecimal(decimalAmount);
+        if (normalized == null || normalized.length() <= MAX_EXACT_HUGE_DIGITS) {
+            return null;
+        }
+        int digits = normalized.length();
+        String significant = normalized.substring(0, Math.min(COMPACT_HUGE_SIGNIFICANT_DIGITS, digits));
+        StringBuilder builder = new StringBuilder();
+        builder.append(significant.charAt(0));
+        if (significant.length() > 1) {
+            builder.append('.').append(significant.substring(1));
+        }
+        builder.append('e').append(digits - 1);
+        return builder.toString();
+    }
+
+    private static String normalizeUnsignedDecimal(String decimalAmount) {
+        if (decimalAmount == null || decimalAmount.isBlank()) {
+            return "0";
+        }
+        String value = decimalAmount.trim();
+        int firstNonZero = -1;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return null;
+            }
+            if (c != '0' && firstNonZero < 0) {
+                firstNonZero = i;
+            }
+        }
+        return firstNonZero < 0 ? "0" : value.substring(firstNonZero);
     }
 
     public static String compactDecimal(long value, long unit, String suffix) {

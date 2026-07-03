@@ -93,19 +93,44 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
-        if (!formed) {
+        if (!formed || cluster == null) {
             return EnumSet.noneOf(Direction.class);
         }
 
         EnumSet<Direction> directions = EnumSet.noneOf(Direction.class);
         if (level != null) {
             for (Direction value : Direction.values()) {
-                if (level.getBlockEntity(this.worldPosition.relative(value)) instanceof NEBlockEntity) {
+                if (level.getBlockEntity(this.worldPosition.relative(value)) instanceof NEBlockEntity<?, ?> neighbor
+                        && canConnectToClusterNeighbor(neighbor)) {
                     directions.add(value);
                 }
             }
         }
         return directions;
+    }
+
+    private boolean canConnectToClusterNeighbor(NEBlockEntity<?, ?> neighbor) {
+        if (!neighbor.isFormed() || neighbor.getCluster() == null || cluster == null) {
+            return false;
+        }
+        if ((Object) neighbor.getCluster() != cluster) {
+            return false;
+        }
+        return isInsideClusterBounds(worldPosition) && isInsideClusterBounds(neighbor.getBlockPos());
+    }
+
+    private boolean isInsideClusterBounds(BlockPos pos) {
+        if (cluster == null) {
+            return false;
+        }
+        BlockPos min = cluster.getBoundsMin();
+        BlockPos max = cluster.getBoundsMax();
+        return pos.getX() >= min.getX()
+                && pos.getX() <= max.getX()
+                && pos.getY() >= min.getY()
+                && pos.getY() <= max.getY()
+                && pos.getZ() >= min.getZ()
+                && pos.getZ() <= max.getZ();
     }
 
     @MustBeInvokedByOverriders

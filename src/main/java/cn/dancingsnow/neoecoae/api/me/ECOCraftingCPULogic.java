@@ -414,13 +414,9 @@ public class ECOCraftingCPULogic {
 
         var details = task.getKey();
         var dispatchBlock = job.getDispatchBlock(details);
-        if (dispatchBlock == ExecutingCraftingJob.DispatchBlock.IN_FLIGHT_OUTPUT) {
-            return DispatchTaskResult.NEXT_TASK;
-        }
         if (!passState.allowUnfinishedDependencies()
                 && dispatchBlock == ExecutingCraftingJob.DispatchBlock.UNFINISHED_DEPENDENCY) {
             passState.markUnfinishedDependencyBlocked();
-            return DispatchTaskResult.NEXT_TASK;
         }
 
         ProviderSelection providers = collectProviders(craftingService, details);
@@ -436,6 +432,10 @@ public class ECOCraftingCPULogic {
                 return DispatchTaskResult.NEXT_TASK;
             }
 
+            // Dependency and in-flight counters describe future work, not the
+            // inventory that is available right now. If enough intermediate
+            // items have already returned, extraction is the authoritative gate
+            // and lets dependent patterns fill the remaining batch capacity.
             @Nullable ExtractedPatternAttempt attempt = extractPatternAttempt(details, progress, level);
             if (attempt == null) {
                 return DispatchTaskResult.NEXT_TASK;

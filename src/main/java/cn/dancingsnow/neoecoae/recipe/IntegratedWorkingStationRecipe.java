@@ -13,16 +13,12 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 
 public record IntegratedWorkingStationRecipe(
@@ -145,47 +141,14 @@ public record IntegratedWorkingStationRecipe(
                 throw new JsonParseException("Recipe " + id + " inputFluid " + e.getMessage(), e);
             }
 
-            ItemStack itemOutput =
-                    json.has("itemOutput") ? readItemStack(id, json.getAsJsonObject("itemOutput")) : ItemStack.EMPTY;
+            ItemStack itemOutput = json.has("itemOutput")
+                    ? RecipeOutputJson.readItemStack(id, "itemOutput", json.getAsJsonObject("itemOutput"))
+                    : ItemStack.EMPTY;
             FluidStack fluidOutput = json.has("fluidOutput")
-                    ? readFluidStack(id, json.getAsJsonObject("fluidOutput"))
+                    ? RecipeOutputJson.readFluidStack(id, "fluidOutput", json.getAsJsonObject("fluidOutput"))
                     : FluidStack.EMPTY;
             int energy = json.has("energy") ? json.get("energy").getAsInt() : 0;
             return new IntegratedWorkingStationRecipe(id, inputItems, inputFluid, itemOutput, fluidOutput, energy);
-        }
-
-        private static ItemStack readItemStack(ResourceLocation recipeId, JsonObject object) {
-            String field = object.has("item") ? "item" : object.has("id") ? "id" : null;
-            if (field == null) {
-                throw new JsonParseException("Recipe " + recipeId + " itemOutput must contain 'item' or 'id'");
-            }
-            ResourceLocation itemId = ResourceLocation.parse(object.get(field).getAsString());
-            Item item = ForgeRegistries.ITEMS.getValue(itemId);
-            if (item == null) {
-                throw new JsonParseException("Recipe " + recipeId + " has unknown item output '" + itemId + "'");
-            }
-            int count = object.has("count") ? object.get("count").getAsInt() : 1;
-            return new ItemStack(item, count);
-        }
-
-        private static FluidStack readFluidStack(ResourceLocation recipeId, JsonObject object) {
-            if (object.size() == 0) {
-                return FluidStack.EMPTY;
-            }
-            if (object.has("tag")) {
-                throw new JsonParseException("Recipe " + recipeId + " fluidOutput cannot use a tag");
-            }
-            String field = object.has("fluid") ? "fluid" : object.has("id") ? "id" : null;
-            if (field == null) {
-                throw new JsonParseException("Recipe " + recipeId + " fluidOutput must contain 'fluid' or 'id'");
-            }
-            ResourceLocation fluidId = ResourceLocation.parse(object.get(field).getAsString());
-            Fluid fluid = ForgeRegistries.FLUIDS.getValue(fluidId);
-            if (fluid == null || fluid == Fluids.EMPTY) {
-                throw new JsonParseException("Recipe " + recipeId + " has unknown fluid output '" + fluidId + "'");
-            }
-            int amount = object.has("amount") ? object.get("amount").getAsInt() : 1000;
-            return new FluidStack(fluid, amount);
         }
 
         @Override

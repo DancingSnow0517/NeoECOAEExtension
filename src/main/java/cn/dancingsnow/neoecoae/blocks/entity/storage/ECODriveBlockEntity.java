@@ -17,6 +17,7 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
@@ -92,6 +93,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public boolean canExtractCell() {
+        if (ECOInfiniteStorageMember.isMember(cellStack)) {
+            return false;
+        }
         ECOStorageSystemBlockEntity controller = getController();
         return controller == null || controller.canExtractDriveCell(this);
     }
@@ -221,7 +225,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public CompoundTag getUpdateTag() {
         CompoundTag tag = super.getUpdateTag();
-        saveDriveVisualState(tag);
+        saveDriveUpdateState(tag);
         return tag;
     }
 
@@ -240,7 +244,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     protected void saveVisualState(CompoundTag data) {
         flushPendingCellContent();
         super.saveVisualState(data);
-        saveDriveVisualState(data);
+        saveDriveUpdateState(data);
     }
 
     @Override
@@ -253,6 +257,14 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         flushPendingCellContent();
         if (cellStack != null && !cellStack.isEmpty()) {
             data.put("cellStack", cellStack.save(new CompoundTag()));
+        }
+        data.putBoolean("mounted", mounted);
+        data.putBoolean("online", online);
+    }
+
+    private void saveDriveUpdateState(CompoundTag data) {
+        if (cellStack != null && !cellStack.isEmpty()) {
+            data.put("cellStack", saveDisplayCellStack(cellStack));
         }
         data.putBoolean("mounted", mounted);
         data.putBoolean("online", online);
@@ -280,6 +292,33 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             return null;
         }
         return stack.copyWithCount(1);
+    }
+
+    private static CompoundTag saveDisplayCellStack(ItemStack stack) {
+        ItemStack displayStack = new ItemStack(stack.getItem(), 1);
+        CompoundTag sourceTag = stack.getTag();
+        if (sourceTag != null) {
+            CompoundTag displayTag = new CompoundTag();
+            copyDisplayTag(sourceTag, displayTag, "display");
+            copyDisplayTag(sourceTag, displayTag, "CustomModelData");
+            copyDisplayTag(sourceTag, displayTag, "HideFlags");
+            copyDisplayTag(sourceTag, displayTag, "Enchantments");
+            copyDisplayTag(sourceTag, displayTag, "StoredEnchantments");
+            copyDisplayTag(sourceTag, displayTag, "Trim");
+            if (!displayTag.isEmpty()) {
+                displayStack.setTag(displayTag);
+            }
+        }
+        return displayStack.save(new CompoundTag());
+    }
+
+    private static void copyDisplayTag(CompoundTag source, CompoundTag target, String key) {
+        if (source.contains(key)) {
+            Tag value = source.get(key);
+            if (value != null) {
+                target.put(key, value.copy());
+            }
+        }
     }
 
     /**

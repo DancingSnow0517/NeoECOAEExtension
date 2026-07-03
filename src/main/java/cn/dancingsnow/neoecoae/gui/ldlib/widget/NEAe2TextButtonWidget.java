@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
@@ -120,23 +119,20 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
     @Override
     public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
-        var font = Minecraft.getInstance().font;
         int color = !isActive() ? inactiveColor : selectedSupplier.getAsBoolean() ? selectedColor : normalColor;
-        int labelY = getPositionY() + (getSizeHeight() - font.lineHeight) / 2;
-        NELDLibClientStyle.drawCenteredClipped(
-                graphics, font, fittedLabel(), getPositionX(), labelY, getSizeWidth(), color);
+        int labelY = getPositionY() + (getSizeHeight() - NELDLibClientStyle.fontLineHeight()) / 2;
+        NELDLibClientStyle.drawCenteredClipped(graphics, fittedLabel(), getPositionX(), labelY, getSizeWidth(), color);
     }
 
     private Component fittedLabel() {
-        var font = Minecraft.getInstance().font;
         int maxWidth = Math.max(1, getSizeWidth() - 4);
         Component label = labelSupplier.get();
-        if (font.width(label) <= maxWidth) {
+        if (NELDLibClientStyle.fontWidth(label) <= maxWidth) {
             return label;
         }
         for (Supplier<Component> fallback : labelFallbacks) {
             Component fallbackLabel = fallback.get();
-            if (font.width(fallbackLabel) <= maxWidth) {
+            if (NELDLibClientStyle.fontWidth(fallbackLabel) <= maxWidth) {
                 return fallbackLabel;
             }
         }

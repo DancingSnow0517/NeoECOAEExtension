@@ -4,6 +4,7 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewContext;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScene;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.NEMultiblockSceneRenderer;
+import cn.dancingsnow.neoecoae.compat.emi.MultiblockPreviewStyle;
 import cn.dancingsnow.neoecoae.compat.xei.MultiblockInfoRecipe;
 import cn.dancingsnow.neoecoae.multiblock.StructureTerminalMaterialRequirements;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -38,12 +39,6 @@ import org.lwjgl.glfw.GLFW;
 public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockInfoRecipe> {
     private static final int WIDTH = 176;
     private static final int HEIGHT = 200;
-    private static final int TEXT_COLOR = 0xFF404040;
-    private static final int PANEL_COLOR = 0xFFE3E3E3;
-    private static final int PANEL_BORDER = 0xFF4F4F4F;
-    private static final int BUTTON_BG = 0xFF8F8F8F;
-    private static final int BUTTON_BG_HOVER = 0xFFABABAB;
-    private static final int BUTTON_BORDER = 0xFF303030;
 
     private static final Rect LENGTH_BUTTON = new Rect(4, 20, 52, 14);
     private static final Rect LAYER_BUTTON = new Rect(60, 20, 52, 14);
@@ -54,7 +49,6 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
     private static final int MATERIALS_X = 7;
     private static final int MATERIALS_Y = 142;
     private static final int MATERIAL_COLUMNS = 9;
-    private static final int SLOT_SIZE = 18;
 
     private final IDrawable icon;
     private final Component title;
@@ -95,8 +89,8 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
         PreviewState state = state(recipe);
         List<ItemStack> materials = state.materials();
         for (int i = 0; i < materials.size(); i++) {
-            int x = MATERIALS_X + i % MATERIAL_COLUMNS * SLOT_SIZE;
-            int y = MATERIALS_Y + i / MATERIAL_COLUMNS * SLOT_SIZE;
+            int x = MATERIALS_X + i % MATERIAL_COLUMNS * MultiblockPreviewStyle.SLOT_SIZE;
+            int y = MATERIALS_Y + i / MATERIAL_COLUMNS * MultiblockPreviewStyle.SLOT_SIZE;
             builder.addInputSlot(x, y)
                     .setSlotName("material_" + i)
                     .addItemStack(materials.get(i).copy());
@@ -157,8 +151,9 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
         PreviewState state = state(recipe);
         Font font = Minecraft.getInstance().font;
 
-        drawPanel(graphics);
-        drawFittedString(graphics, recipe.definition().getName(), 4, 4, WIDTH - 8, TEXT_COLOR);
+        MultiblockPreviewStyle.drawPanel(graphics, WIDTH, HEIGHT);
+        MultiblockPreviewStyle.drawFittedString(
+                graphics, recipe.definition().getName(), 4, 4, WIDTH - 8, MultiblockPreviewStyle.TEXT_COLOR);
         drawButton(graphics, LENGTH_BUTTON, "E: " + state.expand(), mouseX, mouseY);
         drawButton(graphics, LAYER_BUTTON, state.layer() < 0 ? "Y: *" : "Y: " + state.layer(), mouseX, mouseY);
         drawButton(graphics, FORMED_BUTTON, state.formed() ? "F: 1" : "F: 0", mouseX, mouseY);
@@ -178,13 +173,18 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
                 Component.translatable("emi.neoecoae.multiblock.requirements"),
                 4,
                 MATERIALS_TITLE_Y,
-                TEXT_COLOR,
+                MultiblockPreviewStyle.TEXT_COLOR,
                 false);
         for (int i = 0; i < state.materials().size(); i++) {
-            int x = MATERIALS_X + i % MATERIAL_COLUMNS * SLOT_SIZE - 1;
-            int y = MATERIALS_Y + i / MATERIAL_COLUMNS * SLOT_SIZE - 1;
-            graphics.fill(x, y, x + SLOT_SIZE, y + SLOT_SIZE, 0xFF707070);
-            graphics.fill(x + 1, y + 1, x + SLOT_SIZE - 1, y + SLOT_SIZE - 1, 0xFFE8E8E8);
+            int x = MATERIALS_X + i % MATERIAL_COLUMNS * MultiblockPreviewStyle.SLOT_SIZE - 1;
+            int y = MATERIALS_Y + i / MATERIAL_COLUMNS * MultiblockPreviewStyle.SLOT_SIZE - 1;
+            graphics.fill(x, y, x + MultiblockPreviewStyle.SLOT_SIZE, y + MultiblockPreviewStyle.SLOT_SIZE, 0xFF707070);
+            graphics.fill(
+                    x + 1,
+                    y + 1,
+                    x + MultiblockPreviewStyle.SLOT_SIZE - 1,
+                    y + MultiblockPreviewStyle.SLOT_SIZE - 1,
+                    0xFFE8E8E8);
         }
     }
 
@@ -244,37 +244,9 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
         return states.computeIfAbsent(recipe, ignored -> new PreviewState(recipe));
     }
 
-    private static void drawPanel(GuiGraphics graphics) {
-        graphics.fill(0, 0, WIDTH, HEIGHT, PANEL_COLOR);
-        graphics.fill(0, 0, WIDTH, 1, PANEL_BORDER);
-        graphics.fill(0, HEIGHT - 1, WIDTH, HEIGHT, PANEL_BORDER);
-        graphics.fill(0, 0, 1, HEIGHT, PANEL_BORDER);
-        graphics.fill(WIDTH - 1, 0, WIDTH, HEIGHT, PANEL_BORDER);
-    }
-
     private static void drawButton(GuiGraphics graphics, Rect rect, String text, double mouseX, double mouseY) {
-        boolean hovered = rect.contains(mouseX, mouseY);
-        Font font = Minecraft.getInstance().font;
-        graphics.fill(rect.x(), rect.y(), rect.right(), rect.bottom(), BUTTON_BORDER);
-        graphics.fill(
-                rect.x() + 1, rect.y() + 1, rect.right() - 1, rect.bottom() - 1, hovered ? BUTTON_BG_HOVER : BUTTON_BG);
-        int textX = rect.x() + (rect.width() - font.width(text)) / 2;
-        int textY = rect.y() + (rect.height() - font.lineHeight) / 2;
-        graphics.drawString(font, text, textX, textY, 0xFFFFFFFF, false);
-    }
-
-    private static void drawFittedString(GuiGraphics graphics, Component text, int x, int y, int maxWidth, int color) {
-        Font font = Minecraft.getInstance().font;
-        int textWidth = font.width(text);
-        if (textWidth <= maxWidth) {
-            graphics.drawString(font, text, x, y, color, false);
-            return;
-        }
-
-        String ellipsis = "...";
-        int available = Math.max(0, maxWidth - font.width(ellipsis));
-        Component rendered = Component.literal(font.plainSubstrByWidth(text.getString(), available) + ellipsis);
-        graphics.drawString(font, rendered, x, y, color, false);
+        MultiblockPreviewStyle.drawButton(
+                graphics, rect.x(), rect.y(), rect.width(), rect.height(), text, mouseX, mouseY);
     }
 
     private record Rect(int x, int y, int width, int height) {

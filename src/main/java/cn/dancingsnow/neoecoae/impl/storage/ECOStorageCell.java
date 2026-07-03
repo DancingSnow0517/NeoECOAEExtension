@@ -20,7 +20,9 @@ import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import com.google.common.math.LongMath;
 import com.mojang.logging.LogUtils;
+import java.math.RoundingMode;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -105,9 +107,24 @@ public class ECOStorageCell implements IECOStorageCell {
         }
         distributedTypes = Math.max(1, Math.min(distributedTypes, maxItemTypes));
 
-        long remainingItemCapacity =
-                (getTotalBytes() - (long) getBytesPerType() * distributedTypes) * keyType.getAmountPerByte();
-        return Math.max(0, (remainingItemCapacity + distributedTypes - 1) / distributedTypes);
+        return calculateEqualDistributionMaxItems(
+                getTotalBytes(), getBytesPerType(), keyType.getAmountPerByte(), distributedTypes);
+    }
+
+    static long calculateEqualDistributionMaxItems(
+            long totalBytes, int bytesPerType, int amountPerByte, long distributedTypes) {
+        if (distributedTypes <= 0) {
+            return 0;
+        }
+
+        long reservedTypeBytes = LongMath.saturatedMultiply(distributedTypes, bytesPerType);
+        long remainingBytes = LongMath.saturatedSubtract(totalBytes, reservedTypeBytes);
+        if (remainingBytes <= 0) {
+            return 0;
+        }
+
+        long remainingItemCapacity = LongMath.saturatedMultiply(remainingBytes, amountPerByte);
+        return LongMath.divide(remainingItemCapacity, distributedTypes, RoundingMode.CEILING);
     }
 
     @Override
@@ -241,13 +258,8 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {
-        if (what instanceof AEItemKey itemKey) {
-            var stack = itemKey.toStack();
-
-            var cellInv = StorageCells.getCellInventory(stack, null);
-            if (cellInv != null && !cellInv.canFitInsideCell()) {
-                return 0;
-            }
+        if (!canStoreKeyInsideStorageCell(what)) {
+            return 0;
         }
 
         var currentAmount = contents.getAmount(what);
@@ -277,6 +289,14 @@ public class ECOStorageCell implements IECOStorageCell {
         }
 
         return amount;
+    }
+
+    public static boolean canStoreKeyInsideStorageCell(AEKey what) {
+        if (what instanceof AEItemKey itemKey) {
+            var cellInv = StorageCells.getCellInventory(itemKey.toStack(), null);
+            return cellInv == null || cellInv.canFitInsideCell();
+        }
+        return true;
     }
 
     @Override

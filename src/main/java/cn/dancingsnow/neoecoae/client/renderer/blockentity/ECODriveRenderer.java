@@ -47,7 +47,11 @@ public class ECODriveRenderer
         }
         IECOStorageCell cellInventory = blockEntity.getCellInventory();
         if (cellInventory != null) {
-            renderLed(blockEntity, poseStack, bufferSource, cellInventory.getStatus().getStateColor());
+            renderLed(
+                    blockEntity,
+                    poseStack,
+                    bufferSource,
+                    cellInventory.getStatus().getStateColor());
         }
     }
 
@@ -58,7 +62,8 @@ public class ECODriveRenderer
         int blue = stateColor & 255;
 
         BlockState blockState = blockEntity.getBlockState();
-        Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
+        Direction face =
+                blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
 
         poseStack.pushPose();
 

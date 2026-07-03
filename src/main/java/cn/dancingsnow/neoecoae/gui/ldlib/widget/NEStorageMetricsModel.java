@@ -36,7 +36,7 @@ final class NEStorageMetricsModel {
             typeMetrics.add(createTypeMetric(
                     type.typeId().toString(),
                     type,
-                    Component.literal(type.displayName()),
+                    type.displayComponent(),
                     typeAccentColor(type, typeMetrics.size())));
         }
         return new StorageMetrics(energy, List.copyOf(typeMetrics));

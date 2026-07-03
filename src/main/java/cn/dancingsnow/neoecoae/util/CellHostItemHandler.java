@@ -17,6 +17,9 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack getStackInSlot(int slot) {
+        if (!isValidSlot(slot)) {
+            return ItemStack.EMPTY;
+        }
         // AE2 writes running crafting task state into the computation cell's ItemStack NBT.
         // Must return the real stack reference; returning a copy causes task state to be lost on reload.
         var stack = host.getCellStack();
@@ -29,23 +32,29 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-        if (host.getCellStack() != null) {
+        if (!isValidSlot(slot)) {
             return stack;
-        } else {
-            if (stack.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            if (!simulate) {
-                host.setCellStack(stack.copyWithCount(1));
-            }
-            ItemStack copy = stack.copy();
-            copy.shrink(1);
-            return copy;
         }
+        if (stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        if (!host.isItemValid(stack) || host.getCellStack() != null) {
+            return stack;
+        }
+
+        if (!simulate) {
+            host.setCellStack(stack.copyWithCount(1));
+        }
+        ItemStack copy = stack.copy();
+        copy.shrink(1);
+        return copy;
     }
 
     @Override
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        if (!isValidSlot(slot)) {
+            return ItemStack.EMPTY;
+        }
         if (host.getCellStack() == null || !host.canExtractCell()) {
             return ItemStack.EMPTY;
         }
@@ -61,11 +70,15 @@ public class CellHostItemHandler implements IItemHandler {
 
     @Override
     public int getSlotLimit(int slot) {
-        return 1;
+        return isValidSlot(slot) ? 1 : 0;
     }
 
     @Override
     public boolean isItemValid(int slot, ItemStack stack) {
-        return host.isItemValid(stack);
+        return isValidSlot(slot) && host.isItemValid(stack);
+    }
+
+    private boolean isValidSlot(int slot) {
+        return slot >= 0 && slot < getSlots();
     }
 }

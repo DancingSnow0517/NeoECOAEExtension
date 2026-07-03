@@ -490,7 +490,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
 
         if (changed) {
-            engine.closeAndFlush();
+            engine.flushBudgeted(0L);
             markStorageStatsDirty();
             requestProviderUpdates();
             IStorageProvider.requestUpdate(getMainNode());
@@ -618,6 +618,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         hostMode = formed ? ECOStorageHostMode.FORMED_NORMAL : ECOStorageHostMode.UNFORMED;
+        if (level instanceof ServerLevel serverLevel && domainId != null) {
+            ECOInfiniteStorageDomains.close(serverLevel, domainId);
+        }
         infiniteDomainId = null;
         requestProviderUpdates();
         IStorageProvider.requestUpdate(getMainNode());

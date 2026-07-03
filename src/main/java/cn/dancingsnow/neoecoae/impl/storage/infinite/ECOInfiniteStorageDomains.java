@@ -21,9 +21,11 @@ public final class ECOInfiniteStorageDomains {
 
     public static synchronized void close(ServerLevel level, UUID domainId) {
         String dimension = sanitize(level.dimension().location().toString());
-        FileBackedInfiniteStorageEngine engine = ENGINES.remove(dimension + ":" + domainId);
+        String key = dimension + ":" + domainId;
+        FileBackedInfiniteStorageEngine engine = ENGINES.get(key);
         if (engine != null) {
             engine.closeAndFlush();
+            ENGINES.remove(key);
         }
     }
 

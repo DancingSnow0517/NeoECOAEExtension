@@ -6,8 +6,8 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
-import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageInterfaceUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageHugeStackState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageInterfaceUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
@@ -63,12 +63,12 @@ public final class NELDLibStateCodecs {
                 break;
             }
             buf.writeResourceLocation(type.typeId());
-            buf.writeUtf(type.displayName(), 128);
+            writeBoundedUtf(buf, type.displayName(), 128);
             buf.writeLong(type.usedTypes());
             buf.writeLong(type.totalTypes());
             buf.writeLong(type.usedBytes());
             buf.writeLong(type.totalBytes());
-            buf.writeUtf(type.safeUsedAmount(), 128);
+            writeHugeDisplayAmount(buf, type.safeUsedAmount());
         }
         List<NEStorageHugeStackState> hugeStacks = state.hugeStacks();
         buf.writeVarInt(Math.min(hugeStacks.size(), MAX_STORAGE_HUGE_STACKS));
@@ -78,7 +78,7 @@ public final class NELDLibStateCodecs {
                 break;
             }
             AEKey.writeKey(buf, hugeStack.key());
-            buf.writeUtf(hugeStack.amount(), 128);
+            writeHugeDisplayAmount(buf, hugeStack.amount());
         }
     }
 
@@ -555,6 +555,14 @@ public final class NELDLibStateCodecs {
             throw new IllegalArgumentException(fieldName + " outside protocol limit: " + value);
         }
         return value;
+    }
+
+    private static void writeHugeDisplayAmount(FriendlyByteBuf buf, String amount) {
+        writeBoundedUtf(buf, NELDLibText.compactHugeAmountForSync(amount), 128);
+    }
+
+    private static void writeBoundedUtf(FriendlyByteBuf buf, String value, int maxLength) {
+        buf.writeUtf(NELDLibText.bounded(value, maxLength), maxLength);
     }
 
     private NELDLibStateCodecs() {}

@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEnti
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import com.mojang.serialization.DataResult;
-import com.tterrag.registrate.util.entry.BlockEntry;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
@@ -19,7 +18,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -41,13 +39,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        if (verifyInternalStructure(level, min, max, false)) {
-            setMirroredStructure(false);
-            return true;
-        }
-        boolean mirrored = verifyInternalStructure(level, min, max, true);
-        setMirroredStructure(mirrored);
-        return mirrored;
+        return verifyMirroredStructure(level, min, max, this::verifyInternalStructure);
     }
 
     private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
@@ -191,9 +183,5 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         return (s, p) -> s.getBlock() instanceof ECOCraftingParallelCore core
                 && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
                 && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
-    }
-
-    private BiPredicate<BlockState, BlockPos> matchingStateFacing(BlockEntry<? extends Block> block, Direction facing) {
-        return (s, p) -> s.is(block.get()) && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 }

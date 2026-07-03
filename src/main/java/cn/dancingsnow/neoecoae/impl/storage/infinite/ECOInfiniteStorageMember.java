@@ -14,7 +14,10 @@ public final class ECOInfiniteStorageMember {
     private ECOInfiniteStorageMember() {}
 
     public static boolean isMember(@Nullable ItemStack stack) {
-        return stack != null && !stack.isEmpty() && stack.hasTag() && stack.getTag().getBoolean(MEMBER_TAG);
+        return stack != null
+                && !stack.isEmpty()
+                && stack.hasTag()
+                && stack.getTag().getBoolean(MEMBER_TAG);
     }
 
     public static Optional<UUID> getDomainId(@Nullable ItemStack stack) {

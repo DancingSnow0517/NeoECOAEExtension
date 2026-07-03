@@ -38,13 +38,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        if (verifyInternalStructure(level, min, max, false)) {
-            setMirroredStructure(false);
-            return true;
-        }
-        boolean mirrored = verifyInternalStructure(level, min, max, true);
-        setMirroredStructure(mirrored);
-        return mirrored;
+        return verifyMirroredStructure(level, min, max, this::verifyInternalStructure);
     }
 
     private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
@@ -124,16 +118,6 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             return false;
         }
         BlockPos upperEnergyCellEnd = upperEnergyCellResult.getOrThrow(false, ignored -> {});
-        if (upperEnergyCellEnd.equals(upperEnergyCellStart)) {
-            boolean validSingleUpperCell = validateBlock(
-                    level,
-                    upperEnergyCellStart,
-                    state -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                            && tier.supportsComponentTier(cell.getBlockEntity(level, upperEnergyCellEnd)
-                                    .getTier())
-                            && state.getValue(ECOEnergyCellBlock.FACING) == back);
-            return validSingleUpperCell;
-        }
         BlockPos lowerEnergyCellStart =
                 controllerPos.relative(back).relative(down).relative(right);
         DataResult<BlockPos> lowerEnergyCellResult = validateBlockLine(

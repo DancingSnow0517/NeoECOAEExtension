@@ -8,19 +8,18 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraftforge.common.crafting.CraftingHelper;
 import net.minecraftforge.common.crafting.conditions.ICondition;
 
-record ConditionalFinishedRecipe(FinishedRecipe recipe, ICondition condition) implements FinishedRecipe {
+public record ConditionalFinishedRecipe(FinishedRecipe recipe, ICondition condition) implements FinishedRecipe {
     @Override
     public JsonObject serializeRecipe() {
         JsonObject json = recipe.serializeRecipe();
-        JsonArray conditions = new JsonArray();
-        conditions.add(CraftingHelper.serialize(condition));
-        json.add("conditions", conditions);
+        json.add("conditions", serializeConditions());
         return json;
     }
 
     @Override
     public void serializeRecipeData(JsonObject json) {
         recipe.serializeRecipeData(json);
+        json.add("conditions", serializeConditions());
     }
 
     @Override
@@ -35,11 +34,21 @@ record ConditionalFinishedRecipe(FinishedRecipe recipe, ICondition condition) im
 
     @Override
     public JsonObject serializeAdvancement() {
-        return recipe.serializeAdvancement();
+        JsonObject json = recipe.serializeAdvancement();
+        if (json != null) {
+            json.add("conditions", serializeConditions());
+        }
+        return json;
     }
 
     @Override
     public ResourceLocation getAdvancementId() {
         return recipe.getAdvancementId();
+    }
+
+    private JsonArray serializeConditions() {
+        JsonArray conditions = new JsonArray();
+        conditions.add(CraftingHelper.serialize(condition));
+        return conditions;
     }
 }

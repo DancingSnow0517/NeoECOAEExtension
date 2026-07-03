@@ -5,6 +5,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import net.minecraft.network.chat.Component;
 
 public final class ECOInfiniteStorage implements MEStorage {
@@ -18,6 +19,9 @@ public final class ECOInfiniteStorage implements MEStorage {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (!ECOStorageCell.canStoreKeyInsideStorageCell(what)) {
+            return 0L;
+        }
         return engine.insert(what, amount, mode);
     }
 

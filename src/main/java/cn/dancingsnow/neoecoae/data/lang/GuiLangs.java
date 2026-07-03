@@ -190,7 +190,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.infinite_value", "infinite");
         provider.add("gui.neoecoae.storage.infinite_domain", "Infinite Domain");
         provider.add("gui.neoecoae.storage.infinite_component", "Infinite Storage Component");
-        provider.add("gui.neoecoae.storage.infinite_extract_blocked", "Cannot remove storage matrices in infinite storage mode");
+        provider.add(
+                "gui.neoecoae.storage.infinite_extract_blocked",
+                "Cannot remove storage matrices in infinite storage mode");
         provider.add("gui.neoecoae.storage.used_short", "Used");
         provider.add("gui.neoecoae.storage.bytes_used", "Bytes Used");
         provider.add("gui.neoecoae.storage.energy_storage", "Energy Storage");

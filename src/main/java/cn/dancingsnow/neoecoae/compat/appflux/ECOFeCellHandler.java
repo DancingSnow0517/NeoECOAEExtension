@@ -1,28 +1,11 @@
 package cn.dancingsnow.neoecoae.compat.appflux;
 
-import appeng.api.storage.cells.ISaveProvider;
-import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
+import cn.dancingsnow.neoecoae.compat.ECOKeyTypeCellHandler;
 
-public final class ECOFeCellHandler implements IECOCellHandler {
+public final class ECOFeCellHandler extends ECOKeyTypeCellHandler {
     public static final ECOFeCellHandler INSTANCE = new ECOFeCellHandler();
 
-    private ECOFeCellHandler() {}
-
-    @Override
-    public boolean isCell(ItemStack stack) {
-        if (stack.getItem() instanceof ECOStorageCellItem item) {
-            return item.getCellType() == NEAppFluxCellTypes.FE.get()
-                    && item.getKeyType() == AppFluxCompat.getFluxKeyType();
-        }
-        return false;
-    }
-
-    @Override
-    public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
-        return ECOStorageCellItem.getCellInventory(is, host);
+    private ECOFeCellHandler() {
+        super(NEAppFluxCellTypes.FE::get, AppFluxCompat::getFluxKeyType);
     }
 }

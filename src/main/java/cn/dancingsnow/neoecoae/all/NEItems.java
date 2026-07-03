@@ -194,7 +194,7 @@ public class NEItems {
                         .pattern("B")
                         .define('A', NETags.Items.TUNGSTEN_INGOT)
                         .define('B', Items.STICK)
-                        .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                        .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
                         .save(prov);
             })
             .register();
@@ -857,17 +857,15 @@ public class NEItems {
             .register();
 
     public static final ItemEntry<Item> ECO_INFINITE_CELL_COMPONENT = REGISTRATE
-            .<Item>item(
-                    "eco_infinite_cell_component",
-                    p -> new Item(p.rarity(Rarity.EPIC)) {
-                        @Override
-                        public void appendHoverText(
-                                ItemStack stack, Level level, List<Component> lines, TooltipFlag tooltipFlag) {
-                            super.appendHoverText(stack, level, lines, tooltipFlag);
-                            lines.add(Component.translatable("tooltip.neoecoae.infinite_component.unlock")
-                                    .withStyle(ChatFormatting.GRAY));
-                        }
-                    })
+            .<Item>item("eco_infinite_cell_component", p -> new Item(p.rarity(Rarity.EPIC)) {
+                @Override
+                public void appendHoverText(
+                        ItemStack stack, Level level, List<Component> lines, TooltipFlag tooltipFlag) {
+                    super.appendHoverText(stack, level, lines, tooltipFlag);
+                    lines.add(Component.translatable("tooltip.neoecoae.infinite_component.unlock")
+                            .withStyle(ChatFormatting.GRAY));
+                }
+            })
             .lang("ECO Infinite Storage Component")
             .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("item/" + ctx.getName())))
             .register();

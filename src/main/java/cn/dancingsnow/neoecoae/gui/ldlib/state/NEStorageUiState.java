@@ -18,6 +18,10 @@ public record NEStorageUiState(
         boolean canTakeInfiniteComponent,
         boolean infiniteDomainEmpty) {
     public static NEStorageUiState empty(BlockPos pos) {
+        return empty(pos, false);
+    }
+
+    public static NEStorageUiState empty(BlockPos pos, boolean infiniteSlotVisible) {
         return new NEStorageUiState(
                 pos,
                 Collections.emptyList(),
@@ -26,7 +30,7 @@ public record NEStorageUiState(
                 0,
                 0,
                 false,
-                false,
+                infiniteSlotVisible,
                 false,
                 0,
                 true,

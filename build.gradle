@@ -87,7 +87,7 @@ repositories {
 }
 
 spotless {
-    lineEndings 'UNIX'
+    lineEndings = 'UNIX'
 
     java {
         target 'src/**/*.java'
@@ -244,7 +244,7 @@ dependencies {
 }
 
 sourceSets.main.resources {
-    srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources'
+    setSrcDirs(['src/main/resources', 'src/generated/resources'])
 }
 
 sourceSets.main.output.dir(layout.buildDirectory.dir('generated/refmap'), builtBy: 'compileJava')
@@ -271,10 +271,57 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 
 sourceSets.main.resources.srcDir generateModMetadata
 
+var guidebookResourcesDir = layout.buildDirectory.dir('generated/guidebook/resources')
+
+var copyGuidebook = tasks.register('copyGuidebook', Sync) {
+    group = 'build'
+
+    from('guidebook') {
+        into 'assets/neoecoae/ae2guide'
+    }
+    into guidebookResourcesDir
+}
+
 processResources.dependsOn generateModMetadata
-processResources.dependsOn 'copyGuidebook'
 tasks.named('processResources', ProcessResources).configure {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn copyGuidebook
+    from guidebookResourcesDir
+    def generatedResourcesDir = file('src/generated/resources').toPath().toAbsolutePath().normalize()
+    def handwrittenResourceOverrides = [
+            'assets/neoecoae/models/item/computation_transmitter.json',
+            'assets/neoecoae/models/item/eco_drive.json',
+            'assets/neoecoae/models/item/eco_fe_cell_housing.json',
+            'assets/neoecoae/models/item/eco_fe_storage_cell_16m.json',
+            'assets/neoecoae/models/item/eco_fe_storage_cell_256m.json',
+            'assets/neoecoae/models/item/eco_fe_storage_cell_64m.json',
+            'assets/neoecoae/models/item/eco_mana_cell_housing.json',
+            'assets/neoecoae/models/item/eco_mana_storage_cell_16m.json',
+            'assets/neoecoae/models/item/eco_mana_storage_cell_256m.json',
+            'assets/neoecoae/models/item/eco_mana_storage_cell_64m.json',
+            'assets/neoecoae/models/item/eco_source_cell_housing.json',
+            'assets/neoecoae/models/item/eco_source_storage_cell_16m.json',
+            'assets/neoecoae/models/item/eco_source_storage_cell_256m.json',
+            'assets/neoecoae/models/item/eco_source_storage_cell_64m.json',
+            'assets/neoecoae/models/item/structure_terminal.json',
+            'data/forge/tags/items/dusts.json',
+            'data/forge/tags/items/dusts/aluminium.json',
+            'data/forge/tags/items/dusts/aluminum.json',
+            'data/neoecoae/loot_tables/blocks/aluminum_ore.json',
+            'data/neoecoae/loot_tables/blocks/energized_crystal_cluster.json',
+            'data/neoecoae/loot_tables/blocks/tungsten_ore.json',
+            'data/neoecoae/recipes/integrated_working_station/cryotheum_solution.json',
+            'data/neoecoae/recipes/integrated_working_station/crystal_ingot.json',
+            'data/neoecoae/recipes/integrated_working_station/energized_crystal.json',
+            'data/neoecoae/recipes/integrated_working_station/energized_fluix_crystal.json',
+            'data/neoecoae/recipes/integrated_working_station/energized_superconductive_ingot.json'
+    ] as Set
+
+    exclude { details ->
+        def path = details.file.toPath().toAbsolutePath().normalize()
+        path.startsWith(generatedResourcesDir)
+                && handwrittenResourceOverrides.contains(details.relativePath.pathString.replace('\\', '/'))
+    }
+    duplicatesStrategy = DuplicatesStrategy.FAIL
 }
 
 jar {
@@ -407,13 +454,6 @@ tasks.named('compileJava', JavaCompile).configure {
             "-AreobfTsrgFile=${tsrgFile.absolutePath}"
     ]
     outputs.file(refmapFile)
-}
-
-tasks.register('copyGuidebook', Copy) {
-    group = 'build'
-
-    from 'guidebook/'
-    into 'src/guidebook/resources/assets/neoecoae/ae2guide'
 }
 
 idea {

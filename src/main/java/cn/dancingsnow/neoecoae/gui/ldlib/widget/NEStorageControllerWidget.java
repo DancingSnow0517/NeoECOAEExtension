@@ -1,9 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
-import appeng.client.gui.Icon;
-import appeng.core.localization.GuiText;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
+import appeng.core.localization.GuiText;
 import appeng.menu.MenuOpener;
 import appeng.menu.implementations.PriorityMenu;
 import appeng.menu.locator.MenuLocators;
@@ -123,7 +122,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 storage.getBlockState().getBlock().getName(),
                 UI_WIDTH,
                 UI_HEIGHT,
-                NEStorageUiState.empty(storage.getBlockPos()),
+                initialStorageState(storage),
                 storage::createStorageUiState,
                 NELDLibStateCodecs::writeStorage,
                 NELDLibStateCodecs::readStorage,
@@ -131,6 +130,11 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         this.storage = storage;
         this.player = player;
         restoreScrollState();
+    }
+
+    private static NEStorageUiState initialStorageState(ECOStorageSystemBlockEntity storage) {
+        NEStorageUiState state = storage.createStorageUiState();
+        return state == null ? NEStorageUiState.empty(storage.getBlockPos()) : state;
     }
 
     @Override
@@ -145,14 +149,14 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                         PRIORITY_BUTTON_Y,
                         PRIORITY_BUTTON_W,
                         PRIORITY_BUTTON_H,
-                        Icon.WRENCH,
+                        NEAe2IconButtonWidget.Ae2Icon.WRENCH,
                         click -> {
                             if (!click.isRemote && player instanceof ServerPlayer serverPlayer && storage.isFormed()) {
                                 MenuOpener.open(PriorityMenu.TYPE, serverPlayer, MenuLocators.forBlockEntity(storage));
                             }
                         })
                 .useAeTabButton());
-        if (storage.isInfiniteSlotVisible()) {
+        if (hasInfiniteLayout()) {
             NEPlayerInventoryWidgets.addPlayerInventorySlots(
                     this, player.getInventory(), PLAYER_INV_X, PLAYER_INV_Y, PLAYER_HOTBAR_Y);
             addWidget(new SlotWidget(
@@ -314,7 +318,9 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     private static BigInteger parseAmount(String value) {
         try {
-            return value == null || value.isBlank() ? BigInteger.ZERO : new BigInteger(value);
+            return value == null || value.isBlank() || !value.chars().allMatch(Character::isDigit)
+                    ? BigInteger.ZERO
+                    : new BigInteger(value);
         } catch (RuntimeException ignored) {
             return BigInteger.ZERO;
         }
@@ -331,15 +337,14 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     private void drawInfiniteDomainBlock(GuiGraphics g, int x, int y) {
         NEStorageUiState state = currentState();
-        drawPlainLine(
-                g,
-                Component.translatable("gui.neoecoae.storage.infinite_domain"),
-                x,
-                y,
-                0xFF9ED47D);
+        drawPlainLine(g, Component.translatable("gui.neoecoae.storage.infinite_domain"), x, y, 0xFF9ED47D);
         y += TEXT_LINE_STEP;
         drawInfiniteUsedLine(
-                g, NELDLibText.number(state.totalUsedTypes()), Component.translatable("gui.neoecoae.common.types").getString(), x, y);
+                g,
+                NELDLibText.number(state.totalUsedTypes()),
+                Component.translatable("gui.neoecoae.common.types").getString(),
+                x,
+                y);
         y += TEXT_LINE_STEP;
         drawInfiniteUsedLine(
                 g,
@@ -379,7 +384,16 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             maxText = NELDLibText.compactTaskAmount(metric.totalTypes());
         }
         NELDLibValueText.drawUsedTotal(
-                g, font(), "", usedText, maxText, metric.usedTypes(), finiteColorMax(metric.totalTypes()), suffix, x, y);
+                g,
+                font(),
+                "",
+                usedText,
+                maxText,
+                metric.usedTypes(),
+                finiteColorMax(metric.totalTypes()),
+                suffix,
+                x,
+                y);
     }
 
     private void drawByteUsedTotalLine(GuiGraphics g, long used, long max, int x, int y) {
@@ -446,9 +460,10 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 g,
                 Component.translatable("gui.neoecoae.storage.current_load")
                         .append(": ")
-                        .append(Component.literal(state.infiniteMode()
-                                ? "N/A"
-                                : NELDLibText.percentOrNA(state.totalUsedBytes(), state.totalBytes()))),
+                        .append(Component.literal(
+                                state.infiniteMode()
+                                        ? "N/A"
+                                        : NELDLibText.percentOrNA(state.totalUsedBytes(), state.totalBytes()))),
                 y,
                 NELDLibStyle.DARK_TEXT_PRIMARY);
         y += USAGE_DETAIL_LINE_H;
@@ -456,9 +471,10 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 g,
                 Component.translatable("gui.neoecoae.storage.max_load")
                         .append(": ")
-                        .append(Component.literal(state.infiniteMode()
-                                ? infiniteText()
-                                : NELDLibText.percentOrNA(maxMatrixUsed(state), maxMatrixTotal(state)))),
+                        .append(Component.literal(
+                                state.infiniteMode()
+                                        ? infiniteText()
+                                        : NELDLibText.percentOrNA(maxMatrixUsed(state), maxMatrixTotal(state)))),
                 y,
                 NELDLibStyle.DARK_TEXT_WARNING);
         y += USAGE_DETAIL_LINE_H;
@@ -492,8 +508,9 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 state.infiniteMode()
                         ? 0xFFCA6CFF
                         : state.totalBytes() <= 0L
-                        ? NELDLibStyle.DARK_TEXT_MUTED
-                        : NELDLibStyle.usedValueColor(Math.round(usage * state.totalBytes()), state.totalBytes()),
+                                ? NELDLibStyle.DARK_TEXT_MUTED
+                                : NELDLibStyle.usedValueColor(
+                                        Math.round(usage * state.totalBytes()), state.totalBytes()),
                 0.9F);
     }
 
@@ -555,7 +572,13 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     private boolean renderHugeStackTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!hasHugeStackPanel(currentState())
-                || !isMouseIn(HUGE_STACK_PANEL_X, HUGE_STACK_PANEL_Y, HUGE_STACK_PANEL_W, HUGE_STACK_PANEL_H, mouseX, mouseY)) {
+                || !isMouseIn(
+                        HUGE_STACK_PANEL_X,
+                        HUGE_STACK_PANEL_Y,
+                        HUGE_STACK_PANEL_W,
+                        HUGE_STACK_PANEL_H,
+                        mouseX,
+                        mouseY)) {
             return false;
         }
         NEStorageHugeStackState entry = hugeStackAt(mouseX, mouseY);
@@ -574,7 +597,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     }
 
     @Nullable private NEStorageHugeStackState hugeStackAt(int mouseX, int mouseY) {
-        if (!isMouseIn(HUGE_STACK_PANEL_X, HUGE_STACK_PANEL_Y, HUGE_STACK_PANEL_W, HUGE_STACK_PANEL_H, mouseX, mouseY)) {
+        if (!isMouseIn(
+                HUGE_STACK_PANEL_X, HUGE_STACK_PANEL_Y, HUGE_STACK_PANEL_W, HUGE_STACK_PANEL_H, mouseX, mouseY)) {
             return null;
         }
         int localY = mouseY - absY(HUGE_STACK_PANEL_Y + 4) + (int) Math.round(hugeStackScrollPixels);
@@ -677,7 +701,13 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         }
         NEStorageUiState state = currentState();
         if (hasHugeStackPanel(state)
-                && isMouseIn(HUGE_STACK_PANEL_X, HUGE_STACK_PANEL_Y, HUGE_STACK_PANEL_W, HUGE_STACK_PANEL_H, mouseX, mouseY)) {
+                && isMouseIn(
+                        HUGE_STACK_PANEL_X,
+                        HUGE_STACK_PANEL_Y,
+                        HUGE_STACK_PANEL_W,
+                        HUGE_STACK_PANEL_H,
+                        mouseX,
+                        mouseY)) {
             return;
         }
         if (state.infiniteMode()) {
@@ -693,9 +723,9 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                                                             .getString())
                                             .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))),
                             Component.literal(Component.translatable("gui.neoecoae.common.types")
-                                            .getString()
-                                    + ": "
-                                    + NELDLibText.number(state.totalUsedTypes()))
+                                                    .getString()
+                                            + ": "
+                                            + NELDLibText.number(state.totalUsedTypes()))
                                     .withStyle(ChatFormatting.GRAY)),
                     mouseX,
                     mouseY);
@@ -737,7 +767,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     }
 
     private boolean hasInfiniteLayout() {
-        return storage.isInfiniteSlotVisible();
+        return currentState().infiniteSlotVisible();
     }
 
     private int leftPanelHeight() {
@@ -849,7 +879,9 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         if (amount.signum() <= 0 || total.signum() <= 0) {
             return 0.0D;
         }
-        return new BigDecimal(amount).divide(new BigDecimal(total), 8, RoundingMode.HALF_UP).doubleValue();
+        return new BigDecimal(amount)
+                .divide(new BigDecimal(total), 8, RoundingMode.HALF_UP)
+                .doubleValue();
     }
 
     private static long saturatedAdd(long left, long right) {
@@ -996,7 +1028,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     }
 
     private void rememberScrollState() {
-        scrollKey().ifPresent(key -> SCROLL_MEMORY.put(key, new ScrollSnapshot(leftScrollPixels, hugeStackScrollPixels)));
+        scrollKey()
+                .ifPresent(key -> SCROLL_MEMORY.put(key, new ScrollSnapshot(leftScrollPixels, hugeStackScrollPixels)));
     }
 
     private Optional<ScrollKey> scrollKey() {
