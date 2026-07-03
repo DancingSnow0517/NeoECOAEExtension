@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -26,6 +27,8 @@ import net.minecraft.world.level.chunk.ChunkStatus;
 
 public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEnergyCellBlockEntity>
         implements IExternalPowerSink, IGridTickable {
+    private static final String NBT_STORED_ENERGY = "storedEnergy";
+
     @Getter
     private final IECOTier tier;
 
@@ -76,6 +79,20 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     @Override
     public double getAECurrentPower() {
         return this.energyStored.getAmount();
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        tag.putDouble(NBT_STORED_ENERGY, this.energyStored.getAmount());
+    }
+
+    @Override
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
+        if (tag.contains(NBT_STORED_ENERGY)) {
+            this.energyStored.setStored(tag.getDouble(NBT_STORED_ENERGY));
+        }
     }
 
     @Override

@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
-import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import java.util.List;
@@ -52,18 +51,12 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
     }
 
     private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
-        ECOCraftingSystemBlockEntity controller = null;
-        BlockPos controllerPos = null;
-        for (BlockPos pos : MultiBlockUtil.allPossibleController(min, max)) {
-            if (level.getBlockEntity(pos) instanceof ECOCraftingSystemBlockEntity be) {
-                controller = be;
-                controllerPos = pos;
-                break;
-            }
-        }
-        if (controller == null) {
+        var controllerCandidate = findSoleController(level, min, max, ECOCraftingSystemBlockEntity.class);
+        if (controllerCandidate.isEmpty()) {
             return false;
         }
+        ECOCraftingSystemBlockEntity controller = controllerCandidate.get().blockEntity();
+        BlockPos controllerPos = controllerCandidate.get().pos();
         IECOTier tier = controller.getTier();
         BlockState controllerState = controller.getBlockState();
         IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();

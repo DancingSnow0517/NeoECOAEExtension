@@ -117,7 +117,9 @@ public class NETooltips {
                     showDetails,
                     Component.translatable("tooltip.neoecoae.crafting_pattern_bus.0"),
                     Component.translatable("tooltip.neoecoae.crafting_pattern_bus.1"),
-                    Component.translatable("tooltip.neoecoae.crafting_pattern_bus.2"));
+                    Component.translatable("tooltip.neoecoae.crafting_pattern_bus.2"),
+                    Component.translatable("tooltip.neoecoae.crafting_pattern_bus.3"),
+                    Component.translatable("tooltip.neoecoae.crafting_pattern_bus.4"));
         }
 
         if (COMPUTATION_SYSTEMS.contains(stack.getItem())) {

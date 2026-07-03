@@ -12,7 +12,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
-import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import java.util.List;
@@ -53,18 +52,12 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
     }
 
     private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
-        ECOComputationSystemBlockEntity controller = null;
-        BlockPos controllerPos = null;
-        for (BlockPos pos : MultiBlockUtil.allPossibleController(min, max)) {
-            if (level.getBlockEntity(pos) instanceof ECOComputationSystemBlockEntity be) {
-                controller = be;
-                controllerPos = pos;
-                break;
-            }
-        }
-        if (controller == null) {
+        var controllerCandidate = findSoleController(level, min, max, ECOComputationSystemBlockEntity.class);
+        if (controllerCandidate.isEmpty()) {
             return false;
         }
+        ECOComputationSystemBlockEntity controller = controllerCandidate.get().blockEntity();
+        BlockPos controllerPos = controllerCandidate.get().pos();
         IECOTier tier = controller.getTier();
         BlockState controllerState = controller.getBlockState();
         IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();

@@ -3,9 +3,11 @@ package cn.dancingsnow.neoecoae.multiblock.calculator;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
@@ -68,6 +70,27 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     protected void setMirroredStructure(boolean mirroredStructure) {
         this.mirroredStructure = mirroredStructure;
     }
+
+    protected <T extends BlockEntity> Optional<ControllerCandidate<T>> findSoleController(
+            ServerLevel level, BlockPos min, BlockPos max, Class<T> controllerClass) {
+        ControllerCandidate<T> result = null;
+        for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (!controllerClass.isInstance(blockEntity)) {
+                continue;
+            }
+            if (result != null) {
+                return Optional.empty();
+            }
+            result = new ControllerCandidate<>(controllerClass.cast(blockEntity), pos.immutable());
+        }
+        if (result != null && !MultiBlockUtil.allPossibleController(min, max).contains(result.pos())) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(result);
+    }
+
+    protected record ControllerCandidate<T extends BlockEntity>(T blockEntity, BlockPos pos) {}
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {

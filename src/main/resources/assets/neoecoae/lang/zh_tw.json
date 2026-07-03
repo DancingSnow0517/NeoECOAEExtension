@@ -568,6 +568,8 @@
   "tooltip.neoecoae.crafting_pattern_bus.0": "§7§oECO - FD 智能樣板總線是合成子系統的主要部分",
   "tooltip.neoecoae.crafting_pattern_bus.1": "§7§o每頁可存儲63個樣板，頁數可在配置中設置",
   "tooltip.neoecoae.crafting_pattern_bus.2": "§7§o在ME編碼終端上編碼樣板時，可使用相鄰按鈕快速上傳",
+  "tooltip.neoecoae.crafting_pattern_bus.3": "§7§o普通挖掘會將內部樣板保存在掉落的方塊中",
+  "tooltip.neoecoae.crafting_pattern_bus.4": "§7§o潛行挖掘會讓內部樣板直接掉出",
   "tooltip.neoecoae.crafting_system": "§7§o合成子系統的核心",
   "tooltip.neoecoae.crafting_worker.0": "§7§oECO - FX工作核心是合成子系統的主要部分",
   "tooltip.neoecoae.crafting_worker.1": "§7§oECO - FX工作核心可存儲32個合成任務，每次處理1個合成任務",

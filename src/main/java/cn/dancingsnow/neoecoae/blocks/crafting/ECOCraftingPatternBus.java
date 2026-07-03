@@ -39,4 +39,12 @@ public class ECOCraftingPatternBus extends NEBlock<ECOCraftingPatternBusBlockEnt
             BlockHitResult hitResult) {
         return NELDLibScreenOpener.openBlockEntityUi(level, pos, player);
     }
+
+    @Override
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof ECOCraftingPatternBusBlockEntity be) {
+            be.setPreservePatternsOnBreak(!player.isShiftKeyDown());
+        }
+        super.playerWillDestroy(level, pos, state, player);
+    }
 }

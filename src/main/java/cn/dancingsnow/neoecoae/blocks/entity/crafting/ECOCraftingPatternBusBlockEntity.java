@@ -11,6 +11,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.helpers.patternprovider.PatternContainer;
+import appeng.util.SettingsFrom;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
@@ -64,6 +65,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final LazyOptional<IItemHandlerModifiable> itemHandlerCap;
     private int nextWorkerIndex = 0;
     private int activePages = NEConfig.getCraftingPatternBusPages();
+    private boolean preservePatternsOnBreak = true;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -290,13 +292,50 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         }
     }
 
+    public void setPreservePatternsOnBreak(boolean preservePatternsOnBreak) {
+        this.preservePatternsOnBreak = preservePatternsOnBreak;
+    }
+
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
+        if (preservePatternsOnBreak) {
+            return;
+        }
         IntStream.range(0, inventory.size())
                 .mapToObj(inventory::getStackInSlot)
                 .filter(s -> !s.isEmpty())
                 .forEach(drops::add);
+    }
+
+    @Override
+    public void exportSettings(SettingsFrom mode, CompoundTag output, @Nullable Player player) {
+        super.exportSettings(mode, output, player);
+        if (mode == SettingsFrom.DISMANTLE_ITEM && (player == null || !player.isShiftKeyDown())) {
+            inventory.writeToNBT(output, NBT_PATTERN_INVENTORY);
+            output.putInt(NBT_PATTERN_INVENTORY_PAGES, activePages);
+        }
+    }
+
+    @Override
+    public void importSettings(SettingsFrom mode, CompoundTag input, @Nullable Player player) {
+        super.importSettings(mode, input, player);
+        if (mode == SettingsFrom.DISMANTLE_ITEM && input.contains(NBT_PATTERN_INVENTORY)) {
+            inventory.clear();
+            inventory.readFromNBT(input, NBT_PATTERN_INVENTORY);
+            int savedPages =
+                    input.contains(NBT_PATTERN_INVENTORY_PAGES) ? input.getInt(NBT_PATTERN_INVENTORY_PAGES) : 1;
+            activePages = clampPages(
+                    Math.max(NEConfig.getCraftingPatternBusPages(), Math.max(savedPages, getHighestOccupiedPage())));
+            updatePatternDetails();
+        }
+    }
+
+    @Override
+    public void clearContent() {
+        super.clearContent();
+        inventory.clear();
+        updatePatternDetails();
     }
 
     @Override

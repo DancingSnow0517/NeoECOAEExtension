@@ -12,8 +12,10 @@ import net.minecraft.network.codec.StreamCodec;
 public record AutoExportSides(Set<RelativeSide> sides) {
 
     public static final Codec<AutoExportSides> CODEC = Codec.list(CodecUtils.RELATIVE_SIDE_CODEC, 0, 6)
-            .xmap(from -> new AutoExportSides(EnumSet.copyOf(from)), to -> to.sides.stream()
-                    .toList());
+            .xmap(
+                    from -> new AutoExportSides(
+                            from.isEmpty() ? EnumSet.noneOf(RelativeSide.class) : EnumSet.copyOf(from)),
+                    to -> to.sides.stream().toList());
 
     public static final StreamCodec<FriendlyByteBuf, AutoExportSides> STREAM_CODEC = StreamCodec.of(
             (buf, autoExportSides) -> {

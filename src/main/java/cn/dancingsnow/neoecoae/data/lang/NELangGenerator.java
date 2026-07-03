@@ -101,7 +101,9 @@ public class NELangGenerator {
                 "tooltip.neoecoae.crafting_pattern_bus",
                 "§7§oECO - FD Smart Pattern Bus is a core part of the crafting subsystem",
                 "§7§oEach page can store 63 patterns; the number of pages is configurable",
-                "§7§oWhen encoding patterns on an ME encoding terminal, use the adjacent button to quick upload");
+                "§7§oWhen encoding patterns on an ME encoding terminal, use the adjacent button to quick upload",
+                "§7§oBreaking normally preserves stored patterns in the dropped block",
+                "§7§oSneak-breaking drops stored patterns instead");
 
         provider.add("tooltip.neoecoae.computation_system", "§7§oThe core of the computation subsystem");
         addLangs(

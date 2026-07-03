@@ -11,7 +11,6 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageVentBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
-import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -49,18 +48,12 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
     }
 
     private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
-        ECOStorageSystemBlockEntity controller = null;
-        BlockPos controllerPos = null;
-        for (BlockPos pos : MultiBlockUtil.allPossibleController(min, max)) {
-            if (level.getBlockEntity(pos) instanceof ECOStorageSystemBlockEntity be) {
-                controller = be;
-                controllerPos = pos;
-                break;
-            }
-        }
-        if (controller == null) {
+        var controllerCandidate = findSoleController(level, min, max, ECOStorageSystemBlockEntity.class);
+        if (controllerCandidate.isEmpty()) {
             return false;
         }
+        ECOStorageSystemBlockEntity controller = controllerCandidate.get().blockEntity();
+        BlockPos controllerPos = controllerCandidate.get().pos();
         IECOTier tier = controller.getTier();
         BlockState controllerState = controller.getBlockState();
         IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();

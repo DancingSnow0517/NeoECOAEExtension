@@ -87,7 +87,9 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
                 blockEntity.updateCluster(null);
             }
         } finally {
-            MBCalculator.setModificationInProgress(null);
+            if (ownsModification) {
+                MBCalculator.setModificationInProgress(null);
+            }
         }
     }
 }
