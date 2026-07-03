@@ -68,5 +68,10 @@ public class ConfigLangs {
                 "Increase ECO storage matrix capacity and enlarge computation flash capacity by 16x.\n"
                         + "Defaults to enabled when GregTech Modern/GTCEu is detected.\n"
                         + "Changes are fully applied after re-entering the world or restarting the server.");
+        provider.add("neoecoae.configuration.enableInfiniteStorage", "Enable Infinite Storage");
+        provider.add(
+                "neoecoae.configuration.enableInfiniteStorage.tooltip",
+                "Enable the L9-only infinite storage component gameplay.\n"
+                        + "Default off. Disabling it hides the slot and blocks new migrations without deleting existing domain files.");
     }
 }

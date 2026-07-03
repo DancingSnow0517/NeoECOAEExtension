@@ -110,6 +110,12 @@ public class NEConfig {
                     "Changing this config is fully applied after re-entering the world or restarting the server.")
             .define("increaseStorageCellCapacity", DEFAULT_INCREASE_STORAGE_CELL_CAPACITY);
 
+    private static final ForgeConfigSpec.BooleanValue ENABLE_INFINITE_STORAGE = BUILDER.comment(
+                    "Enable the L9 infinite storage gameplay.",
+                    "Default false. When disabled, the infinite component slot and new migrations are hidden/blocked.",
+                    "Existing infinite storage domain files are preserved and are not deleted by this option.")
+            .define("enableInfiniteStorage", false);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength = 15;
@@ -124,6 +130,7 @@ public class NEConfig {
     public static int ecoFastPathCacheSize = 512;
     public static int craftingPatternBusPages = 2;
     public static boolean increaseStorageCellCapacity;
+    public static boolean enableInfiniteStorage;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent event) {
@@ -161,6 +168,7 @@ public class NEConfig {
                 Math.max(16, getPositiveIntProperty("neoecoae.ecoFastPathCacheSize", ECO_FAST_PATH_CACHE_SIZE.get()));
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
+        enableInfiniteStorage = ENABLE_INFINITE_STORAGE.get();
     }
 
     public static boolean isEcoAe2FastPathEnabled() {
@@ -171,6 +179,10 @@ public class NEConfig {
 
     public static boolean isIncreaseStorageCellCapacity() {
         return increaseStorageCellCapacity;
+    }
+
+    public static boolean isInfiniteStorageEnabled() {
+        return enableInfiniteStorage;
     }
 
     public static int getCraftingPatternBusPages() {

@@ -229,6 +229,17 @@ public class ECOStorageCell implements IECOStorageCell {
         return hasVoidUpgrade ? amount : inserted;
     }
 
+    public long forceInsertOverflow(AEKey what, long amount, Actionable mode) {
+        if (amount <= 0 || !keyType.contains(what)) {
+            return 0;
+        }
+        if (mode == Actionable.MODULATE) {
+            contents.add(what, amount);
+            this.saveChanges();
+        }
+        return amount;
+    }
+
     private long innerInsert(AEKey what, long amount, Actionable mode) {
         if (what instanceof AEItemKey itemKey) {
             var stack = itemKey.toStack();

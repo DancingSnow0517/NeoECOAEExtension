@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.all;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -178,6 +179,7 @@ public final class NECreativeTabContents {
         add(NEItems.ECO_CELL_COMPONENT_16M);
         add(NEItems.ECO_CELL_COMPONENT_64M);
         add(NEItems.ECO_CELL_COMPONENT_256M);
+        addIf(NEConfig::isInfiniteStorageEnabled, NEItems.ECO_INFINITE_CELL_COMPONENT);
         add(NEItems.ECO_ITEM_CELL_HOUSING);
         add(NEItems.ECO_FLUID_CELL_HOUSING);
         add(NEItems.ECO_ITEM_CELL_16M);
@@ -223,6 +225,22 @@ public final class NECreativeTabContents {
 
     private static void add(Supplier<?> entry) {
         ENTRIES.add(() -> {
+            Object obj = entry.get();
+            if (obj instanceof ItemStack stack) {
+                return stack;
+            }
+            if (obj instanceof net.minecraft.world.level.ItemLike itemLike) {
+                return new ItemStack(itemLike);
+            }
+            return ItemStack.EMPTY;
+        });
+    }
+
+    private static void addIf(Supplier<Boolean> condition, Supplier<?> entry) {
+        ENTRIES.add(() -> {
+            if (!condition.get()) {
+                return ItemStack.EMPTY;
+            }
             Object obj = entry.get();
             if (obj instanceof ItemStack stack) {
                 return stack;

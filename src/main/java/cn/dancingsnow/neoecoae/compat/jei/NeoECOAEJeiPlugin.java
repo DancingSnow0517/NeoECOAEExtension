@@ -2,21 +2,25 @@ package cn.dancingsnow.neoecoae.compat.jei;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.compat.xei.MultiblockInfoRecipe;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUIGuiContainer;
 import java.util.List;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
+import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.ResourceLocation;
@@ -63,6 +67,11 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
 
         List<IntegratedWorkingStationRecipe> iwsRecipes =
                 minecraft.level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get());
+        if (!NEConfig.isInfiniteStorageEnabled()) {
+            iwsRecipes = iwsRecipes.stream()
+                    .filter(recipe -> !isInfiniteComponentRecipe(recipe))
+                    .toList();
+        }
         registration.addRecipes(IWS_RECIPE_TYPE, iwsRecipes);
 
         List<CoolingRecipe> coolingRecipes =
@@ -92,5 +101,20 @@ public final class NeoECOAEJeiPlugin implements IModPlugin {
                 return screen.getGuiExtraAreas();
             }
         });
+    }
+
+    @Override
+    public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
+        if (NEConfig.isInfiniteStorageEnabled()) {
+            return;
+        }
+        jeiRuntime
+                .getIngredientManager()
+                .removeIngredientsAtRuntime(
+                        VanillaTypes.ITEM_STACK, List.of(NEItems.ECO_INFINITE_CELL_COMPONENT.asStack()));
+    }
+
+    private static boolean isInfiniteComponentRecipe(IntegratedWorkingStationRecipe recipe) {
+        return recipe.hasItemOutput() && recipe.itemOutput().is(NEItems.ECO_INFINITE_CELL_COMPONENT.get());
     }
 }

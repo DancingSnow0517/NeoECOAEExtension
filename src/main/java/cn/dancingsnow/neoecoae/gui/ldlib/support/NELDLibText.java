@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.support;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
@@ -11,6 +14,8 @@ public final class NELDLibText {
     private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
     private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
     private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
+    private static final BigInteger BIG_1024 = BigInteger.valueOf(1024L);
+    private static final String[] HUGE_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
 
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
             ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
@@ -85,6 +90,31 @@ public final class NELDLibText {
             suffix = "M";
         }
         return COMPACT_DECIMAL.get().format((double) safe / (double) unit) + suffix;
+    }
+
+    public static String hugeAmount(String decimalAmount) {
+        BigInteger value;
+        try {
+            value = new BigInteger(decimalAmount);
+        } catch (RuntimeException ignored) {
+            return decimalAmount;
+        }
+        if (value.signum() <= 0) {
+            return "0";
+        }
+
+        int unitIndex = 0;
+        BigInteger unit = BigInteger.ONE;
+        while (unitIndex < HUGE_SUFFIXES.length - 1 && value.compareTo(unit.multiply(BIG_1024)) >= 0) {
+            unit = unit.multiply(BIG_1024);
+            unitIndex++;
+        }
+        if (unitIndex == 0) {
+            return NUMBER_FORMAT.get().format(value);
+        }
+
+        BigDecimal scaled = new BigDecimal(value).divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
+        return scaled.toPlainString() + HUGE_SUFFIXES[unitIndex];
     }
 
     public static String compactDecimal(long value, long unit, String suffix) {

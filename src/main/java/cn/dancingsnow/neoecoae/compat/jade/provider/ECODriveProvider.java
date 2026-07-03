@@ -4,6 +4,7 @@ import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -20,6 +21,11 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     @Override
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
         CompoundTag data = accessor.getServerData();
+        if (data.getBoolean("infiniteMember")) {
+            tooltip.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return;
+        }
         if (data.contains("mounted")) {
             boolean mounted = data.getBoolean("mounted");
             if (mounted) {
@@ -42,6 +48,7 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
     @Override
     public void appendServerData(CompoundTag tag, BlockAccessor accessor) {
         if (accessor.getBlockEntity() instanceof ECODriveBlockEntity drive) {
+            tag.putBoolean("infiniteMember", ECOInfiniteStorageMember.isMember(drive.getCellStack()));
             tag.putBoolean("mounted", drive.isMounted());
             IECOStorageCell cellInventory = drive.getCellInventory();
             if (cellInventory != null) {

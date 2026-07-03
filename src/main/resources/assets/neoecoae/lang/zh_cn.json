@@ -302,6 +302,11 @@
   "gui.neoecoae.storage.avg_load": "平均负载",
   "gui.neoecoae.storage.bytes_used": "字节已使用",
   "gui.neoecoae.storage.chemicals": "化学品",
+  "gui.neoecoae.storage.infinite": "无限",
+  "gui.neoecoae.storage.infinite_component": "无限存储组件",
+  "gui.neoecoae.storage.infinite_domain": "无限存储域",
+  "gui.neoecoae.storage.infinite_extract_blocked": "无限存储模式下无法取出",
+  "gui.neoecoae.storage.infinite_value": "无限",
   "gui.neoecoae.storage.current_load": "当前负载",
   "gui.neoecoae.storage.energy": "能量监控",
   "gui.neoecoae.storage.energy_status": "能量存储: %sAE / %sAE (%s%%)",
@@ -413,6 +418,7 @@
   "item.neoecoae.eco_cell_component_16m": "LE4 ECO存储组件",
   "item.neoecoae.eco_cell_component_256m": "LE9 ECO存储组件",
   "item.neoecoae.eco_cell_component_64m": "LE6 ECO存储组件",
+  "item.neoecoae.eco_infinite_cell_component": "ECO无限存储组件",
   "item.neoecoae.eco_chemical_cell_housing": "ECO化学品存储矩阵外壳",
   "item.neoecoae.eco_chemical_storage_cell_16m": "ECO - LE4 化学品存储矩阵",
   "item.neoecoae.eco_chemical_storage_cell_256m": "ECO - LE9 化学品存储矩阵",
@@ -588,6 +594,8 @@
   "tooltip.neoecoae.storage_dirve.0": "§7§o可驱动存储矩阵",
   "tooltip.neoecoae.storage_dirve.1": "§7§o可驱动的存储矩阵等级由存储子系统主机决定",
   "tooltip.neoecoae.storage_system": "§7§o存储系统的核心",
+  "tooltip.neoecoae.storage.infinite_member": "由存储主机统一管理",
+  "tooltip.neoecoae.infinite_component.unlock": "放入64个组件并安装16个L9存储矩阵即可开启无限存储",
   "upgrade.neoecoae.aluminum_alloy_upgrade": "铝合金升级",
   "upgrade.neoecoae.black_tungsten_alloy_upgrade": "黑钨合金升级"
 }

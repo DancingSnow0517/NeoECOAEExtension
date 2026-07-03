@@ -8,11 +8,29 @@ public record NEStorageUiState(
         BlockPos pos,
         List<NEStorageUiTypeState> typeStates,
         List<NEStorageUiMatrixState> matrixStates,
+        List<NEStorageHugeStackState> hugeStacks,
         long storedEnergy,
         long maxEnergy,
-        boolean formed) {
+        boolean formed,
+        boolean infiniteSlotVisible,
+        boolean infiniteMode,
+        int infiniteComponentCount,
+        boolean canTakeInfiniteComponent,
+        boolean infiniteDomainEmpty) {
     public static NEStorageUiState empty(BlockPos pos) {
-        return new NEStorageUiState(pos, Collections.emptyList(), Collections.emptyList(), 0, 0, false);
+        return new NEStorageUiState(
+                pos,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                0,
+                0,
+                false,
+                false,
+                false,
+                0,
+                true,
+                true);
     }
 
     public long totalUsedTypes() {

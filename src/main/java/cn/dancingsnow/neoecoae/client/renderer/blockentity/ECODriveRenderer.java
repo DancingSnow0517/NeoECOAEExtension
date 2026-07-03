@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -21,6 +22,8 @@ import org.joml.Matrix4f;
 
 public class ECODriveRenderer
         implements BlockEntityRenderer<ECODriveBlockEntity>, IFixedBlockEntityRenderer<ECODriveBlockEntity> {
+    private static final int INFINITE_MEMBER_LED_COLOR = 0xCA6CFF;
+
     public ECODriveRenderer() {}
 
     public ECODriveRenderer(BlockEntityRendererProvider.Context context) {}
@@ -34,54 +37,56 @@ public class ECODriveRenderer
             int packedLight,
             int packedOverlay) {
         renderFixed(blockEntity, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
+        ItemStack cellStack = blockEntity.getCellStack();
+        if (ECOInfiniteStorageMember.isMember(cellStack)) {
+            renderLed(blockEntity, poseStack, bufferSource, INFINITE_MEMBER_LED_COLOR);
+            return;
+        }
         if (!blockEntity.isMounted() || !blockEntity.isOnline()) {
             return;
         }
         IECOStorageCell cellInventory = blockEntity.getCellInventory();
         if (cellInventory != null) {
-            int stateColor = cellInventory.getStatus().getStateColor();
-            int red = stateColor >> 16 & 255;
-            int green = stateColor >> 8 & 255;
-            int blue = stateColor & 255;
-
-            BlockState blockState = blockEntity.getBlockState();
-            Direction face =
-                    blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
-
-            poseStack.pushPose();
-
-            poseStack.translate(0.5, 0.5, 0.5);
-            poseStack.mulPose(face.getRotation());
-            poseStack.translate(0, -0.501, 0);
-
-            float pixel = 1f / 16;
-            float sizeX = pixel * 1;
-            float sizeY = pixel * 2;
-
-            Vec2 offset = new Vec2(-5 * pixel, -5 * pixel);
-
-            float xStart = offset.x;
-            float zStart = offset.y;
-            float xEnd = offset.x + sizeX;
-            float zEnd = offset.y + sizeY;
-
-            Matrix4f matrix = poseStack.last().pose();
-
-            VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
-
-            consumer.vertex(matrix, xStart, 0, zStart)
-                    .color(red, green, blue, 255)
-                    .endVertex();
-            consumer.vertex(matrix, xEnd, 0, zStart)
-                    .color(red, green, blue, 255)
-                    .endVertex();
-            consumer.vertex(matrix, xEnd, 0, zEnd).color(red, green, blue, 255).endVertex();
-            consumer.vertex(matrix, xStart, 0, zEnd)
-                    .color(red, green, blue, 255)
-                    .endVertex();
-
-            poseStack.popPose();
+            renderLed(blockEntity, poseStack, bufferSource, cellInventory.getStatus().getStateColor());
         }
+    }
+
+    private static void renderLed(
+            ECODriveBlockEntity blockEntity, PoseStack poseStack, MultiBufferSource bufferSource, int stateColor) {
+        int red = stateColor >> 16 & 255;
+        int green = stateColor >> 8 & 255;
+        int blue = stateColor & 255;
+
+        BlockState blockState = blockEntity.getBlockState();
+        Direction face = blockState.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
+
+        poseStack.pushPose();
+
+        poseStack.translate(0.5, 0.5, 0.5);
+        poseStack.mulPose(face.getRotation());
+        poseStack.translate(0, -0.501, 0);
+
+        float pixel = 1f / 16;
+        float sizeX = pixel;
+        float sizeY = pixel * 2;
+
+        Vec2 offset = new Vec2(-5 * pixel, -5 * pixel);
+
+        float xStart = offset.x;
+        float zStart = offset.y;
+        float xEnd = offset.x + sizeX;
+        float zEnd = offset.y + sizeY;
+
+        Matrix4f matrix = poseStack.last().pose();
+
+        VertexConsumer consumer = bufferSource.getBuffer(CellLedRenderer.RENDER_LAYER);
+
+        consumer.vertex(matrix, xStart, 0, zStart).color(red, green, blue, 255).endVertex();
+        consumer.vertex(matrix, xEnd, 0, zStart).color(red, green, blue, 255).endVertex();
+        consumer.vertex(matrix, xEnd, 0, zEnd).color(red, green, blue, 255).endVertex();
+        consumer.vertex(matrix, xStart, 0, zEnd).color(red, green, blue, 255).endVertex();
+
+        poseStack.popPose();
     }
 
     @Override

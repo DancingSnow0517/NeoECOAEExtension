@@ -23,6 +23,7 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import com.tterrag.registrate.util.entry.RegistryEntry;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,6 +31,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import lombok.Getter;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -103,6 +105,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public void appendHoverText(
             ItemStack stack, @Nullable Level level, List<Component> lines, TooltipFlag tooltipFlag) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return;
+        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
@@ -113,6 +120,9 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            return Optional.empty();
+        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return Optional.empty();
@@ -223,6 +233,9 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
         if (!InteractionUtil.isInAlternateUseMode(player)) {
+            return false;
+        }
+        if (ECOInfiniteStorageMember.isMember(stack)) {
             return false;
         }
 
