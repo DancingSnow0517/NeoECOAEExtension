@@ -58,18 +58,6 @@ final class JadeText {
                 .append(value(Integer.toString(Math.max(0, theoretical)), ChatFormatting.AQUA));
     }
 
-    static Component parallelRecipesLine(long recipes) {
-        return label("jade.neoecoae.recipes_per_operation_label")
-                .append(value(formatNumber(Math.max(0L, recipes)), ChatFormatting.AQUA))
-                .append(label("jade.neoecoae.recipes_suffix"));
-    }
-
-    static Component workingCraftsLine(long recipes) {
-        return label("jade.neoecoae.working_crafts_label")
-                .append(value(formatNumber(Math.max(0L, recipes)), ChatFormatting.AQUA))
-                .append(label("jade.neoecoae.recipes_suffix"));
-    }
-
     static Component runningLine(boolean running) {
         return Component.translatable(
                         "jade.neoecoae.running",

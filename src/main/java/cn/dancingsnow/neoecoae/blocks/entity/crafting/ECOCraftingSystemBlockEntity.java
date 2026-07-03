@@ -34,7 +34,6 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -233,11 +232,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    private void updateInfo() {
-        markStructureStatsDirty();
-        ensureCraftingStatsCurrent();
-    }
-
     /**
      * Marks the cached crafting structure stats (worker/thread/parallel counts)
      * as stale and increments the UI revision to trigger a menu state resync.
@@ -409,12 +403,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         autoClearCoolingWaste = !autoClearCoolingWaste;
         setChanged();
         markUiStateDirty();
-    }
-
-    private double getOverflowThreadsPercentage() {
-        ensureCraftingStatsCurrent();
-        double totalThread = threadCount;
-        return totalThread > 0 ? getOverflowThreads() / totalThread : 0.0;
     }
 
     public int getOverflowThreads() {
@@ -884,13 +872,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return NELDLibUis.createCraftingController(this, player);
     }
 
-    private long getMaxEnergyUsage() {
-        if (overclocked && !activeCooling) {
-            return getAvailableThreads() * tier.getOverclockedCrafterPowerMultiply() * 100L;
-        }
-        return getAvailableThreads() * 100L;
-    }
-
     @Nullable private CoolingRecipe getCoolingRecipe() {
         if (cluster == null
                 || cluster.getInputHatch() == null
@@ -918,10 +899,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         ResourceLocation inputFluidId = currentCoolingInputFluidId();
         return coolantMaxOverclock == recipe.maxOverclock() && coolantFluidId.equals(inputFluidId);
-    }
-
-    private int getRequiredCoolingOverclock() {
-        return getEffectiveOverclockTimes();
     }
 
     private int getCurrentCoolingMaxOverclock() {
@@ -1023,11 +1000,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     @Override
+    @Deprecated
     public void previewStructure(ServerPlayer player) {
         previewStructure(player, false);
     }
 
     @Override
+    @Deprecated
     public void autoBuild(ServerPlayer serverPlayer) {
         autoBuild(serverPlayer, false);
     }
@@ -1043,27 +1022,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     // buildPreviewStatusComponent() is provided by INEMultiblockBuildHost default
-
-    private Component buildCoolantSupportComponent() {
-        int displayedMaxOverclock = getCurrentCoolingMaxOverclock();
-        if (displayedMaxOverclock < 0) {
-            return Component.translatable("gui.neoecoae.crafting.coolant_max_overclock.none");
-        }
-        return Component.translatable("gui.neoecoae.crafting.coolant_max_overclock", displayedMaxOverclock);
-    }
-
-    private Component buildOverclockStatusComponent() {
-        if (!overclocked) {
-            return Component.translatable("gui.neoecoae.crafting.overclock_status.disabled");
-        }
-        return Component.translatable(
-                "gui.neoecoae.crafting.overclock_status", overlockTimes, getEffectiveOverclockTimes());
-    }
-
-    private int getDisplayedCoolingRecipeMaxOverclock() {
-        CoolingRecipe recipe = getCoolingRecipe();
-        return recipe == null ? -1 : recipe.maxOverclock();
-    }
 
     // UI sync (Layer 1: chunk-load NBT)
     // getUpdateTag/handleUpdateTag/getUpdatePacket are provided by NEBlockEntity.

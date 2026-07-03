@@ -103,6 +103,8 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
         return (NEBlockEntityBuilder<T, P>) super.renderer(renderer);
     }
 
+    /** @deprecated Forge 1.20.1 capabilities are exposed by block entities through getCapability. */
+    @Deprecated
     public NEBlockEntityBuilder<T, P> registerCapability(
             Consumer<CapabilityRegistrationEvent> registerCapabilitiesEvent) {
         // Forge 1.20.1 exposes block-entity capabilities through getCapability.

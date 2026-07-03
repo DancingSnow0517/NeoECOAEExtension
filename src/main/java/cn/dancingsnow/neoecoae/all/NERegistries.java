@@ -20,7 +20,10 @@ public class NERegistries {
         return (Registry<ECOCellType>) BuiltInRegistries.REGISTRY.get(Keys.CELL_TYPE.location());
     }
 
-    /** @deprecated Kept for LDLib accessor compatibility; prefer {@link #cellTypeRegistry()}. */
+    /**
+     * @deprecated Kept only for LDLib accessor compatibility. This is not the
+     *             Forge-managed registry created during {@code NewRegistryEvent}.
+     */
     @Deprecated
     public static final Registry<IECOTier> ECO_TIER = new MappedRegistry<>(Keys.ECO_TIER, Lifecycle.stable());
 

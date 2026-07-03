@@ -26,7 +26,6 @@ import lombok.Getter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -77,7 +76,6 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
-        modBus.addListener(NeoECOAE::addClassicPack);
         if (FMLEnvironment.dist == Dist.CLIENT) {
             cn.dancingsnow.neoecoae.client.NeoECOAEClient.init(modBus, context);
         }
@@ -120,11 +118,6 @@ public class NeoECOAE {
     private static void newRegistry(NewRegistryEvent event) {
         event.create(RegistryBuilder.of(NERegistries.Keys.ECO_TIER.location()).setMaxID(256));
         event.create(RegistryBuilder.of(NERegistries.Keys.CELL_TYPE.location()).setMaxID(256));
-    }
-
-    private static void addClassicPack(AddPackFindersEvent event) {
-        // TODO 1.20.1: Recreate the built-in client resource pack via
-        // AddPackFindersEvent#addRepositorySource.
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {

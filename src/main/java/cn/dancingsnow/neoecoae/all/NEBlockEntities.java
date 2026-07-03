@@ -35,7 +35,6 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.registration.NEBlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntityEntry;
 import com.tterrag.registrate.util.entry.BlockEntry;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 @SuppressWarnings("unused")
 public class NEBlockEntities {
@@ -94,8 +93,6 @@ public class NEBlockEntities {
             .forBlock(NEBlocks.ECO_DRIVE)
             .validBlock(NEBlocks.ECO_DRIVE)
             .serverTicker(ECODriveBlockEntity::tick)
-            .registerCapability(event -> event.registerBlockEntity(
-                    ForgeCapabilities.ITEM_HANDLER, NEBlockEntities.ECO_DRIVE.get(), (be, side) -> be.HANDLER))
             .register();
 
     public static final NEBlockEntityEntry<ECOStorageVentBlockEntity> STORAGE_VENT = REGISTRATE
@@ -168,10 +165,6 @@ public class NEBlockEntities {
             .forBlock(NEBlocks.INPUT_HATCH)
             .validBlock(NEBlocks.INPUT_HATCH)
             .serverTicker(ECOFluidInputHatchBlockEntity::tick)
-            .registerCapability(event -> {
-                event.registerBlockEntity(
-                        ForgeCapabilities.FLUID_HANDLER, NEBlockEntities.INPUT_HATCH.get(), (be, side) -> be.tank);
-            })
             .register();
 
     public static final NEBlockEntityEntry<ECOFluidOutputHatchBlockEntity> OUTPUT_HATCH = REGISTRATE
@@ -179,10 +172,6 @@ public class NEBlockEntities {
             .forBlock(NEBlocks.OUTPUT_HATCH)
             .validBlock(NEBlocks.OUTPUT_HATCH)
             .serverTicker(ECOFluidOutputHatchBlockEntity::tick)
-            .registerCapability(event -> {
-                event.registerBlockEntity(
-                        ForgeCapabilities.FLUID_HANDLER, NEBlockEntities.OUTPUT_HATCH.get(), (be, side) -> be.tank);
-            })
             .register();
 
     public static final NEBlockEntityEntry<ECOCraftingWorkerBlockEntity> CRAFTING_WORKER = REGISTRATE
@@ -195,10 +184,6 @@ public class NEBlockEntities {
             .blockEntityBlockLinked("crafting_pattern_bus", ECOCraftingPatternBusBlockEntity::new)
             .forBlock(NEBlocks.CRAFTING_PATTERN_BUS)
             .validBlock(NEBlocks.CRAFTING_PATTERN_BUS)
-            .registerCapability(e -> e.registerBlockEntity(
-                    ForgeCapabilities.ITEM_HANDLER,
-                    NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
-                    (be, side) -> be.itemHandler))
             .register();
 
     public static final NEBlockEntityEntry<ECOComputationTransmitterBlockEntity> COMPUTATION_TRANSMITTER = REGISTRATE
@@ -250,10 +235,6 @@ public class NEBlockEntities {
             .blockEntityBlockLinked("computation_drive", ECOComputationDriveBlockEntity::new)
             .forBlock(NEBlocks.COMPUTATION_DRIVE)
             .validBlock(NEBlocks.COMPUTATION_DRIVE)
-            .registerCapability(e -> e.registerBlockEntity(
-                    ForgeCapabilities.ITEM_HANDLER,
-                    NEBlockEntities.COMPUTATION_DRIVE.get(),
-                    (be, unused) -> be.getItemHandler()))
             .register();
 
     public static final BlockEntityEntry<ECOIntegratedWorkingStationBlockEntity> INTEGRATED_WORKING_STATION_BLOCK =

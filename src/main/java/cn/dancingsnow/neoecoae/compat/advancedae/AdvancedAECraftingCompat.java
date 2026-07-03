@@ -41,13 +41,14 @@ public final class AdvancedAECraftingCompat {
 
     private AdvancedAECraftingCompat() {}
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static void addCpus(IGrid grid, ImmutableSet.Builder<ICraftingCPU> cpus) {
         if (ADV_CRAFTING_BLOCK_ENTITY_CLASS == null) {
             return;
         }
 
         try {
-            for (Object blockEntity : grid.getMachines(asMachineClass())) {
+            for (Object blockEntity : grid.getMachines((Class) ADV_CRAFTING_BLOCK_ENTITY_CLASS)) {
                 Object cluster = GET_CLUSTER.invoke(blockEntity);
                 if (cluster == null) {
                     continue;
@@ -71,10 +72,5 @@ public final class AdvancedAECraftingCompat {
         if (cpu instanceof ICraftingCPU craftingCPU) {
             cpus.add(craftingCPU);
         }
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private static Class asMachineClass() {
-        return ADV_CRAFTING_BLOCK_ENTITY_CLASS;
     }
 }

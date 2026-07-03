@@ -249,19 +249,6 @@ sourceSets.main.resources {
 
 sourceSets.main.output.dir(layout.buildDirectory.dir('generated/refmap'), builtBy: 'compileJava')
 
-def forge120JavaExcludes = [
-        'cn/dancingsnow/neoecoae/mixins/**',
-        'cn/dancingsnow/neoecoae/client/model/**',
-        'cn/dancingsnow/neoecoae/client/all/NEBuiltinModels.java',
-        'cn/dancingsnow/neoecoae/client/renderer/blockentity/ECOComputationCoolingControllerRenderer.java',
-        'cn/dancingsnow/neoecoae/all/NEDataComponents.java',
-        'cn/dancingsnow/neoecoae/api/components/**'
-]
-
-sourceSets.main.java {
-    exclude forge120JavaExcludes
-}
-
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
     var replaceProperties = [
             minecraft_version      : minecraft_version,
