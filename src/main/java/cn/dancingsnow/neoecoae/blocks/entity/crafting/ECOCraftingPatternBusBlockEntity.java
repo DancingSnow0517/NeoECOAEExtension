@@ -23,7 +23,7 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathLimits;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +50,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 ICraftingProvider,
                 PatternContainer,
                 IECOPatternStorage,
-                IUIHolder.BlockEntityUI {
+                NEBlockEntityUIHolder {
 
     public static final int ROW_SIZE = 9;
     public static final int COL_SIZE = 7;

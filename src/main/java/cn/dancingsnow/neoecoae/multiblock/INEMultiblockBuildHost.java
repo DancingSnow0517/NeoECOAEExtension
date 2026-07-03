@@ -397,14 +397,4 @@ public interface INEMultiblockBuildHost {
                         ? "gui.neoecoae.multiblock.status.dismantled"
                         : "gui.neoecoae.multiblock.status.dismantle_failed");
     }
-
-    // Deprecated methods kept for backward compatibility.
-
-    /** @deprecated Use {@link #previewStructure(ServerPlayer, int)}. */
-    @Deprecated
-    void previewStructure(ServerPlayer player);
-
-    /** @deprecated Use {@link #autoBuild(ServerPlayer, int)}. */
-    @Deprecated
-    void autoBuild(ServerPlayer player);
 }

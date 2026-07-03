@@ -10,6 +10,7 @@ import net.minecraft.client.gui.GuiGraphics;
 public class NEAe2IconButtonWidget extends ButtonWidget {
     private Icon icon;
     private IconAlignment iconAlignment;
+    private boolean pressed;
 
     public NEAe2IconButtonWidget(
             int x,
@@ -22,7 +23,6 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
         this.icon = icon;
         this.iconAlignment = IconAlignment.CENTER;
         setHoverTexture(IGuiTexture.EMPTY);
-        setClickedTexture(IGuiTexture.EMPTY);
     }
 
     public NEAe2IconButtonWidget setIcon(Icon icon) {
@@ -34,8 +34,22 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
         this.iconAlignment = IconAlignment.AE_TAB;
         setButtonTexture(IGuiTexture.EMPTY);
         setHoverTexture(IGuiTexture.EMPTY);
-        setClickedTexture(IGuiTexture.EMPTY);
         return this;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        if (handled && button == 0) {
+            pressed = true;
+        }
+        return handled;
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        pressed = false;
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -49,7 +63,7 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
                     graphics, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight());
         }
         NELDLibClientStyle.drawHoverOverlay(
-                graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), isClicked());
+                graphics, mouseX, mouseY, getPositionX(), getPositionY(), getSizeWidth(), getSizeHeight(), pressed);
     }
 
     @Override
@@ -58,7 +72,7 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
         if (icon == null) {
             return;
         }
-        int offset = isClicked() ? 1 : 0;
+        int offset = pressed ? 1 : 0;
         int iconX = iconAlignment == IconAlignment.AE_TAB
                 ? getPositionX() + 3 + offset
                 : getPositionX() + (getSizeWidth() - icon.width) / 2 + offset;

@@ -16,7 +16,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +32,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity>
-        implements INEMultiblockBuildHost, IUIHolder.BlockEntityUI, IECOComputationHost {
+        implements INEMultiblockBuildHost, NEBlockEntityUIHolder, IECOComputationHost {
 
     @Getter
     private final IECOTier tier;
@@ -288,18 +288,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Override
     public MultiBlockDefinition getBuildDefinition() {
         return NEMultiBlocks.getComputationSystemDefinition(tier);
-    }
-
-    @Deprecated
-    @Override
-    public void previewStructure(ServerPlayer player) {
-        previewStructure(player, false);
-    }
-
-    @Deprecated
-    @Override
-    public void autoBuild(ServerPlayer player) {
-        autoBuild(player, false);
     }
 
     public int getPreviewMissingBlocks() {

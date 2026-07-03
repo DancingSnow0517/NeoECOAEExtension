@@ -13,18 +13,14 @@ import com.tterrag.registrate.util.entry.BlockEntry;
 import com.tterrag.registrate.util.entry.RegistryEntry;
 import com.tterrag.registrate.util.nullness.NonNullFunction;
 import com.tterrag.registrate.util.nullness.NonNullSupplier;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.registries.RegistryObject;
 import org.jetbrains.annotations.Nullable;
 
@@ -103,16 +99,6 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
         return (NEBlockEntityBuilder<T, P>) super.renderer(renderer);
     }
 
-    /** @deprecated Forge 1.20.1 capabilities are exposed by block entities through getCapability. */
-    @Deprecated
-    public NEBlockEntityBuilder<T, P> registerCapability(
-            Consumer<CapabilityRegistrationEvent> registerCapabilitiesEvent) {
-        // Forge 1.20.1 exposes block-entity capabilities through getCapability.
-        // Keep the builder chain source-compatible while the actual providers
-        // are moved onto the block entities.
-        return this;
-    }
-
     @Override
     public NEBlockEntityEntry<T> register() {
         return (NEBlockEntityEntry<T>) super.register();
@@ -126,12 +112,5 @@ public class NEBlockEntityBuilder<T extends NEBlockEntity<?, T>, P> extends Bloc
     @Override
     protected RegistryEntry<BlockEntityType<T>> createEntryWrapper(RegistryObject<BlockEntityType<T>> delegate) {
         return new NEBlockEntityEntry<>(getOwner(), delegate, blockEntry, clientTicker, serverTicker);
-    }
-
-    public static class CapabilityRegistrationEvent {
-        public <C, BE extends BlockEntity> void registerBlockEntity(
-                Capability<C> capability,
-                BlockEntityType<BE> blockEntityType,
-                BiFunction<BE, @Nullable Direction, C> provider) {}
     }
 }

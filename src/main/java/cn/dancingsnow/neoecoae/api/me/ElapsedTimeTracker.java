@@ -109,7 +109,7 @@ public class ElapsedTimeTracker {
         }
     }
 
-    // TODO: Change the network packet and screen to use this rather than the counts below.
+    // Exposed for packet/screen progress displays that need weighted work progress.
     public float getProgress() {
         double startedUnits = 0;
         double completedUnits = 0;

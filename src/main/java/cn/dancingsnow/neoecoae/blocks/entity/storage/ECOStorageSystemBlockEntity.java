@@ -30,7 +30,7 @@ import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -54,7 +54,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
-        implements IGridTickable, INEMultiblockBuildHost, IPriorityHost, IUIHolder.BlockEntityUI {
+        implements IGridTickable, INEMultiblockBuildHost, IPriorityHost, NEBlockEntityUIHolder {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
     private static final int STORAGE_INTERFACE_EXPORT_KEYS_PER_TICK = 64;
 
@@ -397,18 +397,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public MultiBlockDefinition getBuildDefinition() {
         return NEMultiBlocks.getStorageSystemDefinition(tier);
-    }
-
-    @Deprecated
-    @Override
-    public void previewStructure(ServerPlayer player) {
-        previewStructure(player, false);
-    }
-
-    @Deprecated
-    @Override
-    public void autoBuild(ServerPlayer player) {
-        autoBuild(player, false);
     }
 
     // Legacy public accessors

@@ -146,8 +146,6 @@ public class ECOCraftingCPULogic {
         // cpu.updateOutput(plan.finalOutput());
         cpu.markDirty();
 
-        // TODO: post monitor difference?
-
         notifyJobOwner(job, CraftingJobStatusPacket.Status.STARTED);
 
         var craftingService = (CraftingService) grid.getCraftingService();
@@ -872,8 +870,6 @@ public class ECOCraftingCPULogic {
         } else {
             job.link.cancel();
         }
-
-        // TODO: log
 
         job.waitingFor.clear();
         postKeysChange(waitingKeys);

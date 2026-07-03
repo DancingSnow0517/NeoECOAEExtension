@@ -51,13 +51,8 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
         tooltip.add(
                 JadeText.overclockLine(data.getInt(KEY_EFFECTIVE_OVERCLOCK), data.getInt(KEY_THEORETICAL_OVERCLOCK)));
 
-        // TODO: 显示"工作合成：xxx 个配方"。
-        // 当前 ECOCraftingSystemBlockEntity 无法直接读取 ECOCraftingCPULogic.job.waitingFor。
-        // 需要在 ECOCraftingSystemBlockEntity 中暴露 getWorkingCrafts()，
-        // 返回 job.waitingFor 中各 key 的总计数，与 AE2 合成状态界面的"工作合成"对齐。
         // Expose the working craft count here once the system can report it.
-
-        // 让原有通用 provider / Jade 默认逻辑去显示，避免重复出现两行“设备在线”。
+        // Keep Jade's default provider from duplicating the generic online status.
     }
 
     @Override

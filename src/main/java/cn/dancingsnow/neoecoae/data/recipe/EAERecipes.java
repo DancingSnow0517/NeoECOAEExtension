@@ -35,8 +35,7 @@ public class EAERecipes {
                         blockId(NEBlocks.FLAWED_BUDDING_ENERGIZED_CRYSTAL.get()),
                         500),
                 new ModLoadedCondition("extendedae")));
-        // TODO 1.20.1 datagen: restore ExtendedAE crystal assembler recipes
-        // with hand-written FinishedRecipe JSON if that integration is kept.
+        // ExtendedAE crystal assembler recipes are omitted in the 1.20.1 datagen path.
     }
 
     private static ResourceLocation blockId(net.minecraft.world.level.block.Block block) {

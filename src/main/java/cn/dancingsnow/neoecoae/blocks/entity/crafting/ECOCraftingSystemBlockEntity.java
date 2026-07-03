@@ -22,7 +22,7 @@ import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -51,7 +51,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
-        implements IGridTickable, INEMultiblockBuildHost, IUIHolder.BlockEntityUI {
+        implements IGridTickable, INEMultiblockBuildHost, NEBlockEntityUIHolder {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final boolean DEBUG_THREAD_COUNT = Boolean.getBoolean("neoecoae.debugEcoCraftingThreadCount");
     private static final Comparator<NECraftingModuleCell> MODULE_CELL_ORDER = Comparator.comparingInt(
@@ -997,18 +997,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     @Override
     public BuildPreviewState getBuildPreview() {
         return buildPreview;
-    }
-
-    @Override
-    @Deprecated
-    public void previewStructure(ServerPlayer player) {
-        previewStructure(player, false);
-    }
-
-    @Override
-    @Deprecated
-    public void autoBuild(ServerPlayer serverPlayer) {
-        autoBuild(serverPlayer, false);
     }
 
     @Nullable public MultiBlockDefinition getBuildDefinition() {

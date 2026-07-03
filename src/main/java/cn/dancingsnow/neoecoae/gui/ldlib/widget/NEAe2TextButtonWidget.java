@@ -21,6 +21,7 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
     private int normalColor = NELDLibStyle.DARK_TEXT_PRIMARY;
     private int selectedColor = NELDLibStyle.DARK_TEXT_SUCCESS;
     private int inactiveColor = NELDLibStyle.DARK_TEXT_MUTED;
+    private boolean pressed;
 
     public NEAe2TextButtonWidget(
             int x,
@@ -73,7 +74,6 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
         this.selectedSupplier = selectedSupplier;
         this.style = style;
         setHoverTexture(IGuiTexture.EMPTY);
-        setClickedTexture(IGuiTexture.EMPTY);
     }
 
     public NEAe2TextButtonWidget setTextColors(int normalColor, int selectedColor, int inactiveColor) {
@@ -81,6 +81,21 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
         this.selectedColor = selectedColor;
         this.inactiveColor = inactiveColor;
         return this;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        if (handled && button == 0) {
+            pressed = true;
+        }
+        return handled;
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        pressed = false;
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -95,7 +110,7 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
                     getPositionY(),
                     getSizeWidth(),
                     getSizeHeight(),
-                    isClicked());
+                    pressed);
         } else {
             NELDLibClientStyle.drawInsetButton(
                     graphics,
@@ -104,7 +119,7 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
                     getSizeWidth(),
                     getSizeHeight(),
                     isMouseOverElement(mouseX, mouseY),
-                    isClicked(),
+                    pressed,
                     selectedSupplier.getAsBoolean());
         }
     }

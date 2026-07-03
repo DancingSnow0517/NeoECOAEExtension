@@ -41,7 +41,7 @@ config="${mod_id}.mixins.json"
 [[dependencies.${mod_id}]]
     modId="ldlib"
     mandatory=true
-    versionRange="[1.0.50,)"
+    versionRange="[1.0.33,)"
     ordering="AFTER"
     side="BOTH"
 

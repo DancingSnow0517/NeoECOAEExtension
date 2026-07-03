@@ -10,6 +10,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.world.inventory.Slot;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.injection.Coerce;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(targets = "com.glodblock.github.extendedae.container.ContainerExIOPort")
@@ -24,7 +25,7 @@ public class ContainerExIOPortMixin {
                                     "Lcom/glodblock/github/extendedae/container/ContainerExIOPort;addSlot(Lnet/minecraft/world/inventory/Slot;Lappeng/menu/SlotSemantic;)Lnet/minecraft/world/inventory/Slot;",
                             ordinal = 0))
     private Slot wrapSlot(
-            Object instance,
+            @Coerce Object instance,
             Slot slot,
             SlotSemantic slotSemantic,
             Operation<Slot> original,

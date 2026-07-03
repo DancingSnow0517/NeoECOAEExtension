@@ -3,7 +3,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibUiConstants;
-import com.lowdragmc.lowdraglib.gui.texture.ColorRectAndBorderTexture;
+import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
@@ -108,7 +108,7 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
         ProgressWidget widget = new ProgressWidget(() -> Mth.clamp(percent.get(), 0.0D, 1.0D), x, y, w, h)
                 .setProgressTexture(new ColorRectTexture(0xFF242631), new ColorRectTexture(fillColor))
                 .setFillDirection(direction)
-                .setOverlayTexture(new ColorRectAndBorderTexture(0x00000000, 0xFF9AA0AA, 1.0F));
+                .setOverlayTexture(new ColorBorderTexture(0x00000000, 0xFF9AA0AA).setRadius(1.0F));
         addWidget(widget);
         return widget;
     }

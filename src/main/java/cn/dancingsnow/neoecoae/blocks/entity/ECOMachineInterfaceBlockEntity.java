@@ -8,7 +8,7 @@ import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
-import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.EnumSet;
 import java.util.Set;
@@ -20,7 +20,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
-        extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>> implements IUIHolder.BlockEntityUI {
+        extends NEBlockEntity<C, ECOMachineInterfaceBlockEntity<C>> implements NEBlockEntityUIHolder {
     private static final String NBT_STORAGE_INTERFACE_MODE = "storageInterfaceMode";
 
     private ECOStorageInterfaceMode storageInterfaceMode = ECOStorageInterfaceMode.STORAGE;
