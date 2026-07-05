@@ -87,6 +87,25 @@ public class NEConfig {
                     "Set JVM property -Dneoecoae.ecoBatchFastPathTickLimit=<value> to override this config.")
             .defineInRange("ecoBatchFastPathTickLimit", 256, 1, Integer.MAX_VALUE);
 
+    private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AGGRESSIVE_FAST_PATH = BUILDER.comment(
+                    "Enable the aggressive ECO fast path.",
+                    "This keeps the same safety checks as the normal fast path, but allows much larger ECO Pattern Bus batch pushes.",
+                    "Default false. Enable only after validating recipe behavior in the modpack.",
+                    "Set JVM property -Dneoecoae.ecoAggressiveFastPath=true to force-enable this optimization without editing the config.")
+            .define("ecoAggressiveFastPathEnabled", false);
+
+    private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_LIMIT = BUILDER.comment(
+                    "Maximum crafts merged into a single aggressive fast path batch push.",
+                    "Only used when ecoAggressiveFastPathEnabled is true.",
+                    "Set JVM property -Dneoecoae.ecoAggressiveFastPathLimit=<value> to override this config.")
+            .defineInRange("ecoAggressiveFastPathLimit", 4096, 1, Integer.MAX_VALUE);
+
+    private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT = BUILDER.comment(
+                    "Maximum aggressive fast path batch crafts a CPU may push per tick.",
+                    "Only used when ecoAggressiveFastPathEnabled is true.",
+                    "Set JVM property -Dneoecoae.ecoAggressiveFastPathTickLimit=<value> to override this config.")
+            .defineInRange("ecoAggressiveFastPathTickLimit", 4096, 1, Integer.MAX_VALUE);
+
     private static final ForgeConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER.comment(
                     "Maximum recipe entries kept in each ECO fast path cache.",
                     "Set JVM property -Dneoecoae.ecoFastPathCacheSize=<value> to override this config.",
@@ -127,6 +146,9 @@ public class NEConfig {
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
     public static int ecoBatchFastPathLimit = 64;
     public static int ecoBatchFastPathTickLimit = 256;
+    public static boolean enableEcoAggressiveFastPath;
+    public static int ecoAggressiveFastPathLimit = 4096;
+    public static int ecoAggressiveFastPathTickLimit = 4096;
     public static int ecoFastPathCacheSize = 512;
     public static int craftingPatternBusPages = 2;
     public static boolean increaseStorageCellCapacity;
@@ -164,6 +186,12 @@ public class NEConfig {
                 getPositiveIntProperty("neoecoae.ecoBatchFastPathLimit", ECO_BATCH_FAST_PATH_LIMIT.get());
         ecoBatchFastPathTickLimit =
                 getPositiveIntProperty("neoecoae.ecoBatchFastPathTickLimit", ECO_BATCH_FAST_PATH_TICK_LIMIT.get());
+        enableEcoAggressiveFastPath =
+                getBooleanProperty("neoecoae.ecoAggressiveFastPath", ENABLE_ECO_AGGRESSIVE_FAST_PATH.get());
+        ecoAggressiveFastPathLimit =
+                getPositiveIntProperty("neoecoae.ecoAggressiveFastPathLimit", ECO_AGGRESSIVE_FAST_PATH_LIMIT.get());
+        ecoAggressiveFastPathTickLimit = getPositiveIntProperty(
+                "neoecoae.ecoAggressiveFastPathTickLimit", ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT.get());
         ecoFastPathCacheSize =
                 Math.max(16, getPositiveIntProperty("neoecoae.ecoFastPathCacheSize", ECO_FAST_PATH_CACHE_SIZE.get()));
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
@@ -175,6 +203,18 @@ public class NEConfig {
         return enableEcoAe2FastPath
                 && !postCraftingEvent
                 && !"false".equalsIgnoreCase(System.getProperty("neoecoae.ecoFastPath", "true"));
+    }
+
+    public static boolean isEcoAggressiveFastPathEnabled() {
+        return isEcoAe2FastPathEnabled() && enableEcoAggressiveFastPath;
+    }
+
+    public static int getEcoFastPathBatchLimit() {
+        return isEcoAggressiveFastPathEnabled() ? ecoAggressiveFastPathLimit : ecoBatchFastPathLimit;
+    }
+
+    public static int getEcoFastPathTickLimit() {
+        return isEcoAggressiveFastPathEnabled() ? ecoAggressiveFastPathTickLimit : ecoBatchFastPathTickLimit;
     }
 
     public static boolean isIncreaseStorageCellCapacity() {

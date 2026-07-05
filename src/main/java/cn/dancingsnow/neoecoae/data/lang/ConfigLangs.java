@@ -53,6 +53,19 @@ public class ConfigLangs {
         provider.add(
                 "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip",
                 "Maximum fast path batch crafts a CPU may push per tick.");
+        provider.add("neoecoae.configuration.ecoAggressiveFastPathEnabled", "Enable Aggressive Fast Path");
+        provider.add(
+                "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip",
+                "Allow much larger ECO Pattern Bus batch pushes while keeping the normal fast path safety checks.\n"
+                        + "Default off. Enable after validating recipe behavior in the modpack.");
+        provider.add("neoecoae.configuration.ecoAggressiveFastPathLimit", "Aggressive Fast Path Limit");
+        provider.add(
+                "neoecoae.configuration.ecoAggressiveFastPathLimit.tooltip",
+                "Maximum crafts merged into a single fast path batch push when aggressive fast path is enabled.");
+        provider.add("neoecoae.configuration.ecoAggressiveFastPathTickLimit", "Aggressive Fast Path Tick Limit");
+        provider.add(
+                "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip",
+                "Maximum fast path batch crafts a CPU may push per tick when aggressive fast path is enabled.");
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
                 "neoecoae.configuration.ecoFastPathCacheSize.tooltip",

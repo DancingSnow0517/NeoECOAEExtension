@@ -215,7 +215,7 @@ public class ECOCraftingCPULogic {
         }
 
         int slowPatternBudget = getOperationLimit();
-        var batchBudget = new FastPathBatchBudget(NEConfig.ecoBatchFastPathTickLimit);
+        var batchBudget = new FastPathBatchBudget(NEConfig.getEcoFastPathTickLimit());
         int totalPatternBudget = totalPatternBudget(slowPatternBudget, batchBudget.remaining());
         executeCrafting(slowPatternBudget, totalPatternBudget, cc, eg, cpu.getLevel(), batchBudget);
     }
@@ -620,7 +620,7 @@ public class ECOCraftingCPULogic {
 
         int requested = (int) Math.min(
                 Math.min(taskRemaining, totalBudgetRemaining),
-                Math.min(NEConfig.ecoBatchFastPathLimit, batchBudgetRemaining));
+                Math.min(NEConfig.getEcoFastPathBatchLimit(), batchBudgetRemaining));
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {

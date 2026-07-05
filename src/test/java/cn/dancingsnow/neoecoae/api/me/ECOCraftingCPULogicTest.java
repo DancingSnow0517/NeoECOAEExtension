@@ -43,7 +43,55 @@ class ECOCraftingCPULogicTest {
     void batchBudgetIsIndependentFromSlowOperationBudget() {
         assertEquals(64, NEConfig.ecoBatchFastPathLimit);
         assertEquals(256, NEConfig.ecoBatchFastPathTickLimit);
+        assertEquals(64, NEConfig.getEcoFastPathBatchLimit());
+        assertEquals(256, NEConfig.getEcoFastPathTickLimit());
         assertEquals(256, ECOCraftingCPULogic.totalPatternBudget(64, 256));
+    }
+
+    @Test
+    void aggressiveFastPathUsesSeparateOptInLimits() {
+        boolean previousFastPath = NEConfig.enableEcoAe2FastPath;
+        boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;
+        boolean previousAggressive = NEConfig.enableEcoAggressiveFastPath;
+        int previousAggressiveLimit = NEConfig.ecoAggressiveFastPathLimit;
+        int previousAggressiveTickLimit = NEConfig.ecoAggressiveFastPathTickLimit;
+
+        try {
+            NEConfig.enableEcoAe2FastPath = true;
+            NEConfig.postCraftingEvent = false;
+            NEConfig.enableEcoAggressiveFastPath = true;
+            NEConfig.ecoAggressiveFastPathLimit = 4096;
+            NEConfig.ecoAggressiveFastPathTickLimit = 4096;
+
+            assertEquals(4096, NEConfig.getEcoFastPathBatchLimit());
+            assertEquals(4096, NEConfig.getEcoFastPathTickLimit());
+        } finally {
+            NEConfig.enableEcoAe2FastPath = previousFastPath;
+            NEConfig.postCraftingEvent = previousPostCraftingEvent;
+            NEConfig.enableEcoAggressiveFastPath = previousAggressive;
+            NEConfig.ecoAggressiveFastPathLimit = previousAggressiveLimit;
+            NEConfig.ecoAggressiveFastPathTickLimit = previousAggressiveTickLimit;
+        }
+    }
+
+    @Test
+    void aggressiveFastPathFallsBackWhenBaseFastPathIsDisabled() {
+        boolean previousFastPath = NEConfig.enableEcoAe2FastPath;
+        boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;
+        boolean previousAggressive = NEConfig.enableEcoAggressiveFastPath;
+
+        try {
+            NEConfig.enableEcoAe2FastPath = false;
+            NEConfig.postCraftingEvent = false;
+            NEConfig.enableEcoAggressiveFastPath = true;
+
+            assertEquals(64, NEConfig.getEcoFastPathBatchLimit());
+            assertEquals(256, NEConfig.getEcoFastPathTickLimit());
+        } finally {
+            NEConfig.enableEcoAe2FastPath = previousFastPath;
+            NEConfig.postCraftingEvent = previousPostCraftingEvent;
+            NEConfig.enableEcoAggressiveFastPath = previousAggressive;
+        }
     }
 
     @Test
