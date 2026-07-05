@@ -164,12 +164,14 @@ public class NEConfig {
             int computationMaxLength,
             int storageMaxLength,
             int patternBusPages,
-            boolean increaseCapacity) {
+            boolean increaseCapacity,
+            boolean aggressiveFastPath) {
         CRAFTING_SYSTEM_MAX_LENGTH.set(Math.max(CRAFTING_SYSTEM_MIN_LENGTH, craftingMaxLength));
         COMPUTATION_SYSTEM_MAX_LENGTH.set(Math.max(COMPUTATION_SYSTEM_MIN_LENGTH, computationMaxLength));
         STORAGE_SYSTEM_MAX_LENGTH.set(Math.max(STORAGE_SYSTEM_MIN_LENGTH, storageMaxLength));
         CRAFTING_PATTERN_BUS_PAGES.set(Mth.clamp(patternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES));
         INCREASE_STORAGE_CELL_CAPACITY.set(increaseCapacity);
+        ENABLE_ECO_AGGRESSIVE_FAST_PATH.set(aggressiveFastPath);
         SPEC.save();
         syncValues();
     }

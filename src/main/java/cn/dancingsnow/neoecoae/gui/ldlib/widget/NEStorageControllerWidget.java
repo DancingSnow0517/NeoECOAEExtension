@@ -711,49 +711,58 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             return;
         }
         if (state.infiniteMode()) {
+            List<Component> lines = new java.util.ArrayList<>();
+            lines.add(Component.translatable("gui.neoecoae.storage.system_load")
+                    .withStyle(ChatFormatting.AQUA));
+            lines.add(Component.literal(NELDLibText.hugeAmount(totalInfiniteAmount(state)))
+                    .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_USED))
+                    .append(Component.literal(" "
+                                    + Component.translatable("gui.neoecoae.storage.bytes_used")
+                                            .getString())
+                            .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))));
+            lines.add(Component.literal(Component.translatable("gui.neoecoae.common.types")
+                                    .getString()
+                            + ": "
+                            + NELDLibText.number(state.totalUsedTypes()))
+                    .withStyle(ChatFormatting.GRAY));
+            lines.addAll(typeCountTooltipLines(NEStorageMetricsModel.from(state)));
             graphics.renderComponentTooltip(
-                    font(),
-                    List.of(
-                            Component.translatable("gui.neoecoae.storage.system_load")
-                                    .withStyle(ChatFormatting.AQUA),
-                            Component.literal(NELDLibText.hugeAmount(totalInfiniteAmount(state)))
-                                    .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_USED))
-                                    .append(Component.literal(" "
-                                                    + Component.translatable("gui.neoecoae.storage.bytes_used")
-                                                            .getString())
-                                            .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))),
-                            Component.literal(Component.translatable("gui.neoecoae.common.types")
-                                                    .getString()
-                                            + ": "
-                                            + NELDLibText.number(state.totalUsedTypes()))
-                                    .withStyle(ChatFormatting.GRAY)),
-                    mouseX,
-                    mouseY);
+                    font(), lines, mouseX, mouseY);
             return;
         }
-        graphics.renderComponentTooltip(
-                font(),
-                List.of(
-                        Component.translatable("gui.neoecoae.storage.system_load")
-                                .withStyle(ChatFormatting.AQUA),
-                        NELDLibValueText.usedTotalComponent(
-                                "",
-                                NELDLibText.storageBytes(state.totalUsedBytes()),
-                                state.infiniteMode() || state.totalBytes() == Long.MAX_VALUE
-                                        ? infiniteText()
-                                        : NELDLibText.storageBytes(state.totalBytes()),
-                                state.totalUsedBytes(),
-                                finiteColorMax(state.totalBytes()),
-                                Component.translatable("gui.neoecoae.storage.bytes_used")
-                                        .getString()),
-                        Component.translatable(
-                                "gui.neoecoae.machine.types_value",
-                                NELDLibText.number(state.totalUsedTypes()),
-                                state.totalTypes() == Long.MAX_VALUE
-                                        ? infiniteText()
-                                        : NELDLibText.number(state.totalTypes()))),
-                mouseX,
-                mouseY);
+        List<Component> lines = new java.util.ArrayList<>();
+        lines.add(Component.translatable("gui.neoecoae.storage.system_load")
+                .withStyle(ChatFormatting.AQUA));
+        lines.add(NELDLibValueText.usedTotalComponent(
+                "",
+                NELDLibText.storageBytes(state.totalUsedBytes()),
+                state.totalBytes() == Long.MAX_VALUE ? infiniteText() : NELDLibText.storageBytes(state.totalBytes()),
+                state.totalUsedBytes(),
+                finiteColorMax(state.totalBytes()),
+                Component.translatable("gui.neoecoae.storage.bytes_used").getString()));
+        lines.add(Component.translatable(
+                "gui.neoecoae.machine.types_value",
+                NELDLibText.number(state.totalUsedTypes()),
+                state.totalTypes() == Long.MAX_VALUE ? infiniteText() : NELDLibText.number(state.totalTypes())));
+        lines.addAll(typeCountTooltipLines(NEStorageMetricsModel.from(state)));
+        graphics.renderComponentTooltip(font(), lines, mouseX, mouseY);
+    }
+
+    private List<Component> typeCountTooltipLines(StorageMetrics metrics) {
+        List<Component> lines = new java.util.ArrayList<>();
+        String typesLabel = Component.translatable("gui.neoecoae.common.types").getString();
+        for (Metric metric : activeTypeMetrics(metrics)) {
+            if (metric.usedTypes() <= 0L) {
+                continue;
+            }
+            String totalText = metric.totalTypes() == Long.MAX_VALUE ? infiniteText() : NELDLibText.number(metric.totalTypes());
+            lines.add(Component.empty()
+                    .append(metric.label())
+                    .append(Component.literal(typesLabel + ": "
+                                    + NELDLibText.number(metric.usedTypes()) + " / " + totalText)
+                            .withStyle(ChatFormatting.GRAY)));
+        }
+        return lines;
     }
 
     private void drawInfiniteSlotOverlay(GuiGraphics g) {
@@ -785,6 +794,13 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         }
         int bodyHeight = STORAGE_GAUGE_H - STORAGE_GAUGE_CAP_H;
         int barHeight = (int) Math.round(bodyHeight * clamped);
+        drawStorageGaugeSegment(g, x, y + STORAGE_GAUGE_H - barHeight - STORAGE_GAUGE_CAP_H, y + STORAGE_GAUGE_H, color);
+    }
+
+    private void drawStorageGaugeSegment(GuiGraphics g, int x, int top, int bottom, int color) {
+        if (bottom <= top) {
+            return;
+        }
         float alpha = ((color >>> 24) & 0xFF) / 255.0F;
         float red = ((color >>> 16) & 0xFF) / 255.0F;
         float green = ((color >>> 8) & 0xFF) / 255.0F;
@@ -795,7 +811,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         g.blit(
                 STORAGE_ELEMENTS,
                 x,
-                y + STORAGE_GAUGE_H - barHeight - STORAGE_GAUGE_CAP_H,
+                top,
                 STORAGE_GAUGE_W,
                 STORAGE_GAUGE_CAP_H,
                 STORAGE_GAUGE_TOP_U,
@@ -804,8 +820,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 STORAGE_GAUGE_CAP_H,
                 STORAGE_ELEMENTS_SIZE,
                 STORAGE_ELEMENTS_SIZE);
-        int midStart = y + STORAGE_GAUGE_H - barHeight - STORAGE_GAUGE_CAP_H / 2 + 1;
-        int midEnd = y + STORAGE_GAUGE_H - STORAGE_GAUGE_CAP_H + STORAGE_GAUGE_CAP_H / 2 + 1;
+        int midStart = top + STORAGE_GAUGE_CAP_H / 2 + 1;
+        int midEnd = bottom - STORAGE_GAUGE_CAP_H / 2 + 1;
         for (int drawY = midStart; drawY < midEnd; drawY++) {
             g.blit(
                     STORAGE_ELEMENTS,
@@ -823,7 +839,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         g.blit(
                 STORAGE_ELEMENTS,
                 x,
-                y + STORAGE_GAUGE_H - STORAGE_GAUGE_CAP_H,
+                bottom - STORAGE_GAUGE_CAP_H,
                 STORAGE_GAUGE_W,
                 STORAGE_GAUGE_CAP_H,
                 STORAGE_GAUGE_BOTTOM_U,
@@ -864,7 +880,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             }
             if (bottom > top) {
                 g.enableScissor(x, top, x + STORAGE_GAUGE_W, bottom);
-                drawStorageGauge(g, x, y, 1.0D, infiniteGaugeColor(segment.accentColor()));
+                drawStorageGaugeSegment(g, x, top, bottom, infiniteGaugeColor(segment.accentColor()));
                 g.disableScissor();
             }
             bottom = top;
