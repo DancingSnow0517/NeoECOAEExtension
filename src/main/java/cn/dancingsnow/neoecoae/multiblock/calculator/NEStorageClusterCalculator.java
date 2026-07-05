@@ -1,8 +1,5 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
-import appeng.api.orientation.IOrientationStrategy;
-import appeng.api.orientation.OrientationStrategies;
-import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -49,19 +46,13 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         ECOStorageSystemBlockEntity controller = controllerCandidate.get().blockEntity();
         BlockPos controllerPos = controllerCandidate.get().pos();
         IECOTier tier = controller.getTier();
-        BlockState controllerState = controller.getBlockState();
-        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
-        Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
-        Direction front = back.getOpposite();
-        Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
-        Direction down = top.getOpposite();
-        Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
-        Direction right = left.getOpposite();
-        if (mirrored) {
-            Direction tmp = left;
-            left = right;
-            right = tmp;
-        }
+        ControllerOrientation orientation = controllerOrientation(controller.getBlockState(), mirrored);
+        Direction back = orientation.back();
+        Direction front = orientation.front();
+        Direction top = orientation.top();
+        Direction down = orientation.down();
+        Direction left = orientation.left();
+        Direction right = orientation.right();
 
         if (!validateCasing(level, controllerPos, top, down, left)) {
             return false;

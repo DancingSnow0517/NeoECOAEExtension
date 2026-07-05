@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
@@ -104,6 +107,25 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     protected record ControllerCandidate<T extends BlockEntity>(T blockEntity, BlockPos pos) {}
+
+    protected ControllerOrientation controllerOrientation(BlockState controllerState, boolean mirrored) {
+        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
+        Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
+        Direction front = back.getOpposite();
+        Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
+        Direction down = top.getOpposite();
+        Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
+        Direction right = left.getOpposite();
+        if (mirrored) {
+            Direction tmp = left;
+            left = right;
+            right = tmp;
+        }
+        return new ControllerOrientation(back, front, top, down, left, right);
+    }
+
+    protected record ControllerOrientation(
+            Direction back, Direction front, Direction top, Direction down, Direction left, Direction right) {}
 
     @FunctionalInterface
     protected interface MirroredStructureVerifier {
