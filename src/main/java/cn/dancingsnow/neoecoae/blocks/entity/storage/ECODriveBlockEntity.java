@@ -325,6 +325,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             copyDisplayTag(sourceTag, displayTag, "Enchantments");
             copyDisplayTag(sourceTag, displayTag, "StoredEnchantments");
             copyDisplayTag(sourceTag, displayTag, "Trim");
+            ECOInfiniteStorageMember.copyClientSyncTags(sourceTag, displayTag);
             if (!displayTag.isEmpty()) {
                 displayStack.setTag(displayTag);
             }

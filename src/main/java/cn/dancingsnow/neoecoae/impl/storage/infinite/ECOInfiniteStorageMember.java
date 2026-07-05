@@ -41,6 +41,15 @@ public final class ECOInfiniteStorageMember {
         tag.putUUID(DOMAIN_TAG, domainId);
     }
 
+    public static void copyClientSyncTags(CompoundTag source, CompoundTag target) {
+        if (source.getBoolean(MEMBER_TAG)) {
+            target.putBoolean(MEMBER_TAG, true);
+        }
+        if (source.hasUUID(DOMAIN_TAG)) {
+            target.putUUID(DOMAIN_TAG, source.getUUID(DOMAIN_TAG));
+        }
+    }
+
     public static void clearMember(@Nullable ItemStack stack) {
         if (stack == null || !stack.hasTag()) {
             return;
