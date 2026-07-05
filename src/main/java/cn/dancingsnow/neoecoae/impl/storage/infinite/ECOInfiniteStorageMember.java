@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellHandle;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
@@ -58,6 +59,7 @@ public final class ECOInfiniteStorageMember {
         }
         CompoundTag tag = stack.getTag();
         tag.remove(CONTENTS_TAG);
+        ECOCellHandle.clearStorageHandle(stack);
         if (tag.isEmpty()) {
             stack.setTag(null);
         }

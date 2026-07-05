@@ -17,6 +17,7 @@ import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.forge.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.forge.event.NELightningTransformEvents;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
@@ -80,6 +81,9 @@ public class NeoECOAE {
             cn.dancingsnow.neoecoae.client.NeoECOAEClient.init(modBus, context);
         }
         MinecraftForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
+        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelSave);
+        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
         MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, NELightningTransformEvents::onEntityJoinLevel);
     }
 

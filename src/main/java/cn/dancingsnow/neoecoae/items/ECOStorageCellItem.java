@@ -250,7 +250,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         }
 
         ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
+        if (cellInventory != null && !cellInventory.canFitInsideCell()) {
             player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }

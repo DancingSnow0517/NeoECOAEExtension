@@ -9,6 +9,8 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -59,6 +61,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
         flushPendingCellContent();
+        releaseCellBackend();
         this.cellStack = normalizeCellStack(cellStack);
         invalidateCellInventoryCache();
         if (getLevel() != null && getBlockState().hasProperty(ECODriveBlock.HAS_CELL)) {
@@ -349,11 +352,30 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     private void flushPendingContentChanges() {
+        boolean loaded = processDeferredCellLoad();
+        if (loaded) {
+            updateStorageProviderState();
+            IStorageProvider.requestUpdate(getMainNode());
+            markForUpdate();
+            setChanged();
+        }
         flushPendingCellContent();
         if (pendingControllerStatsDirty) {
             pendingControllerStatsDirty = false;
             notifyControllerRefresh();
         }
+    }
+
+    private boolean processDeferredCellLoad() {
+        if (cachedCellInventory instanceof ECOStorageCell storageCell) {
+            boolean loaded = storageCell.processDeferredLoad(500_000L);
+            if (loaded) {
+                lastSyncedCellState = getCurrentCellState();
+                pendingControllerStatsDirty = true;
+            }
+            return loaded;
+        }
+        return false;
     }
 
     private void flushPendingCellContent() {
@@ -400,13 +422,19 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void onChunkUnloaded() {
         flushPendingCellContent();
+        releaseCellBackend();
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
         flushPendingCellContent();
+        releaseCellBackend();
         super.setRemoved();
+    }
+
+    private void releaseCellBackend() {
+        ECOCellStorageManager.release(cellStack, cellSaveProvider);
     }
 
     @Override

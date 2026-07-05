@@ -428,6 +428,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private void migrateDriveToDomain(
             ECODriveBlockEntity drive, IECOStorageCell cell, ECOInfiniteStorageEngine engine, UUID domainId) {
+        if (cell instanceof ECOStorageCell storageCell) {
+            storageCell.ensureRuntimeLoaded();
+        }
         KeyCounter available = new KeyCounter();
         cell.getAvailableStacks(available);
         for (Object2LongMap.Entry<AEKey> entry : available) {
@@ -437,6 +440,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         engine.flushBudgeted(0L);
+        if (cell instanceof ECOStorageCell storageCell) {
+            storageCell.clearAllStoredStacks();
+        }
         ItemStack stack = drive.getCellStack();
         if (stack != null && !stack.isEmpty()) {
             ECOInfiniteStorageMember.clearStoredContents(stack);
@@ -1052,6 +1058,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             MEStorage sourceStorage, MEStorage targetStorage, IActionSource source, int maxKeys) {
         if (maxKeys <= 0) {
             return new ExportResult(0L, 0);
+        }
+        if (sourceStorage instanceof ECOStorageCell storageCell) {
+            storageCell.ensureRuntimeLoaded();
         }
         appeng.api.stacks.KeyCounter available = new appeng.api.stacks.KeyCounter();
         sourceStorage.getAvailableStacks(available);
