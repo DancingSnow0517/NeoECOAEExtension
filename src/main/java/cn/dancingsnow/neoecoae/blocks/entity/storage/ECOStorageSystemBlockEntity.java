@@ -465,6 +465,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
         KeyCounter pending = new KeyCounter();
         engine.getAvailableStacks(pending);
+        List<ECODriveBlockEntity> restoreTargets = prepareNormalRestoreTargets(infiniteDomainId);
         boolean changed = false;
         boolean restoredAll = true;
 
@@ -482,7 +483,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         infiniteDomainId);
                 continue;
             }
-            long restored = forceRestoreToNormalMember(key, amount);
+            long restored = forceRestoreToNormalCell(restoreTargets, key, amount);
             if (restored <= 0L) {
                 restoredAll = false;
                 continue;
@@ -520,15 +521,29 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         LOGGER.warn(message, args);
     }
 
-    private long forceRestoreToNormalMember(AEKey key, long amount) {
-        if (cluster == null || infiniteDomainId == null) {
-            return 0L;
+    private List<ECODriveBlockEntity> prepareNormalRestoreTargets(UUID domainId) {
+        List<ECODriveBlockEntity> targets = new ArrayList<>();
+        if (cluster == null) {
+            return targets;
         }
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             ItemStack stack = drive.getCellStack();
-            if (!ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId)) {
-                continue;
+            if (ECOInfiniteStorageMember.isMemberOf(stack, domainId)
+                    && drive.convertInfiniteMemberToNormalStorage(domainId)) {
+                drive.requestStorageProviderUpdate();
+                drive.scheduleRenderUpdate();
+                drive.setChanged();
             }
+            IECOStorageCell cell = drive.getCellInventory();
+            if (cell instanceof ECOStorageCell && cell.getTier() == ECOTier.L9) {
+                targets.add(drive);
+            }
+        }
+        return targets;
+    }
+
+    private long forceRestoreToNormalCell(List<ECODriveBlockEntity> targets, AEKey key, long amount) {
+        for (ECODriveBlockEntity drive : targets) {
             IECOStorageCell cell = drive.getCellInventory();
             if (cell instanceof ECOStorageCell ecoCell) {
                 long restored = ecoCell.forceInsertOverflow(key, amount, Actionable.MODULATE);

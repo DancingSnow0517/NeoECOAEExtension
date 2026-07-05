@@ -154,11 +154,18 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             invalidateCellInventoryCache();
             return null;
         }
+        if (level != null && level.isClientSide) {
+            return null;
+        }
         if (cachedCellInventory == null || cachedCellInventoryStack != cellStack) {
             cachedCellInventory = ECOStorageCells.getCellInventory(cellStack, cellSaveProvider);
             cachedCellInventoryStack = cellStack;
         }
         return cachedCellInventory;
+    }
+
+    @Nullable public CellState getRenderedCellState() {
+        return lastSyncedCellState;
     }
 
     @Override
@@ -226,6 +233,21 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         notifyControllerRefresh();
     }
 
+    public boolean convertInfiniteMemberToNormalStorage(UUID domainId) {
+        flushPendingCellContent();
+        releaseCellBackend();
+        if (!ECOInfiniteStorageMember.isMemberOf(cellStack, domainId)) {
+            return false;
+        }
+        ECOInfiniteStorageMember.clearMember(cellStack);
+        invalidateCellInventoryCache();
+        lastSyncedCellState = null;
+        markForUpdate();
+        setChanged();
+        notifyControllerRefresh();
+        return true;
+    }
+
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
@@ -288,6 +310,10 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         }
         data.putBoolean("mounted", mounted);
         data.putBoolean("online", online);
+        CellState cellState = lastSyncedCellState != null ? lastSyncedCellState : getCurrentCellState();
+        if (cellState != null) {
+            data.putString("cellState", cellState.name());
+        }
     }
 
     private void loadDriveVisualState(CompoundTag data) {
@@ -299,7 +325,10 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         invalidateCellInventoryCache();
         this.mounted = data.getBoolean("mounted");
         this.online = data.getBoolean("online");
-        this.lastSyncedCellState = getCurrentCellState();
+        this.lastSyncedCellState = readCellState(data);
+        if (this.lastSyncedCellState == null && (level == null || !level.isClientSide)) {
+            this.lastSyncedCellState = getCurrentCellState();
+        }
     }
 
     @Nullable private CellState getCurrentCellState() {
@@ -331,6 +360,17 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             }
         }
         return displayStack.save(new CompoundTag());
+    }
+
+    @Nullable private static CellState readCellState(CompoundTag data) {
+        if (!data.contains("cellState")) {
+            return null;
+        }
+        try {
+            return CellState.valueOf(data.getString("cellState"));
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     private static void copyDisplayTag(CompoundTag source, CompoundTag target, String key) {

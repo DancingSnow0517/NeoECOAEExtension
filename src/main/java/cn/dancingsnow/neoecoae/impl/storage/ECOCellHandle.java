@@ -174,7 +174,7 @@ public final class ECOCellHandle {
                 return 0L;
             }
         }
-        return parseLongTag(tag, TAG_USED_BYTES);
+        return 0L;
     }
 
     public static long getUsedBytesSummary(ItemStack stack) {

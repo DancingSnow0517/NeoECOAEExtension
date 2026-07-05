@@ -31,8 +31,11 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
     private final UUID storageId;
     private final Path storagePath;
     private final Map<AEKey, Long> amounts = new HashMap<>();
+    private final Map<AEKey, Long> loadedKeyRevisions = new HashMap<>();
+    private final Map<AEKey, Integer> loadedKeySourceShards = new HashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
     private final Set<Integer> dirtyShards = new HashSet<>();
+    private final long[] shardRevisions = new long[SHARD_COUNT];
 
     private boolean loaded;
     private boolean loadRequested;
@@ -238,6 +241,8 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
         loading = true;
         nextLoadShard = 0;
         amounts.clear();
+        loadedKeyRevisions.clear();
+        loadedKeySourceShards.clear();
         visibleStacks.clear();
         try {
             Files.createDirectories(storagePath);
@@ -247,10 +252,28 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
     }
 
     private void finishLoading() {
+        discardSupersededLegacyShardEntries();
         rebuildVisibleStacks();
+        loadedKeyRevisions.clear();
+        loadedKeySourceShards.clear();
         loaded = true;
         loadRequested = false;
         loading = false;
+    }
+
+    private void discardSupersededLegacyShardEntries() {
+        amounts.entrySet().removeIf(entry -> {
+            AEKey key = entry.getKey();
+            int targetShard = shardFor(key);
+            int sourceShard = loadedKeySourceShards.getOrDefault(key, targetShard);
+            long sourceRevision = loadedKeyRevisions.getOrDefault(key, 0L);
+            if (sourceShard != targetShard && shardRevisions[targetShard] > sourceRevision) {
+                loadedKeyRevisions.put(key, shardRevisions[targetShard]);
+                loadedKeySourceShards.put(key, targetShard);
+                return true;
+            }
+            return false;
+        });
     }
 
     private void applyDelta(AEKey key, long delta) {
@@ -296,16 +319,30 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
         }
         try (InputStream input = Files.newInputStream(path)) {
             CompoundTag tag = NbtIo.readCompressed(input);
+            long shardRevision = tag.getLong("revision");
+            int hashVersion = tag.getInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG);
+            shardRevisions[shard] = shardRevision;
             ListTag entries = tag.getList("entries", Tag.TAG_COMPOUND);
             for (int i = 0; i < entries.size(); i++) {
                 CompoundTag entry = entries.getCompound(i);
                 AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
                 long amount = Math.max(0L, entry.getLong("amount"));
                 if (key != null && amount > 0L) {
-                    amounts.put(key, LongMath.saturatedAdd(amounts.getOrDefault(key, 0L), amount));
+                    int targetShard = shardFor(key);
+                    if (targetShard != shard || hashVersion < ECOStorageKeyHash.VERSION) {
+                        dirtyShards.add(targetShard);
+                    }
+                    Long previousRevision = loadedKeyRevisions.get(key);
+                    if (previousRevision == null
+                            || shardRevision > previousRevision
+                            || (shardRevision == previousRevision && targetShard == shard)) {
+                        amounts.put(key, amount);
+                        loadedKeyRevisions.put(key, shardRevision);
+                        loadedKeySourceShards.put(key, shard);
+                    }
                 }
             }
-            revision = Math.max(revision, tag.getLong("revision"));
+            revision = Math.max(revision, shardRevision);
         } catch (RuntimeException | IOException e) {
             LOGGER.error("Unable to read ECO cell storage shard {}", path, e);
         }
@@ -316,6 +353,7 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
             Files.createDirectories(storagePath);
             CompoundTag tag = new CompoundTag();
             tag.putInt("version", 1);
+            tag.putInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG, ECOStorageKeyHash.VERSION);
             tag.putLong("revision", revision);
             tag.putString("cell", storageId.toString());
             ListTag entries = new ListTag();
@@ -367,6 +405,6 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
     }
 
     private static int shardFor(AEKey key) {
-        return Math.floorMod(key.toTagGeneric().hashCode(), SHARD_COUNT);
+        return ECOStorageKeyHash.shardFor(key, SHARD_COUNT);
     }
 }

@@ -4,6 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageKeyHash;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -43,6 +44,8 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private final Path domainPath;
     private final Path walPath;
     private final Map<AEKey, HugeAmount> amounts = new HashMap<>();
+    private final Map<AEKey, Long> loadedKeyRevisions = new HashMap<>();
+    private final Map<AEKey, Integer> loadedKeySourceShards = new HashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
     private final Map<AEKeyType, MutableTypeStats> typeStats = new HashMap<>();
     private final Map<AEKey, HugeAmount> hugeStacks = new HashMap<>();
@@ -222,12 +225,30 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         for (int shard = 0; shard < SHARD_COUNT; shard++) {
             readShard(shard);
         }
+        discardSupersededLegacyShardEntries();
         replayWal();
         Set<Integer> recoveredDirtyShards = new HashSet<>(dirtyShards);
         rebuildIndexes();
+        loadedKeyRevisions.clear();
+        loadedKeySourceShards.clear();
         dirtyDeltas.clear();
         dirtyShards.clear();
         dirtyShards.addAll(recoveredDirtyShards);
+    }
+
+    private void discardSupersededLegacyShardEntries() {
+        amounts.entrySet().removeIf(entry -> {
+            AEKey key = entry.getKey();
+            int targetShard = shardFor(key);
+            int sourceShard = loadedKeySourceShards.getOrDefault(key, targetShard);
+            long sourceRevision = loadedKeyRevisions.getOrDefault(key, 0L);
+            if (sourceShard != targetShard && shardRevisions[targetShard] > sourceRevision) {
+                loadedKeyRevisions.put(key, shardRevisions[targetShard]);
+                loadedKeySourceShards.put(key, targetShard);
+                return true;
+            }
+            return false;
+        });
     }
 
     private void rebuildIndexes() {
@@ -236,7 +257,9 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         hugeStacks.clear();
         hugeStacksSnapshot = List.of();
         hugeStacksSnapshotDirty = true;
+        storedAmount = HugeAmount.ZERO;
         for (Map.Entry<AEKey, HugeAmount> entry : amounts.entrySet()) {
+            storedAmount = storedAmount.add(entry.getValue());
             updateIndexes(entry.getKey(), HugeAmount.ZERO, entry.getValue());
         }
     }
@@ -277,18 +300,30 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
         try (InputStream input = Files.newInputStream(path)) {
             CompoundTag tag = NbtIo.readCompressed(input);
+            long shardRevision = tag.getLong("revision");
+            int hashVersion = tag.getInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG);
             ListTag entries = tag.getList("entries", Tag.TAG_COMPOUND);
             for (int i = 0; i < entries.size(); i++) {
                 CompoundTag entry = entries.getCompound(i);
                 AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
                 HugeAmount amount = HugeAmount.read(entry.getCompound("amount"));
                 if (key != null && !amount.isZero()) {
-                    amounts.put(key, amount);
-                    storedAmount = storedAmount.add(amount);
+                    int targetShard = shardFor(key);
+                    if (targetShard != shard || hashVersion < ECOStorageKeyHash.VERSION) {
+                        dirtyShards.add(targetShard);
+                    }
+                    Long previousRevision = loadedKeyRevisions.get(key);
+                    if (previousRevision == null
+                            || shardRevision > previousRevision
+                            || (shardRevision == previousRevision && targetShard == shard)) {
+                        amounts.put(key, amount);
+                        loadedKeyRevisions.put(key, shardRevision);
+                        loadedKeySourceShards.put(key, shard);
+                    }
                 }
             }
-            revision = Math.max(revision, tag.getLong("revision"));
-            shardRevisions[shard] = tag.getLong("revision");
+            revision = Math.max(revision, shardRevision);
+            shardRevisions[shard] = shardRevision;
         } catch (RuntimeException | IOException e) {
             LOGGER.error("Unable to read ECO infinite storage shard {}", path, e);
         }
@@ -299,6 +334,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             Files.createDirectories(domainPath);
             CompoundTag tag = new CompoundTag();
             tag.putInt("version", 1);
+            tag.putInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG, ECOStorageKeyHash.VERSION);
             tag.putLong("revision", revision);
             tag.putString("domain", domainId.toString());
             ListTag entries = new ListTag();
@@ -387,7 +423,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 AEKey key = AEKey.fromTagGeneric(tag.getCompound("key"));
                 long recordRevision = tag.getLong("revision");
                 if (key != null) {
-                    if (recordRevision > shardRevisions[shardFor(key)]) {
+                    if (recordRevision > loadedKeyRevisions.getOrDefault(key, 0L)) {
                         applyDelta(key, new BigInteger(tag.getString("delta")), false);
                     }
                     revision = Math.max(revision, recordRevision);
@@ -431,7 +467,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     }
 
     private static int shardFor(AEKey key) {
-        return Math.floorMod(key.toTagGeneric().hashCode(), SHARD_COUNT);
+        return ECOStorageKeyHash.shardFor(key, SHARD_COUNT);
     }
 
     private static final class MutableTypeStats {
