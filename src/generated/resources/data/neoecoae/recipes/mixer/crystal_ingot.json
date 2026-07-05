@@ -1,0 +1,87 @@
+{
+  "type": "forge:conditional",
+  "recipes": [
+    {
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "gtceu"
+        }
+      ],
+      "recipe": {
+        "type": "gtceu:mixer",
+        "duration": 400,
+        "inputs": {
+          "fluid": [
+            {
+              "content": {
+                "amount": 2000,
+                "value": {
+                  "fluid": "minecraft:lava"
+                }
+              }
+            }
+          ],
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 4,
+                "ingredient": {
+                  "tag": "forge:dusts/certus_quartz"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 4,
+                "ingredient": {
+                  "tag": "forge:dusts/fluix"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 4,
+                "ingredient": {
+                  "tag": "forge:dusts/energized_crystal"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 4,
+                "ingredient": {
+                  "tag": "neoecoae:crystal_ingot_base"
+                }
+              }
+            }
+          ]
+        },
+        "outputs": {
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 4,
+                "ingredient": {
+                  "item": "neoecoae:crystal_ingot"
+                }
+              }
+            }
+          ]
+        },
+        "tickInputs": {
+          "eu": [
+            {
+              "content": 512
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

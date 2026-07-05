@@ -1,0 +1,77 @@
+{
+  "type": "forge:conditional",
+  "recipes": [
+    {
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "gtceu"
+        }
+      ],
+      "recipe": {
+        "type": "gtceu:mixer",
+        "duration": 200,
+        "inputs": {
+          "fluid": [
+            {
+              "content": {
+                "amount": 1000,
+                "value": {
+                  "fluid": "minecraft:water"
+                }
+              }
+            }
+          ],
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 4,
+                "ingredient": {
+                  "item": "neoecoae:cryotheum_crystal"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 2,
+                "ingredient": {
+                  "item": "neoecoae:energized_crystal"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 2,
+                "ingredient": {
+                  "tag": "forge:dusts/redstone"
+                }
+              }
+            }
+          ]
+        },
+        "outputs": {
+          "fluid": [
+            {
+              "content": {
+                "amount": 1000,
+                "value": {
+                  "fluid": "neoecoae:cryotheum_solution"
+                }
+              }
+            }
+          ]
+        },
+        "tickInputs": {
+          "eu": [
+            {
+              "content": 512
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

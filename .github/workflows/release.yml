@@ -38,6 +38,9 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build --no-daemon --stacktrace --no-parallel --gradle-user-home .ci-gradle-home
 
+      - name: Prepare Release Jar
+        run: ./gradlew prepareReleaseJar --no-daemon --stacktrace --no-parallel --gradle-user-home .ci-gradle-home
+
       - name: Read Properties
         id: 'properties'
         uses: christian-draeger/read-properties@1.1.1

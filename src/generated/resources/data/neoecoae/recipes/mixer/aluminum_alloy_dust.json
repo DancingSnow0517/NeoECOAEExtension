@@ -1,0 +1,68 @@
+{
+  "type": "forge:conditional",
+  "recipes": [
+    {
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "gtceu"
+        }
+      ],
+      "recipe": {
+        "type": "gtceu:mixer",
+        "duration": 160,
+        "inputs": {
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 1,
+                "ingredient": {
+                  "tag": "forge:dusts/iron"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 1,
+                "ingredient": {
+                  "tag": "forge:dusts/aluminium"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 2,
+                "ingredient": {
+                  "tag": "forge:dusts/certus_quartz"
+                }
+              }
+            }
+          ]
+        },
+        "outputs": {
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 1,
+                "ingredient": {
+                  "item": "neoecoae:aluminum_alloy_dust"
+                }
+              }
+            }
+          ]
+        },
+        "tickInputs": {
+          "eu": [
+            {
+              "content": 512
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
