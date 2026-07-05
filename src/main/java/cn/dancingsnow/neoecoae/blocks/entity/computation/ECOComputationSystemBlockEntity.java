@@ -267,6 +267,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     @Override
     public ModularUI createUI(Player player) {
+        if (!isFormed()) {
+            return NELDLibUis.createHostFormationPreview(this, player);
+        }
         return NELDLibUis.createComputationController(this, player);
     }
 

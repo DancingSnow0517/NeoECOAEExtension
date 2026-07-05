@@ -107,6 +107,10 @@ public class GuiLangs {
         provider.add("gui.neoecoae.multiblock.missing", "Missing: %s");
         provider.add("gui.neoecoae.multiblock.conflicts", "Conflicts: %s");
         provider.add("gui.neoecoae.multiblock.required_items", "Required Items: %s");
+        provider.add("gui.neoecoae.host_formation.title", "Block Formation Preview");
+        provider.add("gui.neoecoae.host_formation.diagnostics", "Formation Diagnostics");
+        provider.add("gui.neoecoae.host_formation.installed", "Installed: %s / %s");
+        provider.add("gui.neoecoae.host_formation.missing_conflict", "Missing: %s  Conflicts: %s");
         provider.add("emi.neoecoae.multiblock.requirements", "Block count requirements");
         provider.add("emi.neoecoae.multiblock.change_length", "Change structure length");
         provider.add("emi.neoecoae.multiblock.show_all_layers", "Show all layers");

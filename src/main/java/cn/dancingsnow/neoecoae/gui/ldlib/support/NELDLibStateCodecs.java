@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEHostFormationPreviewState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageHugeStackState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageInterfaceUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
@@ -27,6 +28,8 @@ public final class NELDLibStateCodecs {
     private static final int MAX_PARALLEL_CORE_TIERS = 128;
     private static final int MAX_CRAFTING_MODULE_CELLS = 384;
     private static final int MAX_STRUCTURE_TERMINAL_MATERIALS = 512;
+    private static final int MAX_HOST_FORMATION_BLOCKS = 2048;
+    private static final int MAX_HOST_FORMATION_MATERIALS = 512;
 
     public static void writeStorage(FriendlyByteBuf buf, NEStorageUiState state) {
         buf.writeBlockPos(state.pos());
@@ -145,6 +148,77 @@ public final class NELDLibStateCodecs {
                 infiniteComponentCount,
                 canTakeInfiniteComponent,
                 infiniteDomainEmpty);
+    }
+
+    public static void writeHostFormationPreview(FriendlyByteBuf buf, NEHostFormationPreviewState state) {
+        buf.writeVarInt(state.length());
+        buf.writeVarInt(state.minLength());
+        buf.writeVarInt(state.maxLength());
+        buf.writeBoolean(state.mirrored());
+        buf.writeVarInt(state.selectedLayer());
+        buf.writeVarInt(state.previewMaterialScroll());
+        buf.writeVarInt(state.totalBlocks());
+        buf.writeVarInt(state.matchedBlocks());
+        buf.writeVarInt(state.missingBlocks());
+        buf.writeVarInt(state.conflictBlocks());
+        List<NEHostFormationPreviewState.BlockEntry> blocks = state.blocks();
+        buf.writeVarInt(Math.min(blocks.size(), MAX_HOST_FORMATION_BLOCKS));
+        int blocksWritten = 0;
+        for (NEHostFormationPreviewState.BlockEntry block : blocks) {
+            if (blocksWritten++ >= MAX_HOST_FORMATION_BLOCKS) {
+                break;
+            }
+            buf.writeBlockPos(block.relativePos());
+            buf.writeEnum(block.status());
+        }
+        List<ItemStack> materials = state.requiredItems();
+        buf.writeVarInt(Math.min(materials.size(), MAX_HOST_FORMATION_MATERIALS));
+        int materialsWritten = 0;
+        for (ItemStack stack : materials) {
+            if (materialsWritten++ >= MAX_HOST_FORMATION_MATERIALS) {
+                break;
+            }
+            buf.writeItem(stack);
+        }
+    }
+
+    public static NEHostFormationPreviewState readHostFormationPreview(FriendlyByteBuf buf) {
+        int length = buf.readVarInt();
+        int minLength = buf.readVarInt();
+        int maxLength = buf.readVarInt();
+        boolean mirrored = buf.readBoolean();
+        int selectedLayer = buf.readVarInt();
+        int previewMaterialScroll = buf.readVarInt();
+        int totalBlocks = buf.readVarInt();
+        int matchedBlocks = buf.readVarInt();
+        int missingBlocks = buf.readVarInt();
+        int conflictBlocks = buf.readVarInt();
+        int blockCount = readBoundedNonNegativeVarInt(
+                buf, MAX_HOST_FORMATION_BLOCKS, "Host formation preview block count");
+        List<NEHostFormationPreviewState.BlockEntry> blocks = new ArrayList<>(blockCount);
+        for (int i = 0; i < blockCount; i++) {
+            blocks.add(new NEHostFormationPreviewState.BlockEntry(
+                    buf.readBlockPos(), buf.readEnum(NEHostFormationPreviewState.BlockStatus.class)));
+        }
+        int materialCount = readBoundedNonNegativeVarInt(
+                buf, MAX_HOST_FORMATION_MATERIALS, "Host formation preview material count");
+        List<ItemStack> materials = new ArrayList<>(materialCount);
+        for (int i = 0; i < materialCount; i++) {
+            materials.add(buf.readItem());
+        }
+        return new NEHostFormationPreviewState(
+                length,
+                minLength,
+                maxLength,
+                mirrored,
+                selectedLayer,
+                previewMaterialScroll,
+                totalBlocks,
+                matchedBlocks,
+                missingBlocks,
+                conflictBlocks,
+                List.copyOf(blocks),
+                List.copyOf(materials));
     }
 
     public static void writeStorageInterface(FriendlyByteBuf buf, NEStorageInterfaceUiState state) {

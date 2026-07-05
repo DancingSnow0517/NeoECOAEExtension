@@ -862,6 +862,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public ModularUI createUI(Player player) {
+        if (!isFormed()) {
+            return NELDLibUis.createHostFormationPreview(this, player);
+        }
         return NELDLibUis.createStorageController(this, player);
     }
 

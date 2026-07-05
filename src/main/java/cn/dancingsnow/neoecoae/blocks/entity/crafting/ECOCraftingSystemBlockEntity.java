@@ -905,6 +905,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public ModularUI createUI(net.minecraft.world.entity.player.Player player) {
+        if (!isFormed()) {
+            return NELDLibUis.createHostFormationPreview(this, player);
+        }
         return NELDLibUis.createCraftingController(this, player);
     }
 
