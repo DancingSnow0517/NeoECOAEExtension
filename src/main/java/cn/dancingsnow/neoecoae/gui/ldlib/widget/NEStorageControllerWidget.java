@@ -24,9 +24,7 @@ import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.mojang.blaze3d.systems.RenderSystem;
-import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -105,6 +103,8 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     private static final double HUGE_STACK_SCROLL_SPEED = 20.0D;
     private static final long USAGE_ANIMATION_MS = 500L;
     private static final double USAGE_ANIMATION_EPSILON = 0.0001D;
+    private static final BigInteger HUGE_STACK_TWO_LINE_THRESHOLD =
+            BigInteger.valueOf(1024L).pow(6).multiply(BigInteger.valueOf(92L)).add(BigInteger.valueOf(9L)).divide(BigInteger.TEN);
 
     private static final Map<ScrollKey, ScrollSnapshot> SCROLL_MEMORY = new java.util.HashMap<>();
 
@@ -546,12 +546,24 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             g.renderItem(displayStack, x, y + 1);
         }
         int textX = x + 20;
-        int textY = y + 4;
+        int textW = Math.max(1, HUGE_STACK_PANEL_W - 30);
+        boolean showName = shouldShowHugeStackName(entry.amount());
         g.pose().pushPose();
-        g.pose().translate(textX, textY, 0.0F);
+        g.pose().translate(textX, y + (showName ? 1 : 4), 0.0F);
         g.pose().scale(USAGE_DETAIL_TEXT_SCALE, USAGE_DETAIL_TEXT_SCALE, 1.0F);
-        g.drawString(font(), NELDLibText.hugeAmount(entry.amount()), 0, 0, NELDLibStyle.DARK_TEXT_SUCCESS, false);
+        if (showName) {
+            int scaledTextW = Math.max(1, Math.round(textW / USAGE_DETAIL_TEXT_SCALE));
+            String name = font().plainSubstrByWidth(entry.key().getDisplayName().getString(), scaledTextW);
+            g.drawString(font(), name, 0, 0, NELDLibStyle.DARK_TEXT_BLUE, false);
+            g.drawString(font(), NELDLibText.hugeAmount(entry.amount()), 0, 10, NELDLibStyle.DARK_TEXT_SUCCESS, false);
+        } else {
+            g.drawString(font(), NELDLibText.hugeAmount(entry.amount()), 0, 0, NELDLibStyle.DARK_TEXT_SUCCESS, false);
+        }
         g.pose().popPose();
+    }
+
+    private static boolean shouldShowHugeStackName(String amount) {
+        return parseAmount(amount).compareTo(HUGE_STACK_TWO_LINE_THRESHOLD) >= 0;
     }
 
     private void drawHugeStackScrollbar(GuiGraphics g, List<NEStorageHugeStackState> hugeStacks) {
@@ -589,7 +601,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 font(),
                 List.of(
                         entry.key().getDisplayName().copy().withStyle(ChatFormatting.AQUA),
-                        Component.literal(NELDLibText.hugeAmount(entry.amount()))
+                        Component.literal(NELDLibText.preciseHugeAmount(entry.amount()))
                                 .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_SUCCESS))),
                 mouseX,
                 mouseY);
@@ -714,7 +726,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             List<Component> lines = new java.util.ArrayList<>();
             lines.add(Component.translatable("gui.neoecoae.storage.system_load")
                     .withStyle(ChatFormatting.AQUA));
-            lines.add(Component.literal(NELDLibText.hugeAmount(totalInfiniteAmount(state)))
+            lines.add(Component.literal(NELDLibText.preciseHugeAmount(totalInfiniteAmount(state)))
                     .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_USED))
                     .append(Component.literal(" "
                                     + Component.translatable("gui.neoecoae.storage.bytes_used")
@@ -755,11 +767,9 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             if (metric.usedTypes() <= 0L) {
                 continue;
             }
-            String totalText = metric.totalTypes() == Long.MAX_VALUE ? infiniteText() : NELDLibText.number(metric.totalTypes());
             lines.add(Component.empty()
-                    .append(metric.label())
-                    .append(Component.literal(typesLabel + ": "
-                                    + NELDLibText.number(metric.usedTypes()) + " / " + totalText)
+                    .append(metric.label().copy().withStyle(style -> style.withColor(metric.accentColor())))
+                    .append(Component.literal(" " + typesLabel + ": " + NELDLibText.number(metric.usedTypes()))
                             .withStyle(ChatFormatting.GRAY)));
         }
         return lines;
@@ -794,11 +804,17 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         }
         int bodyHeight = STORAGE_GAUGE_H - STORAGE_GAUGE_CAP_H;
         int barHeight = (int) Math.round(bodyHeight * clamped);
-        drawStorageGaugeSegment(g, x, y + STORAGE_GAUGE_H - barHeight - STORAGE_GAUGE_CAP_H, y + STORAGE_GAUGE_H, color);
+        drawStorageGaugeSegment(
+                g,
+                x,
+                STORAGE_GAUGE_W,
+                y + STORAGE_GAUGE_H - barHeight - STORAGE_GAUGE_CAP_H,
+                y + STORAGE_GAUGE_H,
+                color);
     }
 
-    private void drawStorageGaugeSegment(GuiGraphics g, int x, int top, int bottom, int color) {
-        if (bottom <= top) {
+    private void drawStorageGaugeSegment(GuiGraphics g, int x, int width, int top, int bottom, int color) {
+        if (width <= 0 || bottom <= top) {
             return;
         }
         float alpha = ((color >>> 24) & 0xFF) / 255.0F;
@@ -812,7 +828,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 STORAGE_ELEMENTS,
                 x,
                 top,
-                STORAGE_GAUGE_W,
+                width,
                 STORAGE_GAUGE_CAP_H,
                 STORAGE_GAUGE_TOP_U,
                 STORAGE_GAUGE_TOP_V,
@@ -827,7 +843,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                     STORAGE_ELEMENTS,
                     x,
                     drawY,
-                    STORAGE_GAUGE_W,
+                    width,
                     STORAGE_GAUGE_MID_H,
                     STORAGE_GAUGE_MID_U,
                     STORAGE_GAUGE_MID_V,
@@ -840,7 +856,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 STORAGE_ELEMENTS,
                 x,
                 bottom - STORAGE_GAUGE_CAP_H,
-                STORAGE_GAUGE_W,
+                width,
                 STORAGE_GAUGE_CAP_H,
                 STORAGE_GAUGE_BOTTOM_U,
                 STORAGE_GAUGE_BOTTOM_V,
@@ -853,51 +869,29 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
 
     private void drawInfiniteStorageGauge(GuiGraphics g, int x, int y, NEStorageUiState state, StorageMetrics metrics) {
         List<Metric> segments = new java.util.ArrayList<>();
-        BigInteger total = BigInteger.ZERO;
         for (Metric metric : metrics.types()) {
             BigInteger amount = parseAmount(metric.usedAmount());
             if (amount.signum() <= 0) {
                 continue;
             }
             segments.add(metric);
-            total = total.add(amount);
         }
-        if (segments.isEmpty() || total.signum() <= 0 || state.infiniteDomainEmpty()) {
+        if (segments.isEmpty() || state.infiniteDomainEmpty()) {
             drawInfiniteStandbyGauge(g, x, y);
             return;
         }
 
-        int bottom = y + STORAGE_GAUGE_H;
-        double consumed = 0.0D;
         for (int i = 0; i < segments.size(); i++) {
             Metric segment = segments.get(i);
-            int top;
-            if (i == segments.size() - 1) {
-                top = y;
-            } else {
-                consumed += amountRatio(parseAmount(segment.usedAmount()), total) * STORAGE_GAUGE_H;
-                top = y + STORAGE_GAUGE_H - (int) Math.round(consumed);
-            }
-            if (bottom > top) {
-                g.enableScissor(x, top, x + STORAGE_GAUGE_W, bottom);
-                drawStorageGaugeSegment(g, x, top, bottom, infiniteGaugeColor(segment.accentColor()));
-                g.disableScissor();
-            }
-            bottom = top;
+            int left = x + i * STORAGE_GAUGE_W / segments.size();
+            int right = x + (i + 1) * STORAGE_GAUGE_W / segments.size();
+            drawStorageGaugeSegment(
+                    g, left, right - left, y, y + STORAGE_GAUGE_H, infiniteGaugeColor(segment.accentColor()));
         }
     }
 
     private void drawInfiniteStandbyGauge(GuiGraphics g, int x, int y) {
         drawStorageGauge(g, x, y, 1.0D, 0x22CA6CFF);
-    }
-
-    private static double amountRatio(BigInteger amount, BigInteger total) {
-        if (amount.signum() <= 0 || total.signum() <= 0) {
-            return 0.0D;
-        }
-        return new BigDecimal(amount)
-                .divide(new BigDecimal(total), 8, RoundingMode.HALF_UP)
-                .doubleValue();
     }
 
     private static int infiniteGaugeColor(int color) {

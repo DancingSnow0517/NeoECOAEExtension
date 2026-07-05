@@ -23,6 +23,8 @@ public final class NELDLibText {
             ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
             ThreadLocal.withInitial(() -> new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.US)));
+    private static final ThreadLocal<DecimalFormat> PRECISE_HUGE_DECIMAL =
+            ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
             ThreadLocal.withInitial(() -> new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.US)));
 
@@ -121,6 +123,39 @@ public final class NELDLibText {
 
         BigDecimal scaled = new BigDecimal(value).divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
         return scaled.toPlainString() + HUGE_SUFFIXES[unitIndex];
+    }
+
+    public static String preciseHugeAmount(String decimalAmount) {
+        String normalized = normalizeUnsignedDecimal(decimalAmount);
+        if (normalized == null) {
+            return decimalAmount == null ? "" : decimalAmount;
+        }
+        BigInteger value = new BigInteger(normalized);
+        if (value.signum() <= 0) {
+            return "0";
+        }
+
+        int unitIndex = 0;
+        BigInteger unit = BigInteger.ONE;
+        while (unitIndex < HUGE_SUFFIXES.length - 1 && value.compareTo(unit.multiply(BIG_1024)) >= 0) {
+            unit = unit.multiply(BIG_1024);
+            unitIndex++;
+        }
+        while (unitIndex > 0) {
+            BigInteger smallerUnit = unit.divide(BIG_1024);
+            int smallerIntegerDigits = value.divide(smallerUnit).toString().length();
+            if (smallerIntegerDigits > 10) {
+                break;
+            }
+            unit = smallerUnit;
+            unitIndex--;
+        }
+        if (unitIndex == 0) {
+            return NUMBER_FORMAT.get().format(value);
+        }
+
+        BigDecimal scaled = new BigDecimal(value).divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
+        return PRECISE_HUGE_DECIMAL.get().format(scaled) + HUGE_SUFFIXES[unitIndex];
     }
 
     public static String compactHugeAmountForSync(String decimalAmount) {

@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +92,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private int patternBusCount, parallelCount, workerCount = 0;
 
     private int runningThreadCount = 0;
+
+    private int simulatedPoolThreadCount = 0;
+
+    private final Map<UUID, Integer> simulatedPoolThreadReservations = new HashMap<>();
 
     private int threadCount = 0;
 
@@ -276,6 +281,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             threadCount = 0;
             threadCountPerWorker = 0;
             runningThreadCount = 0;
+            simulatedPoolThreadCount = 0;
+            simulatedPoolThreadReservations.clear();
         }
     }
 
@@ -285,9 +292,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
 
-        runningThreadCount = cluster.getWorkers().stream()
-                .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
-                .sum();
+        runningThreadCount = getWorkerRunningThreadCount() + simulatedPoolThreadCount;
     }
 
     private void updateCount() {
@@ -534,6 +539,31 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         markUiStateDirty();
     }
 
+    public void setSimulatedPoolThreadCount(UUID owner, int count) {
+        int normalizedCount = Math.max(0, count);
+        int previous = simulatedPoolThreadReservations.getOrDefault(owner, 0);
+        if (previous == normalizedCount) {
+            return;
+        }
+        if (normalizedCount == 0) {
+            simulatedPoolThreadReservations.remove(owner);
+        } else {
+            simulatedPoolThreadReservations.put(owner, normalizedCount);
+        }
+        simulatedPoolThreadCount += normalizedCount - previous;
+        if (simulatedPoolThreadCount < 0) {
+            LOGGER.warn(
+                    "ECO controller simulatedPoolThreadCount underflow: controller={} owner={} previous={} next={} correctedToZero=true",
+                    getBlockPos(),
+                    owner,
+                    previous,
+                    normalizedCount);
+            simulatedPoolThreadCount = 0;
+        }
+        recalculateRunningThreadCountFromWorkers();
+        markUiStateDirty();
+    }
+
     private void validateRunningThreadCount() {
         if (!DEBUG_THREAD_COUNT || cluster == null) {
             return;
@@ -543,9 +573,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         lastThreadCountValidationTick = currentTick;
-        int actual = cluster.getWorkers().stream()
-                .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
-                .sum();
+        int actual = getWorkerRunningThreadCount() + simulatedPoolThreadCount;
         if (actual != runningThreadCount) {
             LOGGER.warn(
                     "ECO controller runningThreadCount mismatch: controller={} cached={} actual={} corrected=true",
@@ -554,6 +582,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                     actual);
             runningThreadCount = actual;
         }
+    }
+
+    private int getWorkerRunningThreadCount() {
+        if (cluster == null) {
+            return 0;
+        }
+        return cluster.getWorkers().stream()
+                .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
+                .sum();
     }
 
     public int getPatternBusCount() {
