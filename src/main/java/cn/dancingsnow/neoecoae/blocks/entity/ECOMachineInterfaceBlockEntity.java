@@ -44,8 +44,17 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
         return storageInterfaceMode;
     }
 
+    public boolean isStorageInputMode() {
+        return storageInterfaceMode == ECOStorageInterfaceMode.INPUT;
+    }
+
     public boolean isStorageOutputMode() {
         return storageInterfaceMode == ECOStorageInterfaceMode.OUTPUT;
+    }
+
+    public boolean isStorageTransferMode() {
+        return storageInterfaceMode == ECOStorageInterfaceMode.INPUT
+                || storageInterfaceMode == ECOStorageInterfaceMode.OUTPUT;
     }
 
     public boolean supportsStorageInterfaceUi() {

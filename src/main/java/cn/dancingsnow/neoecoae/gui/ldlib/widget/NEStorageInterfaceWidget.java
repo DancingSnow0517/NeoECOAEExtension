@@ -24,9 +24,10 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
     private static final int PANEL_W = UI_WIDTH - 16;
     private static final int PANEL_H = UI_HEIGHT - 32;
     private static final int MODE_BUTTON_Y = PANEL_Y + 10;
-    private static final int MODE_BUTTON_W = 88;
+    private static final int MODE_BUTTON_W = 62;
     private static final int MODE_BUTTON_H = 20;
     private static final int STORAGE_BUTTON_X = PANEL_X + 8;
+    private static final int INPUT_BUTTON_X = PANEL_X + (PANEL_W - MODE_BUTTON_W) / 2;
     private static final int OUTPUT_BUTTON_X = PANEL_X + PANEL_W - MODE_BUTTON_W - 8;
     private static final int TEXT_X = PANEL_X + 10;
     private static final int TEXT_Y = PANEL_Y + 40;
@@ -59,6 +60,10 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
                 STORAGE_BUTTON_X,
                 Component.translatable("gui.neoecoae.storage_interface.mode.storage"),
                 ECOStorageInterfaceMode.STORAGE);
+        addModeButton(
+                INPUT_BUTTON_X,
+                Component.translatable("gui.neoecoae.storage_interface.mode.input"),
+                ECOStorageInterfaceMode.INPUT);
         addModeButton(
                 OUTPUT_BUTTON_X,
                 Component.translatable("gui.neoecoae.storage_interface.mode.output"),
@@ -122,7 +127,15 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
                 state.targetOnline(),
                 y);
         y += TEXT_STEP;
-        if (state.mode() == ECOStorageInterfaceMode.OUTPUT) {
+        if (state.mode() == ECOStorageInterfaceMode.INPUT) {
+            drawLocalString(
+                    graphics,
+                    Component.translatable(
+                            "gui.neoecoae.storage_interface.import", NELDLibText.number(state.exportedLastTick())),
+                    TEXT_X,
+                    y,
+                    NELDLibStyle.DARK_TEXT_VALUE);
+        } else if (state.mode() == ECOStorageInterfaceMode.OUTPUT) {
             drawLocalString(
                     graphics,
                     Component.translatable(
@@ -148,6 +161,13 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (isMouseIn(INPUT_BUTTON_X, MODE_BUTTON_Y, MODE_BUTTON_W, MODE_BUTTON_H, mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    font(),
+                    List.of(Component.translatable("gui.neoecoae.storage_interface.input_tooltip")),
+                    mouseX,
+                    mouseY);
+        }
         if (isMouseIn(OUTPUT_BUTTON_X, MODE_BUTTON_Y, MODE_BUTTON_W, MODE_BUTTON_H, mouseX, mouseY)) {
             graphics.renderComponentTooltip(
                     font(),

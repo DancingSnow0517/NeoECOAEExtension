@@ -226,9 +226,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.formed", "Formed");
         provider.add("gui.neoecoae.storage_interface.unformed", "Unformed");
         provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
+        provider.add("gui.neoecoae.storage_interface.mode.input", "Input");
         provider.add("gui.neoecoae.storage_interface.mode.output", "Output");
         provider.add("gui.neoecoae.storage_interface.storage_mode", "Mode: Mounted as ECO storage");
+        provider.add("gui.neoecoae.storage_interface.import", "Import: %s / tick");
         provider.add("gui.neoecoae.storage_interface.export", "Export: %s / tick");
+        provider.add(
+                "gui.neoecoae.storage_interface.input_tooltip",
+                "Input mode pauses L-series storage mounting and imports contents from the external ME network.");
         provider.add(
                 "gui.neoecoae.storage_interface.output_tooltip",
                 "Output mode pauses L-series storage mounting and exports contents to the external ME network.");
