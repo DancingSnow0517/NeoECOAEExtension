@@ -58,6 +58,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private boolean hugeStacksSnapshotDirty = true;
     private HugeAmount storedAmount = HugeAmount.ZERO;
     private long revision;
+
     @Nullable private DataOutputStream walOut;
 
     public FileBackedInfiniteStorageEngine(UUID domainId, Path domainPath) {

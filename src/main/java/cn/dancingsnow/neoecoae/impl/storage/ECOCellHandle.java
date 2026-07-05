@@ -93,7 +93,9 @@ public final class ECOCellHandle {
         tag.putString(TAG_STATE, "normal");
         tag.putString(TAG_USED_BYTES, Long.toString(Math.max(0L, usedBytes)));
         tag.putInt(TAG_USED_TYPES, Math.max(0, storedTypes));
-        tag.putString(TAG_STORED_AMOUNT, storedAmount.toBigInteger().max(BigInteger.ZERO).toString());
+        tag.putString(
+                TAG_STORED_AMOUNT,
+                storedAmount.toBigInteger().max(BigInteger.ZERO).toString());
     }
 
     public static void updateSummaryFromLegacy(ItemStack stack, long usedBytes) {
@@ -169,7 +171,8 @@ public final class ECOCellHandle {
         }
         if (tag.contains(TAG_STORED_AMOUNT)) {
             try {
-                return HugeAmount.of(new BigInteger(tag.getString(TAG_STORED_AMOUNT))).toLongSaturated();
+                return HugeAmount.of(new BigInteger(tag.getString(TAG_STORED_AMOUNT)))
+                        .toLongSaturated();
             } catch (RuntimeException ignored) {
                 return 0L;
             }

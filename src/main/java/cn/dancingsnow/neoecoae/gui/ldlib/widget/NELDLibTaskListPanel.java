@@ -38,22 +38,26 @@ final class NELDLibTaskListPanel {
     }
 
     static void drawScrollbar(
-            GuiGraphics g,
-            int x,
-            int y,
-            int width,
-            int height,
-            int total,
-            int visible,
-            int scrollOffset) {
+            GuiGraphics g, int x, int y, int width, int height, int total, int visible, int scrollOffset) {
         if (total <= visible) {
             return;
         }
         NELDLibScrollBar.drawVertical(
-                g, x, y, width, Math.max(1, height), total, visible, scrollOffset, SCROLLBAR_BACKGROUND, SCROLLBAR_THUMB, 10);
+                g,
+                x,
+                y,
+                width,
+                Math.max(1, height),
+                total,
+                visible,
+                scrollOffset,
+                SCROLLBAR_BACKGROUND,
+                SCROLLBAR_THUMB,
+                10);
     }
 
-    static void drawCard(GuiGraphics g, Font font, NECraftingRecipeUiEntry entry, int x, int y, int w, int h, CardStyle style) {
+    static void drawCard(
+            GuiGraphics g, Font font, NECraftingRecipeUiEntry entry, int x, int y, int w, int h, CardStyle style) {
         float alpha = Mth.clamp(style.alpha(), 0.0F, 1.0F);
         NELDLibTaskCards.drawCardRect(g, x, y, w, h, alpha, NELDLibTaskCards.statusColor(entry.status()));
         if (alpha > style.itemMinAlpha() && !entry.output().isEmpty()) {
@@ -70,10 +74,18 @@ final class NELDLibTaskListPanel {
         int amountW = textWidth(font, amountText, style.textScale());
         int maxNameW = Math.max(16, w - style.nameWidthPadding() - amountW);
         String name = style.textScale() == 1.0F
-                ? NELDLibTextRender.fitWithEllipsis(font, entry.output().getHoverName().getString(), maxNameW)
+                ? NELDLibTextRender.fitWithEllipsis(
+                        font, entry.output().getHoverName().getString(), maxNameW)
                 : NELDLibTextRender.fitScaledWithEllipsis(
                         font, entry.output().getHoverName().getString(), maxNameW, style.textScale());
-        drawText(g, font, name, x + style.textX(), y + style.textY(), withAlpha(NELDLibStyle.DARK_TEXT_PRIMARY, alpha), style.textScale());
+        drawText(
+                g,
+                font,
+                name,
+                x + style.textX(),
+                y + style.textY(),
+                withAlpha(NELDLibStyle.DARK_TEXT_PRIMARY, alpha),
+                style.textScale());
         drawRightText(
                 g,
                 font,
@@ -102,7 +114,8 @@ final class NELDLibTaskListPanel {
         lines.add(Component.translatable(
                 "gui.neoecoae.crafting.task.amount", NELDLibText.compactTaskAmount(entry.outputAmount())));
         if (includeCraftCount) {
-            lines.add(Component.translatable("gui.neoecoae.crafting.task.crafts", NELDLibText.number(entry.craftCount())));
+            lines.add(Component.translatable(
+                    "gui.neoecoae.crafting.task.crafts", NELDLibText.number(entry.craftCount())));
         }
         if (entry.totalTicks() > 0L) {
             long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
@@ -122,7 +135,8 @@ final class NELDLibTaskListPanel {
         return Math.round(font.width(text) * scale);
     }
 
-    private static void drawRightText(GuiGraphics g, Font font, Component text, int rightX, int y, int color, float scale) {
+    private static void drawRightText(
+            GuiGraphics g, Font font, Component text, int rightX, int y, int color, float scale) {
         drawText(g, font, text, rightX - Math.round(font.width(text) * scale), y, color, scale);
     }
 

@@ -14,7 +14,13 @@ public class AppBotaniaIntegration extends AbstractCellIntegration {
                 NEAppBotCellTypes::register,
                 NEAppBotItems::register,
                 ECOManaCellHandler.INSTANCE,
-                List.of(NEAppBotItems.ECO_MANA_CELL_16M, NEAppBotItems.ECO_MANA_CELL_64M, NEAppBotItems.ECO_MANA_CELL_256M),
-                List.of(ECOCellModels.STORAGE_CELL_L4_MANA, ECOCellModels.STORAGE_CELL_L6_MANA, ECOCellModels.STORAGE_CELL_L9_MANA));
+                List.of(
+                        NEAppBotItems.ECO_MANA_CELL_16M,
+                        NEAppBotItems.ECO_MANA_CELL_64M,
+                        NEAppBotItems.ECO_MANA_CELL_256M),
+                List.of(
+                        ECOCellModels.STORAGE_CELL_L4_MANA,
+                        ECOCellModels.STORAGE_CELL_L6_MANA,
+                        ECOCellModels.STORAGE_CELL_L9_MANA));
     }
 }

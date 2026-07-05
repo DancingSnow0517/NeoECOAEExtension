@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.storage;
 
-import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.stacks.GenericStack;
+import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -232,7 +232,8 @@ public final class ECOCellStorageManager {
                 Path targetPath = target.resolve(source.relativize(sourcePath));
                 if (Files.isDirectory(sourcePath)) {
                     Files.createDirectories(targetPath);
-                } else if (Files.isRegularFile(sourcePath) && !sourcePath.getFileName().toString().endsWith(".tmp")) {
+                } else if (Files.isRegularFile(sourcePath)
+                        && !sourcePath.getFileName().toString().endsWith(".tmp")) {
                     Files.createDirectories(targetPath.getParent());
                     Files.copy(
                             sourcePath,
@@ -277,7 +278,8 @@ public final class ECOCellStorageManager {
 
     private static long estimateUsedBytes(IBasicECOCellItem cellItem, ECOStorageBackend backend) {
         long typeBytes = (long) backend.getStoredTypes() * cellItem.getBytesPerType();
-        long amountBytes = backend.getStoredAmount().toLongSaturated() / Math.max(1, cellItem.getKeyType().getAmountPerByte());
+        long amountBytes = backend.getStoredAmount().toLongSaturated()
+                / Math.max(1, cellItem.getKeyType().getAmountPerByte());
         return Math.max(0L, typeBytes + amountBytes);
     }
 

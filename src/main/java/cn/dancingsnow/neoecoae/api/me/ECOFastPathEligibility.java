@@ -15,9 +15,7 @@ public final class ECOFastPathEligibility {
     }
 
     public static boolean canUse(ECOExtractedPatternExecution execution, @Nullable ECOFastPathKey key) {
-        return key != null
-                && execution.fastPathEligible()
-                && isGloballyEnabled();
+        return key != null && execution.fastPathEligible() && isGloballyEnabled();
     }
 
     private ECOFastPathEligibility() {}

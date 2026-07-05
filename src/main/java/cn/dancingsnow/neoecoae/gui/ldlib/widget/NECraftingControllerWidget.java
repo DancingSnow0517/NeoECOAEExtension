@@ -771,7 +771,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 continue;
             }
             NECraftingRecipeUiEntry entry = card.entry;
-            List<Component> lines = NELDLibTaskListPanel.tooltipLines(entry, true, false, NECraftingControllerWidget::formatTaskTime);
+            List<Component> lines =
+                    NELDLibTaskListPanel.tooltipLines(entry, true, false, NECraftingControllerWidget::formatTaskTime);
             g.renderTooltip(font(), lines, entry.output().getTooltipImage(), entry.output(), mouseX, mouseY);
             return true;
         }

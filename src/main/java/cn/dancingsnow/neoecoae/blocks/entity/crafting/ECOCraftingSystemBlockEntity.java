@@ -99,8 +99,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private int simulatedPoolThreadCount = 0;
 
     private final Map<UUID, Integer> simulatedPoolThreadReservations = new HashMap<>();
-    private final Map<UUID, List<ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot>>
-            simulatedPoolTaskReservations = new HashMap<>();
+    private final Map<UUID, List<ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot>> simulatedPoolTaskReservations =
+            new HashMap<>();
 
     private int threadCount = 0;
 
@@ -959,7 +959,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             int slots = Math.max(1, snapshot.occupiedSlots());
             int maxProgress = Math.max(1, snapshot.maxProgress());
             int progress = Mth.clamp(snapshot.progress(), 0, maxProgress);
-            outputAmount = saturatedAdd(outputAmount, Math.max(1L, snapshot.output().amount()));
+            outputAmount =
+                    saturatedAdd(outputAmount, Math.max(1L, snapshot.output().amount()));
             craftCount = saturatedAdd(craftCount, slots);
             weightedTotalProgress = saturatedAdd(weightedTotalProgress, (long) maxProgress * slots);
             weightedRemainingProgress =

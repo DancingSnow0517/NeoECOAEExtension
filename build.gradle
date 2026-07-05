@@ -363,10 +363,25 @@ tasks.matching { it.name == 'reobfJar' }.configureEach {
     }
 }
 
+tasks.register('prepareReleaseJar') {
+    group = 'build'
+    description = 'Copies the reobfuscated jarjar artifact to the canonical release jar name.'
+    dependsOn 'reobfJarJar'
+
+    doLast {
+        def releaseJarName = "${base.archivesName.get()}-${version}.jar"
+        copy {
+            from(layout.buildDirectory.file("libs/${base.archivesName.get()}-${version}-all.jar"))
+            into(layout.buildDirectory.dir('libs'))
+            rename { releaseJarName }
+        }
+    }
+}
+
 tasks.register('verifyReleaseJar') {
     group = 'verification'
     description = 'Verifies that the distributable jar is reobfuscated and contains the expected production mixins.'
-    dependsOn 'reobfJar'
+    dependsOn 'prepareReleaseJar'
 
     doLast {
         def jarFile = tasks.named('jar', Jar).get().archiveFile.get().asFile
@@ -401,6 +416,10 @@ tasks.register('verifyReleaseJar') {
             def mixinConfigEntry = zip.getEntry("${mod_id}.mixins.json")
             if (mixinConfigEntry == null) {
                 throw new GradleException("Release jar is missing ${mod_id}.mixins.json: ${jarFile}")
+            }
+
+            if (zip.getEntry('META-INF/jarjar/metadata.json') == null) {
+                throw new GradleException("Release jar is missing jarjar metadata: ${jarFile}")
             }
         } finally {
             zip.close()

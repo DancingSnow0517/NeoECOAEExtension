@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 
 public class CellHostItemHandler implements IItemHandler {
     private final ICellHost host;
+
     @Nullable private String lastReadFingerprint;
 
     public CellHostItemHandler(ICellHost host) {

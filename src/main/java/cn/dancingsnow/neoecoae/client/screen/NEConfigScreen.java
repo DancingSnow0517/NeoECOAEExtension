@@ -205,7 +205,8 @@ public class NEConfigScreen extends Screen {
             int computation = parsePositiveInt(this.computationLength.getValue());
             int storage = parsePositiveInt(this.storageLength.getValue());
             int pages = parsePatternBusPages(this.patternBusPages.getValue());
-            NEConfig.applyClientConfig(crafting, computation, storage, pages, this.increaseCapacity, this.aggressiveFastPath);
+            NEConfig.applyClientConfig(
+                    crafting, computation, storage, pages, this.increaseCapacity, this.aggressiveFastPath);
             close();
         } catch (NumberFormatException ignored) {
             this.error = Component.translatable("screen.neoecoae.config.invalid");

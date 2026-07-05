@@ -598,8 +598,7 @@ public class ECOCraftingCPULogic {
         return ECOFastPathStacks.copyCounters(attempt.craftingContainer());
     }
 
-    @Nullable private ECOCraftingSystemBlockEntity firstCraftingController(
-            List<ECOCraftingPatternBusBlockEntity> patternBuses) {
+    @Nullable private ECOCraftingSystemBlockEntity firstCraftingController(List<ECOCraftingPatternBusBlockEntity> patternBuses) {
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
             if (controller != null) {

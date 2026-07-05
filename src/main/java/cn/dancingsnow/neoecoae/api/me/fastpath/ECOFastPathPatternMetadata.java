@@ -59,5 +59,4 @@ public final class ECOFastPathPatternMetadata {
     public boolean fastPathEligible() {
         return fastPathEligible;
     }
-
 }

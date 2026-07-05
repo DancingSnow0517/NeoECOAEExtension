@@ -655,7 +655,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (nbt.contains("outputStacks", Tag.TAG_LIST)) {
             outputStacks.addAll(ECOFastPathStacks.readGenericStacks(nbt.getList("outputStacks", Tag.TAG_COMPOUND)));
             inputStacks.addAll(ECOFastPathStacks.readGenericStacks(nbt.getList("inputStacks", Tag.TAG_COMPOUND)));
-            remainingStacks.addAll(ECOFastPathStacks.readGenericStacks(nbt.getList("remainingStacks", Tag.TAG_COMPOUND)));
+            remainingStacks.addAll(
+                    ECOFastPathStacks.readGenericStacks(nbt.getList("remainingStacks", Tag.TAG_COMPOUND)));
         } else {
             outputStacks.addAll(deserializeLegacyItemStacks(nbt, "outputItems", "outputItem"));
             inputStacks.addAll(deserializeLegacyItemStacks(nbt, "inputItems", null));

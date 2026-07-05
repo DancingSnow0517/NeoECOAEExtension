@@ -103,8 +103,11 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     private static final double HUGE_STACK_SCROLL_SPEED = 20.0D;
     private static final long USAGE_ANIMATION_MS = 500L;
     private static final double USAGE_ANIMATION_EPSILON = 0.0001D;
-    private static final BigInteger HUGE_STACK_TWO_LINE_THRESHOLD =
-            BigInteger.valueOf(1024L).pow(6).multiply(BigInteger.valueOf(92L)).add(BigInteger.valueOf(9L)).divide(BigInteger.TEN);
+    private static final BigInteger HUGE_STACK_TWO_LINE_THRESHOLD = BigInteger.valueOf(1024L)
+            .pow(6)
+            .multiply(BigInteger.valueOf(92L))
+            .add(BigInteger.valueOf(9L))
+            .divide(BigInteger.TEN);
 
     private static final Map<ScrollKey, ScrollSnapshot> SCROLL_MEMORY = new java.util.HashMap<>();
 
@@ -724,27 +727,24 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
         }
         if (state.infiniteMode()) {
             List<Component> lines = new java.util.ArrayList<>();
-            lines.add(Component.translatable("gui.neoecoae.storage.system_load")
-                    .withStyle(ChatFormatting.AQUA));
+            lines.add(Component.translatable("gui.neoecoae.storage.system_load").withStyle(ChatFormatting.AQUA));
             lines.add(Component.literal(NELDLibText.preciseHugeAmount(totalInfiniteAmount(state)))
                     .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_USED))
                     .append(Component.literal(" "
                                     + Component.translatable("gui.neoecoae.storage.bytes_used")
                                             .getString())
                             .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED))));
-            lines.add(Component.literal(Component.translatable("gui.neoecoae.common.types")
-                                    .getString()
-                            + ": "
-                            + NELDLibText.number(state.totalUsedTypes()))
+            lines.add(Component.literal(
+                            Component.translatable("gui.neoecoae.common.types").getString()
+                                    + ": "
+                                    + NELDLibText.number(state.totalUsedTypes()))
                     .withStyle(ChatFormatting.GRAY));
             lines.addAll(typeCountTooltipLines(NEStorageMetricsModel.from(state)));
-            graphics.renderComponentTooltip(
-                    font(), lines, mouseX, mouseY);
+            graphics.renderComponentTooltip(font(), lines, mouseX, mouseY);
             return;
         }
         List<Component> lines = new java.util.ArrayList<>();
-        lines.add(Component.translatable("gui.neoecoae.storage.system_load")
-                .withStyle(ChatFormatting.AQUA));
+        lines.add(Component.translatable("gui.neoecoae.storage.system_load").withStyle(ChatFormatting.AQUA));
         lines.add(NELDLibValueText.usedTotalComponent(
                 "",
                 NELDLibText.storageBytes(state.totalUsedBytes()),

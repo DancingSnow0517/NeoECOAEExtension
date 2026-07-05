@@ -14,7 +14,13 @@ public class AppFluxIntegration extends AbstractCellIntegration {
                 NEAppFluxCellTypes::register,
                 NEAppFluxItems::register,
                 ECOFeCellHandler.INSTANCE,
-                List.of(NEAppFluxItems.ECO_FE_CELL_16M, NEAppFluxItems.ECO_FE_CELL_64M, NEAppFluxItems.ECO_FE_CELL_256M),
-                List.of(ECOCellModels.STORAGE_CELL_L4_FE, ECOCellModels.STORAGE_CELL_L6_FE, ECOCellModels.STORAGE_CELL_L9_FE));
+                List.of(
+                        NEAppFluxItems.ECO_FE_CELL_16M,
+                        NEAppFluxItems.ECO_FE_CELL_64M,
+                        NEAppFluxItems.ECO_FE_CELL_256M),
+                List.of(
+                        ECOCellModels.STORAGE_CELL_L4_FE,
+                        ECOCellModels.STORAGE_CELL_L6_FE,
+                        ECOCellModels.STORAGE_CELL_L9_FE));
     }
 }

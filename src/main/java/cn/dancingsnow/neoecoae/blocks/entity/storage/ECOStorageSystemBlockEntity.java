@@ -1056,7 +1056,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine != null && canUseHostDomainStorage() && remainingKeys > 0) {
             ExportResult result = exportFromStorageLimited(
-                    new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()), target, source, remainingKeys);
+                    new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()),
+                    target,
+                    source,
+                    remainingKeys);
             exported = saturatedAdd(exported, result.exported());
             remainingKeys -= result.keysVisited();
         }
@@ -1233,7 +1236,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (remaining > 0L) {
             ECOInfiniteStorageEngine engine = getInfiniteEngine();
             if (engine != null && canUseHostDomainStorage()) {
-                long moved = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName())
+                long moved = new ECOInfiniteStorage(
+                                engine, getBlockState().getBlock().getName())
                         .insert(key, remaining, mode, source);
                 if (moved > 0L) {
                     inserted = saturatedAdd(inserted, moved);

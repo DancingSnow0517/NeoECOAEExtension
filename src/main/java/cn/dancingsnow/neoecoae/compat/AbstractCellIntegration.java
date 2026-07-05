@@ -88,7 +88,8 @@ public abstract class AbstractCellIntegration {
     }
 
     private void initItemColors(RegisterColorHandlersEvent.Item event) {
-        NEItemColors.registerEcoCellStatusLights(event, cells.stream().map(ItemEntry::get).toArray(Item[]::new));
+        NEItemColors.registerEcoCellStatusLights(
+                event, cells.stream().map(ItemEntry::get).toArray(Item[]::new));
     }
 
     private void initHandler(FMLCommonSetupEvent event) {

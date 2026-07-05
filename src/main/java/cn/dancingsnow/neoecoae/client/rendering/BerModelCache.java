@@ -52,7 +52,8 @@ public final class BerModelCache {
         if (FMLEnvironment.production) {
             return;
         }
-        String ownerName = owner == null ? "unknown block entity" : owner.getType().toString();
+        String ownerName =
+                owner == null ? "unknown block entity" : owner.getType().toString();
         String key = "null:" + ownerName;
         if (IFixedBlockEntityRenderer.WARNED_MISSING_MODELS.add(key)) {
             IFixedBlockEntityRenderer.MODEL_LOGGER.warn("Missing BER model location for {}", ownerName);
