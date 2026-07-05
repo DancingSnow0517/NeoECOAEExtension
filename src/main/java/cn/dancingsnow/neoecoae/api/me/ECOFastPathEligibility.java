@@ -6,6 +6,10 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathEligibility {
+    public static boolean isGloballyEnabled() {
+        return NEConfig.isEcoAe2FastPathEnabled();
+    }
+
     public static boolean canUse(ECOExtractedPatternExecution execution) {
         return canUse(execution, execution.key());
     }
@@ -13,8 +17,7 @@ public final class ECOFastPathEligibility {
     public static boolean canUse(ECOExtractedPatternExecution execution, @Nullable ECOFastPathKey key) {
         return key != null
                 && execution.fastPathEligible()
-                && NEConfig.isEcoAe2FastPathEnabled()
-                && !NEConfig.postCraftingEvent;
+                && isGloballyEnabled();
     }
 
     private ECOFastPathEligibility() {}

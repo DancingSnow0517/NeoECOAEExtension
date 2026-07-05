@@ -761,20 +761,8 @@ public class ECOCraftingCPULogic {
             ECOExtractedPatternExecution execution, int craftCount) {
         int multiplier = Math.max(1, craftCount);
         return new PendingPatternAccounting(
-                multiplyStacks(execution.expectedOutputs(), multiplier),
-                multiplyStacks(execution.expectedContainerItems(), multiplier));
-    }
-
-    private static List<GenericStack> multiplyStacks(List<GenericStack> stacks, int multiplier) {
-        List<GenericStack> multiplied = new ArrayList<>(stacks.size());
-        for (GenericStack stack : stacks) {
-            long amount = Math.multiplyExact(stack.amount(), multiplier);
-            if (amount <= 0) {
-                throw new ArithmeticException("Invalid pushed pattern amount: " + amount);
-            }
-            multiplied.add(new GenericStack(stack.what(), amount));
-        }
-        return multiplied;
+                ECOBatchCraftingHelper.multiply(execution.expectedOutputs(), multiplier),
+                ECOBatchCraftingHelper.multiply(execution.expectedContainerItems(), multiplier));
     }
 
     private void recordPushedPattern(PendingPatternAccounting accounting) {

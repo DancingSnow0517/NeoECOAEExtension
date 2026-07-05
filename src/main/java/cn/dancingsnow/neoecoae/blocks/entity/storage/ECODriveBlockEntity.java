@@ -22,7 +22,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -275,11 +274,6 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void handleUpdateTag(CompoundTag tag) {
         super.handleUpdateTag(tag);
         loadDriveVisualState(tag);
-    }
-
-    @Nullable @Override
-    public ClientboundBlockEntityDataPacket getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.WeakHashMap;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,6 +26,18 @@ public final class ECOFastPathStacks {
             copy.addAll(counter);
         }
         return copySorted(copy);
+    }
+
+    public static List<GenericStack> copyCounterUnsorted(KeyCounter counter) {
+        List<GenericStack> stacks = new ArrayList<>();
+        if (counter != null) {
+            for (Object2LongMap.Entry<AEKey> entry : counter) {
+                if (entry.getLongValue() > 0) {
+                    stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+                }
+            }
+        }
+        return List.copyOf(stacks);
     }
 
     public static List<GenericStack> copyCounters(KeyCounter[] counters) {
@@ -96,6 +109,33 @@ public final class ECOFastPathStacks {
         return Optional.of(List.copyOf(result));
     }
 
+    public static ListTag writeGenericStacks(List<GenericStack> stacks) {
+        ListTag tag = new ListTag();
+        for (GenericStack stack : stacks) {
+            if (stack != null && stack.amount() > 0) {
+                tag.add(GenericStack.writeTag(stack));
+            }
+        }
+        return tag;
+    }
+
+    public static List<GenericStack> readGenericStacks(ListTag tag) {
+        List<GenericStack> stacks = new ArrayList<>();
+        for (int i = 0; i < tag.size(); i++) {
+            GenericStack stack = GenericStack.readTag(tag.getCompound(i));
+            if (stack != null && stack.amount() > 0) {
+                stacks.add(stack);
+            }
+        }
+        return List.copyOf(stacks);
+    }
+
+    public static void readGenericStacksInto(KeyCounter counter, ListTag tag) {
+        for (GenericStack stack : readGenericStacks(tag)) {
+            counter.add(stack.what(), stack.amount());
+        }
+    }
+
     public static boolean isSafeForFastPath(List<GenericStack> stacks, boolean input) {
         for (GenericStack stack : stacks) {
             if (!isSafeForFastPath(stack, input)) {
@@ -122,7 +162,7 @@ public final class ECOFastPathStacks {
         return !input || !itemStack.getItem().hasCraftingRemainingItem(itemStack);
     }
 
-    private static Optional<ItemStack> toItemStack(GenericStack stack) {
+    public static Optional<ItemStack> toItemStack(GenericStack stack) {
         if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
             return Optional.empty();
         }

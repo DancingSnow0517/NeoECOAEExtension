@@ -1,28 +1,11 @@
 package cn.dancingsnow.neoecoae.compat.arsenergistique;
 
-import appeng.api.storage.cells.ISaveProvider;
-import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
-import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
-import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
-import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
+import cn.dancingsnow.neoecoae.compat.ECOKeyTypeCellHandler;
 
-public final class ECOSourceCellHandler implements IECOCellHandler {
+public final class ECOSourceCellHandler extends ECOKeyTypeCellHandler {
     public static final ECOSourceCellHandler INSTANCE = new ECOSourceCellHandler();
 
-    private ECOSourceCellHandler() {}
-
-    @Override
-    public boolean isCell(ItemStack stack) {
-        if (stack.getItem() instanceof ECOStorageCellItem item) {
-            return item.getCellType() == NEArsEnergistiqueCellTypes.SOURCE.get()
-                    && item.getKeyType() == ArsEnergistiqueCompat.getSourceKeyType();
-        }
-        return false;
-    }
-
-    @Override
-    public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
-        return ECOStorageCellItem.getCellInventory(is, host);
+    private ECOSourceCellHandler() {
+        super(NEArsEnergistiqueCellTypes.SOURCE::get, ArsEnergistiqueCompat::getSourceKeyType);
     }
 }

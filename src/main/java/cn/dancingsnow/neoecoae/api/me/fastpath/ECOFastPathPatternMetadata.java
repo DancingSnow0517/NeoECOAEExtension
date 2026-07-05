@@ -39,13 +39,13 @@ public final class ECOFastPathPatternMetadata {
         Optional<ECOFastPathKey> key = compiledPattern.buildKey(craftingContainer, level);
         boolean fastPathEligible = key.isPresent() && ECOFastPathStacks.isSafeForFastPath(inputItems, true);
         return new ECOFastPathPatternMetadata(
-                compiledPattern, dimension(level), inputItems, key.orElse(null), fastPathEligible);
+                compiledPattern, ECOFastPathKey.dimension(level), inputItems, key.orElse(null), fastPathEligible);
     }
 
     public boolean isCurrent(ECOCompiledFastPathPattern compiledPattern, Level level) {
         return this.compiledPattern == compiledPattern
                 && compiledPattern.isCurrent()
-                && Objects.equals(dimension, dimension(level));
+                && Objects.equals(dimension, ECOFastPathKey.dimension(level));
     }
 
     public List<GenericStack> inputItems() {
@@ -60,7 +60,4 @@ public final class ECOFastPathPatternMetadata {
         return fastPathEligible;
     }
 
-    @Nullable private static ResourceLocation dimension(Level level) {
-        return level == null ? null : level.dimension().location();
-    }
 }

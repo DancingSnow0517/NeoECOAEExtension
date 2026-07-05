@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEStorageClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
+import com.google.common.math.LongMath;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.EnumSet;
 import java.util.Set;
@@ -144,12 +145,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>>
     }
 
     private static long saturatedAdd(long left, long right) {
-        if (left == Long.MAX_VALUE || right == Long.MAX_VALUE) {
-            return Long.MAX_VALUE;
-        }
-        if (right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
+        return LongMath.saturatedAdd(left, right);
     }
 }

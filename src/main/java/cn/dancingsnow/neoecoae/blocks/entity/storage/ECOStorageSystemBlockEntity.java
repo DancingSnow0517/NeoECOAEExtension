@@ -45,6 +45,7 @@ import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import com.google.common.math.LongMath;
 import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.mojang.logging.LogUtils;
@@ -1306,10 +1307,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private record ExportResult(long exported, int keysVisited) {}
 
     private static long saturatedAdd(long left, long right) {
-        if (left == Long.MAX_VALUE || right == Long.MAX_VALUE || right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
+        return LongMath.saturatedAdd(left, right);
     }
 
     // increaseBuildLength / decreaseBuildLength are provided by INEMultiblockBuildHost default

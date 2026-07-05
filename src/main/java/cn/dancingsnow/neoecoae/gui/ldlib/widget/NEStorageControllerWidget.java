@@ -884,13 +884,6 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                 .doubleValue();
     }
 
-    private static long saturatedAdd(long left, long right) {
-        if (left == Long.MAX_VALUE || right == Long.MAX_VALUE || right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
-    }
-
     private static int infiniteGaugeColor(int color) {
         int red = (color >>> 16) & 0xFF;
         int green = (color >>> 8) & 0xFF;

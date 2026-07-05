@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.state;
 
+import com.google.common.math.LongMath;
 import java.util.Collections;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -70,12 +71,6 @@ public record NEStorageUiState(
     }
 
     private static long saturatedAdd(long left, long right) {
-        if (left == Long.MAX_VALUE || right == Long.MAX_VALUE) {
-            return Long.MAX_VALUE;
-        }
-        if (right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
+        return LongMath.saturatedAdd(left, right);
     }
 }

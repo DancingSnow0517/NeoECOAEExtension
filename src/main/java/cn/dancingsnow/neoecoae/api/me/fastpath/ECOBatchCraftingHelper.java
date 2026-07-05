@@ -1,11 +1,9 @@
 package cn.dancingsnow.neoecoae.api.me.fastpath;
 
 import appeng.api.config.Actionable;
-import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +19,7 @@ public final class ECOBatchCraftingHelper {
             long amount = multiplyExact(stack.amount(), multiplier);
             counter.add(stack.what(), amount);
         }
-        return copyCounter(counter);
+        return ECOFastPathStacks.copyCounterUnsorted(counter);
     }
 
     public static int maxCraftsFromInventory(
@@ -70,16 +68,6 @@ public final class ECOBatchCraftingHelper {
         for (GenericStack stack : stacks) {
             inventory.insert(stack.what(), stack.amount(), Actionable.MODULATE);
         }
-    }
-
-    private static List<GenericStack> copyCounter(KeyCounter counter) {
-        List<GenericStack> stacks = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : counter) {
-            if (entry.getLongValue() > 0) {
-                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-            }
-        }
-        return List.copyOf(stacks);
     }
 
     private static long multiplyExact(long amount, int multiplier) {

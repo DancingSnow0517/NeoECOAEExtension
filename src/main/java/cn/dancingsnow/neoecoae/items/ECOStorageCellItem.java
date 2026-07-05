@@ -45,6 +45,8 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
+    private static final String NBT_FUZZY_MODE = "FuzzyMode";
+    private static final String LEGACY_NBT_FUZZY_MODE = "fuzzyMode";
 
     @Getter
     private final IECOTier tier;
@@ -148,10 +150,15 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
-        if (is.hasTag() && is.getTag().contains("fuzzyMode")) {
-            try {
-                return FuzzyMode.valueOf(is.getTag().getString("fuzzyMode"));
-            } catch (IllegalArgumentException ignored) {
+        if (is.hasTag()) {
+            var tag = is.getTag();
+            FuzzyMode mode = readFuzzyMode(tag.getString(NBT_FUZZY_MODE));
+            if (mode != null) {
+                return mode;
+            }
+            mode = readFuzzyMode(tag.getString(LEGACY_NBT_FUZZY_MODE));
+            if (mode != null) {
+                return mode;
             }
         }
         return FuzzyMode.IGNORE_ALL;
@@ -159,7 +166,20 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-        is.getOrCreateTag().putString("fuzzyMode", fzMode.name());
+        var tag = is.getOrCreateTag();
+        tag.putString(NBT_FUZZY_MODE, fzMode.name());
+        tag.remove(LEGACY_NBT_FUZZY_MODE);
+    }
+
+    @Nullable private static FuzzyMode readFuzzyMode(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            return FuzzyMode.valueOf(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     @Override

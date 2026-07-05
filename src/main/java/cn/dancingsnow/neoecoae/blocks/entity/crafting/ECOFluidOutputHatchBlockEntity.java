@@ -6,7 +6,6 @@ import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -75,11 +74,6 @@ public class ECOFluidOutputHatchBlockEntity extends AbstractCraftingBlockEntity<
         if (tag.contains("neo_tank")) {
             tank.readFromNBT(tag.getCompound("neo_tank"));
         }
-    }
-
-    @Override
-    @Nullable public ClientboundBlockEntityDataPacket getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {

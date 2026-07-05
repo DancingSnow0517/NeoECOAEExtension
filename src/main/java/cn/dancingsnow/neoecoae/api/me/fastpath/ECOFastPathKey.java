@@ -39,8 +39,7 @@ public final class ECOFastPathKey {
             return Optional.empty();
         }
         try {
-            ResourceLocation dimension =
-                    level == null ? null : level.dimension().location();
+            ResourceLocation dimension = dimension(level);
             List<SlotSignature> slots = new ArrayList<>(craftingContainer.length);
             for (KeyCounter counter : craftingContainer) {
                 List<EntrySignature> entries = new ArrayList<>();
@@ -60,6 +59,10 @@ public final class ECOFastPathKey {
         } catch (RuntimeException e) {
             return Optional.empty();
         }
+    }
+
+    @Nullable public static ResourceLocation dimension(@Nullable Level level) {
+        return level == null ? null : level.dimension().location();
     }
 
     @Override

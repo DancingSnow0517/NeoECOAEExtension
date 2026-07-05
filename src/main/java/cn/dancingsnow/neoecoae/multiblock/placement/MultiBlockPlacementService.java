@@ -16,7 +16,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -26,6 +25,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
 import org.slf4j.Logger;
 
 public final class MultiBlockPlacementService {
@@ -325,10 +325,7 @@ public final class MultiBlockPlacementService {
         if (stack.isEmpty()) {
             return;
         }
-        ItemStack toGive = stack.copy();
-        if (!player.getInventory().add(toGive)) {
-            Containers.dropItemStack(level, player.getX(), player.getY(), player.getZ(), toGive);
-        }
+        ItemHandlerHelper.giveItemToPlayer(player, stack.copy());
     }
 
     private static int nextPlacementDelay(ServerLevel level) {
