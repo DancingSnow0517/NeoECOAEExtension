@@ -9,14 +9,19 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -57,7 +62,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
         flushPendingCellContent();
+        releaseCellBackend();
         this.cellStack = normalizeCellStack(cellStack);
+        forkDuplicateCellInCurrentHost();
         invalidateCellInventoryCache();
         if (getLevel() != null && getBlockState().hasProperty(ECODriveBlock.HAS_CELL)) {
             boolean oldHasCell = getBlockState().getValue(ECODriveBlock.HAS_CELL);
@@ -82,7 +89,20 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public boolean isItemValid(ItemStack stack) {
+        ECOStorageSystemBlockEntity controller = getController();
+        if (controller != null && controller.isInfiniteMode() && !ECOInfiniteStorageMember.isMember(stack)) {
+            return false;
+        }
         return ECOStorageCells.isCellHandled(stack);
+    }
+
+    @Override
+    public boolean canExtractCell() {
+        if (ECOInfiniteStorageMember.isMember(cellStack)) {
+            return false;
+        }
+        ECOStorageSystemBlockEntity controller = getController();
+        return controller == null || controller.canExtractDriveCell(this);
     }
 
     @Override
@@ -97,7 +117,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
-                    && !cluster.getController().isStorageInterfaceOutputMode()
+                    && !ECOInfiniteStorageMember.isMember(cellStack)
+                    && !cluster.getController().isStorageInterfaceTransferMode()
                     && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 power += cellInventory.getIdleDrain();
             }
@@ -122,7 +143,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        if (cellStack != null) {
+        if (cellStack != null && canExtractCell()) {
             drops.add(cellStack);
         }
     }
@@ -132,11 +153,18 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             invalidateCellInventoryCache();
             return null;
         }
+        if (level != null && level.isClientSide) {
+            return null;
+        }
         if (cachedCellInventory == null || cachedCellInventoryStack != cellStack) {
             cachedCellInventory = ECOStorageCells.getCellInventory(cellStack, cellSaveProvider);
             cachedCellInventoryStack = cellStack;
         }
         return cachedCellInventory;
+    }
+
+    @Nullable public CellState getRenderedCellState() {
+        return lastSyncedCellState;
     }
 
     @Override
@@ -145,7 +173,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
-                    && !cluster.getController().isStorageInterfaceOutputMode()
+                    && !ECOInfiniteStorageMember.isMember(cellStack)
+                    && !cluster.getController().isStorageInterfaceTransferMode()
                     && mainTier.compareTo(cellInventory.getTier()) >= 0) {
                 int priority = cluster.getController().getPriority();
                 storageMounts.mount(cellInventory, priority);
@@ -189,6 +218,35 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         markCellContentDirty();
     }
 
+    public void convertCellToInfiniteMember(UUID domainId) {
+        flushPendingCellContent();
+        releaseCellBackend();
+        if (cellStack != null && !cellStack.isEmpty()) {
+            ECOInfiniteStorageMember.clearStoredContents(cellStack);
+            ECOInfiniteStorageMember.markMember(cellStack, domainId);
+        }
+        invalidateCellInventoryCache();
+        lastSyncedCellState = null;
+        markForUpdate();
+        setChanged();
+        notifyControllerRefresh();
+    }
+
+    public boolean convertInfiniteMemberToNormalStorage(UUID domainId) {
+        flushPendingCellContent();
+        releaseCellBackend();
+        if (!ECOInfiniteStorageMember.isMemberOf(cellStack, domainId)) {
+            return false;
+        }
+        ECOInfiniteStorageMember.clearMember(cellStack);
+        invalidateCellInventoryCache();
+        lastSyncedCellState = null;
+        markForUpdate();
+        setChanged();
+        notifyControllerRefresh();
+        return true;
+    }
+
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
@@ -208,7 +266,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public CompoundTag getUpdateTag() {
         CompoundTag tag = super.getUpdateTag();
-        saveDriveVisualState(tag);
+        saveDriveUpdateState(tag);
         return tag;
     }
 
@@ -218,16 +276,11 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         loadDriveVisualState(tag);
     }
 
-    @Nullable @Override
-    public ClientboundBlockEntityDataPacket getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
-    }
-
     @Override
     protected void saveVisualState(CompoundTag data) {
         flushPendingCellContent();
         super.saveVisualState(data);
-        saveDriveVisualState(data);
+        saveDriveUpdateState(data);
     }
 
     @Override
@@ -245,6 +298,18 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         data.putBoolean("online", online);
     }
 
+    private void saveDriveUpdateState(CompoundTag data) {
+        if (cellStack != null && !cellStack.isEmpty()) {
+            data.put("cellStack", saveDisplayCellStack(cellStack));
+        }
+        data.putBoolean("mounted", mounted);
+        data.putBoolean("online", online);
+        CellState cellState = lastSyncedCellState != null ? lastSyncedCellState : getCurrentCellState();
+        if (cellState != null) {
+            data.putString("cellState", cellState.name());
+        }
+    }
+
     private void loadDriveVisualState(CompoundTag data) {
         if (data.contains("cellStack")) {
             this.cellStack = normalizeCellStack(ItemStack.of(data.getCompound("cellStack")));
@@ -254,7 +319,10 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         invalidateCellInventoryCache();
         this.mounted = data.getBoolean("mounted");
         this.online = data.getBoolean("online");
-        this.lastSyncedCellState = getCurrentCellState();
+        this.lastSyncedCellState = readCellState(data);
+        if (this.lastSyncedCellState == null && (level == null || !level.isClientSide)) {
+            this.lastSyncedCellState = getCurrentCellState();
+        }
     }
 
     @Nullable private CellState getCurrentCellState() {
@@ -267,6 +335,45 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             return null;
         }
         return stack.copyWithCount(1);
+    }
+
+    private static CompoundTag saveDisplayCellStack(ItemStack stack) {
+        ItemStack displayStack = new ItemStack(stack.getItem(), 1);
+        CompoundTag sourceTag = stack.getTag();
+        if (sourceTag != null) {
+            CompoundTag displayTag = new CompoundTag();
+            copyDisplayTag(sourceTag, displayTag, "display");
+            copyDisplayTag(sourceTag, displayTag, "CustomModelData");
+            copyDisplayTag(sourceTag, displayTag, "HideFlags");
+            copyDisplayTag(sourceTag, displayTag, "Enchantments");
+            copyDisplayTag(sourceTag, displayTag, "StoredEnchantments");
+            copyDisplayTag(sourceTag, displayTag, "Trim");
+            ECOInfiniteStorageMember.copyClientSyncTags(sourceTag, displayTag);
+            if (!displayTag.isEmpty()) {
+                displayStack.setTag(displayTag);
+            }
+        }
+        return displayStack.save(new CompoundTag());
+    }
+
+    @Nullable private static CellState readCellState(CompoundTag data) {
+        if (!data.contains("cellState")) {
+            return null;
+        }
+        try {
+            return CellState.valueOf(data.getString("cellState"));
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private static void copyDisplayTag(CompoundTag source, CompoundTag target, String key) {
+        if (source.contains(key)) {
+            Tag value = source.get(key);
+            if (value != null) {
+                target.put(key, value.copy());
+            }
+        }
     }
 
     /**
@@ -297,11 +404,30 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     private void flushPendingContentChanges() {
+        boolean loaded = processDeferredCellLoad();
+        if (loaded) {
+            updateStorageProviderState();
+            IStorageProvider.requestUpdate(getMainNode());
+            markForUpdate();
+            setChanged();
+        }
         flushPendingCellContent();
         if (pendingControllerStatsDirty) {
             pendingControllerStatsDirty = false;
             notifyControllerRefresh();
         }
+    }
+
+    private boolean processDeferredCellLoad() {
+        if (cachedCellInventory instanceof ECOStorageCell storageCell) {
+            boolean loaded = storageCell.processDeferredLoad(500_000L);
+            if (loaded) {
+                lastSyncedCellState = getCurrentCellState();
+                pendingControllerStatsDirty = true;
+            }
+            return loaded;
+        }
+        return false;
     }
 
     private void flushPendingCellContent() {
@@ -332,16 +458,52 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         cachedCellInventoryStack = null;
     }
 
+    private void forkDuplicateCellInCurrentHost() {
+        if (!(level instanceof ServerLevel) || this.cellStack == null || cluster == null) {
+            return;
+        }
+        List<ItemStack> mountedStacks = new ArrayList<>();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            if (drive == this) {
+                continue;
+            }
+            ItemStack mountedStack = drive.getCellStack();
+            if (mountedStack != null && !mountedStack.isEmpty()) {
+                mountedStacks.add(mountedStack);
+            }
+        }
+        ECOCellStorageManager.forkIfAlreadyPresent(this.cellStack, mountedStacks);
+    }
+
+    public void invalidateCellInventoryForHostChange() {
+        flushPendingCellContent();
+        invalidateCellInventoryCache();
+        lastSyncedCellState = getCurrentCellState();
+        markForUpdate();
+        setChanged();
+        notifyControllerRefresh();
+    }
+
+    @Nullable private ECOStorageSystemBlockEntity getController() {
+        return cluster == null ? null : cluster.getController();
+    }
+
     @Override
     public void onChunkUnloaded() {
         flushPendingCellContent();
+        releaseCellBackend();
         super.onChunkUnloaded();
     }
 
     @Override
     public void setRemoved() {
         flushPendingCellContent();
+        releaseCellBackend();
         super.setRemoved();
+    }
+
+    private void releaseCellBackend() {
+        ECOCellStorageManager.release(cellStack, cellSaveProvider);
     }
 
     @Override

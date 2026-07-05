@@ -1,0 +1,87 @@
+{
+  "type": "forge:conditional",
+  "recipes": [
+    {
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "gtceu"
+        }
+      ],
+      "recipe": {
+        "type": "gtceu:assembler",
+        "duration": 600,
+        "inputs": {
+          "fluid": [
+            {
+              "content": {
+                "amount": 1152,
+                "value": {
+                  "fluid": "gtceu:soldering_alloy"
+                }
+              }
+            }
+          ],
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 4,
+                "ingredient": {
+                  "item": "neoecoae:eco_cell_component_64m"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 64,
+                "ingredient": {
+                  "item": "neoecoae:energized_superconductive_ingot"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 16,
+                "ingredient": {
+                  "item": "neoecoae:superconducting_processor"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 1,
+                "ingredient": {
+                  "item": "neoecoae:crystal_matrix"
+                }
+              }
+            }
+          ]
+        },
+        "outputs": {
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 1,
+                "ingredient": {
+                  "item": "neoecoae:eco_computation_cell_l6"
+                }
+              }
+            }
+          ]
+        },
+        "tickInputs": {
+          "eu": [
+            {
+              "content": 8192
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

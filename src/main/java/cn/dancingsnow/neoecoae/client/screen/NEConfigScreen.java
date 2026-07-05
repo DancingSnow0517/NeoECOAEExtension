@@ -23,13 +23,16 @@ public class NEConfigScreen extends Screen {
     private EditBox storageLength;
     private EditBox patternBusPages;
     private Button capacityButton;
+    private Button aggressiveFastPathButton;
     private boolean increaseCapacity;
+    private boolean aggressiveFastPath;
     private Component error = Component.empty();
 
     public NEConfigScreen(Screen parent) {
         super(Component.translatable("screen.neoecoae.config.title"));
         this.parent = parent;
         this.increaseCapacity = NEConfig.isIncreaseStorageCellCapacity();
+        this.aggressiveFastPath = NEConfig.enableEcoAggressiveFastPath;
     }
 
     @Override
@@ -60,6 +63,15 @@ public class NEConfigScreen extends Screen {
                 .build();
         this.capacityButton.active = canEdit;
         addRenderableWidget(this.capacityButton);
+
+        this.aggressiveFastPathButton = Button.builder(toggleText(this.aggressiveFastPath), button -> {
+                    this.aggressiveFastPath = !this.aggressiveFastPath;
+                    button.setMessage(toggleText(this.aggressiveFastPath));
+                })
+                .bounds(x + LABEL_WIDTH, y + 140, FIELD_WIDTH, 20)
+                .build();
+        this.aggressiveFastPathButton.active = canEdit;
+        addRenderableWidget(this.aggressiveFastPathButton);
 
         int buttonY = this.height - 34;
         Button saveButton = Button.builder(Component.translatable("screen.neoecoae.config.save"), button -> save())
@@ -96,6 +108,7 @@ public class NEConfigScreen extends Screen {
         drawLabel(graphics, "screen.neoecoae.config.storageSystemMaxLength", x, y + 56);
         drawLabel(graphics, "screen.neoecoae.config.craftingPatternBusPages", x, y + 84);
         drawLabel(graphics, "screen.neoecoae.config.increaseCapacity", x, y + 112);
+        drawLabel(graphics, "neoecoae.configuration.ecoAggressiveFastPathEnabled", x, y + 140);
 
         if (!this.error.getString().isEmpty()) {
             graphics.drawCenteredString(this.font, this.error, this.width / 2, this.height - 48, 0xFFFF5555);
@@ -105,6 +118,12 @@ public class NEConfigScreen extends Screen {
 
         if (this.capacityButton != null && this.capacityButton.isMouseOver(mouseX, mouseY)) {
             graphics.renderComponentTooltip(this.font, capacityTooltip(), mouseX, mouseY);
+        } else if (this.aggressiveFastPathButton != null && this.aggressiveFastPathButton.isMouseOver(mouseX, mouseY)) {
+            graphics.renderComponentTooltip(
+                    this.font,
+                    List.of(Component.translatable("neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip")),
+                    mouseX,
+                    mouseY);
         } else if (this.patternBusPages != null && this.patternBusPages.isMouseOver(mouseX, mouseY)) {
             Component capacity = patternBusCapacityText();
             if (capacity != null) {
@@ -132,10 +151,12 @@ public class NEConfigScreen extends Screen {
     }
 
     private Component capacityText() {
+        return toggleText(this.increaseCapacity);
+    }
+
+    private Component toggleText(boolean enabled) {
         return Component.translatable(
-                this.increaseCapacity
-                        ? "screen.neoecoae.config.increaseCapacity.on"
-                        : "screen.neoecoae.config.increaseCapacity.off");
+                enabled ? "screen.neoecoae.config.increaseCapacity.on" : "screen.neoecoae.config.increaseCapacity.off");
     }
 
     private Component patternBusCapacityText() {
@@ -184,7 +205,8 @@ public class NEConfigScreen extends Screen {
             int computation = parsePositiveInt(this.computationLength.getValue());
             int storage = parsePositiveInt(this.storageLength.getValue());
             int pages = parsePatternBusPages(this.patternBusPages.getValue());
-            NEConfig.applyClientConfig(crafting, computation, storage, pages, this.increaseCapacity);
+            NEConfig.applyClientConfig(
+                    crafting, computation, storage, pages, this.increaseCapacity, this.aggressiveFastPath);
             close();
         } catch (NumberFormatException ignored) {
             this.error = Component.translatable("screen.neoecoae.config.invalid");

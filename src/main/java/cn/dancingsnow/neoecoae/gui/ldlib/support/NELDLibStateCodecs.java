@@ -1,10 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.support;
 
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageHugeStackState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageInterfaceUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
@@ -19,6 +21,7 @@ import net.minecraft.world.item.ItemStack;
 public final class NELDLibStateCodecs {
     private static final int MAX_STORAGE_UI_TYPES = 64;
     private static final int MAX_STORAGE_DRIVES = 384;
+    private static final int MAX_STORAGE_HUGE_STACKS = 128;
     private static final int MAX_CRAFTING_RECIPE_ENTRIES = 64;
     private static final int MAX_WORKER_OUTPUTS = 128;
     private static final int MAX_PARALLEL_CORE_TIERS = 128;
@@ -30,6 +33,11 @@ public final class NELDLibStateCodecs {
         buf.writeLong(state.storedEnergy());
         buf.writeLong(state.maxEnergy());
         buf.writeBoolean(state.formed());
+        buf.writeBoolean(state.infiniteSlotVisible());
+        buf.writeBoolean(state.infiniteMode());
+        buf.writeVarInt(Math.max(0, state.infiniteComponentCount()));
+        buf.writeBoolean(state.canTakeInfiniteComponent());
+        buf.writeBoolean(state.infiniteDomainEmpty());
         List<NEStorageUiMatrixState> matrices = state.matrixStates();
         buf.writeVarInt(Math.min(matrices.size(), MAX_STORAGE_DRIVES));
         int matricesWritten = 0;
@@ -45,6 +53,7 @@ public final class NELDLibStateCodecs {
             buf.writeLong(matrix.totalTypes());
             buf.writeLong(matrix.usedBytes());
             buf.writeLong(matrix.totalBytes());
+            buf.writeBoolean(matrix.infiniteMember());
         }
         List<NEStorageUiTypeState> types = state.typeStates();
         buf.writeVarInt(Math.min(types.size(), MAX_STORAGE_UI_TYPES));
@@ -54,11 +63,22 @@ public final class NELDLibStateCodecs {
                 break;
             }
             buf.writeResourceLocation(type.typeId());
-            buf.writeUtf(type.displayName(), 128);
+            writeBoundedUtf(buf, type.displayName(), 128);
             buf.writeLong(type.usedTypes());
             buf.writeLong(type.totalTypes());
             buf.writeLong(type.usedBytes());
             buf.writeLong(type.totalBytes());
+            writeHugeDisplayAmount(buf, type.safeUsedAmount());
+        }
+        List<NEStorageHugeStackState> hugeStacks = state.hugeStacks();
+        buf.writeVarInt(Math.min(hugeStacks.size(), MAX_STORAGE_HUGE_STACKS));
+        int hugeWritten = 0;
+        for (NEStorageHugeStackState hugeStack : hugeStacks) {
+            if (hugeWritten++ >= MAX_STORAGE_HUGE_STACKS) {
+                break;
+            }
+            AEKey.writeKey(buf, hugeStack.key());
+            writeHugeDisplayAmount(buf, hugeStack.amount());
         }
     }
 
@@ -67,6 +87,11 @@ public final class NELDLibStateCodecs {
         long storedEnergy = buf.readLong();
         long maxEnergy = buf.readLong();
         boolean formed = buf.readBoolean();
+        boolean infiniteSlotVisible = buf.readBoolean();
+        boolean infiniteMode = buf.readBoolean();
+        int infiniteComponentCount = buf.readVarInt();
+        boolean canTakeInfiniteComponent = buf.readBoolean();
+        boolean infiniteDomainEmpty = buf.readBoolean();
         int matrixCount = buf.readVarInt();
         if (matrixCount > MAX_STORAGE_DRIVES) {
             throw new IllegalArgumentException("Storage drive count exceeds protocol limit: " + matrixCount);
@@ -81,7 +106,8 @@ public final class NELDLibStateCodecs {
                     buf.readLong(),
                     buf.readLong(),
                     buf.readLong(),
-                    buf.readLong()));
+                    buf.readLong(),
+                    buf.readBoolean()));
         }
         int typeCount = buf.readVarInt();
         if (typeCount > MAX_STORAGE_UI_TYPES) {
@@ -95,9 +121,30 @@ public final class NELDLibStateCodecs {
                     buf.readLong(),
                     buf.readLong(),
                     buf.readLong(),
-                    buf.readLong()));
+                    buf.readLong(),
+                    buf.readUtf(128)));
         }
-        return new NEStorageUiState(pos, types, matrices, storedEnergy, maxEnergy, formed);
+        int hugeStackCount = buf.readVarInt();
+        if (hugeStackCount > MAX_STORAGE_HUGE_STACKS) {
+            throw new IllegalArgumentException("Storage huge stack count exceeds protocol limit: " + hugeStackCount);
+        }
+        List<NEStorageHugeStackState> hugeStacks = new ArrayList<>(hugeStackCount);
+        for (int i = 0; i < hugeStackCount; i++) {
+            hugeStacks.add(new NEStorageHugeStackState(AEKey.readKey(buf), buf.readUtf(128)));
+        }
+        return new NEStorageUiState(
+                pos,
+                types,
+                matrices,
+                hugeStacks,
+                storedEnergy,
+                maxEnergy,
+                formed,
+                infiniteSlotVisible,
+                infiniteMode,
+                infiniteComponentCount,
+                canTakeInfiniteComponent,
+                infiniteDomainEmpty);
     }
 
     public static void writeStorageInterface(FriendlyByteBuf buf, NEStorageInterfaceUiState state) {
@@ -508,6 +555,14 @@ public final class NELDLibStateCodecs {
             throw new IllegalArgumentException(fieldName + " outside protocol limit: " + value);
         }
         return value;
+    }
+
+    private static void writeHugeDisplayAmount(FriendlyByteBuf buf, String amount) {
+        writeBoundedUtf(buf, NELDLibText.compactHugeAmountForSync(amount), 128);
+    }
+
+    private static void writeBoundedUtf(FriendlyByteBuf buf, String value, int maxLength) {
+        buf.writeUtf(NELDLibText.bounded(value, maxLength), maxLength);
     }
 
     private NELDLibStateCodecs() {}

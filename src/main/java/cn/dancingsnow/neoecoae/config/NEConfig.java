@@ -87,6 +87,27 @@ public class NEConfig {
                     "Set JVM property -Dneoecoae.ecoBatchFastPathTickLimit=<value> to override this config.")
             .defineInRange("ecoBatchFastPathTickLimit", 256, 1, Integer.MAX_VALUE);
 
+    private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AGGRESSIVE_FAST_PATH = BUILDER.comment(
+                    "Enable the aggressive ECO fast path.",
+                    "This keeps the same safety checks as the normal fast path, but allows much larger ECO Pattern Bus batch pushes.",
+                    "Default false. Enable only after validating recipe behavior in the modpack.",
+                    "Set JVM property -Dneoecoae.ecoAggressiveFastPath=true to force-enable this optimization without editing the config.")
+            .define("ecoAggressiveFastPathEnabled", false);
+
+    private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_LIMIT = BUILDER.comment(
+                    "Fallback maximum crafts merged into a single aggressive fast path batch push.",
+                    "When a controller's dynamic FX capacity is available, that capacity is used instead.",
+                    "Only used when ecoAggressiveFastPathEnabled is true.",
+                    "Set JVM property -Dneoecoae.ecoAggressiveFastPathLimit=<value> to override this config.")
+            .defineInRange("ecoAggressiveFastPathLimit", 4096, 1, Integer.MAX_VALUE);
+
+    private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT = BUILDER.comment(
+                    "Maximum new aggressive fast path crafts a CPU may schedule per tick.",
+                    "The controller's dynamic FX capacity still caps total in-flight simulated crafts.",
+                    "Only used when ecoAggressiveFastPathEnabled is true.",
+                    "Set JVM property -Dneoecoae.ecoAggressiveFastPathTickLimit=<value> to override this config.")
+            .defineInRange("ecoAggressiveFastPathTickLimit", 4096, 1, Integer.MAX_VALUE);
+
     private static final ForgeConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER.comment(
                     "Maximum recipe entries kept in each ECO fast path cache.",
                     "Set JVM property -Dneoecoae.ecoFastPathCacheSize=<value> to override this config.",
@@ -110,6 +131,12 @@ public class NEConfig {
                     "Changing this config is fully applied after re-entering the world or restarting the server.")
             .define("increaseStorageCellCapacity", DEFAULT_INCREASE_STORAGE_CELL_CAPACITY);
 
+    private static final ForgeConfigSpec.BooleanValue ENABLE_INFINITE_STORAGE = BUILDER.comment(
+                    "Enable the L9 infinite storage gameplay.",
+                    "Default false. When disabled, the infinite component slot and new migrations are hidden/blocked.",
+                    "Existing infinite storage domain files are preserved and are not deleted by this option.")
+            .define("enableInfiniteStorage", false);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int craftingSystemMaxLength = 15;
@@ -121,9 +148,13 @@ public class NEConfig {
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
     public static int ecoBatchFastPathLimit = 64;
     public static int ecoBatchFastPathTickLimit = 256;
+    public static boolean enableEcoAggressiveFastPath;
+    public static int ecoAggressiveFastPathLimit = 4096;
+    public static int ecoAggressiveFastPathTickLimit = 4096;
     public static int ecoFastPathCacheSize = 512;
     public static int craftingPatternBusPages = 2;
     public static boolean increaseStorageCellCapacity;
+    public static boolean enableInfiniteStorage;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent event) {
@@ -135,12 +166,14 @@ public class NEConfig {
             int computationMaxLength,
             int storageMaxLength,
             int patternBusPages,
-            boolean increaseCapacity) {
+            boolean increaseCapacity,
+            boolean aggressiveFastPath) {
         CRAFTING_SYSTEM_MAX_LENGTH.set(Math.max(CRAFTING_SYSTEM_MIN_LENGTH, craftingMaxLength));
         COMPUTATION_SYSTEM_MAX_LENGTH.set(Math.max(COMPUTATION_SYSTEM_MIN_LENGTH, computationMaxLength));
         STORAGE_SYSTEM_MAX_LENGTH.set(Math.max(STORAGE_SYSTEM_MIN_LENGTH, storageMaxLength));
         CRAFTING_PATTERN_BUS_PAGES.set(Mth.clamp(patternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES));
         INCREASE_STORAGE_CELL_CAPACITY.set(increaseCapacity);
+        ENABLE_ECO_AGGRESSIVE_FAST_PATH.set(aggressiveFastPath);
         SPEC.save();
         syncValues();
     }
@@ -157,10 +190,17 @@ public class NEConfig {
                 getPositiveIntProperty("neoecoae.ecoBatchFastPathLimit", ECO_BATCH_FAST_PATH_LIMIT.get());
         ecoBatchFastPathTickLimit =
                 getPositiveIntProperty("neoecoae.ecoBatchFastPathTickLimit", ECO_BATCH_FAST_PATH_TICK_LIMIT.get());
+        enableEcoAggressiveFastPath =
+                getBooleanProperty("neoecoae.ecoAggressiveFastPath", ENABLE_ECO_AGGRESSIVE_FAST_PATH.get());
+        ecoAggressiveFastPathLimit =
+                getPositiveIntProperty("neoecoae.ecoAggressiveFastPathLimit", ECO_AGGRESSIVE_FAST_PATH_LIMIT.get());
+        ecoAggressiveFastPathTickLimit = getPositiveIntProperty(
+                "neoecoae.ecoAggressiveFastPathTickLimit", ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT.get());
         ecoFastPathCacheSize =
                 Math.max(16, getPositiveIntProperty("neoecoae.ecoFastPathCacheSize", ECO_FAST_PATH_CACHE_SIZE.get()));
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
+        enableInfiniteStorage = ENABLE_INFINITE_STORAGE.get();
     }
 
     public static boolean isEcoAe2FastPathEnabled() {
@@ -169,8 +209,24 @@ public class NEConfig {
                 && !"false".equalsIgnoreCase(System.getProperty("neoecoae.ecoFastPath", "true"));
     }
 
+    public static boolean isEcoAggressiveFastPathEnabled() {
+        return isEcoAe2FastPathEnabled() && enableEcoAggressiveFastPath;
+    }
+
+    public static int getEcoFastPathBatchLimit() {
+        return isEcoAggressiveFastPathEnabled() ? ecoAggressiveFastPathLimit : ecoBatchFastPathLimit;
+    }
+
+    public static int getEcoFastPathTickLimit() {
+        return isEcoAggressiveFastPathEnabled() ? ecoAggressiveFastPathTickLimit : ecoBatchFastPathTickLimit;
+    }
+
     public static boolean isIncreaseStorageCellCapacity() {
         return increaseStorageCellCapacity;
+    }
+
+    public static boolean isInfiniteStorageEnabled() {
+        return enableInfiniteStorage;
     }
 
     public static int getCraftingPatternBusPages() {

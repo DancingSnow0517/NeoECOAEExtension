@@ -1,8 +1,5 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
-import appeng.api.orientation.IOrientationStrategy;
-import appeng.api.orientation.OrientationStrategies;
-import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationCoolingController;
@@ -13,14 +10,12 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.mojang.serialization.DataResult;
-import com.tterrag.registrate.util.entry.BlockEntry;
 import java.util.List;
 import java.util.function.BiPredicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -42,13 +37,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        if (verifyInternalStructure(level, min, max, false)) {
-            setMirroredStructure(false);
-            return true;
-        }
-        boolean mirrored = verifyInternalStructure(level, min, max, true);
-        setMirroredStructure(mirrored);
-        return mirrored;
+        return verifyMirroredStructure(level, min, max, this::verifyInternalStructure);
     }
 
     private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
@@ -59,19 +48,13 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         ECOComputationSystemBlockEntity controller = controllerCandidate.get().blockEntity();
         BlockPos controllerPos = controllerCandidate.get().pos();
         IECOTier tier = controller.getTier();
-        BlockState controllerState = controller.getBlockState();
-        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
-        Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
-        Direction front = back.getOpposite();
-        Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
-        Direction down = top.getOpposite();
-        Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
-        Direction right = left.getOpposite();
-        if (mirrored) {
-            Direction tmp = left;
-            left = right;
-            right = tmp;
-        }
+        ControllerOrientation orientation = controllerOrientation(controller.getBlockState(), mirrored);
+        Direction back = orientation.back();
+        Direction front = orientation.front();
+        Direction top = orientation.top();
+        Direction down = orientation.down();
+        Direction left = orientation.left();
+        Direction right = orientation.right();
         if (!validateCasing(level, controllerPos, top, down, left)) {
             return false;
         }
@@ -198,9 +181,5 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         return (s, p) -> s.getBlock() instanceof ECOComputationCoolingController core
                 && tier.supportsComponentTier(core.getBlockEntity(level, p).getTier())
                 && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
-    }
-
-    private BiPredicate<BlockState, BlockPos> matchingStateFacing(BlockEntry<? extends Block> block, Direction facing) {
-        return (s, p) -> s.is(block.get()) && s.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 }

@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -18,6 +19,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.items.ItemHandlerHelper;
 
 public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     public static final BooleanProperty HAS_CELL = BooleanProperty.create("has_cell");
@@ -39,7 +41,7 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
                 && ECOStorageCells.getHandler(heldItem) != null
                 && ECOStorageCells.getCellInventory(heldItem, null) != null) {
             if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
-                if (be.getCellStack() == null) {
+                if (be.getCellStack() == null && be.isItemValid(heldItem)) {
                     if (level.isClientSide) return InteractionResult.SUCCESS;
                     be.setCellStack(heldItem.copyWithCount(1));
                     if (!player.getAbilities().instabuild) {
@@ -52,21 +54,18 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
                 if (level.isClientSide) return InteractionResult.SUCCESS;
+                if (!be.canExtractCell()) {
+                    player.displayClientMessage(
+                            Component.translatable("gui.neoecoae.storage.infinite_extract_blocked"), true);
+                    return InteractionResult.SUCCESS;
+                }
                 ItemStack cellStack = be.getCellStack().copyWithCount(1);
                 be.setCellStack(null);
-                giveCellToPlayer(player, hand, cellStack);
+                ItemHandlerHelper.giveItemToPlayer(player, cellStack);
                 return InteractionResult.sidedSuccess(level.isClientSide());
             }
         }
         return InteractionResult.PASS;
-    }
-
-    private static void giveCellToPlayer(Player player, InteractionHand hand, ItemStack cellStack) {
-        if (player.getItemInHand(hand).isEmpty()) {
-            player.setItemInHand(hand, cellStack);
-        } else if (!player.getInventory().add(cellStack)) {
-            player.drop(cellStack, false);
-        }
     }
 
     @Override

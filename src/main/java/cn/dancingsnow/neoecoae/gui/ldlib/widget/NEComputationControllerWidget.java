@@ -6,8 +6,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTaskCards;
@@ -15,14 +13,10 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 
@@ -363,42 +357,20 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private void drawTaskCard(GuiGraphics g, NECraftingRecipeUiEntry entry, int y) {
-        int x = TASK_CARD_X;
-        int absX = absX(x);
-        int absY = absY(y);
-        NELDLibTaskCards.drawCardRect(
-                g, absX, absY, TASK_CARD_W, TASK_CARD_H, NELDLibTaskCards.statusColor(entry.status()));
-        if (!entry.output().isEmpty()) {
-            NELDLibGuiRenderState.beginVanillaGuiItemBatch(g);
-            try {
-                NELDLibGuiRenderState.renderVanillaSlotItem(g, font(), entry.output(), absX + 4, absY + 4, "");
-            } finally {
-                NELDLibGuiRenderState.endVanillaGuiItemBatch(g);
-            }
-        }
-
-        int textX = x + 24;
-        int textY = y + 4;
-        String amountText = "x" + NELDLibText.compactTaskAmount(entry.outputAmount());
-        int amountW = font().width(amountText);
-        int maxNameW = Math.max(16, TASK_CARD_W - 34 - amountW);
-        String name = fitText(entry.output().getHoverName().getString(), maxNameW);
-        g.drawString(font(), name, absX(textX), absY(textY), NELDLibStyle.DARK_TEXT_PRIMARY, false);
-        NELDLibClientStyle.drawRight(
+        NELDLibTaskListPanel.drawCard(
                 g,
                 font(),
-                Component.literal(amountText),
-                absX(TASK_CARD_X + TASK_CARD_W - 5),
-                absY(y + 11),
-                NELDLibStyle.DARK_TEXT_VALUE);
-        NELDLibTaskCards.drawProgressBar(g, absX + 24, absY + TASK_CARD_H - 5, TASK_CARD_W - 29, 2, entry);
+                entry,
+                absX(TASK_CARD_X),
+                absY(y),
+                TASK_CARD_W,
+                TASK_CARD_H,
+                new NELDLibTaskListPanel.CardStyle(
+                        4, 4, 24, 4, 11, 5, 24, TASK_CARD_H - 5, 29, 2, 34, 1.0F, 1.0F, 0.0F));
     }
 
     private void drawTaskScrollbar(GuiGraphics g, int total, int visible) {
-        if (total <= visible) {
-            return;
-        }
-        NELDLibScrollBar.drawVertical(
+        NELDLibTaskListPanel.drawScrollbar(
                 g,
                 absX(TASK_PANEL_X + TASK_PANEL_W - 5),
                 absY(TASK_CARD_Y),
@@ -406,10 +378,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 Math.max(1, TASK_LIST_BOTTOM_Y - TASK_CARD_Y),
                 total,
                 visible,
-                taskScrollOffset,
-                0xAA17141E,
-                0xFF8B83A0,
-                10);
+                taskScrollOffset);
     }
 
     private boolean renderTaskTooltip(GuiGraphics g, int mouseX, int mouseY) {
@@ -422,14 +391,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 continue;
             }
             NECraftingRecipeUiEntry entry = entries.get(taskScrollOffset + i);
-            List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), entry.output()));
-            lines.add(Component.translatable(NELDLibTaskCards.statusKey(entry.status())));
-            lines.add(Component.translatable(
-                    "gui.neoecoae.crafting.task.amount", NELDLibText.compactTaskAmount(entry.outputAmount())));
-            if (entry.totalTicks() > 0L) {
-                long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
-                lines.add(Component.literal(NELDLibText.percentOrNA(done, entry.totalTicks())));
-            }
+            List<Component> lines = NELDLibTaskListPanel.tooltipLines(entry, false, true, null);
             g.renderTooltip(font(), lines, entry.output().getTooltipImage(), entry.output(), mouseX, mouseY);
             return true;
         }
@@ -437,15 +399,12 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private int visibleTaskCardCount() {
-        int space = TASK_LIST_BOTTOM_Y - TASK_CARD_Y;
-        if (space < TASK_CARD_H) {
-            return 1;
-        }
-        return Math.max(1, 1 + (space - TASK_CARD_H) / TASK_CARD_STRIDE);
+        return NELDLibTaskListPanel.visibleCardCount(TASK_CARD_Y, TASK_LIST_BOTTOM_Y, TASK_CARD_H, TASK_CARD_STRIDE);
     }
 
     private int clampTaskScrollOffset(int value, int total) {
-        return Mth.clamp(value, 0, Math.max(0, total - visibleTaskCardCount()));
+        return NELDLibTaskListPanel.clampScrollOffset(
+                value, total, TASK_CARD_Y, TASK_LIST_BOTTOM_Y, TASK_CARD_H, TASK_CARD_STRIDE);
     }
 
     private void drawModeLine(GuiGraphics g, NEComputationUiState state, int x, int y) {

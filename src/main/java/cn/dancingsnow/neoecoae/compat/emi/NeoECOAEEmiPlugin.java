@@ -2,8 +2,10 @@ package cn.dancingsnow.neoecoae.compat.emi;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
@@ -29,6 +31,9 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
     @Override
     public void register(EmiRegistry registry) {
         ECOEmiScreenCompat.register(registry);
+        if (!NEConfig.isInfiniteStorageEnabled()) {
+            registry.removeEmiStacks(stack -> stack.getItemStack().is(NEItems.ECO_INFINITE_CELL_COMPONENT.get()));
+        }
 
         registry.addCategory(INTEGRATED_WORKING_STATION);
         registry.addWorkstation(INTEGRATED_WORKING_STATION, EmiStack.of(NEBlocks.INTEGRATED_WORKING_STATION));
@@ -59,11 +64,18 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
 
         for (IntegratedWorkingStationRecipe recipe :
                 mc.level.getRecipeManager().getAllRecipesFor(NERecipeTypes.INTEGRATED_WORKING_STATION.get())) {
+            if (!NEConfig.isInfiniteStorageEnabled() && isInfiniteComponentRecipe(recipe)) {
+                continue;
+            }
             registry.addRecipe(new IntegratedWorkingStationEmiRecipe(recipe));
         }
 
         for (CoolingRecipe recipe : mc.level.getRecipeManager().getAllRecipesFor(NERecipeTypes.COOLING.get())) {
             registry.addRecipe(new CoolingEmiRecipe(recipe));
         }
+    }
+
+    private static boolean isInfiniteComponentRecipe(IntegratedWorkingStationRecipe recipe) {
+        return recipe.hasItemOutput() && recipe.itemOutput().is(NEItems.ECO_INFINITE_CELL_COMPONENT.get());
     }
 }

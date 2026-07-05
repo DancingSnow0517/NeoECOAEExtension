@@ -1,0 +1,68 @@
+{
+  "type": "forge:conditional",
+  "recipes": [
+    {
+      "conditions": [
+        {
+          "type": "forge:mod_loaded",
+          "modid": "gtceu"
+        }
+      ],
+      "recipe": {
+        "type": "gtceu:mixer",
+        "duration": 240,
+        "inputs": {
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 1,
+                "ingredient": {
+                  "tag": "forge:dusts/tungsten"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 1,
+                "ingredient": {
+                  "tag": "forge:dusts/aluminum_alloy"
+                }
+              }
+            },
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 2,
+                "ingredient": {
+                  "tag": "forge:dusts/fluix"
+                }
+              }
+            }
+          ]
+        },
+        "outputs": {
+          "item": [
+            {
+              "content": {
+                "type": "gtceu:sized",
+                "count": 1,
+                "ingredient": {
+                  "item": "neoecoae:black_tungsten_alloy_dust"
+                }
+              }
+            }
+          ]
+        },
+        "tickInputs": {
+          "eu": [
+            {
+              "content": 512
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

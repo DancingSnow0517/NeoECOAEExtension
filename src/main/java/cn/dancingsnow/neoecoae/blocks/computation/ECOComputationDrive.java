@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.items.ItemHandlerHelper;
 
 public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity> {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -59,19 +60,11 @@ public class ECOComputationDrive extends NEBlock<ECOComputationDriveBlockEntity>
                 }
                 ItemStack cellStack = be.getCellStack();
                 be.setCellStack(null);
-                giveCellToPlayer(player, hand, cellStack);
+                ItemHandlerHelper.giveItemToPlayer(player, cellStack);
                 return InteractionResult.sidedSuccess(level.isClientSide());
             }
         }
         return InteractionResult.PASS;
-    }
-
-    private static void giveCellToPlayer(Player player, InteractionHand hand, ItemStack cellStack) {
-        if (player.getItemInHand(hand).isEmpty()) {
-            player.setItemInHand(hand, cellStack);
-        } else if (!player.getInventory().add(cellStack)) {
-            player.drop(cellStack, false);
-        }
     }
 
     @Override

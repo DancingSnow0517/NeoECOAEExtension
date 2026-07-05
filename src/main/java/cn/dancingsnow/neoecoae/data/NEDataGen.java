@@ -5,6 +5,7 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.data.lang.NELangGenerator;
 import cn.dancingsnow.neoecoae.data.model.CellModelGenerator;
+import cn.dancingsnow.neoecoae.data.provider.NEBiomeModifierConditionProvider;
 import cn.dancingsnow.neoecoae.data.provider.NELangMergerProvider;
 import cn.dancingsnow.neoecoae.data.provider.NERegistryProvider;
 import cn.dancingsnow.neoecoae.data.recipe.NERecipeGenerator;
@@ -49,6 +50,7 @@ public class NEDataGen {
         PackOutput packOutput = generator.getPackOutput();
 
         generator.addProvider(event.includeServer(), new NERegistryProvider(packOutput, registries));
+        generator.addProvider(event.includeServer(), new NEBiomeModifierConditionProvider(packOutput));
         generator.addProvider(event.includeClient(), new NELangMergerProvider(packOutput));
     }
 }

@@ -51,6 +51,7 @@ public class NELangGenerator {
         provider.add("neoecoae.tooltip.upload_pattern", "Upload Pattern");
 
         provider.add("cell_type.neoecoae.chemical", "Chemical");
+        provider.add("cell_type.neoecoae.chemicals", "Chemical");
         provider.add("cell_type.neoecoae.flux", "FE");
         provider.add("cell_type.neoecoae.mana", "Mana");
         provider.add("cell_type.neoecoae.source", "Source");

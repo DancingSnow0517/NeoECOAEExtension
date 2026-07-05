@@ -22,6 +22,7 @@ final class NEStorageMetricsModel {
                 state.maxEnergy(),
                 0,
                 0,
+                Long.toString(Math.max(0L, state.storedEnergy())),
                 NELDLibStyle.DARK_TEXT_VALUE);
         List<Metric> typeMetrics = new ArrayList<>();
         typeMetrics.add(createTypeMetric(
@@ -35,7 +36,7 @@ final class NEStorageMetricsModel {
             typeMetrics.add(createTypeMetric(
                     type.typeId().toString(),
                     type,
-                    Component.literal(type.displayName()),
+                    type.displayComponent(),
                     typeAccentColor(type, typeMetrics.size())));
         }
         return new StorageMetrics(energy, List.copyOf(typeMetrics));
@@ -54,7 +55,7 @@ final class NEStorageMetricsModel {
     private static Metric createTypeMetric(
             String key, NEStorageUiTypeState state, Component fallbackLabel, int accentColor) {
         if (state == null) {
-            return new Metric(key, fallbackLabel, 0, 0, 0, 0, accentColor);
+            return new Metric(key, fallbackLabel, 0, 0, 0, 0, "0", accentColor);
         }
         return new Metric(
                 key,
@@ -63,6 +64,7 @@ final class NEStorageMetricsModel {
                 state.totalBytes(),
                 state.usedTypes(),
                 state.totalTypes(),
+                state.safeUsedAmount(),
                 accentColor);
     }
 
@@ -122,7 +124,15 @@ final class NEStorageMetricsModel {
 
     record StorageMetrics(Metric energy, List<Metric> types) {}
 
-    record Metric(String key, Component label, long used, long max, long usedTypes, long totalTypes, int accentColor) {
+    record Metric(
+            String key,
+            Component label,
+            long used,
+            long max,
+            long usedTypes,
+            long totalTypes,
+            String usedAmount,
+            int accentColor) {
         double percent() {
             return NELDLibMachineWidget.percent(used, max);
         }

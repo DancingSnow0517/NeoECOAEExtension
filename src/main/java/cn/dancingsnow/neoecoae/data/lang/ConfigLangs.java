@@ -53,6 +53,19 @@ public class ConfigLangs {
         provider.add(
                 "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip",
                 "Maximum fast path batch crafts a CPU may push per tick.");
+        provider.add("neoecoae.configuration.ecoAggressiveFastPathEnabled", "Enable Aggressive Fast Path");
+        provider.add(
+                "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip",
+                "Allow much larger ECO Pattern Bus batch pushes while keeping the normal fast path safety checks.\n"
+                        + "Default off. Enable after validating recipe behavior in the modpack.");
+        provider.add("neoecoae.configuration.ecoAggressiveFastPathLimit", "Aggressive Fast Path Fallback Limit");
+        provider.add(
+                "neoecoae.configuration.ecoAggressiveFastPathLimit.tooltip",
+                "Fallback maximum crafts merged into a single fast path batch push when dynamic controller capacity is unavailable.");
+        provider.add("neoecoae.configuration.ecoAggressiveFastPathTickLimit", "Aggressive Fast Path Tick Pacing Limit");
+        provider.add(
+                "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip",
+                "Maximum new aggressive fast path crafts a CPU may schedule per tick. Dynamic controller FX capacity still caps total in-flight crafts.");
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
                 "neoecoae.configuration.ecoFastPathCacheSize.tooltip",
@@ -68,5 +81,10 @@ public class ConfigLangs {
                 "Increase ECO storage matrix capacity and enlarge computation flash capacity by 16x.\n"
                         + "Defaults to enabled when GregTech Modern/GTCEu is detected.\n"
                         + "Changes are fully applied after re-entering the world or restarting the server.");
+        provider.add("neoecoae.configuration.enableInfiniteStorage", "Enable Infinite Storage");
+        provider.add(
+                "neoecoae.configuration.enableInfiniteStorage.tooltip",
+                "Enable the L9-only infinite storage component gameplay.\n"
+                        + "Default off. Disabling it hides the slot and blocks new migrations without deleting existing domain files.");
     }
 }

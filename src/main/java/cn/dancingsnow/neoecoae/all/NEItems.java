@@ -35,13 +35,17 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.HoeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.item.SmithingTemplateItem;
 import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.common.Tags;
 
 public class NEItems {
@@ -190,7 +194,7 @@ public class NEItems {
                         .pattern("B")
                         .define('A', NETags.Items.TUNGSTEN_INGOT)
                         .define('B', Items.STICK)
-                        .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.ALUMINUM_INGOT))
+                        .unlockedBy("has_tungsten_ingot", RegistrateRecipeProvider.has(NETags.Items.TUNGSTEN_INGOT))
                         .save(prov);
             })
             .register();
@@ -850,6 +854,20 @@ public class NEItems {
                         .save(prov);
             })
             .lang("LE9 ECO Storage Component")
+            .register();
+
+    public static final ItemEntry<Item> ECO_INFINITE_CELL_COMPONENT = REGISTRATE
+            .<Item>item("eco_infinite_cell_component", p -> new Item(p.rarity(Rarity.EPIC)) {
+                @Override
+                public void appendHoverText(
+                        ItemStack stack, Level level, List<Component> lines, TooltipFlag tooltipFlag) {
+                    super.appendHoverText(stack, level, lines, tooltipFlag);
+                    lines.add(Component.translatable("tooltip.neoecoae.infinite_component.unlock")
+                            .withStyle(ChatFormatting.GRAY));
+                }
+            })
+            .lang("ECO Infinite Storage Component")
+            .model((ctx, prov) -> prov.generated(ctx, prov.modLoc("item/" + ctx.getName())))
             .register();
 
     public static final ItemEntry<MaterialItem> ECO_ITEM_CELL_HOUSING = REGISTRATE

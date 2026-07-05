@@ -27,12 +27,14 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.ExtendedAEPlusVirtualCraftingCompat;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -41,10 +43,14 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import lombok.Getter;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +92,8 @@ public class ECOCraftingCPULogic {
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
     private boolean batchedAnyStatusChange = false;
     private boolean batchedFullStatusChange = false;
+    private final List<AggressiveSimulatedCraft> aggressiveSimulatedCrafts = new ArrayList<>();
+    private final Set<AggressivePoolReservation> aggressivePoolReservations = new HashSet<>();
 
     // ── NBT restore state ──
     @Getter
@@ -214,8 +222,13 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        tickAggressiveSimulatedCrafts(eg);
+        if (this.job == null) {
+            return;
+        }
+
         int slowPatternBudget = getOperationLimit();
-        var batchBudget = new FastPathBatchBudget(NEConfig.ecoBatchFastPathTickLimit);
+        var batchBudget = new FastPathBatchBudget(effectiveFastPathTickLimit());
         int totalPatternBudget = totalPatternBudget(slowPatternBudget, batchBudget.remaining());
         executeCrafting(slowPatternBudget, totalPatternBudget, cc, eg, cpu.getLevel(), batchBudget);
     }
@@ -414,13 +427,9 @@ public class ECOCraftingCPULogic {
 
         var details = task.getKey();
         var dispatchBlock = job.getDispatchBlock(details);
-        if (dispatchBlock == ExecutingCraftingJob.DispatchBlock.IN_FLIGHT_OUTPUT) {
-            return DispatchTaskResult.NEXT_TASK;
-        }
         if (!passState.allowUnfinishedDependencies()
                 && dispatchBlock == ExecutingCraftingJob.DispatchBlock.UNFINISHED_DEPENDENCY) {
             passState.markUnfinishedDependencyBlocked();
-            return DispatchTaskResult.NEXT_TASK;
         }
 
         ProviderSelection providers = collectProviders(craftingService, details);
@@ -436,9 +445,27 @@ public class ECOCraftingCPULogic {
                 return DispatchTaskResult.NEXT_TASK;
             }
 
+            // Dependency and in-flight counters describe future work, not the
+            // inventory that is available right now. If enough intermediate
+            // items have already returned, extraction is the authoritative gate
+            // and lets dependent patterns fill the remaining batch capacity.
             @Nullable ExtractedPatternAttempt attempt = extractPatternAttempt(details, progress, level);
             if (attempt == null) {
                 return DispatchTaskResult.NEXT_TASK;
+            }
+
+            if (NEConfig.isEcoAggressiveFastPathEnabled()) {
+                PushResult pushResult =
+                        tryScheduleAggressiveSimulatedCraft(details, progress, providers, attempt, executionProgress);
+                if (!pushResult.pushed()) {
+                    return DispatchTaskResult.NEXT_TASK;
+                }
+                DispatchTaskResult commitResult = commitPushedCrafts(
+                        details, progress, iterator, passState, executionProgress, pushResult.craftCount());
+                if (commitResult != DispatchTaskResult.CONTINUE_TASK) {
+                    return commitResult;
+                }
+                continue;
             }
 
             PushResult pushResult =
@@ -474,6 +501,111 @@ public class ECOCraftingCPULogic {
                 progress.createPatternExecution(details, craftingContainer, expectedContainerItems, level);
         double patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
         return new ExtractedPatternAttempt(craftingContainer, execution, patternPower);
+    }
+
+    private PushResult tryScheduleAggressiveSimulatedCraft(
+            IPatternDetails details,
+            ExecutingCraftingJob.TaskProgress progress,
+            ProviderSelection providers,
+            ExtractedPatternAttempt attempt,
+            CraftingExecutionProgress executionProgress) {
+        ECOCraftingSystemBlockEntity controller = firstCraftingController(providers.batchBuses());
+        if (controller == null) {
+            reinjectExtractedInputs(attempt);
+            return PushResult.notPushed();
+        }
+        List<GenericStack> inputsPerCraft = aggressiveInputItems(attempt);
+        if (attempt.execution().expectedOutputs().isEmpty() || inputsPerCraft.isEmpty()) {
+            reinjectExtractedInputs(attempt);
+            return PushResult.notPushed();
+        }
+
+        int requested = (int) Math.min(
+                Math.min(progress.value, executionProgress.totalBudgetRemaining()),
+                Math.min(effectiveFastPathBatchLimit(controller), executionProgress.batchBudgetRemaining()));
+        requested = Math.min(requested, controller.getCurrentBatchSlots());
+        if (requested <= 0) {
+            reinjectExtractedInputs(attempt);
+            return PushResult.notPushed();
+        }
+
+        int extraCrafts = Math.max(0, requested - 1);
+        int availableExtraCrafts =
+                ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, inputsPerCraft, extraCrafts);
+        int batchSize = Math.max(1, Math.min(requested, availableExtraCrafts + 1));
+
+        PendingPatternAccounting accounting;
+        List<GenericStack> inputTotal;
+        List<GenericStack> extraInputs;
+        try {
+            accounting = preparePushedPatternAccounting(attempt.execution(), batchSize);
+            inputTotal = ECOBatchCraftingHelper.multiply(inputsPerCraft, batchSize);
+            extraInputs = ECOBatchCraftingHelper.multiply(inputsPerCraft, batchSize - 1);
+        } catch (RuntimeException e) {
+            LOGGER.warn("ECO aggressive fast path accounting failed; not dispatching pattern", e);
+            reinjectExtractedInputs(attempt);
+            job.suspended = true;
+            return PushResult.notPushed();
+        }
+
+        boolean extraInputsExtracted = false;
+        try {
+            if (!extraInputs.isEmpty()) {
+                if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
+                    reinjectExtractedInputs(attempt);
+                    return PushResult.notPushed();
+                }
+                ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+                extraInputsExtracted = true;
+            }
+            if (!controller.tryConsumeCoolant(5, controller.getEffectiveOverclockTimes())) {
+                if (extraInputsExtracted) {
+                    ECOBatchCraftingHelper.insertAllOrThrow(inventory, extraInputs);
+                }
+                reinjectExtractedInputs(attempt);
+                return PushResult.notPushed();
+            }
+
+            aggressiveSimulatedCrafts.add(new AggressiveSimulatedCraft(
+                    controller.getBlockPos(),
+                    job.link.getCraftingID(),
+                    inputTotal,
+                    accounting.expectedOutputs(),
+                    accounting.expectedContainerItems(),
+                    Math.max(1, batchSize),
+                    0,
+                    false));
+            syncAggressivePoolSlots();
+            recordPushedPattern(accounting);
+            executionProgress.recordBatchPush(batchSize);
+            cpu.markDirty();
+            return PushResult.pushed(batchSize);
+        } catch (RuntimeException e) {
+            LOGGER.warn("ECO aggressive fast path failed; reinjecting inputs", e);
+            if (extraInputsExtracted) {
+                ECOBatchCraftingHelper.insertAllOrThrow(inventory, extraInputs);
+            }
+            reinjectExtractedInputs(attempt);
+            job.suspended = true;
+            return PushResult.notPushed();
+        }
+    }
+
+    private List<GenericStack> aggressiveInputItems(ExtractedPatternAttempt attempt) {
+        if (!attempt.execution().inputItems().isEmpty()) {
+            return attempt.execution().inputItems();
+        }
+        return ECOFastPathStacks.copyCounters(attempt.craftingContainer());
+    }
+
+    @Nullable private ECOCraftingSystemBlockEntity firstCraftingController(List<ECOCraftingPatternBusBlockEntity> patternBuses) {
+        for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
+            ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+            if (controller != null) {
+                return controller;
+            }
+        }
+        return null;
     }
 
     private PushResult tryPushFastPathOrFallback(
@@ -620,7 +752,7 @@ public class ECOCraftingCPULogic {
 
         int requested = (int) Math.min(
                 Math.min(taskRemaining, totalBudgetRemaining),
-                Math.min(NEConfig.ecoBatchFastPathLimit, batchBudgetRemaining));
+                Math.min(effectiveFastPathBatchLimit(null), batchBudgetRemaining));
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
@@ -640,6 +772,7 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
+        requested = Math.min(requested, effectiveFastPathBatchLimit(controller));
         int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
         batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
         batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
@@ -753,6 +886,168 @@ public class ECOCraftingCPULogic {
         return low;
     }
 
+    private int effectiveFastPathTickLimit() {
+        if (!NEConfig.isEcoAggressiveFastPathEnabled()) {
+            return NEConfig.getEcoFastPathTickLimit();
+        }
+        int dynamicLimit = aggressiveFastPathCapacity();
+        int configuredLimit = NEConfig.getEcoFastPathTickLimit();
+        return dynamicLimit > 0 ? Math.min(dynamicLimit, configuredLimit) : configuredLimit;
+    }
+
+    private int effectiveFastPathBatchLimit(@Nullable ECOCraftingSystemBlockEntity controller) {
+        if (!NEConfig.isEcoAggressiveFastPathEnabled()) {
+            return NEConfig.getEcoFastPathBatchLimit();
+        }
+        int dynamicLimit = controller == null ? aggressiveFastPathCapacity() : controller.getMaxInFlightCrafts();
+        return dynamicLimit > 0 ? dynamicLimit : NEConfig.getEcoFastPathBatchLimit();
+    }
+
+    private int aggressiveFastPathCapacity() {
+        IGrid grid = cpu.getGrid();
+        if (grid == null) {
+            return 0;
+        }
+        Set<ECOCraftingSystemBlockEntity> controllers = new HashSet<>();
+        int total = 0;
+        for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
+            ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+            if (controller == null || !controllers.add(controller)) {
+                continue;
+            }
+            total = saturatedAddInt(total, controller.getMaxInFlightCrafts());
+        }
+        return total;
+    }
+
+    private static int saturatedAddInt(int left, int right) {
+        long sum = (long) left + Math.max(0, right);
+        return sum >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) sum;
+    }
+
+    private void tickAggressiveSimulatedCrafts(IEnergyService energyService) {
+        if (aggressiveSimulatedCrafts.isEmpty()) {
+            syncAggressivePoolSlots();
+            return;
+        }
+        syncAggressivePoolSlots();
+
+        double totalNeed = 0.0D;
+        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
+            ECOCraftingSystemBlockEntity controller = work.controller(cpu.getLevel());
+            if (controller != null && !work.outputsReady) {
+                totalNeed += work.powerNeed(controller);
+            }
+        }
+        double extracted = totalNeed <= 0.0D
+                ? 0.0D
+                : energyService.extractAEPower(totalNeed, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        double powerRatio = totalNeed <= 0.0D ? 0.0D : extracted / totalNeed;
+
+        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
+            ECOCraftingSystemBlockEntity controller = work.controller(cpu.getLevel());
+            if (controller != null && !work.outputsReady) {
+                work.tick(controller, powerRatio);
+            }
+        }
+
+        var it = aggressiveSimulatedCrafts.iterator();
+        while (it.hasNext()) {
+            AggressiveSimulatedCraft work = it.next();
+            if (!work.outputsReady) {
+                continue;
+            }
+            if (flushAggressiveSimulatedOutputs(work)) {
+                it.remove();
+                cpu.markDirty();
+            }
+        }
+        syncAggressivePoolSlots();
+    }
+
+    private void syncAggressivePoolSlots() {
+        Map<AggressivePoolReservation, Integer> totals = new HashMap<>();
+        Map<AggressivePoolReservation, List<AggressiveSimulatedCraftSnapshot>> snapshots = new HashMap<>();
+        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
+            AggressivePoolReservation reservation =
+                    new AggressivePoolReservation(work.controllerPos, work.reservationOwner);
+            totals.merge(reservation, work.occupiedSlots, Integer::sum);
+            snapshots.computeIfAbsent(reservation, ignored -> new ArrayList<>()).addAll(work.uiSnapshots());
+        }
+
+        Set<AggressivePoolReservation> nextReservations = new HashSet<>(totals.keySet());
+        for (AggressivePoolReservation reservation : aggressivePoolReservations) {
+            if (!totals.containsKey(reservation)
+                    && (!setAggressivePoolSlots(reservation, 0)
+                            || !setAggressivePoolTaskSnapshots(reservation, List.of()))) {
+                nextReservations.add(reservation);
+            }
+        }
+        for (Map.Entry<AggressivePoolReservation, Integer> entry : totals.entrySet()) {
+            AggressivePoolReservation reservation = entry.getKey();
+            setAggressivePoolSlots(reservation, Math.max(1, entry.getValue()));
+            setAggressivePoolTaskSnapshots(reservation, snapshots.getOrDefault(reservation, List.of()));
+        }
+        aggressivePoolReservations.clear();
+        aggressivePoolReservations.addAll(nextReservations);
+    }
+
+    private boolean setAggressivePoolSlots(AggressivePoolReservation reservation, int slots) {
+        ECOCraftingSystemBlockEntity controller = reservation.controller(cpu.getLevel());
+        if (controller != null) {
+            controller.setSimulatedPoolThreadCount(reservation.owner, Math.max(0, slots));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean setAggressivePoolTaskSnapshots(
+            AggressivePoolReservation reservation, List<AggressiveSimulatedCraftSnapshot> snapshots) {
+        ECOCraftingSystemBlockEntity controller = reservation.controller(cpu.getLevel());
+        if (controller != null) {
+            controller.setSimulatedPoolTaskSnapshots(reservation.owner, snapshots);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean flushAggressiveSimulatedOutputs(AggressiveSimulatedCraft work) {
+        List<GenericStack> stacks = work.completionStacks();
+        List<GenericStack> remainder = new ArrayList<>();
+        @Nullable IGrid grid = cpu.getGrid();
+        var storage = grid == null ? null : grid.getStorageService().getInventory();
+        for (GenericStack stack : stacks) {
+            long remaining = stack.amount();
+            if (this.job != null) {
+                remaining -= insert(stack.what(), remaining, Actionable.MODULATE);
+            }
+            if (remaining > 0 && storage != null) {
+                remaining -= storage.insert(stack.what(), remaining, Actionable.MODULATE, cpu.getActionSource());
+            }
+            if (remaining > 0) {
+                remainder.add(new GenericStack(stack.what(), remaining));
+            }
+        }
+        if (remainder.isEmpty()) {
+            return true;
+        }
+        work.retainOutputRemainder(remainder);
+        return false;
+    }
+
+    private void recoverAggressiveSimulatedCraftsToInventory() {
+        if (aggressiveSimulatedCrafts.isEmpty()) {
+            return;
+        }
+        for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
+            ECOBatchCraftingHelper.insertAllOrThrow(
+                    inventory, work.outputsReady ? work.completionStacks() : work.inputStacks);
+        }
+        aggressiveSimulatedCrafts.clear();
+        syncAggressivePoolSlots();
+        cpu.markDirty();
+    }
+
     private void recordPushedPattern(ECOExtractedPatternExecution execution, int craftCount) {
         recordPushedPattern(preparePushedPatternAccounting(execution, craftCount));
     }
@@ -761,20 +1056,8 @@ public class ECOCraftingCPULogic {
             ECOExtractedPatternExecution execution, int craftCount) {
         int multiplier = Math.max(1, craftCount);
         return new PendingPatternAccounting(
-                multiplyStacks(execution.expectedOutputs(), multiplier),
-                multiplyStacks(execution.expectedContainerItems(), multiplier));
-    }
-
-    private static List<GenericStack> multiplyStacks(List<GenericStack> stacks, int multiplier) {
-        List<GenericStack> multiplied = new ArrayList<>(stacks.size());
-        for (GenericStack stack : stacks) {
-            long amount = Math.multiplyExact(stack.amount(), multiplier);
-            if (amount <= 0) {
-                throw new ArithmeticException("Invalid pushed pattern amount: " + amount);
-            }
-            multiplied.add(new GenericStack(stack.what(), amount));
-        }
-        return multiplied;
+                ECOBatchCraftingHelper.multiply(execution.expectedOutputs(), multiplier),
+                ECOBatchCraftingHelper.multiply(execution.expectedContainerItems(), multiplier));
     }
 
     private void recordPushedPattern(PendingPatternAccounting accounting) {
@@ -796,6 +1079,160 @@ public class ECOCraftingCPULogic {
 
     private record PendingPatternAccounting(
             List<GenericStack> expectedOutputs, List<GenericStack> expectedContainerItems) {}
+
+    public record AggressiveSimulatedCraftSnapshot(
+            BlockPos controllerPos,
+            UUID owner,
+            GenericStack output,
+            int occupiedSlots,
+            int progress,
+            int maxProgress,
+            boolean outputsReady) {
+        public AggressiveSimulatedCraftSnapshot {
+            Preconditions.checkNotNull(controllerPos, "controllerPos");
+            Preconditions.checkNotNull(owner, "owner");
+            Preconditions.checkNotNull(output, "output");
+            output = new GenericStack(output.what(), Math.max(0L, output.amount()));
+            occupiedSlots = Math.max(1, occupiedSlots);
+            progress = Math.max(0, progress);
+            maxProgress = Math.max(1, maxProgress);
+        }
+    }
+
+    private record AggressivePoolReservation(BlockPos controllerPos, UUID owner) {
+        @Nullable private ECOCraftingSystemBlockEntity controller(Level level) {
+            if (level == null) {
+                return null;
+            }
+            BlockEntity blockEntity = level.getBlockEntity(controllerPos);
+            return blockEntity instanceof ECOCraftingSystemBlockEntity controller ? controller : null;
+        }
+    }
+
+    private static final class AggressiveSimulatedCraft {
+        private final BlockPos controllerPos;
+        private final UUID reservationOwner;
+        private List<GenericStack> inputStacks;
+        private List<GenericStack> outputStacks;
+        private List<GenericStack> remainingStacks;
+        private final int occupiedSlots;
+        private int progress;
+        private boolean outputsReady;
+
+        private AggressiveSimulatedCraft(
+                BlockPos controllerPos,
+                UUID reservationOwner,
+                List<GenericStack> inputStacks,
+                List<GenericStack> outputStacks,
+                List<GenericStack> remainingStacks,
+                int occupiedSlots,
+                int progress,
+                boolean outputsReady) {
+            this.controllerPos = controllerPos;
+            this.reservationOwner = reservationOwner;
+            this.inputStacks = copyStacks(inputStacks);
+            this.outputStacks = copyStacks(outputStacks);
+            this.remainingStacks = copyStacks(remainingStacks);
+            this.occupiedSlots = Math.max(1, occupiedSlots);
+            this.progress = Math.max(0, progress);
+            this.outputsReady = outputsReady;
+        }
+
+        @Nullable private ECOCraftingSystemBlockEntity controller(Level level) {
+            if (level == null) {
+                return null;
+            }
+            BlockEntity blockEntity = level.getBlockEntity(controllerPos);
+            return blockEntity instanceof ECOCraftingSystemBlockEntity controller ? controller : null;
+        }
+
+        private double powerNeed(ECOCraftingSystemBlockEntity controller) {
+            return Math.min(
+                    controller.getProgressPerTick() * controller.getCraftingPowerMultiplier() * (double) occupiedSlots,
+                    500_000.0D);
+        }
+
+        private void tick(ECOCraftingSystemBlockEntity controller, double powerRatio) {
+            if (outputsReady) {
+                return;
+            }
+            double slotScaledTax = controller.getCraftingPowerMultiplier() * (double) occupiedSlots;
+            if (slotScaledTax <= 0.0D) {
+                return;
+            }
+            progress += (int) (powerNeed(controller) * powerRatio / slotScaledTax);
+            if (progress >= ECOCraftingThread.MAX_PROGRESS) {
+                outputsReady = true;
+            }
+        }
+
+        private List<GenericStack> completionStacks() {
+            List<GenericStack> stacks = new ArrayList<>(outputStacks.size() + remainingStacks.size());
+            stacks.addAll(outputStacks);
+            stacks.addAll(remainingStacks);
+            return List.copyOf(stacks);
+        }
+
+        private void retainOutputRemainder(List<GenericStack> remainder) {
+            outputStacks = copyStacks(remainder);
+            remainingStacks = List.of();
+            inputStacks = List.of();
+            outputsReady = true;
+        }
+
+        private List<AggressiveSimulatedCraftSnapshot> uiSnapshots() {
+            List<GenericStack> stacks = outputsReady ? completionStacks() : outputStacks;
+            List<AggressiveSimulatedCraftSnapshot> snapshots = new ArrayList<>();
+            for (GenericStack stack : stacks) {
+                if (stack != null && stack.amount() > 0) {
+                    snapshots.add(new AggressiveSimulatedCraftSnapshot(
+                            controllerPos,
+                            reservationOwner,
+                            stack,
+                            occupiedSlots,
+                            outputsReady ? ECOCraftingThread.MAX_PROGRESS : progress,
+                            ECOCraftingThread.MAX_PROGRESS,
+                            outputsReady));
+                }
+            }
+            return List.copyOf(snapshots);
+        }
+
+        private CompoundTag write() {
+            CompoundTag tag = new CompoundTag();
+            tag.putLong("controllerPos", controllerPos.asLong());
+            tag.putUUID("reservationOwner", reservationOwner);
+            tag.put("inputs", ECOFastPathStacks.writeGenericStacks(inputStacks));
+            tag.put("outputs", ECOFastPathStacks.writeGenericStacks(outputStacks));
+            tag.put("remaining", ECOFastPathStacks.writeGenericStacks(remainingStacks));
+            tag.putInt("occupiedSlots", occupiedSlots);
+            tag.putInt("progress", progress);
+            tag.putBoolean("outputsReady", outputsReady);
+            return tag;
+        }
+
+        private static AggressiveSimulatedCraft read(CompoundTag tag) {
+            return new AggressiveSimulatedCraft(
+                    BlockPos.of(tag.getLong("controllerPos")),
+                    tag.hasUUID("reservationOwner") ? tag.getUUID("reservationOwner") : new UUID(0L, 0L),
+                    ECOFastPathStacks.readGenericStacks(tag.getList("inputs", Tag.TAG_COMPOUND)),
+                    ECOFastPathStacks.readGenericStacks(tag.getList("outputs", Tag.TAG_COMPOUND)),
+                    ECOFastPathStacks.readGenericStacks(tag.getList("remaining", Tag.TAG_COMPOUND)),
+                    tag.getInt("occupiedSlots"),
+                    tag.getInt("progress"),
+                    tag.getBoolean("outputsReady"));
+        }
+
+        private static List<GenericStack> copyStacks(List<GenericStack> stacks) {
+            List<GenericStack> copy = new ArrayList<>();
+            for (GenericStack stack : stacks) {
+                if (stack != null && stack.amount() > 0) {
+                    copy.add(new GenericStack(stack.what(), stack.amount()));
+                }
+            }
+            return List.copyOf(copy);
+        }
+    }
 
     /**
      * Called by the CraftingService with an Integer.MAX_VALUE priority to inject
@@ -906,6 +1343,7 @@ public class ECOCraftingCPULogic {
 
         UUID craftingJobId = job.link.getCraftingID();
         markStatusDirty();
+        recoverAggressiveSimulatedCraftsToInventory();
         finishJob(false);
         restoredLinkRebound = false;
         recoverInflightWorkerInputs(craftingJobId);
@@ -1224,6 +1662,12 @@ public class ECOCraftingCPULogic {
 
     public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
         this.inventory.readFromNBT(data.getList("inventory", 10));
+        aggressiveSimulatedCrafts.clear();
+        ListTag aggressiveWorks = data.getList("aggressiveSimulatedCrafts", Tag.TAG_COMPOUND);
+        for (int i = 0; i < aggressiveWorks.size(); i++) {
+            aggressiveSimulatedCrafts.add(AggressiveSimulatedCraft.read(aggressiveWorks.getCompound(i)));
+        }
+        aggressivePoolReservations.clear();
         if (data.contains("job")) {
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             markStatusDirty();
@@ -1257,6 +1701,13 @@ public class ECOCraftingCPULogic {
         data.put("inventory", this.inventory.writeToNBT());
         if (this.job != null) {
             data.put("job", this.job.writeToNBT(registries));
+        }
+        if (!aggressiveSimulatedCrafts.isEmpty()) {
+            ListTag aggressiveWorks = new ListTag();
+            for (AggressiveSimulatedCraft work : aggressiveSimulatedCrafts) {
+                aggressiveWorks.add(work.write());
+            }
+            data.put("aggressiveSimulatedCrafts", aggressiveWorks);
         }
     }
 

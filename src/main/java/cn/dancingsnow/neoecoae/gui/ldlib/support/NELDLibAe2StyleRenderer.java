@@ -165,6 +165,13 @@ public final class NELDLibAe2StyleRenderer {
         g.disableScissor();
     }
 
+    public static void drawFluidIcon(GuiGraphics g, int x, int y, int size, FluidStack stack) {
+        if (size <= 0 || stack.isEmpty()) {
+            return;
+        }
+        drawFluidTextureFull(g, x, y, size, size, stack, y + size);
+    }
+
     private static void drawFluidTextureFull(
             GuiGraphics g, int x, int topY, int w, int h, FluidStack stack, int bottomY) {
         if (stack.isEmpty() || stack.getFluid() == null) return;

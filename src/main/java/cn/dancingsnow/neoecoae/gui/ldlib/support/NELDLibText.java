@@ -1,21 +1,30 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.support;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.util.Locale;
 
 public final class NELDLibText {
+    private static final int MAX_EXACT_HUGE_DIGITS = 120;
+    private static final int COMPACT_HUGE_SIGNIFICANT_DIGITS = 3;
     private static final long BYTES_IN_K = 1024L;
     private static final long BYTES_IN_M = BYTES_IN_K * 1024L;
     private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
     private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
     private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
+    private static final BigInteger BIG_1024 = BigInteger.valueOf(1024L);
+    private static final String[] HUGE_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
 
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
             ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
             ThreadLocal.withInitial(() -> new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.US)));
+    private static final ThreadLocal<DecimalFormat> PRECISE_HUGE_DECIMAL =
+            ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
             ThreadLocal.withInitial(() -> new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.US)));
 
@@ -85,6 +94,121 @@ public final class NELDLibText {
             suffix = "M";
         }
         return COMPACT_DECIMAL.get().format((double) safe / (double) unit) + suffix;
+    }
+
+    public static String hugeAmount(String decimalAmount) {
+        String compact = compactHugeDecimal(decimalAmount);
+        if (compact != null) {
+            return compact;
+        }
+        BigInteger value;
+        try {
+            value = new BigInteger(decimalAmount);
+        } catch (RuntimeException ignored) {
+            return decimalAmount;
+        }
+        if (value.signum() <= 0) {
+            return "0";
+        }
+
+        int unitIndex = 0;
+        BigInteger unit = BigInteger.ONE;
+        while (unitIndex < HUGE_SUFFIXES.length - 1 && value.compareTo(unit.multiply(BIG_1024)) >= 0) {
+            unit = unit.multiply(BIG_1024);
+            unitIndex++;
+        }
+        if (unitIndex == 0) {
+            return NUMBER_FORMAT.get().format(value);
+        }
+
+        BigDecimal scaled = new BigDecimal(value).divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
+        return scaled.toPlainString() + HUGE_SUFFIXES[unitIndex];
+    }
+
+    public static String preciseHugeAmount(String decimalAmount) {
+        String normalized = normalizeUnsignedDecimal(decimalAmount);
+        if (normalized == null) {
+            return decimalAmount == null ? "" : decimalAmount;
+        }
+        BigInteger value = new BigInteger(normalized);
+        if (value.signum() <= 0) {
+            return "0";
+        }
+
+        int unitIndex = 0;
+        BigInteger unit = BigInteger.ONE;
+        while (unitIndex < HUGE_SUFFIXES.length - 1 && value.compareTo(unit.multiply(BIG_1024)) >= 0) {
+            unit = unit.multiply(BIG_1024);
+            unitIndex++;
+        }
+        while (unitIndex > 0) {
+            BigInteger smallerUnit = unit.divide(BIG_1024);
+            int smallerIntegerDigits = value.divide(smallerUnit).toString().length();
+            if (smallerIntegerDigits > 10) {
+                break;
+            }
+            unit = smallerUnit;
+            unitIndex--;
+        }
+        if (unitIndex == 0) {
+            return NUMBER_FORMAT.get().format(value);
+        }
+
+        BigDecimal scaled = new BigDecimal(value).divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
+        return PRECISE_HUGE_DECIMAL.get().format(scaled) + HUGE_SUFFIXES[unitIndex];
+    }
+
+    public static String compactHugeAmountForSync(String decimalAmount) {
+        String compact = compactHugeDecimal(decimalAmount);
+        if (compact != null) {
+            return compact;
+        }
+        String normalized = normalizeUnsignedDecimal(decimalAmount);
+        if (normalized != null) {
+            return normalized;
+        }
+        return bounded(decimalAmount, 128);
+    }
+
+    public static String bounded(String text, int maxLength) {
+        if (text == null || maxLength <= 0) {
+            return "";
+        }
+        return text.length() <= maxLength ? text : text.substring(0, maxLength);
+    }
+
+    private static String compactHugeDecimal(String decimalAmount) {
+        String normalized = normalizeUnsignedDecimal(decimalAmount);
+        if (normalized == null || normalized.length() <= MAX_EXACT_HUGE_DIGITS) {
+            return null;
+        }
+        int digits = normalized.length();
+        String significant = normalized.substring(0, Math.min(COMPACT_HUGE_SIGNIFICANT_DIGITS, digits));
+        StringBuilder builder = new StringBuilder();
+        builder.append(significant.charAt(0));
+        if (significant.length() > 1) {
+            builder.append('.').append(significant.substring(1));
+        }
+        builder.append('e').append(digits - 1);
+        return builder.toString();
+    }
+
+    private static String normalizeUnsignedDecimal(String decimalAmount) {
+        if (decimalAmount == null || decimalAmount.isBlank()) {
+            return "0";
+        }
+        String value = decimalAmount.trim();
+        int firstNonZero = -1;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return null;
+            }
+            if (c != '0' && firstNonZero < 0) {
+                firstNonZero = i;
+            }
+        }
+        return firstNonZero < 0 ? "0" : value.substring(firstNonZero);
     }
 
     public static String compactDecimal(long value, long unit, String suffix) {

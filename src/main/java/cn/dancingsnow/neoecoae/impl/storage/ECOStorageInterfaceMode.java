@@ -2,10 +2,15 @@ package cn.dancingsnow.neoecoae.impl.storage;
 
 public enum ECOStorageInterfaceMode {
     STORAGE,
+    INPUT,
     OUTPUT;
 
     public ECOStorageInterfaceMode next() {
-        return this == STORAGE ? OUTPUT : STORAGE;
+        return switch (this) {
+            case STORAGE -> INPUT;
+            case INPUT -> OUTPUT;
+            case OUTPUT -> STORAGE;
+        };
     }
 
     public static ECOStorageInterfaceMode byName(String name) {

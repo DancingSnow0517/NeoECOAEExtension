@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.api.rendering;
 
-import static cn.dancingsnow.neoecoae.util.ThreadLocalRandomHelper.getRandom;
-
+import cn.dancingsnow.neoecoae.client.rendering.BerModelCache;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.List;
@@ -14,7 +13,6 @@ import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
@@ -107,17 +105,8 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
             int packedLight,
             int packedOverlay,
             RenderType renderType) {
-        Minecraft mc = Minecraft.getInstance();
-        BakedModel bakedModel = getBakedModelOrNull(mc, model, owner);
-        if (bakedModel == null) {
-            return;
-        }
         VertexConsumer buffer = bufferSource.getBuffer(renderType);
-        for (Direction value : Direction.values()) {
-            List<BakedQuad> quads = bakedModel.getQuads(null, value, getRandom());
-            renderQuadsWithoutAO(poseStack, buffer, quads, packedLight, packedOverlay);
-        }
-        List<BakedQuad> quads = bakedModel.getQuads(null, null, getRandom());
+        List<BakedQuad> quads = BerModelCache.getQuads(model, owner);
         renderQuadsWithoutAO(poseStack, buffer, quads, packedLight, packedOverlay);
     }
 

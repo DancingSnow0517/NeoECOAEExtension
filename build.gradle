@@ -64,6 +64,10 @@ repositories {
         name = "ModMaven"
         url = "https://modmaven.dev"
     }
+    maven {
+        name = "GTCEu Maven"
+        url = "https://maven.gtceu.com"
+    }
     maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
     maven { url = "https://maven.createmod.net" }
     maven {
@@ -87,7 +91,7 @@ repositories {
 }
 
 spotless {
-    lineEndings 'UNIX'
+    lineEndings = 'UNIX'
 
     java {
         target 'src/**/*.java'
@@ -187,7 +191,7 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter"
     testImplementation fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
 
-    implementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
+    compileOnly fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
     jarJar(fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")) {
         jarJar.ranged(it, "[${registrate_version},)")
     }
@@ -200,6 +204,8 @@ dependencies {
 
     compileOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")
     runtimeOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")
+    compileOnly fg.deobf("com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}")
+    runtimeOnly fg.deobf("com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}")
     compileOnly fg.deobf("curse.maven:applied-mekanistics-574300:${appmek_file_id}")
     runtimeOnly fg.deobf("curse.maven:applied-mekanistics-574300:${appmek_file_id}")
     compileOnly fg.deobf("curse.maven:applied-flux-965012:${appflux_file_id}")
@@ -244,7 +250,7 @@ dependencies {
 }
 
 sourceSets.main.resources {
-    srcDirs 'src/main/resources', 'src/generated/resources', 'src/guidebook/resources'
+    setSrcDirs(['src/main/resources', 'src/generated/resources'])
 }
 
 sourceSets.main.output.dir(layout.buildDirectory.dir('generated/refmap'), builtBy: 'compileJava')
@@ -271,10 +277,57 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 
 sourceSets.main.resources.srcDir generateModMetadata
 
+var guidebookResourcesDir = layout.buildDirectory.dir('generated/guidebook/resources')
+
+var copyGuidebook = tasks.register('copyGuidebook', Sync) {
+    group = 'build'
+
+    from('guidebook') {
+        into 'assets/neoecoae/ae2guide'
+    }
+    into guidebookResourcesDir
+}
+
 processResources.dependsOn generateModMetadata
-processResources.dependsOn 'copyGuidebook'
 tasks.named('processResources', ProcessResources).configure {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn copyGuidebook
+    from guidebookResourcesDir
+    def generatedResourcesDir = file('src/generated/resources').toPath().toAbsolutePath().normalize()
+    def handwrittenResourceOverrides = [
+            'assets/neoecoae/models/item/computation_transmitter.json',
+            'assets/neoecoae/models/item/eco_drive.json',
+            'assets/neoecoae/models/item/eco_fe_cell_housing.json',
+            'assets/neoecoae/models/item/eco_fe_storage_cell_16m.json',
+            'assets/neoecoae/models/item/eco_fe_storage_cell_256m.json',
+            'assets/neoecoae/models/item/eco_fe_storage_cell_64m.json',
+            'assets/neoecoae/models/item/eco_mana_cell_housing.json',
+            'assets/neoecoae/models/item/eco_mana_storage_cell_16m.json',
+            'assets/neoecoae/models/item/eco_mana_storage_cell_256m.json',
+            'assets/neoecoae/models/item/eco_mana_storage_cell_64m.json',
+            'assets/neoecoae/models/item/eco_source_cell_housing.json',
+            'assets/neoecoae/models/item/eco_source_storage_cell_16m.json',
+            'assets/neoecoae/models/item/eco_source_storage_cell_256m.json',
+            'assets/neoecoae/models/item/eco_source_storage_cell_64m.json',
+            'assets/neoecoae/models/item/structure_terminal.json',
+            'data/forge/tags/items/dusts.json',
+            'data/forge/tags/items/dusts/aluminium.json',
+            'data/forge/tags/items/dusts/aluminum.json',
+            'data/neoecoae/loot_tables/blocks/aluminum_ore.json',
+            'data/neoecoae/loot_tables/blocks/energized_crystal_cluster.json',
+            'data/neoecoae/loot_tables/blocks/tungsten_ore.json',
+            'data/neoecoae/recipes/integrated_working_station/cryotheum_solution.json',
+            'data/neoecoae/recipes/integrated_working_station/crystal_ingot.json',
+            'data/neoecoae/recipes/integrated_working_station/energized_crystal.json',
+            'data/neoecoae/recipes/integrated_working_station/energized_fluix_crystal.json',
+            'data/neoecoae/recipes/integrated_working_station/energized_superconductive_ingot.json'
+    ] as Set
+
+    exclude { details ->
+        def path = details.file.toPath().toAbsolutePath().normalize()
+        path.startsWith(generatedResourcesDir)
+                && handwrittenResourceOverrides.contains(details.relativePath.pathString.replace('\\', '/'))
+    }
+    duplicatesStrategy = DuplicatesStrategy.FAIL
 }
 
 jar {
@@ -310,10 +363,25 @@ tasks.matching { it.name == 'reobfJar' }.configureEach {
     }
 }
 
+tasks.register('prepareReleaseJar') {
+    group = 'build'
+    description = 'Copies the reobfuscated jarjar artifact to the canonical release jar name.'
+    dependsOn 'reobfJarJar'
+
+    doLast {
+        def releaseJarName = "${base.archivesName.get()}-${version}.jar"
+        copy {
+            from(layout.buildDirectory.file("libs/${base.archivesName.get()}-${version}-all.jar"))
+            into(layout.buildDirectory.dir('libs'))
+            rename { releaseJarName }
+        }
+    }
+}
+
 tasks.register('verifyReleaseJar') {
     group = 'verification'
     description = 'Verifies that the distributable jar is reobfuscated and contains the expected production mixins.'
-    dependsOn 'reobfJar'
+    dependsOn 'prepareReleaseJar'
 
     doLast {
         def jarFile = tasks.named('jar', Jar).get().archiveFile.get().asFile
@@ -348,6 +416,10 @@ tasks.register('verifyReleaseJar') {
             def mixinConfigEntry = zip.getEntry("${mod_id}.mixins.json")
             if (mixinConfigEntry == null) {
                 throw new GradleException("Release jar is missing ${mod_id}.mixins.json: ${jarFile}")
+            }
+
+            if (zip.getEntry('META-INF/jarjar/metadata.json') == null) {
+                throw new GradleException("Release jar is missing jarjar metadata: ${jarFile}")
             }
         } finally {
             zip.close()
@@ -407,13 +479,6 @@ tasks.named('compileJava', JavaCompile).configure {
             "-AreobfTsrgFile=${tsrgFile.absolutePath}"
     ]
     outputs.file(refmapFile)
-}
-
-tasks.register('copyGuidebook', Copy) {
-    group = 'build'
-
-    from 'guidebook/'
-    into 'src/guidebook/resources/assets/neoecoae/ae2guide'
 }
 
 idea {

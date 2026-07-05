@@ -25,6 +25,9 @@ public class ECOFeStorageCellItem extends ECOStorageCellItem {
             List<Component> lines,
             TooltipFlag tooltipFlag) {
         super.appendHoverText(stack, level, lines, tooltipFlag);
+        if (level != null && level.isClientSide) {
+            return;
+        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;

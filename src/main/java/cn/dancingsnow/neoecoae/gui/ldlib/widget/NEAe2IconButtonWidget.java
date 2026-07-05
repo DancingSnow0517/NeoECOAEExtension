@@ -1,14 +1,12 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
-import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.GuiGraphics;
 
 public class NEAe2IconButtonWidget extends ButtonWidget {
-    private Icon icon;
+    private Object icon;
     private IconAlignment iconAlignment;
     private boolean pressed;
 
@@ -17,7 +15,7 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
             int y,
             int width,
             int height,
-            Icon icon,
+            Object icon,
             java.util.function.Consumer<com.lowdragmc.lowdraglib.gui.util.ClickData> onPress) {
         super(x, y, width, height, IGuiTexture.EMPTY, onPress);
         this.icon = icon;
@@ -25,7 +23,7 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
         setHoverTexture(IGuiTexture.EMPTY);
     }
 
-    public NEAe2IconButtonWidget setIcon(Icon icon) {
+    public NEAe2IconButtonWidget setIcon(Object icon) {
         this.icon = icon;
         return this;
     }
@@ -73,13 +71,31 @@ public class NEAe2IconButtonWidget extends ButtonWidget {
             return;
         }
         int offset = pressed ? 1 : 0;
+        int iconWidth = NELDLibClientStyle.aeIconWidth(icon);
+        int iconHeight = NELDLibClientStyle.aeIconHeight(icon);
         int iconX = iconAlignment == IconAlignment.AE_TAB
                 ? getPositionX() + 3 + offset
-                : getPositionX() + (getSizeWidth() - icon.width) / 2 + offset;
+                : getPositionX() + (getSizeWidth() - iconWidth) / 2 + offset;
         int iconY = iconAlignment == IconAlignment.AE_TAB
                 ? getPositionY() + 3 + offset
-                : getPositionY() + (getSizeHeight() - icon.height) / 2 + offset;
-        NELDLibAe2StyleRenderer.drawAeIcon(graphics, icon, iconX, iconY, isActive() ? 1.0F : 0.45F);
+                : getPositionY() + (getSizeHeight() - iconHeight) / 2 + offset;
+        NELDLibClientStyle.drawAeIcon(graphics, icon, iconX, iconY, isActive() ? 1.0F : 0.45F);
+    }
+
+    public enum Ae2Icon {
+        AUTO_EXPORT_OFF,
+        AUTO_EXPORT_ON,
+        BACKGROUND_TRASH,
+        BACKGROUND_UPGRADE,
+        BACKGROUND_WIRELESS_TERM,
+        CONDENSER_OUTPUT_TRASH,
+        CRAFT_HAMMER,
+        FLUID_SUBSTITUTION_DISABLED,
+        FLUID_SUBSTITUTION_ENABLED,
+        LEVEL_ENERGY,
+        POWER_UNIT_AE,
+        TYPE_FILTER_ALL,
+        WRENCH
     }
 
     private enum IconAlignment {

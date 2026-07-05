@@ -4,7 +4,7 @@
 	"parent": "block/block",
 	"textures": {
 		"base": "neoecoae:block/compute/drive/cell_north_c",
-		"particle": "neoecoae:block/compute/casing_side"
+		"particle": "neoecoae:block/compute/casing"
 	},
 	"elements": [
 		{

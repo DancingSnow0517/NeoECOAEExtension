@@ -6,7 +6,7 @@
 		"inside": "neoecoae:block/compute/drive/cell_inside_back",
 		"top": "neoecoae:block/compute/drive/cell_top",
 		"south": "neoecoae:block/compute/drive/cell_south",
-		"particle": "neoecoae:block/compute/casing_side"
+		"particle": "neoecoae:block/compute/casing"
 	},
 	"elements": [
 		{

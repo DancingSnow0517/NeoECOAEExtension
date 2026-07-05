@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client;
 
 import appeng.api.storage.cells.CellState;
 import cn.dancingsnow.neoecoae.all.NEItems;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellHandle;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
@@ -33,10 +34,23 @@ public final class NEItemColors {
             return DEFAULT_COLOR;
         }
 
-        var cell = ECOStorageCellItem.getCellInventory(stack);
-        if (cell == null) {
-            return CellState.ABSENT.getStateColor();
+        if (stack.getItem() instanceof ECOStorageCellItem item) {
+            long storedTypes = ECOCellHandle.getStoredTypesSummary(stack);
+            long storedAmount = ECOCellHandle.getStoredAmountSummary(stack);
+            if (storedTypes <= 0L) {
+                return 0xFF000000 | CellState.EMPTY.getStateColor();
+            }
+            long usedBytes = ECOCellHandle.getUsedBytesSummary(stack);
+            if (usedBytes >= item.getBytes()) {
+                return 0xFF000000 | CellState.FULL.getStateColor();
+            }
+            if (storedTypes >= item.getTotalTypes()) {
+                return 0xFF000000 | CellState.TYPES_FULL.getStateColor();
+            }
+            if (storedAmount > 0L) {
+                return 0xFF000000 | CellState.NOT_EMPTY.getStateColor();
+            }
         }
-        return 0xFF000000 | cell.getStatus().getStateColor();
+        return 0xFF000000 | CellState.ABSENT.getStateColor();
     }
 }

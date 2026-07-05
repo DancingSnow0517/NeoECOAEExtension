@@ -1,9 +1,7 @@
 package cn.dancingsnow.neoecoae.items;
 
 import appeng.api.config.FuzzyMode;
-import appeng.api.config.IncludeExclude;
 import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.UpgradeInventories;
@@ -22,14 +20,16 @@ import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.compat.ae2.StorageCellDisassemblyRecipe;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellHandle;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import com.tterrag.registrate.util.entry.RegistryEntry;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import lombok.Getter;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -45,6 +45,8 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
+    private static final String NBT_FUZZY_MODE = "FuzzyMode";
+    private static final String LEGACY_NBT_FUZZY_MODE = "fuzzyMode";
 
     @Getter
     private final IECOTier tier;
@@ -103,6 +105,16 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
     @Override
     public void appendHoverText(
             ItemStack stack, @Nullable Level level, List<Component> lines, TooltipFlag tooltipFlag) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return;
+        }
+        if (level != null && level.isClientSide) {
+            lines.add(Tooltips.bytesUsed(ECOCellHandle.getUsedBytesSummary(stack), getBytes()));
+            lines.add(Tooltips.typesUsed(ECOCellHandle.getStoredTypesSummary(stack), getTotalTypes()));
+            return;
+        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
@@ -113,61 +125,16 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
-        var handler = getCellInventory(stack);
-        if (handler == null) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
             return Optional.empty();
         }
 
         var upgradeStacks = new ArrayList<ItemStack>();
         if (AEConfig.instance().isTooltipShowCellUpgrades()) {
-            for (var upgrade : handler.getUpgradesInventory()) {
-                upgradeStacks.add(upgrade);
-            }
+            getUpgrades(stack).forEach(upgradeStacks::add);
         }
 
-        // Find items with the highest stored amount
-        boolean hasMoreContent;
-        List<GenericStack> content;
-        if (AEConfig.instance().isTooltipShowCellContent()) {
-            content = new ArrayList<>();
-
-            var maxCountShown = AEConfig.instance().getTooltipMaxCellContentShown();
-
-            var availableStacks = handler.getAvailableStacks();
-            for (var entry : availableStacks) {
-                content.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-            }
-
-            // Fill up with stacks from the filter if it's not inverted
-            if (content.size() < maxCountShown && handler.getPartitionListMode() == IncludeExclude.WHITELIST) {
-                var config = handler.getConfigInventory();
-                for (int i = 0; i < config.size(); i++) {
-                    var what = config.getKey(i);
-                    if (what != null) {
-                        // Don't add it twice
-                        if (availableStacks.get(what) <= 0) {
-                            content.add(new GenericStack(what, 0));
-                        }
-                    }
-                    if (content.size() > maxCountShown) {
-                        break; // Don't need to add filters beyond 6 (to determine if it has more than 5 below)
-                    }
-                }
-            }
-
-            // Sort by amount descending
-            content.sort(Comparator.comparingLong(GenericStack::amount).reversed());
-
-            hasMoreContent = content.size() > maxCountShown;
-            if (content.size() > maxCountShown) {
-                content.subList(maxCountShown, content.size()).clear();
-            }
-        } else {
-            hasMoreContent = false;
-            content = Collections.emptyList();
-        }
-
-        return Optional.of(new StorageCellTooltipComponent(upgradeStacks, content, hasMoreContent, true));
+        return Optional.of(new StorageCellTooltipComponent(upgradeStacks, Collections.emptyList(), false, true));
     }
 
     @Nullable public static ECOStorageCell getCellInventory(ItemStack stack) {
@@ -183,10 +150,15 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
-        if (is.hasTag() && is.getTag().contains("fuzzyMode")) {
-            try {
-                return FuzzyMode.valueOf(is.getTag().getString("fuzzyMode"));
-            } catch (IllegalArgumentException ignored) {
+        if (is.hasTag()) {
+            var tag = is.getTag();
+            FuzzyMode mode = readFuzzyMode(tag.getString(NBT_FUZZY_MODE));
+            if (mode != null) {
+                return mode;
+            }
+            mode = readFuzzyMode(tag.getString(LEGACY_NBT_FUZZY_MODE));
+            if (mode != null) {
+                return mode;
             }
         }
         return FuzzyMode.IGNORE_ALL;
@@ -194,7 +166,20 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-        is.getOrCreateTag().putString("fuzzyMode", fzMode.name());
+        var tag = is.getOrCreateTag();
+        tag.putString(NBT_FUZZY_MODE, fzMode.name());
+        tag.remove(LEGACY_NBT_FUZZY_MODE);
+    }
+
+    @Nullable private static FuzzyMode readFuzzyMode(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            return FuzzyMode.valueOf(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     @Override
@@ -225,6 +210,9 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         if (!InteractionUtil.isInAlternateUseMode(player)) {
             return false;
         }
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            return false;
+        }
 
         List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
         if (disassembledStacks.isEmpty()) {
@@ -236,10 +224,12 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             return false;
         }
 
-        ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
-            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
-            return false;
+        if (!level.isClientSide) {
+            ECOStorageCell cellInventory = getCellInventory(stack);
+            if (cellInventory != null && !cellInventory.canFitInsideCell()) {
+                player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+                return false;
+            }
         }
 
         playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);

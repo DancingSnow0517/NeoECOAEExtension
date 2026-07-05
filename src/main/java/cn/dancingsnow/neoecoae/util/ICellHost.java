@@ -13,5 +13,9 @@ public interface ICellHost {
         return true;
     }
 
+    default boolean shouldNotifyPersistenceOnRead() {
+        return false;
+    }
+
     default void notifyPersistence() {}
 }

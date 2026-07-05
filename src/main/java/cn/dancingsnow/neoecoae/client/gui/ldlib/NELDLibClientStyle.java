@@ -1,15 +1,34 @@
 package cn.dancingsnow.neoecoae.client.gui.ldlib;
 
 import appeng.client.gui.Icon;
+import appeng.client.gui.style.BackgroundGenerator;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
+import cn.dancingsnow.neoecoae.gui.ldlib.widget.NEAe2IconButtonWidget.Ae2Icon;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 public final class NELDLibClientStyle {
     private NELDLibClientStyle() {}
+
+    public static Font font() {
+        return Minecraft.getInstance().font;
+    }
+
+    public static int fontLineHeight() {
+        return font().lineHeight;
+    }
+
+    public static int fontWidth(Component text) {
+        return font().width(text);
+    }
+
+    public static void drawAeMainPanel(GuiGraphics g, int x, int y, int w, int h) {
+        BackgroundGenerator.draw(w, h, g, x, y);
+    }
 
     public static void drawDarkInsetRect(GuiGraphics g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, 0xFFCBCCD4);
@@ -104,6 +123,10 @@ public final class NELDLibClientStyle {
         g.disableScissor();
     }
 
+    public static void drawCenteredClipped(GuiGraphics g, Component text, int x, int y, int w, int color) {
+        drawCenteredClipped(g, font(), text, x, y, w, color);
+    }
+
     public static void drawCenteredScaledString(
             GuiGraphics g, Font font, String text, int boxX, int boxY, int boxW, int boxH, int color, float maxScale) {
         float scale = Math.min(maxScale, Math.max(0.55F, (float) (boxW - 4) / Math.max(1.0F, font.width(text))));
@@ -144,6 +167,37 @@ public final class NELDLibClientStyle {
         }
     }
 
+    public static int aeIconWidth(Object icon) {
+        Icon resolved = resolveAeIcon(icon);
+        return resolved == null ? 0 : resolved.width;
+    }
+
+    public static int aeIconHeight(Object icon) {
+        Icon resolved = resolveAeIcon(icon);
+        return resolved == null ? 0 : resolved.height;
+    }
+
+    public static void drawAeIcon(GuiGraphics graphics, Object icon, int x, int y, float alpha) {
+        Icon resolved = resolveAeIcon(icon);
+        if (resolved == null) {
+            return;
+        }
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
+        graphics.blit(
+                Icon.TEXTURE,
+                x,
+                y,
+                resolved.x,
+                resolved.y,
+                resolved.width,
+                resolved.height,
+                Icon.TEXTURE_WIDTH,
+                Icon.TEXTURE_HEIGHT);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
     private static void drawAeSprite(GuiGraphics graphics, Icon icon, int x, int y, int width, int height) {
         RenderSystem.enableBlend();
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
@@ -160,6 +214,30 @@ public final class NELDLibClientStyle {
                 Icon.TEXTURE_WIDTH,
                 Icon.TEXTURE_HEIGHT);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    private static Icon resolveAeIcon(Object icon) {
+        if (icon instanceof Icon aeIcon) {
+            return aeIcon;
+        }
+        if (!(icon instanceof Ae2Icon ae2Icon)) {
+            return null;
+        }
+        return switch (ae2Icon) {
+            case AUTO_EXPORT_OFF -> Icon.AUTO_EXPORT_OFF;
+            case AUTO_EXPORT_ON -> Icon.AUTO_EXPORT_ON;
+            case BACKGROUND_TRASH -> Icon.BACKGROUND_TRASH;
+            case BACKGROUND_UPGRADE -> Icon.BACKGROUND_UPGRADE;
+            case BACKGROUND_WIRELESS_TERM -> Icon.BACKGROUND_WIRELESS_TERM;
+            case CONDENSER_OUTPUT_TRASH -> Icon.CONDENSER_OUTPUT_TRASH;
+            case CRAFT_HAMMER -> Icon.CRAFT_HAMMER;
+            case FLUID_SUBSTITUTION_DISABLED -> Icon.FLUID_SUBSTITUTION_DISABLED;
+            case FLUID_SUBSTITUTION_ENABLED -> Icon.FLUID_SUBSTITUTION_ENABLED;
+            case LEVEL_ENERGY -> Icon.LEVEL_ENERGY;
+            case POWER_UNIT_AE -> Icon.POWER_UNIT_AE;
+            case TYPE_FILTER_ALL -> Icon.TYPE_FILTER_ALL;
+            case WRENCH -> Icon.WRENCH;
+        };
     }
 
     private static boolean isMouseIn(int x, int y, int width, int height, int mouseX, int mouseY) {

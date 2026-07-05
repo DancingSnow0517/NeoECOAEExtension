@@ -16,7 +16,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -26,6 +25,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
 import org.slf4j.Logger;
 
 public final class MultiBlockPlacementService {
@@ -128,8 +128,7 @@ public final class MultiBlockPlacementService {
         }
 
         BlockPos hostPos = host.getHostPos();
-        hostBlockEntity.breakCluster();
-        boolean removedAny = false;
+        List<DismantledBlockDrops> blockDrops = new ArrayList<>();
         for (BlockPos pos : positions) {
             if (pos.equals(hostPos)) {
                 continue;
@@ -144,8 +143,15 @@ public final class MultiBlockPlacementService {
             if (blockEntity instanceof AEBaseBlockEntity aeBlockEntity) {
                 aeBlockEntity.addAdditionalDrops(level, pos, drops);
             }
+            blockDrops.add(new DismantledBlockDrops(pos, drops));
+        }
+
+        hostBlockEntity.breakCluster();
+        boolean removedAny = false;
+        for (DismantledBlockDrops blockDrop : blockDrops) {
+            BlockPos pos = blockDrop.pos();
             level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-            for (ItemStack drop : drops) {
+            for (ItemStack drop : blockDrop.drops()) {
                 giveOrDrop(level, player, drop);
             }
             removedAny = true;
@@ -319,15 +325,14 @@ public final class MultiBlockPlacementService {
         if (stack.isEmpty()) {
             return;
         }
-        ItemStack toGive = stack.copy();
-        if (!player.getInventory().add(toGive)) {
-            Containers.dropItemStack(level, player.getX(), player.getY(), player.getZ(), toGive);
-        }
+        ItemHandlerHelper.giveItemToPlayer(player, stack.copy());
     }
 
     private static int nextPlacementDelay(ServerLevel level) {
         return 1;
     }
+
+    private record DismantledBlockDrops(BlockPos pos, List<ItemStack> drops) {}
 
     private static void sortByHostExtension(
             List<WorldPlannedBlock> worldBlocks, BlockPos controllerPos, Direction extensionDirection) {

@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEStructureTerminalConfigState;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -14,7 +15,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
 final class NEStructureTerminalMaterialPanel {
-    private final Supplier<NEStructureTerminalConfigState> stateSupplier;
+    private final IntSupplier scrollSupplier;
     private final Supplier<List<ItemStack>> materialsSupplier;
     private final Consumer<Integer> scrollWriter;
     private int scroll;
@@ -23,7 +24,12 @@ final class NEStructureTerminalMaterialPanel {
             Supplier<NEStructureTerminalConfigState> stateSupplier,
             Supplier<List<ItemStack>> materialsSupplier,
             Consumer<Integer> scrollWriter) {
-        this.stateSupplier = stateSupplier;
+        this(() -> stateSupplier.get().previewMaterialScroll(), materialsSupplier, scrollWriter);
+    }
+
+    NEStructureTerminalMaterialPanel(
+            IntSupplier scrollSupplier, Supplier<List<ItemStack>> materialsSupplier, Consumer<Integer> scrollWriter) {
+        this.scrollSupplier = scrollSupplier;
         this.materialsSupplier = materialsSupplier;
         this.scrollWriter = scrollWriter;
     }
@@ -40,7 +46,7 @@ final class NEStructureTerminalMaterialPanel {
 
     void drawItems(NEStructureTerminalRenderContext context, GuiGraphics graphics) {
         List<ItemStack> materials = materialsSupplier.get();
-        scroll = clampScroll(stateSupplier.get().previewMaterialScroll(), materials.size());
+        scroll = clampScroll(scrollSupplier.getAsInt(), materials.size());
         int count = Math.min(NEStructureTerminalLayout.patternVisibleSlots(), Math.max(0, materials.size() - scroll));
         NELDLibGuiRenderState.beginVanillaGuiItemBatch(graphics);
         for (int i = 0; i < count; i++) {
@@ -93,7 +99,7 @@ final class NEStructureTerminalMaterialPanel {
             return false;
         }
         List<ItemStack> materials = materialsSupplier.get();
-        int current = clampScroll(stateSupplier.get().previewMaterialScroll(), materials.size());
+        int current = clampScroll(scrollSupplier.getAsInt(), materials.size());
         scroll = clampScroll(
                 current
                         + (wheelDelta < 0

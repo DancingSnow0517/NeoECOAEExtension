@@ -13,5 +13,14 @@
     "neoecoae:ore_tungsten",
     "neoecoae:ore_tungsten_small"
   ],
-  "step": "underground_ores"
+  "step": "underground_ores",
+  "conditions": [
+    {
+      "type": "forge:not",
+      "value": {
+        "type": "forge:mod_loaded",
+        "modid": "gtceu"
+      }
+    }
+  ]
 }

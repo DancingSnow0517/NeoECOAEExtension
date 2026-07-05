@@ -186,6 +186,13 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.items", "Item");
         provider.add("gui.neoecoae.storage.fluids", "Fluid");
         provider.add("gui.neoecoae.storage.chemicals", "Chemical");
+        provider.add("gui.neoecoae.storage.infinite", "Infinite");
+        provider.add("gui.neoecoae.storage.infinite_value", "infinite");
+        provider.add("gui.neoecoae.storage.infinite_domain", "Infinite Domain");
+        provider.add("gui.neoecoae.storage.infinite_component", "Infinite Storage Component");
+        provider.add(
+                "gui.neoecoae.storage.infinite_extract_blocked",
+                "Cannot remove storage matrices in infinite storage mode");
         provider.add("gui.neoecoae.storage.used_short", "Used");
         provider.add("gui.neoecoae.storage.bytes_used", "Bytes Used");
         provider.add("gui.neoecoae.storage.energy_storage", "Energy Storage");
@@ -207,6 +214,10 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.tooltip.fluids_used", "Fluid storage used %s");
         provider.add("gui.neoecoae.storage.tooltip.chemicals_used", "Chemical storage used %s");
         provider.add("gui.neoecoae.storage.tooltip.used_total", "Used: %s / %s");
+        provider.add("tooltip.neoecoae.storage.infinite_member", "Managed by the storage controller");
+        provider.add(
+                "tooltip.neoecoae.infinite_component.unlock",
+                "Insert 64 components and install 16 L9 storage matrices to enable infinite storage");
         provider.add("gui.neoecoae.storage_interface.title", "Storage Interface");
         provider.add("gui.neoecoae.storage_interface.network", "Network");
         provider.add("gui.neoecoae.storage_interface.structure", "Structure");
@@ -215,9 +226,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.formed", "Formed");
         provider.add("gui.neoecoae.storage_interface.unformed", "Unformed");
         provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
+        provider.add("gui.neoecoae.storage_interface.mode.input", "Input");
         provider.add("gui.neoecoae.storage_interface.mode.output", "Output");
         provider.add("gui.neoecoae.storage_interface.storage_mode", "Mode: Mounted as ECO storage");
+        provider.add("gui.neoecoae.storage_interface.import", "Import: %s / tick");
         provider.add("gui.neoecoae.storage_interface.export", "Export: %s / tick");
+        provider.add(
+                "gui.neoecoae.storage_interface.input_tooltip",
+                "Input mode pauses L-series storage mounting and imports contents from the external ME network.");
         provider.add(
                 "gui.neoecoae.storage_interface.output_tooltip",
                 "Output mode pauses L-series storage mounting and exports contents to the external ME network.");

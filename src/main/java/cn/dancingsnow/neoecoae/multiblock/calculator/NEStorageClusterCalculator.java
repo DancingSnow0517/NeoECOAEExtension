@@ -1,8 +1,5 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
-import appeng.api.orientation.IOrientationStrategy;
-import appeng.api.orientation.OrientationStrategies;
-import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -38,13 +35,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-        if (verifyInternalStructure(level, min, max, false)) {
-            setMirroredStructure(false);
-            return true;
-        }
-        boolean mirrored = verifyInternalStructure(level, min, max, true);
-        setMirroredStructure(mirrored);
-        return mirrored;
+        return verifyMirroredStructure(level, min, max, this::verifyInternalStructure);
     }
 
     private boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored) {
@@ -55,19 +46,13 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         ECOStorageSystemBlockEntity controller = controllerCandidate.get().blockEntity();
         BlockPos controllerPos = controllerCandidate.get().pos();
         IECOTier tier = controller.getTier();
-        BlockState controllerState = controller.getBlockState();
-        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
-        Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
-        Direction front = back.getOpposite();
-        Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
-        Direction down = top.getOpposite();
-        Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
-        Direction right = left.getOpposite();
-        if (mirrored) {
-            Direction tmp = left;
-            left = right;
-            right = tmp;
-        }
+        ControllerOrientation orientation = controllerOrientation(controller.getBlockState(), mirrored);
+        Direction back = orientation.back();
+        Direction front = orientation.front();
+        Direction top = orientation.top();
+        Direction down = orientation.down();
+        Direction left = orientation.left();
+        Direction right = orientation.right();
 
         if (!validateCasing(level, controllerPos, top, down, left)) {
             return false;
@@ -124,16 +109,6 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             return false;
         }
         BlockPos upperEnergyCellEnd = upperEnergyCellResult.getOrThrow(false, ignored -> {});
-        if (upperEnergyCellEnd.equals(upperEnergyCellStart)) {
-            boolean validSingleUpperCell = validateBlock(
-                    level,
-                    upperEnergyCellStart,
-                    state -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                            && tier.supportsComponentTier(cell.getBlockEntity(level, upperEnergyCellEnd)
-                                    .getTier())
-                            && state.getValue(ECOEnergyCellBlock.FACING) == back);
-            return validSingleUpperCell;
-        }
         BlockPos lowerEnergyCellStart =
                 controllerPos.relative(back).relative(down).relative(right);
         DataResult<BlockPos> lowerEnergyCellResult = validateBlockLine(

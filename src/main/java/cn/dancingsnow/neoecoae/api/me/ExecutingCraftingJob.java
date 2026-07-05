@@ -34,8 +34,6 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCompiledFastPathPattern;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathPatternMetadata;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathStacks;
-import cn.dancingsnow.neoecoae.config.NEConfig;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -332,22 +330,11 @@ public class ExecutingCraftingJob {
     }
 
     private static ListTag writeCounter(KeyCounter counter) {
-        ListTag list = new ListTag();
-        for (Object2LongMap.Entry<AEKey> entry : counter) {
-            if (entry.getLongValue() > 0) {
-                list.add(GenericStack.writeTag(new GenericStack(entry.getKey(), entry.getLongValue())));
-            }
-        }
-        return list;
+        return ECOFastPathStacks.writeGenericStacks(ECOFastPathStacks.copyCounterUnsorted(counter));
     }
 
     private static void readCounter(KeyCounter counter, ListTag list) {
-        for (int i = 0; i < list.size(); i++) {
-            GenericStack stack = GenericStack.readTag(list.getCompound(i));
-            if (stack != null && stack.amount() > 0) {
-                counter.add(stack.what(), stack.amount());
-            }
-        }
+        ECOFastPathStacks.readGenericStacksInto(counter, list);
     }
 
     enum DispatchBlock {
@@ -378,9 +365,8 @@ public class ExecutingCraftingJob {
                 Level level) {
             ECOCompiledFastPathPattern compiledPattern = getCompiledFastPathPattern(details);
             List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
-            boolean canBuildFastPath = NEConfig.isEcoAe2FastPathEnabled()
-                    && !NEConfig.postCraftingEvent
-                    && compiledPattern.canBuildFastPath(containers);
+            boolean canBuildFastPath =
+                    ECOFastPathEligibility.isGloballyEnabled() && compiledPattern.canBuildFastPath(containers);
             ECOFastPathPatternMetadata metadata =
                     canBuildFastPath ? getFastPathMetadata(compiledPattern, craftingContainer, level) : null;
             return ECOExtractedPatternExecution.create(

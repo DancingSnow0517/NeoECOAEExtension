@@ -11,7 +11,8 @@ public record NEStorageUiMatrixState(
         long usedTypes,
         long totalTypes,
         long usedBytes,
-        long totalBytes) {
+        long totalBytes,
+        boolean infiniteMember) {
     public boolean hasMatrix() {
         return !stack.isEmpty();
     }
@@ -31,6 +32,7 @@ public record NEStorageUiMatrixState(
                 && totalTypes == other.totalTypes
                 && usedBytes == other.usedBytes
                 && totalBytes == other.totalBytes
+                && infiniteMember == other.infiniteMember
                 && ItemStack.matches(stack, other.stack);
     }
 
@@ -46,6 +48,7 @@ public record NEStorageUiMatrixState(
                 usedTypes,
                 totalTypes,
                 usedBytes,
-                totalBytes);
+                totalBytes,
+                infiniteMember);
     }
 }

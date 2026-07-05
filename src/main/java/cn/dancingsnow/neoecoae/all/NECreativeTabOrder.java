@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.all;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.util.function.Supplier;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
@@ -162,6 +163,9 @@ public final class NECreativeTabOrder {
         accept(output, NEItems.ECO_CELL_COMPONENT_16M);
         accept(output, NEItems.ECO_CELL_COMPONENT_64M);
         accept(output, NEItems.ECO_CELL_COMPONENT_256M);
+        if (NEConfig.isInfiniteStorageEnabled()) {
+            accept(output, NEItems.ECO_INFINITE_CELL_COMPONENT);
+        }
 
         accept(output, NEItems.ALUMINUM_ALLOY_UPGRADE_SMITHING_TEMPLATE);
         accept(output, NEItems.BLACK_TUNGSTEN_ALLOY_UPGRADE_SMITHING_TEMPLATE);

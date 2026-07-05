@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.multiblock.calculator;
 
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
@@ -18,6 +21,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 @SuppressWarnings("BooleanMethodIsAlwaysInverted")
 public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalculator<NEBlockEntity<C, ?>, C> {
@@ -48,6 +52,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
         c.updateFormed(true);
+        c.updateStatus(true);
     }
 
     @Override
@@ -66,6 +71,17 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     protected abstract int maxLength();
+
+    protected boolean verifyMirroredStructure(
+            ServerLevel level, BlockPos min, BlockPos max, MirroredStructureVerifier verifier) {
+        if (verifier.verify(level, min, max, false)) {
+            setMirroredStructure(false);
+            return true;
+        }
+        boolean mirrored = verifier.verify(level, min, max, true);
+        setMirroredStructure(mirrored);
+        return mirrored;
+    }
 
     protected void setMirroredStructure(boolean mirroredStructure) {
         this.mirroredStructure = mirroredStructure;
@@ -91,6 +107,30 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     protected record ControllerCandidate<T extends BlockEntity>(T blockEntity, BlockPos pos) {}
+
+    protected ControllerOrientation controllerOrientation(BlockState controllerState, boolean mirrored) {
+        IOrientationStrategy strategy = OrientationStrategies.horizontalFacing();
+        Direction back = strategy.getSide(controllerState, RelativeSide.BACK);
+        Direction front = back.getOpposite();
+        Direction top = strategy.getSide(controllerState, RelativeSide.TOP);
+        Direction down = top.getOpposite();
+        Direction left = strategy.getSide(controllerState, RelativeSide.RIGHT);
+        Direction right = left.getOpposite();
+        if (mirrored) {
+            Direction tmp = left;
+            left = right;
+            right = tmp;
+        }
+        return new ControllerOrientation(back, front, top, down, left, right);
+    }
+
+    protected record ControllerOrientation(
+            Direction back, Direction front, Direction top, Direction down, Direction left, Direction right) {}
+
+    @FunctionalInterface
+    protected interface MirroredStructureVerifier {
+        boolean verify(ServerLevel level, BlockPos min, BlockPos max, boolean mirrored);
+    }
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {
@@ -180,6 +220,12 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     public static <T> boolean validateBlocks(
             Level level, BlockPos from, BlockPos to, BiPredicate<BlockState, T> fn, T value) {
         return validateBlocks(level, BlockPos.betweenClosed(from, to), fn, value);
+    }
+
+    protected static BiPredicate<BlockState, BlockPos> matchingStateFacing(
+            BlockEntry<? extends Block> block, Direction facing) {
+        return (state, pos) ->
+                state.is(block.get()) && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing;
     }
 
     protected static boolean validateCasing(

@@ -19,8 +19,11 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import com.google.common.math.LongMath;
 import com.mojang.logging.LogUtils;
+import java.math.RoundingMode;
 import lombok.Getter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -51,7 +54,7 @@ public class ECOStorageCell implements IECOStorageCell {
 
     private final long maxItemsPerType;
 
-    private final ECOCellContents contents;
+    @Nullable private final ECOStorageBackend backend;
 
     @Getter
     private final IECOTier tier;
@@ -63,7 +66,9 @@ public class ECOStorageCell implements IECOStorageCell {
         if (cellStack.getItem() instanceof IBasicECOCellItem c) {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
-            this.contents = new ECOCellContents(cellStack, maxItemTypes);
+            this.backend = ECOInfiniteStorageMember.isMember(cellStack)
+                    ? null
+                    : ECOCellStorageManager.getOrCreate(cellStack, c, container);
             this.cellType = c;
             this.tier = c.getTier();
 
@@ -105,9 +110,24 @@ public class ECOStorageCell implements IECOStorageCell {
         }
         distributedTypes = Math.max(1, Math.min(distributedTypes, maxItemTypes));
 
-        long remainingItemCapacity =
-                (getTotalBytes() - (long) getBytesPerType() * distributedTypes) * keyType.getAmountPerByte();
-        return Math.max(0, (remainingItemCapacity + distributedTypes - 1) / distributedTypes);
+        return calculateEqualDistributionMaxItems(
+                getTotalBytes(), getBytesPerType(), keyType.getAmountPerByte(), distributedTypes);
+    }
+
+    static long calculateEqualDistributionMaxItems(
+            long totalBytes, int bytesPerType, int amountPerByte, long distributedTypes) {
+        if (distributedTypes <= 0) {
+            return 0;
+        }
+
+        long reservedTypeBytes = LongMath.saturatedMultiply(distributedTypes, bytesPerType);
+        long remainingBytes = LongMath.saturatedSubtract(totalBytes, reservedTypeBytes);
+        if (remainingBytes <= 0) {
+            return 0;
+        }
+
+        long remainingItemCapacity = LongMath.saturatedMultiply(remainingBytes, amountPerByte);
+        return LongMath.divide(remainingItemCapacity, distributedTypes, RoundingMode.CEILING);
     }
 
     @Override
@@ -152,11 +172,13 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     public long getStoredItemTypes() {
-        return contents.storedItemTypes();
+        return backend == null ? ECOCellHandle.getStoredTypesSummary(cellStack) : backend.getStoredTypes();
     }
 
     public long getStoredItemCount() {
-        return contents.storedItemCount();
+        return backend == null
+                ? ECOCellHandle.getStoredAmountSummary(cellStack)
+                : backend.getStoredAmount().toLongSaturated();
     }
 
     private ECOCellCapacity capacity() {
@@ -176,11 +198,12 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public void persist() {
-        if (this.contents.isPersisted()) {
+        if (backend == null) {
             return;
         }
 
-        int actualTypes = contents.persist();
+        updateSummary();
+        int actualTypes = backend.getStoredTypes();
         if (actualTypes > this.maxItemTypes) {
             LOGGER.warn(
                     "ECO storage cell contains more types than allowed: actual={} max={} stack={}",
@@ -191,7 +214,7 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     protected void saveChanges() {
-        this.contents.markDirty();
+        updateSummary();
         if (this.container == null) {
             this.persist();
         } else if (this.container instanceof IBatchedECOCellSaveProvider) {
@@ -199,6 +222,12 @@ public class ECOStorageCell implements IECOStorageCell {
         } else {
             this.persist();
             this.container.saveChanges();
+        }
+    }
+
+    private void updateSummary() {
+        if (backend != null) {
+            ECOCellHandle.updateSummary(cellStack, backend, getUsedBytes());
         }
     }
 
@@ -223,23 +252,53 @@ public class ECOStorageCell implements IECOStorageCell {
         // ensure it doesn't void any items
         // that the cell isn't even storing and cannot store to begin with
         if (partitionList.isEmpty() && hasVoidUpgrade && !canHoldNewItem()) {
-            return contents.contains(what) ? amount : inserted;
+            return contains(what) ? amount : inserted;
         }
 
         return hasVoidUpgrade ? amount : inserted;
     }
 
-    private long innerInsert(AEKey what, long amount, Actionable mode) {
-        if (what instanceof AEItemKey itemKey) {
-            var stack = itemKey.toStack();
-
-            var cellInv = StorageCells.getCellInventory(stack, null);
-            if (cellInv != null && !cellInv.canFitInsideCell()) {
+    public long forceInsertOverflow(AEKey what, long amount, Actionable mode) {
+        if (amount <= 0 || !keyType.contains(what)) {
+            return 0;
+        }
+        if (mode == Actionable.MODULATE) {
+            if (backend == null) {
                 return 0;
             }
+            backend.insert(what, amount, Actionable.MODULATE);
+            this.saveChanges();
+        }
+        return amount;
+    }
+
+    public void clearAllStoredStacks() {
+        if (backend == null || backend.isEmpty()) {
+            return;
+        }
+        ensureRuntimeLoaded();
+        KeyCounter available = new KeyCounter();
+        backend.getAvailableStacks(available);
+        for (var entry : available) {
+            long amount = entry.getLongValue();
+            if (amount > 0L) {
+                backend.extract(entry.getKey(), amount, Actionable.MODULATE);
+            }
+        }
+        this.saveChanges();
+        backend.flushBudgeted(0L);
+        updateSummary();
+    }
+
+    private long innerInsert(AEKey what, long amount, Actionable mode) {
+        if (backend == null) {
+            return 0;
+        }
+        if (!canStoreKeyInsideStorageCell(what)) {
+            return 0;
         }
 
-        var currentAmount = contents.getAmount(what);
+        var currentAmount = backend.getAmount(what);
         long remainingItemCount = this.getRemainingItemCount();
 
         if (currentAmount <= 0) {
@@ -260,28 +319,43 @@ public class ECOStorageCell implements IECOStorageCell {
             amount = remainingItemCount;
         }
 
+        if (amount <= 0) {
+            return 0;
+        }
+
         if (mode == Actionable.MODULATE) {
-            contents.add(what, amount);
+            backend.insert(what, amount, Actionable.MODULATE);
             this.saveChanges();
         }
 
         return amount;
     }
 
+    public static boolean canStoreKeyInsideStorageCell(AEKey what) {
+        if (what instanceof AEItemKey itemKey) {
+            var cellInv = StorageCells.getCellInventory(itemKey.toStack(), null);
+            return cellInv == null || cellInv.canFitInsideCell();
+        }
+        return true;
+    }
+
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        var currentAmount = contents.getAmount(what);
+        if (backend == null) {
+            return 0;
+        }
+        var currentAmount = backend.getAmount(what);
         if (currentAmount > 0) {
             if (amount >= currentAmount) {
                 if (mode == Actionable.MODULATE) {
-                    contents.remove(what, currentAmount);
+                    backend.extract(what, currentAmount, Actionable.MODULATE);
                     this.saveChanges();
                 }
 
                 return currentAmount;
             } else {
                 if (mode == Actionable.MODULATE) {
-                    contents.subtract(what, amount);
+                    backend.extract(what, amount, Actionable.MODULATE);
                     this.saveChanges();
                 }
 
@@ -294,12 +368,14 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public boolean canFitInsideCell() {
-        return contents.isEmpty();
+        return isEmpty();
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        contents.addTo(out);
+        if (backend != null) {
+            backend.getAvailableStacks(out);
+        }
     }
 
     @Override
@@ -309,9 +385,37 @@ public class ECOStorageCell implements IECOStorageCell {
 
     @Override
     public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
-        boolean used = !contents.isEmpty() && this.insert(what, 1, Actionable.SIMULATE, source) == 1;
+        boolean used = !isEmpty() && this.insert(what, 1, Actionable.SIMULATE, source) == 1;
         boolean sameItem = this.extract(what, 1, Actionable.SIMULATE, source) > 0;
         return used || sameItem;
+    }
+
+    public boolean processDeferredLoad(long maxNanos) {
+        return backend != null && ECOCellStorageManager.loadBudgeted(backend, maxNanos);
+    }
+
+    public void ensureRuntimeLoaded() {
+        if (backend != null && !backend.isLoaded()) {
+            backend.requestLoad();
+            backend.loadBudgeted(0L);
+        }
+    }
+
+    public boolean isRuntimeLoaded() {
+        return backend != null && backend.isLoaded();
+    }
+
+    private boolean contains(AEKey what) {
+        return backend != null && backend.getAmount(what) > 0;
+    }
+
+    private boolean isEmpty() {
+        if (backend != null) {
+            return backend.isEmpty();
+        }
+        return !ECOCellHandle.isMissing(cellStack)
+                && ECOCellHandle.getStoredTypesSummary(cellStack) <= 0
+                && ECOCellHandle.getStoredAmountSummary(cellStack) <= 0;
     }
 
     @Override

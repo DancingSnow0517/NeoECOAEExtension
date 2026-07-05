@@ -17,16 +17,6 @@ import net.minecraftforge.registries.ForgeRegistries;
 public class NEBiomeModifiers {
     public static final ResourceKey<BiomeModifier> ORE_END = key("ore_end");
 
-    // WARNING: The generated ore_end.json must include a "conditions" block to
-    // disable ore
-    // generation when GTCEu (modid: gtceu) is loaded. Since
-    // ForgeBiomeModifiers.AddFeaturesBiomeModifier
-    // does not expose conditions via datagen, the conditions are manually
-    // maintained in
-    // src/generated/resources/data/neoecoae/forge/biome_modifier/ore_end.json.
-    // After re-running datagen, re-add the conditions block manually:
-    // "conditions": [{ "type": "forge:not", "value": { "type": "forge:mod_loaded",
-    // "modid": "gtceu" } }],
     public static void bootstrap(BootstapContext<BiomeModifier> context) {
         HolderGetter<Biome> biomes = context.lookup(Registries.BIOME);
         HolderGetter<PlacedFeature> placedFeatures = context.lookup(Registries.PLACED_FEATURE);

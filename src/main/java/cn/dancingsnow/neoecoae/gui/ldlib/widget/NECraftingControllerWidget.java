@@ -6,8 +6,6 @@ import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
-import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTaskCards;
@@ -735,45 +733,21 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             return;
         }
         float alpha = Mth.clamp(card.alpha, 0.0F, 1.0F);
-        NECraftingRecipeUiEntry entry = card.entry;
-        int x = TASK_CARD_X;
-        int absX = absX(x);
-        int absY = absY(y);
-
-        NELDLibTaskCards.drawCardRect(
-                g, absX, absY, TASK_CARD_W, TASK_CARD_H, alpha, NELDLibTaskCards.statusColor(entry.status()));
-        if (alpha > 0.22F && !entry.output().isEmpty()) {
-            NELDLibGuiRenderState.beginVanillaGuiItemBatch(g);
-            try {
-                NELDLibGuiRenderState.renderVanillaSlotItem(g, font(), entry.output(), absX + 1, absY, "");
-            } finally {
-                NELDLibGuiRenderState.endVanillaGuiItemBatch(g);
-            }
-        }
-
-        int textX = x + 20;
-        int textY = y + 4;
-        String amountText = "x" + NELDLibText.compactTaskAmount(entry.outputAmount());
-        int amountW = scaledWidth(amountText);
-        int maxNameW = Math.max(16, TASK_CARD_W - 28 - amountW);
-        String name = fitText(entry.output().getHoverName().getString(), maxNameW);
-        drawScaledString(
-                g, name, absX(textX), absY(textY), NELDLibTaskCards.withAlpha(NELDLibStyle.DARK_TEXT_PRIMARY, alpha));
-        drawScaledRight(
+        NELDLibTaskListPanel.drawCard(
                 g,
-                Component.literal(amountText),
-                absX(TASK_CARD_X + TASK_CARD_W - 5),
-                absY(textY),
-                NELDLibTaskCards.withAlpha(NELDLibStyle.DARK_TEXT_VALUE, alpha));
-        NELDLibTaskCards.drawProgressBar(g, absX + 20, absY + TASK_CARD_H - 4, TASK_CARD_W - 25, 2, entry, alpha);
+                font(),
+                card.entry,
+                absX(TASK_CARD_X),
+                absY(y),
+                TASK_CARD_W,
+                TASK_CARD_H,
+                new NELDLibTaskListPanel.CardStyle(
+                        1, 0, 20, 4, 4, 5, 20, TASK_CARD_H - 4, 25, 2, 28, TEXT_SCALE, alpha, 0.22F));
     }
 
     // 绘制任务面板滚动条
     private void drawTaskScrollbar(GuiGraphics g, int total, int visible) {
-        if (total <= visible) {
-            return;
-        }
-        NELDLibScrollBar.drawVertical(
+        NELDLibTaskListPanel.drawScrollbar(
                 g,
                 absX(TASK_PANEL_X + TASK_PANEL_W - 5),
                 absY(TASK_CARD_Y),
@@ -781,10 +755,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 Math.max(1, TASK_LIST_BOTTOM_Y - TASK_CARD_Y - 1),
                 total,
                 visible,
-                taskScrollOffset,
-                0xAA17141E,
-                0xFF8B83A0,
-                10);
+                taskScrollOffset);
     }
 
     // 渲染任务卡片悬浮提示（物品信息 + 状态 + 数量 + 进度）
@@ -800,17 +771,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 continue;
             }
             NECraftingRecipeUiEntry entry = card.entry;
-            List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), entry.output()));
-            lines.add(Component.translatable(NELDLibTaskCards.statusKey(entry.status())));
-            lines.add(Component.translatable(
-                    "gui.neoecoae.crafting.task.amount", NELDLibText.compactTaskAmount(entry.outputAmount())));
-            lines.add(Component.translatable(
-                    "gui.neoecoae.crafting.task.crafts", NELDLibText.number(entry.craftCount())));
-            if (entry.totalTicks() > 0L) {
-                long done = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
-                lines.add(Component.translatable(
-                        "gui.neoecoae.crafting.task.time", formatTaskTime(done), formatTaskTime(entry.totalTicks())));
-            }
+            List<Component> lines =
+                    NELDLibTaskListPanel.tooltipLines(entry, true, false, NECraftingControllerWidget::formatTaskTime);
             g.renderTooltip(font(), lines, entry.output().getTooltipImage(), entry.output(), mouseX, mouseY);
             return true;
         }
@@ -819,16 +781,13 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     // 计算任务面板可见卡片数量
     private int visibleTaskCardCount() {
-        int space = TASK_LIST_BOTTOM_Y - TASK_CARD_Y;
-        if (space < TASK_CARD_H) {
-            return 1;
-        }
-        return Math.max(1, 1 + (space - TASK_CARD_H) / TASK_CARD_STRIDE);
+        return NELDLibTaskListPanel.visibleCardCount(TASK_CARD_Y, TASK_LIST_BOTTOM_Y, TASK_CARD_H, TASK_CARD_STRIDE);
     }
 
     // 限制滚动偏移量不超出范围
     private int clampTaskScrollOffset(int value, int total) {
-        return Mth.clamp(value, 0, Math.max(0, total - visibleTaskCardCount()));
+        return NELDLibTaskListPanel.clampScrollOffset(
+                value, total, TASK_CARD_Y, TASK_LIST_BOTTOM_Y, TASK_CARD_H, TASK_CARD_STRIDE);
     }
 
     // 绘制垂直柱状仪表盘（能量 / 冷却液）
