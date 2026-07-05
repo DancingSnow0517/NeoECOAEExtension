@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -13,20 +14,41 @@ public final class ECOInfiniteStorageDomains {
     private ECOInfiniteStorageDomains() {}
 
     public static synchronized FileBackedInfiniteStorageEngine get(ServerLevel level, UUID domainId) {
-        String dimension = sanitize(level.dimension().location().toString());
-        String key = dimension + ":" + domainId;
+        String key = keyFor(level, domainId);
         return ENGINES.computeIfAbsent(
                 key, ignored -> new FileBackedInfiniteStorageEngine(domainId, domainPath(level, domainId)));
     }
 
     public static synchronized void close(ServerLevel level, UUID domainId) {
-        String dimension = sanitize(level.dimension().location().toString());
-        String key = dimension + ":" + domainId;
+        String key = keyFor(level, domainId);
         FileBackedInfiniteStorageEngine engine = ENGINES.get(key);
         if (engine != null) {
             engine.closeAndFlush();
             ENGINES.remove(key);
         }
+    }
+
+    public static synchronized void flushAll() {
+        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
+            engine.flushBudgeted(0L);
+        }
+    }
+
+    public static synchronized void closeAll() {
+        for (FileBackedInfiniteStorageEngine engine : new ArrayList<>(ENGINES.values())) {
+            engine.closeAndFlush();
+        }
+        ENGINES.clear();
+    }
+
+    private static String keyFor(ServerLevel level, UUID domainId) {
+        String root = sanitize(level.getServer()
+                .getWorldPath(LevelResource.ROOT)
+                .toAbsolutePath()
+                .normalize()
+                .toString());
+        String dimension = sanitize(level.dimension().location().toString());
+        return root + ":" + dimension + ":" + domainId;
     }
 
     private static Path domainPath(ServerLevel level, UUID domainId) {

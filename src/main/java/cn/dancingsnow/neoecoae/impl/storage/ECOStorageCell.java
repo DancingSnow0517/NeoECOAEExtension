@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IBatchedECOCellSaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import com.google.common.math.LongMath;
 import com.mojang.logging.LogUtils;
@@ -65,7 +66,9 @@ public class ECOStorageCell implements IECOStorageCell {
         if (cellStack.getItem() instanceof IBasicECOCellItem c) {
             keyType = c.getKeyType();
             maxItemTypes = c.getTotalTypes();
-            this.backend = ECOCellStorageManager.getOrCreate(cellStack, c, container);
+            this.backend = ECOInfiniteStorageMember.isMember(cellStack)
+                    ? null
+                    : ECOCellStorageManager.getOrCreate(cellStack, c, container);
             this.cellType = c;
             this.tier = c.getTier();
 
@@ -283,6 +286,8 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
         this.saveChanges();
+        backend.flushBudgeted(0L);
+        updateSummary();
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {

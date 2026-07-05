@@ -33,6 +33,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
+import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
@@ -443,15 +444,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (cell instanceof ECOStorageCell storageCell) {
             storageCell.clearAllStoredStacks();
         }
-        ItemStack stack = drive.getCellStack();
-        if (stack != null && !stack.isEmpty()) {
-            ECOInfiniteStorageMember.clearStoredContents(stack);
-            ECOInfiniteStorageMember.markMember(stack, domainId);
-        }
-        drive.invalidateCellInventoryForHostChange();
+        drive.convertCellToInfiniteMember(domainId);
         drive.requestStorageProviderUpdate();
         drive.scheduleRenderUpdate();
         drive.setChanged();
+        setChanged();
+        engine.flushBudgeted(0L);
+        ECOCellStorageManager.flushBudgeted(0L);
     }
 
     private void restoreInfiniteDomainToNormalStorage() {

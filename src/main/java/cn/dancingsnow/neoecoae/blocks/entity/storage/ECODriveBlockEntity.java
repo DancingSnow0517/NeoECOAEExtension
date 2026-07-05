@@ -16,6 +16,7 @@ import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -209,6 +210,20 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     public void notifyPersistence() {
         markCellContentDirty();
+    }
+
+    public void convertCellToInfiniteMember(UUID domainId) {
+        flushPendingCellContent();
+        releaseCellBackend();
+        if (cellStack != null && !cellStack.isEmpty()) {
+            ECOInfiniteStorageMember.clearStoredContents(cellStack);
+            ECOInfiniteStorageMember.markMember(cellStack, domainId);
+        }
+        invalidateCellInventoryCache();
+        lastSyncedCellState = null;
+        markForUpdate();
+        setChanged();
+        notifyControllerRefresh();
     }
 
     @Override

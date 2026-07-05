@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.forge.event;
 
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
@@ -16,9 +17,11 @@ public final class ECOStorageLifecycleEvents {
 
     public static void onServerStopping(ServerStoppingEvent event) {
         ECOCellStorageManager.closeAll();
+        ECOInfiniteStorageDomains.closeAll();
     }
 
     public static void onLevelSave(LevelEvent.Save event) {
         ECOCellStorageManager.flushBudgeted(0L);
+        ECOInfiniteStorageDomains.flushAll();
     }
 }
