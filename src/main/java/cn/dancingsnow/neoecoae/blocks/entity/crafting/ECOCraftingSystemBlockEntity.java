@@ -7,11 +7,14 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.hooks.ticking.TickHandler;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
@@ -96,6 +99,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private int simulatedPoolThreadCount = 0;
 
     private final Map<UUID, Integer> simulatedPoolThreadReservations = new HashMap<>();
+    private final Map<UUID, List<ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot>>
+            simulatedPoolTaskReservations = new HashMap<>();
 
     private int threadCount = 0;
 
@@ -564,6 +569,23 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         markUiStateDirty();
     }
 
+    public void setSimulatedPoolTaskSnapshots(
+            UUID owner, List<ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot> snapshots) {
+        List<ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot> normalized =
+                snapshots == null || snapshots.isEmpty() ? List.of() : List.copyOf(snapshots);
+        List<ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot> previous =
+                simulatedPoolTaskReservations.getOrDefault(owner, List.of());
+        if (previous.equals(normalized)) {
+            return;
+        }
+        if (normalized.isEmpty()) {
+            simulatedPoolTaskReservations.remove(owner);
+        } else {
+            simulatedPoolTaskReservations.put(owner, normalized);
+        }
+        markUiStateDirty();
+    }
+
     private void validateRunningThreadCount() {
         if (!DEBUG_THREAD_COUNT || cluster == null) {
             return;
@@ -708,6 +730,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             coreTiers.sort(Integer::compareTo);
             moduleCells = normalizeModuleCells(moduleCells);
         }
+        appendSimulatedPoolRecipeEntries(recipeEntries);
 
         return new NECraftingUiState(
                 worldPosition,
@@ -764,6 +787,35 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         int aggregateIndex = 0;
         for (WorkerTaskAggregate aggregate : aggregates.values()) {
             entries.add(aggregate.toEntry(worker.getBlockPos(), aggregateIndex++));
+        }
+    }
+
+    private void appendSimulatedPoolRecipeEntries(List<NECraftingRecipeUiEntry> entries) {
+        if (simulatedPoolTaskReservations.isEmpty()) {
+            return;
+        }
+        Map<SimulatedTaskKey, SimulatedTaskAggregate> aggregates = new LinkedHashMap<>();
+        for (List<ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot> snapshots :
+                simulatedPoolTaskReservations.values()) {
+            for (ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot snapshot : snapshots) {
+                GenericStack output = snapshot.output();
+                if (output == null || output.amount() <= 0 || !(output.what() instanceof AEItemKey itemKey)) {
+                    continue;
+                }
+                ItemStack outputItem = itemKey.toStack(1);
+                if (outputItem.isEmpty()) {
+                    continue;
+                }
+                SimulatedTaskKey key = new SimulatedTaskKey(snapshot.owner(), outputItem);
+                aggregates
+                        .computeIfAbsent(key, ignored -> new SimulatedTaskAggregate(snapshot.owner(), outputItem))
+                        .add(snapshot);
+            }
+        }
+
+        int aggregateIndex = 0;
+        for (SimulatedTaskAggregate aggregate : aggregates.values()) {
+            entries.add(aggregate.toEntry(worldPosition, aggregateIndex++));
         }
     }
 
@@ -860,6 +912,81 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             result = 31 * result + output.getItem().hashCode();
             result = 31 * result + (output.hasTag() ? output.getTag().hashCode() : 0);
             return result;
+        }
+    }
+
+    private record SimulatedTaskKey(UUID craftingJobId, ItemStack output) {
+        private SimulatedTaskKey {
+            output = output.copyWithCount(1);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof SimulatedTaskKey that)) {
+                return false;
+            }
+            return java.util.Objects.equals(craftingJobId, that.craftingJobId)
+                    && ItemStack.isSameItemSameTags(output, that.output);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = craftingJobId != null ? craftingJobId.hashCode() : 0;
+            result = 31 * result + output.getItem().hashCode();
+            result = 31 * result + (output.hasTag() ? output.getTag().hashCode() : 0);
+            return result;
+        }
+    }
+
+    private static final class SimulatedTaskAggregate {
+        private final UUID craftingJobId;
+        private final ItemStack output;
+        private long outputAmount;
+        private long craftCount;
+        private long weightedTotalProgress;
+        private long weightedRemainingProgress;
+        private boolean waitingOutput = true;
+
+        private SimulatedTaskAggregate(UUID craftingJobId, ItemStack output) {
+            this.craftingJobId = craftingJobId;
+            this.output = output.copyWithCount(1);
+        }
+
+        private void add(ECOCraftingCPULogic.AggressiveSimulatedCraftSnapshot snapshot) {
+            int slots = Math.max(1, snapshot.occupiedSlots());
+            int maxProgress = Math.max(1, snapshot.maxProgress());
+            int progress = Mth.clamp(snapshot.progress(), 0, maxProgress);
+            outputAmount = saturatedAdd(outputAmount, Math.max(1L, snapshot.output().amount()));
+            craftCount = saturatedAdd(craftCount, slots);
+            weightedTotalProgress = saturatedAdd(weightedTotalProgress, (long) maxProgress * slots);
+            weightedRemainingProgress =
+                    saturatedAdd(weightedRemainingProgress, (long) Math.max(0, maxProgress - progress) * slots);
+            waitingOutput &= snapshot.outputsReady();
+        }
+
+        private NECraftingRecipeUiEntry toEntry(BlockPos controllerPos, int aggregateIndex) {
+            return new NECraftingRecipeUiEntry(
+                    "aggressive:" + controllerPos.asLong() + ":" + aggregateIndex + ":"
+                            + (craftingJobId != null ? craftingJobId : "local"),
+                    output.copyWithCount(1),
+                    Math.max(1L, outputAmount),
+                    Math.max(1L, craftCount),
+                    Math.max(1L, weightedTotalProgress),
+                    Math.max(0L, weightedRemainingProgress),
+                    waitingOutput
+                            ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
+                            : NECraftingRecipeUiEntry.Status.RUNNING);
+        }
+
+        private static long saturatedAdd(long left, long right) {
+            if (right <= 0L) {
+                return left;
+            }
+            long sum = left + right;
+            return sum < 0L ? Long.MAX_VALUE : sum;
         }
     }
 

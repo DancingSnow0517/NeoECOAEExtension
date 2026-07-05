@@ -95,13 +95,15 @@ public class NEConfig {
             .define("ecoAggressiveFastPathEnabled", false);
 
     private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_LIMIT = BUILDER.comment(
-                    "Maximum crafts merged into a single aggressive fast path batch push.",
+                    "Fallback maximum crafts merged into a single aggressive fast path batch push.",
+                    "When a controller's dynamic FX capacity is available, that capacity is used instead.",
                     "Only used when ecoAggressiveFastPathEnabled is true.",
                     "Set JVM property -Dneoecoae.ecoAggressiveFastPathLimit=<value> to override this config.")
             .defineInRange("ecoAggressiveFastPathLimit", 4096, 1, Integer.MAX_VALUE);
 
     private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT = BUILDER.comment(
-                    "Maximum aggressive fast path batch crafts a CPU may push per tick.",
+                    "Maximum new aggressive fast path crafts a CPU may schedule per tick.",
+                    "The controller's dynamic FX capacity still caps total in-flight simulated crafts.",
                     "Only used when ecoAggressiveFastPathEnabled is true.",
                     "Set JVM property -Dneoecoae.ecoAggressiveFastPathTickLimit=<value> to override this config.")
             .defineInRange("ecoAggressiveFastPathTickLimit", 4096, 1, Integer.MAX_VALUE);

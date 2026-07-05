@@ -24,9 +24,7 @@ import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.mojang.blaze3d.systems.RenderSystem;
-import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.MathContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -870,14 +868,14 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     }
 
     private void drawInfiniteStorageGauge(GuiGraphics g, int x, int y, NEStorageUiState state, StorageMetrics metrics) {
-        List<Metric> segments = new java.util.ArrayList<>();
+        List<InfiniteGaugeSegment> segments = new java.util.ArrayList<>();
         BigInteger totalAmount = BigInteger.ZERO;
         for (Metric metric : metrics.types()) {
             BigInteger amount = parseAmount(metric.usedAmount());
             if (amount.signum() <= 0) {
                 continue;
             }
-            segments.add(metric);
+            segments.add(new InfiniteGaugeSegment(amount, infiniteGaugeColor(metric.accentColor())));
             totalAmount = totalAmount.add(amount);
         }
         if (segments.isEmpty() || totalAmount.signum() <= 0 || state.infiniteDomainEmpty()) {
@@ -885,32 +883,29 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
             return;
         }
 
+        int filledHeight = 0;
+        BigInteger accumulated = BigInteger.ZERO;
         for (int i = 0; i < segments.size(); i++) {
-            Metric segment = segments.get(i);
-            BigInteger amount = parseAmount(segment.usedAmount());
-            double percent = amountShare(amount, totalAmount);
-            int left = x + i * STORAGE_GAUGE_W / segments.size();
-            int right = x + (i + 1) * STORAGE_GAUGE_W / segments.size();
-            drawStorageGaugeColumn(g, left, right - left, y, percent, infiniteGaugeColor(segment.accentColor()));
+            InfiniteGaugeSegment segment = segments.get(i);
+            accumulated = accumulated.add(segment.amount());
+            int nextFilledHeight = i == segments.size() - 1
+                    ? STORAGE_GAUGE_H
+                    : accumulated
+                            .multiply(BigInteger.valueOf(STORAGE_GAUGE_H))
+                            .divide(totalAmount)
+                            .intValue();
+            nextFilledHeight = Mth.clamp(nextFilledHeight, filledHeight, STORAGE_GAUGE_H);
+            int segmentHeight = nextFilledHeight - filledHeight;
+            if (segmentHeight > 0) {
+                int bottom = y + STORAGE_GAUGE_H - filledHeight;
+                int top = bottom - segmentHeight;
+                drawStorageGaugeSegment(g, x, STORAGE_GAUGE_W, top, bottom, segment.color());
+            }
+            filledHeight = nextFilledHeight;
         }
     }
 
-    private static double amountShare(BigInteger amount, BigInteger total) {
-        if (amount.signum() <= 0 || total.signum() <= 0) {
-            return 0.0D;
-        }
-        return new BigDecimal(amount).divide(new BigDecimal(total), MathContext.DECIMAL64).doubleValue();
-    }
-
-    private void drawStorageGaugeColumn(GuiGraphics g, int x, int width, int y, double pct, int color) {
-        double clamped = Mth.clamp(pct, 0.0D, 1.0D);
-        if (clamped <= 0.0D) {
-            return;
-        }
-        int fillHeight = (int) Math.round(STORAGE_GAUGE_H * clamped);
-        fillHeight = Mth.clamp(fillHeight, STORAGE_GAUGE_CAP_H * 2, STORAGE_GAUGE_H);
-        drawStorageGaugeSegment(g, x, width, y + STORAGE_GAUGE_H - fillHeight, y + STORAGE_GAUGE_H, color);
-    }
+    private record InfiniteGaugeSegment(BigInteger amount, int color) {}
 
     private void drawInfiniteStandbyGauge(GuiGraphics g, int x, int y) {
         drawStorageGauge(g, x, y, 1.0D, 0x22CA6CFF);
