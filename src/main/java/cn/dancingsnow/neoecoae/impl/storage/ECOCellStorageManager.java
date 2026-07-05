@@ -52,10 +52,6 @@ public final class ECOCellStorageManager {
             return null;
         }
 
-        if (hasLegacyContents) {
-            ECOCellHandle.updateSummaryFromLegacy(stack, 0L);
-        }
-
         UUID id = ECOCellHandle.getOrCreateId(stack);
         if (owner != null) {
             id = forkIfClaimedByAnotherOwner(server, stack, id, owner);
@@ -87,9 +83,14 @@ public final class ECOCellStorageManager {
                         ECOCellHandle.getStoredTypesSummary(stack),
                         ECOCellHandle.getStoredAmountSummary(stack)));
 
-        if (hasLegacyContents && !backend.hasPersistentData()) {
-            List<GenericStack> legacyStacks = ECOCellHandle.readLegacyStacks(stack);
-            backend.importLegacyNow(legacyStacks);
+        if (hasLegacyContents) {
+            if (!backend.hasPersistentData()) {
+                List<GenericStack> legacyStacks = ECOCellHandle.readLegacyStacks(stack);
+                backend.importLegacyNow(legacyStacks);
+            } else {
+                backend.requestLoad();
+                backend.loadBudgeted(0L);
+            }
             ECOCellHandle.updateSummary(stack, backend, estimateUsedBytes(cellItem, backend));
             ECOCellHandle.clearLegacyContents(stack);
         }
@@ -153,14 +154,11 @@ public final class ECOCellStorageManager {
     }
 
     public static synchronized void close(UUID id) {
-        FileBackedECOStorageBackend backend = CELLS.remove(id);
-        if (backend != null) {
-            backend.closeAndFlush();
-        }
         ISaveProvider owner = OWNERS.remove(id);
         if (owner != null) {
             OWNER_IDS.remove(owner);
         }
+        closeBackend(id);
     }
 
     public static synchronized void release(@Nullable ItemStack stack, @Nullable ISaveProvider owner) {
@@ -174,6 +172,14 @@ public final class ECOCellStorageManager {
         if (id != null && OWNERS.get(id) == owner) {
             OWNERS.remove(id);
             OWNER_IDS.remove(owner);
+            closeBackend(id);
+        }
+    }
+
+    private static void closeBackend(UUID id) {
+        FileBackedECOStorageBackend backend = CELLS.remove(id);
+        if (backend != null) {
+            backend.closeAndFlush();
         }
     }
 

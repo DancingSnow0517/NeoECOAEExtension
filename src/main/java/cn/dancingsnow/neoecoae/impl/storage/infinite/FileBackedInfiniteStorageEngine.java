@@ -28,6 +28,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,12 +48,14 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private final Map<AEKey, HugeAmount> hugeStacks = new HashMap<>();
     private final Map<AEKey, BigInteger> dirtyDeltas = new HashMap<>();
     private final Set<Integer> dirtyShards = new HashSet<>();
+    private final long[] shardRevisions = new long[SHARD_COUNT];
     private List<TypeStats> typeStatsSnapshot = List.of();
     private boolean typeStatsSnapshotDirty = true;
     private List<HugeStack> hugeStacksSnapshot = List.of();
     private boolean hugeStacksSnapshotDirty = true;
     private HugeAmount storedAmount = HugeAmount.ZERO;
     private long revision;
+    @Nullable private DataOutputStream walOut;
 
     public FileBackedInfiniteStorageEngine(UUID domainId, Path domainPath) {
         this.domainId = domainId;
@@ -182,6 +185,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
         truncateWal();
         dirtyDeltas.clear();
+        closeWalOutput();
     }
 
     private void applyDelta(AEKey key, BigInteger delta, boolean writeWal) {
@@ -284,6 +288,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 }
             }
             revision = Math.max(revision, tag.getLong("revision"));
+            shardRevisions[shard] = tag.getLong("revision");
         } catch (RuntimeException | IOException e) {
             LOGGER.error("Unable to read ECO infinite storage shard {}", path, e);
         }
@@ -312,6 +317,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 NbtIo.writeCompressed(tag, output);
             }
             Files.move(tmp, shardPath(shard), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            shardRevisions[shard] = revision;
         } catch (IOException e) {
             throw new IllegalStateException("Unable to write ECO infinite storage shard " + shard, e);
         }
@@ -331,15 +337,22 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             byte[] payload = payloadOut.toByteArray();
             CRC32 crc = new CRC32();
             crc.update(payload);
-            try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(
-                    walPath, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND))) {
-                out.writeInt(payload.length);
-                out.writeInt((int) crc.getValue());
-                out.write(payload);
-            }
+            DataOutputStream out = walOutput();
+            out.writeInt(payload.length);
+            out.writeInt((int) crc.getValue());
+            out.write(payload);
+            out.flush();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to append ECO infinite storage WAL", e);
         }
+    }
+
+    private DataOutputStream walOutput() throws IOException {
+        if (walOut == null) {
+            walOut = new DataOutputStream(Files.newOutputStream(
+                    walPath, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND));
+        }
+        return walOut;
     }
 
     private void replayWal() {
@@ -372,9 +385,12 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 }
                 CompoundTag tag = NbtIo.readCompressed(new ByteArrayInputStream(payload));
                 AEKey key = AEKey.fromTagGeneric(tag.getCompound("key"));
+                long recordRevision = tag.getLong("revision");
                 if (key != null) {
-                    applyDelta(key, new BigInteger(tag.getString("delta")), false);
-                    revision = Math.max(revision, tag.getLong("revision"));
+                    if (recordRevision > shardRevisions[shardFor(key)]) {
+                        applyDelta(key, new BigInteger(tag.getString("delta")), false);
+                    }
+                    revision = Math.max(revision, recordRevision);
                 }
             }
         } catch (RuntimeException | IOException e) {
@@ -384,11 +400,25 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     private void truncateWal() {
         try {
+            closeWalOutput();
             Files.createDirectories(domainPath);
             Files.deleteIfExists(walPath);
             Files.createFile(walPath);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to checkpoint ECO infinite storage WAL", e);
+        }
+    }
+
+    private void closeWalOutput() {
+        if (walOut == null) {
+            return;
+        }
+        try {
+            walOut.close();
+        } catch (IOException e) {
+            LOGGER.warn("Unable to close ECO infinite storage WAL {}", walPath, e);
+        } finally {
+            walOut = null;
         }
     }
 

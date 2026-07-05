@@ -239,8 +239,6 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
         nextLoadShard = 0;
         amounts.clear();
         visibleStacks.clear();
-        storedAmount = 0L;
-        storedTypes = 0;
         try {
             Files.createDirectories(storagePath);
         } catch (IOException e) {

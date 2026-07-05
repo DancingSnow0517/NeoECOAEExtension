@@ -79,6 +79,11 @@ public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEnti
     }
 
     @Override
+    public boolean shouldNotifyPersistenceOnRead() {
+        return true;
+    }
+
+    @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
         if (cellStack != null) {

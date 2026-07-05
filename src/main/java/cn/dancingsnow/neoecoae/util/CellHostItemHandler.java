@@ -2,9 +2,11 @@ package cn.dancingsnow.neoecoae.util;
 
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
+import org.jetbrains.annotations.Nullable;
 
 public class CellHostItemHandler implements IItemHandler {
     private final ICellHost host;
+    @Nullable private String lastReadFingerprint;
 
     public CellHostItemHandler(ICellHost host) {
         this.host = host;
@@ -24,10 +26,22 @@ public class CellHostItemHandler implements IItemHandler {
         // Must return the real stack reference; returning a copy causes task state to be lost on reload.
         var stack = host.getCellStack();
         if (stack != null) {
-            host.notifyPersistence();
+            notifyIfReadReferenceChanged(stack);
             return stack;
         }
+        lastReadFingerprint = null;
         return ItemStack.EMPTY;
+    }
+
+    private void notifyIfReadReferenceChanged(ItemStack stack) {
+        if (!host.shouldNotifyPersistenceOnRead()) {
+            return;
+        }
+        String fingerprint = stack.save(new net.minecraft.nbt.CompoundTag()).toString();
+        if (lastReadFingerprint != null && !lastReadFingerprint.equals(fingerprint)) {
+            host.notifyPersistence();
+        }
+        lastReadFingerprint = fingerprint;
     }
 
     @Override
