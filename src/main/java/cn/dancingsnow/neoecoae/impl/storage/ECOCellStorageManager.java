@@ -3,20 +3,28 @@ package cn.dancingsnow.neoecoae.impl.storage;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class ECOCellStorageManager {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOCellStorageManager.class);
     private static final long LOAD_BUDGET_NANOS = 750_000L;
     private static final long FLUSH_BUDGET_NANOS = 1_000_000L;
     private static final int FLUSH_INTERVAL_TICKS = 20;
@@ -49,6 +57,10 @@ public final class ECOCellStorageManager {
         }
 
         UUID id = ECOCellHandle.getOrCreateId(stack);
+        if (owner != null) {
+            id = forkIfClaimedByAnotherOwner(server, stack, id, owner);
+        }
+
         Path path = cellPath(server, id);
         if (hadId
                 && !CELLS.containsKey(id)
@@ -61,20 +73,19 @@ public final class ECOCellStorageManager {
         }
 
         if (owner != null) {
-            ISaveProvider currentOwner = OWNERS.get(id);
-            if (currentOwner != null && currentOwner != owner) {
-                ECOCellHandle.markLocked(stack);
-                return null;
-            }
-            OWNERS.put(id, owner);
-            OWNER_IDS.put(owner, id);
+            claim(id, owner);
         }
 
         ECOCellHandle.clearProblemState(stack);
+        UUID backendId = id;
+        Path backendPath = path;
         FileBackedECOStorageBackend backend = CELLS.computeIfAbsent(
-                id,
+                backendId,
                 ignored -> new FileBackedECOStorageBackend(
-                        id, path, ECOCellHandle.getStoredTypesSummary(stack), ECOCellHandle.getStoredAmountSummary(stack)));
+                        backendId,
+                        backendPath,
+                        ECOCellHandle.getStoredTypesSummary(stack),
+                        ECOCellHandle.getStoredAmountSummary(stack)));
 
         if (hasLegacyContents && !backend.hasPersistentData()) {
             List<GenericStack> legacyStacks = ECOCellHandle.readLegacyStacks(stack);
@@ -84,6 +95,28 @@ public final class ECOCellStorageManager {
         }
 
         return backend;
+    }
+
+    public static synchronized void forkIfAlreadyPresent(ItemStack stack, Iterable<ItemStack> mountedStacks) {
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null || stack == null || stack.isEmpty()) {
+            return;
+        }
+
+        UUID id = ECOCellHandle.getId(stack).orElse(null);
+        if (id == null) {
+            return;
+        }
+
+        for (ItemStack mountedStack : mountedStacks) {
+            if (mountedStack == null || mountedStack.isEmpty() || mountedStack == stack) {
+                continue;
+            }
+            if (ECOCellHandle.getId(mountedStack).filter(id::equals).isPresent()) {
+                forkStorageId(server, stack, id, "duplicate mounted in the same ECO storage host");
+                return;
+            }
+        }
     }
 
     public static synchronized boolean loadBudgeted(ECOStorageBackend backend, long maxNanos) {
@@ -141,6 +174,98 @@ public final class ECOCellStorageManager {
         if (id != null && OWNERS.get(id) == owner) {
             OWNERS.remove(id);
             OWNER_IDS.remove(owner);
+        }
+    }
+
+    private static UUID forkIfClaimedByAnotherOwner(
+            MinecraftServer server, ItemStack stack, UUID id, ISaveProvider owner) {
+        ISaveProvider currentOwner = OWNERS.get(id);
+        if (currentOwner == null || currentOwner == owner) {
+            return id;
+        }
+        return forkStorageId(server, stack, id, "storage id is already claimed by another host");
+    }
+
+    private static void claim(UUID id, ISaveProvider owner) {
+        UUID previousId = OWNER_IDS.get(owner);
+        if (previousId != null && !previousId.equals(id) && OWNERS.get(previousId) == owner) {
+            OWNERS.remove(previousId);
+        }
+        OWNERS.put(id, owner);
+        OWNER_IDS.put(owner, id);
+    }
+
+    private static UUID forkStorageId(MinecraftServer server, ItemStack stack, UUID oldId, String reason) {
+        FileBackedECOStorageBackend sourceBackend = CELLS.get(oldId);
+        if (sourceBackend != null) {
+            sourceBackend.closeAndFlush();
+        }
+
+        UUID newId;
+        Path newPath;
+        do {
+            newId = UUID.randomUUID();
+            newPath = cellPath(server, newId);
+        } while (CELLS.containsKey(newId) || Files.exists(newPath));
+
+        Path oldPath = cellPath(server, oldId);
+        if (Files.exists(oldPath)) {
+            copyStorageDirectory(oldPath, newPath);
+        }
+        writeForkManifest(newPath, newId, stack);
+
+        ECOCellHandle.setId(stack, newId);
+        ECOCellHandle.clearProblemState(stack);
+        LOGGER.warn("Forked duplicated ECO storage matrix UUID {} -> {} ({})", oldId, newId, reason);
+        return newId;
+    }
+
+    private static void copyStorageDirectory(Path source, Path target) {
+        try (var paths = Files.walk(source)) {
+            for (Path sourcePath : paths.sorted(Comparator.naturalOrder()).toList()) {
+                Path targetPath = target.resolve(source.relativize(sourcePath));
+                if (Files.isDirectory(sourcePath)) {
+                    Files.createDirectories(targetPath);
+                } else if (Files.isRegularFile(sourcePath) && !sourcePath.getFileName().toString().endsWith(".tmp")) {
+                    Files.createDirectories(targetPath.getParent());
+                    Files.copy(
+                            sourcePath,
+                            targetPath,
+                            StandardCopyOption.REPLACE_EXISTING,
+                            StandardCopyOption.COPY_ATTRIBUTES);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to fork ECO cell storage " + source + " -> " + target, e);
+        }
+    }
+
+    private static void writeForkManifest(Path storagePath, UUID id, ItemStack stack) {
+        Path manifestPath = storagePath.resolve("manifest.dat");
+        CompoundTag tag = null;
+        if (Files.isRegularFile(manifestPath)) {
+            try (var input = Files.newInputStream(manifestPath)) {
+                tag = NbtIo.readCompressed(input);
+            } catch (IOException | RuntimeException e) {
+                LOGGER.warn("Unable to read copied ECO cell storage manifest {}", manifestPath, e);
+            }
+        }
+        if (tag == null) {
+            tag = new CompoundTag();
+            tag.putInt("version", 2);
+            tag.putString("kind", "cell");
+            tag.putLong("revision", 0L);
+            tag.putInt("storedTypes", ECOCellHandle.getStoredTypesSummary(stack));
+            tag.putString("storedAmount", Long.toString(ECOCellHandle.getStoredAmountSummary(stack)));
+        }
+        tag.putUUID("id", id);
+        try {
+            Files.createDirectories(storagePath);
+            try (var output = Files.newOutputStream(manifestPath)) {
+                NbtIo.writeCompressed(tag, output);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to write forked ECO cell storage manifest " + manifestPath, e);
         }
     }
 

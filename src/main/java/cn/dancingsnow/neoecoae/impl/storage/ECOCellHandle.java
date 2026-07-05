@@ -48,6 +48,12 @@ public final class ECOCellHandle {
         return id;
     }
 
+    public static void setId(ItemStack stack, UUID id) {
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.putUUID(TAG_ID, id);
+        tag.putInt(TAG_VERSION, VERSION);
+    }
+
     public static int getVersion(ItemStack stack) {
         CompoundTag tag = stack.getTag();
         return tag == null ? 0 : tag.getInt(TAG_VERSION);

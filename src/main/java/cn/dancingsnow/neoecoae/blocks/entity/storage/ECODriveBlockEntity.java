@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -63,6 +64,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         flushPendingCellContent();
         releaseCellBackend();
         this.cellStack = normalizeCellStack(cellStack);
+        forkDuplicateCellInCurrentHost();
         invalidateCellInventoryCache();
         if (getLevel() != null && getBlockState().hasProperty(ECODriveBlock.HAS_CELL)) {
             boolean oldHasCell = getBlockState().getValue(ECODriveBlock.HAS_CELL);
@@ -404,6 +406,23 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private void invalidateCellInventoryCache() {
         cachedCellInventory = null;
         cachedCellInventoryStack = null;
+    }
+
+    private void forkDuplicateCellInCurrentHost() {
+        if (!(level instanceof ServerLevel) || this.cellStack == null || cluster == null) {
+            return;
+        }
+        List<ItemStack> mountedStacks = new ArrayList<>();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            if (drive == this) {
+                continue;
+            }
+            ItemStack mountedStack = drive.getCellStack();
+            if (mountedStack != null && !mountedStack.isEmpty()) {
+                mountedStacks.add(mountedStack);
+            }
+        }
+        ECOCellStorageManager.forkIfAlreadyPresent(this.cellStack, mountedStacks);
     }
 
     public void invalidateCellInventoryForHostChange() {
