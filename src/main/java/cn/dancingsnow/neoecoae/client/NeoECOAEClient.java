@@ -5,8 +5,10 @@ import cn.dancingsnow.neoecoae.all.NEBlockEntities;
 import cn.dancingsnow.neoecoae.all.NETooltips;
 import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
+import cn.dancingsnow.neoecoae.api.rendering.IFixedBlockEntityRenderer;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
 import cn.dancingsnow.neoecoae.client.multiblock.preview.MultiblockPreviewScrollHandler;
+import cn.dancingsnow.neoecoae.client.rendering.BerModelCache;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECOComputationDriveRenderer;
 import cn.dancingsnow.neoecoae.client.renderer.blockentity.ECODriveRenderer;
 import cn.dancingsnow.neoecoae.client.screen.NEConfigScreen;
@@ -32,6 +34,7 @@ public class NeoECOAEClient {
         modBus.addListener(NeoECOAEClient::onRegisterItemColors);
         modBus.addListener((FMLClientSetupEvent event) -> ECOCellModels.on(event));
         modBus.addListener((ModelEvent.RegisterAdditional event) -> ECOCellModels.on(event));
+        modBus.addListener(NeoECOAEClient::onModelBakingCompleted);
         MinecraftForge.EVENT_BUS.addListener(NETooltips::register);
         MinecraftForge.EVENT_BUS.addListener(MultiblockPreviewScrollHandler::onMouseScrolled);
     }
@@ -51,5 +54,11 @@ public class NeoECOAEClient {
     @SubscribeEvent
     public static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
         NEItemColors.registerBaseCells(event);
+    }
+
+    private static void onModelBakingCompleted(ModelEvent.BakingCompleted event) {
+        BerModelCache.clear();
+        ECOComputationDriveRenderer.clearModelSelectionCache();
+        IFixedBlockEntityRenderer.WARNED_MISSING_MODELS.clear();
     }
 }

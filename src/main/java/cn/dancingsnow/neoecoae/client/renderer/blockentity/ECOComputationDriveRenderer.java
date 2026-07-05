@@ -8,6 +8,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBloc
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -15,6 +16,7 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fml.loading.FMLEnvironment;
@@ -29,6 +31,8 @@ public class ECOComputationDriveRenderer
     private static final Logger LOGGER = LoggerFactory.getLogger("neoecoae-renderer");
     private static final Set<String> LOGGED_MISSING_CELL_MAPPINGS = ConcurrentHashMap.newKeySet();
     private static final Set<String> LOGGED_MISSING_CABLE_MAPPINGS = ConcurrentHashMap.newKeySet();
+    private static final Map<ComputationRenderKey, ComputationRenderModels> MODEL_SELECTION_CACHE =
+            new ConcurrentHashMap<>();
 
     public ECOComputationDriveRenderer() {}
 
@@ -47,7 +51,7 @@ public class ECOComputationDriveRenderer
         Direction facing = blockState.getValue(ECOComputationDrive.FACING);
         boolean formed = blockEntity.isFormed();
         IECOTier driveTier = blockEntity.getTier();
-        ComputationRenderModels models = selectModels(blockEntity, itemStack, formed, driveTier);
+        ComputationRenderModels models = selectModels(itemStack, formed, driveTier, blockEntity.isLowerDrive());
 
         logComputationModels(blockEntity, itemStack, models, facing, formed, driveTier);
 
@@ -62,24 +66,37 @@ public class ECOComputationDriveRenderer
         poseStack.popPose();
     }
 
+    public static void clearModelSelectionCache() {
+        MODEL_SELECTION_CACHE.clear();
+        LOGGED_MISSING_CELL_MAPPINGS.clear();
+        LOGGED_MISSING_CABLE_MAPPINGS.clear();
+    }
+
     private static ComputationRenderModels selectModels(
-            ECOComputationDriveBlockEntity blockEntity, ItemStack itemStack, boolean formed, IECOTier driveTier) {
+            ItemStack itemStack, boolean formed, IECOTier driveTier, boolean lowerDrive) {
+        Item item = itemStack == null || itemStack.isEmpty() ? null : itemStack.getItem();
+        return MODEL_SELECTION_CACHE.computeIfAbsent(
+                new ComputationRenderKey(item, formed, driveTier, lowerDrive),
+                ECOComputationDriveRenderer::resolveModels);
+    }
+
+    private static ComputationRenderModels resolveModels(ComputationRenderKey key) {
         ResourceLocation normalCellModel = null;
         ResourceLocation formedCellModel = null;
         ResourceLocation selectedCellModel = null;
         ResourceLocation cableModel = null;
         IECOTier itemTier = null;
-        IECOTier cableTier = driveTier;
+        IECOTier cableTier = key.driveTier();
         boolean shouldCellWork = false;
-        boolean hasComputationCell =
-                itemStack != null && !itemStack.isEmpty() && itemStack.getItem() instanceof ECOComputationCellItem;
+        Item item = key.item();
+        boolean hasComputationCell = item instanceof ECOComputationCellItem;
 
         if (hasComputationCell) {
-            ECOComputationCellItem item = (ECOComputationCellItem) itemStack.getItem();
-            itemTier = item.getTier();
-            shouldCellWork = formed && driveTier != null && itemTier.compareTo(driveTier) <= 0;
-            normalCellModel = ECOComputationModels.getNormalModel(itemStack.getItem());
-            formedCellModel = ECOComputationModels.getFormedModel(itemStack.getItem());
+            ECOComputationCellItem cellItem = (ECOComputationCellItem) item;
+            itemTier = cellItem.getTier();
+            shouldCellWork = key.formed() && key.driveTier() != null && itemTier.compareTo(key.driveTier()) <= 0;
+            normalCellModel = ECOComputationModels.getNormalModel(item);
+            formedCellModel = ECOComputationModels.getFormedModel(item);
             selectedCellModel = shouldCellWork ? formedCellModel : normalCellModel;
             if (selectedCellModel == null && shouldCellWork) {
                 selectedCellModel = normalCellModel;
@@ -89,7 +106,7 @@ public class ECOComputationDriveRenderer
             }
         }
 
-        if (formed) {
+        if (key.formed()) {
             if (cableTier == null && itemTier != null) {
                 cableTier = itemTier;
             }
@@ -104,9 +121,9 @@ public class ECOComputationDriveRenderer
                 selectedCellModel,
                 cableModel,
                 itemTier,
-                driveTier,
+                key.driveTier(),
                 shouldCellWork,
-                blockEntity.isLowerDrive());
+                key.lowerDrive());
     }
 
     private void renderComputationCell(
@@ -230,6 +247,8 @@ public class ECOComputationDriveRenderer
         poseStack.translate(0.25 * facing.getStepX(), 0, 0.25 * facing.getStepZ());
         poseStack.mulPose(Axis.YN.rotationDegrees(rotateDegrees));
     }
+
+    private record ComputationRenderKey(Item item, boolean formed, IECOTier driveTier, boolean lowerDrive) {}
 
     private record ComputationRenderModels(
             ResourceLocation normalCellModel,
