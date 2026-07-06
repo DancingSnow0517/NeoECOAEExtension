@@ -185,7 +185,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             layout.gapAll(4);
         });
         panels.addChild(StorageHostPanelUI.createLeftPanel(createStoragePanelConfig()));
-        panels.addChild(StorageHostPanelUI.createEmptyPanel(StorageHostPanelUI.RIGHT_PANEL_WIDTH));
+        panels.addChild(StorageHostPanelUI.createRightPanel());
 
         root.addChild(panels);
         actionUI.addTo(root);

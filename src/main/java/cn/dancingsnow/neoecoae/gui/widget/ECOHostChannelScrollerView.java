@@ -19,6 +19,9 @@ public class ECOHostChannelScrollerView extends ScrollerView {
     @Override
     public void drawBackgroundOverlay(GUIContext guiContext) {
         super.drawBackgroundOverlay(guiContext);
+        if (!verticalScroller.isDisplayed()) {
+            return;
+        }
         float trackHeight = verticalScroller.scrollContainer.getContentHeight();
         if (trackHeight <= 0) {
             return;
@@ -36,6 +39,9 @@ public class ECOHostChannelScrollerView extends ScrollerView {
     }
 
     private void syncNativeThumbSize() {
+        if (!verticalScroller.isDisplayed()) {
+            return;
+        }
         float trackHeight = verticalScroller.scrollContainer.getContentHeight();
         if (trackHeight <= 0) {
             return;

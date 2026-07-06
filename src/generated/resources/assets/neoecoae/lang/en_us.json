@@ -187,6 +187,7 @@
   "gui.neoecoae.storage.energy_storage": "Energy Storage",
   "gui.neoecoae.storage.bytes_used": "bytes used",
   "gui.neoecoae.storage.used_short": "Used",
+  "gui.neoecoae.storage.system_load": "System Load",
   "gui.neoecoae.common.types": "types",
   "gui.neoecoae.storage_priority.close": "Close priority panel",
   "gui.neoecoae.storage_priority.extract_hint": "When extracting: lower-priority storage is preferred.",

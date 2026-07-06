@@ -149,6 +149,7 @@
   "gui.neoecoae.storage.energy_storage": "能量儲存",
   "gui.neoecoae.storage.bytes_used": "位元組已用",
   "gui.neoecoae.storage.used_short": "已用",
+  "gui.neoecoae.storage.system_load": "系統負載",
   "gui.neoecoae.common.types": "類型",
   "gui.neoecoae.host.status.online": "在線",
   "gui.neoecoae.host.status.running": "運行中",

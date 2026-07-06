@@ -149,6 +149,7 @@
   "gui.neoecoae.storage.energy_storage": "能藏",
   "gui.neoecoae.storage.bytes_used": "位元已用",
   "gui.neoecoae.storage.used_short": "已用",
+  "gui.neoecoae.storage.system_load": "系統負載",
   "gui.neoecoae.common.types": "類",
   "gui.neoecoae.storage_priority.title": "優先",
   "gui.neoecoae.storage_priority.open": "啟優先之板",

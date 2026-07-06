@@ -5,8 +5,11 @@ import cn.dancingsnow.neoecoae.gui.widget.ECOHostChannelScrollerView;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
@@ -17,6 +20,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,6 +39,10 @@ public final class StorageHostPanelUI {
     public static final int PANEL_HEIGHT = 200;
     private static final int PANEL_PADDING = 2;
     private static final int TEXT_MAX_WIDTH = LEFT_PANEL_WIDTH - 16;
+    private static final int RIGHT_INSET_X = 8;
+    private static final int RIGHT_INSET_Y = 19;
+    private static final int RIGHT_INSET_WIDTH = RIGHT_PANEL_WIDTH - 20;
+    private static final int RIGHT_INSET_HEIGHT = 168;
     private static final int SCROLLBAR_THUMB_WIDTH = 12;
     private static final int SCROLLBAR_THUMB_HEIGHT = 15;
     private static final int SCROLLBAR_HORIZONTAL_OFFSET = 2;
@@ -48,6 +56,9 @@ public final class StorageHostPanelUI {
     private static final int DARK_TEXT_WARNING = 0xFFD65A;
     private static final int DARK_TEXT_ORANGE = 0xFF9A3D;
     private static final int DARK_TEXT_ERROR = 0xFF6A75;
+    private static final int DARK_PANEL_LIGHT_EDGE = 0xFFC9C3D6;
+    private static final int DARK_PANEL_OUTER = 0xFF17141E;
+    private static final int DARK_PANEL_LOAD_INNER = 0xFF201E27;
     private static final int BYTES_IN_K = 1024;
     private static final long BYTES_IN_M = BYTES_IN_K * 1024L;
     private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
@@ -88,6 +99,62 @@ public final class StorageHostPanelUI {
             config.maxEnergy()
         ));
         config.storageTypes().forEach(line -> panel.addScrollViewChild(storageTypeBlock(line)));
+        return panel;
+    }
+
+    public static ScrollerView createRightPanel() {
+        ScrollerView panel = createEmptyPanel(RIGHT_PANEL_WIDTH);
+        panel.scrollerStyle(style -> style.verticalScrollDisplay(ScrollDisplay.NEVER));
+        panel.viewContainer(view -> {
+            view.getLayout().paddingAll(0);
+            view.addChild(panelTitleLabel(() -> Component.translatable("gui.neoecoae.storage.system_load"))
+                .layout(layout -> {
+                    layout.positionType(TaffyPosition.ABSOLUTE);
+                    layout.left(0);
+                    layout.top(8);
+                    layout.width(RIGHT_PANEL_WIDTH - SCROLLBAR_THUMB_WIDTH);
+                    layout.height(10);
+                }));
+            view.addChild(tinyInsetPanel(DARK_PANEL_LOAD_INNER).layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(RIGHT_INSET_X);
+                layout.top(RIGHT_INSET_Y);
+                layout.width(RIGHT_INSET_WIDTH);
+                layout.height(RIGHT_INSET_HEIGHT);
+            }));
+        });
+        return panel;
+    }
+
+    private static UIElement tinyInsetPanel(int innerColor) {
+        UIElement panel = new UIElement();
+        panel.addChild(new UIElement()
+            .style(style -> style.backgroundTexture(new ColorRectTexture(DARK_PANEL_LIGHT_EDGE)))
+            .layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(0);
+                layout.top(0);
+                layout.width(RIGHT_INSET_WIDTH);
+                layout.height(RIGHT_INSET_HEIGHT);
+            }));
+        panel.addChild(new UIElement()
+            .style(style -> style.backgroundTexture(new ColorRectTexture(DARK_PANEL_OUTER)))
+            .layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(1);
+                layout.top(1);
+                layout.width(RIGHT_INSET_WIDTH - 2);
+                layout.height(RIGHT_INSET_HEIGHT - 2);
+            }));
+        panel.addChild(new UIElement()
+            .style(style -> style.backgroundTexture(new ColorRectTexture(innerColor)))
+            .layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(2);
+                layout.top(2);
+                layout.width(RIGHT_INSET_WIDTH - 4);
+                layout.height(RIGHT_INSET_HEIGHT - 4);
+            }));
         return panel;
     }
 
@@ -169,6 +236,13 @@ public final class StorageHostPanelUI {
     private static Label sectionLabel(Supplier<Component> text, IntSupplier color) {
         Label label = textSegment(text, color);
         label.textStyle(StorageHostPanelUI::sectionTextStyle);
+        return label;
+    }
+
+    private static Label panelTitleLabel(Supplier<Component> text) {
+        Label label = new Label();
+        label.bind(DataBindingBuilder.componentS2C(() -> text.get().copy().withColor(DARK_TEXT_PRIMARY)).build());
+        label.textStyle(StorageHostPanelUI::panelTitleTextStyle);
         return label;
     }
 
@@ -469,6 +543,14 @@ public final class StorageHostPanelUI {
 
     private static void sectionTextStyle(TextElement.TextStyle style) {
         lineTextStyle(style);
+    }
+
+    private static void panelTitleTextStyle(TextElement.TextStyle style) {
+        style.adaptiveHeight(true)
+            .adaptiveWidth(false)
+            .textAlignHorizontal(Horizontal.CENTER)
+            .textWrap(TextWrap.HOVER_ROLL)
+            .textShadow(false);
     }
 
     private record UsedTotalText(String usedText, String maxText, Component suffix) {

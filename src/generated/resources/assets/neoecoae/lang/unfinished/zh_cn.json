@@ -187,6 +187,7 @@
   "gui.neoecoae.storage.energy_storage": "能量存储",
   "gui.neoecoae.storage.bytes_used": "字节已用",
   "gui.neoecoae.storage.used_short": "已用",
+  "gui.neoecoae.storage.system_load": "系统负载",
   "gui.neoecoae.common.types": "类型",
   "gui.neoecoae.storage_priority.close": "关闭优先级面板",
   "gui.neoecoae.storage_priority.extract_hint": "取出时：低优先级设备优先。",
