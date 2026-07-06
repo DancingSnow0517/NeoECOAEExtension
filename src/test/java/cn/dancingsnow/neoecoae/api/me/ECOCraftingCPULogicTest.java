@@ -75,6 +75,27 @@ class ECOCraftingCPULogicTest {
     }
 
     @Test
+    void aggressiveSimulatedCraftPowerCapScalesWithTickLimit() {
+        int previousAggressiveTickLimit = NEConfig.ecoAggressiveFastPathTickLimit;
+
+        try {
+            NEConfig.ecoAggressiveFastPathTickLimit = 4096;
+
+            assertEquals(409_600.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerCap(100, 1));
+            assertEquals(409_600.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerNeed(100, 1, 4096));
+            assertEquals(409_600.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerNeed(100, 1, 5632));
+
+            NEConfig.ecoAggressiveFastPathTickLimit = 16384;
+
+            assertEquals(1_638_400.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerCap(100, 1));
+            assertEquals(563_200.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerNeed(100, 1, 5632));
+            assertEquals(1_638_400.0D, ECOCraftingCPULogic.aggressiveSimulatedCraftPowerNeed(100, 1, 16384));
+        } finally {
+            NEConfig.ecoAggressiveFastPathTickLimit = previousAggressiveTickLimit;
+        }
+    }
+
+    @Test
     void aggressiveFastPathFallsBackWhenBaseFastPathIsDisabled() {
         boolean previousFastPath = NEConfig.enableEcoAe2FastPath;
         boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;

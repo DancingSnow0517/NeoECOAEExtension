@@ -65,7 +65,7 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.ecoAggressiveFastPathTickLimit", "Aggressive Fast Path Tick Pacing Limit");
         provider.add(
                 "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip",
-                "Maximum new aggressive fast path crafts a CPU may schedule per tick. Dynamic controller FX capacity still caps total in-flight crafts.");
+                "Maximum new aggressive fast path crafts a CPU may schedule per tick. This also scales the simulated crafting power cap so batches up to this limit can advance at the controller's full progress rate when enough AE power is available. Dynamic controller FX capacity still caps total in-flight crafts.");
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
                 "neoecoae.configuration.ecoFastPathCacheSize.tooltip",

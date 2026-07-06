@@ -1147,9 +1147,8 @@ public class ECOCraftingCPULogic {
         }
 
         private double powerNeed(ECOCraftingSystemBlockEntity controller) {
-            return Math.min(
-                    controller.getProgressPerTick() * controller.getCraftingPowerMultiplier() * (double) occupiedSlots,
-                    500_000.0D);
+            return aggressiveSimulatedCraftPowerNeed(
+                    controller.getProgressPerTick(), controller.getCraftingPowerMultiplier(), occupiedSlots);
         }
 
         private void tick(ECOCraftingSystemBlockEntity controller, double powerRatio) {
@@ -1232,6 +1231,21 @@ public class ECOCraftingCPULogic {
             }
             return List.copyOf(copy);
         }
+    }
+
+    static double aggressiveSimulatedCraftPowerNeed(int progressPerTick, int powerMultiplier, int occupiedSlots) {
+        int normalizedProgress = Math.max(0, progressPerTick);
+        int normalizedPowerMultiplier = Math.max(1, powerMultiplier);
+        int normalizedSlots = Math.max(1, occupiedSlots);
+        double uncappedNeed = normalizedProgress * (double) normalizedPowerMultiplier * normalizedSlots;
+        return Math.min(uncappedNeed, aggressiveSimulatedCraftPowerCap(normalizedProgress, normalizedPowerMultiplier));
+    }
+
+    static double aggressiveSimulatedCraftPowerCap(int progressPerTick, int powerMultiplier) {
+        int normalizedProgress = Math.max(0, progressPerTick);
+        int normalizedPowerMultiplier = Math.max(1, powerMultiplier);
+        int normalizedTickLimit = Math.max(1, NEConfig.ecoAggressiveFastPathTickLimit);
+        return normalizedProgress * (double) normalizedPowerMultiplier * normalizedTickLimit;
     }
 
     /**

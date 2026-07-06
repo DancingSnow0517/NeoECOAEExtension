@@ -104,10 +104,11 @@ public class NEConfig {
 
     private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT = BUILDER.comment(
                     "Maximum new aggressive fast path crafts a CPU may schedule per tick.",
+                    "This also scales the simulated crafting power cap so batches up to this limit can advance at the controller's full progress rate when enough AE power is available.",
                     "The controller's dynamic FX capacity still caps total in-flight simulated crafts.",
                     "Only used when ecoAggressiveFastPathEnabled is true.",
                     "Set JVM property -Dneoecoae.ecoAggressiveFastPathTickLimit=<value> to override this config.")
-            .defineInRange("ecoAggressiveFastPathTickLimit", 4096, 1, Integer.MAX_VALUE);
+            .defineInRange("ecoAggressiveFastPathTickLimit", 16384, 1, Integer.MAX_VALUE);
 
     private static final ForgeConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER.comment(
                     "Maximum recipe entries kept in each ECO fast path cache.",
@@ -152,7 +153,7 @@ public class NEConfig {
     public static int ecoBatchFastPathTickLimit = 256;
     public static boolean enableEcoAggressiveFastPath;
     public static int ecoAggressiveFastPathLimit = 4096;
-    public static int ecoAggressiveFastPathTickLimit = 4096;
+    public static int ecoAggressiveFastPathTickLimit = 16384;
     public static int ecoFastPathCacheSize = 512;
     public static int craftingPatternBusPages = 2;
     public static boolean increaseStorageCellCapacity;

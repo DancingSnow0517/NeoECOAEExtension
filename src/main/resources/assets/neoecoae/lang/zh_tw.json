@@ -532,7 +532,7 @@
   "neoecoae.configuration.ecoAggressiveFastPathLimit": "激進快速路徑後備上限",
   "neoecoae.configuration.ecoAggressiveFastPathLimit.tooltip": "無法讀取主機動態容量時，單次批量推送最多合併的合成次數。正常情況下按實際 FX 核心容量計算。",
   "neoecoae.configuration.ecoAggressiveFastPathTickLimit": "激進快速路徑 Tick 節拍上限",
-  "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip": "每個 CPU 每 tick 最多新調度的激進快速路徑合成次數。總在途合成仍按實際 FX 核心容量限制。",
+  "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip": "每個 CPU 每 tick 最多新調度的激進快速路徑合成次數。該值也會縮放模擬合成能量上限；AE 能量充足時，不超過該上限的批量可按控制器完整進度推進。總在途合成仍按實際 FX 核心容量限制。",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 推送 Tick 上限",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "每個 CPU 每 tick 最多嘗試推送的普通合成 pattern 數量。\n實際值仍會受可用協處理器數量限制。",
   "neoecoae.configuration.ecoFastPathCacheSize": "快速路徑緩存大小",

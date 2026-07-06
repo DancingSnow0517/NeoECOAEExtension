@@ -536,7 +536,7 @@
   "neoecoae.configuration.ecoAggressiveFastPathLimit": "Aggressive Fast Path Fallback Limit",
   "neoecoae.configuration.ecoAggressiveFastPathLimit.tooltip": "Fallback maximum crafts merged into a single fast path batch push when dynamic controller capacity is unavailable.",
   "neoecoae.configuration.ecoAggressiveFastPathTickLimit": "Aggressive Fast Path Tick Pacing Limit",
-  "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip": "Maximum new aggressive fast path crafts a CPU may schedule per tick. Dynamic controller FX capacity still caps total in-flight crafts.",
+  "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip": "Maximum new aggressive fast path crafts a CPU may schedule per tick. This also scales the simulated crafting power cap so batches up to this limit can advance at the controller's full progress rate when enough AE power is available. Dynamic controller FX capacity still caps total in-flight crafts.",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU Push Tick Limit",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "Maximum normal crafting pattern pushes a CPU may attempt per tick.\nThe effective value is still capped by available co-processors.",
   "neoecoae.configuration.ecoFastPathCacheSize": "Fast Path Cache Size",
