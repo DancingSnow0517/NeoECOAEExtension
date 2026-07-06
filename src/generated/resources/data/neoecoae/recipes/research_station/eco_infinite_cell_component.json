@@ -1,6 +1,6 @@
 {
-  "type": "gtceu:mixer",
-  "duration": 160,
+  "type": "gtceu:research_station",
+  "duration": 2000,
   "inputs": {
     "item": [
       {
@@ -8,7 +8,7 @@
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "tag": "forge:dusts/iron"
+            "item": "gtceu:data_module"
           }
         }
       },
@@ -17,16 +17,7 @@
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "tag": "forge:dusts/aluminium"
-          }
-        }
-      },
-      {
-        "content": {
-          "type": "gtceu:sized",
-          "count": 2,
-          "ingredient": {
-            "tag": "forge:dusts/certus_quartz"
+            "item": "neoecoae:eco_cell_component_256m"
           }
         }
       }
@@ -39,16 +30,23 @@
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "item": "neoecoae:aluminum_alloy_dust"
+            "type": "forge:nbt",
+            "item": "gtceu:data_module",
+            "nbt": "{assembly_line_research:{research_id:\"neoecoae:eco_cell_component_256m\",research_type:\"gtceu:assembly_line\"}}"
           }
         }
       }
     ]
   },
   "tickInputs": {
+    "cwu": [
+      {
+        "content": 64
+      }
+    ],
     "eu": [
       {
-        "content": 512
+        "content": 32768
       }
     ]
   }

@@ -1,6 +1,6 @@
 {
-  "type": "gtceu:mixer",
-  "duration": 160,
+  "type": "gtceu:forming_press",
+  "duration": 200,
   "inputs": {
     "item": [
       {
@@ -8,27 +8,21 @@
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "tag": "forge:dusts/iron"
+            "item": "neoecoae:energized_superconductive_ingot"
           }
         }
       },
       {
+        "chance": 0,
         "content": {
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "tag": "forge:dusts/aluminium"
+            "item": "neoecoae:superconducting_processor_press"
           }
-        }
-      },
-      {
-        "content": {
-          "type": "gtceu:sized",
-          "count": 2,
-          "ingredient": {
-            "tag": "forge:dusts/certus_quartz"
-          }
-        }
+        },
+        "maxChance": 10000,
+        "tierChanceBoost": 0
       }
     ]
   },
@@ -39,7 +33,7 @@
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "item": "neoecoae:aluminum_alloy_dust"
+            "item": "neoecoae:superconducting_processor_print"
           }
         }
       }

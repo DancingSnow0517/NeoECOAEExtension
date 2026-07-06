@@ -1,87 +1,74 @@
 {
-  "type": "forge:conditional",
-  "recipes": [
-    {
-      "conditions": [
-        {
-          "type": "forge:mod_loaded",
-          "modid": "gtceu"
-        }
-      ],
-      "recipe": {
-        "type": "gtceu:mixer",
-        "duration": 480,
-        "inputs": {
-          "fluid": [
-            {
-              "content": {
-                "amount": 2000,
-                "value": {
-                  "fluid": "minecraft:lava"
-                }
-              }
-            }
-          ],
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "tag": "forge:dusts/energized_fluix_crystal"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "tag": "forge:dusts/aluminium"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "tag": "forge:silicon"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "tag": "neoecoae:superconductive_ingot_base"
-                }
-              }
-            }
-          ]
-        },
-        "outputs": {
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "neoecoae:energized_superconductive_ingot"
-                }
-              }
-            }
-          ]
-        },
-        "tickInputs": {
-          "eu": [
-            {
-              "content": 8192
-            }
-          ]
+  "type": "gtceu:mixer",
+  "duration": 480,
+  "inputs": {
+    "fluid": [
+      {
+        "content": {
+          "amount": 2000,
+          "value": {
+            "fluid": "minecraft:lava"
+          }
         }
       }
-    }
-  ]
+    ],
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 4,
+          "ingredient": {
+            "tag": "forge:dusts/energized_fluix_crystal"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 4,
+          "ingredient": {
+            "tag": "forge:dusts/aluminium"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 4,
+          "ingredient": {
+            "tag": "forge:silicon"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 4,
+          "ingredient": {
+            "tag": "neoecoae:superconductive_ingot_base"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 4,
+          "ingredient": {
+            "item": "neoecoae:energized_superconductive_ingot"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 512
+      }
+    ]
+  }
 }

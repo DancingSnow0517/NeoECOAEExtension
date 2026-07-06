@@ -9,34 +9,36 @@ import java.util.List;
 import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraftforge.common.crafting.CraftingHelper;
-import net.minecraftforge.common.crafting.conditions.ModLoadedCondition;
 
 public final class GTCEuRecipes {
     private static final String GTCEU = "gtceu";
-    private static final String FORGE_CONDITIONAL_RECIPE = "forge:conditional";
     private static final String DATA_MODULE = gt("data_module");
+    private static final String EUROPIUM = gt("europium");
+    private static final String NEUTRONIUM = gt("neutronium");
+    private static final String TRITANIUM = gt("tritanium");
     private static final String SOLDERING_ALLOY = gt("soldering_alloy");
     private static final String L9_CELL_COMPONENT_RESEARCH = ne("eco_cell_component_256m");
 
     private static final int HV = 512;
     private static final int IV = 8_192;
     private static final int LUV = 32_768;
-    private static final int UHV = 2_097_152;
+    private static final int UV = 524_288;
 
     private static final Tier HV_TIER = new Tier(HV, 576, 400);
     private static final Tier IV_TIER = new Tier(IV, 1_152, 600);
     private static final Tier LUV_TIER = new Tier(LUV, 2_304, 900);
-    private static final Tier UHV_TIER = new Tier(UHV, 18_432, 7_200);
+    private static final Tier UV_TIER = new Tier(UV, 9_216, 3_600);
 
     private GTCEuRecipes() {}
 
     public static void init(RegistrateRecipeProvider provider) {
         saveBaseMaterialRecipes(provider);
+        saveInscriberGtMachineRecipes(provider);
         saveTieredCellComponentRecipes(provider);
         saveTieredComputationCellRecipes(provider);
         saveTieredMachineRecipes(provider);
         saveInfiniteStorageRecipe(provider);
+        saveInfiniteStorageResearchRecipe(provider);
     }
 
     private static void saveBaseMaterialRecipes(RegistrateRecipeProvider provider) {
@@ -77,7 +79,7 @@ public final class GTCEuRecipes {
                 .itemOutput(ne("crystal_ingot"), 4)
                 .save(provider);
 
-        mixer("energized_superconductive_ingot", IV, 480)
+        mixer("energized_superconductive_ingot", HV, 480)
                 .itemInputTag(forge("dusts/energized_fluix_crystal"), 4)
                 .itemInputTag(forge("dusts/aluminium"), 4)
                 .itemInputTag(forge("silicon"), 4)
@@ -101,6 +103,62 @@ public final class GTCEuRecipes {
                 .itemInputTag(forge("dusts/redstone"), 2)
                 .fluidInput("minecraft:water", 1_000)
                 .fluidOutput(ne("cryotheum_solution"), 1_000)
+                .save(provider);
+    }
+
+    private static void saveInscriberGtMachineRecipes(RegistrateRecipeProvider provider) {
+        macerator("iron_dust", HV, 60)
+                .itemInputTag(forge("ingots/iron"), 1)
+                .itemOutput(ne("iron_dust"), 1)
+                .save(provider);
+
+        macerator("aluminum_dust", HV, 60)
+                .itemInputTag(forge("ingots/aluminum"), 1)
+                .itemOutput(ne("aluminum_dust"), 1)
+                .save(provider);
+
+        macerator("tungsten_dust", HV, 80)
+                .itemInputTag(forge("ingots/tungsten"), 1)
+                .itemOutput(ne("tungsten_dust"), 1)
+                .save(provider);
+
+        macerator("aluminum_alloy_dust", HV, 80)
+                .itemInputTag(forge("ingots/aluminum_alloy"), 1)
+                .itemOutput(ne("aluminum_alloy_dust"), 1)
+                .save(provider);
+
+        macerator("black_tungsten_alloy_dust", HV, 100)
+                .itemInputTag(forge("ingots/black_tungsten_alloy"), 1)
+                .itemOutput(ne("black_tungsten_alloy_dust"), 1)
+                .save(provider);
+
+        macerator("energized_crystal_dust", HV, 80)
+                .itemInputTag(forge("gems/energized_crystal"), 1)
+                .itemOutput(ne("energized_crystal_dust"), 1)
+                .save(provider);
+
+        macerator("energized_fluix_crystal_dust", HV, 100)
+                .itemInputTag(forge("gems/energized_fluix_crystal"), 1)
+                .itemOutput(ne("energized_fluix_crystal_dust"), 1)
+                .save(provider);
+
+        formingPress("superconducting_processor_press", HV, 200)
+                .itemInputTag(forge("storage_blocks/iron"), 1)
+                .notConsumableItem(ne("superconducting_processor_press"))
+                .itemOutput(ne("superconducting_processor_press"), 1)
+                .save(provider);
+
+        formingPress("superconducting_processor_print", HV, 200)
+                .itemInput(ne("energized_superconductive_ingot"), 1)
+                .notConsumableItem(ne("superconducting_processor_press"))
+                .itemOutput(ne("superconducting_processor_print"), 1)
+                .save(provider);
+
+        formingPress("superconducting_processor", HV, 200)
+                .itemInput(ne("crystal_matrix"), 1)
+                .itemInput(ne("superconducting_processor_print"), 1)
+                .itemInput("ae2:printed_silicon", 1)
+                .itemOutput(ne("superconducting_processor"), 1)
                 .save(provider);
     }
 
@@ -227,6 +285,15 @@ public final class GTCEuRecipes {
     }
 
     private static void saveCraftingSystemRecipes(RegistrateRecipeProvider provider) {
+        assembler("crafting_worker", HV_TIER)
+                .itemInput("ae2:256k_crafting_storage", 4)
+                .itemInput("ae2:interface", 1)
+                .itemInput(ne("crafting_casing"), 3)
+                .itemInput(ne("crafting_vent"), 1)
+                .solder(HV_TIER)
+                .itemOutput(ne("crafting_worker"), 1)
+                .save(provider);
+
         assembler("crafting_system_l4", HV_TIER)
                 .itemInput(ne("crafting_casing"), 4)
                 .itemInput(ne("crafting_parallel_core_l4"), 2)
@@ -256,28 +323,39 @@ public final class GTCEuRecipes {
     }
 
     private static void saveInfiniteStorageRecipe(RegistrateRecipeProvider provider) {
-        assemblyLine("eco_infinite_cell_component", UHV_TIER)
-                .itemInput(ne("eco_cell_component_256m"), 64)
-                .itemInput(ne("eco_computation_cell_l9"), 16)
-                .itemInput(ne("eco_item_storage_cell_256m"), 16)
-                .itemInput(ne("storage_system_l9"), 4)
-                .itemInput(ne("computation_system_l9"), 4)
-                .itemInput(ne("crafting_system_l9"), 4)
-                .itemInput(ne("crystal_matrix"), 64)
+        assemblyLine("eco_infinite_cell_component", UV_TIER)
+                .itemInput(ne("eco_cell_component_256m"), 8)
+                .itemInput(ne("eco_computation_cell_l9"), 1)
+                .itemInput(ne("eco_item_storage_cell_256m"), 1)
+                .itemInput(ne("storage_system_l9"), 1)
+                .itemInput(ne("computation_system_l9"), 1)
+                .itemInput(ne("crafting_system_l9"), 1)
+                .itemInput(ne("crystal_matrix"), 32)
                 .itemInput(ne("energized_superconductive_ingot"), 64)
-                .itemInput("ae2:singularity", 64)
-                .itemInput(gt("uhv_electric_motor"), 4)
-                .itemInput(gt("uhv_electric_piston"), 4)
-                .itemInput(gt("uhv_electric_pump"), 4)
-                .itemInput(gt("uhv_conveyor_module"), 4)
-                .itemInput(gt("uhv_robot_arm"), 4)
-                .itemInput(gt("uhv_emitter"), 4)
-                .itemInput(gt("uhv_sensor"), 4)
-                .itemInput(gt("uhv_field_generator"), 4)
-                .fluidInput(SOLDERING_ALLOY, UHV_TIER.solderAmount())
-                .fluidInput(ne("cryotheum_solution"), 16_000)
+                .itemInput(gt("uv_electric_motor"), 2)
+                .itemInput(gt("uv_electric_piston"), 2)
+                .itemInput(gt("uv_electric_pump"), 2)
+                .itemInput(gt("uv_conveyor_module"), 2)
+                .itemInput(gt("uv_robot_arm"), 2)
+                .itemInput(gt("uv_emitter"), 2)
+                .itemInput(gt("uv_sensor"), 2)
+                .itemInput(gt("uv_field_generator"), 2)
+                .fluidInput(SOLDERING_ALLOY, UV_TIER.solderAmount())
+                .fluidInput(ne("cryotheum_solution"), 8_000)
+                .fluidInput(EUROPIUM, 4_000)
+                .fluidInput(TRITANIUM, 4_000)
+                .fluidInput(NEUTRONIUM, 1_000)
                 .research(L9_CELL_COMPONENT_RESEARCH, DATA_MODULE)
                 .itemOutput(ne("eco_infinite_cell_component"), 1)
+                .save(provider);
+    }
+
+    private static void saveInfiniteStorageResearchRecipe(RegistrateRecipeProvider provider) {
+        machineRecipe("research_station", "eco_infinite_cell_component", LUV, 2_000)
+                .itemInput(DATA_MODULE, 1)
+                .itemInput(ne("eco_cell_component_256m"), 1)
+                .cwu(64)
+                .itemOutputDataModule(L9_CELL_COMPONENT_RESEARCH, "gtceu:assembly_line")
                 .save(provider);
     }
 
@@ -287,6 +365,14 @@ public final class GTCEuRecipes {
 
     private static GTRecipe assemblyLine(String name, Tier tier) {
         return machineRecipe("assembly_line", name, tier.eu(), tier.duration());
+    }
+
+    private static GTRecipe formingPress(String name, int eu, int duration) {
+        return machineRecipe("forming_press", name, eu, duration);
+    }
+
+    private static GTRecipe macerator(String name, int eu, int duration) {
+        return machineRecipe("macerator", name, eu, duration);
     }
 
     private static GTRecipe chemicalReactor(String name, int eu, int duration) {
@@ -316,12 +402,11 @@ public final class GTCEuRecipes {
     private record Tier(int eu, int solderAmount, int duration) {}
 
     private static final class GTRecipe implements FinishedRecipe {
-        private static final ModLoadedCondition GTCEU_LOADED = new ModLoadedCondition(GTCEU);
-
         private final ResourceLocation id;
         private final String type;
         private final int eu;
         private final int duration;
+        private int cwu;
         private final List<JsonObject> itemInputs = new ArrayList<>();
         private final List<JsonObject> fluidInputs = new ArrayList<>();
         private final List<JsonObject> itemOutputs = new ArrayList<>();
@@ -345,6 +430,11 @@ public final class GTCEuRecipes {
             return this;
         }
 
+        private GTRecipe notConsumableItem(String item) {
+            itemInputs.add(content(sizedIngredient(itemIngredient(item), 1), 0));
+            return this;
+        }
+
         private GTRecipe fluidInput(String fluid, int amount) {
             fluidInputs.add(content(fluidIngredient(fluidValue("fluid", fluid), amount)));
             return this;
@@ -352,6 +442,17 @@ public final class GTCEuRecipes {
 
         private GTRecipe itemOutput(String item, int count) {
             itemOutputs.add(content(sizedIngredient(itemIngredient(item), count)));
+            return this;
+        }
+
+        private GTRecipe itemOutputDataModule(String researchId, String researchType) {
+            itemOutputs.add(content(
+                    sizedIngredient(strictNbtIngredient(DATA_MODULE, researchNbt(researchId, researchType)), 1)));
+            return this;
+        }
+
+        private GTRecipe cwu(int cwu) {
+            this.cwu = cwu;
             return this;
         }
 
@@ -386,13 +487,13 @@ public final class GTCEuRecipes {
         @Override
         public JsonObject serializeRecipe() {
             JsonObject json = new JsonObject();
-            writeConditionalRecipe(json);
+            writeGTRecipe(json);
             return json;
         }
 
         @Override
         public void serializeRecipeData(JsonObject json) {
-            writeConditionalRecipeData(json);
+            writeGTRecipe(json);
         }
 
         @Override
@@ -413,26 +514,6 @@ public final class GTCEuRecipes {
         @Override
         public ResourceLocation getAdvancementId() {
             return null;
-        }
-
-        private void writeConditionalRecipe(JsonObject json) {
-            json.addProperty("type", FORGE_CONDITIONAL_RECIPE);
-            writeConditionalRecipeData(json);
-        }
-
-        private void writeConditionalRecipeData(JsonObject json) {
-            JsonObject holder = new JsonObject();
-            JsonArray conditions = new JsonArray();
-            conditions.add(CraftingHelper.serialize(GTCEU_LOADED));
-            holder.add("conditions", conditions);
-
-            JsonObject recipe = new JsonObject();
-            writeGTRecipe(recipe);
-            holder.add("recipe", recipe);
-
-            JsonArray recipes = new JsonArray();
-            recipes.add(holder);
-            json.add("recipes", recipes);
         }
 
         private void writeGTRecipe(JsonObject json) {
@@ -461,6 +542,13 @@ public final class GTCEuRecipes {
                 euContent.addProperty("content", eu);
                 euInputs.add(euContent);
                 tickInputs.add("eu", euInputs);
+                if (cwu > 0) {
+                    JsonArray cwuInputs = new JsonArray();
+                    JsonObject cwuContent = new JsonObject();
+                    cwuContent.addProperty("content", cwu);
+                    cwuInputs.add(cwuContent);
+                    tickInputs.add("cwu", cwuInputs);
+                }
                 json.add("tickInputs", tickInputs);
             }
         }
@@ -486,8 +574,17 @@ public final class GTCEuRecipes {
         }
 
         private static JsonObject content(JsonObject value) {
+            return content(value, -1);
+        }
+
+        private static JsonObject content(JsonObject value, int chance) {
             JsonObject json = new JsonObject();
             json.add("content", value);
+            if (chance >= 0) {
+                json.addProperty("chance", chance);
+                json.addProperty("maxChance", 10_000);
+                json.addProperty("tierChanceBoost", 0);
+            }
             return json;
         }
 
@@ -503,6 +600,19 @@ public final class GTCEuRecipes {
             JsonObject json = new JsonObject();
             json.addProperty("item", item);
             return json;
+        }
+
+        private static JsonObject strictNbtIngredient(String item, String nbt) {
+            JsonObject json = new JsonObject();
+            json.addProperty("type", "forge:nbt");
+            json.addProperty("item", item);
+            json.addProperty("nbt", nbt);
+            return json;
+        }
+
+        private static String researchNbt(String researchId, String researchType) {
+            return "{assembly_line_research:{research_id:\"%s\",research_type:\"%s\"}}"
+                    .formatted(researchId, researchType);
         }
 
         private static JsonObject itemStack(String item, int count) {

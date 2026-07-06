@@ -1,69 +1,56 @@
 {
-  "type": "forge:conditional",
-  "recipes": [
-    {
-      "conditions": [
-        {
-          "type": "forge:mod_loaded",
-          "modid": "gtceu"
-        }
-      ],
-      "recipe": {
-        "type": "gtceu:chemical_reactor",
-        "duration": 200,
-        "inputs": {
-          "fluid": [
-            {
-              "content": {
-                "amount": 250,
-                "value": {
-                  "fluid": "minecraft:water"
-                }
-              }
-            }
-          ],
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "ae2:charged_certus_quartz_crystal"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "tag": "forge:dusts/energized_crystal"
-                }
-              }
-            }
-          ]
-        },
-        "outputs": {
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 8,
-                "ingredient": {
-                  "item": "neoecoae:energized_crystal"
-                }
-              }
-            }
-          ]
-        },
-        "tickInputs": {
-          "eu": [
-            {
-              "content": 512
-            }
-          ]
+  "type": "gtceu:chemical_reactor",
+  "duration": 200,
+  "inputs": {
+    "fluid": [
+      {
+        "content": {
+          "amount": 250,
+          "value": {
+            "fluid": "minecraft:water"
+          }
         }
       }
-    }
-  ]
+    ],
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 4,
+          "ingredient": {
+            "item": "ae2:charged_certus_quartz_crystal"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 4,
+          "ingredient": {
+            "tag": "forge:dusts/energized_crystal"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 8,
+          "ingredient": {
+            "item": "neoecoae:energized_crystal"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 512
+      }
+    ]
+  }
 }

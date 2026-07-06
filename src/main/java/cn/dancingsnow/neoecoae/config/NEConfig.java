@@ -23,6 +23,7 @@ public class NEConfig {
     public static final int PATTERN_BUS_MAX_PAGES = 8;
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
     private static final boolean DEFAULT_INCREASE_STORAGE_CELL_CAPACITY = isGtmLoaded();
+    private static final boolean DEFAULT_ENABLE_INFINITE_STORAGE = isGtmLoaded();
 
     static {
         BUILDER.comment("Multiblock structure size limits.").push("structure");
@@ -133,9 +134,10 @@ public class NEConfig {
 
     private static final ForgeConfigSpec.BooleanValue ENABLE_INFINITE_STORAGE = BUILDER.comment(
                     "Enable the L9 infinite storage gameplay.",
-                    "Default false. When disabled, the infinite component slot and new migrations are hidden/blocked.",
+                    "Defaults to true when GregTech Modern/GTCEu is loaded, otherwise false.",
+                    "When disabled, the infinite component slot and new migrations are hidden/blocked.",
                     "Existing infinite storage domain files are preserved and are not deleted by this option.")
-            .define("enableInfiniteStorage", false);
+            .define("enableInfiniteStorage", DEFAULT_ENABLE_INFINITE_STORAGE);
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 

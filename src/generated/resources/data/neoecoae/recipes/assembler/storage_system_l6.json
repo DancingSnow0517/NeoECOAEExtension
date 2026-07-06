@@ -1,87 +1,74 @@
 {
-  "type": "forge:conditional",
-  "recipes": [
-    {
-      "conditions": [
-        {
-          "type": "forge:mod_loaded",
-          "modid": "gtceu"
-        }
-      ],
-      "recipe": {
-        "type": "gtceu:assembler",
-        "duration": 600,
-        "inputs": {
-          "fluid": [
-            {
-              "content": {
-                "amount": 1152,
-                "value": {
-                  "fluid": "gtceu:soldering_alloy"
-                }
-              }
-            }
-          ],
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 1,
-                "ingredient": {
-                  "item": "neoecoae:storage_system_l4"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 8,
-                "ingredient": {
-                  "item": "ae2:drive"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 32,
-                "ingredient": {
-                  "item": "neoecoae:energized_superconductive_ingot"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 32,
-                "ingredient": {
-                  "item": "neoecoae:superconducting_processor"
-                }
-              }
-            }
-          ]
-        },
-        "outputs": {
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 1,
-                "ingredient": {
-                  "item": "neoecoae:storage_system_l6"
-                }
-              }
-            }
-          ]
-        },
-        "tickInputs": {
-          "eu": [
-            {
-              "content": 8192
-            }
-          ]
+  "type": "gtceu:assembler",
+  "duration": 600,
+  "inputs": {
+    "fluid": [
+      {
+        "content": {
+          "amount": 1152,
+          "value": {
+            "fluid": "gtceu:soldering_alloy"
+          }
         }
       }
-    }
-  ]
+    ],
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:storage_system_l4"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 8,
+          "ingredient": {
+            "item": "ae2:drive"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 32,
+          "ingredient": {
+            "item": "neoecoae:energized_superconductive_ingot"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 32,
+          "ingredient": {
+            "item": "neoecoae:superconducting_processor"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:storage_system_l6"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 8192
+      }
+    ]
+  }
 }

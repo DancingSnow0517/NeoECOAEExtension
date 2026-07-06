@@ -1,86 +1,73 @@
 {
-  "type": "forge:conditional",
-  "recipes": [
-    {
-      "conditions": [
-        {
-          "type": "forge:mod_loaded",
-          "modid": "gtceu"
+  "type": "gtceu:mixer",
+  "duration": 200,
+  "inputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "minecraft:ice"
+          }
         }
-      ],
-      "recipe": {
-        "type": "gtceu:mixer",
-        "duration": 200,
-        "inputs": {
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 1,
-                "ingredient": {
-                  "item": "minecraft:ice"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 1,
-                "ingredient": {
-                  "tag": "forge:dusts/certus_quartz"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 1,
-                "ingredient": {
-                  "item": "ae2:sky_dust"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 1,
-                "ingredient": {
-                  "item": "minecraft:snowball"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "tag": "forge:dusts/energized_crystal"
-                }
-              }
-            }
-          ]
-        },
-        "outputs": {
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 1,
-                "ingredient": {
-                  "item": "neoecoae:cryotheum"
-                }
-              }
-            }
-          ]
-        },
-        "tickInputs": {
-          "eu": [
-            {
-              "content": 512
-            }
-          ]
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:dusts/certus_quartz"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "ae2:sky_dust"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "minecraft:snowball"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 4,
+          "ingredient": {
+            "tag": "forge:dusts/energized_crystal"
+          }
         }
       }
-    }
-  ]
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:cryotheum"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 512
+      }
+    ]
+  }
 }

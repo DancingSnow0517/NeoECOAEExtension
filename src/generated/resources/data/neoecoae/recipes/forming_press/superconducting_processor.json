@@ -1,54 +1,45 @@
 {
-  "type": "gtceu:mixer",
+  "type": "gtceu:forming_press",
   "duration": 200,
   "inputs": {
-    "fluid": [
-      {
-        "content": {
-          "amount": 1000,
-          "value": {
-            "fluid": "minecraft:water"
-          }
-        }
-      }
-    ],
     "item": [
       {
         "content": {
           "type": "gtceu:sized",
-          "count": 4,
+          "count": 1,
           "ingredient": {
-            "item": "neoecoae:cryotheum_crystal"
+            "item": "neoecoae:crystal_matrix"
           }
         }
       },
       {
         "content": {
           "type": "gtceu:sized",
-          "count": 2,
+          "count": 1,
           "ingredient": {
-            "item": "neoecoae:energized_crystal"
+            "item": "neoecoae:superconducting_processor_print"
           }
         }
       },
       {
         "content": {
           "type": "gtceu:sized",
-          "count": 2,
+          "count": 1,
           "ingredient": {
-            "tag": "forge:dusts/redstone"
+            "item": "ae2:printed_silicon"
           }
         }
       }
     ]
   },
   "outputs": {
-    "fluid": [
+    "item": [
       {
         "content": {
-          "amount": 1000,
-          "value": {
-            "fluid": "neoecoae:cryotheum_solution"
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:superconducting_processor"
           }
         }
       }

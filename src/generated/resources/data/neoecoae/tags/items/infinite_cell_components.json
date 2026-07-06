@@ -1,0 +1,13 @@
+{
+  "values": [
+    "neoecoae:eco_infinite_cell_component",
+    {
+      "id": "gtlcore:infinite_cell_component",
+      "required": false
+    },
+    {
+      "id": "gtocore:infinite_cell_component",
+      "required": false
+    }
+  ]
+}

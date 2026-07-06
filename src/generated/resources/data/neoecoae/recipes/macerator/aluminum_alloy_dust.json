@@ -1,6 +1,6 @@
 {
-  "type": "gtceu:mixer",
-  "duration": 160,
+  "type": "gtceu:macerator",
+  "duration": 80,
   "inputs": {
     "item": [
       {
@@ -8,25 +8,7 @@
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "tag": "forge:dusts/iron"
-          }
-        }
-      },
-      {
-        "content": {
-          "type": "gtceu:sized",
-          "count": 1,
-          "ingredient": {
-            "tag": "forge:dusts/aluminium"
-          }
-        }
-      },
-      {
-        "content": {
-          "type": "gtceu:sized",
-          "count": 2,
-          "ingredient": {
-            "tag": "forge:dusts/certus_quartz"
+            "tag": "forge:ingots/aluminum_alloy"
           }
         }
       }

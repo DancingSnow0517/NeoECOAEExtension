@@ -1,226 +1,228 @@
 {
-  "type": "forge:conditional",
-  "recipes": [
-    {
-      "conditions": [
-        {
-          "type": "forge:mod_loaded",
-          "modid": "gtceu"
-        }
-      ],
-      "recipe": {
-        "type": "gtceu:assembly_line",
-        "duration": 7200,
-        "inputs": {
-          "fluid": [
-            {
-              "content": {
-                "amount": 18432,
-                "value": {
-                  "fluid": "gtceu:soldering_alloy"
-                }
-              }
-            },
-            {
-              "content": {
-                "amount": 16000,
-                "value": {
-                  "fluid": "neoecoae:cryotheum_solution"
-                }
-              }
-            }
-          ],
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 64,
-                "ingredient": {
-                  "item": "neoecoae:eco_cell_component_256m"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 16,
-                "ingredient": {
-                  "item": "neoecoae:eco_computation_cell_l9"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 16,
-                "ingredient": {
-                  "item": "neoecoae:eco_item_storage_cell_256m"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "neoecoae:storage_system_l9"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "neoecoae:computation_system_l9"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "neoecoae:crafting_system_l9"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 64,
-                "ingredient": {
-                  "item": "neoecoae:crystal_matrix"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 64,
-                "ingredient": {
-                  "item": "neoecoae:energized_superconductive_ingot"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 64,
-                "ingredient": {
-                  "item": "ae2:singularity"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "gtceu:uhv_electric_motor"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "gtceu:uhv_electric_piston"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "gtceu:uhv_electric_pump"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "gtceu:uhv_conveyor_module"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "gtceu:uhv_robot_arm"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "gtceu:uhv_emitter"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "gtceu:uhv_sensor"
-                }
-              }
-            },
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 4,
-                "ingredient": {
-                  "item": "gtceu:uhv_field_generator"
-                }
-              }
-            }
-          ]
-        },
-        "outputs": {
-          "item": [
-            {
-              "content": {
-                "type": "gtceu:sized",
-                "count": 1,
-                "ingredient": {
-                  "item": "neoecoae:eco_infinite_cell_component"
-                }
-              }
-            }
-          ]
-        },
-        "recipeConditions": [
-          {
-            "type": "gtceu:research",
-            "research": [
-              {
-                "dataItem": {
-                  "Count": 1,
-                  "id": "gtceu:data_module"
-                },
-                "researchId": "neoecoae:eco_cell_component_256m"
-              }
-            ]
+  "type": "gtceu:assembly_line",
+  "duration": 3600,
+  "inputs": {
+    "fluid": [
+      {
+        "content": {
+          "amount": 9216,
+          "value": {
+            "fluid": "gtceu:soldering_alloy"
           }
-        ],
-        "tickInputs": {
-          "eu": [
-            {
-              "content": 2097152
-            }
-          ]
+        }
+      },
+      {
+        "content": {
+          "amount": 8000,
+          "value": {
+            "fluid": "neoecoae:cryotheum_solution"
+          }
+        }
+      },
+      {
+        "content": {
+          "amount": 4000,
+          "value": {
+            "fluid": "gtceu:europium"
+          }
+        }
+      },
+      {
+        "content": {
+          "amount": 4000,
+          "value": {
+            "fluid": "gtceu:tritanium"
+          }
+        }
+      },
+      {
+        "content": {
+          "amount": 1000,
+          "value": {
+            "fluid": "gtceu:neutronium"
+          }
         }
       }
+    ],
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 8,
+          "ingredient": {
+            "item": "neoecoae:eco_cell_component_256m"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:eco_computation_cell_l9"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:eco_item_storage_cell_256m"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:storage_system_l9"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:computation_system_l9"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:crafting_system_l9"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 32,
+          "ingredient": {
+            "item": "neoecoae:crystal_matrix"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 64,
+          "ingredient": {
+            "item": "neoecoae:energized_superconductive_ingot"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "item": "gtceu:uv_electric_motor"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "item": "gtceu:uv_electric_piston"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "item": "gtceu:uv_electric_pump"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "item": "gtceu:uv_conveyor_module"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "item": "gtceu:uv_robot_arm"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "item": "gtceu:uv_emitter"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "item": "gtceu:uv_sensor"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "item": "gtceu:uv_field_generator"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "neoecoae:eco_infinite_cell_component"
+          }
+        }
+      }
+    ]
+  },
+  "recipeConditions": [
+    {
+      "type": "gtceu:research",
+      "research": [
+        {
+          "dataItem": {
+            "Count": 1,
+            "id": "gtceu:data_module"
+          },
+          "researchId": "neoecoae:eco_cell_component_256m"
+        }
+      ]
     }
-  ]
+  ],
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 524288
+      }
+    ]
+  }
 }

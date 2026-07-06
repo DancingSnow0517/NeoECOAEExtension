@@ -1,6 +1,6 @@
 {
-  "type": "gtceu:mixer",
-  "duration": 240,
+  "type": "gtceu:macerator",
+  "duration": 100,
   "inputs": {
     "item": [
       {
@@ -8,25 +8,7 @@
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "tag": "forge:dusts/tungsten"
-          }
-        }
-      },
-      {
-        "content": {
-          "type": "gtceu:sized",
-          "count": 1,
-          "ingredient": {
-            "tag": "forge:dusts/aluminum_alloy"
-          }
-        }
-      },
-      {
-        "content": {
-          "type": "gtceu:sized",
-          "count": 2,
-          "ingredient": {
-            "tag": "forge:dusts/fluix"
+            "tag": "forge:ingots/black_tungsten_alloy"
           }
         }
       }

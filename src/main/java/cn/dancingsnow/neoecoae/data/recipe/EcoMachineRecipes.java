@@ -64,6 +64,21 @@ public class EcoMachineRecipes {
                 .energy(1024000)
                 .save(provider);
 
+        IntegratedWorkingStationRecipe.builder()
+                .require(NEItems.ECO_CELL_COMPONENT_256M, 8)
+                .require(NEItems.ECO_COMPUTATION_CELL_L9)
+                .require(NEItems.ECO_ITEM_CELL_256M)
+                .require(NEBlocks.STORAGE_SYSTEM_L9)
+                .require(NEBlocks.COMPUTATION_SYSTEM_L9)
+                .require(NEBlocks.CRAFTING_SYSTEM_L9)
+                .require(NEItems.CRYSTAL_MATRIX, 32)
+                .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 64)
+                .require(AEItems.SINGULARITY, 16)
+                .requireFluid(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 16_000)
+                .itemOutput(NEItems.ECO_INFINITE_CELL_COMPONENT)
+                .energy(128_000_000)
+                .save(provider, NeoECOAE.id("integrated_working_station/eco_infinite_cell_component"));
+
         // Storage System
         IntegratedWorkingStationRecipe.builder()
                 .require(NEBlocks.STORAGE_CASING, 4)

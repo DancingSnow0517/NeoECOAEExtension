@@ -18,9 +18,9 @@ import appeng.api.storage.MEStorage;
 import appeng.helpers.IPriorityHost;
 import appeng.menu.ISubMenu;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
+import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
@@ -677,7 +677,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private static boolean isInfiniteComponent(ItemStack stack) {
-        return !stack.isEmpty() && stack.is(NEItems.ECO_INFINITE_CELL_COMPONENT.get());
+        return !stack.isEmpty() && stack.is(NETags.Items.INFINITE_CELL_COMPONENTS);
     }
 
     /**

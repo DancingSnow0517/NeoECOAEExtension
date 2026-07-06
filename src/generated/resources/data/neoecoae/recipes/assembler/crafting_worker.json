@@ -18,6 +18,24 @@
           "type": "gtceu:sized",
           "count": 4,
           "ingredient": {
+            "item": "ae2:256k_crafting_storage"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "ae2:interface"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 3,
+          "ingredient": {
             "item": "neoecoae:crafting_casing"
           }
         }
@@ -25,27 +43,9 @@
       {
         "content": {
           "type": "gtceu:sized",
-          "count": 2,
+          "count": 1,
           "ingredient": {
-            "item": "neoecoae:crafting_parallel_core_l4"
-          }
-        }
-      },
-      {
-        "content": {
-          "type": "gtceu:sized",
-          "count": 16,
-          "ingredient": {
-            "item": "neoecoae:energized_superconductive_ingot"
-          }
-        }
-      },
-      {
-        "content": {
-          "type": "gtceu:sized",
-          "count": 16,
-          "ingredient": {
-            "item": "neoecoae:superconducting_processor"
+            "item": "neoecoae:crafting_vent"
           }
         }
       }
@@ -58,7 +58,7 @@
           "type": "gtceu:sized",
           "count": 1,
           "ingredient": {
-            "item": "neoecoae:crafting_system_l4"
+            "item": "neoecoae:crafting_worker"
           }
         }
       }
