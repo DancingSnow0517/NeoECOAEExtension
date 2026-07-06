@@ -63,6 +63,10 @@ public class GuiLangs {
         // storage
         provider.add("gui.neoecoae.storage.energy", "Energy Monitoring");
         provider.add("gui.neoecoae.storage.energy_status", "Energy Storage: %sAE / %sAE (%d%%)");
+        provider.add("gui.neoecoae.storage.energy_storage", "Energy Storage");
+        provider.add("gui.neoecoae.storage.bytes_used", "bytes used");
+        provider.add("gui.neoecoae.storage.used_short", "Used");
+        provider.add("gui.neoecoae.common.types", "types");
         provider.add("gui.neoecoae.host.status.online", "ONLINE");
         provider.add("gui.neoecoae.host.status.running", "RUNNING");
         provider.add("gui.neoecoae.host.storage.subtitle", "Storage System Host");
