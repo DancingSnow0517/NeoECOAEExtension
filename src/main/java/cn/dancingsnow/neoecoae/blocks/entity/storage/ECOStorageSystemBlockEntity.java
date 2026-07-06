@@ -337,6 +337,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             syncInfiniteModeChanges(previous);
             return;
         }
+        if (hostMode.isInfiniteState() && !hasRequiredInfiniteComponents()) {
+            restoreInfiniteDomainToNormalStorage();
+            syncInfiniteModeChanges(previous);
+            return;
+        }
         if (hostMode == ECOStorageHostMode.FORMED_NORMAL && canStartInfiniteMigration()) {
             ensureInfiniteDomainId();
             infiniteRestoreWarningLogged = false;
@@ -363,8 +368,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 && NEConfig.isInfiniteStorageEnabled()
                 && formed
                 && cluster != null
-                && infiniteComponentHandler.getStackInSlot(0).getCount() >= INFINITE_COMPONENT_REQUIRED
+                && hasRequiredInfiniteComponents()
                 && countEligibleInfiniteMatrices() >= INFINITE_MEMBER_REQUIRED;
+    }
+
+    private boolean hasRequiredInfiniteComponents() {
+        return infiniteComponentHandler.getStackInSlot(0).getCount() >= INFINITE_COMPONENT_REQUIRED;
     }
 
     private int countEligibleInfiniteMatrices() {
@@ -607,9 +616,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (level == null || level.isClientSide) {
             return;
         }
-        if (hostMode.isInfiniteState()
-                && canTakeInfiniteStorageComponent()
-                && infiniteComponentHandler.getStackInSlot(0).isEmpty()) {
+        if (hostMode.isInfiniteState() && canTakeInfiniteStorageComponent() && !hasRequiredInfiniteComponents()) {
             exitInfiniteModeIfSafe();
         } else {
             updateInfiniteStorageMode();
