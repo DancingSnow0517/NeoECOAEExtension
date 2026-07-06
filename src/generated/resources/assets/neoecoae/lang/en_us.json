@@ -532,7 +532,7 @@
   "neoecoae.configuration.ecoBatchFastPathTickLimit": "Batch Fast Path Tick Limit",
   "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip": "Maximum fast path batch crafts a CPU may push per tick.",
   "neoecoae.configuration.ecoAggressiveFastPathEnabled": "Enable Aggressive Fast Path",
-  "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip": "Allow much larger ECO Pattern Bus batch pushes while keeping the normal fast path safety checks.\nDefault off. Enable after validating recipe behavior in the modpack.",
+  "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip": "Allow much larger ECO Pattern Bus batch pushes while keeping the normal fast path safety checks.\nDefault on. Disable if a modpack has recipe compatibility issues.",
   "neoecoae.configuration.ecoAggressiveFastPathLimit": "Aggressive Fast Path Fallback Limit",
   "neoecoae.configuration.ecoAggressiveFastPathLimit.tooltip": "Fallback maximum crafts merged into a single fast path batch push when dynamic controller capacity is unavailable.",
   "neoecoae.configuration.ecoAggressiveFastPathTickLimit": "Aggressive Fast Path Tick Pacing Limit",

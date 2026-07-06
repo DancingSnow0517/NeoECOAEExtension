@@ -528,7 +528,7 @@
   "neoecoae.configuration.ecoBatchFastPathTickLimit": "批量快速路徑 Tick 上限",
   "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip": "每個 CPU 每 tick 最多通過快速路徑批量推送的合成次數。",
   "neoecoae.configuration.ecoAggressiveFastPathEnabled": "啟用激進快速路徑",
-  "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip": "在保留快速路徑安全檢查的前提下，允許 ECO 樣板總線執行更大的批量推送。預設關閉，建議在整合包內驗證配方行為後再啟用。",
+  "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip": "保留快速路徑安全檢查，允 ECO 樣板總線行更大批量推送。預設啟用；若整合包有配方相容之患，可關閉。",
   "neoecoae.configuration.ecoAggressiveFastPathLimit": "激進快速路徑後備上限",
   "neoecoae.configuration.ecoAggressiveFastPathLimit.tooltip": "無法讀取主機動態容量時，單次批量推送最多合併的合成次數。正常情況下按實際 FX 核心容量計算。",
   "neoecoae.configuration.ecoAggressiveFastPathTickLimit": "激進快速路徑 Tick 節拍上限",

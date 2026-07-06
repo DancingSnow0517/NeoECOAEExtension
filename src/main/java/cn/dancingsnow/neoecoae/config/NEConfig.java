@@ -91,9 +91,9 @@ public class NEConfig {
     private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AGGRESSIVE_FAST_PATH = BUILDER.comment(
                     "Enable the aggressive ECO fast path.",
                     "This keeps the same safety checks as the normal fast path, but allows much larger ECO Pattern Bus batch pushes.",
-                    "Default false. Enable only after validating recipe behavior in the modpack.",
+                    "Default true. Disable this option if a modpack has recipe compatibility issues.",
                     "Set JVM property -Dneoecoae.ecoAggressiveFastPath=true to force-enable this optimization without editing the config.")
-            .define("ecoAggressiveFastPathEnabled", false);
+            .define("ecoAggressiveFastPathEnabled", true);
 
     private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_LIMIT = BUILDER.comment(
                     "Fallback maximum crafts merged into a single aggressive fast path batch push.",
@@ -151,7 +151,7 @@ public class NEConfig {
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
     public static int ecoBatchFastPathLimit = 64;
     public static int ecoBatchFastPathTickLimit = 256;
-    public static boolean enableEcoAggressiveFastPath;
+    public static boolean enableEcoAggressiveFastPath = true;
     public static int ecoAggressiveFastPathLimit = 4096;
     public static int ecoAggressiveFastPathTickLimit = 16384;
     public static int ecoFastPathCacheSize = 512;

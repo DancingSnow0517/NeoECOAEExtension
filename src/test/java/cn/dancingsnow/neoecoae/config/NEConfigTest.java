@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,11 @@ class NEConfigTest {
     void defaultsToTwoPagesAnd126Slots() {
         assertEquals(2, NEConfig.getCraftingPatternBusPages());
         assertEquals(126, NEConfig.getCraftingPatternBusSlotCount());
+    }
+
+    @Test
+    void aggressiveFastPathDefaultsToEnabled() {
+        assertTrue(NEConfig.enableEcoAggressiveFastPath);
     }
 
     @Test

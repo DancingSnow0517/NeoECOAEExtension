@@ -57,7 +57,7 @@ public class ConfigLangs {
         provider.add(
                 "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip",
                 "Allow much larger ECO Pattern Bus batch pushes while keeping the normal fast path safety checks.\n"
-                        + "Default off. Enable after validating recipe behavior in the modpack.");
+                        + "Default on. Disable if a modpack has recipe compatibility issues.");
         provider.add("neoecoae.configuration.ecoAggressiveFastPathLimit", "Aggressive Fast Path Fallback Limit");
         provider.add(
                 "neoecoae.configuration.ecoAggressiveFastPathLimit.tooltip",
