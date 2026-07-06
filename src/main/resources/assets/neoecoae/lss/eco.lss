@@ -96,6 +96,18 @@ fluid-slot {
   background: #26a6bd;
 }
 
+.eco-storage-load-inset-edge {
+  background: #c9c3d6;
+}
+
+.eco-storage-load-inset-border {
+  background: #17141e;
+}
+
+.eco-storage-load-inset-fill {
+  background: #201e27;
+}
+
 .eco-host-footer {
   padding-top: 2;
 }

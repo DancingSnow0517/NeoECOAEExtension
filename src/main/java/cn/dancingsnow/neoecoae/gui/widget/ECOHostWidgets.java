@@ -134,8 +134,27 @@ public final class ECOHostWidgets {
         return scrollerView;
     }
 
+    public static ScrollerView storagePanel(int width, int height, int padding, int gap, int scrollbarOffset) {
+        ScrollerView panel = new ECOHostChannelScrollerView()
+            .viewContainer(view -> {
+                view.getLayout().gapAll(gap);
+                view.getLayout().paddingAll(padding);
+            })
+            .verticalScroller(scroller -> styleStorageScrollbar(scroller, scrollbarOffset));
+        panel.layout(layout -> layout.height(height).width(width));
+        return panel;
+    }
+
     private static void styleStorageScrollbar(Scroller scroller) {
-        scroller.layout(layout -> layout.width(ECOHostChannelScrollerView.THUMB_WIDTH));
+        styleStorageScrollbar(scroller, 0);
+    }
+
+    private static void styleStorageScrollbar(Scroller scroller, int horizontalOffset) {
+        scroller.layout(layout -> {
+            layout.marginLeft(horizontalOffset);
+            layout.marginRight(-horizontalOffset);
+            layout.width(ECOHostChannelScrollerView.THUMB_WIDTH);
+        });
         scroller.headButton(button -> button.setDisplay(false));
         scroller.tailButton(button -> button.setDisplay(false));
         scroller.scrollContainer(container -> {

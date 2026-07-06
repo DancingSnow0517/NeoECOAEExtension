@@ -184,8 +184,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             layout.alignItems(AlignItems.STRETCH);
             layout.gapAll(4);
         });
-        panels.addChild(StorageHostPanelUI.createLeftPanel(createStoragePanelConfig()));
-        panels.addChild(StorageHostPanelUI.createRightPanel());
+        StorageHostPanelUI.Config storagePanelConfig = createStoragePanelConfig();
+        panels.addChild(StorageHostPanelUI.createLeftPanel(storagePanelConfig));
+        panels.addChild(StorageHostPanelUI.createRightPanel(storagePanelConfig));
 
         root.addChild(panels);
         actionUI.addTo(root);
@@ -200,6 +201,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return new StorageHostPanelUI.Config(
             this::getStoredEnergy,
             this::getMaxEnergy,
+            this::getMaxLoadUsedBytes,
+            this::getMaxLoadTotalBytes,
+            this::getIdleMatrixCount,
             NERegistries.CELL_TYPE.stream()
                 .map(cellType -> {
                     int id = NERegistries.CELL_TYPE.getId(cellType);
@@ -238,6 +242,50 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             total += (long) energyCell.getAEMaxPower();
         }
         return total;
+    }
+
+    private long getMaxLoadUsedBytes() {
+        IECOStorageCell cell = getMaxLoadCell();
+        return cell == null ? 0L : cell.getUsedBytes();
+    }
+
+    private long getMaxLoadTotalBytes() {
+        IECOStorageCell cell = getMaxLoadCell();
+        return cell == null ? 0L : cell.getTotalBytes();
+    }
+
+    private @Nullable IECOStorageCell getMaxLoadCell() {
+        if (cluster == null) {
+            return null;
+        }
+        IECOStorageCell best = null;
+        double bestRatio = -1.0D;
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell inv = drive.getCellInventory();
+            if (inv == null || inv.getTotalBytes() <= 0L) {
+                continue;
+            }
+            double ratio = (double) inv.getUsedBytes() / (double) inv.getTotalBytes();
+            if (ratio > bestRatio) {
+                bestRatio = ratio;
+                best = inv;
+            }
+        }
+        return best;
+    }
+
+    private int getIdleMatrixCount() {
+        if (cluster == null) {
+            return 0;
+        }
+        int count = 0;
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell inv = drive.getCellInventory();
+            if (inv != null && inv.getUsedBytes() <= 0L && inv.getStoredItemTypes() <= 0L) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private long getStorageValue(int cellTypeId, StorageValue value) {

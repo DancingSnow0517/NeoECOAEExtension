@@ -67,6 +67,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.bytes_used", "bytes used");
         provider.add("gui.neoecoae.storage.used_short", "Used");
         provider.add("gui.neoecoae.storage.system_load", "System Load");
+        provider.add("gui.neoecoae.storage.current_load", "Current Load");
+        provider.add("gui.neoecoae.storage.max_load", "Max Load");
+        provider.add("gui.neoecoae.storage.status", "Status");
+        provider.add("gui.neoecoae.storage.status.full", "%s capacity full");
+        provider.add("gui.neoecoae.storage.status.high", "%s near capacity");
+        provider.add("gui.neoecoae.storage.status.warning", "%s pressure rising");
+        provider.add("gui.neoecoae.storage.status.stable", "Stable");
+        provider.add("gui.neoecoae.storage.idle_matrices", "Idle Matrices");
         provider.add("gui.neoecoae.common.types", "types");
         provider.add("gui.neoecoae.host.status.online", "ONLINE");
         provider.add("gui.neoecoae.host.status.running", "RUNNING");
