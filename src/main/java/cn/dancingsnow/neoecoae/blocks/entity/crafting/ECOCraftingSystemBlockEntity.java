@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 
+import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
@@ -14,6 +16,7 @@ import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
@@ -30,9 +33,11 @@ import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -672,6 +677,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
      * </p>
      */
     public NECraftingUiState createCraftingUiState() {
+        recoverOrphanedCraftingTasks();
         // Ensure stats are current before reading ANY field;
         // otherwise threadCount could be stale while getAvailableThreads()
         // triggers a recalculation, making effParallel inconsistent.
@@ -768,6 +774,49 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 craftOutputs,
                 coreTiers,
                 moduleCells);
+    }
+
+    private void recoverOrphanedCraftingTasks() {
+        if (level == null || level.isClientSide || cluster == null) {
+            return;
+        }
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return;
+        }
+
+        Set<UUID> activeJobIds = new HashSet<>();
+        for (ICraftingCPU cpu : grid.getCraftingService().getCpus()) {
+            if (cpu instanceof ECOCraftingCPU ecoCpu) {
+                UUID jobId = ecoCpu.getLogic().getCraftingJobId();
+                if (jobId != null) {
+                    activeJobIds.add(jobId);
+                }
+            }
+        }
+
+        clearOrphanedSimulatedPoolReservations(activeJobIds);
+
+        var storage = grid.getStorageService().getInventory();
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            worker.recoverOrphanedWorkToNetwork(activeJobIds, storage);
+        }
+    }
+
+    private void clearOrphanedSimulatedPoolReservations(Set<UUID> activeJobIds) {
+        if (simulatedPoolThreadReservations.isEmpty() && simulatedPoolTaskReservations.isEmpty()) {
+            return;
+        }
+
+        Set<UUID> owners = new HashSet<>();
+        owners.addAll(simulatedPoolThreadReservations.keySet());
+        owners.addAll(simulatedPoolTaskReservations.keySet());
+        for (UUID owner : owners) {
+            if (!activeJobIds.contains(owner)) {
+                setSimulatedPoolThreadCount(owner, 0);
+                setSimulatedPoolTaskSnapshots(owner, List.of());
+            }
+        }
     }
 
     private static void appendWorkerRecipeEntries(

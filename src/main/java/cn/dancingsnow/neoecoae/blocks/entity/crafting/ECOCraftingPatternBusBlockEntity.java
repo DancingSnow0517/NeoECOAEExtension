@@ -190,6 +190,19 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return recoveredAll;
     }
 
+    public boolean recoverUnfinishedJobInputsToNetwork(UUID craftingJobId, appeng.api.storage.MEStorage storage) {
+        if (cluster == null) {
+            return false;
+        }
+        boolean recoveredAll = true;
+        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+            if (!worker.recoverUnfinishedJobInputsToNetwork(craftingJobId, storage)) {
+                recoveredAll = false;
+            }
+        }
+        return recoveredAll;
+    }
+
     @Override
     public boolean isBusy() {
         ECOCraftingSystemBlockEntity controller = getCraftingController();

@@ -94,6 +94,8 @@ public class ECOCraftingCPULogic {
     private boolean batchedFullStatusChange = false;
     private final List<AggressiveSimulatedCraft> aggressiveSimulatedCrafts = new ArrayList<>();
     private final Set<AggressivePoolReservation> aggressivePoolReservations = new HashSet<>();
+    private boolean flushingAggressiveSimulatedOutput = false;
+    private boolean recoverAggressiveAfterFlush = false;
 
     // ── NBT restore state ──
     @Getter
@@ -218,12 +220,20 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        if (job.link.isDone() || job.remainingAmount <= 0) {
+            finishJob(true);
+            return;
+        }
+
         if (job.suspended) {
             return;
         }
 
         tickAggressiveSimulatedCrafts(eg);
         if (this.job == null) {
+            return;
+        }
+        if (this.job.userPaused) {
             return;
         }
 
@@ -309,13 +319,19 @@ public class ECOCraftingCPULogic {
             }
             // If storeItems cleared inventory, we can safely finish
             if (this.inventory.list.isEmpty()) {
+                recoverAggressiveSimulatedCraftsToInventory();
                 this.job = null;
                 markStatusDirty();
                 markedForDeletion = true;
                 restoredFromNbt = false;
                 restoreRebindSuccessful = false;
                 restoredLinkRebound = false;
+                this.storeItems();
+                setCantStoreItems(!this.inventory.list.isEmpty());
                 cpu.getCluster().updateGridForChangedCpu(cpu.getCluster());
+                if (this.inventory.list.isEmpty()) {
+                    cpu.deactivate();
+                }
                 return;
             }
         }
@@ -445,6 +461,10 @@ public class ECOCraftingCPULogic {
                 return DispatchTaskResult.NEXT_TASK;
             }
 
+            if (maxCraftsNeededForFinalOutput(List.of(details.getOutputs())) <= 0) {
+                return DispatchTaskResult.NEXT_TASK;
+            }
+
             // Dependency and in-flight counters describe future work, not the
             // inventory that is available right now. If enough intermediate
             // items have already returned, extraction is the authoritative gate
@@ -454,37 +474,52 @@ public class ECOCraftingCPULogic {
                 return DispatchTaskResult.NEXT_TASK;
             }
 
-            if (NEConfig.isEcoAggressiveFastPathEnabled()) {
-                PushResult pushResult =
-                        tryScheduleAggressiveSimulatedCraft(details, progress, providers, attempt, executionProgress);
-                if (!pushResult.pushed()) {
-                    return DispatchTaskResult.NEXT_TASK;
+            if (NEConfig.isEcoAggressiveFastPathEnabled() && canAttemptAggressiveFastPath(attempt.execution())) {
+                @Nullable ECOCraftingSystemBlockEntity aggressiveController = firstCraftingController(providers.batchBuses());
+                if (aggressiveController != null) {
+                    PushResult pushResult = tryScheduleAggressiveSimulatedCraft(
+                            progress, aggressiveController, attempt, executionProgress);
+                    if (!pushResult.pushed()) {
+                        return DispatchTaskResult.NEXT_TASK;
+                    }
+                    DispatchTaskResult commitResult = commitPushedCrafts(
+                            details, progress, iterator, passState, executionProgress, pushResult.craftCount());
+                    if (commitResult != DispatchTaskResult.CONTINUE_TASK) {
+                        return commitResult;
+                    }
+                    continue;
                 }
-                DispatchTaskResult commitResult = commitPushedCrafts(
-                        details, progress, iterator, passState, executionProgress, pushResult.craftCount());
-                if (commitResult != DispatchTaskResult.CONTINUE_TASK) {
-                    return commitResult;
-                }
-                continue;
             }
 
-            PushResult pushResult =
-                    tryPushFastPathOrFallback(details, progress, providers, attempt, executionProgress, energyService);
-            if (pushResult.jobFinished()) {
-                return DispatchTaskResult.JOB_FINISHED;
-            }
-            if (!pushResult.pushed()) {
-                return DispatchTaskResult.NEXT_TASK;
-            }
-
-            DispatchTaskResult commitResult = commitPushedCrafts(
-                    details, progress, iterator, passState, executionProgress, pushResult.craftCount());
-            if (commitResult != DispatchTaskResult.CONTINUE_TASK) {
-                return commitResult;
+            DispatchTaskResult fallbackResult = tryPushFallbackAfterAggressiveMiss(
+                    details, progress, providers, attempt, executionProgress, energyService, iterator, passState);
+            if (fallbackResult != DispatchTaskResult.CONTINUE_TASK) {
+                return fallbackResult;
             }
         }
 
         return DispatchTaskResult.NEXT_TASK;
+    }
+
+    private DispatchTaskResult tryPushFallbackAfterAggressiveMiss(
+            IPatternDetails details,
+            ExecutingCraftingJob.TaskProgress progress,
+            ProviderSelection providers,
+            ExtractedPatternAttempt attempt,
+            CraftingExecutionProgress executionProgress,
+            IEnergyService energyService,
+            Iterator<Map.Entry<IPatternDetails, ExecutingCraftingJob.TaskProgress>> iterator,
+            DispatchPassState passState) {
+        PushResult pushResult =
+                tryPushFastPathOrFallback(details, progress, providers, attempt, executionProgress, energyService);
+        if (pushResult.jobFinished()) {
+            return DispatchTaskResult.JOB_FINISHED;
+        }
+        if (!pushResult.pushed()) {
+            return DispatchTaskResult.NEXT_TASK;
+        }
+
+        return commitPushedCrafts(details, progress, iterator, passState, executionProgress, pushResult.craftCount());
     }
 
     @Nullable private ExtractedPatternAttempt extractPatternAttempt(
@@ -504,16 +539,10 @@ public class ECOCraftingCPULogic {
     }
 
     private PushResult tryScheduleAggressiveSimulatedCraft(
-            IPatternDetails details,
             ExecutingCraftingJob.TaskProgress progress,
-            ProviderSelection providers,
+            ECOCraftingSystemBlockEntity controller,
             ExtractedPatternAttempt attempt,
             CraftingExecutionProgress executionProgress) {
-        ECOCraftingSystemBlockEntity controller = firstCraftingController(providers.batchBuses());
-        if (controller == null) {
-            reinjectExtractedInputs(attempt);
-            return PushResult.notPushed();
-        }
         List<GenericStack> inputsPerCraft = aggressiveInputItems(attempt);
         if (attempt.execution().expectedOutputs().isEmpty() || inputsPerCraft.isEmpty()) {
             reinjectExtractedInputs(attempt);
@@ -523,7 +552,9 @@ public class ECOCraftingCPULogic {
         int requested = (int) Math.min(
                 Math.min(progress.value, executionProgress.totalBudgetRemaining()),
                 Math.min(effectiveFastPathBatchLimit(controller), executionProgress.batchBudgetRemaining()));
+        requested = Math.min(requested, maxCraftsNeededForFinalOutput(attempt.execution()));
         requested = Math.min(requested, controller.getCurrentBatchSlots());
+        requested = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), requested);
         if (requested <= 0) {
             reinjectExtractedInputs(attempt);
             return PushResult.notPushed();
@@ -558,7 +589,8 @@ public class ECOCraftingCPULogic {
                 ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
                 extraInputsExtracted = true;
             }
-            if (!controller.tryConsumeCoolant(5, controller.getEffectiveOverclockTimes())) {
+            if (!controller.tryConsumeCoolant(
+                    coolantAmountForCrafts(batchSize), controller.getEffectiveOverclockTimes())) {
                 if (extraInputsExtracted) {
                     ECOBatchCraftingHelper.insertAllOrThrow(inventory, extraInputs);
                 }
@@ -589,6 +621,15 @@ public class ECOCraftingCPULogic {
             job.suspended = true;
             return PushResult.notPushed();
         }
+    }
+
+    static boolean canAttemptAggressiveFastPath(ECOExtractedPatternExecution execution) {
+        return ECOFastPathEligibility.canUse(execution);
+    }
+
+    static int coolantAmountForCrafts(int craftCount) {
+        int normalizedCrafts = Math.max(1, craftCount);
+        return normalizedCrafts > Integer.MAX_VALUE / 5 ? Integer.MAX_VALUE : normalizedCrafts * 5;
     }
 
     private List<GenericStack> aggressiveInputItems(ExtractedPatternAttempt attempt) {
@@ -753,6 +794,10 @@ public class ECOCraftingCPULogic {
         int requested = (int) Math.min(
                 Math.min(taskRemaining, totalBudgetRemaining),
                 Math.min(effectiveFastPathBatchLimit(null), batchBudgetRemaining));
+        requested = Math.min(requested, maxCraftsNeededForFinalOutput(execution));
+        if (requested <= 1) {
+            return 0;
+        }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
@@ -925,6 +970,52 @@ public class ECOCraftingCPULogic {
         return sum >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) sum;
     }
 
+    private int maxCraftsNeededForFinalOutput(ECOExtractedPatternExecution execution) {
+        return maxCraftsNeededForFinalOutput(execution.expectedOutputs());
+    }
+
+    private int maxCraftsNeededForFinalOutput(List<GenericStack> outputsPerCraft) {
+        if (job == null || job.finalOutput == null) {
+            return Integer.MAX_VALUE;
+        }
+        long finalOutputPerCraft = finalOutputAmountPerCraft(outputsPerCraft);
+        if (finalOutputPerCraft <= 0) {
+            return Integer.MAX_VALUE;
+        }
+        long inFlightFinalOutput = job.inFlightOutputs.get(job.finalOutput.what());
+        return maxCraftsForFinalOutputDemand(job.remainingAmount, inFlightFinalOutput, finalOutputPerCraft);
+    }
+
+    static int maxCraftsForFinalOutputDemand(long remainingAmount, long inFlightAmount, long outputAmountPerCraft) {
+        if (outputAmountPerCraft <= 0) {
+            return Integer.MAX_VALUE;
+        }
+        long outstanding = remainingAmount - Math.max(0L, inFlightAmount);
+        if (outstanding <= 0) {
+            return 0;
+        }
+        long crafts = 1L + (outstanding - 1L) / outputAmountPerCraft;
+        return crafts >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) crafts;
+    }
+
+    private long finalOutputAmountPerCraft(List<GenericStack> outputsPerCraft) {
+        long amount = 0L;
+        for (GenericStack output : outputsPerCraft) {
+            if (output != null && output.what().matches(job.finalOutput)) {
+                amount = saturatedAddLong(amount, output.amount());
+            }
+        }
+        return amount;
+    }
+
+    private static long saturatedAddLong(long left, long right) {
+        if (right <= 0L) {
+            return left;
+        }
+        long sum = left + right;
+        return sum < 0L ? Long.MAX_VALUE : sum;
+    }
+
     private void tickAggressiveSimulatedCrafts(IEnergyService energyService) {
         if (aggressiveSimulatedCrafts.isEmpty()) {
             syncAggressivePoolSlots();
@@ -951,16 +1042,38 @@ public class ECOCraftingCPULogic {
             }
         }
 
+        boolean jobEndedDuringFlush = false;
         var it = aggressiveSimulatedCrafts.iterator();
         while (it.hasNext()) {
             AggressiveSimulatedCraft work = it.next();
             if (!work.outputsReady) {
                 continue;
             }
-            if (flushAggressiveSimulatedOutputs(work)) {
+            boolean flushed;
+            flushingAggressiveSimulatedOutput = true;
+            try {
+                flushed = flushAggressiveSimulatedOutputs(work);
+            } finally {
+                flushingAggressiveSimulatedOutput = false;
+            }
+            if (flushed) {
                 it.remove();
                 cpu.markDirty();
             }
+            if (recoverAggressiveAfterFlush || job == null) {
+                jobEndedDuringFlush = true;
+                break;
+            }
+        }
+        if (jobEndedDuringFlush) {
+            recoverAggressiveAfterFlush = false;
+            recoverAggressiveSimulatedCraftsToInventory();
+            this.storeItems();
+            setCantStoreItems(!this.inventory.list.isEmpty());
+            if (this.inventory.list.isEmpty() && markedForDeletion) {
+                cpu.deactivate();
+            }
+            return;
         }
         syncAggressivePoolSlots();
     }
@@ -1311,6 +1424,13 @@ public class ECOCraftingCPULogic {
         if (this.job == null) {
             return;
         }
+        UUID craftingJobId = job.link.getCraftingID();
+
+        if (flushingAggressiveSimulatedOutput) {
+            recoverAggressiveAfterFlush = true;
+        } else {
+            recoverAggressiveSimulatedCraftsToInventory();
+        }
 
         Set<AEKey> waitingKeys = collectWaitingKeys();
         Set<AEKey> pendingKeys = collectPendingOutputKeys();
@@ -1337,6 +1457,10 @@ public class ECOCraftingCPULogic {
         markedForDeletion = true;
         markStatusDirty();
 
+        if (success) {
+            recoverUnfinishedWorkerInputs(craftingJobId);
+        }
+
         // Store all remaining items.
         this.storeItems();
         postKeysChange(storedKeys);
@@ -1361,6 +1485,17 @@ public class ECOCraftingCPULogic {
         finishJob(false);
         restoredLinkRebound = false;
         recoverInflightWorkerInputs(craftingJobId);
+    }
+
+    private void recoverUnfinishedWorkerInputs(UUID craftingJobId) {
+        IGrid grid = cpu.getGrid();
+        if (grid == null) {
+            return;
+        }
+        var storage = grid.getStorageService().getInventory();
+        for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
+            patternBus.recoverUnfinishedJobInputsToNetwork(craftingJobId, storage);
+        }
     }
 
     private void recoverInflightWorkerInputs(UUID craftingJobId) {
@@ -1658,6 +1793,10 @@ public class ECOCraftingCPULogic {
         return this.job != null;
     }
 
+    @Nullable public UUID getCraftingJobId() {
+        return this.job == null ? null : this.job.link.getCraftingID();
+    }
+
     @Nullable public GenericStack getFinalJobOutput() {
         return this.job != null ? this.job.finalOutput : null;
     }
@@ -1796,6 +1935,24 @@ public class ECOCraftingCPULogic {
 
     public boolean isJobSuspended() {
         return job != null && job.suspended;
+    }
+
+    public boolean isJobUserPaused() {
+        return job != null && job.userPaused;
+    }
+
+    public void setJobUserPaused(boolean paused) {
+        if (job != null && job.userPaused != paused) {
+            job.userPaused = paused;
+            if (cpu != null) {
+                cpu.markDirty();
+            }
+            postChange(null);
+        }
+    }
+
+    public void toggleJobUserPaused() {
+        setJobUserPaused(!isJobUserPaused());
     }
 
     public void setJobSuspended(boolean suspended) {

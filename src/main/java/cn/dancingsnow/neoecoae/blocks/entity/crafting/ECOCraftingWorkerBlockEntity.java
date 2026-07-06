@@ -23,6 +23,7 @@ import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -327,6 +328,32 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         boolean recoveredAll = true;
         for (ECOCraftingThread thread : craftingThreads) {
             if (thread.belongsToJob(craftingJobId) && !thread.recoverInputsToNetwork(storage)) {
+                recoveredAll = false;
+            }
+        }
+        if (recoveredAll) {
+            wakeTickingDevice();
+        }
+        return recoveredAll;
+    }
+
+    public boolean recoverUnfinishedJobInputsToNetwork(UUID craftingJobId, MEStorage storage) {
+        boolean recoveredAll = true;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.belongsToJob(craftingJobId) && !thread.recoverUnfinishedInputsToNetwork(storage)) {
+                recoveredAll = false;
+            }
+        }
+        if (recoveredAll) {
+            wakeTickingDevice();
+        }
+        return recoveredAll;
+    }
+
+    public boolean recoverOrphanedWorkToNetwork(Set<UUID> activeJobIds, MEStorage storage) {
+        boolean recoveredAll = true;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.recoverOrphanedWorkToNetwork(activeJobIds, storage)) {
                 recoveredAll = false;
             }
         }

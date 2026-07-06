@@ -64,6 +64,7 @@ public class ExecutingCraftingJob {
     private static final String NBT_TASKS = "tasks";
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
     private static final String NBT_SUSPENDED = "suspended";
+    private static final String NBT_USER_PAUSED = "userPaused";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
@@ -79,6 +80,7 @@ public class ExecutingCraftingJob {
     @Nullable Integer playerId;
 
     boolean suspended;
+    boolean userPaused;
 
     @FunctionalInterface
     interface CraftingDifferenceListener {
@@ -112,6 +114,7 @@ public class ExecutingCraftingJob {
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
+        this.userPaused = false;
     }
 
     ExecutingCraftingJob(
@@ -157,6 +160,7 @@ public class ExecutingCraftingJob {
         rebuildTaskOrderAndDependencies(logic.cpu.getLevel());
 
         this.suspended = data.getBoolean(NBT_SUSPENDED) || missingTaskPattern;
+        this.userPaused = data.getBoolean(NBT_USER_PAUSED);
     }
 
     CompoundTag writeToNBT(HolderLookup.Provider registries) {
@@ -186,6 +190,7 @@ public class ExecutingCraftingJob {
         }
 
         data.putBoolean(NBT_SUSPENDED, suspended);
+        data.putBoolean(NBT_USER_PAUSED, userPaused);
         return data;
     }
 

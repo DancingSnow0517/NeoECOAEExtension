@@ -121,19 +121,6 @@ class GTCEuRecipesGeneratedJsonTest {
     }
 
     @Test
-    void infiniteComponentResearchWritesDataModule() throws IOException {
-        JsonObject recipe = gtRecipe("research_station/eco_infinite_cell_component");
-
-        assertEquals("gtceu:research_station", recipe.get("type").getAsString());
-        assertEquals(LUV, eu(recipe));
-        assertEquals(64, cwu(recipe));
-        assertTrue(hasItemCount(recipe, "gtceu:data_module", 1));
-        assertTrue(hasItemCount(recipe, "neoecoae:eco_cell_component_256m", 1));
-        assertTrue(hasNbtItemOutput(
-                recipe, "gtceu:data_module", "neoecoae:eco_cell_component_256m", "gtceu:assembly_line"));
-    }
-
-    @Test
     void pureEcoInfiniteComponentRecipeFitsIntegratedWorkingStationSlots() throws IOException {
         JsonObject recipe = recipe("integrated_working_station/eco_infinite_cell_component");
 
@@ -192,7 +179,6 @@ class GTCEuRecipesGeneratedJsonTest {
             "assembler/eco_cell_component_256m",
             "assembler/crafting_worker",
             "assembly_line/eco_infinite_cell_component",
-            "research_station/eco_infinite_cell_component",
             "forming_press/superconducting_processor",
             "chemical_reactor/energized_crystal",
             "mixer/cryotheum_solution"
@@ -262,15 +248,6 @@ class GTCEuRecipesGeneratedJsonTest {
     private static int eu(JsonObject recipe) {
         return recipe.getAsJsonObject("tickInputs")
                 .getAsJsonArray("eu")
-                .get(0)
-                .getAsJsonObject()
-                .get("content")
-                .getAsInt();
-    }
-
-    private static int cwu(JsonObject recipe) {
-        return recipe.getAsJsonObject("tickInputs")
-                .getAsJsonArray("cwu")
                 .get(0)
                 .getAsJsonObject()
                 .get("content")
@@ -377,23 +354,6 @@ class GTCEuRecipesGeneratedJsonTest {
             JsonObject ingredient =
                     element.getAsJsonObject().getAsJsonObject("content").getAsJsonObject("ingredient");
             if (ingredient.has("item") && item.equals(ingredient.get("item").getAsString())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean hasNbtItemOutput(JsonObject recipe, String item, String researchId, String researchType) {
-        for (var element : recipe.getAsJsonObject("outputs").getAsJsonArray("item")) {
-            JsonObject ingredient =
-                    element.getAsJsonObject().getAsJsonObject("content").getAsJsonObject("ingredient");
-            if (!"forge:nbt".equals(ingredient.get("type").getAsString())) {
-                continue;
-            }
-            String nbt = ingredient.get("nbt").getAsString();
-            if (item.equals(ingredient.get("item").getAsString())
-                    && nbt.contains("research_id:\"" + researchId + "\"")
-                    && nbt.contains("research_type:\"" + researchType + "\"")) {
                 return true;
             }
         }

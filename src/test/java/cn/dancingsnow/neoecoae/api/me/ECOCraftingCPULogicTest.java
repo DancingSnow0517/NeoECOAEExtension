@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingCPU;
@@ -12,6 +14,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -116,6 +119,27 @@ class ECOCraftingCPULogicTest {
     }
 
     @Test
+    void aggressiveFastPathRequiresEligibleFastPathExecution() {
+        assertFalse(ECOCraftingCPULogic.canAttemptAggressiveFastPath(ECOExtractedPatternExecution.slow(null, null)));
+    }
+
+    @Test
+    void aggressiveCoolantCostScalesWithBatchSize() {
+        assertEquals(5, ECOCraftingCPULogic.coolantAmountForCrafts(0));
+        assertEquals(5, ECOCraftingCPULogic.coolantAmountForCrafts(1));
+        assertEquals(320, ECOCraftingCPULogic.coolantAmountForCrafts(64));
+        assertEquals(Integer.MAX_VALUE, ECOCraftingCPULogic.coolantAmountForCrafts(Integer.MAX_VALUE));
+    }
+
+    @Test
+    void finalOutputBatchLimitAccountsForInFlightOutputs() {
+        assertEquals(5328, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100_000, 94_672, 1));
+        assertEquals(0, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100_000, 100_000, 1));
+        assertEquals(1, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100_000, 99_999, 4));
+        assertEquals(Integer.MAX_VALUE, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100, 0, 0));
+    }
+
+    @Test
     void remainingJobOutputAmountUsesRemainingAmount() throws Exception {
         ECOCraftingCPULogic logic = new ECOCraftingCPULogic(null);
 
@@ -126,6 +150,23 @@ class ECOCraftingCPULogicTest {
 
         setJob(logic, jobWithRemainingAmount(-7L));
         assertEquals(0L, logic.getRemainingJobOutputAmount());
+    }
+
+    @Test
+    void userPauseIsSeparateFromInternalSuspension() throws Exception {
+        ECOCraftingCPULogic logic = new ECOCraftingCPULogic(null);
+        setJob(logic, jobWithRemainingAmount(1L));
+
+        assertFalse(logic.isJobUserPaused());
+        assertFalse(logic.isJobSuspended());
+
+        logic.setJobUserPaused(true);
+        assertTrue(logic.isJobUserPaused());
+        assertFalse(logic.isJobSuspended());
+
+        logic.toggleJobUserPaused();
+        assertFalse(logic.isJobUserPaused());
+        assertFalse(logic.isJobSuspended());
     }
 
     private static ExecutingCraftingJob jobWithRemainingAmount(long remainingAmount) throws Exception {

@@ -40,6 +40,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoECOCraftingCpuMenuBridge {
     @Unique private static final long NEOECOAE_ECO_STATUS_UPDATE_INTERVAL = 5L;
 
+    @Unique private static final String NEOECOAE_ACTION_TOGGLE_PAUSE = "neoecoae:togglePauseCrafting";
+
+    @Unique private static final String NEOECOAE_ACTION_PAUSE = "neoecoae:pauseCrafting";
+
+    @Unique private static final String NEOECOAE_ACTION_RESUME = "neoecoae:resumeCrafting";
+
     @Unique private static final long NEOECOAE_ECO_STATUS_ACTIVE_HOLD_TICKS =
             Math.max(0L, Long.getLong("neoecoae.ecoCraftingStatusActiveHoldTicks", 10L));
 
@@ -105,6 +111,8 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
 
     @Unique private boolean neoecoae$lastEcoSuspended = false;
 
+    @Unique private boolean neoecoae$lastEcoUserPaused = false;
+
     @Unique private boolean neoecoae$lastEcoCantStoreItems = false;
 
     @Unique private long neoecoae$lastEcoUpdateTick = Long.MIN_VALUE;
@@ -135,6 +143,24 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
 
     @Shadow
     public boolean cantStoreItems;
+
+    @Inject(
+            method =
+                    "<init>(Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Ljava/lang/Object;)V",
+            at = @At("RETURN"))
+    private void neoecoae$registerPauseActions(
+            MenuType<?> menuType, int id, Inventory playerInventory, Object host, CallbackInfo ci) {
+        registerClientAction(NEOECOAE_ACTION_TOGGLE_PAUSE, this::neoecoae$toggleEcoPause);
+        registerClientAction(NEOECOAE_ACTION_PAUSE, () -> neoecoae$setEcoPause(true));
+        registerClientAction(NEOECOAE_ACTION_RESUME, () -> neoecoae$setEcoPause(false));
+
+        neoecoae$registerClientActionIfAbsent("toggleSuspend", this::neoecoae$toggleEcoPause);
+        neoecoae$registerClientActionIfAbsent("toggleSuspended", this::neoecoae$toggleEcoPause);
+        neoecoae$registerClientActionIfAbsent("suspendCrafting", () -> neoecoae$setEcoPause(true));
+        neoecoae$registerClientActionIfAbsent("resumeCrafting", () -> neoecoae$setEcoPause(false));
+        neoecoae$registerClientActionIfAbsent("pauseCrafting", () -> neoecoae$setEcoPause(true));
+        neoecoae$registerClientActionIfAbsent("unpauseCrafting", () -> neoecoae$setEcoPause(false));
+    }
 
     @Inject(
             method = "setCPU(Lappeng/api/networking/crafting/ICraftingCPU;)V",
@@ -221,6 +247,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
 
         boolean hasJob = logic.hasJob();
         boolean suspended = logic.isJobSuspended();
+        boolean userPaused = logic.isJobUserPaused();
         boolean cantStore = logic.isCantStoreItems();
         long revision = logic.getStatusRevision();
         long currentTick = TickHandler.instance().getCurrentTick();
@@ -228,6 +255,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         boolean jobPresenceChanged = hasJob != this.neoecoae$lastEcoJobPresent;
         boolean statusStateChanged = revision != this.neoecoae$lastEcoStatusRevision
                 || suspended != this.neoecoae$lastEcoSuspended
+                || userPaused != this.neoecoae$lastEcoUserPaused
                 || cantStore != this.neoecoae$lastEcoCantStoreItems
                 || jobPresenceChanged;
         boolean periodicRefresh = hasJob
@@ -340,6 +368,37 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         this.neoecoae$resetEcoHeaderSnapshot();
         this.neoecoae$resetEcoStatusSnapshot();
         this.neoecoae$forceEcoStatusUpdate = false;
+    }
+
+    @Unique private void neoecoae$toggleEcoPause() {
+        if (!isServerSide() || this.neoecoae$cpu == null) {
+            return;
+        }
+        this.neoecoae$cpu.getLogic().toggleJobUserPaused();
+        this.neoecoae$forceEcoStatusUpdate = true;
+    }
+
+    @Unique private void neoecoae$setEcoPause(boolean paused) {
+        if (!isServerSide() || this.neoecoae$cpu == null) {
+            return;
+        }
+        this.neoecoae$cpu.getLogic().setJobUserPaused(paused);
+        this.neoecoae$forceEcoStatusUpdate = true;
+    }
+
+    @Unique @SuppressWarnings("unchecked")
+    private void neoecoae$registerClientActionIfAbsent(String name, Runnable action) {
+        try {
+            java.lang.reflect.Field field = AEBaseMenu.class.getDeclaredField("clientActions");
+            field.setAccessible(true);
+            Object value = field.get(this);
+            if (value instanceof Map<?, ?> actions && actions.containsKey(name)) {
+                return;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            return;
+        }
+        registerClientAction(name, action);
     }
 
     @Unique private void neoecoae$requestFullEcoStatusRefresh() {
@@ -474,6 +533,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         this.neoecoae$lastEcoStatusRevision = logic.getStatusRevision();
         this.neoecoae$lastEcoJobPresent = logic.hasJob();
         this.neoecoae$lastEcoSuspended = logic.isJobSuspended();
+        this.neoecoae$lastEcoUserPaused = logic.isJobUserPaused();
         this.neoecoae$lastEcoCantStoreItems = logic.isCantStoreItems();
         this.neoecoae$lastEcoUpdateTick = currentTick;
     }
@@ -482,6 +542,7 @@ public abstract class CraftingCPUMenuMixin120 extends AEBaseMenu implements NeoE
         this.neoecoae$lastEcoStatusRevision = Long.MIN_VALUE;
         this.neoecoae$lastEcoJobPresent = false;
         this.neoecoae$lastEcoSuspended = false;
+        this.neoecoae$lastEcoUserPaused = false;
         this.neoecoae$lastEcoCantStoreItems = false;
         this.neoecoae$lastEcoUpdateTick = Long.MIN_VALUE;
     }

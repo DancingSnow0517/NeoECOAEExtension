@@ -26,6 +26,7 @@ import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.nbt.CompoundTag;
@@ -359,7 +360,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller, int craftCount) {
         return !controller.isActiveCooling()
-                || controller.tryConsumeCoolant(5 * Math.max(1, craftCount), controller.getEffectiveOverclockTimes());
+                || controller.tryConsumeCoolant(
+                        ECOCraftingCPULogic.coolantAmountForCrafts(craftCount),
+                        controller.getEffectiveOverclockTimes());
     }
 
     private void startWork(
@@ -490,11 +493,25 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return this.isBusy && jobId.equals(this.craftingJobId);
     }
 
+    public boolean recoverOrphanedWorkToNetwork(Set<UUID> activeJobIds, MEStorage storage) {
+        if (!isRecoverableState() || craftingJobId == null || activeJobIds.contains(craftingJobId)) {
+            return true;
+        }
+        return recoverItemsToNetwork(storage, shouldRecoverOutputs());
+    }
+
     public boolean recoverInputsToNetwork(MEStorage storage) {
         if (!isRecoverableState()) {
             return true;
         }
         return recoverItemsToNetwork(storage, shouldRecoverOutputs());
+    }
+
+    public boolean recoverUnfinishedInputsToNetwork(MEStorage storage) {
+        if (!isRecoverableState() || outputsReady) {
+            return true;
+        }
+        return recoverItemsToNetwork(storage, false);
     }
 
     private boolean retryRecoveryToNetwork() {

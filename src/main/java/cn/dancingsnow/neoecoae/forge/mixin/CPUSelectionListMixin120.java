@@ -41,7 +41,7 @@ public abstract class CPUSelectionListMixin120 {
     private static final int OVERLAY_RIGHT_MARGIN = 2;
     private static final int OVERLAY_TOP_MARGIN = 2;
 
-    @Inject(method = "drawBackgroundLayer", at = @At("RETURN"))
+    @Inject(method = "drawBackgroundLayer", at = @At("RETURN"), require = 0)
     private void neoecoae$drawCpuTierOverlay(
             GuiGraphics guiGraphics, Rect2i screenBounds, Point mouse, CallbackInfo ci) {
         int x = screenBounds.getX() + this.bounds.getX() + 9;
@@ -72,7 +72,7 @@ public abstract class CPUSelectionListMixin120 {
      * We intercept only ECO CPU entries (identified by their tier overlay texture)
      * and replace the storage text with a compact human-readable form.
      */
-    @Inject(method = "formatStorage", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "formatStorage", at = @At("RETURN"), cancellable = true, require = 0)
     private void neoecoae$formatStorage(
             CraftingStatusMenu.CraftingCpuListEntry cpu, CallbackInfoReturnable<String> cir) {
         var overlay = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();

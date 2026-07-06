@@ -252,9 +252,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         ElapsedTimeTracker tracker = logic.getElapsedTimeTracker();
         long total = Math.max(1L, tracker.getSyntheticStartItemCount());
         long remaining = Math.max(0L, Math.min(total, tracker.getSyntheticRemainingItemCount()));
-        NECraftingRecipeUiEntry.Status status = logic.isCantStoreItems() || logic.isJobSuspended()
-                ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
-                : NECraftingRecipeUiEntry.Status.RUNNING;
+        NECraftingRecipeUiEntry.Status status =
+                logic.isCantStoreItems() || logic.isJobSuspended() || logic.isJobUserPaused()
+                        ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
+                        : NECraftingRecipeUiEntry.Status.RUNNING;
         return new NECraftingRecipeUiEntry(
                 computationTaskId(cpu, finalOutput, index), output, remainingAmount, 1L, total, remaining, status);
     }

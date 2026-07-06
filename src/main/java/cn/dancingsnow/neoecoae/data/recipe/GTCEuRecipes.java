@@ -38,7 +38,6 @@ public final class GTCEuRecipes {
         saveTieredComputationCellRecipes(provider);
         saveTieredMachineRecipes(provider);
         saveInfiniteStorageRecipe(provider);
-        saveInfiniteStorageResearchRecipe(provider);
     }
 
     private static void saveBaseMaterialRecipes(RegistrateRecipeProvider provider) {
@@ -347,15 +346,6 @@ public final class GTCEuRecipes {
                 .fluidInput(NEUTRONIUM, 1_000)
                 .research(L9_CELL_COMPONENT_RESEARCH, DATA_MODULE)
                 .itemOutput(ne("eco_infinite_cell_component"), 1)
-                .save(provider);
-    }
-
-    private static void saveInfiniteStorageResearchRecipe(RegistrateRecipeProvider provider) {
-        machineRecipe("research_station", "eco_infinite_cell_component", LUV, 2_000)
-                .itemInput(DATA_MODULE, 1)
-                .itemInput(ne("eco_cell_component_256m"), 1)
-                .cwu(64)
-                .itemOutputDataModule(L9_CELL_COMPONENT_RESEARCH, "gtceu:assembly_line")
                 .save(provider);
     }
 
