@@ -25,15 +25,21 @@ public class ECOComputationCoolingControllerBlockEntity extends AbstractComputat
 
     @Override
     public void updateState(boolean updateExposed) {
+        if (isServerStopping()) {
+            return;
+        }
         super.updateState(updateExposed);
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOComputationCoolingController.MIRRORED)) {
-                level.setBlock(
-                    worldPosition,
-                    state.setValue(ECOComputationCoolingController.MIRRORED, formed && mirrored),
-                    Block.UPDATE_CLIENTS
-                );
+                BlockState newState = state.setValue(ECOComputationCoolingController.MIRRORED, formed && mirrored);
+                if (newState != state) {
+                    level.setBlock(
+                        worldPosition,
+                        newState,
+                        Block.UPDATE_CLIENTS
+                    );
+                }
             }
         }
     }

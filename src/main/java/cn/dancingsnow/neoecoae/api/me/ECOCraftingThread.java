@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     public static final int MAX_PROGRESS = 100;
+    private static final int MAX_SERIALIZED_ITEM_STACK_COUNT = 99;
 
     private enum RecoveryState {
         ACTIVE,
@@ -567,7 +568,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         List<ItemStack> recoverable = shouldRecoverOutputs() ? outputAndRemainingItems() : inputItems;
         for (ItemStack stack : recoverable) {
             if (!stack.isEmpty()) {
-                drops.add(stack.copy());
+                copySerializableStacks(stack, drops);
             }
         }
         recoveryState = RecoveryState.DROPPED_TO_WORLD;
@@ -690,11 +691,16 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             if (!(entry.getKey() instanceof AEItemKey itemKey) || entry.getLongValue() > Integer.MAX_VALUE) {
                 return List.of();
             }
-            ItemStack stack = itemKey.toStack((int) entry.getLongValue());
-            if (stack.isEmpty()) {
-                return List.of();
+            int remaining = (int) entry.getLongValue();
+            while (remaining > 0) {
+                int count = Math.min(remaining, MAX_SERIALIZED_ITEM_STACK_COUNT);
+                ItemStack stack = itemKey.toStack(count);
+                if (stack.isEmpty()) {
+                    return List.of();
+                }
+                stacks.add(stack);
+                remaining -= count;
             }
-            stacks.add(stack);
         }
         return List.copyOf(stacks);
     }
@@ -741,26 +747,57 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
         }
-        tag.put("outputItem", firstOutputItem().saveOptional(provider));
+        tag.put("outputItem", saveSerializableStack(firstOutputItem(), provider));
 
         ListTag outputs = new ListTag();
-        for (ItemStack outputItem : outputItems) {
-            outputs.add(outputItem.saveOptional(provider));
-        }
+        saveSerializableStacks(outputItems, outputs, provider);
         tag.put("outputItems", outputs);
 
         ListTag inputs = new ListTag();
-        for (ItemStack inputItem : inputItems) {
-            inputs.add(inputItem.saveOptional(provider));
-        }
+        saveSerializableStacks(inputItems, inputs, provider);
         tag.put("inputItems", inputs);
 
         ListTag remaining = new ListTag();
-        for (ItemStack remainingItem : remainingItems) {
-            remaining.add(remainingItem.saveOptional(provider));
-        }
+        saveSerializableStacks(remainingItems, remaining, provider);
         tag.put("remainingItems", remaining);
         return tag;
+    }
+
+    private static Tag saveSerializableStack(ItemStack stack, HolderLookup.Provider provider) {
+        if (stack.isEmpty() || stack.getCount() <= MAX_SERIALIZED_ITEM_STACK_COUNT) {
+            return stack.saveOptional(provider);
+        }
+        return stack.copyWithCount(MAX_SERIALIZED_ITEM_STACK_COUNT).saveOptional(provider);
+    }
+
+    private static void saveSerializableStacks(
+        List<ItemStack> stacks,
+        ListTag tag,
+        HolderLookup.Provider provider
+    ) {
+        for (ItemStack stack : stacks) {
+            if (!stack.isEmpty()) {
+                copySerializableStacks(stack, tag, provider);
+            }
+        }
+    }
+
+    private static void copySerializableStacks(ItemStack stack, List<ItemStack> target) {
+        int remaining = stack.getCount();
+        while (remaining > 0) {
+            int count = Math.min(remaining, MAX_SERIALIZED_ITEM_STACK_COUNT);
+            target.add(stack.copyWithCount(count));
+            remaining -= count;
+        }
+    }
+
+    private static void copySerializableStacks(ItemStack stack, ListTag tag, HolderLookup.Provider provider) {
+        int remaining = stack.getCount();
+        while (remaining > 0) {
+            int count = Math.min(remaining, MAX_SERIALIZED_ITEM_STACK_COUNT);
+            tag.add(stack.copyWithCount(count).saveOptional(provider));
+            remaining -= count;
+        }
     }
 
     @Override

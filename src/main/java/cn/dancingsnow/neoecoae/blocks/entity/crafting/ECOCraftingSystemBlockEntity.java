@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.ComponentUtil;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -130,7 +131,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.getServer().executeIfPossible(() -> {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 setChanged();
                 markForUpdate();
                 updateInfo();
@@ -140,15 +141,21 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Override
     public void updateState(boolean updateExposed) {
+        if (isServerStopping()) {
+            return;
+        }
         super.updateState(updateExposed);
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOCraftingSystem.MIRRORED)) {
-                level.setBlock(
-                    worldPosition,
-                    state.setValue(ECOCraftingSystem.MIRRORED, formed && mirrored),
-                    Block.UPDATE_CLIENTS
-                );
+                BlockState newState = state.setValue(ECOCraftingSystem.MIRRORED, formed && mirrored);
+                if (newState != state) {
+                    level.setBlock(
+                        worldPosition,
+                        newState,
+                        Block.UPDATE_CLIENTS
+                    );
+                }
             }
         }
         if (updateExposed) {

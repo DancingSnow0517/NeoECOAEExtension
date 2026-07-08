@@ -57,7 +57,7 @@ public final class MultiBlockPlacementService {
         List<WorldPlannedBlock> allBlocks = new ArrayList<>();
         List<WorldPlannedBlock> missingBlocks = new ArrayList<>();
         List<BlockPos> conflictPositions = new ArrayList<>();
-        List<ItemStack> requiredItems = new ArrayList<>();
+        List<RequiredItem> requiredItems = new ArrayList<>();
         int reusedBlockCount = 0;
 
         for (PlannedBlock plannedBlock : context.getPlannedBlocks()) {
@@ -125,9 +125,9 @@ public final class MultiBlockPlacementService {
         return session.isFinished() ? PlacementTickResult.COMPLETED : PlacementTickResult.ADVANCED;
     }
 
-    public static boolean hasRequiredItems(Player player, List<ItemStack> requiredItems) {
-        for (ItemStack requiredItem : requiredItems) {
-            if (countMatchingItems(player, requiredItem) < requiredItem.getCount()) {
+    public static boolean hasRequiredItems(Player player, List<RequiredItem> requiredItems) {
+        for (RequiredItem requiredItem : requiredItems) {
+            if (countMatchingItems(player, requiredItem.stack()) < requiredItem.count()) {
                 return false;
             }
         }
@@ -231,14 +231,15 @@ public final class MultiBlockPlacementService {
         return remaining;
     }
 
-    private static void mergeItem(List<ItemStack> requiredItems, ItemStack toAdd) {
-        for (ItemStack requiredItem : requiredItems) {
-            if (ItemStack.isSameItemSameComponents(requiredItem, toAdd)) {
-                requiredItem.grow(toAdd.getCount());
+    private static void mergeItem(List<RequiredItem> requiredItems, ItemStack toAdd) {
+        for (int i = 0; i < requiredItems.size(); i++) {
+            RequiredItem requiredItem = requiredItems.get(i);
+            if (ItemStack.isSameItemSameComponents(requiredItem.stack(), toAdd)) {
+                requiredItems.set(i, requiredItem.grow(toAdd.getCount()));
                 return;
             }
         }
-        requiredItems.add(toAdd.copy());
+        requiredItems.add(new RequiredItem(toAdd, toAdd.getCount()));
     }
 
     private static int nextPlacementDelay(ServerLevel level) {

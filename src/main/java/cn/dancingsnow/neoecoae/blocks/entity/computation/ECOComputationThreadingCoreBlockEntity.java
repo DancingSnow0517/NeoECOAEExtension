@@ -18,7 +18,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -83,16 +82,14 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
             for (int i = 0; i < deferredInit.length; i++) {
                 CompoundTag tag = deferredInit[i];
                 if (tag != null) {
+                    HolderLookup.Provider registries = level != null ? level.registryAccess() : null;
+                    if (registries == null) {
+                        continue;
+                    }
                     ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
-                    HolderLookup.Provider registries = ServerLifecycleHooks.getCurrentServer()
-                        .getServerResources()
-                        .managers()
-                        .fullRegistries()
-                        .get();
                     deferredInit[i] = null;
                     cpu.readFromNBT(tag, registries);
                     if (cpu.getPlan() != null) {
-                        System.out.println("pickup cpu" + cpu + " " + cpu.getPlan());
                         cpus[i] = cpu;
                         cluster.pickup(cpu.getPlan(), cpu);
                     }
@@ -109,7 +106,6 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                 deferredInit[i] = data.getCompound("CPU" + i);
             }
         }
-        markForUpdate();
     }
 
     @Override

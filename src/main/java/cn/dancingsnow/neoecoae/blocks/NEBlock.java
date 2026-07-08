@@ -4,6 +4,7 @@ import appeng.block.AEBaseEntityBlock;
 import appeng.blockentity.crafting.CraftingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -40,6 +41,9 @@ public abstract class NEBlock<T extends NEBlockEntity<?, T>> extends AEBaseEntit
 
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+        if (level instanceof ServerLevel serverLevel && serverLevel.getServer().isStopped()) {
+            return;
+        }
         final NEBlockEntity<?, T> be = this.getBlockEntity(level, pos);
         if (be != null) {
             be.updateMultiBlock(neighborPos);

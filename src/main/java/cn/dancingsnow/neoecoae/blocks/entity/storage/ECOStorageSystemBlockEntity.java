@@ -109,15 +109,21 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public void updateState(boolean updateExposed) {
+        if (isServerStopping()) {
+            return;
+        }
         super.updateState(updateExposed);
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOStorageSystemBlock.MIRRORED)) {
-                level.setBlock(
-                    worldPosition,
-                    state.setValue(ECOStorageSystemBlock.MIRRORED, formed && mirrored),
-                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS
-                );
+                BlockState newState = state.setValue(ECOStorageSystemBlock.MIRRORED, formed && mirrored);
+                if (newState != state) {
+                    level.setBlock(
+                        worldPosition,
+                        newState,
+                        net.minecraft.world.level.block.Block.UPDATE_CLIENTS
+                    );
+                }
             }
         }
     }

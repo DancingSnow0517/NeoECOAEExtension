@@ -131,4 +131,12 @@ public class ElapsedTimeTracker {
     public long getStartItemCount() {
         return Integer.MAX_VALUE;
     }
+
+    public long getSyntheticStartItemCount() {
+        return Integer.MAX_VALUE;
+    }
+
+    public long getSyntheticRemainingItemCount() {
+        return Math.max(0L, Math.min(getSyntheticStartItemCount(), Math.round((1.0F - getProgress()) * getSyntheticStartItemCount())));
+    }
 }

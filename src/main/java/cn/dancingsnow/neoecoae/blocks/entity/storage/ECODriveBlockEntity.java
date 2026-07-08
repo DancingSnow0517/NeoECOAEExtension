@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
@@ -142,7 +143,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.getServer().executeIfPossible(() -> {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 setChanged();
                 markForUpdate();
             });

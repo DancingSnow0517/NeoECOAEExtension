@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui;
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
@@ -226,18 +227,21 @@ public final class MultiblockBuilderUI {
             });
             for (int columnIndex = 0; columnIndex < 8; columnIndex++) {
                 int index = rowIndex * 8 + columnIndex;
-                row.addChild(new RequiredItemSlot(() -> hasRequiredItem(config, index))
+                row.addChild(new RequiredItemSlot(
+                        () -> hasRequiredItem(config, index),
+                        () -> getRequiredItem(config, index).count()
+                    )
                     .bindDataSource(SupplierDataSource.of(() -> getRequiredItemStack(config, index)))
                     .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        ItemStack stack = getRequiredItemStack(config, index);
-                        if (stack.isEmpty()) {
+                        RequiredItem requiredItem = getRequiredItem(config, index);
+                        if (requiredItem.isEmpty()) {
                             return;
                         }
                         Component state = hasRequiredItem(config, index)
                             ? Component.translatable("gui.neoecoae.multiblock.material_enough")
                             : Component.translatable("gui.neoecoae.multiblock.material_missing");
                         event.hoverTooltips = new HoverTooltips(
-                            List.of(stack.getHoverName(), Component.translatable("gui.neoecoae.multiblock.item_required", stack.getCount()), state),
+                            List.of(requiredItem.stack().getHoverName(), Component.translatable("gui.neoecoae.multiblock.item_required", requiredItem.count()), state),
                             null,
                             null,
                             null
@@ -310,35 +314,39 @@ public final class MultiblockBuilderUI {
         return plan == null ? 0 : plan.getRequiredItemCount();
     }
 
-    private static ItemStack getRequiredItemStack(Config config, int index) {
-        List<ItemStack> requiredItems = getRequiredItems(config);
+    private static RequiredItem getRequiredItem(Config config, int index) {
+        List<RequiredItem> requiredItems = getRequiredItems(config);
         if (index < 0 || index >= requiredItems.size()) {
-            return ItemStack.EMPTY;
+            return new RequiredItem(ItemStack.EMPTY, 0);
         }
         return requiredItems.get(index);
     }
 
+    private static ItemStack getRequiredItemStack(Config config, int index) {
+        return getRequiredItem(config, index).stack();
+    }
+
     private static boolean hasRequiredItem(Config config, int index) {
-        ItemStack stack = getRequiredItemStack(config, index);
-        if (stack.isEmpty() || config.player().isCreative()) {
+        RequiredItem requiredItem = getRequiredItem(config, index);
+        if (requiredItem.isEmpty() || config.player().isCreative()) {
             return true;
         }
-        return MultiBlockPlacementService.countMatchingItems(config.player(), stack) >= stack.getCount();
+        return MultiBlockPlacementService.countMatchingItems(config.player(), requiredItem.stack()) >= requiredItem.count();
     }
 
     private static boolean hasRequiredItems(Config config) {
         if (config.player().isCreative()) {
             return true;
         }
-        for (ItemStack stack : getRequiredItems(config)) {
-            if (MultiBlockPlacementService.countMatchingItems(config.player(), stack) < stack.getCount()) {
+        for (RequiredItem requiredItem : getRequiredItems(config)) {
+            if (MultiBlockPlacementService.countMatchingItems(config.player(), requiredItem.stack()) < requiredItem.count()) {
                 return false;
             }
         }
         return true;
     }
 
-    private static List<ItemStack> getRequiredItems(Config config) {
+    private static List<RequiredItem> getRequiredItems(Config config) {
         MultiBlockPlacementPlan plan = config.previewPlan().get();
         return plan == null ? List.of() : plan.getRequiredItems();
     }
@@ -454,9 +462,11 @@ public final class MultiblockBuilderUI {
 
     private static final class RequiredItemSlot extends ItemSlot {
         private final BooleanSupplier hasRequiredItem;
+        private final IntSupplier count;
 
-        private RequiredItemSlot(BooleanSupplier hasRequiredItem) {
+        private RequiredItemSlot(BooleanSupplier hasRequiredItem, IntSupplier count) {
             this.hasRequiredItem = hasRequiredItem;
+            this.count = count;
             getStyle().backgroundTexture(NETextures.ITEM_SLOT);
         }
 
@@ -466,11 +476,10 @@ public final class MultiblockBuilderUI {
                 return;
             }
             DrawerHelper.drawItemStack(guiContext.graphics, itemStack.copyWithCount(1), 0, 0, -1, null);
-            int count = itemStack.getCount();
             int color = hasRequiredItem.getAsBoolean() ? MATERIAL_COUNT_ENOUGH_COLOR : MATERIAL_COUNT_MISSING_COLOR;
             guiContext.graphics.pose().pushPose();
             guiContext.graphics.pose().translate(0, 0, 240);
-            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(count), 17, 17, color, true, 0.8f);
+            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(count.getAsInt()), 17, 17, color, true, 0.8f);
             guiContext.graphics.pose().popPose();
         }
     }

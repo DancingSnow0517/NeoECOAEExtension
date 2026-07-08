@@ -3,7 +3,9 @@ package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -13,8 +15,10 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Scene;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.integration.xei.IngredientIO;
+import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -107,8 +111,13 @@ public class MultiBlockInfoWrapper {
             .addClass("panel_border"));
 
         requiredItems = new ScrollerView();
-        requiredItems.viewPort(c -> c.layout(layout-> layout.paddingAll(1).paddingBottom(3)).addClass("panel_bg"));
-        requiredItems.viewContainer(c -> c.layout(layout -> layout.flexDirection(YogaFlexDirection.ROW)).addClass("panel_border"));
+        requiredItems.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+        requiredItems.viewPort(c -> c
+            .layout(layout -> layout.paddingAll(1).paddingBottom(3))
+            .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
+        requiredItems.viewContainer(c -> c
+            .layout(layout -> layout.flexDirection(YogaFlexDirection.ROW))
+            .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
         requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(27));
         root.addChild(requiredItems);
 
@@ -179,11 +188,11 @@ public class MultiBlockInfoWrapper {
             scene.setRenderedCore(rendered);
         }
         requiredItems.viewContainer.clearAllChildren();
-        for (ItemStack requiredItem : context.getRequiredItems()) {
-            requiredItems.addScrollViewChild(new ItemSlot()
-                .setItem(requiredItem)
+        for (RequiredItem requiredItem : context.getRequiredItems()) {
+            requiredItems.addScrollViewChild(new RequiredItemSlot(requiredItem.count())
+                .setItem(requiredItem.stack())
                 .xeiRecipeIngredient(IngredientIO.INPUT)
-                .xeiRecipeSlot(IngredientIO.INPUT, 1));
+                .xeiRecipeSlot(IngredientIO.INPUT, requiredItem.count()));
         }
 //        for (int i = 0; i < itemHandler.getSlots(); i++) {
 //            SlotWidget widget = new SlotWidget(itemHandler, i, 4 + i * 18, 0, false, false)
@@ -191,5 +200,25 @@ public class MultiBlockInfoWrapper {
 //                .setIngredientIO(IngredientIO.INPUT);
 //            scrollableWidgetGroup.addWidget(widget);
 //        }
+    }
+
+    private static final class RequiredItemSlot extends ItemSlot {
+        private final int count;
+
+        private RequiredItemSlot(int count) {
+            this.count = count;
+        }
+
+        @Override
+        protected void drawItemStack(GUIContext guiContext, ItemStack itemStack) {
+            if (itemStack.isEmpty()) {
+                return;
+            }
+            DrawerHelper.drawItemStack(guiContext.graphics, itemStack.copyWithCount(1), 0, 0, -1, null);
+            guiContext.graphics.pose().pushPose();
+            guiContext.graphics.pose().translate(0, 0, 240);
+            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(count), 17, 17, 0xffffff, true, 0.8f);
+            guiContext.graphics.pose().popPose();
+        }
     }
 }

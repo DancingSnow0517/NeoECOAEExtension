@@ -699,6 +699,10 @@ public class ECOCraftingCPULogic {
         return this.job != null ? this.job.finalOutput : null;
     }
 
+    public long getRemainingJobOutputAmount() {
+        return this.job != null ? this.job.remainingAmount : 0L;
+    }
+
     public ElapsedTimeTracker getElapsedTimeTracker() {
         if (this.job != null) {
             return this.job.timeTracker;

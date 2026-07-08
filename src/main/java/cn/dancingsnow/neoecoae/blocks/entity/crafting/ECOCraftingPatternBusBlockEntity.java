@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -311,7 +312,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.getServer().executeIfPossible(() -> {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 setChanged();
                 markForUpdate();
             });

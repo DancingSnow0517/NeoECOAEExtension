@@ -1,35 +1,45 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
-import appeng.core.localization.Tooltips;
+import appeng.api.config.CpuSelectionMode;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
+import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
+import cn.dancingsnow.neoecoae.gui.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
+import cn.dancingsnow.neoecoae.gui.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostMetric;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
-import cn.dancingsnow.neoecoae.util.ComponentUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
+import dev.vfyjxf.taffy.style.AlignItems;
+import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -38,6 +48,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,6 +65,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Persisted
     @DescSynced
     private boolean mirrorBuild;
+    @Persisted
+    @DescSynced
+    private int cpuSelectionMode = CpuSelectionMode.ANY.ordinal();
     @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
@@ -73,15 +87,21 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     @Override
     public void updateState(boolean updateExposed) {
+        if (isServerStopping()) {
+            return;
+        }
         super.updateState(updateExposed);
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOComputationSystem.MIRRORED)) {
-                level.setBlock(
-                    worldPosition,
-                    state.setValue(ECOComputationSystem.MIRRORED, formed && mirrored),
-                    Block.UPDATE_CLIENTS
-                );
+                BlockState newState = state.setValue(ECOComputationSystem.MIRRORED, formed && mirrored);
+                if (newState != state) {
+                    level.setBlock(
+                        worldPosition,
+                        newState,
+                        Block.UPDATE_CLIENTS
+                    );
+                }
             }
         }
     }
@@ -126,44 +146,181 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement buildWindow = buildPanel(holder);
+        ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig();
 
-        UIElement details = ECOHostWidgets.detailArea(false);
-        ECOHostWidgets.addDetailChild(details, ECOHostWidgets.sectionTitle("gui.neoecoae.host.computation.capacity"));
-        ECOHostWidgets.addDetailChild(details, ECOHostWidgets.tileRow(List.of(
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.active_vcpu", () -> Component.literal(String.valueOf(getUsedThread()))),
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.max_vcpu", () -> Component.literal(String.valueOf(getTotalThread()))),
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.parallel_count", () -> Component.literal(String.valueOf(getParallelCount()))),
-            ECOHostWidgets.tile("gui.neoecoae.host.computation.free_memory", () -> {
-                Tooltips.Amount byteAmount = Tooltips.getByteAmount(Math.max(getAvailableBytes(), 0));
-                return Component.literal(byteAmount.digit()+byteAmount.unit());
-            }
-        ))));
+        UIElement root = new UIElement().layout(layout -> {
+            layout.width(340);
+            layout.height(232);
+            layout.gapAll(0);
+        }).addClass("panel_bg");
 
-        UIElement root = ECOHostWidgets.hostPanel(
-            () -> getItemFromBlockEntity().getDescription(),
-            () -> Component.translatable("gui.neoecoae.host.computation.subtitle"),
-            () -> Component.translatable(buildInProgress ? "gui.neoecoae.host.status.running" : "gui.neoecoae.host.status.online"),
-            List.of(
-                ECOHostMetric.ratio(
-                    () -> Component.translatable("gui.neoecoae.host.computation.cpu_storage"),
-                    () -> ComponentUtil.coloredBytesPair(getUsedComputationBytes(), getTotalBytes(), false),
-                    () -> ECOHostStyles.ratio(getUsedComputationBytes(), getTotalBytes())
-                ),
-                ECOHostMetric.ratio(
-                    () -> Component.translatable("gui.neoecoae.host.computation.thread_usage"),
-                    () -> ComponentUtil.coloredNumberPair(getUsedThread(), getTotalThread(), false),
-                    () -> ECOHostStyles.ratio(getUsedThread(), getTotalThread())
-                ),
-                ECOHostMetric.scalar(
-                    () -> Component.translatable("gui.neoecoae.host.computation.parallel_count"),
-                    () -> Component.literal(String.valueOf(getParallelCount()))
-                )
-            ),
-            details,
-            () -> Component.translatable("gui.neoecoae.host.computation.footer"),
-            buildWindow
-        );
+        root.addChild(new TextElement()
+            .setText(getItemFromBlockEntity().getDescription())
+            .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
+            .layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(8);
+                layout.top(8);
+            }));
+
+        UIElement panels = new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(6);
+            layout.top(24);
+            layout.flexDirection(FlexDirection.ROW);
+            layout.alignItems(AlignItems.STRETCH);
+            layout.gapAll(10);
+        });
+        UIElement leftColumn = new UIElement().layout(layout -> {
+            layout.width(ComputationHostPanelUI.LEFT_PANEL_WIDTH);
+            layout.height(ComputationHostPanelUI.PANEL_HEIGHT);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.gapAll(4);
+        });
+        leftColumn.addChild(ComputationHostPanelUI.createLeftCapacityPanel(panelConfig));
+        leftColumn.addChild(ComputationHostPanelUI.createInventoryPanel());
+        panels.addChild(leftColumn);
+        panels.addChild(ComputationHostPanelUI.createRightPanel(panelConfig));
+
+        root.addChild(panels);
+        root.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig)
+            .layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(6 + ComputationHostPanelUI.LEFT_PANEL_WIDTH + 10 + ComputationHostPanelUI.RIGHT_PANEL_WIDTH - 18);
+                layout.top(4);
+                layout.width(18);
+                layout.height(18);
+            }));
+        root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
+        root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private static void titleTextStyle(TextElement.TextStyle style) {
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+    }
+
+    private ComputationHostPanelUI.Config createComputationPanelConfig() {
+        return new ComputationHostPanelUI.Config(
+            this::getUsedComputationBytes,
+            this::getTotalBytes,
+            this::getAvailableBytes,
+            this::getUsedThread,
+            this::getTotalThread,
+            this::getParallelCount,
+            this::getCpuSelectionMode,
+            this::cycleCpuSelectionMode,
+            this::getRegistryAccessForUi,
+            this::getActiveTaskEntries
+        );
+    }
+
+    public CpuSelectionMode getCpuSelectionMode() {
+        CpuSelectionMode[] values = CpuSelectionMode.values();
+        if (cpuSelectionMode < 0 || cpuSelectionMode >= values.length) {
+            return CpuSelectionMode.ANY;
+        }
+        return values[cpuSelectionMode];
+    }
+
+    public void setCpuSelectionMode(CpuSelectionMode mode) {
+        this.cpuSelectionMode = mode.ordinal();
+        setChanged();
+        markForUpdate();
+    }
+
+    private void cycleCpuSelectionMode() {
+        if (cluster != null) {
+            cluster.cycleSelectionMode();
+        } else {
+            setCpuSelectionMode(nextCpuSelectionMode(getCpuSelectionMode()));
+        }
+    }
+
+    private static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {
+        return switch (mode) {
+            case ANY -> CpuSelectionMode.PLAYER_ONLY;
+            case PLAYER_ONLY -> CpuSelectionMode.MACHINE_ONLY;
+            case MACHINE_ONLY -> CpuSelectionMode.ANY;
+        };
+    }
+
+    private HolderLookup.Provider getRegistryAccessForUi() {
+        if (level != null) {
+            return level.registryAccess();
+        }
+        return net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer()
+            .getServerResources()
+            .managers()
+            .fullRegistries()
+            .get();
+    }
+
+    private List<ComputationTaskEntry> getActiveTaskEntries() {
+        if (cluster == null) {
+            return List.of();
+        }
+        List<ComputationTaskEntry> tasks = new ArrayList<>();
+        int index = 0;
+        for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+            ComputationTaskEntry entry = createTaskEntry(cpu, index);
+            if (entry != null) {
+                tasks.add(entry);
+            }
+            index++;
+        }
+        return List.copyOf(tasks);
+    }
+
+    private @Nullable ComputationTaskEntry createTaskEntry(ECOCraftingCPU cpu, int index) {
+        if (cpu == null) {
+            return null;
+        }
+        ECOCraftingCPULogic logic = cpu.getLogic();
+        GenericStack finalOutput = logic.getFinalJobOutput();
+        if (finalOutput == null && cpu.getPlan() != null) {
+            finalOutput = cpu.getPlan().finalOutput();
+        }
+        long requestedAmount = finalOutput != null ? finalOutput.amount() : 0L;
+        long remainingAmount = logic.getRemainingJobOutputAmount();
+        if (remainingAmount <= 0L && finalOutput != null) {
+            remainingAmount = requestedAmount;
+        }
+        if (finalOutput == null || remainingAmount <= 0L || !(finalOutput.what() instanceof AEItemKey itemKey)) {
+            return null;
+        }
+        ItemStack output = itemKey.toStack(1);
+        if (output.isEmpty()) {
+            return null;
+        }
+        ElapsedTimeTracker tracker = logic.getElapsedTimeTracker();
+        long total = Math.max(1L, tracker.getSyntheticStartItemCount());
+        long remaining = Math.max(0L, Math.min(total, tracker.getSyntheticRemainingItemCount()));
+        ComputationTaskEntry.Status status = !logic.hasJob() || logic.isCantStoreItems() || logic.isJobSuspended()
+            ? ComputationTaskEntry.Status.WAITING_OUTPUT
+            : ComputationTaskEntry.Status.RUNNING;
+        return new ComputationTaskEntry(
+            computationTaskId(cpu, finalOutput, index),
+            output,
+            requestedAmount,
+            1L,
+            total,
+            remaining,
+            status,
+            index + 1,
+            cpu.getName(),
+            cpu.getAvailableStorage(),
+            cpu.getCoProcessors(),
+            cpu.getSelectionMode(),
+            Mth.clamp(tracker.getProgress(), 0.0F, 1.0F),
+            tracker.getElapsedTime()
+        );
+    }
+
+    private static String computationTaskId(ECOCraftingCPU cpu, GenericStack output, int index) {
+        BlockPos ownerPos = cpu.getOwner() != null ? cpu.getOwner().getBlockPos() : null;
+        String owner = ownerPos != null ? Long.toString(ownerPos.asLong()) : "proxy";
+        return "cpu:" + owner + ":" + index + ":" + output.what().hashCode();
     }
 
     private long getUsedComputationBytes() {

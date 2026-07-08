@@ -103,6 +103,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             recalculateRemainingStorage();
             this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
+            if (controller != null) {
+                this.selectionMode = controller.getCpuSelectionMode();
+            }
         } else {
             accelerators = 0;
             availableStorage = 0;
@@ -132,6 +135,25 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             case PLAYER_ONLY -> actionSource.player().isPresent();
             case MACHINE_ONLY -> actionSource.player().isEmpty();
         };
+    }
+
+    public void setSelectionMode(CpuSelectionMode mode) {
+        if (this.selectionMode == mode) {
+            return;
+        }
+        this.selectionMode = mode;
+        if (controller != null) {
+            controller.setCpuSelectionMode(mode);
+        }
+        updateGridForChangedCpu();
+    }
+
+    public void cycleSelectionMode() {
+        setSelectionMode(switch (selectionMode) {
+            case ANY -> CpuSelectionMode.PLAYER_ONLY;
+            case PLAYER_ONLY -> CpuSelectionMode.MACHINE_ONLY;
+            case MACHINE_ONLY -> CpuSelectionMode.ANY;
+        });
     }
 
     public @Nullable IGridNode getNode() {
@@ -173,43 +195,60 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
         this.activeCpus.put(job, cpu);
         this.recalculateRemainingStorage();
-        this.updateGridForChangedCpu(this);
+        this.updateGridForChangedCpu();
         return result;
     }
 
     public void recalculateRemainingStorage() {
         long totalStorage = collectStorage(upperDrives) + collectStorage(lowerDrives);
-
-        long usedStorage = 0L;
-
-        for (ICraftingPlan plan : this.activeCpus.keySet()) {
-            usedStorage += plan.bytes();
-        }
+        long usedStorage = getActiveJobBytes();
 
         this.availableStorage = totalStorage - usedStorage;
-        if (this.availableStorage < 0) {
-            for (ICraftingPlan plan : this.activeCpus.keySet()) {
-                this.killCpu(plan, false, false);
-            }
-            recalculateRemainingStorage();
+        if (this.availableStorage >= 0 || this.activeCpus.isEmpty()) {
+            return;
         }
+
+        List<ICraftingPlan> plansToKill = List.copyOf(this.activeCpus.keySet());
+        for (ICraftingPlan plan : plansToKill) {
+            this.killCpu(plan, false, false);
+        }
+
+        this.availableStorage = Math.max(0, totalStorage - getActiveJobBytes());
+    }
+
+    private long getActiveJobBytes() {
+        long usedStorage = 0L;
+        for (ICraftingPlan plan : List.copyOf(this.activeCpus.keySet())) {
+            usedStorage += plan.bytes();
+        }
+        return usedStorage;
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {
         List<ECOCraftingCPU> cpus = new ArrayList<>();
-        List<ICraftingPlan> killList = new ArrayList<>();
-        for (Map.Entry<ICraftingPlan, ECOCraftingCPU> entry : activeCpus.entrySet()) {
+        for (Map.Entry<ICraftingPlan, ECOCraftingCPU> entry : List.copyOf(activeCpus.entrySet())) {
             ECOCraftingCPU cpu = entry.getValue();
             if (cpu.getLogic().hasJob() || cpu.getLogic().isMarkedForDeletion() || cpu.hasRemainingItems()) {
                 cpus.add(cpu);
-            } else {
+            }
+        }
+        return cpus;
+    }
+
+    public void pruneInactiveCPUs() {
+        List<ICraftingPlan> killList = new ArrayList<>();
+        for (Map.Entry<ICraftingPlan, ECOCraftingCPU> entry : List.copyOf(activeCpus.entrySet())) {
+            ECOCraftingCPU cpu = entry.getValue();
+            if (!cpu.getLogic().hasJob() && !cpu.getLogic().isMarkedForDeletion() && !cpu.hasRemainingItems()) {
                 killList.add(entry.getKey());
             }
         }
         for (ICraftingPlan iCraftingPlan : killList) {
-            killCpu(iCraftingPlan, true);
+            killCpu(iCraftingPlan, false);
         }
-        return cpus;
+        if (!killList.isEmpty()) {
+            updateGridForChangedCpu();
+        }
     }
 
     public ECOCraftingCPU getFakeCPU() {
@@ -222,7 +261,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     public void deactivate(ICraftingPlan plan) {
         ECOCraftingCPU cpu = this.activeCpus.remove(plan);
         this.recalculateRemainingStorage();
-        this.updateGridForChangedCpu(this);
+        this.updateGridForChangedCpu();
         if (cpu != null) {
             cpu.getOwner().deactivate(cpu);
         }
@@ -252,21 +291,19 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             this.recalculateRemainingStorage();
         }
         if (update) {
-            updateGridForChangedCpu(this);
+            updateGridForChangedCpu();
         }
     }
 
-    private void updateGridForChangedCpu(NEComputationCluster cluster) {
+    private void updateGridForChangedCpu() {
         boolean posted = false;
 
         for (var r : this.blockEntities) {
             IGridNode n = r.getActionableNode();
-            if (n != null && !posted) {
+            if (n != null && n.getGrid() != null && !posted) {
                 n.getGrid().postEvent(new GridCraftingCpuChange(n));
                 posted = true;
             }
-
-            r.updateCluster(cluster);
         }
 
     }

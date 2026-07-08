@@ -117,6 +117,14 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.working_threads", "Working Threads: %d / %d (%d%%)");
         provider.add("gui.neoecoae.crafting.total_parallelism", "Total Parallelism: %d");
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %d (%d%%)");
+        provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");
+        provider.add("gui.neoecoae.crafting.no_tasks", "No active tasks");
+        provider.add("gui.neoecoae.crafting.task.amount", "Amount: %s");
+        provider.add("gui.neoecoae.crafting.task.crafts", "Crafts: %s");
+        provider.add("gui.neoecoae.crafting.task.time", "Time: %s / %s");
+        provider.add("gui.neoecoae.crafting.task.status.running", "Running");
+        provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
+        provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy Usage: §b%s AE");
         provider.add("gui.neoecoae.crafting.overclock_status", "Theoretical Overclock: %d, Effective Overclock: %d");
         provider.add("gui.neoecoae.crafting.overclock_status.disabled", "Theoretical Overclock: 0, Effective Overclock: 0");
