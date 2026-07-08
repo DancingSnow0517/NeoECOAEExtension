@@ -46,6 +46,7 @@ import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.Tags;
 
 public class NEItems {
@@ -683,7 +684,7 @@ public class NEItems {
                         .require(ConventionTags.FLUIX_DUST, 4)
                         .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 4)
                         .require(NETags.Items.CRYSTAL_INGOT_BASE, 4)
-                        .requireFluid(FluidTags.LAVA, 2000)
+                        .requireFluid(Fluids.LAVA, 2000)
                         .itemOutput(ctx.get(), 4)
                         .energy(200000)
                         .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
@@ -721,7 +722,7 @@ public class NEItems {
                         .require(NETags.Items.ALUMINIUM_DUST, 4)
                         .require(ConventionTags.SILICON, 4)
                         .require(NETags.Items.SUPERCONDUCTIVE_INGOT_BASE, 4)
-                        .requireFluid(FluidTags.LAVA, 2000)
+                        .requireFluid(Fluids.LAVA, 2000)
                         .itemOutput(ctx.get(), 4)
                         .energy(200000)
                         .save(prov, ctx.getId().withPrefix("integrated_working_station/"));
@@ -806,7 +807,7 @@ public class NEItems {
                 InscriberRecipeBuilder.inscribe(Ingredient.of(NEItems.CRYSTAL_MATRIX), ctx.get(), 1)
                         .setMode(InscriberProcessType.PRESS)
                         .setTop(Ingredient.of(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT))
-                        .setBottom(Ingredient.of(AEItems.SILICON_PRINT))
+                        .setBottom(Ingredient.of(NETags.Items.SILICON_PLATE))
                         .save(prov, NeoECOAE.id("inscriber/superconducting_processor"));
             })
             .register();

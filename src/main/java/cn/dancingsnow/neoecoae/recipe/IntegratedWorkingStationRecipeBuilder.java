@@ -177,7 +177,7 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
                 if (itemId == null) {
                     throw new IllegalStateException("Cannot serialize unregistered item " + itemOutput.getItem());
                 }
-                output.addProperty("id", itemId.toString());
+                output.addProperty("item", itemId.toString());
                 output.addProperty("count", itemOutput.getCount());
                 json.add("itemOutput", output);
             }

@@ -278,6 +278,30 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 sourceSets.main.resources.srcDir generateModMetadata
 
 var guidebookResourcesDir = layout.buildDirectory.dir('generated/guidebook/resources')
+def generatedResourcesDir = file('src/generated/resources').toPath().toAbsolutePath().normalize()
+def handwrittenResourceOverrides = [
+        'assets/neoecoae/models/item/computation_transmitter.json',
+        'assets/neoecoae/models/item/eco_drive.json',
+        'assets/neoecoae/models/item/eco_fe_cell_housing.json',
+        'assets/neoecoae/models/item/eco_fe_storage_cell_16m.json',
+        'assets/neoecoae/models/item/eco_fe_storage_cell_256m.json',
+        'assets/neoecoae/models/item/eco_fe_storage_cell_64m.json',
+        'assets/neoecoae/models/item/eco_mana_cell_housing.json',
+        'assets/neoecoae/models/item/eco_mana_storage_cell_16m.json',
+        'assets/neoecoae/models/item/eco_mana_storage_cell_256m.json',
+        'assets/neoecoae/models/item/eco_mana_storage_cell_64m.json',
+        'assets/neoecoae/models/item/eco_source_cell_housing.json',
+        'assets/neoecoae/models/item/eco_source_storage_cell_16m.json',
+        'assets/neoecoae/models/item/eco_source_storage_cell_256m.json',
+        'assets/neoecoae/models/item/eco_source_storage_cell_64m.json',
+        'assets/neoecoae/models/item/structure_terminal.json',
+        'data/forge/tags/items/dusts.json',
+        'data/forge/tags/items/dusts/aluminium.json',
+        'data/forge/tags/items/dusts/aluminum.json',
+        'data/neoecoae/loot_tables/blocks/aluminum_ore.json',
+        'data/neoecoae/loot_tables/blocks/energized_crystal_cluster.json',
+        'data/neoecoae/loot_tables/blocks/tungsten_ore.json',
+] as Set
 
 var copyGuidebook = tasks.register('copyGuidebook', Sync) {
     group = 'build'
@@ -288,39 +312,52 @@ var copyGuidebook = tasks.register('copyGuidebook', Sync) {
     into guidebookResourcesDir
 }
 
+tasks.register('verifyNoUnexpectedResourceOverrides') {
+    group = 'verification'
+    description = 'Fails when handwritten resources shadow generated resources without an explicit allowlist entry.'
+
+    inputs.dir('src/main/resources')
+    inputs.dir('src/generated/resources')
+    inputs.property('handwrittenResourceOverrides', handwrittenResourceOverrides.toList().sort())
+
+    doLast {
+        def mainResourcesDir = file('src/main/resources').toPath().toAbsolutePath().normalize()
+        def generatedDir = file('src/generated/resources').toPath().toAbsolutePath().normalize()
+        if (!generatedDir.toFile().exists()) {
+            return
+        }
+
+        def unexpected = []
+        fileTree('src/main/resources').matching {
+            include '**/*'
+        }.files.each { mainFile ->
+            if (!mainFile.isFile()) {
+                return
+            }
+
+            def relativePath = mainResourcesDir.relativize(mainFile.toPath().toAbsolutePath().normalize())
+                    .toString()
+                    .replace('\\', '/')
+            if (generatedDir.resolve(relativePath).toFile().isFile()
+                    && !handwrittenResourceOverrides.contains(relativePath)) {
+                unexpected.add(relativePath)
+            }
+        }
+
+        if (!unexpected.isEmpty()) {
+            throw new GradleException(
+                    "Handwritten resources unexpectedly shadow generated resources:\n"
+                            + unexpected.sort().collect { " - ${it}" }.join('\n')
+                            + "\nMove these files to datagen or add an explicit allowlist entry if the override is intentional.")
+        }
+    }
+}
+
 processResources.dependsOn generateModMetadata
 tasks.named('processResources', ProcessResources).configure {
     dependsOn copyGuidebook
+    dependsOn 'verifyNoUnexpectedResourceOverrides'
     from guidebookResourcesDir
-    def generatedResourcesDir = file('src/generated/resources').toPath().toAbsolutePath().normalize()
-    def handwrittenResourceOverrides = [
-            'assets/neoecoae/models/item/computation_transmitter.json',
-            'assets/neoecoae/models/item/eco_drive.json',
-            'assets/neoecoae/models/item/eco_fe_cell_housing.json',
-            'assets/neoecoae/models/item/eco_fe_storage_cell_16m.json',
-            'assets/neoecoae/models/item/eco_fe_storage_cell_256m.json',
-            'assets/neoecoae/models/item/eco_fe_storage_cell_64m.json',
-            'assets/neoecoae/models/item/eco_mana_cell_housing.json',
-            'assets/neoecoae/models/item/eco_mana_storage_cell_16m.json',
-            'assets/neoecoae/models/item/eco_mana_storage_cell_256m.json',
-            'assets/neoecoae/models/item/eco_mana_storage_cell_64m.json',
-            'assets/neoecoae/models/item/eco_source_cell_housing.json',
-            'assets/neoecoae/models/item/eco_source_storage_cell_16m.json',
-            'assets/neoecoae/models/item/eco_source_storage_cell_256m.json',
-            'assets/neoecoae/models/item/eco_source_storage_cell_64m.json',
-            'assets/neoecoae/models/item/structure_terminal.json',
-            'data/forge/tags/items/dusts.json',
-            'data/forge/tags/items/dusts/aluminium.json',
-            'data/forge/tags/items/dusts/aluminum.json',
-            'data/neoecoae/loot_tables/blocks/aluminum_ore.json',
-            'data/neoecoae/loot_tables/blocks/energized_crystal_cluster.json',
-            'data/neoecoae/loot_tables/blocks/tungsten_ore.json',
-            'data/neoecoae/recipes/integrated_working_station/cryotheum_solution.json',
-            'data/neoecoae/recipes/integrated_working_station/crystal_ingot.json',
-            'data/neoecoae/recipes/integrated_working_station/energized_crystal.json',
-            'data/neoecoae/recipes/integrated_working_station/energized_fluix_crystal.json',
-            'data/neoecoae/recipes/integrated_working_station/energized_superconductive_ingot.json'
-    ] as Set
 
     exclude { details ->
         def path = details.file.toPath().toAbsolutePath().normalize()
@@ -467,6 +504,7 @@ tasks.named('test', Test).configure {
 
 tasks.named('check').configure {
     dependsOn 'spotlessCheck'
+    dependsOn 'verifyNoUnexpectedResourceOverrides'
 }
 
 tasks.named('compileJava', JavaCompile).configure {

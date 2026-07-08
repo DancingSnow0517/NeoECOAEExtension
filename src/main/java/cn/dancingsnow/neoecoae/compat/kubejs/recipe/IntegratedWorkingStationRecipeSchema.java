@@ -7,8 +7,6 @@ import dev.latvian.mods.kubejs.item.InputItem;
 import dev.latvian.mods.kubejs.item.OutputItem;
 import dev.latvian.mods.kubejs.recipe.RecipeJS;
 import dev.latvian.mods.kubejs.recipe.RecipeKey;
-import dev.latvian.mods.kubejs.recipe.component.FluidComponents;
-import dev.latvian.mods.kubejs.recipe.component.ItemComponents;
 import dev.latvian.mods.kubejs.recipe.component.NumberComponent;
 import dev.latvian.mods.kubejs.recipe.schema.RecipeSchema;
 
@@ -57,10 +55,12 @@ public interface IntegratedWorkingStationRecipeSchema {
 
     RecipeKey<InputItem[]> INPUT_ITEMS =
             NERecipeComponents.SIZED_INPUT_ITEM.asArray().key("inputItems").defaultOptional();
-    RecipeKey<InputFluid> INPUT_FLUID = FluidComponents.INPUT.key("inputFluid").defaultOptional();
-    RecipeKey<OutputItem> ITEM_OUTPUT = ItemComponents.OUTPUT.key("itemOutput").defaultOptional();
+    RecipeKey<InputFluid> INPUT_FLUID =
+            NERecipeComponents.ID_COMPAT_INPUT_FLUID.key("inputFluid").defaultOptional();
+    RecipeKey<OutputItem> ITEM_OUTPUT =
+            NERecipeComponents.ID_COMPAT_OUTPUT_ITEM.key("itemOutput").defaultOptional();
     RecipeKey<OutputFluid> FLUID_OUTPUT =
-            FluidComponents.OUTPUT.key("fluidOutput").defaultOptional();
+            NERecipeComponents.ID_COMPAT_OUTPUT_FLUID.key("fluidOutput").defaultOptional();
     RecipeKey<Integer> ENERGY =
             NumberComponent.intRange(0, Integer.MAX_VALUE).key("energy").defaultOptional();
 

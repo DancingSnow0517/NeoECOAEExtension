@@ -65,7 +65,7 @@ public final class AAERecipeData {
                 List.of(
                         ItemInput.item(NEItems.SUPERCONDUCTING_PROCESSOR_PRINT, 4),
                         ItemInput.item(NEItems.CRYSTAL_MATRIX, 4),
-                        ItemInput.item(AEItems.SILICON_PRINT, 4))));
+                        ItemInput.tag(NETags.Items.SILICON_DUST, 4))));
     }
 
     private record ReactionChamberRecipe(

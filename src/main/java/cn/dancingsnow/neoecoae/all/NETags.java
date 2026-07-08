@@ -28,6 +28,8 @@ public class NETags {
         public static final TagKey<Item> TUNGSTEN_RAW = common("raw_materials/tungsten");
         public static final TagKey<Item> TUNGSTEN_INGOT = common("ingots/tungsten");
         public static final TagKey<Item> TUNGSTEN_DUST = common("dusts/tungsten");
+        public static final TagKey<Item> SILICON_DUST = common("dusts/silicon");
+        public static final TagKey<Item> SILICON_PLATE = common("plates/silicon");
 
         public static final TagKey<Item> ALUMINUM_ALLOY_STORAGE_BLOCK = common("storage_blocks/aluminum_alloy");
         public static final TagKey<Item> ALUMINUM_ALLOY_INGOT = common("ingots/aluminum_alloy");

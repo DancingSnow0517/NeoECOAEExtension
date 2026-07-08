@@ -3,7 +3,7 @@
   "energy": 200000,
   "inputFluid": {
     "amount": 2000,
-    "tag": "minecraft:lava"
+    "fluid": "minecraft:lava"
   },
   "inputItems": [
     {
@@ -25,6 +25,6 @@
   ],
   "itemOutput": {
     "count": 4,
-    "id": "neoecoae:energized_superconductive_ingot"
+    "item": "neoecoae:energized_superconductive_ingot"
   }
 }

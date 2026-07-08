@@ -3,7 +3,7 @@
   "energy": 62500,
   "inputFluid": {
     "amount": 250,
-    "tag": "minecraft:water"
+    "fluid": "minecraft:water"
   },
   "inputItems": [
     {
@@ -17,6 +17,6 @@
   ],
   "itemOutput": {
     "count": 8,
-    "id": "neoecoae:energized_crystal"
+    "item": "neoecoae:energized_crystal"
   }
 }

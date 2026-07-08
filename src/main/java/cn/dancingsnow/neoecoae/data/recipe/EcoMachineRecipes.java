@@ -12,8 +12,8 @@ import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.tterrag.registrate.providers.RegistrateRecipeProvider;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
-import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.Tags;
 
 public class EcoMachineRecipes {
@@ -22,7 +22,7 @@ public class EcoMachineRecipes {
         IntegratedWorkingStationRecipe.builder()
                 .require(AEItems.CERTUS_QUARTZ_CRYSTAL_CHARGED, 4)
                 .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 4)
-                .requireFluid(FluidTags.WATER, 250)
+                .requireFluid(Fluids.WATER, 250)
                 .energy(62500)
                 .itemOutput(NEItems.ENERGIZED_CRYSTAL, 8)
                 .save(provider, NeoECOAE.id("integrated_working_station/energized_crystal"));
@@ -31,7 +31,7 @@ public class EcoMachineRecipes {
         IntegratedWorkingStationRecipe.builder()
                 .require(NETags.Items.ENERGIZED_CRYSTAL_DUST, 8)
                 .require(ConventionTags.FLUIX_CRYSTAL, 8)
-                .requireFluid(FluidTags.WATER, 250)
+                .requireFluid(Fluids.WATER, 250)
                 .energy(62500)
                 .itemOutput(NEItems.ENERGIZED_FLUIX_CRYSTAL, 8)
                 .save(provider, NeoECOAE.id("integrated_working_station/energized_fluix_crystal"));
@@ -303,7 +303,7 @@ public class EcoMachineRecipes {
                 .require(NEItems.CRYOTHEUM_CRYSTAL, 4)
                 .require(NEItems.ENERGIZED_CRYSTAL, 2)
                 .require(Tags.Items.DUSTS_REDSTONE, 2)
-                .requireFluid(FluidTags.WATER, 1000)
+                .requireFluid(Fluids.WATER, 1000)
                 .fluidOutput(NEFluids.CRYOTHEUM_SOLUTION.getSource(), 1000)
                 .save(provider, NeoECOAE.id("integrated_working_station/cryotheum_solution"));
     }

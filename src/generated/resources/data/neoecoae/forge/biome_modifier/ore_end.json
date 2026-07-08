@@ -7,13 +7,6 @@
     "minecraft:small_end_islands",
     "minecraft:end_barrens"
   ],
-  "features": [
-    "neoecoae:ore_aluminum",
-    "neoecoae:ore_aluminum_small",
-    "neoecoae:ore_tungsten",
-    "neoecoae:ore_tungsten_small"
-  ],
-  "step": "underground_ores",
   "conditions": [
     {
       "type": "forge:not",
@@ -22,5 +15,12 @@
         "modid": "gtceu"
       }
     }
-  ]
+  ],
+  "features": [
+    "neoecoae:ore_aluminum",
+    "neoecoae:ore_aluminum_small",
+    "neoecoae:ore_tungsten",
+    "neoecoae:ore_tungsten_small"
+  ],
+  "step": "underground_ores"
 }

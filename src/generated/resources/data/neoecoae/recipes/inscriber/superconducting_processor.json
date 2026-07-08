@@ -2,7 +2,7 @@
   "type": "ae2:inscriber",
   "ingredients": {
     "bottom": {
-      "item": "ae2:printed_silicon"
+      "tag": "forge:plates/silicon"
     },
     "middle": {
       "item": "neoecoae:crystal_matrix"

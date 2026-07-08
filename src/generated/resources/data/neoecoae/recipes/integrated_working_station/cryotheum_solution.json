@@ -7,7 +7,7 @@
   },
   "inputFluid": {
     "amount": 1000,
-    "tag": "minecraft:water"
+    "fluid": "minecraft:water"
   },
   "inputItems": [
     {

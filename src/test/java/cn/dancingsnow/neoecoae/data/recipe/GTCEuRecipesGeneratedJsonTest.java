@@ -9,6 +9,7 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 class GTCEuRecipesGeneratedJsonTest {
@@ -136,7 +137,51 @@ class GTCEuRecipesGeneratedJsonTest {
         assertEquals(16_000, recipe.getAsJsonObject("inputFluid").get("amount").getAsInt());
         assertEquals(
                 "neoecoae:eco_infinite_cell_component",
-                recipe.getAsJsonObject("itemOutput").get("id").getAsString());
+                recipe.getAsJsonObject("itemOutput").get("item").getAsString());
+    }
+
+    @Test
+    void integratedWorkingStationRecipesUseKubeJsRecipeSchemaFields() throws IOException {
+        try (Stream<Path> recipes = Files.walk(RECIPE_ROOT)) {
+            for (Path path : recipes.filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".json"))
+                    .toList()) {
+                JsonObject recipe =
+                        JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+                if (!"neoecoae:integrated_working_station"
+                        .equals(recipe.get("type").getAsString())) {
+                    continue;
+                }
+
+                if (recipe.has("itemOutput")) {
+                    JsonObject itemOutput = recipe.getAsJsonObject("itemOutput");
+                    assertTrue(itemOutput.has("item"), path.toString());
+                    assertFalse(itemOutput.has("id"), path.toString());
+                }
+
+                if (recipe.has("inputFluid")) {
+                    JsonObject inputFluid = recipe.getAsJsonObject("inputFluid");
+                    assertTrue(inputFluid.has("fluid"), path.toString());
+                    assertFalse(inputFluid.has("tag"), path.toString());
+                }
+            }
+        }
+    }
+
+    @Test
+    void coolingRecipesUseKubeJsFluidField() throws IOException {
+        try (Stream<Path> recipes = Files.walk(RECIPE_ROOT.resolve("cooling"))) {
+            for (Path path : recipes.filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".json"))
+                    .toList()) {
+                JsonObject input = JsonParser.parseString(Files.readString(path))
+                        .getAsJsonObject()
+                        .getAsJsonObject("input");
+
+                assertTrue(input.has("fluid"), path.toString());
+                assertFalse(input.has("tag"), path.toString());
+            }
+        }
     }
 
     @Test
@@ -168,8 +213,18 @@ class GTCEuRecipesGeneratedJsonTest {
 
         JsonObject processorRecipe = gtRecipe("forming_press/superconducting_processor");
         assertTrue(hasItem(processorRecipe, "neoecoae:superconducting_processor_print"));
-        assertTrue(hasItem(processorRecipe, "ae2:printed_silicon"));
+        assertTrue(hasItemTag(processorRecipe, "forge:dusts/silicon"));
         assertTrue(hasItemOutput(processorRecipe, "neoecoae:superconducting_processor"));
+
+        JsonObject inscriberRecipe = recipe("inscriber/superconducting_processor");
+        assertEquals("ae2:inscriber", inscriberRecipe.get("type").getAsString());
+        assertEquals(
+                "forge:plates/silicon",
+                inscriberRecipe
+                        .getAsJsonObject("ingredients")
+                        .getAsJsonObject("bottom")
+                        .get("tag")
+                        .getAsString());
     }
 
     @Test
@@ -259,6 +314,17 @@ class GTCEuRecipesGeneratedJsonTest {
             JsonObject ingredient =
                     element.getAsJsonObject().getAsJsonObject("content").getAsJsonObject("ingredient");
             if (ingredient.has("tag") && ingredient.get("tag").getAsString().startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasItemTag(JsonObject recipe, String tag) {
+        for (var element : recipe.getAsJsonObject("inputs").getAsJsonArray("item")) {
+            JsonObject ingredient =
+                    element.getAsJsonObject().getAsJsonObject("content").getAsJsonObject("ingredient");
+            if (ingredient.has("tag") && tag.equals(ingredient.get("tag").getAsString())) {
                 return true;
             }
         }

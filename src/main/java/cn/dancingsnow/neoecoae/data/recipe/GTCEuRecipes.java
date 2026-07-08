@@ -156,7 +156,7 @@ public final class GTCEuRecipes {
         formingPress("superconducting_processor", HV, 200)
                 .itemInput(ne("crystal_matrix"), 1)
                 .itemInput(ne("superconducting_processor_print"), 1)
-                .itemInput("ae2:printed_silicon", 1)
+                .itemInputTag(forge("dusts/silicon"), 1)
                 .itemOutput(ne("superconducting_processor"), 1)
                 .save(provider);
     }
@@ -478,6 +478,7 @@ public final class GTCEuRecipes {
         public JsonObject serializeRecipe() {
             JsonObject json = new JsonObject();
             writeGTRecipe(json);
+            validate(json);
             return json;
         }
 
@@ -541,6 +542,70 @@ public final class GTCEuRecipes {
                 }
                 json.add("tickInputs", tickInputs);
             }
+        }
+
+        private void validate(JsonObject json) {
+            if (!type.startsWith(GTCEU + ":")) {
+                throw invalid("recipe type must be a GTCEu id, got " + type);
+            }
+            if (duration <= 0) {
+                throw invalid("duration must be positive");
+            }
+            if (eu <= 0) {
+                throw invalid("EU/t must be positive");
+            }
+            if (itemInputs.isEmpty() && fluidInputs.isEmpty()) {
+                throw invalid("must have at least one input");
+            }
+            if (itemOutputs.isEmpty() && fluidOutputs.isEmpty()) {
+                throw invalid("must have at least one output");
+            }
+
+            validateContents("item input", itemInputs, GTRecipe::validateSizedItemContent);
+            validateContents("item output", itemOutputs, GTRecipe::validateSizedItemContent);
+            validateContents("fluid input", fluidInputs, GTRecipe::validateFluidContent);
+            validateContents("fluid output", fluidOutputs, GTRecipe::validateFluidContent);
+
+            if (!json.has("tickInputs") || !json.getAsJsonObject("tickInputs").has("eu")) {
+                throw invalid("must have EU tick input");
+            }
+        }
+
+        private static void validateContents(
+                String label, List<JsonObject> contents, java.util.function.Consumer<JsonObject> validator) {
+            for (JsonObject wrapper : contents) {
+                if (!wrapper.has("content") || !wrapper.get("content").isJsonObject()) {
+                    throw new IllegalStateException("GTCEu " + label + " is missing content object");
+                }
+                validator.accept(wrapper.getAsJsonObject("content"));
+            }
+        }
+
+        private static void validateSizedItemContent(JsonObject content) {
+            if (!gt("sized").equals(content.get("type").getAsString())) {
+                throw new IllegalStateException("GTCEu item content must use gtceu:sized");
+            }
+            if (!content.has("count") || content.get("count").getAsInt() <= 0) {
+                throw new IllegalStateException("GTCEu item content count must be positive");
+            }
+            JsonObject ingredient = content.getAsJsonObject("ingredient");
+            if (ingredient == null || !(ingredient.has("item") || ingredient.has("tag"))) {
+                throw new IllegalStateException("GTCEu item ingredient must contain item or tag");
+            }
+        }
+
+        private static void validateFluidContent(JsonObject content) {
+            if (!content.has("amount") || content.get("amount").getAsInt() <= 0) {
+                throw new IllegalStateException("GTCEu fluid content amount must be positive");
+            }
+            JsonObject value = content.getAsJsonObject("value");
+            if (value == null || !value.has("fluid")) {
+                throw new IllegalStateException("GTCEu fluid content must contain value.fluid");
+            }
+        }
+
+        private IllegalStateException invalid(String message) {
+            return new IllegalStateException("Invalid GTCEu recipe " + id + ": " + message);
         }
 
         private void addConditions(JsonObject json) {
