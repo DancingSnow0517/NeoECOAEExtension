@@ -144,7 +144,14 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public Snapshot createSnapshot() {
         return new Snapshot(
-            isBusy, progress, MAX_PROGRESS, getOccupiedThreadSlots(), getOutputItem(), getRemainingItems()
+            isBusy,
+            progress,
+            MAX_PROGRESS,
+            getOccupiedThreadSlots(),
+            getOutputItem(),
+            getRemainingItems(),
+            outputsReady,
+            craftingJobId
         );
     }
 
@@ -457,22 +464,6 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         for (Object2LongMap.Entry<AEKey> entry : stacks) {
             long inserted = storage.insert(entry.getKey(), entry.getLongValue(), Actionable.SIMULATE, actionSource);
             if (inserted != entry.getLongValue()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean canEjectAll(CraftingService craftingService, MEStorage storage, KeyCounter stacks) {
-        for (Object2LongMap.Entry<AEKey> entry : stacks) {
-            long remaining = entry.getLongValue();
-            remaining -= craftingService.insertIntoCpus(entry.getKey(), remaining, Actionable.SIMULATE);
-            if (remaining <= 0) {
-                continue;
-            }
-
-            long inserted = storage.insert(entry.getKey(), remaining, Actionable.SIMULATE, actionSource);
-            if (inserted != remaining) {
                 return false;
             }
         }
@@ -866,6 +857,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         int maxProgress,
         int occupiedThreadSlots,
         ItemStack outputItem,
-        List<ItemStack> remainingItems
+        List<ItemStack> remainingItems,
+        boolean outputsReady,
+        @Nullable UUID craftingJobId
     ) {}
 }

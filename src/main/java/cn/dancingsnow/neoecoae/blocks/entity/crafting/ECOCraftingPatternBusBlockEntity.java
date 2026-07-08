@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.crafting;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
+import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingProvider;
@@ -19,26 +20,36 @@ import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
 import dev.vfyjxf.taffy.style.AlignContent;
+import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -63,12 +74,30 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     public static final int ROW_SIZE = 9;
     public static final int COL_SIZE = 7;
+    private static final int PAGE_BUTTON_SIZE = 16;
+    private static final int PAGE_CONTROL_GAP = 4;
+    private static final int HEADER_HEIGHT = 36;
+    private static final int HEADER_TITLE_TOP = 2;
+    private static final int PAGE_TOP_MARGIN = 19;
+    private static final int PAGE_RIGHT_MARGIN = 2;
+    private static final int PAGE_CONTROLS_OFFSET_X = 1;
+    private static final int PAGE_LABEL_WIDTH = 16;
+    private static final int UI_CONTENT_WIDTH = ROW_SIZE * 18;
+    private static final int PAGE_CONTROLS_WIDTH = PAGE_BUTTON_SIZE * 2 + PAGE_CONTROL_GAP * 2 + PAGE_LABEL_WIDTH;
+    public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
 
     @Persisted
     @DescSynced
     private final AppEngInternalInventory inventory;
+    private final InternalInventory effectiveInventory = new EffectivePatternInventory();
+    private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
     public final IItemHandlerModifiable itemHandler;
+    @Persisted
+    @DescSynced
+    private int activePages = NEConfig.getCraftingPatternBusPages();
+    @DescSynced
+    private int currentPage;
     private int nextWorkerIndex = 0;
 
     @Override
@@ -237,7 +266,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public InternalInventory getTerminalPatternInventory() {
-        return inventory;
+        return effectiveInventory;
     }
 
     @Override
@@ -261,22 +290,24 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean insertPattern(ItemStack itemStack) {
-        ItemStack result = inventory.addItems(itemStack.copy());
+        ItemStack result = effectiveInventory.addItems(itemStack.copy());
         return result.isEmpty();
     }
 
     class AEEncodedPatternFilter implements IAEItemFilter {
         @Override
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
-            return PatternDetailsHelper.decodePattern(stack, level) instanceof IMolecularAssemblerSupportedPattern;
+            return slot >= 0
+                && slot < getPatternSlotCount()
+                && PatternDetailsHelper.decodePattern(stack, level) instanceof IMolecularAssemblerSupportedPattern;
         }
     }
 
     public ECOCraftingPatternBusBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
-        this.inventory = new AppEngInternalInventory(this, ROW_SIZE * COL_SIZE);
+        this.inventory = new AppEngInternalInventory(this, NEConfig.getMaxCraftingPatternBusSlotCount());
         this.inventory.setFilter(new AEEncodedPatternFilter());
-        this.itemHandler = (IItemHandlerModifiable) inventory.toItemHandler();
+        this.itemHandler = (IItemHandlerModifiable) effectiveInventory.toItemHandler();
         this.getMainNode().addService(ICraftingProvider.class, this)
             .addService(IECOPatternStorage.class, this);
     }
@@ -300,7 +331,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     private void updatePatternDetails() {
         patternDetails.clear();
-        for (ItemStack itemStack : this.inventory) {
+        for (ItemStack itemStack : this.effectiveInventory) {
             IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, this.level);
             if (details != null) {
                 patternDetails.add(details);
@@ -322,7 +353,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        IntStream.range(0, ROW_SIZE * COL_SIZE)
+        IntStream.range(0, inventory.size())
             .mapToObj(inventory::getStackInSlot)
             .filter(s -> !s.isEmpty())
             .forEach(drops::add);
@@ -331,22 +362,20 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         UIElement root = new UIElement().layout(layout -> layout
             .paddingAll(4)
+            .paddingBottom(6)
             .gapAll(2)
+            .width(UI_CONTENT_WIDTH + 8)
             .justifyContent(AlignContent.CENTER)
         ).addClass("panel_bg");
 
-        root.addChild(new TextElement()
-            .setText(Component.translatable("block.neoecoae.crafting_pattern_bus"))
-            .textStyle(textStyle -> textStyle
-                .textWrap(TextWrap.HOVER_ROLL)
-                .adaptiveHeight(true)));
+        root.addChild(headerRow());
 
         UIElement patternInv = new UIElement().addClass("panel_border");
         for (int row = 0; row < COL_SIZE; row++) {
             UIElement rowInv = new UIElement().layout(layout -> layout.flexDirection(FlexDirection.ROW));
             for (int col = 0; col < ROW_SIZE; col++) {
                 int slotIndex = row * ROW_SIZE + col;
-                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(itemHandler, slotIndex))
+                UIElement slot = new PatternItemSlot(new ItemHandlerSlot(pageItemHandler, slotIndex))
                     .slotStyle(slotStyle -> slotStyle.slotOverlay(NETextures.PATTERN_OVERLAY));
                 rowInv.addChild(slot);
             }
@@ -355,5 +384,212 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         root.addChild(patternInv);
         root.addChild(new InventorySlots().layout(layout -> layout.marginTop(5)));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private UIElement headerRow() {
+        UIElement row = new UIElement().layout(layout -> {
+            layout.width(UI_CONTENT_WIDTH);
+            layout.height(HEADER_HEIGHT);
+        });
+        row.addChild(new TextElement()
+            .setText(Component.translatable("block.neoecoae.crafting_pattern_bus"))
+            .textStyle(textStyle -> textStyle
+                .textWrap(TextWrap.HOVER_ROLL)
+                .adaptiveHeight(true))
+            .layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(0);
+                layout.top(HEADER_TITLE_TOP);
+                layout.width(UI_CONTENT_WIDTH);
+                layout.height(12);
+            }));
+        row.addChild(pageControls());
+        return row;
+    }
+
+    private UIElement pageControls() {
+        UIElement controls = new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(UI_CONTENT_WIDTH - PAGE_RIGHT_MARGIN - PAGE_CONTROLS_WIDTH + PAGE_CONTROLS_OFFSET_X);
+            layout.top(PAGE_TOP_MARGIN);
+            layout.width(PAGE_CONTROLS_WIDTH);
+            layout.height(PAGE_BUTTON_SIZE);
+        });
+        controls.addChild(pageButton("<", () -> changePage(currentPage - 1)).layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(0);
+            layout.top(0);
+            layout.width(PAGE_BUTTON_SIZE);
+            layout.height(PAGE_BUTTON_SIZE);
+        }));
+        controls.addChild(new PageNumberElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP);
+            layout.top(0);
+            layout.width(PAGE_LABEL_WIDTH);
+            layout.height(PAGE_BUTTON_SIZE);
+        }));
+        controls.addChild(pageButton(">", () -> changePage(currentPage + 1)).layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP + PAGE_LABEL_WIDTH + PAGE_CONTROL_GAP);
+            layout.top(0);
+            layout.width(PAGE_BUTTON_SIZE);
+            layout.height(PAGE_BUTTON_SIZE);
+        }));
+        return controls;
+    }
+
+    private Button pageButton(String text, Runnable action) {
+        Button button = new Button().setText(text);
+        button.setOnServerClick(event -> action.run());
+        return button;
+    }
+
+    private final class PageNumberElement extends UIElement implements IBindable<Integer> {
+        private int syncedPageCount = getPageCount();
+
+        private PageNumberElement() {
+            bind(DataBindingBuilder.intValS2C(ECOCraftingPatternBusBlockEntity.this::getPageCount).build());
+        }
+
+        @Override
+        public IDataSource<Integer> setValue(@Nullable Integer value) {
+            syncedPageCount = value == null ? getPageCount() : Math.max(1, value);
+            return this;
+        }
+
+        @Override
+        public Integer getValue() {
+            return syncedPageCount;
+        }
+
+        @Override
+        public void drawContents(GUIContext guiContext) {
+            Font font = Minecraft.getInstance().font;
+            Component text = Component.literal((currentPage + 1) + "/" + syncedPageCount);
+            int x = (int)getPositionX() + Math.round((getSizeWidth() - font.width(text)) / 2.0F);
+            int y = (int)getPositionY() + Math.round((getSizeHeight() - font.lineHeight) / 2.0F);
+            guiContext.graphics.drawString(font, text, x, y, 0x3F3D52, false);
+        }
+    }
+
+    public int getPageCount() {
+        activePages = clampPages(Math.max(
+            activePages,
+            Math.max(NEConfig.getCraftingPatternBusPages(), getHighestOccupiedPage())
+        ));
+        currentPage = Math.clamp(currentPage, 0, activePages - 1);
+        return activePages;
+    }
+
+    public int getPatternSlotCount() {
+        return getPageCount() * SLOTS_PER_PAGE;
+    }
+
+    private void changePage(int targetPage) {
+        int pageCount = getPageCount();
+        int clamped = Math.clamp(targetPage, 0, pageCount - 1);
+        if (clamped == currentPage) {
+            return;
+        }
+        currentPage = clamped;
+        setChanged();
+        markForUpdate();
+    }
+
+    private int getHighestOccupiedPage() {
+        for (int slot = inventory.size() - 1; slot >= 0; slot--) {
+            if (!inventory.getStackInSlot(slot).isEmpty()) {
+                return slot / SLOTS_PER_PAGE + 1;
+            }
+        }
+        return 1;
+    }
+
+    private static int clampPages(int pages) {
+        return Math.clamp(pages, NEConfig.PATTERN_BUS_MIN_PAGES, NEConfig.PATTERN_BUS_MAX_PAGES);
+    }
+
+    private final class EffectivePatternInventory extends BaseInternalInventory {
+        @Override
+        public int size() {
+            return getPatternSlotCount();
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return inventory.getSlotLimit(slot);
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return slot >= 0 && slot < size() ? inventory.getStackInSlot(slot) : ItemStack.EMPTY;
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            if (slot >= 0 && slot < size()) {
+                inventory.setItemDirect(slot, stack);
+            }
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return slot >= 0 && slot < size() && inventory.isItemValid(slot, stack);
+        }
+    }
+
+    private final class PagedPatternItemHandler implements IItemHandlerModifiable {
+        @Override
+        public int getSlots() {
+            return SLOTS_PER_PAGE;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            int actualSlot = toActualSlot(slot);
+            return actualSlot >= 0 ? inventory.getStackInSlot(actualSlot) : ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            int actualSlot = toActualSlot(slot);
+            return actualSlot >= 0 ? itemHandler.insertItem(actualSlot, stack, simulate) : stack;
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            int actualSlot = toActualSlot(slot);
+            return actualSlot >= 0 ? itemHandler.extractItem(actualSlot, amount, simulate) : ItemStack.EMPTY;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            int actualSlot = toActualSlot(slot);
+            return actualSlot >= 0 ? itemHandler.getSlotLimit(actualSlot) : 0;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            int actualSlot = toActualSlot(slot);
+            return actualSlot >= 0 && itemHandler.isItemValid(actualSlot, stack);
+        }
+
+        @Override
+        public void setStackInSlot(int slot, ItemStack stack) {
+            int actualSlot = toActualSlot(slot);
+            if (actualSlot >= 0) {
+                itemHandler.setStackInSlot(actualSlot, stack);
+            }
+        }
+
+        private int toActualSlot(int visibleSlot) {
+            if (visibleSlot < 0 || visibleSlot >= SLOTS_PER_PAGE) {
+                return -1;
+            }
+            int page = Math.clamp(currentPage, 0, getPageCount() - 1);
+            int actualSlot = page * SLOTS_PER_PAGE + visibleSlot;
+            return actualSlot < getPatternSlotCount() ? actualSlot : -1;
+        }
     }
 }

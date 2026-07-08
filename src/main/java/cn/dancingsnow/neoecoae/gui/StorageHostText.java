@@ -55,6 +55,26 @@ final class StorageHostText {
         return new UsedTotal(storageBytesWhole(used), storageBytesWhole(max), Component.empty());
     }
 
+    static UsedTotal fullTypeProgress(long used, long max) {
+        return new UsedTotal(number(Math.max(0L, used)), number(Math.max(0L, max)), Component.empty());
+    }
+
+    static UsedTotal fullByteProgressValues(long used, long max) {
+        return new UsedTotal(
+            number(Math.max(0L, used)),
+            number(Math.max(0L, max)),
+            Component.translatable("gui.neoecoae.host.metric.bytes")
+        );
+    }
+
+    static Component fullByteProgress(long used, long max) {
+        return Component.literal(number(Math.max(0L, used)))
+            .append(" / ")
+            .append(number(Math.max(0L, max)))
+            .append(" ")
+            .append(Component.translatable("gui.neoecoae.host.metric.bytes"));
+    }
+
     static int usedValueColor(long used, long max) {
         if (used <= 0 || max <= 0) {
             return USED;

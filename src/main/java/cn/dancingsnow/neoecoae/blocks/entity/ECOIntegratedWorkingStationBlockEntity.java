@@ -946,6 +946,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             }
 
             BlockPos targetPos = worldPosition.relative(worldDir);
+            if (!level.hasChunkAt(targetPos)) {
+                return IGuiTexture.EMPTY;
+            }
             BlockState targetState = level.getBlockState(targetPos);
 
             var item = targetState.getBlock().asItem();

@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.xei.multiblock;
 
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
@@ -63,7 +64,7 @@ public class MultiBlockInfoWrapper {
             .setHeight(170)
             .setPadding(YogaEdge.ALL, 4)
             .setGap(YogaGutter.ALL, 2)
-        ).addClass("panel_bg");
+        ).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
 
         scene = new Scene()
             .createScene(world)
@@ -98,8 +99,14 @@ public class MultiBlockInfoWrapper {
 
         root.addChild(new TextElement()
             .setText(definition.getName())
-            .textStyle(textStyle -> textStyle.textWrap(TextWrap.HOVER_ROLL))
+            .textStyle(textStyle -> textStyle
+                .textWrap(TextWrap.WRAP)
+                .fontSize(8.5f)
+                .lineSpacing(1)
+                .textShadow(true))
             .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
+                .setWidth(145)
+                .setHeight(20)
                 .setPosition(YogaEdge.LEFT, 2)
                 .setPosition(YogaEdge.TOP, 2)));
 
@@ -107,7 +114,7 @@ public class MultiBlockInfoWrapper {
             .bindDataSource(SupplierDataSource.of(() -> selectedItem))
             .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
                 .setPosition(YogaEdge.LEFT, 2)
-                .setPosition(YogaEdge.TOP, 14))
+                .setPosition(YogaEdge.TOP, 25))
             .addClass("panel_border"));
 
         requiredItems = new ScrollerView();
@@ -207,6 +214,7 @@ public class MultiBlockInfoWrapper {
 
         private RequiredItemSlot(int count) {
             this.count = count;
+            getStyle().backgroundTexture(NETextures.ITEM_SLOT);
         }
 
         @Override

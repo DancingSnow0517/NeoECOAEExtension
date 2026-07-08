@@ -62,10 +62,12 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
         this.cellStack = cellStack;
-        if (cellStack != null) {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, true));
-        } else {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, false));
+        if (getLevel() != null && !isServerStopping()) {
+            BlockState state = getBlockState();
+            BlockState newState = state.setValue(ECODriveBlock.HAS_CELL, cellStack != null);
+            if (newState != state) {
+                getLevel().setBlockAndUpdate(getBlockPos(), newState);
+            }
         }
         updateState();
         this.cellStack = cellStack;
@@ -78,6 +80,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     private void updateState() {
+        if (isServerStopping()) {
+            return;
+        }
         double power = 256;
         if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
             IECOTier mainTier = storageCluster.getController().getTier();
@@ -135,6 +140,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        if (isServerStopping()) {
+            return;
+        }
         super.onMainNodeStateChanged(reason);
         online = getMainNode().isOnline();
         setChanged();

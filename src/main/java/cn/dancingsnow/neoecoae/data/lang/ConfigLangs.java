@@ -30,6 +30,18 @@ public class ConfigLangs {
             "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n" +
                 "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
         );
+        provider.add("neoecoae.configuration.storageHostComponentSlots", "Storage Host Inventory Slots");
+        provider.add(
+            "neoecoae.configuration.storageHostComponentSlots.tooltip",
+            "Show the reserved component slot and player inventory in the ECO storage controller UI.\n" +
+                "This only changes the UI layout; disable it to use the compact status-only screen."
+        );
+        provider.add("neoecoae.configuration.craftingPatternBusPages", "Crafting Pattern Bus Pages");
+        provider.add(
+            "neoecoae.configuration.craftingPatternBusPages.tooltip",
+            "Number of pattern pages exposed by one ECO smart pattern bus.\n" +
+                "Each page stores 63 encoded patterns."
+        );
 
         provider.add("neoecoae.configuration.fastPath", "Fast Path");
         provider.add(

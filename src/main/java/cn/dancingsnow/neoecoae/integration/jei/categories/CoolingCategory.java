@@ -69,7 +69,7 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
 
     @Override
     public int getHeight() {
-        return 50;
+        return 60;
     }
 
     @Override
@@ -97,6 +97,14 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
             Component.translatable("category.neoecoae.cooling.coolant", recipe.value().coolant()),
             0,
             0,
+            0,
+            false
+        );
+        guiGraphics.drawString(
+            Minecraft.getInstance().font,
+            Component.translatable("category.neoecoae.cooling.max_overclock", recipe.value().maxOverclock()),
+            0,
+            10,
             0,
             false
         );

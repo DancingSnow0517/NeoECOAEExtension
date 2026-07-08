@@ -59,6 +59,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.relative_side.right", "Right");
         provider.add("gui.neoecoae.relative_side.top", "Top");
         provider.add("gui.neoecoae.relative_side.bottom", "Bottom");
+        provider.add("gui.neoecoae.common.yes", "Yes");
+        provider.add("gui.neoecoae.common.no", "No");
+        provider.add("gui.neoecoae.common.on", "On");
+        provider.add("gui.neoecoae.common.off", "Off");
+        provider.add("gui.neoecoae.machine.formed", "Formed");
 
         // storage
         provider.add("gui.neoecoae.storage.energy", "Energy Monitoring");
@@ -119,6 +124,19 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %d (%d%%)");
         provider.add("gui.neoecoae.crafting.tasks", "Crafting Tasks");
         provider.add("gui.neoecoae.crafting.no_tasks", "No active tasks");
+        provider.add("gui.neoecoae.crafting.ui.status", "Status");
+        provider.add("gui.neoecoae.crafting.ui.stats", "Stats");
+        provider.add("gui.neoecoae.crafting.ui.energy_cooling", "Energy / Cooling");
+        provider.add("gui.neoecoae.crafting.ui.overclock_short", "OC");
+        provider.add("gui.neoecoae.crafting.ui.cooling_short", "Cool");
+        provider.add("gui.neoecoae.crafting.ui.energy_short", "AE");
+        provider.add("gui.neoecoae.crafting.ui.recipe_slots", "Slots");
+        provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");
+        provider.add("gui.neoecoae.crafting.ui.patterns_short", "PB");
+        provider.add("gui.neoecoae.crafting.ui.ft_cores_short", "FT");
+        provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");
+        provider.add("gui.neoecoae.crafting.performance", "Performance");
+        provider.add("gui.neoecoae.crafting.performance_short", "Performance");
         provider.add("gui.neoecoae.crafting.task.amount", "Amount: %s");
         provider.add("gui.neoecoae.crafting.task.crafts", "Crafts: %s");
         provider.add("gui.neoecoae.crafting.task.time", "Time: %s / %s");
@@ -129,8 +147,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.overclock_status", "Theoretical Overclock: %d, Effective Overclock: %d");
         provider.add("gui.neoecoae.crafting.overclock_status.disabled", "Theoretical Overclock: 0, Effective Overclock: 0");
         provider.add("gui.neoecoae.crafting.enable_overlock", "Enable Overlock: ");
+        provider.add("gui.neoecoae.crafting.overclock.on", "Disable Overclock");
+        provider.add("gui.neoecoae.crafting.overclock.off", "Enable Overclock");
         provider.add("gui.neoecoae.crafting.overclocked.tooltip", "Boosting performance within a limited range while consuming more §cEnergy§f.");
         provider.add("gui.neoecoae.crafting.enable_active_cooling", "Enable Active Cooling: ");
+        provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
+        provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
         provider.add("gui.neoecoae.crafting.active_cooling.tooltip", "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.");
         provider.add("gui.neoecoae.crafting.clear_coolant", "Clear");
         provider.add("gui.neoecoae.crafting.clear_coolant.tooltip", "Clears the cached coolant so you can switch to a different coolant.");

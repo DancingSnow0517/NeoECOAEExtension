@@ -144,6 +144,7 @@
 		},
 		{
 			"name": "body_connector",
+			"shade": false,
 			"from": [8, 0, 1],
 			"to": [9, 16, 16],
 			"faces": {

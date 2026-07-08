@@ -19,7 +19,6 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.util.Mth;
 
 import it.unimi.dsi.fastutil.objects.Reference2LongMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
@@ -119,7 +118,7 @@ public class ElapsedTimeTracker {
             completedUnits += completedForType / (double) keyType.getAmountPerUnit();
         }
 
-        return Mth.clamp((float) (completedUnits / startedUnits), 0, 1);
+        return Math.clamp((float) (completedUnits / startedUnits), 0, 1);
     }
 
     @Deprecated(forRemoval = true)

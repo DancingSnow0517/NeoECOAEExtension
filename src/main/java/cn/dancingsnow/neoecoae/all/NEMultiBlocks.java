@@ -120,15 +120,18 @@ public class NEMultiBlocks {
             .expandMax(NEConfig.craftingSystemMaxLength - 4)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
+                BlockState newState = state;
                 if (state.hasProperty(NEBlock.FORMED)) {
-                    state = state.setValue(NEBlock.FORMED, true);
+                    newState = newState.setValue(NEBlock.FORMED, true);
                 }
-                if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
                     Vec3 myPos = pos.getCenter();
                     Vec3 controllerPos = new Vec3(1.5, 1.5, 0.5);
-                    state = state.setValue(ECOMachineCasing.INVISIBLE, myPos.distanceToSqr(controllerPos) <= 3);
+                    newState = newState.setValue(ECOMachineCasing.INVISIBLE, myPos.distanceToSqr(controllerPos) <= 3);
                 }
-                level.setBlockAndUpdate(pos, state);
+                if (newState != state) {
+                    level.setBlockAndUpdate(pos, newState);
+                }
             })
             .create(DEFINITIONS::add);
     }
@@ -187,15 +190,18 @@ public class NEMultiBlocks {
             .expandMax(NEConfig.computationSystemMaxLength - 4)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
+                BlockState newState = state;
                 if (state.hasProperty(NEBlock.FORMED)) {
-                    state = state.setValue(NEBlock.FORMED, true);
+                    newState = newState.setValue(NEBlock.FORMED, true);
                 }
-                if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
-                    state = state.setValue(ECOMachineCasing.INVISIBLE, true);
+                if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                    newState = newState.setValue(ECOMachineCasing.INVISIBLE, true);
                 }
-                BlockEntity be = level.getBlockEntity(pos);
-                level.setBlockAndUpdate(pos, state);
-                if (be != null)level.setBlockEntity(be);
+                if (newState != state) {
+                    BlockEntity be = level.getBlockEntity(pos);
+                    level.setBlockAndUpdate(pos, newState);
+                    if (be != null) level.setBlockEntity(be);
+                }
             })
             .create(DEFINITIONS::add);
     }
@@ -230,15 +236,18 @@ public class NEMultiBlocks {
             .expandMax(NEConfig.storageSystemMaxLength - 3)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
+                BlockState newState = state;
                 if (state.hasProperty(NEBlock.FORMED)) {
-                    state = state.setValue(NEBlock.FORMED, true);
+                    newState = newState.setValue(NEBlock.FORMED, true);
                 }
-                if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
                     Vec3 myPos = pos.getCenter();
                     Vec3 controllerPos = new Vec3(1.5, 1.5, 0.5);
-                    state = state.setValue(ECOMachineCasing.INVISIBLE, myPos.distanceToSqr(controllerPos) <= 3);
+                    newState = newState.setValue(ECOMachineCasing.INVISIBLE, myPos.distanceToSqr(controllerPos) <= 3);
                 }
-                level.setBlockAndUpdate(pos, state);
+                if (newState != state) {
+                    level.setBlockAndUpdate(pos, newState);
+                }
             })
             .create();
     }

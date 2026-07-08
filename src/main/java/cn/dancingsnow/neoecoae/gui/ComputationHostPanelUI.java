@@ -28,7 +28,6 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -44,7 +43,6 @@ public final class ComputationHostPanelUI {
     public static final int PANEL_HEIGHT = 200;
 
     private static final int CPU_MODE_BUTTON_SIZE = 18;
-    private static final int CPU_MODE_BUTTON_OFFSET = 2;
     private static final int LEFT_CAPACITY_HEIGHT = 108;
     private static final int LEFT_INVENTORY_HEIGHT = 88;
     private static final int PANEL_PADDING = 2;
@@ -91,7 +89,10 @@ public final class ComputationHostPanelUI {
             () -> Component.translatable("gui.neoecoae.host.computation.cpu_storage"),
             () -> StorageHostText.byteProgress(config.usedBytes().getAsLong(), config.totalBytes().getAsLong()),
             config.usedBytes(),
-            config.totalBytes()
+            config.totalBytes(),
+            () -> Component.translatable("gui.neoecoae.host.computation.cpu_storage")
+                .append(": ")
+                .append(StorageHostText.fullByteProgress(config.usedBytes().getAsLong(), config.totalBytes().getAsLong()))
         ));
         panel.addScrollViewChild(usageProgressRow(
             () -> Component.translatable("gui.neoecoae.host.computation.thread_usage"),
@@ -113,21 +114,7 @@ public final class ComputationHostPanelUI {
     }
 
     public static Button createCpuSelectionButton(Config config) {
-        Button button = new Button();
-        UIElement icon = cpuSelectionIcon(config.cpuSelectionMode().get());
-        button.noText();
-        button.addChild(icon);
-        button.setOnServerClick(event -> config.cycleCpuSelectionMode().run());
-        button.addEventListener(UIEvents.TICK, event -> icon.style(style -> style.backgroundTexture(cpuSelectionModeIcon(config.cpuSelectionMode().get()))));
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-            List.of(
-                ButtonToolTips.CpuSelectionMode.text(),
-                cpuSelectionModeTooltip(config.cpuSelectionMode().get())
-            ),
-            null,
-            null,
-            null
-        ));
+        Button button = new CpuSelectionModeButton(config);
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
         return button;
     }
@@ -155,6 +142,15 @@ public final class ComputationHostPanelUI {
             case PLAYER_ONLY -> ButtonToolTips.CpuSelectionModePlayersOnly.text();
             case MACHINE_ONLY -> ButtonToolTips.CpuSelectionModeAutomationOnly.text();
         };
+    }
+
+    private static CpuSelectionMode cpuSelectionModeFromOrdinal(Integer ordinal) {
+        CpuSelectionMode[] values = CpuSelectionMode.values();
+        int index = ordinal == null ? CpuSelectionMode.ANY.ordinal() : ordinal;
+        if (index < 0 || index >= values.length) {
+            return CpuSelectionMode.ANY;
+        }
+        return values[index];
     }
 
     public static UIElement createInventoryPanel() {
@@ -202,15 +198,20 @@ public final class ComputationHostPanelUI {
         LongSupplier used,
         LongSupplier max
     ) {
+        return usageProgressRow(label, text, used, max, null);
+    }
+
+    private static UIElement usageProgressRow(
+        Supplier<Component> label,
+        Supplier<StorageHostText.UsedTotal> text,
+        LongSupplier used,
+        LongSupplier max,
+        Supplier<Component> tooltip
+    ) {
         UIElement row = StorageHostElements.horizontalRow(10, 2);
         row.addChild(StorageHostElements.textSegment(label, () -> StorageHostText.MUTED)
             .layout(layout -> layout.width(PROGRESS_ROW_LABEL_WIDTH)));
-        row.addChild(new ProgressBar()
-            .label(progressLabel -> progressLabel.setText(""))
-            .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
-            .bind(DataBindingBuilder.floatValS2C(() -> StorageHostText.usageRatio(used.getAsLong(), max.getAsLong())).build())
-            .layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4))
-            .addClass("eco-host-progress"));
+        row.addChild(progressBar(used, max, tooltip));
 
         UIElement value = StorageHostElements.horizontalRow(10, 0);
         value.addChild(StorageHostElements.textSegment(
@@ -223,12 +224,91 @@ public final class ComputationHostPanelUI {
         return row;
     }
 
+    private static UIElement progressBar(LongSupplier used, LongSupplier max, Supplier<Component> tooltip) {
+        if (tooltip != null) {
+            return new TooltipProgressBarElement(used, max, tooltip)
+                .layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4));
+        }
+        return syncedProgressBar(used, max)
+            .layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4));
+    }
+
+    private static ProgressBar syncedProgressBar(LongSupplier used, LongSupplier max) {
+        ProgressBar progressBar = new ProgressBar();
+        progressBar
+            .label(progressLabel -> progressLabel.setText(""))
+            .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
+            .bind(DataBindingBuilder.floatValS2C(() -> StorageHostText.usageRatio(used.getAsLong(), max.getAsLong())).build());
+        progressBar.addClass("eco-host-progress");
+        return progressBar;
+    }
+
     private static UIElement valueRow(Supplier<Component> label, Supplier<Component> value, java.util.function.IntSupplier color) {
         UIElement row = StorageHostElements.horizontalRow(10, 2);
         row.addChild(StorageHostElements.textSegment(label, () -> StorageHostText.MUTED)
             .layout(layout -> layout.width(PROGRESS_ROW_LABEL_WIDTH)));
         row.addChild(StorageHostElements.textSegment(value, color));
         return row;
+    }
+
+    private static final class TooltipProgressBarElement extends UIElement implements IBindable<Component> {
+        private Component tooltip;
+
+        private TooltipProgressBarElement(LongSupplier used, LongSupplier max, Supplier<Component> tooltip) {
+            this.tooltip = tooltip.get();
+            bind(DataBindingBuilder.componentS2C(tooltip).build());
+            addChild(syncedProgressBar(used, max)
+                .layout(layout -> layout.widthPercent(100).height(4)));
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+                event.hoverTooltips = HoverTooltips.empty().append(this.tooltip));
+        }
+
+        @Override
+        public IDataSource<Component> setValue(Component value) {
+            tooltip = value == null ? Component.empty() : value;
+            return this;
+        }
+
+        @Override
+        public Component getValue() {
+            return tooltip;
+        }
+    }
+
+    private static final class CpuSelectionModeButton extends Button implements IBindable<Integer> {
+        private final UIElement icon;
+        private CpuSelectionMode syncedMode;
+
+        private CpuSelectionModeButton(Config config) {
+            syncedMode = config.cpuSelectionMode().get();
+            icon = cpuSelectionIcon(syncedMode);
+            noText();
+            addChild(icon);
+            setOnServerClick(event -> config.cycleCpuSelectionMode().run());
+            bind(DataBindingBuilder.intValS2C(() -> config.cpuSelectionMode().get().ordinal()).build());
+            addEventListener(UIEvents.TICK, event ->
+                icon.style(style -> style.backgroundTexture(cpuSelectionModeIcon(syncedMode))));
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+                List.of(
+                    ButtonToolTips.CpuSelectionMode.text(),
+                    cpuSelectionModeTooltip(syncedMode)
+                ),
+                null,
+                null,
+                null
+            ));
+        }
+
+        @Override
+        public IDataSource<Integer> setValue(Integer value) {
+            syncedMode = cpuSelectionModeFromOrdinal(value);
+            return this;
+        }
+
+        @Override
+        public Integer getValue() {
+            return syncedMode.ordinal();
+        }
     }
 
     private static final class TaskListElement extends UIElement implements IBindable<CompoundTag> {
@@ -280,8 +360,7 @@ public final class ComputationHostPanelUI {
                 Component.translatable("gui.neoecoae.crafting.tasks").getString(),
                 x + 8,
                 y + 6,
-                StorageHostText.PRIMARY,
-                1.0F
+                StorageHostText.PRIMARY
             );
             drawRightString(
                 guiContext,
@@ -301,8 +380,7 @@ public final class ComputationHostPanelUI {
                     emptyText,
                     x + (RIGHT_TASK_PANEL_WIDTH - font.width(emptyText)) / 2.0F,
                     y + RIGHT_TASK_PANEL_HEIGHT / 2.0F - 4.0F,
-                    StorageHostText.MUTED,
-                    1.0F);
+                    StorageHostText.MUTED);
                 return;
             }
 
@@ -473,7 +551,7 @@ public final class ComputationHostPanelUI {
             }
             int height = Math.max(1, TASK_LIST_BOTTOM_Y - TASK_CARD_Y);
             guiContext.graphics.fill((int)x, (int)y, (int)x + TASK_SCROLLBAR_WIDTH, (int)y + height, 0xAA17141E);
-            int thumbHeight = Math.max(10, height * visible / Math.max(visible, total));
+            int thumbHeight = Math.max(10, height * visible / total);
             int maxOffset = Math.max(1, total - visible);
             int thumbY = (int)y + Math.round((height - thumbHeight) * (scrollOffset / (float)maxOffset));
             guiContext.graphics.fill((int)x, thumbY, (int)x + TASK_SCROLLBAR_WIDTH, thumbY + thumbHeight, 0xFF8B83A0);
@@ -481,27 +559,20 @@ public final class ComputationHostPanelUI {
 
         private static int visibleTaskCardCount() {
             int space = TASK_LIST_BOTTOM_Y - TASK_CARD_Y;
-            if (space < TASK_CARD_HEIGHT) {
-                return 1;
-            }
             return Math.max(1, 1 + (space - TASK_CARD_HEIGHT) / TASK_CARD_STRIDE);
         }
 
         private static int clampTaskScrollOffset(int value, int total) {
             int visible = visibleTaskCardCount();
-            return Mth.clamp(value, 0, Math.max(0, total - visible));
+            return Math.clamp(value, 0, Math.max(0, total - visible));
         }
 
         private static void drawRightString(GUIContext guiContext, Font font, String text, float rightX, float y, int color) {
-            drawString(guiContext, font, text, rightX - font.width(text), y, color, 1.0F);
+            drawString(guiContext, font, text, rightX - font.width(text), y, color);
         }
 
-        private static void drawString(GUIContext guiContext, Font font, String text, float x, float y, int color, float scale) {
-            guiContext.graphics.pose().pushPose();
-            guiContext.graphics.pose().translate(x, y, 0);
-            guiContext.graphics.pose().scale(scale, scale, 1.0F);
-            guiContext.graphics.drawString(font, text, 0, 0, color, false);
-            guiContext.graphics.pose().popPose();
+        private static void drawString(GUIContext guiContext, Font font, String text, float x, float y, int color) {
+            guiContext.graphics.drawString(font, text, x, y, color, false);
         }
     }
 }

@@ -62,20 +62,25 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
-            int powerMultiply = 1;
-            if (controller.isOverclocked() && !controller.isActiveCooling()) {
-                powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
-            }
-            int overlockTimes = controller.getEffectiveOverclockTimes();
-            TickRateModulation rate = TickRateModulation.IDLE;
-            for (ECOCraftingThread thread : craftingThreads) {
-                TickRateModulation r = thread.tick(overlockTimes, powerMultiply, ticksSinceLastCall);
-                if (r.ordinal() > rate.ordinal()) {
-                    rate = r;
+            long startNanos = System.nanoTime();
+            try {
+                int powerMultiply = 1;
+                if (controller.isOverclocked() && !controller.isActiveCooling()) {
+                    powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
                 }
+                int overlockTimes = controller.getEffectiveOverclockTimes();
+                TickRateModulation rate = TickRateModulation.IDLE;
+                for (ECOCraftingThread thread : craftingThreads) {
+                    TickRateModulation r = thread.tick(overlockTimes, powerMultiply, ticksSinceLastCall);
+                    if (r.ordinal() > rate.ordinal()) {
+                        rate = r;
+                    }
+                }
+                setChanged();
+                return rate;
+            } finally {
+                controller.recordPerformanceSample(System.nanoTime() - startNanos);
             }
-            setChanged();
-            return rate;
         } else {
             return TickRateModulation.IDLE;
         }
@@ -207,6 +212,29 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
         }
         return 0;
+    }
+
+    public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {
+        List<ECOCraftingThread.Snapshot> snapshots = new ArrayList<>();
+        for (ECOCraftingThread thread : craftingThreads) {
+            ECOCraftingThread.Snapshot snapshot = thread.createSnapshot();
+            if (snapshot.busy()) {
+                snapshots.add(snapshot);
+            }
+        }
+        return List.copyOf(snapshots);
+    }
+
+    public ItemStack getActiveCraftOutput() {
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree()) {
+                ItemStack output = thread.getOutputItem();
+                if (!output.isEmpty()) {
+                    return output;
+                }
+            }
+        }
+        return ItemStack.EMPTY;
     }
 
     private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {

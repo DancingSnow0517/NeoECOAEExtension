@@ -24,7 +24,6 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -60,6 +59,9 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     private void emitPowerEvent(GridPowerStorageStateChanged.PowerEventType type) {
+        if (isServerStopping()) {
+            return;
+        }
         getMainNode().ifPresent(
             grid -> grid.postEvent(new GridPowerStorageStateChanged(this, type)));
     }
@@ -117,6 +119,9 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     private void onEnergyChanged() {
+        if (isServerStopping()) {
+            return;
+        }
         setChangedNoTicketUpdate();
 
         if (!neighborChangePending) {
@@ -150,6 +155,9 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     private void setChangedNoTicketUpdate() {
+        if (isServerStopping()) {
+            return;
+        }
         if (!(this.level instanceof ServerLevel serverLevel)) {
             throw new IllegalArgumentException("Expected server level, not " + this.level);
         }
@@ -173,6 +181,9 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        if (isServerStopping()) {
+            return TickRateModulation.SLEEP;
+        }
         if (Platform.areBlockEntitiesTicking(getLevel(), getBlockPos())) {
             if (neighborChangePending) {
                 neighborChangePending = false;
@@ -186,11 +197,11 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     public static int getStorageLevelFromFillFactor(double fillFactor) {
-        return (int) Math.floor(4 * Mth.clamp(fillFactor + 0.01, 0, 1));
+        return (int) Math.floor(4 * Math.clamp(fillFactor + 0.01, 0, 1));
     }
 
     private void updateStateForPowerLevel() {
-        if (this.isRemoved()) {
+        if (this.isRemoved() || isServerStopping()) {
             return;
         }
 

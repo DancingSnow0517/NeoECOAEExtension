@@ -2,18 +2,29 @@ package cn.dancingsnow.neoecoae.gui;
 
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
+import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -25,6 +36,9 @@ public final class StorageHostPanelUI {
 
     private static final int PANEL_PADDING = 2;
     private static final int PANEL_GAP = 2;
+    private static final int LEFT_STORAGE_PANEL_HEIGHT_WITH_INVENTORY = 108;
+    private static final int LEFT_INVENTORY_HEIGHT = 88;
+    private static final int INVENTORY_SLOT_GRID_WIDTH = 9 * 18;
     private static final int TEXT_MAX_WIDTH = LEFT_PANEL_WIDTH - 16;
     private static final int RIGHT_SCROLLER_RESERVED_WIDTH = 12;
     private static final int RIGHT_SCROLLER_RESERVED_HEIGHT = 15;
@@ -50,6 +64,9 @@ public final class StorageHostPanelUI {
     private static final int RIGHT_PERCENT_Y = RIGHT_INSET_Y + RIGHT_INSET_HEIGHT - 12;
     private static final float RIGHT_DETAIL_FONT_SIZE = 8.0F;
     private static final float RIGHT_PERCENT_TEXT_SCALE = 0.9F;
+    private static final int RIGHT_COMPONENT_SLOT_SIZE = 18;
+    private static final int RIGHT_COMPONENT_SLOT_X = RIGHT_INSET_X + RIGHT_INSET_WIDTH - RIGHT_COMPONENT_SLOT_SIZE - 5;
+    private static final int RIGHT_COMPONENT_SLOT_Y = RIGHT_INSET_Y + RIGHT_INSET_HEIGHT - RIGHT_COMPONENT_SLOT_SIZE - 5;
     private static final int SCROLLBAR_HORIZONTAL_OFFSET = 2;
     private static final int PROGRESS_ROW_LABEL_WIDTH = 24;
     private static final int PROGRESS_ROW_BAR_WIDTH = 36;
@@ -73,15 +90,38 @@ public final class StorageHostPanelUI {
         LongSupplier maxLoadUsedBytes,
         LongSupplier maxLoadTotalBytes,
         IntSupplier idleMatrices,
-        List<StorageTypeLine> storageTypes
+        List<StorageTypeLine> storageTypes,
+        BooleanSupplier showComponentSlots,
+        IItemHandlerModifiable componentInventory
     ) {
     }
 
     private record StorageTotals(long usedBytes, long totalBytes) {
     }
 
-    public static ScrollerView createLeftPanel(Config config) {
-        ScrollerView panel = createEmptyPanel(LEFT_PANEL_WIDTH);
+    public static UIElement createLeftPanel(Config config) {
+        if (!config.showComponentSlots().getAsBoolean()) {
+            return createLeftStoragePanel(config, PANEL_HEIGHT);
+        }
+
+        UIElement panel = new UIElement().layout(layout -> {
+            layout.width(LEFT_PANEL_WIDTH);
+            layout.height(PANEL_HEIGHT);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.gapAll(4);
+        });
+        panel.addChild(createLeftStoragePanel(config, LEFT_STORAGE_PANEL_HEIGHT_WITH_INVENTORY));
+        panel.addChild(createInventoryPanel());
+        return panel;
+    }
+
+    private static ScrollerView createLeftStoragePanel(Config config, int height) {
+        ScrollerView panel = createPanel(LEFT_PANEL_WIDTH, height);
+        addLeftStorageContent(panel, config);
+        return panel;
+    }
+
+    private static void addLeftStorageContent(ScrollerView panel, Config config) {
         panel.addScrollViewChild(StorageHostElements.sectionLabel(
             () -> Component.translatable("gui.neoecoae.storage.energy"),
             () -> StorageHostText.PRIMARY
@@ -93,7 +133,6 @@ public final class StorageHostPanelUI {
             config.maxEnergy()
         ));
         config.storageTypes().forEach(line -> panel.addScrollViewChild(storageTypeBlock(line)));
-        return panel;
     }
 
     public static ScrollerView createRightPanel(Config config) {
@@ -190,12 +229,57 @@ public final class StorageHostPanelUI {
                 RIGHT_GAUGE_WIDTH,
                 8
             ));
+            view.addChild(StorageHostElements.absolute(
+                componentSlot(config.showComponentSlots(), config.componentInventory()),
+                RIGHT_COMPONENT_SLOT_X,
+                RIGHT_COMPONENT_SLOT_Y,
+                RIGHT_COMPONENT_SLOT_SIZE,
+                RIGHT_COMPONENT_SLOT_SIZE
+            ));
         });
         return panel;
     }
 
     public static ScrollerView createEmptyPanel(int width) {
-        return ECOHostWidgets.storagePanel(width, PANEL_HEIGHT, PANEL_PADDING, PANEL_GAP, SCROLLBAR_HORIZONTAL_OFFSET);
+        return createPanel(width, PANEL_HEIGHT);
+    }
+
+    private static ScrollerView createPanel(int width, int height) {
+        return ECOHostWidgets.storagePanel(width, height, PANEL_PADDING, PANEL_GAP, SCROLLBAR_HORIZONTAL_OFFSET);
+    }
+
+    private static UIElement createInventoryPanel() {
+        UIElement panel = StorageHostElements.syncedDisplay(() -> true);
+        panel.layout(layout -> {
+            layout.widthPercent(100);
+            layout.height(LEFT_INVENTORY_HEIGHT);
+            layout.flexDirection(FlexDirection.COLUMN);
+        });
+        panel.addChild(new TextElement()
+            .setText("container.inventory", true)
+            .textStyle(StorageHostPanelUI::inventoryTitleTextStyle));
+        InventorySlots inventorySlots = new InventorySlots();
+        inventorySlots.layout(layout -> {
+            layout.width(INVENTORY_SLOT_GRID_WIDTH);
+            layout.marginTop(2);
+        });
+        inventorySlots.getChildren().forEach(child -> child.layout(layout -> layout.width(INVENTORY_SLOT_GRID_WIDTH)));
+        panel.addChild(inventorySlots);
+        return panel;
+    }
+
+    private static UIElement componentSlot(BooleanSupplier display, IItemHandlerModifiable componentInventory) {
+        UIElement wrapper = StorageHostElements.syncedDisplay(display);
+        wrapper.addChild(new ItemSlot(new ItemHandlerSlot(componentInventory, 0)));
+        return wrapper;
+    }
+
+    private static void inventoryTitleTextStyle(TextElement.TextStyle style) {
+        style.adaptiveHeight(true)
+            .adaptiveWidth(true)
+            .textWrap(TextWrap.HOVER_ROLL)
+            .textColor(0x3f3d52)
+            .textShadow(false);
     }
 
     private static UIElement storageTypeBlock(StorageTypeLine line) {
@@ -211,12 +295,22 @@ public final class StorageHostPanelUI {
         block.addChild(usageProgressRow(
             () -> Component.translatable("gui.neoecoae.host.metric.types"),
             () -> StorageHostText.typeProgress(line.usedTypes().getAsLong(), line.totalTypes().getAsLong()),
+            () -> usedTotalTooltip(
+                StorageHostText.fullTypeProgress(line.usedTypes().getAsLong(), line.totalTypes().getAsLong()),
+                line.usedTypes().getAsLong(),
+                line.totalTypes().getAsLong()
+            ),
             line.usedTypes(),
             line.totalTypes()
         ));
         block.addChild(usageProgressRow(
             () -> Component.translatable("gui.neoecoae.host.metric.bytes"),
             () -> StorageHostText.byteProgress(line.usedBytes().getAsLong(), line.totalBytes().getAsLong()),
+            () -> usedTotalTooltip(
+                StorageHostText.fullByteProgressValues(line.usedBytes().getAsLong(), line.totalBytes().getAsLong()),
+                line.usedBytes().getAsLong(),
+                line.totalBytes().getAsLong()
+            ),
             line.usedBytes(),
             line.totalBytes()
         ));
@@ -244,18 +338,15 @@ public final class StorageHostPanelUI {
     private static UIElement usageProgressRow(
         Supplier<Component> label,
         Supplier<StorageHostText.UsedTotal> text,
+        Supplier<Component> tooltip,
         LongSupplier used,
         LongSupplier max
     ) {
         UIElement row = StorageHostElements.horizontalRow(10, 2);
         row.addChild(StorageHostElements.textSegment(label, () -> StorageHostText.MUTED)
             .layout(layout -> layout.width(PROGRESS_ROW_LABEL_WIDTH)));
-        row.addChild(new ProgressBar()
-            .label(progressLabel -> progressLabel.setText(""))
-            .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
-            .bind(DataBindingBuilder.floatValS2C(() -> StorageHostText.usageRatio(used.getAsLong(), max.getAsLong())).build())
-            .layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4))
-            .addClass("eco-host-progress"));
+        row.addChild(new TooltipProgressBarElement(used, max, tooltip)
+            .layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4)));
 
         UIElement value = StorageHostElements.horizontalRow(10, 0);
         value.addChild(StorageHostElements.textSegment(
@@ -266,6 +357,26 @@ public final class StorageHostPanelUI {
         value.addChild(StorageHostElements.textSegment(() -> Component.literal(text.get().maxText()), () -> StorageHostText.VALUE));
         row.addChild(value);
         return row;
+    }
+
+    private static ProgressBar syncedProgressBar(LongSupplier used, LongSupplier max) {
+        ProgressBar progressBar = new ProgressBar();
+        progressBar
+            .label(progressLabel -> progressLabel.setText(""))
+            .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
+            .bind(DataBindingBuilder.floatValS2C(() -> StorageHostText.usageRatio(used.getAsLong(), max.getAsLong())).build());
+        progressBar.addClass("eco-host-progress");
+        return progressBar;
+    }
+
+    private static Component usedTotalTooltip(StorageHostText.UsedTotal text, long used, long max) {
+        MutableComponent line = Component.literal(text.usedText()).withColor(StorageHostText.usedValueColor(used, max))
+            .append(Component.literal(" / ").withColor(StorageHostText.MUTED))
+            .append(Component.literal(text.maxText()).withColor(StorageHostText.VALUE));
+        if (!Component.empty().equals(text.suffix())) {
+            line.append(Component.literal(" ").append(text.suffix()).withColor(StorageHostText.MUTED));
+        }
+        return line;
     }
 
     private static UIElement storageLoadLine(Supplier<Component> text, java.util.function.IntSupplier color) {
@@ -351,5 +462,33 @@ public final class StorageHostPanelUI {
 
     private static boolean shouldShowStorageType(StorageTypeLine line) {
         return line.totalBytes().getAsLong() > 0 || line.totalTypes().getAsLong() > 0;
+    }
+
+    private static final class TooltipProgressBarElement extends UIElement implements IBindable<Component> {
+        private Component tooltip;
+
+        private TooltipProgressBarElement(
+            LongSupplier used,
+            LongSupplier max,
+            Supplier<Component> tooltip
+        ) {
+            this.tooltip = tooltip.get();
+            bind(DataBindingBuilder.componentS2C(tooltip).build());
+            addChild(syncedProgressBar(used, max)
+                .layout(layout -> layout.widthPercent(100).height(4)));
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+                event.hoverTooltips = HoverTooltips.empty().append(this.tooltip));
+        }
+
+        @Override
+        public IDataSource<Component> setValue(@Nullable Component value) {
+            tooltip = value == null ? Component.empty() : value;
+            return this;
+        }
+
+        @Override
+        public Component getValue() {
+            return tooltip;
+        }
     }
 }

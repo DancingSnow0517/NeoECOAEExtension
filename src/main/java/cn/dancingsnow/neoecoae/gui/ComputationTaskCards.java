@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.gui;
 
-import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.core.localization.ButtonToolTips;
@@ -9,10 +8,8 @@ import appeng.core.localization.Tooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +68,7 @@ final class ComputationTaskCards {
         int amountWidth = font.width(amountText);
         int maxNameWidth = Math.max(16, width - 34 - amountWidth);
         String name = fitWithEllipsis(font, entry.output().getHoverName().getString(), maxNameWidth);
-        drawString(guiContext, font, name, x + 24, y + 4, StorageHostText.PRIMARY, 1.0F);
+        drawString(guiContext, font, name, x + 24, y + 4, StorageHostText.PRIMARY);
         drawRightString(guiContext, font, amountText, x + width - 5, y + 11, StorageHostText.VALUE);
         drawProgressBar(guiContext, entry, x + 24, y + height - 9, width - 29, 4);
     }
@@ -128,12 +125,12 @@ final class ComputationTaskCards {
         return new GenericStack(itemKey, entry.outputAmount());
     }
 
-    static String progressText(ComputationTaskEntry entry) {
-        return StorageHostText.percent(entry.progress());
-    }
-
     static String compactAmount(long value) {
         return StorageHostText.typeProgress(Math.max(0L, value), 0).usedText();
+    }
+
+    static String progressText(ComputationTaskEntry entry) {
+        return StorageHostText.percent(entry.progress());
     }
 
     private static void drawProgressBar(
@@ -161,7 +158,7 @@ final class ComputationTaskCards {
         if (width <= 0 || entry.progress() <= 0.0F) {
             return 0;
         }
-        return Math.max(1, Math.min(width, Math.round(Mth.clamp(entry.progress(), 0.0F, 1.0F) * width)));
+        return Math.max(1, Math.min(width, Math.round(Math.clamp(entry.progress(), 0.0F, 1.0F) * width)));
     }
 
     private static String fitWithEllipsis(Font font, String text, int maxWidth) {
@@ -178,18 +175,10 @@ final class ComputationTaskCards {
     }
 
     private static void drawRightString(GUIContext guiContext, Font font, String text, int rightX, int y, int color) {
-        drawString(guiContext, font, text, rightX - font.width(text), y, color, 1.0F);
+        drawString(guiContext, font, text, rightX - font.width(text), y, color);
     }
 
-    private static void drawString(GUIContext guiContext, Font font, String text, int x, int y, int color, float scale) {
-        if (scale == 1.0F) {
-            guiContext.graphics.drawString(font, text, x, y, color, false);
-            return;
-        }
-        guiContext.graphics.pose().pushPose();
-        guiContext.graphics.pose().translate(x, y, 0);
-        guiContext.graphics.pose().scale(scale, scale, 1.0F);
-        guiContext.graphics.drawString(font, text, 0, 0, color, false);
-        guiContext.graphics.pose().popPose();
+    private static void drawString(GUIContext guiContext, Font font, String text, int x, int y, int color) {
+        guiContext.graphics.drawString(font, text, x, y, color, false);
     }
 }

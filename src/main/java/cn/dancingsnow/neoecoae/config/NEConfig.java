@@ -8,6 +8,10 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEConfig {
+    public static final int PATTERN_BUS_SLOTS_PER_PAGE = 63;
+    public static final int PATTERN_BUS_MIN_PAGES = 1;
+    public static final int PATTERN_BUS_MAX_PAGES = 8;
+
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     static {
@@ -43,6 +47,18 @@ public class NEConfig {
             "合成系统完成配方时发送原版合成事件（ItemCraftedEvent）。",
             "可能引入额外的事件/监听器开销；安装 Balm 等模组时可能会有较明显影响。")
         .define("postCraftingEvent", false);
+
+    private static final ModConfigSpec.BooleanValue STORAGE_HOST_COMPONENT_SLOTS = BUILDER
+        .comment(
+            "Show the reserved component slot and player inventory in the ECO storage controller UI.",
+            "This only changes the UI layout; keep it disabled to preserve the compact status-only screen.")
+        .define("storageHostComponentSlots", false);
+
+    private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
+        .comment(
+            "Number of pattern pages exposed by one ECO smart pattern bus.",
+            "Each page stores 63 encoded patterns.")
+        .defineInRange("craftingPatternBusPages", 2, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
 
     static {
         BUILDER
@@ -92,6 +108,8 @@ public class NEConfig {
     public static int computationSystemMaxLength;
     public static int storageSystemMaxLength;
     public static boolean postCraftingEvent;
+    public static boolean storageHostComponentSlots;
+    public static int craftingPatternBusPages = 2;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
@@ -105,11 +123,25 @@ public class NEConfig {
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
+        storageHostComponentSlots = STORAGE_HOST_COMPONENT_SLOTS.get();
+        craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
         ecoBatchFastPathLimit = ECO_BATCH_FAST_PATH_LIMIT.get();
         ecoBatchFastPathTickLimit = ECO_BATCH_FAST_PATH_TICK_LIMIT.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
+    }
+
+    public static int getCraftingPatternBusPages() {
+        return Math.clamp(craftingPatternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
+    }
+
+    public static int getCraftingPatternBusSlotCount() {
+        return PATTERN_BUS_SLOTS_PER_PAGE * getCraftingPatternBusPages();
+    }
+
+    public static int getMaxCraftingPatternBusSlotCount() {
+        return PATTERN_BUS_SLOTS_PER_PAGE * PATTERN_BUS_MAX_PAGES;
     }
 }

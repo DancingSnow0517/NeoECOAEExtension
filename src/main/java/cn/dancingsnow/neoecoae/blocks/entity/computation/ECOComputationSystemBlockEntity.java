@@ -39,7 +39,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -312,7 +311,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             cpu.getAvailableStorage(),
             cpu.getCoProcessors(),
             cpu.getSelectionMode(),
-            Mth.clamp(tracker.getProgress(), 0.0F, 1.0F),
+            Math.clamp(tracker.getProgress(), 0.0F, 1.0F),
             tracker.getElapsedTime()
         );
     }

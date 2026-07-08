@@ -1,8 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import appeng.api.networking.crafting.ICraftingPlan;
-import appeng.api.networking.crafting.ICraftingRequester;
-import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.crafting.inv.ListCraftingInventory;

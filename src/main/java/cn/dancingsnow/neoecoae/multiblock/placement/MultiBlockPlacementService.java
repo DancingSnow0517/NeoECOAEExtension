@@ -96,7 +96,7 @@ public final class MultiBlockPlacementService {
     }
 
     public static MultiBlockBuildSession createBuildSession(ServerLevel level, MultiBlockPlacementPlan plan) {
-        return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay(level));
+        return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay());
     }
 
     public static PlacementTickResult tickBuild(ServerLevel level, MultiBlockBuildSession session, ServerPlayer player) {
@@ -121,7 +121,7 @@ public final class MultiBlockPlacementService {
             playPlacementSound(level, worldBlock);
         }
 
-        session.advance(nextPlacementDelay(level));
+        session.advance(nextPlacementDelay());
         return session.isFinished() ? PlacementTickResult.COMPLETED : PlacementTickResult.ADVANCED;
     }
 
@@ -242,7 +242,7 @@ public final class MultiBlockPlacementService {
         requiredItems.add(new RequiredItem(toAdd, toAdd.getCount()));
     }
 
-    private static int nextPlacementDelay(ServerLevel level) {
+    private static int nextPlacementDelay() {
         return 1;
     }
 

@@ -14,7 +14,7 @@ public class CoolingEmiRecipe extends BasicEmiRecipe {
     private final CoolingRecipe recipe;
 
     public CoolingEmiRecipe(RecipeHolder<CoolingRecipe> holder) {
-        super(NeoECOAEEmiPlugin.COOLING, holder.id(), 100, 50);
+        super(NeoECOAEEmiPlugin.COOLING, holder.id(), 100, 60);
         this.recipe = holder.value();
 
         inputs.add(NeoECOAEEmiPlugin.of(recipe.input()));
@@ -36,5 +36,6 @@ public class CoolingEmiRecipe extends BasicEmiRecipe {
         widgets.addAnimatedTexture(NeoECOAE.id("textures/gui/jei/cooling_progress.png"), 35, 5, 30, 30, 0, 0, 30, 30, 30, 30, 2000, false, true, false);
 
         widgets.addText(Component.translatable("category.neoecoae.cooling.coolant", recipe.coolant()), 5, 40, 0, false);
+        widgets.addText(Component.translatable("category.neoecoae.cooling.max_overclock", recipe.maxOverclock()), 5, 50, 0, false);
     }
 }
