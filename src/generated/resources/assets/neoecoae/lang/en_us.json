@@ -430,5 +430,7 @@
   "gui.neoecoae.crafting.ui.ft_cores_short": "FT",
   "gui.neoecoae.crafting.ui.energy_usage": "Energy Usage",
   "gui.neoecoae.crafting.performance": "Performance",
-  "gui.neoecoae.crafting.performance_short": "Performance"
+  "gui.neoecoae.crafting.performance_short": "Performance",
+  "tooltip.neoecoae.storage.infinite_component_locked": "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices",
+  "tooltip.neoecoae.storage.infinite_member_locked": "Infinite storage matrices cannot be removed while the storage host is in infinite mode"
 }

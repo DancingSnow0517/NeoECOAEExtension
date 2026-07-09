@@ -22,6 +22,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
@@ -106,6 +107,7 @@ public final class StorageHostPanelUI {
         BooleanSupplier migratingToInfinite,
         IntSupplier infiniteMigrationProgress,
         BooleanSupplier showComponentSlots,
+        BooleanSupplier canExtractInfiniteComponents,
         IItemHandlerModifiable componentInventory
     ) {
     }
@@ -271,7 +273,7 @@ public final class StorageHostPanelUI {
                 8
             ));
             view.addChild(StorageHostElements.absolute(
-                componentSlot(config.showComponentSlots(), config.componentInventory()),
+                componentSlot(config.showComponentSlots(), config.canExtractInfiniteComponents(), config.componentInventory()),
                 RIGHT_COMPONENT_SLOT_X,
                 RIGHT_COMPONENT_SLOT_Y,
                 RIGHT_COMPONENT_SLOT_SIZE,
@@ -309,10 +311,26 @@ public final class StorageHostPanelUI {
         return panel;
     }
 
-    private static UIElement componentSlot(BooleanSupplier display, IItemHandlerModifiable componentInventory) {
+    private static UIElement componentSlot(
+        BooleanSupplier display,
+        BooleanSupplier canExtractInfiniteComponents,
+        IItemHandlerModifiable componentInventory
+    ) {
         UIElement wrapper = StorageHostElements.syncedDisplay(display);
-        wrapper.addChild(new ItemSlot(new ItemHandlerSlot(componentInventory, 0)));
+        ItemHandlerSlot slot = new ItemHandlerSlot(componentInventory, 0)
+            .setCanTake(player -> canTakeComponent(player, canExtractInfiniteComponents));
+        wrapper.addChild(new ItemSlot(slot));
         return wrapper;
+    }
+
+    private static boolean canTakeComponent(@Nullable Player player, BooleanSupplier canExtractInfiniteComponents) {
+        if (canExtractInfiniteComponents.getAsBoolean()) {
+            return true;
+        }
+        if (player != null) {
+            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_component_locked"), true);
+        }
+        return false;
     }
 
     private static void inventoryTitleTextStyle(TextElement.TextStyle style) {

@@ -371,5 +371,7 @@
   "gui.neoecoae.crafting.ui.ft_cores_short": "並",
   "gui.neoecoae.crafting.ui.energy_usage": "耗能",
   "gui.neoecoae.crafting.performance": "效",
-  "gui.neoecoae.crafting.performance_short": "效"
+  "gui.neoecoae.crafting.performance_short": "效",
+  "tooltip.neoecoae.storage.infinite_component_locked": "不可取無限件：所藏未能安歸常矩",
+  "tooltip.neoecoae.storage.infinite_member_locked": "無限藏啟時，受轄藏矩不可取"
 }

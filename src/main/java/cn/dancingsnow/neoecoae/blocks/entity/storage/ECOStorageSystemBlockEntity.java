@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -80,6 +81,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final int INFINITE_MEMBER_REQUIRED = 16;
     private static final long INFINITE_FLUSH_BUDGET_NANOS = 1_000_000L;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
+    private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
+    private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -107,7 +110,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Persisted
     @DescSynced
     private final AppEngInternalInventory componentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED);
-    private final IItemHandlerModifiable componentItemHandler = (IItemHandlerModifiable) componentInventory.toItemHandler();
+    private final IItemHandlerModifiable componentItemHandler =
+        new InfiniteComponentItemHandler((IItemHandlerModifiable) componentInventory.toItemHandler());
     @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
@@ -314,6 +318,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             this::isMigratingToInfinite,
             this::getInfiniteMigrationProgressPercent,
             () -> NEConfig.storageHostComponentSlots,
+            this::canExtractInfiniteComponents,
             componentItemHandler
         );
     }
@@ -617,8 +622,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (hostMode == ECOStorageHostMode.UNFORMED) {
             hostMode = ECOStorageHostMode.FORMED_NORMAL;
         }
-        if (hostMode.isInfiniteState() && (!NEConfig.isInfiniteStorageEnabled() || !hasRequiredInfiniteComponents())) {
+        if (hostMode.isInfiniteState() && !NEConfig.isInfiniteStorageEnabled()) {
             restoreInfiniteDomainToNormalStorage();
+            syncInfiniteModeChanges(previous);
+            return;
+        }
+        if (hostMode.isInfiniteState() && !hasRequiredInfiniteComponents()) {
+            restoreInfiniteDomainToNormalStorageIfPossible();
             syncInfiniteModeChanges(previous);
             return;
         }
@@ -652,6 +662,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private boolean hasRequiredInfiniteComponents() {
         ItemStack stack = componentInventory.getStackInSlot(0);
+        return hasRequiredInfiniteComponents(stack);
+    }
+
+    private boolean hasRequiredInfiniteComponents(ItemStack stack) {
         return isInfiniteComponent(stack) && stack.getCount() >= INFINITE_COMPONENT_REQUIRED;
     }
 
@@ -733,29 +747,131 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void restoreInfiniteDomainToNormalStorage() {
+        RestorePlan plan = createInfiniteRestorePlan(false);
+        if (!plan.canRestore()) {
+            LOGGER.warn(
+                "Unable to restore ECO infinite storage domain {}: {}",
+                infiniteDomainId,
+                plan.reason()
+            );
+            return;
+        }
+        restoreInfiniteDomainToNormalStorage(plan);
+    }
+
+    private void restoreInfiniteDomainToNormalStorageIfPossible() {
+        RestorePlan plan = createInfiniteRestorePlan(true);
+        if (plan.canRestore()) {
+            restoreInfiniteDomainToNormalStorage(plan);
+        }
+    }
+
+    private RestorePlan createInfiniteRestorePlan(boolean enforceMargin) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine == null || engine.isEmpty()) {
-            exitInfiniteModeIfSafe();
-            return;
+            return RestorePlan.allowed(List.of());
         }
         if (cluster == null || infiniteDomainId == null) {
-            return;
+            return RestorePlan.blocked("missing storage cluster or infinite domain");
         }
+        if (!engine.getHugeStacks().isEmpty()) {
+            return RestorePlan.blocked("domain contains stacks larger than a normal storage cell can hold");
+        }
+
+        List<RestoreTarget> targets = createRestoreTargets(infiniteDomainId);
+        if (targets.isEmpty()) {
+            return RestorePlan.blocked("no L9 storage matrices are available");
+        }
+
         KeyCounter pending = new KeyCounter();
         engine.getAvailableStacks(pending);
-        List<ECODriveBlockEntity> restoreTargets = prepareNormalRestoreTargets(infiniteDomainId);
-        boolean restoredAll = true;
         IActionSource source = IActionSource.ofMachine(this);
         for (Object2LongMap.Entry<AEKey> entry : pending) {
             AEKey key = entry.getKey();
             HugeAmount amount = engine.getAmount(key);
             if (amount.compareTo(HugeAmount.of(Long.MAX_VALUE)) > 0) {
-                restoredAll = false;
-                continue;
+                return RestorePlan.blocked("domain contains stacks larger than a normal storage cell can hold");
             }
             long remaining = amount.toLongSaturated();
-            for (ECODriveBlockEntity drive : restoreTargets) {
-                IECOStorageCell cell = drive.getCellInventory();
+            for (RestoreTarget target : targets) {
+                long inserted = target.simulatedCell().insert(key, remaining, Actionable.MODULATE, source);
+                remaining -= inserted;
+                if (remaining <= 0L) {
+                    break;
+                }
+            }
+            if (remaining > 0L) {
+                return RestorePlan.blocked("normal storage matrices do not have enough compatible capacity");
+            }
+        }
+        if (enforceMargin && !restoreTargetsHaveMargin(targets)) {
+            return RestorePlan.blocked("normal storage matrices would exceed the reserve margin");
+        }
+        return RestorePlan.allowed(targets);
+    }
+
+    private List<RestoreTarget> createRestoreTargets(UUID domainId) {
+        List<RestoreTarget> targets = new ArrayList<>();
+        if (cluster == null) {
+            return targets;
+        }
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            ItemStack stack = drive.getCellStack();
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            if (ECOInfiniteStorageMember.isMember(stack)
+                && !ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+                continue;
+            }
+            ItemStack simulationStack = stack.copy();
+            ECOInfiniteStorageMember.clearMember(simulationStack);
+            IECOStorageCell simulatedCell = ECOStorageCells.getCellInventory(simulationStack, null);
+            if (simulatedCell != null && simulatedCell.getTier() == ECOTier.L9) {
+                targets.add(new RestoreTarget(drive, simulatedCell));
+            }
+        }
+        return targets;
+    }
+
+    private boolean restoreTargetsHaveMargin(List<RestoreTarget> targets) {
+        long used = 0L;
+        long total = 0L;
+        for (RestoreTarget target : targets) {
+            IECOStorageCell cell = target.simulatedCell();
+            used = saturatedAdd(used, cell.getUsedBytes());
+            total = saturatedAdd(total, cell.getTotalBytes());
+        }
+        if (total <= 0L) {
+            return false;
+        }
+        long reserved = Math.max(
+            1L,
+            total / INFINITE_RESTORE_MARGIN_DENOMINATOR
+                * (INFINITE_RESTORE_MARGIN_DENOMINATOR - INFINITE_RESTORE_MARGIN_NUMERATOR)
+        );
+        return used <= total - reserved;
+    }
+
+    private void restoreInfiniteDomainToNormalStorage(RestorePlan plan) {
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (engine == null || engine.isEmpty()) {
+            exitInfiniteModeIfSafe();
+            return;
+        }
+        if (infiniteDomainId == null) {
+            return;
+        }
+
+        KeyCounter pending = new KeyCounter();
+        engine.getAvailableStacks(pending);
+        IActionSource source = IActionSource.ofMachine(this);
+        for (Object2LongMap.Entry<AEKey> entry : pending) {
+            AEKey key = entry.getKey();
+            long remaining = engine.getAmount(key).toLongSaturated();
+            long original = remaining;
+            for (RestoreTarget target : plan.targets()) {
+                IECOStorageCell cell = target.drive().getCellInventory();
                 if (cell == null) {
                     continue;
                 }
@@ -765,37 +881,22 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     break;
                 }
             }
-            long restored = amount.toLongSaturated() - remaining;
+            long restored = original - remaining;
             if (restored > 0L) {
                 engine.extract(key, restored, Actionable.MODULATE);
             }
             if (remaining > 0L) {
-                restoredAll = false;
+                LOGGER.warn("ECO infinite storage restore changed during execution; keeping domain {} mounted", infiniteDomainId);
+                engine.flushBudgeted(0L);
+                return;
             }
         }
         engine.flushBudgeted(0L);
-        if (restoredAll && engine.isEmpty()) {
-            exitInfiniteModeIfSafe();
-        } else {
+        if (!engine.isEmpty()) {
             LOGGER.warn("Unable to fully restore ECO infinite storage domain {}; keeping it mounted to avoid data loss", infiniteDomainId);
+            return;
         }
-    }
-
-    private List<ECODriveBlockEntity> prepareNormalRestoreTargets(UUID domainId) {
-        List<ECODriveBlockEntity> targets = new ArrayList<>();
-        if (cluster == null) {
-            return targets;
-        }
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            if (ECOInfiniteStorageMember.isMemberOf(drive.getCellStack(), domainId)) {
-                drive.convertInfiniteMemberToNormalStorage(domainId);
-            }
-            IECOStorageCell cell = drive.getCellInventory();
-            if (cell != null && cell.getTier() == ECOTier.L9) {
-                targets.add(drive);
-            }
-        }
-        return targets;
+        exitInfiniteModeIfSafe();
     }
 
     private void exitInfiniteModeIfSafe() {
@@ -880,6 +981,112 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private void closeInfiniteEngine() {
         if (level instanceof ServerLevel serverLevel && infiniteDomainId != null) {
             ECOInfiniteStorageDomains.close(serverLevel, infiniteDomainId);
+        }
+    }
+
+    public boolean canExtractInfiniteComponents() {
+        return blockedInfiniteComponentExtractionReason() == null;
+    }
+
+    @Nullable
+    public String blockedInfiniteComponentExtractionReason() {
+        ItemStack stack = componentInventory.getStackInSlot(0);
+        if (!hasRequiredInfiniteComponents(stack) || !hostMode.isInfiniteState()) {
+            return null;
+        }
+        RestorePlan plan = createInfiniteRestorePlan(true);
+        return plan.canRestore() ? null : plan.reason();
+    }
+
+    private record RestoreTarget(ECODriveBlockEntity drive, IECOStorageCell simulatedCell) {
+    }
+
+    private record RestorePlan(boolean canRestore, List<RestoreTarget> targets, String reason) {
+        private static RestorePlan allowed(List<RestoreTarget> targets) {
+            return new RestorePlan(true, List.copyOf(targets), "");
+        }
+
+        private static RestorePlan blocked(String reason) {
+            return new RestorePlan(false, List.of(), reason);
+        }
+    }
+
+    private final class InfiniteComponentItemHandler implements IItemHandlerModifiable {
+        private final IItemHandlerModifiable delegate;
+
+        private InfiniteComponentItemHandler(IItemHandlerModifiable delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public int getSlots() {
+            return delegate.getSlots();
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return delegate.getStackInSlot(slot);
+        }
+
+        @Override
+        public void setStackInSlot(int slot, ItemStack stack) {
+            if (slot == 0) {
+                ItemStack current = delegate.getStackInSlot(slot);
+                if (hostMode.isInfiniteState()
+                    && hasRequiredInfiniteComponents(current)
+                    && !hasRequiredInfiniteComponents(stack)) {
+                    RestorePlan plan = createInfiniteRestorePlan(true);
+                    if (!plan.canRestore()) {
+                        return;
+                    }
+                    restoreInfiniteDomainToNormalStorage(plan);
+                    if (hostMode.isInfiniteState()) {
+                        return;
+                    }
+                }
+            }
+            delegate.setStackInSlot(slot, stack);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            return delegate.insertItem(slot, stack, simulate);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (slot != 0 || amount <= 0) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack stack = delegate.getStackInSlot(slot);
+            if (stack.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            if (!hostMode.isInfiniteState() || !hasRequiredInfiniteComponents(stack)) {
+                return delegate.extractItem(slot, amount, simulate);
+            }
+
+            RestorePlan plan = createInfiniteRestorePlan(true);
+            if (!plan.canRestore()) {
+                return ItemStack.EMPTY;
+            }
+            if (!simulate) {
+                restoreInfiniteDomainToNormalStorage(plan);
+                if (hostMode.isInfiniteState()) {
+                    return ItemStack.EMPTY;
+                }
+            }
+            return delegate.extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return delegate.getSlotLimit(slot);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return delegate.isItemValid(slot, stack);
         }
     }
 

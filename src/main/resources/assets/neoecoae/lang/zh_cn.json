@@ -415,5 +415,7 @@
   "gui.neoecoae.crafting.ui.ft_cores_short": "并行",
   "gui.neoecoae.crafting.ui.energy_usage": "能耗",
   "gui.neoecoae.crafting.performance": "性能",
-  "gui.neoecoae.crafting.performance_short": "性能"
+  "gui.neoecoae.crafting.performance_short": "性能",
+  "tooltip.neoecoae.storage.infinite_component_locked": "无法取出无限组件：当前内容无法安全回落到普通矩阵",
+  "tooltip.neoecoae.storage.infinite_member_locked": "无限存储模式下不能取出被管理的存储矩阵"
 }

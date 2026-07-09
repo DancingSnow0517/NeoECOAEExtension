@@ -73,6 +73,8 @@ public class NELangGenerator {
             "Can drive storage matrix",
             "The drivable storage matrix tier depends on the storage subsystem host controller"
         );
+        provider.add("tooltip.neoecoae.storage.infinite_component_locked", "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices");
+        provider.add("tooltip.neoecoae.storage.infinite_member_locked", "Infinite storage matrices cannot be removed while the storage host is in infinite mode");
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
         provider.add("tooltip.neoecoae.crafting_parallels", "Parallel core provides parallel count to the crafting subsystem");

@@ -94,6 +94,19 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         return ECOStorageCells.isCellHandled(stack);
     }
 
+    @Override
+    public boolean canExtractCell() {
+        return !isLockedByInfiniteMode();
+    }
+
+    public boolean isLockedByInfiniteMode() {
+        return cluster instanceof NEStorageCluster storageCluster
+            && storageCluster.getController() != null
+            && storageCluster.getController().isInfiniteMode()
+            && cellStack != null
+            && !cellStack.isEmpty();
+    }
+
     private void updateState() {
         if (isServerStopping()) {
             return;
