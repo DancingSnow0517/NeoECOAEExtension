@@ -25,17 +25,21 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
 import net.minecraft.data.recipes.SmithingTransformRecipeBuilder;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.HoeItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.item.SmithingTemplateItem;
 import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.neoforged.neoforge.common.Tags;
 
@@ -816,6 +820,18 @@ public class NEItems {
                 .save(prov);
         })
         .lang("256M ECO Storage Component")
+        .register();
+
+    public static final ItemEntry<Item> ECO_INFINITE_CELL_COMPONENT = REGISTRATE
+        .<Item>item("eco_infinite_cell_component", p -> new Item(p.rarity(Rarity.EPIC)) {
+            @Override
+            public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+                lines.add(Component.translatable("tooltip.neoecoae.infinite_component.unlock")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+            }
+        })
+        .tag(NETags.Items.INFINITE_CELL_COMPONENTS)
+        .lang("ECO Infinite Storage Component")
         .register();
 
     public static final ItemEntry<MaterialItem> ECO_ITEM_CELL_HOUSING = REGISTRATE

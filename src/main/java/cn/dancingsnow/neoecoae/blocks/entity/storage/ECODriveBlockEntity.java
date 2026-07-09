@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -27,6 +28,7 @@ import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.UUID;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
     implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost {
@@ -61,6 +63,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
+        if (cellStack != null
+            && cluster instanceof NEStorageCluster storageCluster
+            && storageCluster.getController() != null
+            && storageCluster.getController().isInfiniteMode()
+            && !ECOInfiniteStorageMember.isMember(cellStack)) {
+            return;
+        }
         this.cellStack = cellStack;
         if (getLevel() != null && !isServerStopping()) {
             BlockState state = getBlockState();
@@ -76,6 +85,12 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public boolean isItemValid(ItemStack stack) {
+        if (cluster instanceof NEStorageCluster storageCluster
+            && storageCluster.getController() != null
+            && storageCluster.getController().isInfiniteMode()
+            && !ECOInfiniteStorageMember.isMember(stack)) {
+            return false;
+        }
         return ECOStorageCells.isCellHandled(stack);
     }
 
@@ -121,7 +136,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
             IECOTier mainTier = storageCluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
-            if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
+            if (cellInventory != null
+                && mainTier.compareTo(cellInventory.getTier()) >= 0
+                && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 storageMounts.mount(cellInventory, storageCluster.getController().getStoragePriority());
                 mounted = true;
                 setChanged();
@@ -156,5 +173,25 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 markForUpdate();
             });
         }
+    }
+
+    public void convertCellToInfiniteMember(UUID domainId) {
+        if (cellStack == null || cellStack.isEmpty()) {
+            return;
+        }
+        ECOInfiniteStorageMember.clearStoredContents(cellStack);
+        ECOInfiniteStorageMember.markMember(cellStack, domainId);
+        setChanged();
+        markForUpdate();
+    }
+
+    public boolean convertInfiniteMemberToNormalStorage(UUID domainId) {
+        if (cellStack == null || cellStack.isEmpty() || !ECOInfiniteStorageMember.isMemberOf(cellStack, domainId)) {
+            return false;
+        }
+        ECOInfiniteStorageMember.clearMember(cellStack);
+        setChanged();
+        markForUpdate();
+        return true;
     }
 }

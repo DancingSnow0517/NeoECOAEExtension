@@ -50,8 +50,9 @@ public class NEConfig {
 
     private static final ModConfigSpec.BooleanValue STORAGE_HOST_COMPONENT_SLOTS = BUILDER
         .comment(
-            "Show the reserved component slot and player inventory in the ECO storage controller UI.",
-            "This only changes the UI layout; keep it disabled to preserve the compact status-only screen.")
+            "Enable the reserved component slot in the ECO storage controller.",
+            "This slot is used by the L9 infinite storage backend; disabling it blocks new infinite migrations.",
+            "Existing infinite storage domain files are preserved and are not deleted by this option.")
         .define("storageHostComponentSlots", false);
 
     private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
@@ -143,5 +144,9 @@ public class NEConfig {
 
     public static int getMaxCraftingPatternBusSlotCount() {
         return PATTERN_BUS_SLOTS_PER_PAGE * PATTERN_BUS_MAX_PAGES;
+    }
+
+    public static boolean isInfiniteStorageEnabled() {
+        return storageHostComponentSlots;
     }
 }

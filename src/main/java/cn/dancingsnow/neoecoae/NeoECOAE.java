@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
+import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -82,6 +83,8 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::addClassicPack);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelSave);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
     }
 
     public static ResourceLocation id(String path) {

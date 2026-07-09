@@ -169,6 +169,15 @@ public class ECOStorageCell implements IECOStorageCell {
         return cellStack.getOrDefault(AEComponents.STORAGE_CELL_INV, List.of());
     }
 
+    public static boolean canStoreKeyInsideStorageCell(AEKey what) {
+        if (what instanceof AEItemKey itemKey) {
+            var stack = itemKey.toStack();
+            var cellInv = StorageCells.getCellInventory(stack, null);
+            return cellInv == null || cellInv.canFitInsideCell();
+        }
+        return true;
+    }
+
     protected Object2LongMap<AEKey> getCellItems() {
         if (this.storedAmounts == null) {
             this.storedAmounts = new Object2LongOpenHashMap<>(maxItemTypes);
@@ -263,13 +272,8 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {
-        if (what instanceof AEItemKey itemKey) {
-            var stack = itemKey.toStack();
-
-            var cellInv = StorageCells.getCellInventory(stack, null);
-            if (cellInv != null && !cellInv.canFitInsideCell()) {
-                return 0;
-            }
+        if (!canStoreKeyInsideStorageCell(what)) {
+            return 0;
         }
 
         var currentAmount = this.getCellItems().getLong(what);
@@ -371,6 +375,13 @@ public class ECOStorageCell implements IECOStorageCell {
 
     public ConfigInventory getConfigInventory() {
         return ((ECOStorageCellItem) cellStack.getItem()).getConfigInventory(cellStack);
+    }
+
+    public void clearAllStoredStacks() {
+        getCellItems().clear();
+        storedItems = 0;
+        storedItemCount = 0;
+        saveChanges();
     }
 
     private static long saturatedAdd(long a, long b) {
