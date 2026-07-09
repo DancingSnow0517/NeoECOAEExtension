@@ -48,12 +48,12 @@ public class NEConfig {
             "可能引入额外的事件/监听器开销；安装 Balm 等模组时可能会有较明显影响。")
         .define("postCraftingEvent", false);
 
-    private static final ModConfigSpec.BooleanValue STORAGE_HOST_COMPONENT_SLOTS = BUILDER
+    private static final ModConfigSpec.BooleanValue ENABLE_INFINITE_STORAGE = BUILDER
         .comment(
-            "Enable the reserved component slot in the ECO storage controller.",
-            "This slot is used by the L9 infinite storage backend; disabling it blocks new infinite migrations.",
+            "Enable ECO infinite storage on the storage controller.",
+            "Requires 64 infinite components and 16 L9 storage matrices; disabling it blocks new infinite migrations.",
             "Existing infinite storage domain files are preserved and are not deleted by this option.")
-        .define("storageHostComponentSlots", false);
+        .define("enableInfiniteStorage", false);
 
     private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
         .comment(
@@ -109,7 +109,7 @@ public class NEConfig {
     public static int computationSystemMaxLength;
     public static int storageSystemMaxLength;
     public static boolean postCraftingEvent;
-    public static boolean storageHostComponentSlots;
+    public static boolean enableInfiniteStorage;
     public static int craftingPatternBusPages = 2;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
@@ -124,7 +124,7 @@ public class NEConfig {
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
-        storageHostComponentSlots = STORAGE_HOST_COMPONENT_SLOTS.get();
+        enableInfiniteStorage = ENABLE_INFINITE_STORAGE.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
@@ -147,6 +147,6 @@ public class NEConfig {
     }
 
     public static boolean isInfiniteStorageEnabled() {
-        return storageHostComponentSlots;
+        return enableInfiniteStorage;
     }
 }

@@ -3,12 +3,15 @@ package cn.dancingsnow.neoecoae.gui;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import net.minecraft.network.chat.Component;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.util.Locale;
 
-final class StorageHostText {
+public final class StorageHostText {
     static final int PRIMARY = 0xD6D0E0;
     static final int VALUE = 0x8377FF;
     static final int USED = 0x00FC00;
@@ -22,6 +25,10 @@ final class StorageHostText {
     private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
     private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
     private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
+    private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
+    private static final BigDecimal DECIMAL_BYTES_IN_K = BigDecimal.valueOf(BYTES_IN_K);
+    private static final int EXPANDED_BYTE_DIGITS = 8;
+    private static final String[] EXPANDED_BYTE_UNITS = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
@@ -53,6 +60,41 @@ final class StorageHostText {
 
     static UsedTotal byteProgress(long used, long max) {
         return new UsedTotal(storageBytesWhole(used), storageBytesWhole(max), Component.empty());
+    }
+
+    public static String expandedStorageBytes(long value) {
+        return expandedStorageBytes(BigInteger.valueOf(Math.max(0L, value)));
+    }
+
+    public static String expandedStorageBytes(BigInteger value) {
+        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        if (safe.compareTo(BIG_BYTES_IN_K) < 0) {
+            return safe.toString();
+        }
+
+        int unitIndex = 0;
+        BigInteger unit = BigInteger.ONE;
+        BigInteger nextUnit = BIG_BYTES_IN_K;
+        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1 && safe.compareTo(nextUnit) >= 0) {
+            unitIndex++;
+            unit = nextUnit;
+            nextUnit = nextUnit.multiply(BIG_BYTES_IN_K);
+        }
+
+        while (true) {
+            BigInteger whole = safe.divide(unit);
+            int scale = Math.max(0, EXPANDED_BYTE_DIGITS - whole.toString().length());
+            BigDecimal scaled = new BigDecimal(safe)
+                .divide(new BigDecimal(unit), scale, RoundingMode.HALF_UP)
+                .setScale(scale, RoundingMode.HALF_UP);
+            if (unitIndex < EXPANDED_BYTE_UNITS.length - 1
+                && scaled.compareTo(DECIMAL_BYTES_IN_K) >= 0) {
+                unitIndex++;
+                unit = unit.multiply(BIG_BYTES_IN_K);
+                continue;
+            }
+            return scaled.toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+        }
     }
 
     static UsedTotal fullTypeProgress(long used, long max) {

@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.StorageHostPanelUI;
+import cn.dancingsnow.neoecoae.gui.StorageHostText;
 import cn.dancingsnow.neoecoae.gui.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
@@ -68,6 +69,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -83,6 +85,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
     private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
+    private static final String INFINITE_COMPONENT_INVENTORY_PERSIST_KEY = "infiniteComponentInventory";
+    private static final String LEGACY_COMPONENT_INVENTORY_PERSIST_KEY = "componentInventory";
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -107,11 +111,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @DescSynced
     @Nullable
     private UUID infiniteDomainId;
-    @Persisted
+    @Persisted(key = INFINITE_COMPONENT_INVENTORY_PERSIST_KEY)
     @DescSynced
-    private final AppEngInternalInventory componentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED);
-    private final IItemHandlerModifiable componentItemHandler =
-        new InfiniteComponentItemHandler((IItemHandlerModifiable) componentInventory.toItemHandler());
+    private final AppEngInternalInventory infiniteComponentInventory = new AppEngInternalInventory(this, 1, INFINITE_COMPONENT_REQUIRED);
+    private final IItemHandlerModifiable infiniteComponentItemHandler =
+        new InfiniteComponentItemHandler((IItemHandlerModifiable) infiniteComponentInventory.toItemHandler());
     @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
@@ -311,15 +315,16 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         () -> getStorageValue(id, StorageValue.USED_TYPES),
                         () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
                         () -> getStorageValue(id, StorageValue.USED_BYTES),
-                        () -> getStorageValue(id, StorageValue.TOTAL_BYTES)
+                        () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
+                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText()
                     );
                 })
                 .toList(),
             this::isMigratingToInfinite,
             this::getInfiniteMigrationProgressPercent,
-            () -> NEConfig.storageHostComponentSlots,
+            NEConfig::isInfiniteStorageEnabled,
             this::canExtractInfiniteComponents,
-            componentItemHandler
+            infiniteComponentItemHandler
         );
     }
 
@@ -470,7 +475,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     stats.storedTypes(),
                     0L,
                     stats.storedAmount().toLongSaturated(),
-                    0L
+                    0L,
+                    stats.storedAmount().toBigInteger()
                 ),
                 StorageTypeTotals::add
             );
@@ -509,15 +515,30 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
     }
 
-    private record StorageTypeTotals(long usedTypes, long totalTypes, long usedBytes, long totalBytes) {
-        private static final StorageTypeTotals EMPTY = new StorageTypeTotals(0L, 0L, 0L, 0L);
+    private record StorageTypeTotals(
+        long usedTypes,
+        long totalTypes,
+        long usedBytes,
+        long totalBytes,
+        BigInteger displayUsedBytes
+    ) {
+        private static final StorageTypeTotals EMPTY = new StorageTypeTotals(0L, 0L, 0L, 0L, BigInteger.ZERO);
+
+        private StorageTypeTotals(long usedTypes, long totalTypes, long usedBytes, long totalBytes) {
+            this(usedTypes, totalTypes, usedBytes, totalBytes, BigInteger.valueOf(Math.max(0L, usedBytes)));
+        }
+
+        private String infiniteBytesText() {
+            return StorageHostText.expandedStorageBytes(displayUsedBytes);
+        }
 
         private StorageTypeTotals add(StorageTypeTotals other) {
             return new StorageTypeTotals(
                 saturatedAdd(usedTypes, other.usedTypes),
                 saturatedAdd(totalTypes, other.totalTypes),
                 saturatedAdd(usedBytes, other.usedBytes),
-                saturatedAdd(totalBytes, other.totalBytes)
+                saturatedAdd(totalBytes, other.totalBytes),
+                displayUsedBytes.add(other.displayUsedBytes)
             );
         }
     }
@@ -574,9 +595,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        ItemStack component = componentInventory.getStackInSlot(0);
-        if (!component.isEmpty()) {
-            drops.add(component);
+        ItemStack infiniteComponent = infiniteComponentInventory.getStackInSlot(0);
+        if (!infiniteComponent.isEmpty()) {
+            drops.add(infiniteComponent);
         }
     }
 
@@ -661,7 +682,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private boolean hasRequiredInfiniteComponents() {
-        ItemStack stack = componentInventory.getStackInSlot(0);
+        ItemStack stack = infiniteComponentInventory.getStackInSlot(0);
         return hasRequiredInfiniteComponents(stack);
     }
 
@@ -962,8 +983,24 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
+        loadLegacyInfiniteComponentInventory(data, registries);
         hostMode = ECOStorageHostMode.fromId(data.getString("infiniteHostMode"));
         infiniteDomainId = data.hasUUID("infiniteDomainId") ? data.getUUID("infiniteDomainId") : null;
+    }
+
+    private void loadLegacyInfiniteComponentInventory(CompoundTag data, HolderLookup.Provider registries) {
+        if (!infiniteComponentInventory.getStackInSlot(0).isEmpty()) {
+            return;
+        }
+        CompoundTag managed = data.getCompound("managed");
+        if (!managed.contains(LEGACY_COMPONENT_INVENTORY_PERSIST_KEY)) {
+            return;
+        }
+        infiniteComponentInventory.readFromNBT(
+            managed.getCompound(LEGACY_COMPONENT_INVENTORY_PERSIST_KEY),
+            "inventory",
+            registries
+        );
     }
 
     @Override
@@ -990,7 +1027,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Nullable
     public String blockedInfiniteComponentExtractionReason() {
-        ItemStack stack = componentInventory.getStackInSlot(0);
+        ItemStack stack = infiniteComponentInventory.getStackInSlot(0);
         if (!hasRequiredInfiniteComponents(stack) || !hostMode.isInfiniteState()) {
             return null;
         }

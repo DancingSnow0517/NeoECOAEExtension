@@ -71,9 +71,11 @@ public final class StorageHostPanelUI {
     private static final int RIGHT_PERCENT_Y = RIGHT_INSET_Y + RIGHT_INSET_HEIGHT - 12;
     private static final float RIGHT_DETAIL_FONT_SIZE = 8.0F;
     private static final float RIGHT_PERCENT_TEXT_SCALE = 0.9F;
-    private static final int RIGHT_COMPONENT_SLOT_SIZE = 18;
-    private static final int RIGHT_COMPONENT_SLOT_X = RIGHT_INSET_X + RIGHT_INSET_WIDTH - RIGHT_COMPONENT_SLOT_SIZE - 5;
-    private static final int RIGHT_COMPONENT_SLOT_Y = RIGHT_INSET_Y + RIGHT_INSET_HEIGHT - RIGHT_COMPONENT_SLOT_SIZE - 5;
+    private static final int RIGHT_INFINITE_COMPONENT_SLOT_SIZE = 18;
+    private static final int RIGHT_INFINITE_COMPONENT_SLOT_X =
+        RIGHT_INSET_X + RIGHT_INSET_WIDTH - RIGHT_INFINITE_COMPONENT_SLOT_SIZE - 5;
+    private static final int RIGHT_INFINITE_COMPONENT_SLOT_Y =
+        RIGHT_INSET_Y + RIGHT_INSET_HEIGHT - RIGHT_INFINITE_COMPONENT_SLOT_SIZE - 5;
     private static final int SCROLLBAR_HORIZONTAL_OFFSET = 2;
     private static final int PROGRESS_ROW_LABEL_WIDTH = 24;
     private static final int PROGRESS_ROW_BAR_WIDTH = 36;
@@ -92,7 +94,8 @@ public final class StorageHostPanelUI {
         LongSupplier usedTypes,
         LongSupplier totalTypes,
         LongSupplier usedBytes,
-        LongSupplier totalBytes
+        LongSupplier totalBytes,
+        Supplier<String> infiniteBytesText
     ) {
     }
 
@@ -106,9 +109,9 @@ public final class StorageHostPanelUI {
         List<StorageTypeLine> storageTypes,
         BooleanSupplier migratingToInfinite,
         IntSupplier infiniteMigrationProgress,
-        BooleanSupplier showComponentSlots,
+        BooleanSupplier enableInfiniteStorage,
         BooleanSupplier canExtractInfiniteComponents,
-        IItemHandlerModifiable componentInventory
+        IItemHandlerModifiable infiniteComponentInventory
     ) {
     }
 
@@ -116,7 +119,7 @@ public final class StorageHostPanelUI {
     }
 
     public static UIElement createLeftPanel(Config config) {
-        if (!config.showComponentSlots().getAsBoolean()) {
+        if (!config.enableInfiniteStorage().getAsBoolean()) {
             return createLeftStoragePanel(config, PANEL_HEIGHT);
         }
 
@@ -273,11 +276,15 @@ public final class StorageHostPanelUI {
                 8
             ));
             view.addChild(StorageHostElements.absolute(
-                componentSlot(config.showComponentSlots(), config.canExtractInfiniteComponents(), config.componentInventory()),
-                RIGHT_COMPONENT_SLOT_X,
-                RIGHT_COMPONENT_SLOT_Y,
-                RIGHT_COMPONENT_SLOT_SIZE,
-                RIGHT_COMPONENT_SLOT_SIZE
+                infiniteComponentSlot(
+                    config.enableInfiniteStorage(),
+                    config.canExtractInfiniteComponents(),
+                    config.infiniteComponentInventory()
+                ),
+                RIGHT_INFINITE_COMPONENT_SLOT_X,
+                RIGHT_INFINITE_COMPONENT_SLOT_Y,
+                RIGHT_INFINITE_COMPONENT_SLOT_SIZE,
+                RIGHT_INFINITE_COMPONENT_SLOT_SIZE
             ));
         });
         return panel;
@@ -311,19 +318,19 @@ public final class StorageHostPanelUI {
         return panel;
     }
 
-    private static UIElement componentSlot(
+    private static UIElement infiniteComponentSlot(
         BooleanSupplier display,
         BooleanSupplier canExtractInfiniteComponents,
-        IItemHandlerModifiable componentInventory
+        IItemHandlerModifiable infiniteComponentInventory
     ) {
         UIElement wrapper = StorageHostElements.syncedDisplay(display);
-        ItemHandlerSlot slot = new ItemHandlerSlot(componentInventory, 0)
-            .setCanTake(player -> canTakeComponent(player, canExtractInfiniteComponents));
+        ItemHandlerSlot slot = new ItemHandlerSlot(infiniteComponentInventory, 0)
+            .setCanTake(player -> canTakeInfiniteComponent(player, canExtractInfiniteComponents));
         wrapper.addChild(new ItemSlot(slot));
         return wrapper;
     }
 
-    private static boolean canTakeComponent(@Nullable Player player, BooleanSupplier canExtractInfiniteComponents) {
+    private static boolean canTakeInfiniteComponent(@Nullable Player player, BooleanSupplier canExtractInfiniteComponents) {
         if (canExtractInfiniteComponents.getAsBoolean()) {
             return true;
         }
@@ -365,7 +372,8 @@ public final class StorageHostPanelUI {
             ),
             line.usedTypes(),
             line.totalTypes(),
-            infiniteLoad
+            infiniteLoad,
+            null
         ));
         block.addChild(infiniteAwareUsageRow(
             () -> Component.translatable("gui.neoecoae.host.metric.bytes"),
@@ -381,7 +389,8 @@ public final class StorageHostPanelUI {
             ),
             line.usedBytes(),
             line.totalBytes(),
-            infiniteLoad
+            infiniteLoad,
+            line.infiniteBytesText()
         ));
         return block;
     }
@@ -435,7 +444,8 @@ public final class StorageHostPanelUI {
         Supplier<Component> infiniteTooltip,
         LongSupplier used,
         LongSupplier max,
-        BooleanSupplier infiniteLoad
+        BooleanSupplier infiniteLoad,
+        @Nullable Supplier<String> infiniteText
     ) {
         UIElement wrapper = new UIElement().layout(layout -> {
             layout.height(10);
@@ -444,7 +454,7 @@ public final class StorageHostPanelUI {
         wrapper.addChild(StorageHostElements.syncedDisplay(() -> !infiniteLoad.getAsBoolean())
             .addChild(usageProgressRow(label, text, tooltip, used, max)));
         wrapper.addChild(StorageHostElements.syncedDisplay(infiniteLoad)
-            .addChild(usedOnlyRow(label, text, infiniteTooltip, used)));
+            .addChild(usedOnlyRow(label, text, infiniteTooltip, used, infiniteText)));
         return wrapper;
     }
 
@@ -452,7 +462,8 @@ public final class StorageHostPanelUI {
         Supplier<Component> label,
         Supplier<StorageHostText.UsedTotal> text,
         Supplier<Component> tooltip,
-        LongSupplier used
+        LongSupplier used,
+        @Nullable Supplier<String> overrideText
     ) {
         UIElement row = new TooltippedElement(tooltip).layout(layout -> {
             layout.height(10);
@@ -463,7 +474,7 @@ public final class StorageHostPanelUI {
         row.addChild(StorageHostElements.textSegment(label, () -> StorageHostText.MUTED)
             .layout(layout -> layout.width(PROGRESS_ROW_LABEL_WIDTH + PROGRESS_ROW_BAR_WIDTH + 2)));
         row.addChild(StorageHostElements.textSegment(
-            () -> Component.literal(text.get().usedText()),
+            () -> Component.literal(overrideText == null ? text.get().usedText() : overrideText.get()),
             () -> StorageHostText.usedValueColor(used.getAsLong(), Long.MAX_VALUE)
         ));
         return row;

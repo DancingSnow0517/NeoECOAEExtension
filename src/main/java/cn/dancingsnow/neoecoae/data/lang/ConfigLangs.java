@@ -30,11 +30,11 @@ public class ConfigLangs {
             "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n" +
                 "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
         );
-        provider.add("neoecoae.configuration.storageHostComponentSlots", "Storage Host Component Slot");
+        provider.add("neoecoae.configuration.enableInfiniteStorage", "Enable Infinite Storage");
         provider.add(
-            "neoecoae.configuration.storageHostComponentSlots.tooltip",
-            "Enable the reserved component slot in the ECO storage controller.\n" +
-                "This slot is used by the L9 infinite storage backend; disabling it blocks new infinite migrations without deleting existing domain files."
+            "neoecoae.configuration.enableInfiniteStorage.tooltip",
+            "Enable ECO infinite storage on the storage controller.\n" +
+                "Requires 64 infinite components and 16 L9 storage matrices; disabling it blocks new infinite migrations without deleting existing domain files."
         );
         provider.add("neoecoae.configuration.craftingPatternBusPages", "Crafting Pattern Bus Pages");
         provider.add(

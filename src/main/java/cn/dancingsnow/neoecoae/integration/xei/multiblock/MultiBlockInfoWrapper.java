@@ -36,9 +36,21 @@ import java.util.List;
 
 public class MultiBlockInfoWrapper {
 
+    public static final int DEFAULT_WIDTH = 170;
+    public static final int DEFAULT_HEIGHT = 190;
+
+    private static final int PADDING = 4;
+    private static final int GAP = 2;
+    private static final int MATERIALS_HEIGHT = 27;
+    private static final int MIN_SCENE_HEIGHT = 90;
+    private static final int CONTROL_BUTTON_WIDTH = 44;
+    private static final int CONTROL_BUTTON_HEIGHT = 18;
+
     @Getter
     private final MultiBlockDefinition definition;
     private final TrackedDummyWorld world;
+    private final int width;
+    private final int height;
 
     private Scene scene;
     private Button expandButton;
@@ -54,16 +66,25 @@ public class MultiBlockInfoWrapper {
     private ScrollerView requiredItems;
 
     public MultiBlockInfoWrapper(MultiBlockDefinition definition) {
+        this(definition, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    }
+
+    public MultiBlockInfoWrapper(MultiBlockDefinition definition, int width, int height) {
         this.definition = definition;
         this.world = new TrackedDummyWorld();
+        this.width = Math.max(width, DEFAULT_WIDTH);
+        this.height = Math.max(height, DEFAULT_HEIGHT);
     }
 
     public ModularUI createModularUI() {
+        int sceneHeight = Math.max(MIN_SCENE_HEIGHT, height - PADDING * 2 - GAP - MATERIALS_HEIGHT);
+        int titleWidth = Math.max(40, width - CONTROL_BUTTON_WIDTH - PADDING * 2 - GAP * 2);
+
         var root = new UIElement().layout(layout -> layout
-            .setWidth(170)
-            .setHeight(170)
-            .setPadding(YogaEdge.ALL, 4)
-            .setGap(YogaGutter.ALL, 2)
+            .setWidth(width)
+            .setHeight(height)
+            .setPadding(YogaEdge.ALL, PADDING)
+            .setGap(YogaGutter.ALL, GAP)
         ).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
 
         scene = new Scene()
@@ -75,7 +96,7 @@ public class MultiBlockInfoWrapper {
             .setShowHoverBlockTips(true)
             .useCacheBuffer()
             .setOnSelected(this::onSelect);
-        scene.getLayout().setWidth(165).setHeight(130);
+        scene.getLayout().setWidthPercent(100).setHeight(sceneHeight);
         root.addChild(scene);
 
         UIElement buttons = new UIElement().layout(layout -> layout
@@ -84,15 +105,15 @@ public class MultiBlockInfoWrapper {
             .setPosition(YogaEdge.TOP, 2)
         );
         expandButton = new Button().setText("E: " + expand).setOnClick(event -> expand());
-        expandButton.getLayout().setHeight(18).setWidth(18);
+        expandButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
         buttons.addChild(expandButton);
 
         layerButton = new Button().setText("L: " + layer).setOnClick(event -> nextLayer());
-        layerButton.getLayout().setHeight(18).setWidth(18);
+        layerButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
         buttons.addChild(layerButton);
 
         formedButton = new Button().setText("F: " + formed).setOnClick(event -> cycleFormed());
-        formedButton.getLayout().setHeight(18).setWidth(18);
+        formedButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
         buttons.addChild(formedButton);
 
         root.addChild(buttons);
@@ -105,7 +126,7 @@ public class MultiBlockInfoWrapper {
                 .lineSpacing(1)
                 .textShadow(true))
             .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
-                .setWidth(145)
+                .setWidth(titleWidth)
                 .setHeight(20)
                 .setPosition(YogaEdge.LEFT, 2)
                 .setPosition(YogaEdge.TOP, 2)));
@@ -125,7 +146,7 @@ public class MultiBlockInfoWrapper {
         requiredItems.viewContainer(c -> c
             .layout(layout -> layout.flexDirection(YogaFlexDirection.ROW))
             .style(style -> style.backgroundTexture(IGuiTexture.EMPTY)));
-        requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(27));
+        requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(MATERIALS_HEIGHT));
         root.addChild(requiredItems);
 
         createScene();
@@ -159,7 +180,6 @@ public class MultiBlockInfoWrapper {
         } else {
             createScene();
         }
-        createScene();
     }
 
     private void nextLayer() {

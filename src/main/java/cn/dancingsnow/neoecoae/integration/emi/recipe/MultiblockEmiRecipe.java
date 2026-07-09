@@ -12,7 +12,11 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
     private final MultiBlockDefinition definition;
 
     public MultiblockEmiRecipe(MultiBlockDefinition definition) {
-        super(recipe -> new MultiBlockInfoWrapper(definition).createModularUI());
+        super(recipe -> new MultiBlockInfoWrapper(
+            definition,
+            recipe.getDisplayWidth(),
+            recipe.getDisplayHeight()
+        ).createModularUI());
         this.definition = definition;
     }
 
@@ -28,11 +32,11 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     @Override
     public int getDisplayWidth() {
-        return 170;
+        return MultiBlockInfoWrapper.DEFAULT_WIDTH;
     }
 
     @Override
     public int getDisplayHeight() {
-        return 190;
+        return MultiBlockInfoWrapper.DEFAULT_HEIGHT;
     }
 }
