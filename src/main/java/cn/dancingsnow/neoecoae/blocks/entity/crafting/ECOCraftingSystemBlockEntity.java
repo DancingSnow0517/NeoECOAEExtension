@@ -804,7 +804,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             int slots = Math.max(1, snapshot.occupiedThreadSlots());
             int maxProgress = Math.max(1, snapshot.maxProgress());
             int progress = Mth.clamp(snapshot.progress(), 0, maxProgress);
-            outputAmount += Math.max(1L, snapshot.outputItem().getCount()) * slots;
+            outputAmount += Math.max(1L, snapshot.outputAmount());
             craftCount += slots;
             totalProgress += (long) maxProgress * slots;
             remainingProgress += (long) Math.max(0, maxProgress - progress) * slots;

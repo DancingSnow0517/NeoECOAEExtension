@@ -9,10 +9,15 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathStacks {
+    private static final int MAX_SAFE_ITEM_STACK_COUNT = 99;
+
     private ECOFastPathStacks() {
     }
 
@@ -72,11 +77,9 @@ public final class ECOFastPathStacks {
     public static Optional<List<ItemStack>> toItemStacks(List<GenericStack> stacks) {
         List<ItemStack> result = new ArrayList<>(stacks.size());
         for (GenericStack stack : stacks) {
-            Optional<ItemStack> itemStack = toItemStack(stack);
-            if (itemStack.isEmpty()) {
+            if (!appendItemStacks(stack, result)) {
                 return Optional.empty();
             }
-            result.add(itemStack.get());
         }
         return Optional.of(List.copyOf(result));
     }
@@ -105,7 +108,7 @@ public final class ECOFastPathStacks {
     }
 
     private static Optional<ItemStack> toItemStack(GenericStack stack) {
-        if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
+        if (stack.amount() <= 0 || stack.amount() > MAX_SAFE_ITEM_STACK_COUNT) {
             return Optional.empty();
         }
         if (!(stack.what() instanceof AEItemKey itemKey)) {
@@ -113,6 +116,48 @@ public final class ECOFastPathStacks {
         }
         ItemStack itemStack = itemKey.toStack((int) stack.amount());
         return itemStack.isEmpty() ? Optional.empty() : Optional.of(itemStack);
+    }
+
+    private static boolean appendItemStacks(GenericStack stack, List<ItemStack> target) {
+        if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
+            return false;
+        }
+        if (!(stack.what() instanceof AEItemKey itemKey)) {
+            return false;
+        }
+        int remaining = (int) stack.amount();
+        while (remaining > 0) {
+            int count = Math.min(remaining, MAX_SAFE_ITEM_STACK_COUNT);
+            ItemStack itemStack = itemKey.toStack(count);
+            if (itemStack.isEmpty()) {
+                return false;
+            }
+            target.add(itemStack);
+            remaining -= count;
+        }
+        return true;
+    }
+
+    public static ListTag writeGenericStacks(HolderLookup.Provider registries, List<GenericStack> stacks) {
+        ListTag tag = new ListTag();
+        for (GenericStack stack : stacks) {
+            if (stack != null && stack.amount() > 0) {
+                tag.add(GenericStack.writeTag(registries, stack));
+            }
+        }
+        return tag;
+    }
+
+    public static List<GenericStack> readGenericStacks(HolderLookup.Provider registries, ListTag tag) {
+        List<GenericStack> stacks = new ArrayList<>(tag.size());
+        for (int i = 0; i < tag.size(); i++) {
+            CompoundTag stackTag = tag.getCompound(i);
+            GenericStack stack = GenericStack.readTag(registries, stackTag);
+            if (stack != null && stack.amount() > 0) {
+                stacks.add(stack);
+            }
+        }
+        return List.copyOf(stacks);
     }
 
     private static List<GenericStack> copySorted(KeyCounter counter) {
