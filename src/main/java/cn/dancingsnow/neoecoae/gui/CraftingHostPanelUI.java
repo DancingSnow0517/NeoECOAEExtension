@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.gui;
 
 import appeng.client.gui.Icon;
 import appeng.core.localization.Tooltips;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostStyles;
 import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
@@ -28,9 +27,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.Mth;
@@ -39,11 +35,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
@@ -297,7 +290,54 @@ public final class CraftingHostPanelUI {
 
     private static UIElement taskPanel(Config config) {
         ScrollerView panel = insetPanel(TASK_X, TASK_Y, TASK_W, TASK_H);
-        panel.addScrollViewChild(new TaskListElement(config.registries(), config.tasks()).layout(layout -> {
+        panel.addScrollViewChild(new HostTaskListElement(
+                config.registries(),
+                config.tasks(),
+                TASK_W,
+                TASK_H,
+                TASK_CARD_X,
+                TASK_CARD_Y,
+                TASK_CARD_W,
+                TASK_CARD_H,
+                TASK_CARD_STRIDE,
+                TASK_LIST_BOTTOM_Y,
+                TASK_SCROLLBAR_W
+            ) {
+                @Override
+                protected List<Component> tooltipLines(ComputationTaskEntry entry) {
+                    return craftingTooltip(entry);
+                }
+
+                @Override
+                protected void drawTaskCard(GUIContext guiContext, Font font, ComputationTaskEntry entry, float x, float y) {
+                    drawCraftingTaskCard(guiContext, font, entry, Math.round(x), Math.round(y));
+                }
+
+                @Override
+                protected int titleX() {
+                    return 8 + PANEL_TEXT_SHIFT_X;
+                }
+
+                @Override
+                protected int countRightX() {
+                    return TASK_W - 12 + PANEL_TEXT_SHIFT_X;
+                }
+
+                @Override
+                protected int scissorRight() {
+                    return TASK_W - 8;
+                }
+
+                @Override
+                protected int scrollbarX() {
+                    return TASK_W - 9;
+                }
+
+                @Override
+                protected float emptyTextX(Font font, String text) {
+                    return Math.max(0, TASK_W - font.width(text)) / 2.0F + PANEL_TEXT_SHIFT_X;
+                }
+            }.layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
                 layout.left(0);
                 layout.top(0);
@@ -404,7 +444,10 @@ public final class CraftingHostPanelUI {
     }
 
     private static float ratio(long value, long max) {
-        return ECOHostStyles.ratio(value, max);
+        if (max <= 0L) {
+            return 0.0F;
+        }
+        return Math.clamp((float)value / (float)max, 0.0F, 1.0F);
     }
 
     private static int energyGaugeColor(float ratio) {
@@ -741,245 +784,39 @@ public final class CraftingHostPanelUI {
         }
     }
 
-    private static final class TaskListElement extends UIElement implements IBindable<CompoundTag> {
-        private static final String NBT_SEQUENCE = "seq";
-        private static final String NBT_UPDATES = "updates";
-        private static final String NBT_REMOVED = "removed";
-        private static final String NBT_ORDER = "order";
-
-        private final Supplier<HolderLookup.Provider> registries;
-        private final Supplier<List<ComputationTaskEntry>> tasks;
-        private List<ComputationTaskEntry> syncedTasks = List.of();
-        private Map<String, ComputationTaskEntry> lastServerTasks = Map.of();
-        private List<String> lastServerOrder = List.of();
-        private CompoundTag lastSyncPayload = new CompoundTag();
-        private long syncSequence;
-        private int scrollOffset;
-
-        private TaskListElement(Supplier<HolderLookup.Provider> registries, Supplier<List<ComputationTaskEntry>> tasks) {
-            this.registries = registries;
-            this.tasks = tasks;
-            bind(DataBindingBuilder.create(
-                () -> createTaskDelta(registries.get(), this.tasks.get()),
-                ignored -> {
-                }).syncType(CompoundTag.class).c2sStrategy(com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy.NONE).build());
-            addEventListener(UIEvents.MOUSE_WHEEL, event -> {
-                List<ComputationTaskEntry> entries = syncedTasks;
-                if (entries.size() <= visibleTaskCardCount()) {
-                    scrollOffset = 0;
-                    return;
-                }
-                scrollOffset = clampTaskScrollOffset(scrollOffset + (event.deltaY < 0 ? 1 : -1), entries.size());
-                event.stopImmediatePropagation();
-            });
-            for (int row = 0; row < visibleTaskCardCount(); row++) {
-                addChild(createTaskHitbox(row));
-            }
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            List<ComputationTaskEntry> entries = syncedTasks;
-            Font font = Minecraft.getInstance().font;
-            int x = (int)getPositionX();
-            int y = (int)getPositionY();
-            drawString(guiContext, font, Component.translatable("gui.neoecoae.crafting.tasks").getString(), x + 8 + PANEL_TEXT_SHIFT_X, y + 6, StorageHostText.PRIMARY);
-            drawRightString(guiContext, font, ComputationTaskCards.compactAmount(entries.size()), x + TASK_W - 12 + PANEL_TEXT_SHIFT_X, y + 6, StorageHostText.VALUE);
-            scrollOffset = clampTaskScrollOffset(scrollOffset, entries.size());
-            if (entries.isEmpty()) {
-                String empty = Component.translatable("gui.neoecoae.crafting.no_tasks").getString();
-                drawString(guiContext, font, empty, x + Math.max(0, TASK_W - font.width(empty)) / 2 + PANEL_TEXT_SHIFT_X, y + TASK_H / 2 - 4, StorageHostText.MUTED);
-                return;
-            }
-            int visible = Math.min(visibleTaskCardCount(), entries.size() - scrollOffset);
-            guiContext.graphics.enableScissor(x + 4, y + TASK_CARD_Y, x + TASK_W - 8, y + TASK_LIST_BOTTOM_Y + 1);
-            for (int i = 0; i < visible; i++) {
-                drawTaskCard(guiContext, font, entries.get(scrollOffset + i), x + TASK_CARD_X, y + TASK_CARD_Y + i * TASK_CARD_STRIDE);
-            }
-            guiContext.graphics.disableScissor();
-            drawScrollbar(guiContext, x + TASK_W - 9, y + TASK_CARD_Y, entries.size(), visibleTaskCardCount());
-        }
-
-        private UIElement createTaskHitbox(int row) {
-            UIElement hitbox = new UIElement().layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(TASK_CARD_X);
-                layout.top(TASK_CARD_Y + row * TASK_CARD_STRIDE);
-                layout.width(TASK_CARD_W);
-                layout.height(TASK_CARD_H);
-            });
-            hitbox.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                ComputationTaskEntry entry = taskAtVisibleRow(row);
-                if (entry != null) {
-                    event.hoverTooltips = HoverTooltips.empty().append(craftingTooltip(entry).toArray(Component[]::new));
-                }
-            });
-            return hitbox;
-        }
-
-        private ComputationTaskEntry taskAtVisibleRow(int row) {
-            scrollOffset = clampTaskScrollOffset(scrollOffset, syncedTasks.size());
-            int visible = Math.min(visibleTaskCardCount(), syncedTasks.size() - scrollOffset);
-            if (row < 0 || row >= visible) {
-                return null;
-            }
-            return syncedTasks.get(scrollOffset + row);
-        }
-
-        @Override
-        public CompoundTag getValue() {
-            return lastSyncPayload;
-        }
-
-        @Override
-        public IDataSource<CompoundTag> setValue(CompoundTag value) {
-            lastSyncPayload = value == null ? new CompoundTag() : value.copy();
-            applyTaskDelta(registries.get(), lastSyncPayload);
-            return this;
-        }
-
-        private CompoundTag createTaskDelta(HolderLookup.Provider registries, List<ComputationTaskEntry> entries) {
-            List<ComputationTaskEntry> currentTasks = entries == null ? List.of() : entries;
-            Map<String, ComputationTaskEntry> currentById = new LinkedHashMap<>();
-            List<String> currentOrder = new ArrayList<>(currentTasks.size());
-            for (ComputationTaskEntry entry : currentTasks) {
-                currentById.put(entry.id(), entry);
-                currentOrder.add(entry.id());
-            }
-            ListTag updates = new ListTag();
-            for (ComputationTaskEntry entry : currentTasks) {
-                if (!entry.equals(lastServerTasks.get(entry.id()))) {
-                    updates.add(entry.writeToNBT(registries));
-                }
-            }
-            ListTag removed = new ListTag();
-            for (String previousId : lastServerTasks.keySet()) {
-                if (!currentById.containsKey(previousId)) {
-                    removed.add(StringTag.valueOf(previousId));
-                }
-            }
-            boolean orderChanged = !currentOrder.equals(lastServerOrder);
-            if (updates.isEmpty() && removed.isEmpty() && !orderChanged) {
-                return lastSyncPayload;
-            }
-            CompoundTag payload = new CompoundTag();
-            payload.putLong(NBT_SEQUENCE, ++syncSequence);
-            if (!updates.isEmpty()) {
-                payload.put(NBT_UPDATES, updates);
-            }
-            if (!removed.isEmpty()) {
-                payload.put(NBT_REMOVED, removed);
-            }
-            payload.put(NBT_ORDER, writeOrder(currentOrder));
-            lastServerTasks = Map.copyOf(currentById);
-            lastServerOrder = List.copyOf(currentOrder);
-            lastSyncPayload = payload;
-            return payload;
-        }
-
-        private void applyTaskDelta(HolderLookup.Provider registries, CompoundTag payload) {
-            if (payload.isEmpty() && !payload.contains(NBT_SEQUENCE)) {
-                return;
-            }
-            Map<String, ComputationTaskEntry> entriesById = new LinkedHashMap<>();
-            for (ComputationTaskEntry entry : syncedTasks) {
-                entriesById.put(entry.id(), entry);
-            }
-            if (payload.contains(NBT_REMOVED, Tag.TAG_LIST)) {
-                ListTag removed = payload.getList(NBT_REMOVED, Tag.TAG_STRING);
-                for (int i = 0; i < removed.size(); i++) {
-                    entriesById.remove(removed.getString(i));
-                }
-            }
-            if (payload.contains(NBT_UPDATES, Tag.TAG_LIST)) {
-                ListTag updates = payload.getList(NBT_UPDATES, Tag.TAG_COMPOUND);
-                for (int i = 0; i < updates.size(); i++) {
-                    ComputationTaskEntry entry = ComputationTaskEntry.readFromNBT(registries, updates.getCompound(i));
-                    entriesById.put(entry.id(), entry);
-                }
-            }
-            syncedTasks = payload.contains(NBT_ORDER, Tag.TAG_LIST)
-                ? orderTasks(entriesById, payload.getList(NBT_ORDER, Tag.TAG_STRING))
-                : List.copyOf(entriesById.values());
-            scrollOffset = clampTaskScrollOffset(scrollOffset, syncedTasks.size());
-        }
-
-        private static ListTag writeOrder(List<String> order) {
-            ListTag tag = new ListTag();
-            for (String id : order) {
-                tag.add(StringTag.valueOf(id));
-            }
-            return tag;
-        }
-
-        private static List<ComputationTaskEntry> orderTasks(Map<String, ComputationTaskEntry> entriesById, ListTag order) {
-            List<ComputationTaskEntry> ordered = new ArrayList<>(entriesById.size());
-            for (int i = 0; i < order.size(); i++) {
-                ComputationTaskEntry entry = entriesById.remove(order.getString(i));
-                if (entry != null) {
-                    ordered.add(entry);
-                }
-            }
-            ordered.addAll(entriesById.values());
-            return List.copyOf(ordered);
-        }
-
-        private static List<Component> craftingTooltip(ComputationTaskEntry entry) {
-            List<Component> lines = new ArrayList<>();
-            lines.add(entry.output().getHoverName());
-            lines.add(Component.translatable("gui.neoecoae.crafting.ui.recipe_slots")
+    private static List<Component> craftingTooltip(ComputationTaskEntry entry) {
+        return List.of(
+            entry.output().getHoverName(),
+            Component.translatable("gui.neoecoae.crafting.ui.recipe_slots")
                 .append(": ")
-                .append(Tooltips.ofNumber(entry.craftCount())));
-            lines.add(Component.translatable(ComputationTaskCards.statusKey(entry.status()))
+                .append(Tooltips.ofNumber(entry.craftCount())),
+            Component.translatable(ComputationTaskCards.statusKey(entry.status()))
                 .append(" ")
-                .append(Component.literal(ComputationTaskCards.progressText(entry))));
-            return lines;
-        }
+                .append(Component.literal(ComputationTaskCards.progressText(entry)))
+        );
+    }
 
-        private static void drawTaskCard(GUIContext guiContext, Font font, ComputationTaskEntry entry, int x, int y) {
-            int accent = ComputationTaskCards.statusColor(entry.status());
-            guiContext.graphics.fill(x, y, x + TASK_CARD_W, y + TASK_CARD_H, 0xFFD8D3E4);
-            guiContext.graphics.fill(x + 1, y + 1, x + TASK_CARD_W - 1, y + TASK_CARD_H - 1, 0xFF121016);
-            guiContext.graphics.fill(x + 2, y + 2, x + TASK_CARD_W - 2, y + TASK_CARD_H - 2, 0xFF2C2735);
-            guiContext.graphics.fill(x + 2, y + TASK_CARD_H - 2, x + TASK_CARD_W - 2, y + TASK_CARD_H - 1, accent);
-            if (!entry.output().isEmpty()) {
-                DrawerHelper.drawItemStack(guiContext.graphics, entry.output(), x + 3, y, -1, null);
-            }
-            String name = entry.output().getHoverName().getString();
-            if (font.width(name) > TASK_CARD_W - 48) {
-                name = font.plainSubstrByWidth(name, TASK_CARD_W - 58) + "...";
-            }
-            drawString(guiContext, font, name, x + 22 + PANEL_TEXT_SHIFT_X, y + 3, StorageHostText.PRIMARY);
-            drawRightString(guiContext, font, "x" + ComputationTaskCards.compactAmount(entry.outputAmount()), x + TASK_CARD_W - 4 + PANEL_TEXT_SHIFT_X, y + 3, StorageHostText.VALUE);
+    private static void drawCraftingTaskCard(GUIContext guiContext, Font font, ComputationTaskEntry entry, int x, int y) {
+        int accent = ComputationTaskCards.statusColor(entry.status());
+        guiContext.graphics.fill(x, y, x + TASK_CARD_W, y + TASK_CARD_H, 0xFFD8D3E4);
+        guiContext.graphics.fill(x + 1, y + 1, x + TASK_CARD_W - 1, y + TASK_CARD_H - 1, 0xFF121016);
+        guiContext.graphics.fill(x + 2, y + 2, x + TASK_CARD_W - 2, y + TASK_CARD_H - 2, 0xFF2C2735);
+        guiContext.graphics.fill(x + 2, y + TASK_CARD_H - 2, x + TASK_CARD_W - 2, y + TASK_CARD_H - 1, accent);
+        if (!entry.output().isEmpty()) {
+            DrawerHelper.drawItemStack(guiContext.graphics, entry.output(), x + 3, y, -1, null);
         }
-
-        private void drawScrollbar(GUIContext guiContext, int x, int y, int total, int visible) {
-            if (total <= visible) {
-                return;
-            }
-            int height = Math.max(1, TASK_LIST_BOTTOM_Y - TASK_CARD_Y);
-            guiContext.graphics.fill(x, y, x + TASK_SCROLLBAR_W, y + height, 0xAA17141E);
-            int thumbHeight = Math.max(10, height * visible / Math.max(visible, total));
-            int maxOffset = Math.max(1, total - visible);
-            int thumbY = y + Math.round((height - thumbHeight) * (scrollOffset / (float)maxOffset));
-            guiContext.graphics.fill(x, thumbY, x + TASK_SCROLLBAR_W, thumbY + thumbHeight, 0xFF8B83A0);
+        String name = entry.output().getHoverName().getString();
+        if (font.width(name) > TASK_CARD_W - 48) {
+            name = font.plainSubstrByWidth(name, TASK_CARD_W - 58) + "...";
         }
-
-        private static int visibleTaskCardCount() {
-            int space = TASK_LIST_BOTTOM_Y - TASK_CARD_Y;
-            return space < TASK_CARD_H ? 1 : Math.max(1, 1 + (space - TASK_CARD_H) / TASK_CARD_STRIDE);
-        }
-
-        private static int clampTaskScrollOffset(int value, int total) {
-            return Mth.clamp(value, 0, Math.max(0, total - visibleTaskCardCount()));
-        }
-
-        private static void drawRightString(GUIContext guiContext, Font font, String text, int rightX, int y, int color) {
-            drawString(guiContext, font, text, rightX - font.width(text), y, color);
-        }
-
-        private static void drawString(GUIContext guiContext, Font font, String text, int x, int y, int color) {
-            guiContext.graphics.drawString(font, text, x, y, color, false);
-        }
+        HostTaskListElement.drawString(guiContext, font, name, x + 22 + PANEL_TEXT_SHIFT_X, y + 3, StorageHostText.PRIMARY);
+        HostTaskListElement.drawRightString(
+            guiContext,
+            font,
+            "x" + ComputationTaskCards.compactAmount(entry.outputAmount()),
+            x + TASK_CARD_W - 4 + PANEL_TEXT_SHIFT_X,
+            y + 3,
+            StorageHostText.VALUE
+        );
     }
 }

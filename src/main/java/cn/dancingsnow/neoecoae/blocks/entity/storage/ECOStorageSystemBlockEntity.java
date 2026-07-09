@@ -45,7 +45,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
@@ -74,6 +76,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
     private transient UUID buildPlayerId;
+    private transient StorageUiSnapshot storageUiSnapshot = StorageUiSnapshot.EMPTY;
+    private transient long storageUiSnapshotGameTime = Long.MIN_VALUE;
     @Setter
     private boolean mirrored;
 
@@ -250,94 +254,141 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @SuppressWarnings("UnstableApiUsage")
     private long getStoredEnergy() {
-        if (cluster == null) {
-            return 0;
-        }
-        long total = 0;
-        for (ECOEnergyCellBlockEntity energyCell : cluster.getEnergyCells()) {
-            total += (long) energyCell.getAECurrentPower();
-        }
-        return total;
+        return getStorageUiSnapshot().storedEnergy();
     }
 
     @SuppressWarnings("UnstableApiUsage")
     private long getMaxEnergy() {
-        if (cluster == null) {
-            return 0;
-        }
-        long total = 0;
-        for (ECOEnergyCellBlockEntity energyCell : cluster.getEnergyCells()) {
-            total += (long) energyCell.getAEMaxPower();
-        }
-        return total;
+        return getStorageUiSnapshot().maxEnergy();
     }
 
     private long getMaxLoadUsedBytes() {
-        IECOStorageCell cell = getMaxLoadCell();
-        return cell == null ? 0L : cell.getUsedBytes();
+        return getStorageUiSnapshot().maxLoadUsedBytes();
     }
 
     private long getMaxLoadTotalBytes() {
-        IECOStorageCell cell = getMaxLoadCell();
-        return cell == null ? 0L : cell.getTotalBytes();
-    }
-
-    private @Nullable IECOStorageCell getMaxLoadCell() {
-        if (cluster == null) {
-            return null;
-        }
-        IECOStorageCell best = null;
-        double bestRatio = -1.0D;
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            IECOStorageCell inv = drive.getCellInventory();
-            if (inv == null || inv.getTotalBytes() <= 0L) {
-                continue;
-            }
-            double ratio = (double) inv.getUsedBytes() / (double) inv.getTotalBytes();
-            if (ratio > bestRatio) {
-                bestRatio = ratio;
-                best = inv;
-            }
-        }
-        return best;
+        return getStorageUiSnapshot().maxLoadTotalBytes();
     }
 
     private int getIdleMatrixCount() {
-        if (cluster == null) {
-            return 0;
-        }
-        int count = 0;
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            IECOStorageCell inv = drive.getCellInventory();
-            if (inv != null && inv.getUsedBytes() <= 0L && inv.getStoredItemTypes() <= 0L) {
-                count++;
-            }
-        }
-        return count;
+        return getStorageUiSnapshot().idleMatrices();
     }
 
     private long getStorageValue(int cellTypeId, StorageValue value) {
-        if (cluster == null || cellTypeId < 0) {
+        if (cellTypeId < 0) {
             return 0;
         }
-        long total = 0;
-        for (ECODriveBlockEntity drive : cluster.getDrives()) {
-            IECOStorageCell inv = drive.getCellInventory();
-            if (inv == null || NERegistries.CELL_TYPE.getId(inv.getCellType()) != cellTypeId) {
-                continue;
-            }
-            total += getCellValue(inv, value);
-        }
-        return total;
+        StorageTypeTotals totals = getStorageUiSnapshot().storageTypeTotals(cellTypeId);
+        return switch (value) {
+            case USED_TYPES -> totals.usedTypes();
+            case TOTAL_TYPES -> totals.totalTypes();
+            case USED_BYTES -> totals.usedBytes();
+            case TOTAL_BYTES -> totals.totalBytes();
+        };
     }
 
-    private static long getCellValue(IECOStorageCell inv, StorageValue value) {
-        return switch (value) {
-            case USED_TYPES -> inv.getStoredItemTypes();
-            case TOTAL_TYPES -> inv.getTotalItemTypes();
-            case USED_BYTES -> inv.getUsedBytes();
-            case TOTAL_BYTES -> inv.getTotalBytes();
-        };
+    private StorageUiSnapshot getStorageUiSnapshot() {
+        long gameTime = level == null ? Long.MIN_VALUE : level.getGameTime();
+        if (storageUiSnapshotGameTime != gameTime) {
+            storageUiSnapshot = collectStorageUiSnapshot();
+            storageUiSnapshotGameTime = gameTime;
+        }
+        return storageUiSnapshot;
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    private StorageUiSnapshot collectStorageUiSnapshot() {
+        if (cluster == null) {
+            return StorageUiSnapshot.EMPTY;
+        }
+
+        long storedEnergy = 0L;
+        long maxEnergy = 0L;
+        for (ECOEnergyCellBlockEntity energyCell : cluster.getEnergyCells()) {
+            storedEnergy = saturatedAdd(storedEnergy, (long) energyCell.getAECurrentPower());
+            maxEnergy = saturatedAdd(maxEnergy, (long) energyCell.getAEMaxPower());
+        }
+
+        long maxLoadUsedBytes = 0L;
+        long maxLoadTotalBytes = 0L;
+        int idleMatrices = 0;
+        double bestLoadRatio = -1.0D;
+        Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell inv = drive.getCellInventory();
+            if (inv == null) {
+                continue;
+            }
+
+            long usedTypes = inv.getStoredItemTypes();
+            long totalTypes = inv.getTotalItemTypes();
+            long usedBytes = inv.getUsedBytes();
+            long totalBytes = inv.getTotalBytes();
+            if (usedBytes <= 0L && usedTypes <= 0L) {
+                idleMatrices++;
+            }
+            if (totalBytes > 0L) {
+                double ratio = (double) usedBytes / (double) totalBytes;
+                if (ratio > bestLoadRatio) {
+                    bestLoadRatio = ratio;
+                    maxLoadUsedBytes = usedBytes;
+                    maxLoadTotalBytes = totalBytes;
+                }
+            }
+
+            int cellTypeId = NERegistries.CELL_TYPE.getId(inv.getCellType());
+            if (cellTypeId >= 0) {
+                storageTypes.merge(
+                    cellTypeId,
+                    new StorageTypeTotals(usedTypes, totalTypes, usedBytes, totalBytes),
+                    StorageTypeTotals::add
+                );
+            }
+        }
+
+        return new StorageUiSnapshot(
+            storedEnergy,
+            maxEnergy,
+            maxLoadUsedBytes,
+            maxLoadTotalBytes,
+            idleMatrices,
+            Map.copyOf(storageTypes)
+        );
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        long safeRight = Math.max(0L, right);
+        long result = left + safeRight;
+        return result < 0L ? Long.MAX_VALUE : result;
+    }
+
+    private record StorageUiSnapshot(
+        long storedEnergy,
+        long maxEnergy,
+        long maxLoadUsedBytes,
+        long maxLoadTotalBytes,
+        int idleMatrices,
+        Map<Integer, StorageTypeTotals> storageTypes
+    ) {
+        private static final StorageUiSnapshot EMPTY =
+            new StorageUiSnapshot(0L, 0L, 0L, 0L, 0, Map.of());
+
+        private StorageTypeTotals storageTypeTotals(int cellTypeId) {
+            return storageTypes.getOrDefault(cellTypeId, StorageTypeTotals.EMPTY);
+        }
+    }
+
+    private record StorageTypeTotals(long usedTypes, long totalTypes, long usedBytes, long totalBytes) {
+        private static final StorageTypeTotals EMPTY = new StorageTypeTotals(0L, 0L, 0L, 0L);
+
+        private StorageTypeTotals add(StorageTypeTotals other) {
+            return new StorageTypeTotals(
+                saturatedAdd(usedTypes, other.usedTypes),
+                saturatedAdd(totalTypes, other.totalTypes),
+                saturatedAdd(usedBytes, other.usedBytes),
+                saturatedAdd(totalBytes, other.totalBytes)
+            );
+        }
     }
 
     private enum StorageValue {
