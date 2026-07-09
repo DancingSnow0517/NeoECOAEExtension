@@ -31,3 +31,9 @@ src/generated/resources/.cache/
 .mcopilot/
 .worktrees/
 /output/
+
+# Decompiled/extracted dependency sources accidentally created at the repo root
+/appeng/
+/assets/ae2/
+/com/lowdragmc/
+/net/minecraft/
