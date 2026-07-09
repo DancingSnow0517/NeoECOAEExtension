@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
+import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETags;
@@ -40,9 +41,11 @@ import dev.vfyjxf.taffy.style.TaffyPosition;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import lombok.Getter;
@@ -76,6 +79,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int INFINITE_MEMBER_REQUIRED = 16;
     private static final long INFINITE_FLUSH_BUDGET_NANOS = 1_000_000L;
+    private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -110,6 +114,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private transient UUID buildPlayerId;
     private transient StorageUiSnapshot storageUiSnapshot = StorageUiSnapshot.EMPTY;
     private transient long storageUiSnapshotGameTime = Long.MIN_VALUE;
+    @Getter
+    @DescSynced
+    private long performanceAverageNanos = 0L;
+    private long performanceWindowStartTick = Long.MIN_VALUE;
+    private long performanceWindowNanos = 0L;
     @Setter
     private boolean mirrored;
 
@@ -176,41 +185,70 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        updateInfiniteStorageMode();
-        flushInfiniteEngineBudgeted();
-        if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
-            return;
-        }
-
-        ServerPlayer buildPlayer = buildPlayerId == null ? null : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
-        if (buildPlayer == null) {
-            buildSession = null;
-            buildPlayerId = null;
-            buildInProgress = false;
-            setChanged();
-            markForUpdate();
-            return;
-        }
-
-        switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
-            case WAITING, ADVANCED -> {
+        long startNanos = System.nanoTime();
+        try {
+            updateInfiniteStorageMode();
+            flushInfiniteEngineBudgeted();
+            if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
+                return;
             }
-            case COMPLETED -> {
-                buildSession = null;
-                buildPlayerId = null;
-                buildInProgress = false;
-                rebuildMultiblock();
-                setChanged();
-                markForUpdate();
-            }
-            case BLOCKED -> {
+
+            ServerPlayer buildPlayer = buildPlayerId == null ? null : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
+            if (buildPlayer == null) {
                 buildSession = null;
                 buildPlayerId = null;
                 buildInProgress = false;
                 setChanged();
                 markForUpdate();
+                return;
             }
+
+            switch (MultiBlockPlacementService.tickBuild(serverLevel, buildSession, buildPlayer)) {
+                case WAITING, ADVANCED -> {
+                }
+                case COMPLETED -> {
+                    buildSession = null;
+                    buildPlayerId = null;
+                    buildInProgress = false;
+                    rebuildMultiblock();
+                    setChanged();
+                    markForUpdate();
+                }
+                case BLOCKED -> {
+                    buildSession = null;
+                    buildPlayerId = null;
+                    buildInProgress = false;
+                    setChanged();
+                    markForUpdate();
+                }
+            }
+        } finally {
+            recordPerformanceSample(System.nanoTime() - startNanos);
         }
+    }
+
+    private void recordPerformanceSample(long elapsedNanos) {
+        if (elapsedNanos < 0L) {
+            return;
+        }
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (performanceWindowStartTick == Long.MIN_VALUE) {
+            performanceWindowStartTick = currentTick;
+        }
+        performanceWindowNanos += elapsedNanos;
+        long elapsedTicks = currentTick - performanceWindowStartTick;
+        if (elapsedTicks < PERFORMANCE_SAMPLE_WINDOW_TICKS) {
+            return;
+        }
+        long nextAverageNanos = performanceWindowNanos / Math.max(1L, elapsedTicks);
+        performanceWindowStartTick = currentTick;
+        performanceWindowNanos = 0L;
+        if (performanceAverageNanos == nextAverageNanos) {
+            return;
+        }
+        performanceAverageNanos = nextAverageNanos;
+        setChanged();
+        markForUpdate();
     }
 
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
@@ -259,6 +297,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             this::getMaxLoadUsedBytes,
             this::getMaxLoadTotalBytes,
             this::getIdleMatrixCount,
+            this::getPerformanceAverageNanos,
             NERegistries.CELL_TYPE.stream()
                 .map(cellType -> {
                     int id = NERegistries.CELL_TYPE.getId(cellType);
@@ -272,6 +311,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     );
                 })
                 .toList(),
+            this::isMigratingToInfinite,
+            this::getInfiniteMigrationProgressPercent,
             () -> NEConfig.storageHostComponentSlots,
             componentItemHandler
         );
@@ -394,15 +435,51 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 );
             }
         }
+        if (isFormedInfiniteMode()) {
+            addInfiniteStorageTypes(storageTypes);
+        }
 
         return new StorageUiSnapshot(
             storedEnergy,
             maxEnergy,
-            isInfiniteMode() ? Long.MAX_VALUE : maxLoadUsedBytes,
-            isInfiniteMode() ? Long.MAX_VALUE : maxLoadTotalBytes,
+            isFormedInfiniteMode() ? Long.MAX_VALUE : maxLoadUsedBytes,
+            isFormedInfiniteMode() ? Long.MAX_VALUE : maxLoadTotalBytes,
             idleMatrices,
             Map.copyOf(storageTypes)
         );
+    }
+
+    private void addInfiniteStorageTypes(Map<Integer, StorageTypeTotals> storageTypes) {
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (engine == null) {
+            return;
+        }
+        for (ECOInfiniteStorageEngine.TypeStats stats : engine.getTypeStats()) {
+            int cellTypeId = cellTypeIdForKeyType(stats.keyType());
+            if (cellTypeId < 0) {
+                continue;
+            }
+            storageTypes.merge(
+                cellTypeId,
+                new StorageTypeTotals(
+                    stats.storedTypes(),
+                    0L,
+                    stats.storedAmount().toLongSaturated(),
+                    0L
+                ),
+                StorageTypeTotals::add
+            );
+        }
+    }
+
+    private static int cellTypeIdForKeyType(AEKeyType keyType) {
+        if (keyType == AEKeyType.items()) {
+            return NERegistries.CELL_TYPE.getId(NECellTypes.ITEM.get());
+        }
+        if (keyType == AEKeyType.fluids()) {
+            return NERegistries.CELL_TYPE.getId(NECellTypes.FLUID.get());
+        }
+        return -1;
     }
 
     private static long saturatedAdd(long left, long right) {
@@ -500,6 +577,21 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     public boolean isInfiniteMode() {
         return hostMode.isInfiniteState();
+    }
+
+    public boolean isMigratingToInfinite() {
+        return hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE;
+    }
+
+    public boolean isFormedInfiniteMode() {
+        return hostMode == ECOStorageHostMode.FORMED_INFINITE;
+    }
+
+    private int getInfiniteMigrationProgressPercent() {
+        if (!hostMode.isInfiniteState()) {
+            return 0;
+        }
+        return Math.clamp(Math.round(countInfiniteMembers() * 100.0F / INFINITE_MEMBER_REQUIRED), 0, 100);
     }
 
     public boolean canUseHostDomainStorage() {

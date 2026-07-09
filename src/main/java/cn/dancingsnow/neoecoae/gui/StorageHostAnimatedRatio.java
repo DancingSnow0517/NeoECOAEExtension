@@ -9,11 +9,32 @@ final class StorageHostAnimatedRatio {
 
     private double animationStart;
     private double animationTarget = -1.0D;
+    private boolean infinite;
+    private boolean migrating;
+    private double migrationProgress;
     private long animationStartMs;
 
     void setTarget(float ratio) {
-        double target = Math.max(0.0D, Math.min(1.0D, ratio));
         long now = Util.getMillis();
+        if (ratio < 0.0F) {
+            boolean nextInfinite = ratio > -1.5F;
+            double nextMigrationProgress = nextInfinite ? 1.0D : Mth.clamp(-ratio - 2.0D, 0.0D, 1.0D);
+            if (infinite == nextInfinite && migrating == !nextInfinite && Math.abs(animationTarget - 1.0D) <= USAGE_ANIMATION_EPSILON) {
+                migrationProgress = nextMigrationProgress;
+                return;
+            }
+            animationStart = animationTarget < 0.0D ? 0.0D : currentValue(now);
+            animationTarget = 1.0D;
+            animationStartMs = now;
+            infinite = nextInfinite;
+            migrating = !nextInfinite;
+            migrationProgress = nextMigrationProgress;
+            return;
+        }
+        infinite = false;
+        migrating = false;
+        migrationProgress = 0.0D;
+        double target = Math.max(0.0D, Math.min(1.0D, ratio));
         if (animationTarget < 0.0D) {
             animationStart = 0.0D;
             animationTarget = target;
@@ -30,6 +51,18 @@ final class StorageHostAnimatedRatio {
             return 0.0D;
         }
         return currentValue(Util.getMillis());
+    }
+
+    boolean infinite() {
+        return infinite;
+    }
+
+    boolean migrating() {
+        return migrating;
+    }
+
+    double migrationProgress() {
+        return migrationProgress;
     }
 
     private double currentValue(long now) {

@@ -47,22 +47,30 @@ final class StorageHostLoadGauge extends UIElement implements IBindable<Float> {
     public void drawContents(GUIContext guiContext) {
         super.drawContents(guiContext);
         float clamped = (float)animatedRatio.value();
-        if (clamped <= 0.0F) {
+        if (clamped <= 0.0F && !animatedRatio.infinite()) {
             return;
         }
 
         float height = getSizeHeight();
-        float bodyHeight = Math.max(0.0F, height - GAUGE_CAP_HEIGHT);
-        float barHeight = Math.round(bodyHeight * clamped);
         float bottom = getPositionY() + height;
-        float top = bottom - barHeight - GAUGE_CAP_HEIGHT;
+        float top;
+        int color;
+        if (animatedRatio.infinite()) {
+            top = getPositionY();
+            color = 0x22CA6CFF;
+        } else {
+            float bodyHeight = Math.max(0.0F, height - GAUGE_CAP_HEIGHT);
+            float barHeight = Math.round(bodyHeight * clamped);
+            top = bottom - barHeight - GAUGE_CAP_HEIGHT;
+            color = StorageHostText.gaugeColor(clamped);
+        }
         drawGaugeSegment(
             guiContext,
             getPositionX(),
             getSizeWidth(),
             top,
             bottom,
-            StorageHostText.gaugeColor(clamped)
+            color
         );
     }
 

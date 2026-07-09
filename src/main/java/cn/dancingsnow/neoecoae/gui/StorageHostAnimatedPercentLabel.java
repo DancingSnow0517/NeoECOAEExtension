@@ -8,12 +8,15 @@ import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 final class StorageHostAnimatedPercentLabel extends UIElement {
     private final StorageHostAnimatedRatio ratio;
     @Nullable
     private final String prefixTranslationKey;
     private final IntSupplier color;
+    @Nullable
+    private final Supplier<Component> textOverride;
     private final float scale;
     private final boolean centered;
 
@@ -21,12 +24,14 @@ final class StorageHostAnimatedPercentLabel extends UIElement {
         StorageHostAnimatedRatio ratio,
         @Nullable String prefixTranslationKey,
         IntSupplier color,
+        @Nullable Supplier<Component> textOverride,
         float scale,
         boolean centered
     ) {
         this.ratio = ratio;
         this.prefixTranslationKey = prefixTranslationKey;
         this.color = color;
+        this.textOverride = textOverride;
         this.scale = scale;
         this.centered = centered;
     }
@@ -37,11 +42,20 @@ final class StorageHostAnimatedPercentLabel extends UIElement {
         IntSupplier color,
         float scale
     ) {
-        return new StorageHostAnimatedPercentLabel(ratio, prefixTranslationKey, color, scale, false);
+        return new StorageHostAnimatedPercentLabel(ratio, prefixTranslationKey, color, null, scale, false);
     }
 
     static StorageHostAnimatedPercentLabel centered(StorageHostAnimatedRatio ratio, IntSupplier color, float scale) {
-        return new StorageHostAnimatedPercentLabel(ratio, null, color, scale, true);
+        return new StorageHostAnimatedPercentLabel(ratio, null, color, null, scale, true);
+    }
+
+    static StorageHostAnimatedPercentLabel centered(
+        StorageHostAnimatedRatio ratio,
+        IntSupplier color,
+        Supplier<Component> textOverride,
+        float scale
+    ) {
+        return new StorageHostAnimatedPercentLabel(ratio, null, color, textOverride, scale, true);
     }
 
     @Override
@@ -59,6 +73,9 @@ final class StorageHostAnimatedPercentLabel extends UIElement {
     }
 
     private Component text() {
+        if (textOverride != null) {
+            return textOverride.get();
+        }
         Component percent = Component.literal(StorageHostText.percent(ratio.value()));
         if (prefixTranslationKey == null) {
             return percent;

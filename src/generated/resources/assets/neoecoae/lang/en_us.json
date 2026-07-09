@@ -197,6 +197,7 @@
   "gui.neoecoae.storage.energy_status": "Energy Storage: %sAE / %sAE (%d%%)",
   "gui.neoecoae.storage.energy_storage": "Energy Storage",
   "gui.neoecoae.storage.idle_matrices": "Idle Matrices",
+  "gui.neoecoae.storage.infinite_value": "infinite",
   "gui.neoecoae.storage.max_load": "Max Load",
   "gui.neoecoae.storage.status": "Status",
   "gui.neoecoae.storage.status.full": "%s capacity full",

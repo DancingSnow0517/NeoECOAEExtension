@@ -80,6 +80,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.status.warning", "%s pressure rising");
         provider.add("gui.neoecoae.storage.status.stable", "Stable");
         provider.add("gui.neoecoae.storage.idle_matrices", "Idle Matrices");
+        provider.add("gui.neoecoae.storage.infinite_value", "infinite");
         provider.add("gui.neoecoae.common.types", "types");
         provider.add("gui.neoecoae.host.status.online", "ONLINE");
         provider.add("gui.neoecoae.host.status.running", "RUNNING");

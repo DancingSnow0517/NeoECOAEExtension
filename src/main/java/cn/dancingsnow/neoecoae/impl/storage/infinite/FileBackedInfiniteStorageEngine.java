@@ -5,6 +5,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageKeyHash;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -16,6 +17,7 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -40,6 +42,8 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private static final int SHARD_COUNT = 256;
     private static final int WAL_VERSION = 1;
     private static final int MAX_WAL_RECORD_BYTES = 16 * 1024 * 1024;
+    private static final int WAL_BUFFER_BYTES = 64 * 1024;
+    private static final long IDLE_CHECKPOINT_DELAY_NANOS = 5_000_000_000L;
     private static final HugeAmount LONG_MAX_AMOUNT = HugeAmount.of(Long.MAX_VALUE);
 
     private final HolderLookup.Provider registries;
@@ -47,12 +51,14 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private final Path domainPath;
     private final Path walPath;
     private final Map<AEKey, HugeAmount> amounts = new HashMap<>();
+    private final Map<AEKey, Integer> keyShards = new HashMap<>();
+    private final List<Set<AEKey>> keysByShard = createShardKeySets();
     private final Map<AEKey, Long> loadedKeyRevisions = new HashMap<>();
     private final Map<AEKey, Integer> loadedKeySourceShards = new HashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
     private final Map<AEKeyType, MutableTypeStats> typeStats = new HashMap<>();
     private final Map<AEKey, HugeAmount> hugeStacks = new HashMap<>();
-    private final Map<AEKey, BigInteger> dirtyDeltas = new HashMap<>();
+    private final Map<AEKey, BigInteger> pendingWalDeltas = new HashMap<>();
     private final Set<Integer> dirtyShards = new HashSet<>();
     private final long[] shardRevisions = new long[SHARD_COUNT];
     private List<TypeStats> typeStatsSnapshot = List.of();
@@ -61,6 +67,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private boolean hugeStacksSnapshotDirty = true;
     private HugeAmount storedAmount = HugeAmount.ZERO;
     private long revision;
+    private long lastMutationNanos = Long.MIN_VALUE;
 
     @Nullable private DataOutputStream walOut;
 
@@ -165,10 +172,23 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     @Override
     public synchronized void flushBudgeted(long maxNanos) {
+        appendPendingWalRecords();
+        flushWalOutput();
         if (dirtyShards.isEmpty()) {
             return;
         }
-        long deadline = maxNanos <= 0L ? Long.MAX_VALUE : System.nanoTime() + maxNanos;
+        if (maxNanos <= 0L) {
+            checkpointDirtyShards(Long.MAX_VALUE);
+            return;
+        }
+        long now = System.nanoTime();
+        if (lastMutationNanos != Long.MIN_VALUE && now - lastMutationNanos < IDLE_CHECKPOINT_DELAY_NANOS) {
+            return;
+        }
+        checkpointDirtyShards(now + maxNanos);
+    }
+
+    private void checkpointDirtyShards(long deadline) {
         Set<Integer> pending = new HashSet<>(dirtyShards);
         for (int shard : pending) {
             writeShard(shard);
@@ -179,12 +199,12 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
         if (dirtyShards.isEmpty()) {
             truncateWal();
-            dirtyDeltas.clear();
         }
     }
 
     @Override
     public synchronized void closeAndFlush() {
+        appendPendingWalRecords();
         if (!dirtyShards.isEmpty()) {
             for (int shard : new HashSet<>(dirtyShards)) {
                 writeShard(shard);
@@ -192,7 +212,6 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             dirtyShards.clear();
         }
         truncateWal();
-        dirtyDeltas.clear();
         closeWalOutput();
     }
 
@@ -206,19 +225,35 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             nextValue = BigInteger.ZERO;
         }
         HugeAmount next = HugeAmount.of(nextValue);
+        int shard = shardFor(key);
         if (next.isZero()) {
             amounts.remove(key);
+            removeShardIndex(key, shard);
         } else {
             amounts.put(key, next);
+            addShardIndex(key, shard);
         }
         storedAmount = HugeAmount.of(storedAmount.toBigInteger().add(nextValue.subtract(current.toBigInteger())));
         updateIndexes(key, current, next);
-        dirtyDeltas.merge(key, delta, BigInteger::add);
-        dirtyShards.add(shardFor(key));
+        dirtyShards.add(shard);
         revision = revision == Long.MAX_VALUE ? 0L : revision + 1L;
+        lastMutationNanos = System.nanoTime();
         if (writeWal) {
-            appendWal(key, delta);
+            pendingWalDeltas.merge(key, delta, BigInteger::add);
         }
+    }
+
+    private void appendPendingWalRecords() {
+        if (pendingWalDeltas.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<AEKey, BigInteger> entry : new ArrayList<>(pendingWalDeltas.entrySet())) {
+            BigInteger delta = entry.getValue();
+            if (delta.signum() != 0) {
+                appendWal(entry.getKey(), delta);
+            }
+        }
+        pendingWalDeltas.clear();
     }
 
     private void load() {
@@ -236,7 +271,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         rebuildIndexes();
         loadedKeyRevisions.clear();
         loadedKeySourceShards.clear();
-        dirtyDeltas.clear();
+        pendingWalDeltas.clear();
         dirtyShards.clear();
         dirtyShards.addAll(recoveredDirtyShards);
     }
@@ -260,11 +295,14 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         visibleStacks.clear();
         typeStats.clear();
         hugeStacks.clear();
+        keyShards.clear();
+        keysByShard.forEach(Set::clear);
         hugeStacksSnapshot = List.of();
         hugeStacksSnapshotDirty = true;
         storedAmount = HugeAmount.ZERO;
         for (Map.Entry<AEKey, HugeAmount> entry : amounts.entrySet()) {
             storedAmount = storedAmount.add(entry.getValue());
+            addShardIndex(entry.getKey(), shardFor(entry.getKey()));
             updateIndexes(entry.getKey(), HugeAmount.ZERO, entry.getValue());
         }
     }
@@ -343,13 +381,14 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             tag.putLong("revision", revision);
             tag.putString("domain", domainId.toString());
             ListTag entries = new ListTag();
-            for (Map.Entry<AEKey, HugeAmount> entry : amounts.entrySet()) {
-                if (shardFor(entry.getKey()) != shard || entry.getValue().isZero()) {
+            for (AEKey key : keysByShard.get(shard)) {
+                HugeAmount amount = amounts.get(key);
+                if (amount == null || amount.isZero()) {
                     continue;
                 }
                 CompoundTag entryTag = new CompoundTag();
-                entryTag.put("key", entry.getKey().toTagGeneric(registries));
-                entryTag.put("amount", entry.getValue().write());
+                entryTag.put("key", key.toTagGeneric(registries));
+                entryTag.put("amount", amount.write());
                 entries.add(entryTag);
             }
             tag.put("entries", entries);
@@ -382,7 +421,6 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             out.writeInt(payload.length);
             out.writeInt((int) crc.getValue());
             out.write(payload);
-            out.flush();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to append ECO infinite storage WAL", e);
         }
@@ -390,10 +428,27 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     private DataOutputStream walOutput() throws IOException {
         if (walOut == null) {
-            walOut = new DataOutputStream(Files.newOutputStream(
-                    walPath, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND));
+            walOut = new DataOutputStream(new BufferedOutputStream(
+                Files.newOutputStream(
+                    walPath,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND
+                ),
+                WAL_BUFFER_BYTES
+            ));
         }
         return walOut;
+    }
+
+    private void flushWalOutput() {
+        if (walOut == null) {
+            return;
+        }
+        try {
+            walOut.flush();
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to flush ECO infinite storage WAL", e);
+        }
     }
 
     private void replayWal() {
@@ -443,8 +498,12 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         try {
             closeWalOutput();
             Files.createDirectories(domainPath);
-            Files.deleteIfExists(walPath);
-            Files.createFile(walPath);
+            try (OutputStream ignored = Files.newOutputStream(
+                walPath,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            )) {
+            }
         } catch (IOException e) {
             throw new IllegalStateException("Unable to checkpoint ECO infinite storage WAL", e);
         }
@@ -472,7 +531,31 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     }
 
     private int shardFor(AEKey key) {
-        return ECOStorageKeyHash.shardFor(registries, key, SHARD_COUNT);
+        Integer cached = keyShards.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        int shard = ECOStorageKeyHash.shardFor(registries, key, SHARD_COUNT);
+        keyShards.put(key, shard);
+        return shard;
+    }
+
+    private void addShardIndex(AEKey key, int shard) {
+        keyShards.put(key, shard);
+        keysByShard.get(shard).add(key);
+    }
+
+    private void removeShardIndex(AEKey key, int shard) {
+        keysByShard.get(shard).remove(key);
+        keyShards.remove(key);
+    }
+
+    private static List<Set<AEKey>> createShardKeySets() {
+        List<Set<AEKey>> shards = new ArrayList<>(SHARD_COUNT);
+        for (int shard = 0; shard < SHARD_COUNT; shard++) {
+            shards.add(new HashSet<>());
+        }
+        return shards;
     }
 
     private static final class MutableTypeStats {

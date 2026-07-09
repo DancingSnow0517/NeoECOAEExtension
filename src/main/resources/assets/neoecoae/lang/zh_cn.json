@@ -195,6 +195,7 @@
   "gui.neoecoae.storage.energy_status": "能量存储: %sAE / %sAE (%d%%)",
   "gui.neoecoae.storage.energy_storage": "能量存储",
   "gui.neoecoae.storage.idle_matrices": "空闲矩阵",
+  "gui.neoecoae.storage.infinite_value": "无限",
   "gui.neoecoae.storage.max_load": "最大负载",
   "gui.neoecoae.storage.status": "状态",
   "gui.neoecoae.storage.status.full": "%s容量已满",
