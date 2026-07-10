@@ -155,6 +155,11 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        retryBufferedFinalOutput();
+        if (job == null) {
+            return;
+        }
+
         // 暂停时不调度更多工作
         if (job.suspended) {
             return;
@@ -172,6 +177,27 @@ public class ECOCraftingCPULogic {
                     break;
                 }
             } while (remainingOperations > 0);
+        }
+    }
+
+    private void retryBufferedFinalOutput() {
+        AEKey key = job.finalOutput.what();
+        long buffered = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
+        if (buffered <= 0L) {
+            return;
+        }
+        long accepted = job.link.insert(key, buffered, Actionable.MODULATE);
+        if (accepted <= 0L) {
+            return;
+        }
+        inventory.extract(key, accepted, Actionable.MODULATE);
+        job.timeTracker.decrementItems(accepted, key.getType());
+        job.waitingFor.extract(key, accepted, Actionable.MODULATE);
+        job.remainingAmount = Math.max(0L, job.remainingAmount - accepted);
+        postChange(key);
+        cpu.markDirty();
+        if (job.remainingAmount <= 0L) {
+            finishJob(true);
         }
     }
 
@@ -482,7 +508,7 @@ public class ECOCraftingCPULogic {
             amount = waitingFor;
         }
 
-        if (type == Actionable.MODULATE) {
+        if (type == Actionable.MODULATE && !what.matches(job.finalOutput)) {
             job.timeTracker.decrementItems(amount, what.getType());
             job.waitingFor.extract(what, amount, Actionable.MODULATE);
             cpu.markDirty();
@@ -503,8 +529,15 @@ public class ECOCraftingCPULogic {
 
             if (type == Actionable.MODULATE) {
                 // 更新计数和显示的 CPU 堆栈，如果可能则完成任务。
+                job.timeTracker.decrementItems(inserted, what.getType());
+                job.waitingFor.extract(what, inserted, Actionable.MODULATE);
+                long remainder = amount - inserted;
+                if (remainder > 0L) {
+                    inventory.insert(what, remainder, Actionable.MODULATE);
+                }
                 postChange(what);
-                job.remainingAmount = Math.max(0, job.remainingAmount - amount);
+                job.remainingAmount = Math.max(0, job.remainingAmount - inserted);
+                cpu.markDirty();
 
                 if (job.remainingAmount <= 0) {
                     finishJob(true);

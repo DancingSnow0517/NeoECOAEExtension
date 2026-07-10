@@ -14,6 +14,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.BlockSnapshot;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -85,12 +88,14 @@ public final class MultiBlockPlacementService {
         return new MultiBlockPlacementPlan(allBlocks, missingBlocks, conflictPositions, requiredItems, reusedBlockCount);
     }
 
-    public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan) {
+    public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan, ServerPlayer player) {
         if (!plan.getConflictPositions().isEmpty()) {
             return false;
         }
         for (WorldPlannedBlock worldBlock : plan.getMissingBlocks()) {
-            level.setBlock(worldBlock.worldPos(), worldBlock.targetState(), Block.UPDATE_ALL);
+            if (!placeWithPermissionCheck(level, worldBlock, player)) {
+                return false;
+            }
         }
         return true;
     }
@@ -114,10 +119,13 @@ public final class MultiBlockPlacementService {
         }
 
         if (!existingState.equals(worldBlock.targetState())) {
-            if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
+            if (!placeWithPermissionCheck(level, worldBlock, player)) {
                 return PlacementTickResult.BLOCKED;
             }
-            level.setBlock(worldBlock.worldPos(), worldBlock.targetState(), Block.UPDATE_ALL);
+            if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
+                level.setBlock(worldBlock.worldPos(), existingState, Block.UPDATE_ALL);
+                return PlacementTickResult.BLOCKED;
+            }
             playPlacementSound(level, worldBlock);
         }
 
@@ -240,6 +248,22 @@ public final class MultiBlockPlacementService {
             }
         }
         requiredItems.add(new RequiredItem(toAdd, toAdd.getCount()));
+    }
+
+    private static boolean placeWithPermissionCheck(ServerLevel level, WorldPlannedBlock worldBlock, ServerPlayer player) {
+        BlockPos pos = worldBlock.worldPos();
+        BlockSnapshot snapshot = BlockSnapshot.create(level.dimension(), level, pos, Block.UPDATE_ALL);
+        BlockState placedAgainst = level.getBlockState(pos.below());
+        if (!level.setBlock(pos, worldBlock.targetState(), Block.UPDATE_ALL)) {
+            return false;
+        }
+        BlockEvent.EntityPlaceEvent event = new BlockEvent.EntityPlaceEvent(snapshot, placedAgainst, player);
+        NeoForge.EVENT_BUS.post(event);
+        if (event.isCanceled()) {
+            snapshot.restore();
+            return false;
+        }
+        return true;
     }
 
     private static int nextPlacementDelay() {

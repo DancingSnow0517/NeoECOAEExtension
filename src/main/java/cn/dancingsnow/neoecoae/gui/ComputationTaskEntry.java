@@ -219,8 +219,6 @@ public final class ComputationTaskEntry {
             && cpuSerial == other.cpuSerial
             && cpuStorage == other.cpuStorage
             && cpuCoProcessors == other.cpuCoProcessors
-            && Float.compare(progress, other.progress) == 0
-            && elapsedTimeNanos == other.elapsedTimeNanos
             && Objects.equals(id, other.id)
             && ItemStack.matches(output, other.output)
             && status == other.status
@@ -244,9 +242,7 @@ public final class ComputationTaskEntry {
             cpuName,
             cpuStorage,
             cpuCoProcessors,
-            cpuSelectionMode,
-            progress,
-            elapsedTimeNanos
+            cpuSelectionMode
         );
     }
 }

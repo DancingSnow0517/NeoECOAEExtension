@@ -260,6 +260,10 @@ tasks.register('copyGuidebook', Copy) {
     into 'src/guidebook/resources/assets/neoecoae/ae2guide'
 }
 
+tasks.named('processResources') {
+    dependsOn tasks.named('copyGuidebook')
+}
+
 idea {
     module {
         downloadSources = true

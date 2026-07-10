@@ -75,6 +75,24 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
 
     @Override
     public void updateCluster(@Nullable NEComputationCluster cluster) {
+        NEComputationCluster previous = this.cluster;
+        if (cluster == null && previous != null) {
+            HolderLookup.Provider registries = level != null ? level.registryAccess() : null;
+            if (registries != null) {
+                for (int i = 0; i < cpus.length; i++) {
+                    ECOCraftingCPU cpu = cpus[i];
+                    if (cpu == null) {
+                        continue;
+                    }
+                    CompoundTag tag = new CompoundTag();
+                    cpu.writeToNBT(tag, registries);
+                    deferredInit[i] = tag;
+                    previous.deactivate(cpu.getPlan());
+                    cpus[i] = null;
+                }
+                setChanged();
+            }
+        }
         super.updateCluster(cluster);
         if (cluster != null) {
             for (int i = 0; i < deferredInit.length; i++) {

@@ -55,10 +55,12 @@ import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -70,6 +72,7 @@ import org.slf4j.LoggerFactory;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -87,6 +90,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
     private static final String INFINITE_COMPONENT_INVENTORY_PERSIST_KEY = "infiniteComponentInventory";
     private static final String LEGACY_COMPONENT_INVENTORY_PERSIST_KEY = "componentInventory";
+    private static final String CONTROLLER_DOMAIN_TAG = "neoecoae_infinite_controller_domain";
+    private static final String CONTROLLER_MODE_TAG = "neoecoae_infinite_controller_mode";
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -569,10 +574,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void changeStoragePriority(Player player, int delta) {
+        if (!canPlayerInteract(player)) return;
         setStoragePriority(player, StoragePriority.adjust(storagePriority, delta));
     }
 
     private void setStoragePriority(Player player, int priority) {
+        if (!canPlayerInteract(player)) return;
         if (storagePriority == priority) {
             return;
         }
@@ -599,6 +606,26 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (!infiniteComponent.isEmpty()) {
             drops.add(infiniteComponent);
         }
+    }
+
+    public void applyInfiniteDomainToControllerDrop(ItemStack drop) {
+        if (infiniteDomainId == null || drop.isEmpty()) {
+            return;
+        }
+        CompoundTag tag = drop.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        tag.putUUID(CONTROLLER_DOMAIN_TAG, infiniteDomainId);
+        tag.putString(CONTROLLER_MODE_TAG, hostMode.id());
+        drop.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+    }
+
+    public void restoreInfiniteDomainFromItem(ItemStack stack) {
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        if (!tag.hasUUID(CONTROLLER_DOMAIN_TAG)) {
+            return;
+        }
+        infiniteDomainId = tag.getUUID(CONTROLLER_DOMAIN_TAG);
+        hostMode = ECOStorageHostMode.fromId(tag.getString(CONTROLLER_MODE_TAG));
+        setChanged();
     }
 
     public boolean isInfiniteMode() {
@@ -753,7 +780,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         for (Object2LongMap.Entry<AEKey> entry : available) {
             long amount = entry.getLongValue();
             if (amount > 0L) {
-                engine.insert(entry.getKey(), amount, Actionable.MODULATE);
+                UUID transactionId = migrationTransactionId(domainId, drive, entry.getKey(), amount, "to-domain");
+                engine.insertOnce(transactionId, entry.getKey(), amount);
             }
         }
         if (cell instanceof ECOStorageCell storageCell) {
@@ -815,6 +843,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
             long remaining = amount.toLongSaturated();
             for (RestoreTarget target : targets) {
+                UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key,
+                    amount.toLongSaturated(), "from-domain");
+                long alreadyRestored = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
+                remaining -= alreadyRestored;
+                if (remaining <= 0L) {
+                    break;
+                }
                 long inserted = target.simulatedCell().insert(key, remaining, Actionable.MODULATE, source);
                 remaining -= inserted;
                 if (remaining <= 0L) {
@@ -875,6 +910,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void restoreInfiniteDomainToNormalStorage(RestorePlan plan) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine == null || engine.isEmpty()) {
             exitInfiniteModeIfSafe();
@@ -896,20 +934,28 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 if (cell == null) {
                     continue;
                 }
-                long inserted = cell.insert(key, remaining, Actionable.MODULATE, source);
+                UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, original, "from-domain");
+                long inserted = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
+                if (inserted <= 0L) {
+                    inserted = cell.insert(key, remaining, Actionable.MODULATE, source);
+                    target.drive().putRestoreReceipt(transactionId, inserted);
+                }
                 remaining -= inserted;
                 if (remaining <= 0L) {
                     break;
                 }
             }
-            long restored = original - remaining;
-            if (restored > 0L) {
-                engine.extract(key, restored, Actionable.MODULATE);
-            }
             if (remaining > 0L) {
                 LOGGER.warn("ECO infinite storage restore changed during execution; keeping domain {} mounted", infiniteDomainId);
                 engine.flushBudgeted(0L);
                 return;
+            }
+        }
+        serverLevel.getChunkSource().save(true);
+        for (Object2LongMap.Entry<AEKey> entry : pending) {
+            long amount = engine.getAmount(entry.getKey()).toLongSaturated();
+            if (amount > 0L) {
+                engine.extract(entry.getKey(), amount, Actionable.MODULATE);
             }
         }
         engine.flushBudgeted(0L);
@@ -918,6 +964,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         exitInfiniteModeIfSafe();
+    }
+
+    private UUID migrationTransactionId(UUID domainId, ECODriveBlockEntity drive, AEKey key, long amount, String direction) {
+        String value = domainId + ":" + direction + ":" + drive.getBlockPos().asLong() + ":"
+            + key.toTagGeneric(level.registryAccess()) + ":" + amount;
+        return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
     }
 
     private void exitInfiniteModeIfSafe() {
@@ -1128,6 +1180,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void increaseBuildLength(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
@@ -1137,6 +1190,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void decreaseBuildLength(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
@@ -1146,6 +1200,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void autoBuild(Player player) {
+        if (!canPlayerInteract(player)) return;
         if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
@@ -1173,7 +1228,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         if (serverPlayer.isCreative()) {
-            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan)) {
+            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) {
                 return;
             }
             rebuildMultiblock();
@@ -1203,12 +1258,17 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void setMirrorBuild(Player player, boolean mirrorBuild) {
+        if (!canPlayerInteract(player)) return;
         if (buildInProgress) {
             return;
         }
         this.mirrorBuild = mirrorBuild;
         setChanged();
         markForUpdate();
+    }
+
+    private boolean canPlayerInteract(Player player) {
+        return level != null && ECOStorageSystemBlock.isPlayerCloseEnough(level, worldPosition, player);
     }
 
     private @Nullable MultiBlockPlacementPlan createLocalPreviewPlan() {

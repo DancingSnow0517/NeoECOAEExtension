@@ -432,7 +432,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             return;
         }
         if (serverPlayer.isCreative()) {
-            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan)) {
+            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) {
                 return;
             }
             rebuildMultiblock();

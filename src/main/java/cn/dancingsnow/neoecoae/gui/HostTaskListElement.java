@@ -33,7 +33,7 @@ abstract class HostTaskListElement extends UIElement implements IBindable<Compou
     private static final String NBT_TOTAL = "total";
 
     private static final int MAX_SYNCED_TASKS = 96;
-    private static final int MAX_SYNCED_TASK_TAG_CHARS = 24_000;
+    private static final int MAX_SYNCED_TASK_BYTES = 24_000;
 
     private final Supplier<HolderLookup.Provider> registries;
     private final Supplier<List<ComputationTaskEntry>> tasks;
@@ -274,13 +274,13 @@ abstract class HostTaskListElement extends UIElement implements IBindable<Compou
         Map<String, ComputationTaskEntry> byId = new LinkedHashMap<>();
         Map<String, CompoundTag> tagsById = new LinkedHashMap<>();
         List<String> order = new ArrayList<>();
-        int remainingBudget = MAX_SYNCED_TASK_TAG_CHARS;
+        int remainingBudget = MAX_SYNCED_TASK_BYTES;
         for (ComputationTaskEntry entry : source) {
             if (byId.size() >= MAX_SYNCED_TASKS || byId.containsKey(entry.id())) {
                 continue;
             }
             CompoundTag tag = entry.writeToNBT(registries);
-            int estimatedSize = tag.toString().length();
+            int estimatedSize = Math.toIntExact(Math.min(Integer.MAX_VALUE, tag.sizeInBytes()));
             if (estimatedSize > remainingBudget) {
                 break;
             }

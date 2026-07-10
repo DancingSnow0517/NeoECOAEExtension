@@ -705,7 +705,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         if (serverPlayer.isCreative()) {
-            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan)) {
+            if (!MultiBlockPlacementService.buildInstant(serverLevel, plan, serverPlayer)) {
                 return;
             }
             rebuildMultiblock();
