@@ -444,5 +444,7 @@
   "gui.neoecoae.storage_interface.network": "Network",
   "gui.neoecoae.storage_interface.connected": "Connected",
   "gui.neoecoae.storage_interface.disconnected": "Disconnected",
-  "gui.neoecoae.storage_interface.transfer": "Transferred: %s / tick"
+  "gui.neoecoae.storage_interface.transfer": "Transferred: %s / tick",
+  "gui.neoecoae.storage_interface.transfer_prefix": "Transferred: ",
+  "gui.neoecoae.storage_interface.transfer_suffix": " / tick"
 }

@@ -183,5 +183,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage_interface.connected", "Connected");
         provider.add("gui.neoecoae.storage_interface.disconnected", "Disconnected");
         provider.add("gui.neoecoae.storage_interface.transfer", "Transferred: %s / tick");
+        provider.add("gui.neoecoae.storage_interface.transfer_prefix", "Transferred: ");
+        provider.add("gui.neoecoae.storage_interface.transfer_suffix", " / tick");
     }
 }

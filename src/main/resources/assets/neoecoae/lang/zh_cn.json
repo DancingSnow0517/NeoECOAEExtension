@@ -444,5 +444,7 @@
   "gui.neoecoae.storage_interface.network": "网络",
   "gui.neoecoae.storage_interface.connected": "已连接",
   "gui.neoecoae.storage_interface.disconnected": "未连接",
-  "gui.neoecoae.storage_interface.transfer": "转移：%s / tick"
+  "gui.neoecoae.storage_interface.transfer": "转移：%s / tick",
+  "gui.neoecoae.storage_interface.transfer_prefix": "转移：",
+  "gui.neoecoae.storage_interface.transfer_suffix": " / tick"
 }
