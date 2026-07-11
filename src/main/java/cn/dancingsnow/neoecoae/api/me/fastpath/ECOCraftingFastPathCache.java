@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public final class ECOCraftingFastPathCache {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final long NEGATIVE_CACHE_TTL_TICKS = 1_200L;
     private static final Set<ECOCraftingFastPathCache> ACTIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
 
     private final int limit;
@@ -60,6 +61,11 @@ public final class ECOCraftingFastPathCache {
     public ECOFastPathResult get(ECOFastPathKey key, long tick) {
         ECOFastPathResult result = entries.get(key);
         if (result == null) {
+            missCount++;
+            return null;
+        }
+        if (result.isNegative() && tick - result.getLastAccessTick() >= NEGATIVE_CACHE_TTL_TICKS) {
+            entries.remove(key);
             missCount++;
             return null;
         }

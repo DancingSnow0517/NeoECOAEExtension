@@ -175,6 +175,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return null;
         }
         int start = Math.floorMod(nextWorkerIndex, workers.size());
+        BatchFastPathOffer bestOffer = null;
         for (int offset = 0; offset < workers.size(); offset++) {
             int index = (start + offset) % workers.size();
             ECOCraftingWorkerBlockEntity worker = workers.get(index);
@@ -189,11 +190,14 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 continue;
             }
             int maxBatchSize = Math.min(requestedBatchSize, Math.min(availableSlots, globalAvailableSlots));
-            if (maxBatchSize > 0) {
-                return new BatchFastPathOffer(worker, result, maxBatchSize);
+            if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
+                bestOffer = new BatchFastPathOffer(worker, result, maxBatchSize);
+                if (maxBatchSize >= requestedBatchSize) {
+                    break;
+                }
             }
         }
-        return null;
+        return bestOffer;
     }
 
     private int nextWorkerIndexAfter(ECOCraftingWorkerBlockEntity acceptedWorker) {

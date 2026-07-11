@@ -359,10 +359,13 @@ public class ECOCraftingCPULogic {
                 continue;
             }
             var offer = patternBus.findBatchFastPathOffer(execution, requested);
-            if (offer != null && offer.maxBatchSize() > 1) {
+            if (offer != null && offer.maxBatchSize() > 1
+                    && (selectedOffer == null || offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
                 selectedPatternBus = patternBus;
                 selectedOffer = offer;
-                break;
+                if (offer.maxBatchSize() >= requested) {
+                    break;
+                }
             }
         }
         if (selectedPatternBus == null || selectedOffer == null) {
@@ -456,16 +459,19 @@ public class ECOCraftingCPULogic {
         if (patternPower <= 0.0D) {
             return requested;
         }
-        int batchSize = requested;
-        while (batchSize > 0) {
+        int low = 0;
+        int high = requested;
+        while (low < high) {
+            int batchSize = low + (high - low + 1) / 2;
             double totalPower = patternPower * batchSize;
             if (energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG) >= totalPower
                     - 0.01) {
-                return batchSize;
+                low = batchSize;
+            } else {
+                high = batchSize - 1;
             }
-            batchSize--;
         }
-        return 0;
+        return low;
     }
 
     private void recordPushedPattern(ECOExtractedPatternExecution execution, int craftCount) {
