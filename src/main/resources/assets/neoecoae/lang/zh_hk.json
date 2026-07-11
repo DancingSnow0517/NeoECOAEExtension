@@ -62,6 +62,7 @@
   "block.neoecoae.tungsten_ore": "鎢礦石",
   "category.neoecoae.cooling": "冷卻系統",
   "category.neoecoae.cooling.coolant": "冷卻值: %d",
+  "category.neoecoae.cooling.max_overclock": "最大超頻: %d",
   "category.neoecoae.integrated_working_station": "整合工作站",
   "category.neoecoae.multiblock": "ECO 多方塊資訊",
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO 合成系統",

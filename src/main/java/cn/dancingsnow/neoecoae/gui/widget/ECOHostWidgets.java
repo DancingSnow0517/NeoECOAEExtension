@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.gui.widget;
 
 import cn.dancingsnow.neoecoae.gui.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Scroller;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
@@ -13,6 +15,9 @@ public final class ECOHostWidgets {
 
     public static ScrollerView storagePanel(int width, int height, int padding, int gap, int scrollbarOffset) {
         ScrollerView panel = new ECOHostChannelScrollerView()
+            .scrollerStyle(style -> style
+                .mode(ScrollerMode.VERTICAL)
+                .horizontalScrollDisplay(ScrollDisplay.NEVER))
             .viewContainer(view -> {
                 view.getLayout().gapAll(gap);
                 view.getLayout().paddingAll(padding);

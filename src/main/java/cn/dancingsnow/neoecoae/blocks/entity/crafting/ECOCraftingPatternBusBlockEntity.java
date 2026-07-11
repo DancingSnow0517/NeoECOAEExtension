@@ -77,6 +77,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private static final int PAGE_BUTTON_SIZE = 16;
     private static final int PAGE_CONTROL_GAP = 4;
     private static final int HEADER_HEIGHT = 36;
+    private static final int SINGLE_PAGE_HEADER_HEIGHT = 16;
     private static final int HEADER_TITLE_TOP = 2;
     private static final int PAGE_TOP_MARGIN = 19;
     private static final int PAGE_RIGHT_MARGIN = 2;
@@ -387,9 +388,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     private UIElement headerRow() {
+        boolean showPageControls = getPageCount() > 1;
         UIElement row = new UIElement().layout(layout -> {
             layout.width(UI_CONTENT_WIDTH);
-            layout.height(HEADER_HEIGHT);
+            layout.height(showPageControls ? HEADER_HEIGHT : SINGLE_PAGE_HEADER_HEIGHT);
         });
         row.addChild(new TextElement()
             .setText(Component.translatable("block.neoecoae.crafting_pattern_bus"))
@@ -403,7 +405,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 layout.width(UI_CONTENT_WIDTH);
                 layout.height(12);
             }));
-        row.addChild(pageControls());
+        if (showPageControls) {
+            row.addChild(pageControls());
+        }
         return row;
     }
 
@@ -474,10 +478,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     public int getPageCount() {
-        activePages = clampPages(Math.max(
-            activePages,
-            Math.max(NEConfig.getCraftingPatternBusPages(), getHighestOccupiedPage())
-        ));
+        activePages = clampPages(Math.max(NEConfig.getCraftingPatternBusPages(), getHighestOccupiedPage()));
         currentPage = Math.clamp(currentPage, 0, activePages - 1);
         return activePages;
     }

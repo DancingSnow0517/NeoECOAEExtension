@@ -93,7 +93,6 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 return 0L;
             }
             applyDelta(key, BigInteger.valueOf(amount), true);
-            persistPendingWal();
         }
         return amount;
     }
@@ -140,7 +139,6 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 return 0L;
             }
             applyDelta(key, BigInteger.valueOf(visible).negate(), true);
-            persistPendingWal();
         }
         return visible;
     }
@@ -213,8 +211,17 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         if (degraded) {
             return;
         }
+        boolean hadPendingWal = !pendingWalDeltas.isEmpty();
         appendPendingWalRecords();
         flushWalOutput();
+        if (hadPendingWal) {
+            try {
+                forceWal();
+            } catch (IOException e) {
+                degraded = true;
+                throw new IllegalStateException("Unable to force ECO infinite storage WAL", e);
+            }
+        }
         if (dirtyShards.isEmpty()) {
             return;
         }
@@ -299,17 +306,6 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             }
         }
         pendingWalDeltas.clear();
-    }
-
-    private void persistPendingWal() {
-        appendPendingWalRecords();
-        flushWalOutput();
-        try {
-            forceWal();
-        } catch (IOException e) {
-            degraded = true;
-            throw new IllegalStateException("Unable to force ECO infinite storage WAL", e);
-        }
     }
 
     private void forceWal() throws IOException {

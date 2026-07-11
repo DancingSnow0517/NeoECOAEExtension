@@ -20,6 +20,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Player;
@@ -76,6 +77,10 @@ public final class StorageHostPanelUI {
         RIGHT_INSET_X + RIGHT_INSET_WIDTH - RIGHT_INFINITE_COMPONENT_SLOT_SIZE - 5;
     private static final int RIGHT_INFINITE_COMPONENT_SLOT_Y =
         RIGHT_INSET_Y + RIGHT_INSET_HEIGHT - RIGHT_INFINITE_COMPONENT_SLOT_SIZE - 5;
+    private static final int RIGHT_HUGE_STACK_X = RIGHT_DETAIL_X;
+    private static final int RIGHT_HUGE_STACK_Y = RIGHT_DETAIL_Y + RIGHT_DETAIL_LINE_HEIGHT * 4 + 1;
+    private static final int RIGHT_HUGE_STACK_WIDTH = RIGHT_DETAIL_WIDTH;
+    private static final int RIGHT_HUGE_STACK_HEIGHT = RIGHT_INFINITE_COMPONENT_SLOT_Y - RIGHT_HUGE_STACK_Y - 3;
     private static final int SCROLLBAR_HORIZONTAL_OFFSET = 2;
     private static final int PROGRESS_ROW_LABEL_WIDTH = 24;
     private static final int PROGRESS_ROW_BAR_WIDTH = 36;
@@ -95,7 +100,8 @@ public final class StorageHostPanelUI {
         LongSupplier totalTypes,
         LongSupplier usedBytes,
         LongSupplier totalBytes,
-        Supplier<String> infiniteBytesText
+        Supplier<String> infiniteBytesText,
+        Supplier<String> infiniteBytesTooltipText
     ) {
     }
 
@@ -111,7 +117,9 @@ public final class StorageHostPanelUI {
         IntSupplier infiniteMigrationProgress,
         BooleanSupplier enableInfiniteStorage,
         BooleanSupplier canExtractInfiniteComponents,
-        IItemHandlerModifiable infiniteComponentInventory
+        IItemHandlerModifiable infiniteComponentInventory,
+        Supplier<HolderLookup.Provider> registries,
+        Supplier<List<StorageHostHugeStackList.Entry>> hugeStacks
     ) {
     }
 
@@ -276,6 +284,18 @@ public final class StorageHostPanelUI {
                 8
             ));
             view.addChild(StorageHostElements.absolute(
+                new StorageHostHugeStackList(
+                    config.registries(),
+                    config.hugeStacks(),
+                    RIGHT_HUGE_STACK_WIDTH,
+                    RIGHT_HUGE_STACK_HEIGHT
+                ),
+                RIGHT_HUGE_STACK_X,
+                RIGHT_HUGE_STACK_Y,
+                RIGHT_HUGE_STACK_WIDTH,
+                RIGHT_HUGE_STACK_HEIGHT
+            ));
+            view.addChild(StorageHostElements.absolute(
                 infiniteComponentSlot(
                     config.enableInfiniteStorage(),
                     config.canExtractInfiniteComponents(),
@@ -384,7 +404,11 @@ public final class StorageHostPanelUI {
                 line.totalBytes().getAsLong()
             ),
             () -> usedOnlyTooltip(
-                StorageHostText.fullByteProgressValues(line.usedBytes().getAsLong(), 0L),
+                new StorageHostText.UsedTotal(
+                    line.infiniteBytesTooltipText().get(),
+                    "",
+                    Component.translatable("gui.neoecoae.host.metric.bytes")
+                ),
                 line.usedBytes().getAsLong()
             ),
             line.usedBytes(),
@@ -471,12 +495,11 @@ public final class StorageHostPanelUI {
             layout.alignItems(dev.vfyjxf.taffy.style.AlignItems.CENTER);
             layout.gapAll(2);
         });
-        row.addChild(StorageHostElements.textSegment(label, () -> StorageHostText.MUTED)
-            .layout(layout -> layout.width(PROGRESS_ROW_LABEL_WIDTH + PROGRESS_ROW_BAR_WIDTH + 2)));
         row.addChild(StorageHostElements.textSegment(
             () -> Component.literal(overrideText == null ? text.get().usedText() : overrideText.get()),
             () -> StorageHostText.usedValueColor(used.getAsLong(), Long.MAX_VALUE)
-        ));
+        ).layout(layout -> layout.width(PROGRESS_ROW_LABEL_WIDTH + PROGRESS_ROW_BAR_WIDTH + 2)));
+        row.addChild(StorageHostElements.textSegment(label, () -> StorageHostText.MUTED));
         return row;
     }
 

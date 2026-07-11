@@ -239,10 +239,11 @@ public class ECOStorageCell implements IECOStorageCell {
 
     protected void saveChanges() {
         this.isPersisted = false;
+        // The host only marks its block entity dirty; it does not serialize this
+        // transient inventory instance back into the cell stack for us.
+        this.persist();
         if (this.container != null) {
             this.container.saveChanges();
-        } else {
-            this.persist();
         }
     }
 
@@ -269,6 +270,17 @@ public class ECOStorageCell implements IECOStorageCell {
         }
 
         return hasVoidUpgrade ? amount : inserted;
+    }
+
+    /** Inserts for a lossless migration without applying the void upgrade's reported acceptance. */
+    public long insertForMigration(AEKey what, long amount, Actionable mode) {
+        if (amount <= 0 || !keyType.contains(what)) {
+            return 0;
+        }
+        if (!partitionList.matchesFilter(what, partitionListMode) || cellType.isBlackListed(cellStack, what)) {
+            return 0;
+        }
+        return innerInsert(what, amount, mode);
     }
 
     private long innerInsert(AEKey what, long amount, Actionable mode) {

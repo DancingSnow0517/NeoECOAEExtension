@@ -34,7 +34,8 @@ public class CPUSelectionListMixin {
         method = "drawBackgroundLayer",
         at = @At(
             value = "INVOKE",
-            target = "Lcom/mojang/blaze3d/vertex/PoseStack;scale(FFF)V"
+            target = "Lcom/mojang/blaze3d/vertex/PoseStack;popPose()V",
+            shift = At.Shift.AFTER
         )
     )
     private void onDrawBackgroundLayer(
@@ -42,11 +43,13 @@ public class CPUSelectionListMixin {
         Rect2i bounds,
         Point mouse,
         CallbackInfo ci,
-        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu
+        @Local(name = "cpu") CraftingStatusMenu.CraftingCpuListEntry cpu,
+        @Local(name = "x") int x,
+        @Local(name = "y") int y
     ) {
         ResourceLocation texture = IOverlayTextureHolder.of(cpu).neoecoae$getOverlay();
         if (texture != null) {
-            guiGraphics.blit(texture, buttonBg.getSrcWidth() - 12, 0, 0, 0, 7, 7, 7, 7);
+            guiGraphics.blit(texture, x + buttonBg.getSrcWidth() - 10, y + 2, 0, 0, 7, 7, 7, 7);
         }
     }
 

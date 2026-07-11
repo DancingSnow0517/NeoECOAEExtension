@@ -195,7 +195,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void saveChanges() {
-        setChanged();
+        notifyPersistence();
     }
 
     public void convertCellToInfiniteMember(UUID domainId) {

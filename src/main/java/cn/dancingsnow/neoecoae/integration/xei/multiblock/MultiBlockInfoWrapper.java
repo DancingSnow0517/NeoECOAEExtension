@@ -38,11 +38,13 @@ public class MultiBlockInfoWrapper {
 
     public static final int DEFAULT_WIDTH = 170;
     public static final int DEFAULT_HEIGHT = 190;
+    public static final int MIN_HEIGHT = 120;
+    public static final int EMI_VERTICAL_RESERVE = 105;
 
     private static final int PADDING = 4;
     private static final int GAP = 2;
+    private static final int HEADER_HEIGHT = 22;
     private static final int MATERIALS_HEIGHT = 27;
-    private static final int MIN_SCENE_HEIGHT = 90;
     private static final int CONTROL_BUTTON_WIDTH = 44;
     private static final int CONTROL_BUTTON_HEIGHT = 18;
 
@@ -73,12 +75,11 @@ public class MultiBlockInfoWrapper {
         this.definition = definition;
         this.world = new TrackedDummyWorld();
         this.width = Math.max(width, DEFAULT_WIDTH);
-        this.height = Math.max(height, DEFAULT_HEIGHT);
+        this.height = Math.max(height, MIN_HEIGHT);
     }
 
     public ModularUI createModularUI() {
-        int sceneHeight = Math.max(MIN_SCENE_HEIGHT, height - PADDING * 2 - GAP - MATERIALS_HEIGHT);
-        int titleWidth = Math.max(40, width - CONTROL_BUTTON_WIDTH - PADDING * 2 - GAP * 2);
+        int sceneHeight = height - PADDING * 2 - GAP * 2 - HEADER_HEIGHT - MATERIALS_HEIGHT;
 
         var root = new UIElement().layout(layout -> layout
             .setWidth(width)
@@ -86,6 +87,25 @@ public class MultiBlockInfoWrapper {
             .setPadding(YogaEdge.ALL, PADDING)
             .setGap(YogaGutter.ALL, GAP)
         ).style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
+
+        root.addChild(new TextElement()
+            .setText(definition.getName())
+            .textStyle(textStyle -> textStyle
+                .adaptiveWidth(false)
+                .adaptiveHeight(false)
+                .textWrap(TextWrap.WRAP)
+                .fontSize(8.5f)
+                .lineSpacing(1)
+                .textShadow(true))
+            .layout(layout -> layout
+                .setWidthPercent(100)
+                .setHeight(HEADER_HEIGHT)));
+
+        UIElement sceneContainer = new UIElement().layout(layout -> layout
+            .setWidthPercent(100)
+            .setHeight(sceneHeight)
+        );
+        root.addChild(sceneContainer);
 
         scene = new Scene()
             .createScene(world)
@@ -96,11 +116,18 @@ public class MultiBlockInfoWrapper {
             .setShowHoverBlockTips(true)
             .useCacheBuffer()
             .setOnSelected(this::onSelect);
-        scene.getLayout().setWidthPercent(100).setHeight(sceneHeight);
-        root.addChild(scene);
+        scene.getLayout()
+            .positionType(YogaPositionType.ABSOLUTE)
+            .setWidthPercent(100)
+            .setHeightPercent(100)
+            .setPosition(YogaEdge.LEFT, 0)
+            .setPosition(YogaEdge.TOP, 0);
+        sceneContainer.addChild(scene);
 
         UIElement buttons = new UIElement().layout(layout -> layout
             .positionType(YogaPositionType.ABSOLUTE)
+            .setWidth(CONTROL_BUTTON_WIDTH)
+            .setHeight(CONTROL_BUTTON_HEIGHT * 3)
             .setPosition(YogaEdge.RIGHT, 2)
             .setPosition(YogaEdge.TOP, 2)
         );
@@ -116,26 +143,13 @@ public class MultiBlockInfoWrapper {
         formedButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
         buttons.addChild(formedButton);
 
-        root.addChild(buttons);
+        sceneContainer.addChild(buttons);
 
-        root.addChild(new TextElement()
-            .setText(definition.getName())
-            .textStyle(textStyle -> textStyle
-                .textWrap(TextWrap.WRAP)
-                .fontSize(8.5f)
-                .lineSpacing(1)
-                .textShadow(true))
-            .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
-                .setWidth(titleWidth)
-                .setHeight(20)
-                .setPosition(YogaEdge.LEFT, 2)
-                .setPosition(YogaEdge.TOP, 2)));
-
-        root.addChild(new ItemSlot()
+        sceneContainer.addChild(new ItemSlot()
             .bindDataSource(SupplierDataSource.of(() -> selectedItem))
             .layout(layout -> layout.setPositionType(YogaPositionType.ABSOLUTE)
                 .setPosition(YogaEdge.LEFT, 2)
-                .setPosition(YogaEdge.TOP, 25))
+                .setPosition(YogaEdge.TOP, 2))
             .addClass("panel_border"));
 
         requiredItems = new ScrollerView();

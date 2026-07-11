@@ -186,7 +186,7 @@ public class ECOCraftingCPULogic {
         if (buffered <= 0L) {
             return;
         }
-        long accepted = job.link.insert(key, buffered, Actionable.MODULATE);
+        long accepted = deliverFinalOutput(key, buffered, Actionable.MODULATE);
         if (accepted <= 0L) {
             return;
         }
@@ -516,8 +516,7 @@ public class ECOCraftingCPULogic {
 
         long inserted = amount;
         if (what.matches(job.finalOutput)) {
-            // 最终输出是特殊的：直接发送给请求者
-            inserted = job.link.insert(what, amount, type);
+            inserted = deliverFinalOutput(what, amount, type);
 
             // 注意：我们忽略任何余数（如果没有请求者，余数可能是整个输入），
             // 我们已经将物品标记为已完成，甚至可能完成整个任务。
@@ -550,6 +549,20 @@ public class ECOCraftingCPULogic {
         }
 
         return inserted;
+    }
+
+    private long deliverFinalOutput(AEKey what, long amount, Actionable mode) {
+        if (job == null || amount <= 0L) {
+            return 0L;
+        }
+        if (!job.link.isStandalone()) {
+            return job.link.insert(what, amount, mode);
+        }
+        IGrid grid = cpu.getGrid();
+        if (grid == null) {
+            return 0L;
+        }
+        return grid.getStorageService().getInventory().insert(what, amount, mode, cpu.getActionSource());
     }
 
     /**

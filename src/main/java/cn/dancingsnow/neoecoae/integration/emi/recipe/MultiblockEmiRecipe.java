@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.lowdragmc.lowdraglib2.integration.xei.emi.ModularUIEMIRecipe;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,6 +38,11 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     @Override
     public int getDisplayHeight() {
-        return MultiBlockInfoWrapper.DEFAULT_HEIGHT;
+        int screenHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        return Math.clamp(
+            screenHeight - MultiBlockInfoWrapper.EMI_VERTICAL_RESERVE,
+            MultiBlockInfoWrapper.MIN_HEIGHT,
+            MultiBlockInfoWrapper.DEFAULT_HEIGHT
+        );
     }
 }

@@ -62,6 +62,7 @@
   "block.neoecoae.tungsten_ore": "鎢礦",
   "category.neoecoae.cooling": "涼系",
   "category.neoecoae.cooling.coolant": "涼值: %d",
+  "category.neoecoae.cooling.max_overclock": "至超頻: %d",
   "category.neoecoae.integrated_working_station": "綜合工坊",
   "category.neoecoae.multiblock": "ECO 多方構訊",
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO 冶造之分",

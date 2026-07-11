@@ -1,17 +1,18 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
-import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.StorageHostActionUI;
+import cn.dancingsnow.neoecoae.gui.StorageHostHugeStackList;
 import cn.dancingsnow.neoecoae.gui.StorageHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.StorageHostText;
 import cn.dancingsnow.neoecoae.gui.StoragePriority;
@@ -321,7 +322,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
                         () -> getStorageValue(id, StorageValue.USED_BYTES),
                         () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
-                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText()
+                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText(),
+                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesTooltipText()
                     );
                 })
                 .toList(),
@@ -329,8 +331,20 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             this::getInfiniteMigrationProgressPercent,
             NEConfig::isInfiniteStorageEnabled,
             this::canExtractInfiniteComponents,
-            infiniteComponentItemHandler
+            infiniteComponentItemHandler,
+            () -> level.registryAccess(),
+            this::getHugeStackUiEntries
         );
+    }
+
+    private List<StorageHostHugeStackList.Entry> getHugeStackUiEntries() {
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (engine == null || !isFormedInfiniteMode()) {
+            return List.of();
+        }
+        return engine.getHugeStacks().stream()
+            .map(stack -> new StorageHostHugeStackList.Entry(stack.key(), stack.amount().toString()))
+            .toList();
     }
 
     @Override
@@ -415,10 +429,15 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         int idleMatrices = 0;
         double bestLoadRatio = -1.0D;
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
+        Map<AEKeyType, Integer> cellTypesByKeyType = new HashMap<>();
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             IECOStorageCell inv = drive.getCellInventory();
             if (inv == null) {
                 continue;
+            }
+            int cellTypeId = NERegistries.CELL_TYPE.getId(inv.getCellType());
+            if (cellTypeId >= 0 && drive.getCellStack().getItem() instanceof IBasicECOCellItem cellItem) {
+                cellTypesByKeyType.putIfAbsent(cellItem.getKeyType(), cellTypeId);
             }
             if (isInfiniteMemberCell(drive.getCellStack())) {
                 idleMatrices++;
@@ -441,7 +460,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 }
             }
 
-            int cellTypeId = NERegistries.CELL_TYPE.getId(inv.getCellType());
             if (cellTypeId >= 0) {
                 storageTypes.merge(
                     cellTypeId,
@@ -451,7 +469,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         if (isFormedInfiniteMode()) {
-            addInfiniteStorageTypes(storageTypes);
+            addInfiniteStorageTypes(storageTypes, cellTypesByKeyType);
         }
 
         return new StorageUiSnapshot(
@@ -464,38 +482,41 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         );
     }
 
-    private void addInfiniteStorageTypes(Map<Integer, StorageTypeTotals> storageTypes) {
+    private void addInfiniteStorageTypes(
+        Map<Integer, StorageTypeTotals> storageTypes,
+        Map<AEKeyType, Integer> cellTypesByKeyType
+    ) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine == null) {
             return;
         }
         for (ECOInfiniteStorageEngine.TypeStats stats : engine.getTypeStats()) {
-            int cellTypeId = cellTypeIdForKeyType(stats.keyType());
+            int cellTypeId = cellTypesByKeyType.getOrDefault(stats.keyType(), -1);
             if (cellTypeId < 0) {
                 continue;
             }
+            BigInteger usedBytes = infiniteUsedBytes(stats);
             storageTypes.merge(
                 cellTypeId,
                 new StorageTypeTotals(
                     stats.storedTypes(),
                     0L,
-                    stats.storedAmount().toLongSaturated(),
+                    usedBytes.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue(),
                     0L,
-                    stats.storedAmount().toBigInteger()
+                    usedBytes
                 ),
                 StorageTypeTotals::add
             );
         }
     }
 
-    private static int cellTypeIdForKeyType(AEKeyType keyType) {
-        if (keyType == AEKeyType.items()) {
-            return NERegistries.CELL_TYPE.getId(NECellTypes.ITEM.get());
-        }
-        if (keyType == AEKeyType.fluids()) {
-            return NERegistries.CELL_TYPE.getId(NECellTypes.FLUID.get());
-        }
-        return -1;
+    private static BigInteger infiniteUsedBytes(ECOInfiniteStorageEngine.TypeStats stats) {
+        BigInteger amount = stats.storedAmount().toBigInteger();
+        BigInteger amountPerByte = BigInteger.valueOf(stats.keyType().getAmountPerByte());
+        BigInteger[] division = amount.divideAndRemainder(amountPerByte);
+        BigInteger contentBytes = division[0].add(division[1].signum() == 0 ? BigInteger.ZERO : BigInteger.ONE);
+        long bytesPerType = 1L << (12 + ECOTier.L9.getTier());
+        return contentBytes.add(BigInteger.valueOf(stats.storedTypes()).multiply(BigInteger.valueOf(bytesPerType)));
     }
 
     private static long saturatedAdd(long left, long right) {
@@ -534,7 +555,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
 
         private String infiniteBytesText() {
-            return StorageHostText.expandedStorageBytes(displayUsedBytes);
+            return StorageHostText.fitHugeAmount(displayUsedBytes, 62);
+        }
+
+        private String infiniteBytesTooltipText() {
+            return StorageHostText.compactStorageBytes(displayUsedBytes);
         }
 
         private StorageTypeTotals add(StorageTypeTotals other) {
@@ -781,15 +806,26 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             long amount = entry.getLongValue();
             if (amount > 0L) {
                 UUID transactionId = migrationTransactionId(domainId, drive, entry.getKey(), amount, "to-domain");
-                engine.insertOnce(transactionId, entry.getKey(), amount);
+                long inserted = engine.insertOnce(transactionId, entry.getKey(), amount);
+                if (inserted != amount) {
+                    LOGGER.error(
+                        "Unable to migrate ECO storage matrix at {} into infinite domain {}: inserted {} of {}",
+                        drive.getBlockPos(),
+                        domainId,
+                        inserted,
+                        amount
+                    );
+                    engine.flushBudgeted(0L);
+                    return;
+                }
             }
         }
+        engine.flushBudgeted(0L);
         if (cell instanceof ECOStorageCell storageCell) {
             storageCell.clearAllStoredStacks();
         }
         drive.convertCellToInfiniteMember(domainId);
         IStorageProvider.requestUpdate(drive.getMainNode());
-        engine.flushBudgeted(0L);
         storageUiSnapshotGameTime = Long.MIN_VALUE;
         setChanged();
         markForUpdate();
@@ -850,7 +886,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 if (remaining <= 0L) {
                     break;
                 }
-                long inserted = target.simulatedCell().insert(key, remaining, Actionable.MODULATE, source);
+                long inserted = insertForRestore(target.simulatedCell(), key, remaining, Actionable.MODULATE, source);
                 remaining -= inserted;
                 if (remaining <= 0L) {
                     break;
@@ -925,6 +961,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         KeyCounter pending = new KeyCounter();
         engine.getAvailableStacks(pending);
         IActionSource source = IActionSource.ofMachine(this);
+        Map<AEKey, BigInteger> expectedFinalAmounts = expectedFinalRestoreAmounts(plan.targets(), pending);
         for (Object2LongMap.Entry<AEKey> entry : pending) {
             AEKey key = entry.getKey();
             long remaining = engine.getAmount(key).toLongSaturated();
@@ -937,7 +974,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, original, "from-domain");
                 long inserted = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
                 if (inserted <= 0L) {
-                    inserted = cell.insert(key, remaining, Actionable.MODULATE, source);
+                    inserted = insertForRestore(cell, key, remaining, Actionable.MODULATE, source);
                     target.drive().putRestoreReceipt(transactionId, inserted);
                 }
                 remaining -= inserted;
@@ -952,6 +989,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         serverLevel.getChunkSource().save(true);
+        if (!verifyRestoredContents(plan.targets(), expectedFinalAmounts)) {
+            LOGGER.error(
+                "Unable to verify restored ECO storage contents for domain {}; keeping the domain mounted",
+                infiniteDomainId
+            );
+            engine.flushBudgeted(0L);
+            return;
+        }
         for (Object2LongMap.Entry<AEKey> entry : pending) {
             long amount = engine.getAmount(entry.getKey()).toLongSaturated();
             if (amount > 0L) {
@@ -964,6 +1009,57 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         exitInfiniteModeIfSafe();
+    }
+
+    private Map<AEKey, BigInteger> expectedFinalRestoreAmounts(List<RestoreTarget> targets, KeyCounter pending) {
+        KeyCounter baseline = collectRestoreTargetContents(targets);
+        Map<AEKey, BigInteger> expected = new HashMap<>();
+        for (Object2LongMap.Entry<AEKey> entry : pending) {
+            AEKey key = entry.getKey();
+            long domainAmount = entry.getLongValue();
+            long alreadyRestored = 0L;
+            for (RestoreTarget target : targets) {
+                UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, domainAmount, "from-domain");
+                alreadyRestored = saturatedAdd(alreadyRestored, target.drive().getRestoreReceipt(transactionId));
+            }
+            long outstanding = Math.max(0L, domainAmount - Math.min(domainAmount, alreadyRestored));
+            expected.put(key, BigInteger.valueOf(baseline.get(key)).add(BigInteger.valueOf(outstanding)));
+        }
+        return expected;
+    }
+
+    private boolean verifyRestoredContents(List<RestoreTarget> targets, Map<AEKey, BigInteger> expected) {
+        KeyCounter restored = collectRestoreTargetContents(targets);
+        for (Map.Entry<AEKey, BigInteger> entry : expected.entrySet()) {
+            if (!BigInteger.valueOf(restored.get(entry.getKey())).equals(entry.getValue())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private KeyCounter collectRestoreTargetContents(List<RestoreTarget> targets) {
+        KeyCounter restored = new KeyCounter();
+        for (RestoreTarget target : targets) {
+            IECOStorageCell cell = target.drive().getCellInventory();
+            if (cell != null) {
+                cell.getAvailableStacks(restored);
+            }
+        }
+        return restored;
+    }
+
+    private long insertForRestore(
+        IECOStorageCell cell,
+        AEKey key,
+        long amount,
+        Actionable mode,
+        IActionSource source
+    ) {
+        if (cell instanceof ECOStorageCell storageCell) {
+            return storageCell.insertForMigration(key, amount, mode);
+        }
+        return cell.insert(key, amount, mode, source);
     }
 
     private UUID migrationTransactionId(UUID domainId, ECODriveBlockEntity drive, AEKey key, long amount, String direction) {

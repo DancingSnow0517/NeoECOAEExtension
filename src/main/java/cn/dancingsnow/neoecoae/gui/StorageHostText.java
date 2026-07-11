@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.gui;
 
+import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import net.minecraft.network.chat.Component;
 
@@ -9,7 +10,10 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.function.ToIntFunction;
 
 public final class StorageHostText {
     static final int PRIMARY = 0xD6D0E0;
@@ -26,8 +30,7 @@ public final class StorageHostText {
     private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
     private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
     private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
-    private static final BigDecimal DECIMAL_BYTES_IN_K = BigDecimal.valueOf(BYTES_IN_K);
-    private static final int EXPANDED_BYTE_DIGITS = 8;
+    private static final int TOOLTIP_BYTE_DIGITS = 4;
     private static final String[] EXPANDED_BYTE_UNITS = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
@@ -55,11 +58,11 @@ public final class StorageHostText {
     }
 
     static UsedTotal typeProgress(long used, long max) {
-        return new UsedTotal(compactTaskAmount(used), compactTaskAmount(max), Component.empty());
+        return new UsedTotal(ae2Amount(used), ae2Amount(max), Component.empty());
     }
 
     static UsedTotal byteProgress(long used, long max) {
-        return new UsedTotal(storageBytesWhole(used), storageBytesWhole(max), Component.empty());
+        return new UsedTotal(ae2Amount(used), ae2Amount(max), Component.empty());
     }
 
     public static String expandedStorageBytes(long value) {
@@ -68,33 +71,95 @@ public final class StorageHostText {
 
     public static String expandedStorageBytes(BigInteger value) {
         BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
-        if (safe.compareTo(BIG_BYTES_IN_K) < 0) {
-            return safe.toString();
-        }
+        return NUMBER_FORMAT.get().format(safe);
+    }
 
-        int unitIndex = 0;
+    public static String compactStorageBytes(BigInteger value) {
+        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
         BigInteger unit = BigInteger.ONE;
-        BigInteger nextUnit = BIG_BYTES_IN_K;
-        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1 && safe.compareTo(nextUnit) >= 0) {
+        int unitIndex = 0;
+        BigInteger limit = BigInteger.TEN.pow(TOOLTIP_BYTE_DIGITS);
+        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1 && safe.divide(unit).compareTo(limit) >= 0) {
+            unit = unit.multiply(BIG_BYTES_IN_K);
             unitIndex++;
-            unit = nextUnit;
-            nextUnit = nextUnit.multiply(BIG_BYTES_IN_K);
+        }
+        return new BigDecimal(safe)
+            .divide(new BigDecimal(unit), 0, RoundingMode.HALF_UP)
+            .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+    }
+
+    public static String hugeStackAmount(BigInteger value) {
+        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        BigInteger unit = BigInteger.ONE;
+        int unitIndex = 0;
+        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1
+            && safe.compareTo(unit.multiply(BIG_BYTES_IN_K)) >= 0) {
+            unit = unit.multiply(BIG_BYTES_IN_K);
+            unitIndex++;
+        }
+        if (unitIndex == 0) {
+            return NUMBER_FORMAT.get().format(safe);
+        }
+        return new BigDecimal(safe)
+            .divide(new BigDecimal(unit), 2, RoundingMode.DOWN)
+            .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+    }
+
+    public static String fitHugeAmount(BigInteger value, int maxWidth) {
+        return fitHugeAmount(value, maxWidth, StorageHostText::estimatedTextWidth);
+    }
+
+    public static String fitHugeAmount(BigInteger value, int maxWidth, ToIntFunction<String> width) {
+        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        String exact = expandedStorageBytes(safe);
+        if (width.applyAsInt(exact) <= maxWidth) {
+            return exact;
         }
 
-        while (true) {
-            BigInteger whole = safe.divide(unit);
-            int scale = Math.max(0, EXPANDED_BYTE_DIGITS - whole.toString().length());
-            BigDecimal scaled = new BigDecimal(safe)
-                .divide(new BigDecimal(unit), scale, RoundingMode.HALF_UP)
-                .setScale(scale, RoundingMode.HALF_UP);
-            if (unitIndex < EXPANDED_BYTE_UNITS.length - 1
-                && scaled.compareTo(DECIMAL_BYTES_IN_K) >= 0) {
-                unitIndex++;
-                unit = unit.multiply(BIG_BYTES_IN_K);
-                continue;
-            }
-            return scaled.toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+        int naturalUnitIndex = 0;
+        BigInteger naturalUnit = BigInteger.ONE;
+        while (naturalUnitIndex < EXPANDED_BYTE_UNITS.length - 1
+            && safe.compareTo(naturalUnit.multiply(BIG_BYTES_IN_K)) >= 0) {
+            naturalUnit = naturalUnit.multiply(BIG_BYTES_IN_K);
+            naturalUnitIndex++;
         }
+        for (int decimals = 2; decimals >= 0; decimals--) {
+            BigInteger unit = BIG_BYTES_IN_K;
+            for (int unitIndex = 1; unitIndex <= naturalUnitIndex; unitIndex++) {
+                String candidate = new BigDecimal(safe)
+                    .divide(new BigDecimal(unit), decimals, RoundingMode.HALF_UP)
+                    .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+                if (width.applyAsInt(candidate) <= maxWidth) {
+                    return candidate;
+                }
+                unit = unit.multiply(BIG_BYTES_IN_K);
+            }
+        }
+
+        int exponent = Math.max(0, safe.toString().length() - 1);
+        BigDecimal divisor = BigDecimal.TEN.pow(exponent);
+        for (int decimals = 3; decimals >= 0; decimals--) {
+            String candidate = new BigDecimal(safe)
+                .divide(divisor, decimals, RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString() + "e" + exponent;
+            if (width.applyAsInt(candidate) <= maxWidth) {
+                return candidate;
+            }
+        }
+        return "e" + exponent;
+    }
+
+    public static List<Component> exactAmountTooltip(BigInteger value, int color) {
+        String exact = expandedStorageBytes(value);
+        List<Component> lines = new ArrayList<>();
+        int start = 0;
+        while (start < exact.length()) {
+            int end = Math.min(exact.length(), start + 32);
+            lines.add(Component.literal(exact.substring(start, end)).withColor(color));
+            start = end;
+        }
+        return List.copyOf(lines);
     }
 
     static UsedTotal fullTypeProgress(long used, long max) {
@@ -196,28 +261,13 @@ public final class StorageHostText {
         return width;
     }
 
-    private static String storageBytesWhole(long value) {
-        long safe = Math.max(0L, value);
-        if (safe < BYTES_IN_K) {
-            return Long.toString(safe);
-        }
+    static String ae2Amount(long value) {
+        return ReadableNumberConverter.format(Math.max(0L, value), 4);
+    }
 
-        long unit = BYTES_IN_K;
-        String suffix = "K";
-        if (safe >= BYTES_IN_P) {
-            unit = BYTES_IN_P;
-            suffix = "P";
-        } else if (safe >= BYTES_IN_T) {
-            unit = BYTES_IN_T;
-            suffix = "T";
-        } else if (safe >= BYTES_IN_G) {
-            unit = BYTES_IN_G;
-            suffix = "G";
-        } else if (safe >= BYTES_IN_M) {
-            unit = BYTES_IN_M;
-            suffix = "M";
-        }
-        return Math.max(1L, Math.round((double) safe / (double) unit)) + suffix;
+    public static String ae2Amount(BigInteger value) {
+        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        return ae2Amount(safe.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue());
     }
 
     private static String compactTaskAmount(long value) {

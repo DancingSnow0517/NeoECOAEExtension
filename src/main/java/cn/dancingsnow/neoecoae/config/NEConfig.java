@@ -59,7 +59,7 @@ public class NEConfig {
         .comment(
             "Number of pattern pages exposed by one ECO smart pattern bus.",
             "Each page stores 63 encoded patterns.")
-        .defineInRange("craftingPatternBusPages", 2, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
+        .defineInRange("craftingPatternBusPages", 1, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
 
     static {
         BUILDER
@@ -110,7 +110,7 @@ public class NEConfig {
     public static int storageSystemMaxLength;
     public static boolean postCraftingEvent;
     public static boolean enableInfiniteStorage;
-    public static int craftingPatternBusPages = 2;
+    public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
