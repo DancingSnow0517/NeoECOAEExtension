@@ -62,6 +62,7 @@
   "block.neoecoae.tungsten_block": "Tungsten Block",
   "block.neoecoae.tungsten_ore": "Tungsten Ore",
   "category.neoecoae.cooling": "Cooling",
+  "category.neoecoae.cooling.max_overclock": "Max Overclock: %d",
   "category.neoecoae.cooling.coolant": "Coolant: %d",
   "category.neoecoae.integrated_working_station": "Integrated Working Station",
   "category.neoecoae.multiblock": "ECO Multiblock Info",
