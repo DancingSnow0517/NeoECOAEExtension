@@ -249,14 +249,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateThreadCount() {
         if (cluster != null && !cluster.getParallelCores().isEmpty()) {
-            int perCore = tier.getCrafterParallel();
             if (overclocked) {
-                perCore += tier.getOverclockedCrafterParallel();
                 threadCountPerWorker = 32 * getTier().getOverclockedCrafterQueueMultiply();
             } else {
                 threadCountPerWorker = 32;
             }
-            threadCount = cluster.getParallelCores().size() * perCore;
+            threadCount = cluster.getParallelCores()
+                .stream()
+                .mapToInt(core -> getCoreThreadCount(core.getTier(), overclocked))
+                .sum();
             recalculateRunningThreadCountFromWorkers();
         } else {
             threadCount = 0;
@@ -312,13 +313,21 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateOverlockTimes() {
-        int overflow = threadCount - threadCountPerWorker * workerCount;
-        if (overflow <= 0) {
-            overlockTimes = 0;
-            return;
+        overlockTimes = calculateOverclockTimes(threadCount, threadCountPerWorker * workerCount);
+    }
+
+    static int getCoreThreadCount(IECOTier coreTier, boolean overclocked) {
+        int threads = coreTier.getCrafterParallel();
+        return overclocked ? threads + coreTier.getOverclockedCrafterParallel() : threads;
+    }
+
+    static int calculateOverclockTimes(int threadCount, int availableThreads) {
+        int overflow = threadCount - availableThreads;
+        if (threadCount <= 0 || overflow <= 0) {
+            return 0;
         }
-        float radio = (float) threadCount / overflow;
-        overlockTimes = Math.clamp(Math.round(radio / 0.05f), 0, 9);
+        float overflowRatio = (float) overflow / threadCount;
+        return Math.clamp(Math.round(overflowRatio / 0.05f), 0, 9);
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {

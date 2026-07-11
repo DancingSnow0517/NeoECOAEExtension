@@ -37,6 +37,5 @@ src/generated/resources/.cache/
 /assets/ae2/
 /com/lowdragmc/
 /net/minecraft/
-src/main/java/cn/dancingsnow/neoecoae/gui/StorageHostHugeStackList.java
 .gitignore
 .codex/config.toml
