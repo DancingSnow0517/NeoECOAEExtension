@@ -172,5 +172,16 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.crafting.coolant", "Coolant");
         provider.add("gui.neoecoae.host.crafting.energy", "Energy");
         provider.add("gui.neoecoae.host.crafting.footer", "Single-screen crafting status and controls.");
+        provider.add("gui.neoecoae.storage_interface.title", "Storage Interface");
+        provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
+        provider.add("gui.neoecoae.storage_interface.mode.input", "Input");
+        provider.add("gui.neoecoae.storage_interface.mode.output", "Output");
+        provider.add("gui.neoecoae.storage_interface.structure", "Infinite Storage");
+        provider.add("gui.neoecoae.storage_interface.infinite_ready", "Ready");
+        provider.add("gui.neoecoae.storage_interface.infinite_unavailable", "Unavailable");
+        provider.add("gui.neoecoae.storage_interface.network", "Network");
+        provider.add("gui.neoecoae.storage_interface.connected", "Connected");
+        provider.add("gui.neoecoae.storage_interface.disconnected", "Disconnected");
+        provider.add("gui.neoecoae.storage_interface.transfer", "Transferred: %s / tick");
     }
 }

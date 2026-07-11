@@ -39,3 +39,4 @@ src/generated/resources/.cache/
 /net/minecraft/
 .gitignore
 .codex/config.toml
+logs/

@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.StorageHostActionUI;
@@ -24,6 +25,7 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOStorageHostMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
@@ -48,6 +50,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.MEStorage;
 import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
@@ -85,6 +88,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOStorageSystemBlockEntity.class);
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int INFINITE_MEMBER_REQUIRED = 16;
+    private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
     private static final long INFINITE_FLUSH_BUDGET_NANOS = 1_000_000L;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
@@ -203,6 +207,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         try {
             updateInfiniteStorageMode();
             flushInfiniteEngineBudgeted();
+            ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+            if (storageInterface != null) {
+                storageInterface.recordStorageInterfaceTransfer(transferStorageInterfaceContents(storageInterface));
+            }
             if (!(level instanceof ServerLevel serverLevel) || !buildInProgress || buildSession == null) {
                 return;
             }
@@ -361,7 +369,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null || !canUseHostDomainStorage()) {
+        if (engine == null || !canUseHostDomainStorage() || isStorageInterfaceTransferMode()) {
             return;
         }
         storageMounts.mount(new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()), storagePriority);
@@ -678,6 +686,67 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     public boolean isInfiniteMemberCell(@Nullable ItemStack stack) {
         return stack != null && ECOInfiniteStorageMember.isMember(stack);
+    }
+
+    public void onStorageInterfaceModeChanged() {
+        if (level == null || level.isClientSide) return;
+        IStorageProvider.requestUpdate(getMainNode());
+        setChanged();
+        markForUpdate();
+    }
+
+    private boolean isStorageInterfaceTransferMode() {
+        ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+        return isFormedInfiniteMode() && storageInterface != null && storageInterface.isStorageTransferMode();
+    }
+
+    @Nullable
+    private ECOMachineInterfaceBlockEntity<NEStorageCluster> getStorageInterface() {
+        return cluster == null ? null : cluster.getTheInterface();
+    }
+
+    private long transferStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
+        if (!isFormedInfiniteMode() || !storageInterface.isStorageTransferMode()) {
+            if (storageInterface.isStorageTransferMode()) storageInterface.setStorageInterfaceMode(cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE);
+            return 0L;
+        }
+        if (!storageInterface.isTargetOnline()) return 0L;
+        var grid = storageInterface.getMainNode().getGrid();
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (grid == null || engine == null) return 0L;
+        MEStorage network = grid.getStorageService().getInventory();
+        MEStorage domain = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
+        IActionSource source = IActionSource.ofMachine(storageInterface);
+        long moved = storageInterface.isStorageInputMode()
+            ? transferLimited(network, domain, source)
+            : transferLimited(domain, network, source);
+        if (moved > 0L) {
+            storageUiSnapshotGameTime = Long.MIN_VALUE;
+            setChanged();
+            markForUpdate();
+        }
+        return moved;
+    }
+
+    private static long transferLimited(MEStorage from, MEStorage to, IActionSource source) {
+        KeyCounter available = new KeyCounter();
+        from.getAvailableStacks(available);
+        long total = 0L;
+        int visited = 0;
+        for (Object2LongMap.Entry<AEKey> entry : available) {
+            if (visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
+            long amount = entry.getLongValue();
+            if (amount <= 0L) continue;
+            AEKey key = entry.getKey();
+            long extractable = from.extract(key, amount, Actionable.SIMULATE, source);
+            long accepted = to.insert(key, extractable, Actionable.SIMULATE, source);
+            if (accepted <= 0L) continue;
+            long extracted = from.extract(key, accepted, Actionable.MODULATE, source);
+            long inserted = to.insert(key, extracted, Actionable.MODULATE, source);
+            if (inserted < extracted) from.insert(key, extracted - inserted, Actionable.MODULATE, source);
+            total = total > Long.MAX_VALUE - inserted ? Long.MAX_VALUE : total + inserted;
+        }
+        return total;
     }
 
     private void updateInfiniteStorageMode() {

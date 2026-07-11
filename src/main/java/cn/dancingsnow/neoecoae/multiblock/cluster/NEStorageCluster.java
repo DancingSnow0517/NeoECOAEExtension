@@ -22,6 +22,10 @@ public class NEStorageCluster extends NECluster<NEStorageCluster> {
     @Getter
     private final List<ECOEnergyCellBlockEntity> energyCells = new ArrayList<>();
     private ECOMachineInterfaceBlockEntity<NEStorageCluster> theInterface = null;
+
+    public ECOMachineInterfaceBlockEntity<NEStorageCluster> getTheInterface() {
+        return theInterface;
+    }
     private final List<ECOMachineCasingBlockEntity<NEStorageCluster>> casings = new ArrayList<>();
 
     public NEStorageCluster(BlockPos boundMin, BlockPos boundMax) {

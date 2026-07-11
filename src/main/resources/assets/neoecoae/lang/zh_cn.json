@@ -433,5 +433,16 @@
   "gui.neoecoae.crafting.performance": "性能",
   "gui.neoecoae.crafting.performance_short": "性能",
   "tooltip.neoecoae.storage.infinite_component_locked": "无法取出无限组件：当前内容无法安全回落到普通矩阵",
-  "tooltip.neoecoae.storage.infinite_member_locked": "无限存储模式下不能取出被管理的存储矩阵"
+  "tooltip.neoecoae.storage.infinite_member_locked": "无限存储模式下不能取出被管理的存储矩阵",
+  "gui.neoecoae.storage_interface.title": "存储通讯子接口",
+  "gui.neoecoae.storage_interface.mode.storage": "存储",
+  "gui.neoecoae.storage_interface.mode.input": "输入",
+  "gui.neoecoae.storage_interface.mode.output": "输出",
+  "gui.neoecoae.storage_interface.structure": "无限存储",
+  "gui.neoecoae.storage_interface.infinite_ready": "可用",
+  "gui.neoecoae.storage_interface.infinite_unavailable": "不可用",
+  "gui.neoecoae.storage_interface.network": "网络",
+  "gui.neoecoae.storage_interface.connected": "已连接",
+  "gui.neoecoae.storage_interface.disconnected": "未连接",
+  "gui.neoecoae.storage_interface.transfer": "转移：%s / tick"
 }

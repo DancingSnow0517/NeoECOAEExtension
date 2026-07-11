@@ -433,5 +433,16 @@
   "gui.neoecoae.crafting.performance": "Performance",
   "gui.neoecoae.crafting.performance_short": "Performance",
   "tooltip.neoecoae.storage.infinite_component_locked": "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices",
-  "tooltip.neoecoae.storage.infinite_member_locked": "Infinite storage matrices cannot be removed while the storage host is in infinite mode"
+  "tooltip.neoecoae.storage.infinite_member_locked": "Infinite storage matrices cannot be removed while the storage host is in infinite mode",
+  "gui.neoecoae.storage_interface.title": "Storage Interface",
+  "gui.neoecoae.storage_interface.mode.storage": "Storage",
+  "gui.neoecoae.storage_interface.mode.input": "Input",
+  "gui.neoecoae.storage_interface.mode.output": "Output",
+  "gui.neoecoae.storage_interface.structure": "Infinite Storage",
+  "gui.neoecoae.storage_interface.infinite_ready": "Ready",
+  "gui.neoecoae.storage_interface.infinite_unavailable": "Unavailable",
+  "gui.neoecoae.storage_interface.network": "Network",
+  "gui.neoecoae.storage_interface.connected": "Connected",
+  "gui.neoecoae.storage_interface.disconnected": "Disconnected",
+  "gui.neoecoae.storage_interface.transfer": "Transferred: %s / tick"
 }
