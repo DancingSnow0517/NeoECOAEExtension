@@ -75,7 +75,9 @@ public class NeoECOAE {
         integrationManager.compileContent();
         integrationManager.loadAllIntegrations();
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
-        modContainer.registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
+        // These values govern server-authoritative gameplay and are also read by client-side
+        // previews/tooltips. SERVER configs are synchronized to joining clients by NeoForge.
+        modContainer.registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
 
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);

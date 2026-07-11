@@ -131,6 +131,7 @@ public final class StorageInterfaceUI {
 
     private static Label boundLabel(Supplier<Component> text) {
         Label label = new Label();
+        label.setText(text.get());
         label.bind(DataBindingBuilder.componentS2C(text).build());
         label.layout(layout -> layout.height(12));
         return label;

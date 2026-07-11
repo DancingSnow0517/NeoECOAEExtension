@@ -127,10 +127,21 @@ public final class StorageHostPanelUI {
     }
 
     public static UIElement createLeftPanel(Config config) {
-        if (!config.enableInfiniteStorage().getAsBoolean()) {
-            return createLeftStoragePanel(config, PANEL_HEIGHT);
-        }
+        UIElement panel = new UIElement().layout(layout -> {
+            layout.width(LEFT_PANEL_WIDTH);
+            layout.height(PANEL_HEIGHT);
+        });
+        // Both logical sides must construct the exact same sync tree. Build both layouts and
+        // synchronize visibility instead of branching on a side-local config value.
+        panel.addChild(StorageHostElements.syncedDisplay(
+                () -> !config.enableInfiniteStorage().getAsBoolean())
+            .addChild(createLeftStoragePanel(config, PANEL_HEIGHT)));
+        panel.addChild(StorageHostElements.syncedDisplay(config.enableInfiniteStorage())
+            .addChild(createLeftPanelWithInventory(config)));
+        return panel;
+    }
 
+    private static UIElement createLeftPanelWithInventory(Config config) {
         UIElement panel = new UIElement().layout(layout -> {
             layout.width(LEFT_PANEL_WIDTH);
             layout.height(PANEL_HEIGHT);
@@ -534,7 +545,9 @@ public final class StorageHostPanelUI {
 
     private static UIElement storageLoadLine(Supplier<Component> text, java.util.function.IntSupplier color) {
         Label label = new Label();
-        label.bind(DataBindingBuilder.componentS2C(() -> text.get().copy().withColor(color.getAsInt())).build());
+        Supplier<Component> styledText = () -> text.get().copy().withColor(color.getAsInt());
+        label.setText(styledText.get());
+        label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(StorageHostPanelUI::storageLoadTextStyle);
         return label;
     }

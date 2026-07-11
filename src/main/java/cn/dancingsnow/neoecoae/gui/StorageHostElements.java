@@ -36,14 +36,18 @@ final class StorageHostElements {
 
     static Label panelTitle(Supplier<Component> text) {
         Label label = new Label();
-        label.bind(DataBindingBuilder.componentS2C(() -> text.get().copy().withColor(StorageHostText.PRIMARY)).build());
+        Supplier<Component> styledText = () -> text.get().copy().withColor(StorageHostText.PRIMARY);
+        label.setText(styledText.get());
+        label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(StorageHostElements::panelTitleTextStyle);
         return label;
     }
 
     static Label textSegment(Supplier<Component> text, IntSupplier color) {
         Label label = new Label();
-        label.bind(DataBindingBuilder.componentS2C(() -> text.get().copy().withColor(color.getAsInt())).build());
+        Supplier<Component> styledText = () -> text.get().copy().withColor(color.getAsInt());
+        label.setText(styledText.get());
+        label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(StorageHostElements::lineTextStyle);
         return label;
     }

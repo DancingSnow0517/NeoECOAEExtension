@@ -395,12 +395,14 @@ public final class CraftingHostPanelUI {
 
     private static Label statusTextLine(String key, BooleanSupplier value) {
         Label label = new Label();
-        label.bind(DataBindingBuilder.componentS2C(() -> Component.translatable(key)
+        Supplier<Component> text = () -> Component.translatable(key)
             .withColor(PANEL_MUTED)
             .append(Component.literal(": ").withColor(PANEL_MUTED))
             .append(Component.translatable(value.getAsBoolean()
                 ? "gui.neoecoae.common.on"
-                : "gui.neoecoae.common.off").withColor(value.getAsBoolean() ? PANEL_SUCCESS : PANEL_MUTED))).build());
+                : "gui.neoecoae.common.off").withColor(value.getAsBoolean() ? PANEL_SUCCESS : PANEL_MUTED));
+        label.setText(text.get());
+        label.bind(DataBindingBuilder.componentS2C(text).build());
         label.textStyle(CraftingHostPanelUI::labelTextStyle);
         return label;
     }
@@ -426,7 +428,9 @@ public final class CraftingHostPanelUI {
 
     private static Label label(Supplier<Component> text, IntSupplier color) {
         Label label = new Label();
-        label.bind(DataBindingBuilder.componentS2C(() -> withColor(text.get(), color.getAsInt())).build());
+        Supplier<Component> styledText = () -> withColor(text.get(), color.getAsInt());
+        label.setText(styledText.get());
+        label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(CraftingHostPanelUI::labelTextStyle);
         return label;
     }

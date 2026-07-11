@@ -51,7 +51,6 @@ import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -829,7 +828,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 shouldAutoExport = !shouldAutoExport;
                 configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
             }).layout(layout -> layout.height(20).width(18)))
-            .bindDataSource(SupplierDataSource.of(() -> shouldAutoExport))
+            .setOnToggleChanged(on -> {
+                if (level != null && level.isClientSide) {
+                    shouldAutoExport = on;
+                }
+            })
+            .bind(DataBindingBuilder.boolS2C(() -> shouldAutoExport).build())
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 event.hoverTooltips = new HoverTooltips(
                     List.of(
@@ -1004,7 +1008,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     markForUpdate();
                 });
             });
-            toggle.bindDataSource(SupplierDataSource.of(() -> allowOutputs.contains(internalSide)));
+            toggle.bind(DataBindingBuilder.boolS2C(() -> allowOutputs.contains(internalSide)).build());
             toggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 var enabled = allowOutputs.contains(internalSide);
                 event.hoverTooltips = new HoverTooltips(

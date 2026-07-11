@@ -4,7 +4,9 @@ import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -25,6 +27,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -145,11 +148,10 @@ public final class MultiblockBuilderUI {
                         null
                     ))
                     .layout(layout -> layout.width(18).height(18)),
-                new Label()
-                    .bindDataSource(SupplierDataSource.of(() -> Component.translatable(
+                syncedLabel(() -> Component.translatable(
                         "gui.neoecoae.multiblock.length",
                         config.selectedLength().getAsInt()
-                    )))
+                    ))
                     .textStyle(MultiblockBuilderUI::darkTextStyle)
                     .layout(layout -> layout.width(54)),
                 new Button()
@@ -186,8 +188,7 @@ public final class MultiblockBuilderUI {
         panel.addChild(statLine("gui.neoecoae.multiblock.conflicts", () -> getConflictBlockCount(config)));
         panel.addChild(statLine("gui.neoecoae.multiblock.reused", () -> getReusedBlockCount(config)));
         panel.addChild(statLine("gui.neoecoae.multiblock.required_items", () -> getRequiredItemCount(config)));
-        panel.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> buildStatusComponent(config)))
+        panel.addChild(syncedLabel(() -> buildStatusComponent(config))
             .textStyle(MultiblockBuilderUI::darkTextStyle));
 
         panel.addChild(sectionTitle("gui.neoecoae.multiblock.actions"));
@@ -195,8 +196,7 @@ public final class MultiblockBuilderUI {
             .setText("gui.neoecoae.multiblock.build", true)
             .setOnServerClick(event -> config.build().run())
             .layout(layout -> layout.width(104).height(20)));
-        panel.addChild(new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable("gui.neoecoae.multiblock.auto_preview_hint")))
+        panel.addChild(syncedLabel(() -> Component.translatable("gui.neoecoae.multiblock.auto_preview_hint"))
             .textStyle(MultiblockBuilderUI::hintTextStyle));
 
         return panel;
@@ -227,27 +227,13 @@ public final class MultiblockBuilderUI {
             });
             for (int columnIndex = 0; columnIndex < 8; columnIndex++) {
                 int index = rowIndex * 8 + columnIndex;
-                row.addChild(new RequiredItemSlot(
+                RequiredItemSlot slot = new RequiredItemSlot(
                         () -> hasRequiredItem(config, index),
                         () -> getRequiredItem(config, index).count()
-                    )
-                    .bindDataSource(SupplierDataSource.of(() -> getRequiredItemStack(config, index)))
-                    .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                        RequiredItem requiredItem = getRequiredItem(config, index);
-                        if (requiredItem.isEmpty()) {
-                            return;
-                        }
-                        Component state = hasRequiredItem(config, index)
-                            ? Component.translatable("gui.neoecoae.multiblock.material_enough")
-                            : Component.translatable("gui.neoecoae.multiblock.material_missing");
-                        event.hoverTooltips = new HoverTooltips(
-                            List.of(requiredItem.stack().getHoverName(), Component.translatable("gui.neoecoae.multiblock.item_required", requiredItem.count()), state),
-                            null,
-                            null,
-                            null
-                        );
-                    })
-                    .layout(layout -> layout.width(18).height(18)));
+                    );
+                slot.setValue(getRequiredItemStack(config, index));
+                slot.bind(DataBindingBuilder.itemStackS2C(() -> getRequiredItemStack(config, index)).build());
+                row.addChild(slot.layout(layout -> layout.width(18).height(18)));
             }
             grid.addChild(row);
         }
@@ -256,14 +242,21 @@ public final class MultiblockBuilderUI {
 
         panel.addChild(sectionTitle("gui.neoecoae.multiblock.conflict_preview"));
         Label conflictLabel = new Label();
-        conflictLabel.bindDataSource(SupplierDataSource.of(() -> Component.translatable(
+        Supplier<Component> conflictText = () -> Component.translatable(
                 "gui.neoecoae.multiblock.conflicts",
                 getConflictBlockCount(config)
-            )));
+            );
+        conflictLabel.setText(conflictText.get());
+        conflictLabel.bind(DataBindingBuilder.componentS2C(conflictText).build());
         conflictLabel.textStyle(MultiblockBuilderUI::darkTextStyle);
+        Component[] syncedConflictTooltip = {buildConflictTooltipComponent(getConflictPositions(config))};
+        conflictLabel.addChild(new SyncReceiver<>(syncedConflictTooltip[0], value ->
+            syncedConflictTooltip[0] = value == null ? Component.empty() : value)
+            .bind(DataBindingBuilder.componentS2C(() ->
+                buildConflictTooltipComponent(getConflictPositions(config))).build()));
         conflictLabel
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                buildConflictTooltip(getConflictPositions(config)),
+                List.of(syncedConflictTooltip[0]),
                 null,
                 null,
                 null
@@ -374,6 +367,18 @@ public final class MultiblockBuilderUI {
         return lines;
     }
 
+    private static Component buildConflictTooltipComponent(List<BlockPos> positions) {
+        List<Component> lines = buildConflictTooltip(positions);
+        var result = Component.empty();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) {
+                result.append("\n");
+            }
+            result.append(lines.get(i));
+        }
+        return result;
+    }
+
     private static TextElement sectionTitle(String key) {
         return new TextElement()
             .setText(Component.translatable(key))
@@ -381,9 +386,15 @@ public final class MultiblockBuilderUI {
     }
 
     private static Label statLine(String key, IntSupplier value) {
-        Label label = new Label()
-            .bindDataSource(SupplierDataSource.of(() -> Component.translatable(key, value.getAsInt())));
+        Label label = syncedLabel(() -> Component.translatable(key, value.getAsInt()));
         label.textStyle(MultiblockBuilderUI::darkTextStyle);
+        return label;
+    }
+
+    private static Label syncedLabel(Supplier<Component> text) {
+        Label label = new Label();
+        label.setText(text.get());
+        label.bind(DataBindingBuilder.componentS2C(text).build());
         return label;
     }
 
@@ -399,10 +410,11 @@ public final class MultiblockBuilderUI {
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x236f80).textShadow(false);
     }
 
-    private static final class SegmentedBooleanControl extends UIElement {
+    private static final class SegmentedBooleanControl extends UIElement implements IBindable<Boolean> {
         private final BooleanSupplier selected;
         private final Button falseButton;
         private final Button trueButton;
+        private boolean syncedSelected;
 
         private SegmentedBooleanControl(
             BooleanSupplier selected,
@@ -413,6 +425,7 @@ public final class MultiblockBuilderUI {
             String trueTooltipKey
         ) {
             this.selected = selected;
+            this.syncedSelected = selected.getAsBoolean();
             layout(layout -> {
                 layout.flexDirection(FlexDirection.ROW);
                 layout.gapAll(1);
@@ -422,6 +435,7 @@ public final class MultiblockBuilderUI {
             falseButton = createSegmentButton(falseKey, falseTooltipKey, false, setSelected);
             trueButton = createSegmentButton(trueKey, trueTooltipKey, true, setSelected);
             addChildren(falseButton, trueButton);
+            bind(DataBindingBuilder.boolS2C(selected::getAsBoolean).build());
             addEventListener(UIEvents.TICK, event -> refreshButtonStyles());
             refreshButtonStyles();
         }
@@ -447,9 +461,20 @@ public final class MultiblockBuilderUI {
         }
 
         private void refreshButtonStyles() {
-            boolean value = selected.getAsBoolean();
-            applySegmentButtonStyle(falseButton, !value);
-            applySegmentButtonStyle(trueButton, value);
+            applySegmentButtonStyle(falseButton, !syncedSelected);
+            applySegmentButtonStyle(trueButton, syncedSelected);
+        }
+
+        @Override
+        public Boolean getValue() {
+            return syncedSelected;
+        }
+
+        @Override
+        public IDataSource<Boolean> setValue(@Nullable Boolean value) {
+            syncedSelected = Boolean.TRUE.equals(value);
+            refreshButtonStyles();
+            return this;
         }
 
         private void applySegmentButtonStyle(Button button, boolean active) {
@@ -461,13 +486,31 @@ public final class MultiblockBuilderUI {
     }
 
     private static final class RequiredItemSlot extends ItemSlot {
-        private final BooleanSupplier hasRequiredItem;
-        private final IntSupplier count;
+        private boolean syncedHasRequiredItem;
+        private int syncedCount;
 
         private RequiredItemSlot(BooleanSupplier hasRequiredItem, IntSupplier count) {
-            this.hasRequiredItem = hasRequiredItem;
-            this.count = count;
+            syncedHasRequiredItem = hasRequiredItem.getAsBoolean();
+            syncedCount = count.getAsInt();
             getStyle().backgroundTexture(NETextures.ITEM_SLOT);
+            addChild(new SyncReceiver<>(syncedHasRequiredItem, value -> syncedHasRequiredItem = Boolean.TRUE.equals(value))
+                .bind(DataBindingBuilder.boolS2C(hasRequiredItem::getAsBoolean).build()));
+            addChild(new SyncReceiver<>(syncedCount, value -> syncedCount = value == null ? 0 : value)
+                .bind(DataBindingBuilder.intValS2C(count::getAsInt).build()));
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                ItemStack stack = getValue();
+                if (stack.isEmpty()) {
+                    return;
+                }
+                Component state = syncedHasRequiredItem
+                    ? Component.translatable("gui.neoecoae.multiblock.material_enough")
+                    : Component.translatable("gui.neoecoae.multiblock.material_missing");
+                event.hoverTooltips = new HoverTooltips(
+                    List.of(stack.getHoverName(),
+                        Component.translatable("gui.neoecoae.multiblock.item_required", syncedCount), state),
+                    null, null, null
+                );
+            });
         }
 
         @Override
@@ -476,11 +519,34 @@ public final class MultiblockBuilderUI {
                 return;
             }
             DrawerHelper.drawItemStack(guiContext.graphics, itemStack.copyWithCount(1), 0, 0, -1, null);
-            int color = hasRequiredItem.getAsBoolean() ? MATERIAL_COUNT_ENOUGH_COLOR : MATERIAL_COUNT_MISSING_COLOR;
+            int color = syncedHasRequiredItem ? MATERIAL_COUNT_ENOUGH_COLOR : MATERIAL_COUNT_MISSING_COLOR;
             guiContext.graphics.pose().pushPose();
             guiContext.graphics.pose().translate(0, 0, 240);
-            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(count.getAsInt()), 17, 17, color, true, 0.8f);
+            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(syncedCount), 17, 17, color, true, 0.8f);
             guiContext.graphics.pose().popPose();
+        }
+    }
+
+    private static final class SyncReceiver<T> extends UIElement implements IBindable<T> {
+        private T value;
+        private final Consumer<T> consumer;
+
+        private SyncReceiver(T value, Consumer<T> consumer) {
+            this.value = value;
+            this.consumer = consumer;
+            layout(layout -> layout.width(0).height(0));
+        }
+
+        @Override
+        public T getValue() {
+            return value;
+        }
+
+        @Override
+        public IDataSource<T> setValue(@Nullable T value) {
+            this.value = value;
+            consumer.accept(value);
+            return this;
         }
     }
 }
