@@ -5,7 +5,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostText;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import net.minecraft.ChatFormatting;
@@ -30,8 +30,8 @@ public final class ComputationTaskCards {
 
     public static int statusColor(ComputationTaskEntry.Status status) {
         return switch (status) {
-            case RUNNING -> StorageHostText.USED;
-            case QUEUED -> StorageHostText.WARNING;
+            case RUNNING -> HostText.USED;
+            case QUEUED -> HostText.WARNING;
             case WAITING_OUTPUT -> STATUS_BLUE;
         };
     }
@@ -69,8 +69,8 @@ public final class ComputationTaskCards {
         int amountWidth = font.width(amountText);
         int maxNameWidth = Math.max(16, width - 34 - amountWidth);
         String name = fitWithEllipsis(font, entry.output().getHoverName().getString(), maxNameWidth);
-        drawString(guiContext, font, name, x + 24, y + 4, StorageHostText.PRIMARY);
-        drawRightString(guiContext, font, amountText, x + width - 5, y + 11, StorageHostText.VALUE);
+        drawString(guiContext, font, name, x + 24, y + 4, HostText.PRIMARY);
+        drawRightString(guiContext, font, amountText, x + width - 5, y + 11, HostText.VALUE);
         drawProgressBar(guiContext, entry, x + 24, y + height - 9, width - 29, 4);
     }
 
@@ -127,11 +127,11 @@ public final class ComputationTaskCards {
     }
 
     public static String compactAmount(long value) {
-        return StorageHostText.typeProgress(Math.max(0L, value), 0).usedText();
+        return HostText.typeProgress(Math.max(0L, value), 0).usedText();
     }
 
     public static String progressText(ComputationTaskEntry entry) {
-        return StorageHostText.percent(entry.progress());
+        return HostText.percent(entry.progress());
     }
 
     private static void drawProgressBar(

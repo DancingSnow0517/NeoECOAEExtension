@@ -427,6 +427,7 @@
   "gui.neoecoae.crafting.ui.energy_short": "AE",
   "gui.neoecoae.crafting.ui.recipe_slots": "Slots",
   "gui.neoecoae.crafting.ui.batch_parallel": "Batch",
+  "gui.neoecoae.crafting.ui.recipe_time_ratio": "Time",
   "gui.neoecoae.crafting.ui.patterns_short": "PB",
   "gui.neoecoae.crafting.ui.ft_cores_short": "FT",
   "gui.neoecoae.crafting.ui.energy_usage": "Energy Usage",

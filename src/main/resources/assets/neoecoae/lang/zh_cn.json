@@ -427,6 +427,7 @@
   "gui.neoecoae.crafting.ui.energy_short": "能耗",
   "gui.neoecoae.crafting.ui.recipe_slots": "槽位",
   "gui.neoecoae.crafting.ui.batch_parallel": "批量",
+  "gui.neoecoae.crafting.ui.recipe_time_ratio": "耗时",
   "gui.neoecoae.crafting.ui.patterns_short": "样板",
   "gui.neoecoae.crafting.ui.ft_cores_short": "并行",
   "gui.neoecoae.crafting.ui.energy_usage": "能耗",

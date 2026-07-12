@@ -1,5 +1,8 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
+
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
@@ -38,7 +41,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 public final class StorageHostPanelUI {
-    public static final int LEFT_PANEL_WIDTH = 172;
+    public static final int LEFT_PANEL_WIDTH = 176;
     public static final int RIGHT_PANEL_WIDTH = 156;
     public static final int PANEL_HEIGHT = 200;
 
@@ -47,7 +50,8 @@ public final class StorageHostPanelUI {
     private static final int LEFT_STORAGE_PANEL_HEIGHT_WITH_INVENTORY = 108;
     private static final int LEFT_INVENTORY_HEIGHT = 88;
     private static final int INVENTORY_SLOT_GRID_WIDTH = 9 * 18;
-    private static final int TEXT_MAX_WIDTH = LEFT_PANEL_WIDTH - 16;
+    private static final int LEFT_STORAGE_PANEL_WIDTH = INVENTORY_SLOT_GRID_WIDTH;
+    private static final int TEXT_MAX_WIDTH = LEFT_STORAGE_PANEL_WIDTH - 16;
     private static final int RIGHT_SCROLLER_RESERVED_WIDTH = 12;
     private static final int RIGHT_SCROLLER_RESERVED_HEIGHT = 15;
     private static final int RIGHT_CONTENT_WIDTH = RIGHT_PANEL_WIDTH - RIGHT_SCROLLER_RESERVED_WIDTH;
@@ -81,7 +85,7 @@ public final class StorageHostPanelUI {
     private static final int RIGHT_HUGE_STACK_Y = RIGHT_DETAIL_Y + RIGHT_DETAIL_LINE_HEIGHT * 4 + 1;
     private static final int RIGHT_HUGE_STACK_WIDTH = RIGHT_DETAIL_WIDTH;
     private static final int RIGHT_HUGE_STACK_HEIGHT = RIGHT_INFINITE_COMPONENT_SLOT_Y - RIGHT_HUGE_STACK_Y - 3;
-    private static final int SCROLLBAR_HORIZONTAL_OFFSET = 2;
+    private static final int SCROLLBAR_HORIZONTAL_OFFSET = 0;
     private static final int PROGRESS_ROW_LABEL_WIDTH = 24;
     private static final int PROGRESS_ROW_BAR_WIDTH = 36;
     private static final int INFINITE_TEXT_COLOR = 0xCA6CFF;
@@ -133,10 +137,10 @@ public final class StorageHostPanelUI {
         });
         // Both logical sides must construct the exact same sync tree. Build both layouts and
         // synchronize visibility instead of branching on a side-local config value.
-        panel.addChild(StorageHostElements.syncedDisplay(
+        panel.addChild(HostElements.syncedDisplay(
                 () -> !config.enableInfiniteStorage().getAsBoolean())
             .addChild(createLeftStoragePanel(config, PANEL_HEIGHT)));
-        panel.addChild(StorageHostElements.syncedDisplay(config.enableInfiniteStorage())
+        panel.addChild(HostElements.syncedDisplay(config.enableInfiniteStorage())
             .addChild(createLeftPanelWithInventory(config)));
         return panel;
     }
@@ -160,20 +164,20 @@ public final class StorageHostPanelUI {
     }
 
     private static void addLeftStorageContent(ScrollerView panel, Config config) {
-        panel.addScrollViewChild(StorageHostElements.sectionLabel(
+        panel.addScrollViewChild(HostElements.sectionLabel(
             () -> Component.translatable("gui.neoecoae.storage.energy"),
-            () -> StorageHostText.PRIMARY
+            () -> HostText.PRIMARY
         ));
         panel.addScrollViewChild(new PerformanceLabelElement(config.performanceAverageNanos()).layout(layout -> {
             layout.positionType(dev.vfyjxf.taffy.style.TaffyPosition.ABSOLUTE);
-            layout.left(LEFT_PANEL_WIDTH - 61);
+            layout.left(LEFT_STORAGE_PANEL_WIDTH - 61);
             layout.top(2);
             layout.width(51);
             layout.height(9);
         }));
         panel.addScrollViewChild(usedTotalRow(
             () -> Component.translatable("gui.neoecoae.storage.energy_storage").append(": "),
-            () -> StorageHostText.energyUsage(config.storedEnergy().getAsLong(), config.maxEnergy().getAsLong(), TEXT_MAX_WIDTH),
+            () -> HostText.energyUsage(config.storedEnergy().getAsLong(), config.maxEnergy().getAsLong(), TEXT_MAX_WIDTH),
             config.storedEnergy(),
             config.maxEnergy()
         ));
@@ -188,25 +192,25 @@ public final class StorageHostPanelUI {
             .horizontalScrollDisplay(ScrollDisplay.NEVER));
         panel.viewContainer(view -> {
             view.getLayout().paddingAll(0);
-            view.addChild(StorageHostElements.absolute(
-                StorageHostElements.panelTitle(() -> Component.translatable("gui.neoecoae.storage.system_load")),
+            view.addChild(HostElements.absolute(
+                HostElements.panelTitle(() -> Component.translatable("gui.neoecoae.storage.system_load")),
                 0,
                 RIGHT_TITLE_Y,
                 RIGHT_CONTENT_WIDTH,
                 RIGHT_TITLE_HEIGHT
             ));
-            view.addChild(StorageHostElements.absolute(
-                StorageHostElements.tinyInsetPanel(RIGHT_INSET_WIDTH, RIGHT_INSET_HEIGHT),
+            view.addChild(HostElements.absolute(
+                HostElements.tinyInsetPanel(RIGHT_INSET_WIDTH, RIGHT_INSET_HEIGHT),
                 RIGHT_INSET_X,
                 RIGHT_INSET_Y,
                 RIGHT_INSET_WIDTH,
                 RIGHT_INSET_HEIGHT
             ));
-            view.addChild(StorageHostElements.absolute(
+            view.addChild(HostElements.absolute(
                 StorageHostLoadGauge.bindRatio(
                     () -> {
                         if (config.migratingToInfinite().getAsBoolean()) {
-                            return -2.0F - StorageHostText.usageRatio(
+                            return -2.0F - HostText.usageRatio(
                                 config.infiniteMigrationProgress().getAsInt(),
                                 100L
                             );
@@ -215,7 +219,7 @@ public final class StorageHostPanelUI {
                             return -1.0F;
                         }
                         StorageTotals totals = storageTotals(config);
-                        return StorageHostText.usageRatio(totals.usedBytes(), totals.totalBytes());
+                        return HostText.usageRatio(totals.usedBytes(), totals.totalBytes());
                     },
                     loadRatio
                 ),
@@ -224,35 +228,35 @@ public final class StorageHostPanelUI {
                 RIGHT_GAUGE_WIDTH,
                 RIGHT_GAUGE_HEIGHT
             ));
-            view.addChild(StorageHostElements.absolute(
+            view.addChild(HostElements.absolute(
                 storageLoadLine(
                     () -> Component.translatable("gui.neoecoae.storage.current_load")
                         .append(": ")
                         .append(currentLoadPercent(config)),
-                    () -> StorageHostText.PRIMARY
+                    () -> HostText.PRIMARY
                 ),
                 RIGHT_DETAIL_X,
                 RIGHT_DETAIL_Y,
                 RIGHT_DETAIL_WIDTH,
                 RIGHT_DETAIL_LINE_HEIGHT
             ));
-            view.addChild(StorageHostElements.absolute(
+            view.addChild(HostElements.absolute(
                 storageLoadLine(
                     () -> Component.translatable("gui.neoecoae.storage.max_load")
                         .append(": ")
                         .append(isInfiniteDisplay(config)
                             ? "MAX"
-                            : StorageHostText.percent(
+                            : HostText.percent(
                                 config.maxLoadUsedBytes().getAsLong(),
                                 config.maxLoadTotalBytes().getAsLong())),
-                    () -> isInfiniteDisplay(config) ? INFINITE_STATUS_COLOR : StorageHostText.WARNING
+                    () -> isInfiniteDisplay(config) ? INFINITE_STATUS_COLOR : HostText.WARNING
                 ),
                 RIGHT_DETAIL_X,
                 RIGHT_DETAIL_Y + RIGHT_DETAIL_LINE_HEIGHT,
                 RIGHT_DETAIL_WIDTH,
                 RIGHT_DETAIL_LINE_HEIGHT
             ));
-            view.addChild(StorageHostElements.absolute(
+            view.addChild(HostElements.absolute(
                 storageLoadLine(
                     () -> Component.translatable("gui.neoecoae.storage.status")
                         .append(": ")
@@ -264,29 +268,29 @@ public final class StorageHostPanelUI {
                 RIGHT_DETAIL_WIDTH,
                 RIGHT_DETAIL_LINE_HEIGHT
             ));
-            view.addChild(StorageHostElements.absolute(
+            view.addChild(HostElements.absolute(
                 storageLoadLine(
                     () -> Component.translatable("gui.neoecoae.storage.idle_matrices")
                         .append(": ")
                         .append(Integer.toString(config.idleMatrices().getAsInt())),
-                    () -> StorageHostText.MUTED
+                    () -> HostText.MUTED
                 ),
                 RIGHT_DETAIL_X,
                 RIGHT_DETAIL_Y + RIGHT_DETAIL_LINE_HEIGHT * 3,
                 RIGHT_DETAIL_WIDTH,
                 RIGHT_DETAIL_LINE_HEIGHT
             ));
-            view.addChild(StorageHostElements.absolute(
+            view.addChild(HostElements.absolute(
                 StorageHostAnimatedPercentLabel.centered(
                     loadRatio,
                     () -> loadRatio.infinite()
                         ? INFINITE_TEXT_COLOR
-                        : StorageHostText.gaugeTextColor((float)loadRatio.value()),
+                        : HostText.gaugeTextColor((float)loadRatio.value()),
                     () -> loadRatio.infinite()
                         ? Component.translatable("gui.neoecoae.storage.infinite_value")
                         : loadRatio.migrating()
-                        ? Component.literal(StorageHostText.percent(loadRatio.migrationProgress()))
-                        : Component.literal(StorageHostText.percent(loadRatio.value())),
+                        ? Component.literal(HostText.percent(loadRatio.migrationProgress()))
+                        : Component.literal(HostText.percent(loadRatio.value())),
                     RIGHT_PERCENT_TEXT_SCALE
                 ),
                 RIGHT_GAUGE_X,
@@ -294,7 +298,7 @@ public final class StorageHostPanelUI {
                 RIGHT_GAUGE_WIDTH,
                 8
             ));
-            view.addChild(StorageHostElements.absolute(
+            view.addChild(HostElements.absolute(
                 new StorageHostHugeStackList(
                     config.registries(),
                     config.hugeStacks(),
@@ -306,7 +310,7 @@ public final class StorageHostPanelUI {
                 RIGHT_HUGE_STACK_WIDTH,
                 RIGHT_HUGE_STACK_HEIGHT
             ));
-            view.addChild(StorageHostElements.absolute(
+            view.addChild(HostElements.absolute(
                 infiniteComponentSlot(
                     config.enableInfiniteStorage(),
                     config.canExtractInfiniteComponents(),
@@ -330,7 +334,7 @@ public final class StorageHostPanelUI {
     }
 
     private static UIElement createInventoryPanel() {
-        UIElement panel = StorageHostElements.syncedDisplay(() -> true);
+        UIElement panel = HostElements.syncedDisplay(() -> true);
         panel.layout(layout -> {
             layout.widthPercent(100);
             layout.height(LEFT_INVENTORY_HEIGHT);
@@ -354,7 +358,7 @@ public final class StorageHostPanelUI {
         BooleanSupplier canExtractInfiniteComponents,
         IItemHandlerModifiable infiniteComponentInventory
     ) {
-        UIElement wrapper = StorageHostElements.syncedDisplay(display);
+        UIElement wrapper = HostElements.syncedDisplay(display);
         ItemHandlerSlot slot = new ItemHandlerSlot(infiniteComponentInventory, 0)
             .setCanTake(player -> canTakeInfiniteComponent(player, canExtractInfiniteComponents));
         wrapper.addChild(new ItemSlot(slot));
@@ -380,25 +384,25 @@ public final class StorageHostPanelUI {
     }
 
     private static UIElement storageTypeBlock(StorageTypeLine line, BooleanSupplier infiniteLoad) {
-        UIElement block = StorageHostElements.syncedDisplay(() -> shouldShowStorageType(line));
+        UIElement block = HostElements.syncedDisplay(() -> shouldShowStorageType(line));
         block.layout(layout -> {
             layout.gapAll(2);
             layout.flexDirection(FlexDirection.COLUMN);
         });
-        block.addChild(StorageHostElements.sectionLabel(
+        block.addChild(HostElements.sectionLabel(
             () -> line.type().desc(),
-            () -> StorageHostText.storageTypeAccentColor(line.type(), line.registryIndex())
+            () -> HostText.storageTypeAccentColor(line.type(), line.registryIndex())
         ));
         block.addChild(infiniteAwareUsageRow(
             () -> Component.translatable("gui.neoecoae.host.metric.types"),
-            () -> StorageHostText.typeProgress(line.usedTypes().getAsLong(), line.totalTypes().getAsLong()),
+            () -> HostText.typeProgress(line.usedTypes().getAsLong(), line.totalTypes().getAsLong()),
             () -> usedTotalTooltip(
-                StorageHostText.fullTypeProgress(line.usedTypes().getAsLong(), line.totalTypes().getAsLong()),
+                HostText.fullTypeProgress(line.usedTypes().getAsLong(), line.totalTypes().getAsLong()),
                 line.usedTypes().getAsLong(),
                 line.totalTypes().getAsLong()
             ),
             () -> usedOnlyTooltip(
-                StorageHostText.fullTypeProgress(line.usedTypes().getAsLong(), 0L),
+                HostText.fullTypeProgress(line.usedTypes().getAsLong(), 0L),
                 line.usedTypes().getAsLong()
             ),
             line.usedTypes(),
@@ -408,14 +412,14 @@ public final class StorageHostPanelUI {
         ));
         block.addChild(infiniteAwareUsageRow(
             () -> Component.translatable("gui.neoecoae.host.metric.bytes"),
-            () -> StorageHostText.byteProgress(line.usedBytes().getAsLong(), line.totalBytes().getAsLong()),
+            () -> HostText.byteProgress(line.usedBytes().getAsLong(), line.totalBytes().getAsLong()),
             () -> usedTotalTooltip(
-                StorageHostText.fullByteProgressValues(line.usedBytes().getAsLong(), line.totalBytes().getAsLong()),
+                HostText.fullByteProgressValues(line.usedBytes().getAsLong(), line.totalBytes().getAsLong()),
                 line.usedBytes().getAsLong(),
                 line.totalBytes().getAsLong()
             ),
             () -> usedOnlyTooltip(
-                new StorageHostText.UsedTotal(
+                new HostText.UsedTotal(
                     line.infiniteBytesTooltipText().get(),
                     "",
                     Component.translatable("gui.neoecoae.host.metric.bytes")
@@ -432,49 +436,49 @@ public final class StorageHostPanelUI {
 
     private static UIElement usedTotalRow(
         Supplier<Component> prefix,
-        Supplier<StorageHostText.UsedTotal> text,
+        Supplier<HostText.UsedTotal> text,
         LongSupplier used,
         LongSupplier max
     ) {
-        UIElement row = StorageHostElements.horizontalRow(10, 0);
-        row.addChild(StorageHostElements.textSegment(prefix, () -> StorageHostText.MUTED));
-        row.addChild(StorageHostElements.textSegment(
+        UIElement row = HostElements.horizontalRow(10, 0);
+        row.addChild(HostElements.textSegment(prefix, () -> HostText.MUTED));
+        row.addChild(HostElements.textSegment(
             () -> Component.literal(text.get().usedText()),
-            () -> StorageHostText.usedValueColor(used.getAsLong(), max.getAsLong())
+            () -> HostText.usedValueColor(used.getAsLong(), max.getAsLong())
         ));
-        row.addChild(StorageHostElements.textSegment(() -> Component.literal(" / "), () -> StorageHostText.MUTED));
-        row.addChild(StorageHostElements.textSegment(() -> Component.literal(text.get().maxText()), () -> StorageHostText.VALUE));
-        row.addChild(StorageHostElements.textSegment(() -> Component.literal(" ").append(text.get().suffix()), () -> StorageHostText.MUTED));
+        row.addChild(HostElements.textSegment(() -> Component.literal(" / "), () -> HostText.MUTED));
+        row.addChild(HostElements.textSegment(() -> Component.literal(text.get().maxText()), () -> HostText.VALUE));
+        row.addChild(HostElements.textSegment(() -> Component.literal(" ").append(text.get().suffix()), () -> HostText.MUTED));
         return row;
     }
 
     private static UIElement usageProgressRow(
         Supplier<Component> label,
-        Supplier<StorageHostText.UsedTotal> text,
+        Supplier<HostText.UsedTotal> text,
         Supplier<Component> tooltip,
         LongSupplier used,
         LongSupplier max
     ) {
-        UIElement row = StorageHostElements.horizontalRow(10, 2);
-        row.addChild(StorageHostElements.textSegment(label, () -> StorageHostText.MUTED)
+        UIElement row = HostElements.horizontalRow(10, 2);
+        row.addChild(HostElements.textSegment(label, () -> HostText.MUTED)
             .layout(layout -> layout.width(PROGRESS_ROW_LABEL_WIDTH)));
         row.addChild(new TooltipProgressBarElement(used, max, tooltip)
             .layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4)));
 
-        UIElement value = StorageHostElements.horizontalRow(10, 0);
-        value.addChild(StorageHostElements.textSegment(
+        UIElement value = HostElements.horizontalRow(10, 0);
+        value.addChild(HostElements.textSegment(
             () -> Component.literal(text.get().usedText()),
-            () -> StorageHostText.usedValueColor(used.getAsLong(), max.getAsLong())
+            () -> HostText.usedValueColor(used.getAsLong(), max.getAsLong())
         ));
-        value.addChild(StorageHostElements.textSegment(() -> Component.literal(" / "), () -> StorageHostText.MUTED));
-        value.addChild(StorageHostElements.textSegment(() -> Component.literal(text.get().maxText()), () -> StorageHostText.VALUE));
+        value.addChild(HostElements.textSegment(() -> Component.literal(" / "), () -> HostText.MUTED));
+        value.addChild(HostElements.textSegment(() -> Component.literal(text.get().maxText()), () -> HostText.VALUE));
         row.addChild(value);
         return row;
     }
 
     private static UIElement infiniteAwareUsageRow(
         Supplier<Component> label,
-        Supplier<StorageHostText.UsedTotal> text,
+        Supplier<HostText.UsedTotal> text,
         Supplier<Component> tooltip,
         Supplier<Component> infiniteTooltip,
         LongSupplier used,
@@ -486,16 +490,16 @@ public final class StorageHostPanelUI {
             layout.height(10);
             layout.flexDirection(FlexDirection.COLUMN);
         });
-        wrapper.addChild(StorageHostElements.syncedDisplay(() -> !infiniteLoad.getAsBoolean())
+        wrapper.addChild(HostElements.syncedDisplay(() -> !infiniteLoad.getAsBoolean())
             .addChild(usageProgressRow(label, text, tooltip, used, max)));
-        wrapper.addChild(StorageHostElements.syncedDisplay(infiniteLoad)
+        wrapper.addChild(HostElements.syncedDisplay(infiniteLoad)
             .addChild(usedOnlyRow(label, text, infiniteTooltip, used, infiniteText)));
         return wrapper;
     }
 
     private static UIElement usedOnlyRow(
         Supplier<Component> label,
-        Supplier<StorageHostText.UsedTotal> text,
+        Supplier<HostText.UsedTotal> text,
         Supplier<Component> tooltip,
         LongSupplier used,
         @Nullable Supplier<String> overrideText
@@ -506,11 +510,11 @@ public final class StorageHostPanelUI {
             layout.alignItems(dev.vfyjxf.taffy.style.AlignItems.CENTER);
             layout.gapAll(2);
         });
-        row.addChild(StorageHostElements.textSegment(
+        row.addChild(HostElements.textSegment(
             () -> Component.literal(overrideText == null ? text.get().usedText() : overrideText.get()),
-            () -> StorageHostText.usedValueColor(used.getAsLong(), Long.MAX_VALUE)
+            () -> HostText.usedValueColor(used.getAsLong(), Long.MAX_VALUE)
         ).layout(layout -> layout.width(PROGRESS_ROW_LABEL_WIDTH + PROGRESS_ROW_BAR_WIDTH + 2)));
-        row.addChild(StorageHostElements.textSegment(label, () -> StorageHostText.MUTED));
+        row.addChild(HostElements.textSegment(label, () -> HostText.MUTED));
         return row;
     }
 
@@ -519,26 +523,26 @@ public final class StorageHostPanelUI {
         progressBar
             .label(progressLabel -> progressLabel.setText(""))
             .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
-            .bind(DataBindingBuilder.floatValS2C(() -> StorageHostText.usageRatio(used.getAsLong(), max.getAsLong())).build());
+            .bind(DataBindingBuilder.floatValS2C(() -> HostText.usageRatio(used.getAsLong(), max.getAsLong())).build());
         progressBar.addClass("eco-host-progress");
         return progressBar;
     }
 
-    private static Component usedTotalTooltip(StorageHostText.UsedTotal text, long used, long max) {
-        MutableComponent line = Component.literal(text.usedText()).withColor(StorageHostText.usedValueColor(used, max))
-            .append(Component.literal(" / ").withColor(StorageHostText.MUTED))
-            .append(Component.literal(text.maxText()).withColor(StorageHostText.VALUE));
+    private static Component usedTotalTooltip(HostText.UsedTotal text, long used, long max) {
+        MutableComponent line = Component.literal(text.usedText()).withColor(HostText.usedValueColor(used, max))
+            .append(Component.literal(" / ").withColor(HostText.MUTED))
+            .append(Component.literal(text.maxText()).withColor(HostText.VALUE));
         if (!Component.empty().equals(text.suffix())) {
-            line.append(Component.literal(" ").append(text.suffix()).withColor(StorageHostText.MUTED));
+            line.append(Component.literal(" ").append(text.suffix()).withColor(HostText.MUTED));
         }
         return line;
     }
 
-    private static Component usedOnlyTooltip(StorageHostText.UsedTotal text, long used) {
+    private static Component usedOnlyTooltip(HostText.UsedTotal text, long used) {
         MutableComponent line = Component.literal(text.usedText())
-            .withColor(StorageHostText.usedValueColor(used, Long.MAX_VALUE));
+            .withColor(HostText.usedValueColor(used, Long.MAX_VALUE));
         if (!Component.empty().equals(text.suffix())) {
-            line.append(Component.literal(" ").append(text.suffix()).withColor(StorageHostText.MUTED));
+            line.append(Component.literal(" ").append(text.suffix()).withColor(HostText.MUTED));
         }
         return line;
     }
@@ -570,7 +574,7 @@ public final class StorageHostPanelUI {
         }
         long used = line.usedBytes().getAsLong();
         long total = line.totalBytes().getAsLong();
-        float ratio = StorageHostText.usageRatio(used, total);
+        float ratio = HostText.usageRatio(used, total);
         if (total > 0L && ratio >= 1.0F) {
             return Component.translatable("gui.neoecoae.storage.status.full", line.type().desc());
         }
@@ -586,9 +590,9 @@ public final class StorageHostPanelUI {
     private static int storageStatusColor(Config config) {
         StorageTypeLine line = highestPressureLine(config);
         if (line == null) {
-            return StorageHostText.MUTED;
+            return HostText.MUTED;
         }
-        return StorageHostText.usedValueColor(line.usedBytes().getAsLong(), line.totalBytes().getAsLong());
+        return HostText.usedValueColor(line.usedBytes().getAsLong(), line.totalBytes().getAsLong());
     }
 
     private static StorageTypeLine highestPressureLine(Config config) {
@@ -599,7 +603,7 @@ public final class StorageHostPanelUI {
             if (total <= 0L) {
                 continue;
             }
-            float ratio = StorageHostText.usageRatio(line.usedBytes().getAsLong(), total);
+            float ratio = HostText.usageRatio(line.usedBytes().getAsLong(), total);
             if (ratio > bestRatio) {
                 bestRatio = ratio;
                 best = line;
@@ -610,7 +614,7 @@ public final class StorageHostPanelUI {
 
     private static String currentLoadPercent(Config config) {
         StorageTotals totals = storageTotals(config);
-        return StorageHostText.percent(totals.usedBytes(), totals.totalBytes());
+        return HostText.percent(totals.usedBytes(), totals.totalBytes());
     }
 
     private static String formatPerformanceCornerValue(long averageNanos) {
@@ -751,7 +755,7 @@ public final class StorageHostPanelUI {
             guiContext.graphics.pose().translate(x, y, 0.0F);
             guiContext.graphics.pose().scale(scale, scale, 1.0F);
             int scaledWidth = Math.round(width / scale);
-            guiContext.graphics.drawString(font, text, scaledWidth - font.width(text), 0, StorageHostText.VALUE, false);
+            guiContext.graphics.drawString(font, text, scaledWidth - font.width(text), 0, HostText.VALUE, false);
             guiContext.graphics.pose().popPose();
         }
     }

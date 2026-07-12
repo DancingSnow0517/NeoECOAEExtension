@@ -15,7 +15,7 @@ import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostActionUI;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostHugeStackList;
 import cn.dancingsnow.neoecoae.gui.storage.StorageHostPanelUI;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostText;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
@@ -563,11 +563,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
 
         private String infiniteBytesText() {
-            return StorageHostText.fitHugeAmount(displayUsedBytes, 62);
+            return HostText.fitHugeAmount(displayUsedBytes, 62);
         }
 
         private String infiniteBytesTooltipText() {
-            return StorageHostText.compactStorageBytes(displayUsedBytes);
+            return HostText.compactStorageBytes(displayUsedBytes);
         }
 
         private StorageTypeTotals add(StorageTypeTotals other) {

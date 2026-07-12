@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.HostText;
+
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
@@ -62,7 +64,7 @@ final class StorageHostLoadGauge extends UIElement implements IBindable<Float> {
             float bodyHeight = Math.max(0.0F, height - GAUGE_CAP_HEIGHT);
             float barHeight = Math.round(bodyHeight * clamped);
             top = bottom - barHeight - GAUGE_CAP_HEIGHT;
-            color = StorageHostText.gaugeColor(clamped);
+            color = HostText.gaugeColor(clamped);
         }
         drawGaugeSegment(
             guiContext,

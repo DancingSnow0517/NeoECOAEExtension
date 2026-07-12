@@ -8,6 +8,7 @@ import com.lowdragmc.lowdraglib2.editor.resource.ResourceInstance;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture;
+import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.math.Size;
 
 import java.lang.reflect.Field;
@@ -25,6 +26,8 @@ public class NETextures {
     public static final IGuiTexture CARD_BACKGROUND = SpriteTexture.of(NeoECOAE.id("textures/gui/card_background.png"))
         .setSpriteSize(Size.of(16, 16))
         .setBorder(3, 3, 3, 3);
+
+    public static final IGuiTexture HOST_PANEL_BORDER = Sprites.BORDER_THICK_RT1;
 
     public static final IGuiTexture BUTTON = SpriteTexture.of(NeoECOAE.id("textures/gui/button.png"))
         .setSpriteSize(Size.of(20, 20))

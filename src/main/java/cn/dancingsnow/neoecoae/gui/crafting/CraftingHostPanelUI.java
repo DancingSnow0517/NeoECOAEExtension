@@ -2,44 +2,42 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 
 import appeng.client.gui.Icon;
 import appeng.core.localization.Tooltips;
+import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.task.HostTaskListElement;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostText;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
-import cn.dancingsnow.neoecoae.gui.widget.ECOHostWidgets;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.texture.FluidStackTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
+import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.vfyjxf.taffy.style.AlignItems;
+import dev.vfyjxf.taffy.style.AlignContent;
 import dev.vfyjxf.taffy.style.FlexDirection;
-import dev.vfyjxf.taffy.style.TaffyPosition;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.util.Mth;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
@@ -51,49 +49,35 @@ public final class CraftingHostPanelUI {
     public static final int UI_WIDTH = 304;
     public static final int UI_HEIGHT = 196;
 
-    private static final int PANEL_MARGIN = 6;
-    private static final float COMPACT_FONT_SIZE = 8.0F;
-    private static final int TOOLBAR_BUTTON_SIZE = 16;
-    private static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 4;
-    private static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 2 - 4;
-    private static final int TOOLBAR_Y = 4;
-    private static final int CONTENT_Y = 26;
-    private static final int INSET_H = 70;
-    private static final int STATUS_X = 12;
-    private static final int STATUS_W = 76;
-    private static final int STATS_X = STATUS_X + STATUS_W + 6;
-    private static final int STATS_W = 126;
-    private static final int GAUGE_X = STATS_X + STATS_W + 6;
-    private static final int GAUGE_W = UI_WIDTH - GAUGE_X - PANEL_MARGIN;
-    private static final int INVENTORY_LABEL_Y = 101;
-    private static final int INVENTORY_X = 12;
-    private static final int TASK_X = INVENTORY_X + 18 * 9 + 8;
-    private static final int TASK_Y = INVENTORY_LABEL_Y - 2;
-    private static final int TASK_W = UI_WIDTH - TASK_X - PANEL_MARGIN;
-    private static final int TASK_H = 89;
+    private static final int HEADER_HEIGHT = 16;
+    private static final int TOP_PANEL_HEIGHT = 70;
+    private static final int BOTTOM_PANEL_HEIGHT = 88;
+    private static final int STATUS_WIDTH = 76;
+    private static final int STATS_WIDTH = 114;
+    private static final int GAUGE_WIDTH = 90;
+    private static final int FORMED_STATUS_WIDTH = 72;
+    private static final int PERFORMANCE_WIDTH = 60;
+    private static final int INVENTORY_WIDTH = 162;
+    private static final int TASK_WIDTH = 122;
+    private static final int TASK_HEIGHT = 88;
     private static final int TASK_CARD_X = 8;
     private static final int TASK_CARD_Y = 19;
-    private static final int TASK_CARD_W = TASK_W - 16;
-    private static final int TASK_CARD_H = 16;
+    private static final int TASK_CARD_WIDTH = TASK_WIDTH - 16;
+    private static final int TASK_CARD_HEIGHT = 16;
     private static final int TASK_CARD_STRIDE = 18;
-    private static final int TASK_LIST_BOTTOM_Y = TASK_H - 4;
-    private static final int TASK_SCROLLBAR_W = 3;
-    private static final int GAUGE_BAR_Y = 25;
-    private static final int GAUGE_BAR_H = 32;
-    private static final int GAUGE_BAR_W = 23;
-    private static final int ENERGY_GAUGE_BAR_W = GAUGE_BAR_W - 3;
-    private static final int PANEL_CONTENT_OFFSET_X = -4;
-    private static final int PANEL_CONTENT_OFFSET_Y = -4;
+    private static final int TASK_LIST_BOTTOM_Y = TASK_HEIGHT - 4;
+    private static final int TASK_SCROLLBAR_WIDTH = 3;
     private static final int PANEL_TEXT_SHIFT_X = -2;
+    private static final int TOOLBAR_BUTTON_SIZE = 16;
+    private static final float COMPACT_FONT_SIZE = 8.0F;
+    private static final float INLINE_STATS_FONT_SIZE = 7.0F;
     private static final long ENERGY_GAUGE_REFERENCE = 1_000_000L;
     private static final int ROOT_TEXT = 0x3F3D52;
-    private static final int HEADER_LABEL = 0x5D5D5D;
-    private static final int PANEL_EDGE = 0xFFD8D3E4;
-    private static final int PANEL_BORDER = 0xFF17141E;
     private static final int PANEL_TEXT = 0xFFEFEAF8;
     private static final int PANEL_MUTED = 0xFFC7BFCD;
     private static final int PANEL_VALUE = 0xFF8377FF;
     private static final int PANEL_OVERFLOW_VALUE = 0xFF000000;
+    private static final int PANEL_TIME_VALUE = 0xFF55A7FF;
     private static final int PANEL_SUCCESS = 0xFF55FF8A;
     private static final int PANEL_WARNING = 0xFFFF6A75;
     private static final ThreadLocal<DecimalFormat> PERFORMANCE_MS_FORMAT = ThreadLocal.withInitial(() ->
@@ -113,6 +97,7 @@ public final class CraftingHostPanelUI {
         IntSupplier maxRecipeSlots,
         IntSupplier batchParallel,
         IntSupplier overflowThreads,
+        IntSupplier effectiveOverclockTimes,
         LongSupplier performanceAverageNanos,
         LongSupplier energyUsage,
         IntSupplier coolantAmount,
@@ -125,326 +110,323 @@ public final class CraftingHostPanelUI {
     }
 
     public static UIElement create(Config config) {
-        UIElement root = new UIElement().layout(layout -> {
-            layout.width(UI_WIDTH);
-            layout.height(UI_HEIGHT);
-        }).addClass("panel_bg");
-
-        root.addChild(headerLine(config));
-        root.addChild(toolbarButton(
-            TOOLBAR_X,
-            config.toggleOverclocked,
-            Icon.POWER_UNIT_AE,
-            () -> Component.translatable(config.overclocked().getAsBoolean()
-                ? "gui.neoecoae.crafting.overclock.on"
-                : "gui.neoecoae.crafting.overclock.off")
-        ));
-        root.addChild(toolbarButton(
-            TOOLBAR_X + TOOLBAR_BUTTON_STRIDE,
-            config.toggleActiveCooling,
-            Icon.TYPE_FILTER_ALL,
-            () -> Component.translatable(config.activeCooling().getAsBoolean()
-                ? "gui.neoecoae.crafting.active_cooling.on"
-                : "gui.neoecoae.crafting.active_cooling.off")
-        ));
-        root.addChild(statusPanel(config));
-        root.addChild(statsPanel(config));
-        root.addChild(gaugePanel(config));
-        root.addChild(inventoryPanel());
-        root.addChild(taskPanel(config));
+        UIElement root = new UIElement()
+            .addClasses("eco-host-panel", "eco-crafting-host")
+            .layout(layout -> layout
+                .width(UI_WIDTH)
+                .height(UI_HEIGHT)
+                .flexDirection(FlexDirection.COLUMN));
+        root.addChildren(header(config), topPanels(config), bottomPanels(config));
         return root;
     }
 
-    private static UIElement headerLine(Config config) {
-        return new HeaderLineElement(config)
-            .layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(8);
-                layout.top(8);
-                layout.width(TOOLBAR_X - 16);
-                layout.height(10);
-            });
+    private static UIElement header(Config config) {
+        UIElement header = new UIElement()
+            .addClass("eco-host-header")
+            .layout(layout -> layout
+                .widthPercent(100)
+                .height(HEADER_HEIGHT)
+                .flexDirection(FlexDirection.ROW)
+                .alignItems(AlignItems.CENTER));
+
+        Label title = boundLabel(config.title, ROOT_TEXT);
+        title.addClass("eco-host-title");
+        title.layout(layout -> layout.flex(1).height(10));
+        Label status = boundLabel(() -> Component.translatable("gui.neoecoae.machine.formed")
+            .append(": ")
+            .append(Component.translatable(config.formed.getAsBoolean()
+                ? "gui.neoecoae.common.yes"
+                : "gui.neoecoae.common.no").withColor(config.formed.getAsBoolean() ? HostText.USED : PANEL_WARNING)), ROOT_TEXT);
+        status.addClass("eco-host-formed-status");
+        status.textStyle(style -> style.textAlignHorizontal(Horizontal.RIGHT));
+        status.layout(layout -> layout.width(FORMED_STATUS_WIDTH).height(10));
+
+        UIElement toolbar = new UIElement()
+            .addClass("eco-host-toolbar")
+            .layout(layout -> layout.height(TOOLBAR_BUTTON_SIZE).flexDirection(FlexDirection.ROW));
+        toolbar.addChildren(
+            toolbarButton(config.toggleOverclocked, Icon.POWER_UNIT_AE, () -> Component.translatable(
+                config.overclocked.getAsBoolean() ? "gui.neoecoae.crafting.overclock.on" : "gui.neoecoae.crafting.overclock.off")),
+            toolbarButton(config.toggleActiveCooling, Icon.TYPE_FILTER_ALL, () -> Component.translatable(
+                config.activeCooling.getAsBoolean() ? "gui.neoecoae.crafting.active_cooling.on" : "gui.neoecoae.crafting.active_cooling.off"))
+        );
+
+        header.addChildren(
+            title,
+            status,
+            toolbar
+        );
+        return header;
     }
 
-    private static Button toolbarButton(
-        int x,
-        Runnable action,
-        Icon icon,
-        Supplier<Component> tooltip
-    ) {
-        Button button = new SyncedToolbarButton(action, icon, tooltip);
-        button.layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(x);
-            layout.top(TOOLBAR_Y);
-            layout.width(TOOLBAR_BUTTON_SIZE);
-            layout.height(TOOLBAR_BUTTON_SIZE);
-        });
+    private static Button toolbarButton(Runnable action, Icon icon, Supplier<Component> tooltip) {
+        Button button = new Button()
+            .noText()
+            .addPreIcon(AETextures.icon(icon))
+            .setOnServerClick(event -> action.run());
+        button.buttonStyle(style -> style
+            .baseTexture(Sprites.RECT_RD)
+            .hoverTexture(Sprites.RECT_RD_LIGHT)
+            .pressedTexture(Sprites.RECT_RD_DARK));
+        button.addClass("eco-host-toolbar-button");
+        button.layout(layout -> layout.width(TOOLBAR_BUTTON_SIZE).height(TOOLBAR_BUTTON_SIZE));
+
+        BindableValue<Component> syncedTooltip = syncedComponent(tooltip);
+        syncedTooltip.setDisplay(false);
+        button.addChild(syncedTooltip);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
+            event.hoverTooltips = HoverTooltips.empty().append(syncedTooltip.getValue()));
         return button;
     }
 
+    private static UIElement topPanels(Config config) {
+        UIElement row = new UIElement().layout(layout -> layout
+            .widthPercent(100)
+            .height(TOP_PANEL_HEIGHT)
+            .flexDirection(FlexDirection.ROW));
+        row.addClass("eco-host-panel-row");
+        row.addChildren(statusPanel(config), statsPanel(config), gaugePanel(config));
+        return row;
+    }
+
     private static UIElement statusPanel(Config config) {
-        ScrollerView panel = insetPanel(STATUS_X, CONTENT_Y, STATUS_W, INSET_H);
-        panel.addScrollViewChild(sectionLabel("gui.neoecoae.crafting.ui.status", 8, 5, 60));
-        panel.addScrollViewChild(statusRow("gui.neoecoae.crafting.ui.overclock_short", config.overclocked, 8, 22));
-        panel.addScrollViewChild(statusRow("gui.neoecoae.crafting.ui.cooling_short", config.activeCooling, 8, 38));
+        UIElement panel = hostCard(STATUS_WIDTH);
+        panel.addChild(sectionLabel("gui.neoecoae.crafting.ui.status"));
+        panel.addChild(statusRow("gui.neoecoae.crafting.ui.overclock_short", config.overclocked));
+        panel.addChild(statusRow("gui.neoecoae.crafting.ui.cooling_short", config.activeCooling));
         return panel;
+    }
+
+    private static UIElement statusRow(String key, BooleanSupplier value) {
+        UIElement row = new UIElement()
+            .addClass("eco-host-status-row")
+            .layout(layout -> layout.widthPercent(100).height(13).flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
+        row.addChild(statusIndicator(value));
+        row.addChild(boundLabel(() -> Component.translatable(key)
+            .withColor(PANEL_MUTED)
+            .append(": ")
+            .append(Component.translatable(value.getAsBoolean()
+                ? "gui.neoecoae.common.on"
+                : "gui.neoecoae.common.off").withColor(value.getAsBoolean() ? PANEL_SUCCESS : PANEL_MUTED)), PANEL_MUTED)
+            .layout(layout -> layout.flex(1).height(10)));
+        return row;
+    }
+
+    private static UIElement statusIndicator(BooleanSupplier value) {
+        UIElement frame = new UIElement()
+            .addClass("eco-host-status-light-edge")
+            .layout(layout -> layout.width(13).height(13).paddingAll(1));
+        UIElement border = new UIElement()
+            .addClass("eco-host-status-light-border")
+            .layout(layout -> layout.widthPercent(100).heightPercent(100).paddingAll(1));
+        UIElement lamp = new UIElement()
+            .addClass(value.getAsBoolean() ? "eco-host-status-light-on" : "eco-host-status-light-off")
+            .layout(layout -> layout.widthPercent(100).heightPercent(100));
+        border.addChild(lamp);
+        frame.addChild(border);
+
+        BindableValue<Boolean> syncedValue = new BindableValue<>(value.getAsBoolean());
+        syncedValue.bind(DataBindingBuilder.boolS2C(value::getAsBoolean).build());
+        syncedValue.registerValueListener(enabled -> {
+            lamp.removeClasses("eco-host-status-light-on", "eco-host-status-light-off");
+            lamp.addClass(Boolean.TRUE.equals(enabled) ? "eco-host-status-light-on" : "eco-host-status-light-off");
+        });
+        syncedValue.setDisplay(false);
+        frame.addChild(syncedValue);
+        return frame;
     }
 
     private static UIElement statsPanel(Config config) {
-        ScrollerView panel = insetPanel(STATS_X, CONTENT_Y, STATS_W, INSET_H);
-        panel.addScrollViewChild(sectionLabel("gui.neoecoae.crafting.ui.stats", 8, 5, 72));
-        panel.addScrollViewChild(new PerformanceLabelElement(config.performanceAverageNanos()).layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(STATS_W - 55);
-            layout.top(5);
-            layout.width(47);
-            layout.height(9);
-        }));
-        panel.addScrollViewChild(panelTextLine(
-            () -> Component.translatable("gui.neoecoae.crafting.ui.recipe_slots")
-                .append(": ")
-                .append(Component.literal(StorageHostText.typeProgress(
-                    config.occupiedRecipeSlots().getAsInt(),
-                    config.maxRecipeSlots().getAsInt()).usedText()))
-                .append(" / ")
-                .append(Component.literal(StorageHostText.typeProgress(
-                    config.occupiedRecipeSlots().getAsInt(),
-                    config.maxRecipeSlots().getAsInt()).maxText())),
-            8,
-            18,
-            STATS_W - 16,
-            PANEL_MUTED
-        ));
-        panel.addScrollViewChild(new ProgressBar()
+        UIElement panel = hostCard(STATS_WIDTH);
+        UIElement titleRow = new UIElement().layout(layout -> layout
+            .widthPercent(100).height(10).flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER));
+        titleRow.addChild(sectionLabel("gui.neoecoae.crafting.ui.stats").layout(layout -> layout.flex(1).height(10)));
+        titleRow.addChild(performanceLabel(config.performanceAverageNanos));
+        panel.addChild(titleRow);
+        panel.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.crafting.ui.recipe_slots")
+            .append(": ")
+            .append(HostText.typeProgress(config.occupiedRecipeSlots.getAsInt(), config.maxRecipeSlots.getAsInt()).usedText())
+            .append(" / ")
+            .append(HostText.typeProgress(config.occupiedRecipeSlots.getAsInt(), config.maxRecipeSlots.getAsInt()).maxText()), PANEL_MUTED));
+        panel.addChild(new ProgressBar()
             .label(label -> label.setText(""))
             .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
-            .bind(DataBindingBuilder.floatValS2C(() -> StorageHostText.usageRatio(
-                config.occupiedRecipeSlots().getAsInt(),
-                config.maxRecipeSlots().getAsInt())).build())
-            .layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(8);
-                layout.top(31);
-                layout.width(STATS_W - 16);
-                layout.height(9);
-            })
-            .addClass("eco-host-progress"));
-        panel.addScrollViewChild(panelTextLine(
-            () -> Component.translatable("gui.neoecoae.crafting.ui.batch_parallel")
-                .append(": ")
-                .append(Tooltips.ofNumber(config.batchParallel().getAsInt())),
-            8,
-            45,
-            STATS_W - 16,
-            PANEL_MUTED
-        ));
-        panel.addScrollViewChild(panelTextLine(
-            () -> Component.translatable("gui.neoecoae.host.crafting.overflow")
-                .append(": ")
-                .append(Tooltips.ofNumber(config.overflowThreads().getAsInt()).copy().withColor(PANEL_OVERFLOW_VALUE)),
-            8,
-            56,
-            STATS_W - 16,
-            PANEL_MUTED
-        ));
+            .bind(DataBindingBuilder.floatValS2C(() -> HostText.usageRatio(
+                config.occupiedRecipeSlots.getAsInt(), config.maxRecipeSlots.getAsInt())).build())
+            .addClass("eco-host-stats-progress")
+            .layout(layout -> layout.widthPercent(100).height(9)));
+        panel.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.crafting.ui.batch_parallel")
+            .append(": ").append(Tooltips.ofNumber(config.batchParallel.getAsInt())), PANEL_MUTED));
+        UIElement overflowRow = new UIElement().layout(layout -> layout
+            .widthPercent(100).height(9).flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4));
+        Label overflow = boundLabel(() -> Component.translatable("gui.neoecoae.host.crafting.overflow")
+            .append(": ").append(Tooltips.ofNumber(config.overflowThreads.getAsInt()).copy().withColor(PANEL_OVERFLOW_VALUE)), PANEL_MUTED);
+        overflow.textStyle(CraftingHostPanelUI::inlineStatsTextStyle);
+        Label timeRatio = boundLabel(() -> Component.translatable("gui.neoecoae.crafting.ui.recipe_time_ratio")
+            .append(": ").append(Component.literal(formatRecipeTimeMultiplier(config.effectiveOverclockTimes.getAsInt()))
+                .withColor(PANEL_TIME_VALUE)), PANEL_TIME_VALUE);
+        timeRatio.textStyle(CraftingHostPanelUI::inlineStatsTextStyle);
+        overflowRow.addChildren(overflow, timeRatio);
+        panel.addChild(overflowRow);
         return panel;
+    }
+
+    private static Label performanceLabel(LongSupplier performanceAverageNanos) {
+        Label label = boundLabel(() -> Component.literal(formatPerformanceCornerValue(performanceAverageNanos.getAsLong())), PANEL_VALUE);
+        label.addClass("eco-host-performance");
+        label.textStyle(style -> style.textAlignHorizontal(Horizontal.RIGHT));
+        label.layout(layout -> layout.width(PERFORMANCE_WIDTH).height(10));
+        BindableValue<Component> detail = syncedComponent(() -> Component.literal(formatPerformanceValue(performanceAverageNanos.getAsLong())));
+        detail.setDisplay(false);
+        label.addChild(detail);
+        label.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty().append(
+            Component.translatable("gui.neoecoae.crafting.performance"), detail.getValue()));
+        return label;
     }
 
     private static UIElement gaugePanel(Config config) {
-        ScrollerView panel = insetPanel(GAUGE_X, CONTENT_Y, GAUGE_W, INSET_H);
-        panel.addScrollViewChild(sectionLabel("gui.neoecoae.crafting.ui.energy_cooling", 8, 5, GAUGE_W - 16));
-        panel.addScrollViewChild(new EnergyGaugeElement(config.energyUsage()
-        ).layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(8);
-            layout.top(GAUGE_BAR_Y);
-            layout.width(ENERGY_GAUGE_BAR_W);
-            layout.height(GAUGE_BAR_H);
-        }));
-        panel.addScrollViewChild(new CoolantGaugeElement(
-            config.coolantAmount(),
-            config.coolantCapacity(),
-            config.coolantMaxOverclock(),
-            config.coolantFluid(),
-            config.registries()
-        ).layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(GAUGE_W - 8 - GAUGE_BAR_W);
-            layout.top(GAUGE_BAR_Y);
-            layout.width(GAUGE_BAR_W);
-            layout.height(GAUGE_BAR_H);
-        }));
+        UIElement panel = hostCard(GAUGE_WIDTH);
+        panel.addChild(sectionLabel("gui.neoecoae.crafting.ui.energy_cooling"));
+        UIElement gauges = new UIElement().layout(layout -> layout
+            .widthPercent(100)
+            .flex(1)
+            .flexDirection(FlexDirection.ROW)
+            .alignItems(AlignItems.CENTER)
+            .justifyContent(AlignContent.CENTER));
+        gauges.addClass("eco-host-gauge-row");
+        gauges.addChildren(energyGauge(config.energyUsage), coolantGauge(config));
+        panel.addChild(gauges);
         return panel;
     }
 
+    private static ProgressBar energyGauge(LongSupplier energyUsage) {
+        DynamicEnergyProgressBar gauge = new DynamicEnergyProgressBar();
+        gauge.label(label -> label.setText(""));
+        gauge.progressBarStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP));
+        gauge.bind(DataBindingBuilder.floatValS2C(() -> HostText.usageRatio(
+            Math.max(0L, energyUsage.getAsLong()), ENERGY_GAUGE_REFERENCE)).build());
+        gauge.addClass("eco-host-energy-gauge");
+        gauge.layout(layout -> layout.width(20).height(32));
+
+        BindableValue<Component> tooltip = syncedComponent(() -> Tooltips.ofNumber(Math.max(0L, energyUsage.getAsLong())).append(" AE/t"));
+        tooltip.setDisplay(false);
+        gauge.addChild(tooltip);
+        gauge.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = HoverTooltips.empty().append(
+            Component.translatable("gui.neoecoae.crafting.ui.energy_usage"), tooltip.getValue()));
+        return gauge;
+    }
+
+    private static UIElement coolantGauge(Config config) {
+        UIElement frame = new UIElement()
+            .addClass("eco-host-coolant-gauge")
+            .layout(layout -> layout.width(23).height(32));
+        CoolantFluidSlot fluid = new CoolantFluidSlot(config);
+        fluid.layout(layout -> layout.widthPercent(100).heightPercent(100));
+        frame.addChild(fluid);
+        return frame;
+    }
+
+    private static UIElement bottomPanels(Config config) {
+        UIElement row = new UIElement().layout(layout -> layout
+            .widthPercent(100)
+            .height(BOTTOM_PANEL_HEIGHT)
+            .flexDirection(FlexDirection.ROW));
+        row.addClass("eco-host-bottom-row");
+        row.addChildren(inventoryPanel(), taskPanel(config));
+        return row;
+    }
+
     private static UIElement inventoryPanel() {
-        UIElement panel = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(INVENTORY_X);
-            layout.top(INVENTORY_LABEL_Y);
-            layout.width(162);
-            layout.height(88);
-            layout.flexDirection(FlexDirection.COLUMN);
-        });
-        panel.addChild(label(() -> Component.translatable("container.inventory"), ROOT_TEXT)
-            .layout(layout -> layout.height(9)));
+        UIElement panel = new UIElement()
+            .addClass("eco-host-inventory")
+            .layout(layout -> layout.width(INVENTORY_WIDTH).height(BOTTOM_PANEL_HEIGHT).flexDirection(FlexDirection.COLUMN));
+        panel.addChild(boundLabel(() -> Component.translatable("container.inventory"), ROOT_TEXT).layout(layout -> layout.height(10)));
         panel.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
         return panel;
     }
 
     private static UIElement taskPanel(Config config) {
-        ScrollerView panel = insetPanel(TASK_X, TASK_Y, TASK_W, TASK_H);
-        panel.addScrollViewChild(new HostTaskListElement(
-                config.registries(),
-                config.tasks(),
-                TASK_W,
-                TASK_H,
-                TASK_CARD_X,
-                TASK_CARD_Y,
-                TASK_CARD_W,
-                TASK_CARD_H,
-                TASK_CARD_STRIDE,
-                TASK_LIST_BOTTOM_Y,
-                TASK_SCROLLBAR_W
-            ) {
-                @Override
-                protected List<Component> tooltipLines(ComputationTaskEntry entry) {
-                    return craftingTooltip(entry);
-                }
+        UIElement panel = new UIElement()
+            .addClasses("eco-host-card", "eco-host-task-panel")
+            .layout(layout -> layout.width(TASK_WIDTH).height(TASK_HEIGHT));
+        panel.addChild(new HostTaskListElement(
+            config.registries,
+            config.tasks,
+            TASK_WIDTH,
+            TASK_HEIGHT,
+            TASK_CARD_X,
+            TASK_CARD_Y,
+            TASK_CARD_WIDTH,
+            TASK_CARD_HEIGHT,
+            TASK_CARD_STRIDE,
+            TASK_LIST_BOTTOM_Y,
+            TASK_SCROLLBAR_WIDTH
+        ) {
+            @Override
+            protected List<Component> tooltipLines(ComputationTaskEntry entry) {
+                return craftingTooltip(entry);
+            }
 
-                @Override
-                protected void drawTaskCard(GUIContext guiContext, Font font, ComputationTaskEntry entry, float x, float y) {
-                    drawCraftingTaskCard(guiContext, font, entry, Math.round(x), Math.round(y));
-                }
+            @Override
+            protected void drawTaskCard(GUIContext guiContext, Font font, ComputationTaskEntry entry, float x, float y) {
+                drawCraftingTaskCard(guiContext, font, entry, Math.round(x), Math.round(y));
+            }
 
-                @Override
-                protected int titleX() {
-                    return 8 + PANEL_TEXT_SHIFT_X;
-                }
+            @Override
+            protected int titleX() {
+                return 8 + PANEL_TEXT_SHIFT_X;
+            }
 
-                @Override
-                protected int countRightX() {
-                    return TASK_W - 12 + PANEL_TEXT_SHIFT_X;
-                }
+            @Override
+            protected int countRightX() {
+                return TASK_WIDTH - 12 + PANEL_TEXT_SHIFT_X;
+            }
 
-                @Override
-                protected int scissorRight() {
-                    return TASK_W - 8;
-                }
+            @Override
+            protected int scissorRight() {
+                return TASK_WIDTH - 8;
+            }
 
-                @Override
-                protected int scrollbarX() {
-                    return TASK_W - 9;
-                }
+            @Override
+            protected int scrollbarX() {
+                return TASK_WIDTH - 9;
+            }
 
-                @Override
-                protected float emptyTextX(Font font, String text) {
-                    return Math.max(0, TASK_W - font.width(text)) / 2.0F + PANEL_TEXT_SHIFT_X;
-                }
-            }.layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(0);
-                layout.top(0);
-                layout.width(TASK_W - 4);
-                layout.height(TASK_H - 4);
-            }));
+            @Override
+            protected float emptyTextX(Font font, String text) {
+                return Math.max(0, TASK_WIDTH - font.width(text)) / 2.0F + PANEL_TEXT_SHIFT_X;
+            }
+        }.layout(layout -> layout.width(TASK_WIDTH).height(TASK_HEIGHT)));
         return panel;
     }
 
-    private static ScrollerView insetPanel(int x, int y, int width, int height) {
-        ScrollerView panel = ECOHostWidgets.storagePanel(width, height, 0, 0, 0);
-        panel.layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(x);
-            layout.top(y);
-            layout.width(width);
-            layout.height(height);
-        });
-        panel.scrollerStyle(style -> style
-            .verticalScrollDisplay(ScrollDisplay.NEVER)
-            .horizontalScrollDisplay(ScrollDisplay.NEVER));
-        panel.viewContainer(view -> {
-            view.getLayout().paddingAll(0);
-            view.getLayout().marginLeft(PANEL_CONTENT_OFFSET_X);
-            view.getLayout().marginTop(PANEL_CONTENT_OFFSET_Y);
-        });
-        return panel;
+    private static UIElement hostCard(int width) {
+        return new UIElement()
+            .addClass("eco-host-card")
+            .layout(layout -> layout.width(width).height(TOP_PANEL_HEIGHT).flexDirection(FlexDirection.COLUMN));
     }
 
-    private static UIElement sectionLabel(String key, int x, int y, int width) {
-        return panelTextLine(() -> Component.translatable(key), x, y, width, PANEL_TEXT);
-    }
-
-    private static UIElement statusRow(String key, BooleanSupplier value, int x, int y) {
-        UIElement row = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(x);
-            layout.top(y);
-            layout.width(STATUS_W - 16);
-            layout.height(12);
-            layout.flexDirection(FlexDirection.ROW);
-            layout.alignItems(AlignItems.CENTER);
-            layout.gapAll(4);
-        });
-        row.addChild(new StatusLight(value).layout(layout -> layout.width(13).height(13)));
-        row.addChild(statusTextLine(key, value)
-            .layout(layout -> {
-                layout.positionType(TaffyPosition.RELATIVE);
-                layout.marginLeft(PANEL_TEXT_SHIFT_X);
-                layout.width(STATUS_W - 33);
-                layout.height(9);
-            }));
-        return row;
-    }
-
-    private static Label statusTextLine(String key, BooleanSupplier value) {
-        Label label = new Label();
-        Supplier<Component> text = () -> Component.translatable(key)
-            .withColor(PANEL_MUTED)
-            .append(Component.literal(": ").withColor(PANEL_MUTED))
-            .append(Component.translatable(value.getAsBoolean()
-                ? "gui.neoecoae.common.on"
-                : "gui.neoecoae.common.off").withColor(value.getAsBoolean() ? PANEL_SUCCESS : PANEL_MUTED));
-        label.setText(text.get());
-        label.bind(DataBindingBuilder.componentS2C(text).build());
-        label.textStyle(CraftingHostPanelUI::labelTextStyle);
+    private static Label sectionLabel(String key) {
+        Label label = boundLabel(() -> Component.translatable(key), PANEL_TEXT);
+        label.addClass("eco-host-section-title");
+        label.layout(layout -> layout.widthPercent(100).height(10));
         return label;
     }
 
-    private static UIElement textLine(Supplier<Component> text, int x, int y, int width, int color) {
-        return label(text, color)
-            .layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(x);
-                layout.top(y);
-                layout.width(width);
-                layout.height(9);
-            });
-    }
-
-    private static UIElement panelTextLine(Supplier<Component> text, int x, int y, int width, int color) {
-        return textLine(text, x + PANEL_TEXT_SHIFT_X, y, width, color);
-    }
-
-    private static Label label(Supplier<Component> text, int color) {
-        return label(text, () -> color);
-    }
-
-    private static Label label(Supplier<Component> text, IntSupplier color) {
-        Label label = new Label();
-        Supplier<Component> styledText = () -> withColor(text.get(), color.getAsInt());
-        label.setText(styledText.get());
-        label.bind(DataBindingBuilder.componentS2C(styledText).build());
-        label.textStyle(CraftingHostPanelUI::labelTextStyle);
+    private static Label boundLabel(Supplier<Component> text, int color) {
+        Label label = HostElements.textSegment(() -> text.get().copy().withColor(color), () -> color);
+        label.addClass("eco-host-label");
+        label.textStyle(CraftingHostPanelUI::compactTextStyle);
         return label;
     }
 
-    private static MutableComponent withColor(Component component, int color) {
-        return component.copy().withColor(color);
+    private static BindableValue<Component> syncedComponent(Supplier<Component> supplier) {
+        BindableValue<Component> value = new BindableValue<>(supplier.get());
+        value.bind(DataBindingBuilder.componentS2C(supplier).build());
+        return value;
     }
 
-    private static void labelTextStyle(TextElement.TextStyle style) {
+    private static void compactTextStyle(TextElement.TextStyle style) {
         style.adaptiveHeight(true)
             .adaptiveWidth(false)
             .fontSize(COMPACT_FONT_SIZE)
@@ -452,21 +434,18 @@ public final class CraftingHostPanelUI {
             .textShadow(false);
     }
 
-    private static float ratio(long value, long max) {
-        if (max <= 0L) {
-            return 0.0F;
-        }
-        return Math.clamp((float)value / (float)max, 0.0F, 1.0F);
+    private static void inlineStatsTextStyle(TextElement.TextStyle style) {
+        style.adaptiveHeight(true)
+            .adaptiveWidth(true)
+            .fontSize(INLINE_STATS_FONT_SIZE)
+            .textWrap(TextWrap.HOVER_ROLL)
+            .textShadow(false);
     }
 
-    private static int energyGaugeColor(float ratio) {
-        if (ratio >= 0.9F) {
-            return StorageHostText.WARNING;
-        }
-        if (ratio >= 0.5F) {
-            return 0xFFE7A943;
-        }
-        return StorageHostText.USED;
+    static String formatRecipeTimeMultiplier(int effectiveOverclockTimes) {
+        int level = Math.clamp(effectiveOverclockTimes, 0, 9);
+        int ticks = (int) Math.ceil(10.0D / (level + 1));
+        return String.format(Locale.ROOT, "%.1fx", ticks / 10.0D);
     }
 
     private static String formatPerformanceCornerValue(long averageNanos) {
@@ -485,347 +464,84 @@ public final class CraftingHostPanelUI {
         return micros + " us/" + millis + " ms";
     }
 
-    private static final class HeaderLineElement extends UIElement implements IBindable<Boolean> {
-        private final Config config;
-        private boolean syncedFormed;
-
-        private HeaderLineElement(Config config) {
-            this.config = config;
-            this.syncedFormed = config.formed().getAsBoolean();
-            bind(DataBindingBuilder.boolS2C(config.formed::getAsBoolean).build());
-        }
-
-        @Override
-        public IDataSource<Boolean> setValue(@Nullable Boolean value) {
-            syncedFormed = Boolean.TRUE.equals(value);
-            return this;
-        }
-
-        @Override
-        public Boolean getValue() {
-            return syncedFormed;
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            Font font = Minecraft.getInstance().font;
-            int x = (int)getPositionX();
-            int y = (int)getPositionY();
-            int width = (int)getSizeWidth();
-            Component label = Component.translatable("gui.neoecoae.machine.formed").append(": ");
-            Component value = Component.translatable(syncedFormed
-                ? "gui.neoecoae.common.yes"
-                : "gui.neoecoae.common.no");
-            int statusWidth = font.width(label) + font.width(value);
-            int titleWidth = Math.max(0, width - statusWidth - 4);
-            String title = font.plainSubstrByWidth(config.title().get().getString(), titleWidth);
-            if (font.width(config.title().get()) > titleWidth && titleWidth > font.width("...")) {
-                title = font.plainSubstrByWidth(config.title().get().getString(), titleWidth - font.width("...")) + "...";
-            }
-            guiContext.graphics.drawString(font, title, x, y, ROOT_TEXT, false);
-            int statusX = x + Math.min(font.width(title), titleWidth) + 4;
-            guiContext.graphics.drawString(font, label, statusX, y, HEADER_LABEL, false);
-            guiContext.graphics.drawString(font, value, statusX + font.width(label), y, syncedFormed ? StorageHostText.USED : PANEL_WARNING, false);
-        }
-    }
-
-    private static final class StatusLight extends UIElement implements IBindable<Boolean> {
-        private boolean syncedValue;
-
-        private StatusLight(BooleanSupplier value) {
-            this.syncedValue = value.getAsBoolean();
-            bind(DataBindingBuilder.boolS2C(value::getAsBoolean).build());
-        }
-
-        @Override
-        public IDataSource<Boolean> setValue(@Nullable Boolean value) {
-            syncedValue = Boolean.TRUE.equals(value);
-            return this;
-        }
-
-        @Override
-        public Boolean getValue() {
-            return syncedValue;
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            float x = getPositionX();
-            float y = getPositionY();
-            guiContext.graphics.fill((int)x, (int)y, (int)x + 13, (int)y + 13, PANEL_EDGE);
-            guiContext.graphics.fill((int)x + 1, (int)y + 1, (int)x + 12, (int)y + 12, PANEL_BORDER);
-            guiContext.graphics.fill((int)x + 2, (int)y + 2, (int)x + 11, (int)y + 11, syncedValue ? PANEL_SUCCESS : PANEL_WARNING);
-        }
-    }
-
-    private static final class SyncedToolbarButton extends Button implements IBindable<Component> {
-        private Component syncedTooltip;
-
-        private SyncedToolbarButton(Runnable action, Icon icon, Supplier<Component> tooltip) {
-            syncedTooltip = tooltip.get();
-            noText();
-            addChild(new UIElement()
-                .layout(layout -> {
-                    layout.positionType(TaffyPosition.ABSOLUTE);
-                    layout.left(0);
-                    layout.top(0);
-                    layout.width(16);
-                    layout.height(16);
-                })
-                .style(style -> style.backgroundTexture(AETextures.icon(icon))));
-            setOnServerClick(event -> action.run());
-            bind(DataBindingBuilder.componentS2C(tooltip).build());
-            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips =
-                HoverTooltips.empty().append(syncedTooltip));
-        }
-
-        @Override
-        public IDataSource<Component> setValue(@Nullable Component value) {
-            syncedTooltip = value == null ? Component.empty() : value;
-            return this;
-        }
-
-        @Override
-        public Component getValue() {
-            return syncedTooltip;
-        }
-    }
-
-    private static final class PerformanceLabelElement extends UIElement implements IBindable<Long> {
-        private long syncedAverageNanos;
-
-        private PerformanceLabelElement(LongSupplier performanceAverageNanos) {
-            this.syncedAverageNanos = Math.max(0L, performanceAverageNanos.getAsLong());
-            bind(DataBindingBuilder.longValS2C(() -> Math.max(0L, performanceAverageNanos.getAsLong())).build());
-            addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(
-                    Component.translatable("gui.neoecoae.crafting.performance"),
-                    Component.literal(formatPerformanceValue(syncedAverageNanos))
-                ));
-        }
-
-        @Override
-        public IDataSource<Long> setValue(@Nullable Long value) {
-            syncedAverageNanos = value == null ? 0L : Math.max(0L, value);
-            return this;
-        }
-
-        @Override
-        public Long getValue() {
-            return syncedAverageNanos;
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            Font font = Minecraft.getInstance().font;
-            String text = formatPerformanceCornerValue(syncedAverageNanos);
-            float scale = COMPACT_FONT_SIZE / 9.0F;
-            int x = (int)getPositionX();
-            int y = (int)getPositionY();
-            int width = (int)getSizeWidth();
-            guiContext.graphics.pose().pushPose();
-            guiContext.graphics.pose().translate(x, y, 0.0F);
-            guiContext.graphics.pose().scale(scale, scale, 1.0F);
-            int scaledWidth = Math.round(width / scale);
-            guiContext.graphics.drawString(font, text, scaledWidth - font.width(text), 0, PANEL_VALUE, false);
-            guiContext.graphics.pose().popPose();
-        }
-    }
-
-    private static final class EnergyGaugeElement extends UIElement implements IBindable<Long> {
-        private long syncedEnergyUsage;
-
-        private EnergyGaugeElement(LongSupplier energyUsage) {
-            this.syncedEnergyUsage = Math.max(0L, energyUsage.getAsLong());
-            bind(DataBindingBuilder.longValS2C(() -> Math.max(0L, energyUsage.getAsLong())).build());
-            addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(
-                    Component.translatable("gui.neoecoae.crafting.ui.energy_usage"),
-                    Tooltips.ofNumber(syncedEnergyUsage).append(" AE/t")
-                ));
-        }
-
-        @Override
-        public IDataSource<Long> setValue(@Nullable Long value) {
-            syncedEnergyUsage = value == null ? 0L : Math.max(0L, value);
-            return this;
-        }
-
-        @Override
-        public Long getValue() {
-            return syncedEnergyUsage;
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            drawGaugeFrame(guiContext, this);
-            float ratio = ratio(syncedEnergyUsage, ENERGY_GAUGE_REFERENCE);
-            drawGaugeFill(guiContext, this, ratio, energyGaugeColor(ratio), null);
-        }
-    }
-
-    private static final class CoolantGaugeElement extends UIElement implements IBindable<CompoundTag> {
-        private static final String NBT_AMOUNT = "amount";
-        private static final String NBT_CAPACITY = "capacity";
-        private static final String NBT_MAX_OVERCLOCK = "maxOverclock";
-        private static final String NBT_FLUID = "fluid";
-
-        private final Supplier<HolderLookup.Provider> registries;
-        private int syncedAmount;
-        private int syncedCapacity;
-        private int syncedMaxOverclock;
-        private CompoundTag syncedPayload = new CompoundTag();
-        private FluidStack syncedFluid = FluidStack.EMPTY;
-
-        private CoolantGaugeElement(
-            IntSupplier amount,
-            IntSupplier capacity,
-            IntSupplier maxOverclock,
-            Supplier<FluidStack> fluid,
-            Supplier<HolderLookup.Provider> registries
-        ) {
-            this.registries = registries;
-            applyPayload(createPayload(amount, capacity, maxOverclock, fluid, registries.get()));
-            bind(DataBindingBuilder.create(
-                () -> createPayload(amount, capacity, maxOverclock, fluid, registries.get()),
-                ignored -> {
-                }).syncType(CompoundTag.class).c2sStrategy(com.lowdragmc.lowdraglib2.gui.sync.bindings.SyncStrategy.NONE).build());
-            addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(tooltip().toArray(Component[]::new)));
-        }
-
-        @Override
-        public IDataSource<CompoundTag> setValue(@Nullable CompoundTag value) {
-            applyPayload(value);
-            return this;
-        }
-
-        @Override
-        public CompoundTag getValue() {
-            return syncedPayload.copy();
-        }
-
-        @Override
-        public void drawContents(GUIContext guiContext) {
-            drawGaugeFrame(guiContext, this);
-            FluidStack fluid = syncedAmount > 0 ? syncedFluid.copyWithAmount(Math.max(1, syncedAmount)) : FluidStack.EMPTY;
-            drawGaugeFill(guiContext, this, ratio(syncedAmount, syncedCapacity), 0xFF26A6BD, fluid);
-        }
-
-        private List<Component> tooltip() {
-            return List.of(
-                Component.translatable("gui.neoecoae.host.crafting.coolant"),
-                Component.literal(StorageHostText.typeProgress(syncedAmount, syncedCapacity).usedText() + " / "
-                    + StorageHostText.typeProgress(syncedAmount, syncedCapacity).maxText() + " mB"),
-                Component.translatable(
-                    "gui.neoecoae.crafting.coolant_max_overclock",
-                    syncedMaxOverclock < 0 ? "-" : Tooltips.ofNumber(syncedMaxOverclock))
-            );
-        }
-
-        private void applyPayload(@Nullable CompoundTag tag) {
-            if (tag == null) {
-                syncedAmount = 0;
-                syncedCapacity = 0;
-                syncedMaxOverclock = -1;
-                syncedFluid = FluidStack.EMPTY;
-                syncedPayload = new CompoundTag();
-                return;
-            }
-            syncedPayload = tag.copy();
-            syncedAmount = Math.max(0, tag.getInt(NBT_AMOUNT));
-            syncedCapacity = Math.max(0, tag.getInt(NBT_CAPACITY));
-            syncedMaxOverclock = tag.getInt(NBT_MAX_OVERCLOCK);
-            syncedFluid = copyFluid(FluidStack.parseOptional(registries.get(), tag.getCompound(NBT_FLUID)));
-        }
-
-        private static CompoundTag createPayload(
-            IntSupplier amount,
-            IntSupplier capacity,
-            IntSupplier maxOverclock,
-            Supplier<FluidStack> fluid,
-            HolderLookup.Provider registries
-        ) {
-            CompoundTag tag = new CompoundTag();
-            tag.putInt(NBT_AMOUNT, Math.max(0, amount.getAsInt()));
-            tag.putInt(NBT_CAPACITY, Math.max(0, capacity.getAsInt()));
-            tag.putInt(NBT_MAX_OVERCLOCK, maxOverclock.getAsInt());
-            tag.put(NBT_FLUID, copyFluid(fluid.get()).saveOptional(registries));
-            return tag;
-        }
-
-        private static FluidStack copyFluid(@Nullable FluidStack fluid) {
-            return fluid == null || fluid.isEmpty() ? FluidStack.EMPTY : fluid.copyWithAmount(1);
-        }
-    }
-
-    private static void drawGaugeFrame(GUIContext guiContext, UIElement element) {
-        int x = (int)element.getPositionX();
-        int y = (int)element.getPositionY();
-        int w = (int)element.getSizeWidth();
-        int h = (int)element.getSizeHeight();
-        guiContext.graphics.fill(x, y, x + w, y + h, 0x661F2F34);
-        guiContext.graphics.fill(x + 2, y + 2, x + Math.max(3, w - 2), y + Math.max(3, h - 2), 0x881F2F34);
-    }
-
-    private static void drawGaugeFill(GUIContext guiContext, UIElement element, float ratio, int color, @Nullable FluidStack fluid) {
-        int x = (int)element.getPositionX();
-        int y = (int)element.getPositionY();
-        int w = (int)element.getSizeWidth();
-        int h = (int)element.getSizeHeight();
-        int ix = x + 2;
-        int iy = y + 2;
-        int iw = Math.max(1, w - 4);
-        int ih = Math.max(1, h - 4);
-        float clampedRatio = Mth.clamp(ratio, 0.0F, 1.0F);
-        int fillH = Math.round(clampedRatio * ih);
-        if (clampedRatio > 0.0F && fillH == 0) {
-            fillH = 1;
-        }
-        if (fillH > 0) {
-            int fillY = iy + ih - fillH;
-            if (fluid != null && !fluid.isEmpty()) {
-                new FluidStackTexture(fluid).draw(guiContext, ix, fillY, iw, fillH);
-            } else {
-                guiContext.graphics.fill(ix, fillY, ix + iw, iy + ih, color);
-            }
-            guiContext.graphics.fill(ix, fillY, ix + iw, Math.min(fillY + 2, iy + ih), 0x70FFFFFF);
-        }
-    }
-
     private static List<Component> craftingTooltip(ComputationTaskEntry entry) {
-        return List.of(
-            entry.output().getHoverName(),
-            Component.translatable("gui.neoecoae.crafting.ui.recipe_slots")
-                .append(": ")
-                .append(Tooltips.ofNumber(entry.craftCount())),
-            Component.translatable(ComputationTaskCards.statusKey(entry.status()))
-                .append(" ")
-                .append(Component.literal(ComputationTaskCards.progressText(entry)))
-        );
+        List<Component> lines = new ArrayList<>();
+        lines.addAll(ComputationTaskCards.tooltipLines(entry));
+        lines.add(Component.translatable(ComputationTaskCards.statusKey(entry.status()))
+            .append(" ")
+            .append(Component.literal(ComputationTaskCards.progressText(entry))));
+        return lines;
     }
 
     private static void drawCraftingTaskCard(GUIContext guiContext, Font font, ComputationTaskEntry entry, int x, int y) {
         int accent = ComputationTaskCards.statusColor(entry.status());
-        guiContext.graphics.fill(x, y, x + TASK_CARD_W, y + TASK_CARD_H, 0xFFD8D3E4);
-        guiContext.graphics.fill(x + 1, y + 1, x + TASK_CARD_W - 1, y + TASK_CARD_H - 1, 0xFF121016);
-        guiContext.graphics.fill(x + 2, y + 2, x + TASK_CARD_W - 2, y + TASK_CARD_H - 2, 0xFF2C2735);
-        guiContext.graphics.fill(x + 2, y + TASK_CARD_H - 2, x + TASK_CARD_W - 2, y + TASK_CARD_H - 1, accent);
+        guiContext.graphics.fill(x, y, x + TASK_CARD_WIDTH, y + TASK_CARD_HEIGHT, 0xFFD8D3E4);
+        guiContext.graphics.fill(x + 1, y + 1, x + TASK_CARD_WIDTH - 1, y + TASK_CARD_HEIGHT - 1, 0xFF17141E);
+        guiContext.graphics.fill(x + 2, y + 2, x + TASK_CARD_WIDTH - 2, y + TASK_CARD_HEIGHT - 2, 0xFF2C2735);
+        guiContext.graphics.fill(x + 2, y + TASK_CARD_HEIGHT - 2, x + TASK_CARD_WIDTH - 2, y + TASK_CARD_HEIGHT - 1, accent);
         if (!entry.output().isEmpty()) {
             DrawerHelper.drawItemStack(guiContext.graphics, entry.output(), x + 3, y, -1, null);
         }
-        String name = entry.output().getHoverName().getString();
-        if (font.width(name) > TASK_CARD_W - 48) {
-            name = font.plainSubstrByWidth(name, TASK_CARD_W - 58) + "...";
-        }
-        HostTaskListElement.drawString(guiContext, font, name, x + 22 + PANEL_TEXT_SHIFT_X, y + 3, StorageHostText.PRIMARY);
-        HostTaskListElement.drawRightString(
-            guiContext,
-            font,
+        String name = font.plainSubstrByWidth(entry.output().getHoverName().getString(), TASK_CARD_WIDTH - 52);
+        HostTaskListElement.drawString(guiContext, font, name, x + 22 + PANEL_TEXT_SHIFT_X, y + 3, HostText.PRIMARY);
+        HostTaskListElement.drawRightString(guiContext, font,
             "x" + ComputationTaskCards.compactAmount(entry.outputAmount()),
-            x + TASK_CARD_W - 4 + PANEL_TEXT_SHIFT_X,
-            y + 3,
-            StorageHostText.VALUE
-        );
+            x + TASK_CARD_WIDTH - 4, y + 3, HostText.VALUE);
+    }
+
+    private static final class DynamicEnergyProgressBar extends ProgressBar {
+        @Override
+        public ProgressBar setValue(@Nullable Float value) {
+            super.setValue(value);
+            float ratio = value == null ? 0.0F : value;
+            if (ratio >= 0.9F) {
+                removeClass("eco-host-energy-medium");
+                addClass("eco-host-energy-warning");
+            } else if (ratio >= 0.5F) {
+                removeClass("eco-host-energy-warning");
+                addClass("eco-host-energy-medium");
+            } else {
+                removeClasses("eco-host-energy-warning", "eco-host-energy-medium");
+            }
+            return this;
+        }
+    }
+
+    private static final class CoolantFluidSlot extends FluidSlot {
+        private int maxOverclock = -1;
+
+        private CoolantFluidSlot(Config config) {
+            setAllowClickFilled(false);
+            setAllowClickDrained(false);
+            amountLabel.setDisplay(false);
+            slotStyle(style -> style
+                .fillDirection(FillDirection.DOWN_TO_UP)
+                .showFluidTooltips(false));
+            style(style -> style.backgroundTexture(new ColorRectTexture(0xFF17141E)));
+            bind(DataBindingBuilder.fluidStackS2C(() -> coolantStack(config)).build());
+            addSyncValue(DataBindingBuilder.intValS2C(() -> Math.max(0, config.coolantCapacity.getAsInt()))
+                .remoteSetter(this::setCapacity).build().getSyncValue());
+            addSyncValue(DataBindingBuilder.intValS2C(config.coolantMaxOverclock::getAsInt)
+                .remoteSetter(value -> maxOverclock = value).build().getSyncValue());
+        }
+
+        @Override
+        public List<Component> getFullTooltipTexts() {
+            return List.of(
+                Component.translatable("gui.neoecoae.host.crafting.coolant"),
+                Component.literal(HostText.typeProgress(getFluid().getAmount(), getCapacity()).usedText() + " / "
+                    + HostText.typeProgress(getFluid().getAmount(), getCapacity()).maxText() + " mB"),
+                Component.translatable("gui.neoecoae.crafting.coolant_max_overclock",
+                    maxOverclock < 0 ? "-" : Tooltips.ofNumber(maxOverclock))
+            );
+        }
+
+        private static FluidStack coolantStack(Config config) {
+            FluidStack fluid = config.coolantFluid.get();
+            int amount = Math.max(0, config.coolantAmount.getAsInt());
+            return fluid == null || fluid.isEmpty() || amount == 0
+                ? FluidStack.EMPTY
+                : fluid.copyWithAmount(amount);
+        }
     }
 }

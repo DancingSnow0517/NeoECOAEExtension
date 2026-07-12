@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.gui.storage;
+package cn.dancingsnow.neoecoae.gui.common;
 
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
@@ -18,11 +18,11 @@ import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
-public final class StorageHostElements {
-    private StorageHostElements() {
+public final class HostElements {
+    private HostElements() {
     }
 
-    static UIElement syncedDisplay(BooleanSupplier display) {
+    public static UIElement syncedDisplay(BooleanSupplier display) {
         SyncedDisplayElement element = new SyncedDisplayElement(display.getAsBoolean());
         element.bind(DataBindingBuilder.boolS2C(display::getAsBoolean).build());
         return element;
@@ -30,16 +30,16 @@ public final class StorageHostElements {
 
     public static Label sectionLabel(Supplier<Component> text, IntSupplier color) {
         Label label = textSegment(text, color);
-        label.textStyle(StorageHostElements::sectionTextStyle);
+        label.textStyle(HostElements::sectionTextStyle);
         return label;
     }
 
-    static Label panelTitle(Supplier<Component> text) {
+    public static Label panelTitle(Supplier<Component> text) {
         Label label = new Label();
-        Supplier<Component> styledText = () -> text.get().copy().withColor(StorageHostText.PRIMARY);
+        Supplier<Component> styledText = () -> text.get().copy().withColor(HostText.PRIMARY);
         label.setText(styledText.get());
         label.bind(DataBindingBuilder.componentS2C(styledText).build());
-        label.textStyle(StorageHostElements::panelTitleTextStyle);
+        label.textStyle(HostElements::panelTitleTextStyle);
         return label;
     }
 
@@ -48,7 +48,7 @@ public final class StorageHostElements {
         Supplier<Component> styledText = () -> text.get().copy().withColor(color.getAsInt());
         label.setText(styledText.get());
         label.bind(DataBindingBuilder.componentS2C(styledText).build());
-        label.textStyle(StorageHostElements::lineTextStyle);
+        label.textStyle(HostElements::lineTextStyle);
         return label;
     }
 
@@ -61,7 +61,7 @@ public final class StorageHostElements {
         });
     }
 
-    static UIElement tinyInsetPanel(int width, int height) {
+    public static UIElement tinyInsetPanel(int width, int height) {
         UIElement panel = new UIElement();
         panel.addChild(insetLayer("eco-storage-load-inset-edge", 0, 0, width, height));
         panel.addChild(insetLayer("eco-storage-load-inset-border", 1, 1, width - 2, height - 2));

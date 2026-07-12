@@ -22,6 +22,7 @@ public final class ECOHostWidgets {
                 view.getLayout().gapAll(gap);
                 view.getLayout().paddingAll(padding);
             })
+            .viewPort(view -> view.style(style -> style.backgroundTexture(NETextures.HOST_PANEL_BORDER)))
             .verticalScroller(scroller -> styleStorageScrollbar(scroller, scrollbarOffset));
         panel.layout(layout -> layout.height(height).width(width));
         return panel;

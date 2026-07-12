@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.HostText;
+
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEFluidKey;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
@@ -90,7 +92,7 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
             if (entry != null) {
                 List<Component> lines = new ArrayList<>();
                 lines.add(entry.key().getDisplayName());
-                lines.addAll(StorageHostText.exactAmountTooltip(parseAmount(entry.amount()), StorageHostText.USED));
+                lines.addAll(HostText.exactAmountTooltip(parseAmount(entry.amount()), HostText.USED));
                 event.hoverTooltips = HoverTooltips.empty().append(lines.toArray(Component[]::new));
             }
         });
@@ -150,9 +152,9 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         BigInteger value = parseAmount(entry.amount());
         boolean showName = value.compareTo(TWO_LINE_THRESHOLD) >= 0;
         int availableWidth = Math.max(1, Math.round((getSizeWidth() - ICON_SIZE - 7) / TEXT_SCALE));
-        String amount = StorageHostText.hugeStackAmount(value);
+        String amount = HostText.hugeStackAmount(value);
         if (font.width(amount) > availableWidth) {
-            amount = StorageHostText.fitHugeAmount(value, availableWidth, font::width);
+            amount = HostText.fitHugeAmount(value, availableWidth, font::width);
         }
         guiContext.graphics.pose().pushPose();
         guiContext.graphics.pose().translate(x + ICON_SIZE + 3, y + (showName ? 1 : 5), 0);
@@ -160,9 +162,9 @@ public final class StorageHostHugeStackList extends UIElement implements IBindab
         if (showName) {
             String name = ellipsize(font, entry.key().getDisplayName().getString(), availableWidth);
             guiContext.graphics.drawString(font, name, 0, 0, 0x61AFEF, false);
-            guiContext.graphics.drawString(font, amount, 0, 10, StorageHostText.USED, false);
+            guiContext.graphics.drawString(font, amount, 0, 10, HostText.USED, false);
         } else {
-            guiContext.graphics.drawString(font, amount, 0, 0, StorageHostText.USED, false);
+            guiContext.graphics.drawString(font, amount, 0, 0, HostText.USED, false);
         }
         guiContext.graphics.pose().popPose();
     }

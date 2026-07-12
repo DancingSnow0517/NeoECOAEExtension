@@ -8,7 +8,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import cn.dancingsnow.neoecoae.gui.storage.StorageHostText;
+import cn.dancingsnow.neoecoae.gui.common.HostText;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -109,7 +109,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
             Component.translatable("gui.neoecoae.crafting.tasks").getString(),
             x + titleX(),
             y + titleY(),
-            StorageHostText.PRIMARY
+            HostText.PRIMARY
         );
         drawRightString(
             guiContext,
@@ -117,13 +117,13 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
             taskCountText(),
             x + countRightX(),
             y + titleY(),
-            StorageHostText.VALUE
+            HostText.VALUE
         );
 
         scrollOffset = clampTaskScrollOffset(scrollOffset, syncedTasks.size());
         if (syncedTasks.isEmpty()) {
             String emptyText = Component.translatable("gui.neoecoae.crafting.no_tasks").getString();
-            drawString(guiContext, font, emptyText, x + emptyTextX(font, emptyText), y + emptyTextY(), StorageHostText.MUTED);
+            drawString(guiContext, font, emptyText, x + emptyTextX(font, emptyText), y + emptyTextY(), HostText.MUTED);
             return;
         }
 

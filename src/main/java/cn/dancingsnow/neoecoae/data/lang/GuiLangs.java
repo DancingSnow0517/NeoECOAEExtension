@@ -133,6 +133,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.energy_short", "AE");
         provider.add("gui.neoecoae.crafting.ui.recipe_slots", "Slots");
         provider.add("gui.neoecoae.crafting.ui.batch_parallel", "Batch");
+        provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Time");
         provider.add("gui.neoecoae.crafting.ui.patterns_short", "PB");
         provider.add("gui.neoecoae.crafting.ui.ft_cores_short", "FT");
         provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");

@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.gui.storage;
+package cn.dancingsnow.neoecoae.gui.common;
 
 import appeng.util.ReadableNumberConverter;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
@@ -15,14 +15,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.ToIntFunction;
 
-public final class StorageHostText {
+public final class HostText {
     public static final int PRIMARY = 0xD6D0E0;
     public static final int VALUE = 0x8377FF;
     public static final int USED = 0x00FC00;
     public static final int MUTED = 0xAAA4B2;
     public static final int WARNING = 0xFFD65A;
-    static final int ORANGE = 0xFF9A3D;
-    static final int ERROR = 0xFF6A75;
+    public static final int ORANGE = 0xFF9A3D;
+    public static final int ERROR = 0xFF6A75;
 
     private static final int BYTES_IN_K = 1024;
     private static final long BYTES_IN_M = BYTES_IN_K * 1024L;
@@ -39,13 +39,13 @@ public final class StorageHostText {
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
         ThreadLocal.withInitial(() -> new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.US)));
 
-    private StorageHostText() {
+    private HostText() {
     }
 
     public record UsedTotal(String usedText, String maxText, Component suffix) {
     }
 
-    static UsedTotal energyUsage(long used, long max, int maxWidth) {
+    public static UsedTotal energyUsage(long used, long max, int maxWidth) {
         String prefix = "Energy Storage: ";
         String usedText = number(used);
         String maxText = number(max);
@@ -106,7 +106,7 @@ public final class StorageHostText {
     }
 
     public static String fitHugeAmount(BigInteger value, int maxWidth) {
-        return fitHugeAmount(value, maxWidth, StorageHostText::estimatedTextWidth);
+        return fitHugeAmount(value, maxWidth, HostText::estimatedTextWidth);
     }
 
     public static String fitHugeAmount(BigInteger value, int maxWidth, ToIntFunction<String> width) {
@@ -162,11 +162,11 @@ public final class StorageHostText {
         return List.copyOf(lines);
     }
 
-    static UsedTotal fullTypeProgress(long used, long max) {
+    public static UsedTotal fullTypeProgress(long used, long max) {
         return new UsedTotal(number(Math.max(0L, used)), number(Math.max(0L, max)), Component.empty());
     }
 
-    static UsedTotal fullByteProgressValues(long used, long max) {
+    public static UsedTotal fullByteProgressValues(long used, long max) {
         return new UsedTotal(
             number(Math.max(0L, used)),
             number(Math.max(0L, max)),
@@ -206,7 +206,7 @@ public final class StorageHostText {
         return (float) Math.max(0.0D, Math.min(1.0D, (double) used / (double) max));
     }
 
-    static String percent(long used, long max) {
+    public static String percent(long used, long max) {
         if (max <= 0) {
             return "N/A";
         }
@@ -221,15 +221,15 @@ public final class StorageHostText {
         return PERCENT_DECIMAL.get().format(clamped * 100.0D) + "%";
     }
 
-    static int gaugeColor(float ratio) {
+    public static int gaugeColor(float ratio) {
         return 0xBF000000 | gaugeTextColor(ratio);
     }
 
-    static int gaugeTextColor(float ratio) {
+    public static int gaugeTextColor(float ratio) {
         return usedValueColor(Math.round(Math.max(0.0F, Math.min(1.0F, ratio)) * 1000.0F), 1000L);
     }
 
-    static int storageTypeAccentColor(ECOCellType cellType, int index) {
+    public static int storageTypeAccentColor(ECOCellType cellType, int index) {
         if (cellType.desc().getStyle().getColor() != null) {
             return cellType.desc().getStyle().getColor().getValue();
         }
@@ -261,7 +261,7 @@ public final class StorageHostText {
         return width;
     }
 
-    static String ae2Amount(long value) {
+    public static String ae2Amount(long value) {
         return ReadableNumberConverter.format(Math.max(0L, value), 4);
     }
 

@@ -610,6 +610,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             this::getAvailableThreads,
             () -> Math.max(0, Math.min(threadCount, getAvailableThreads())),
             this::getOverflowThreads,
+            this::getEffectiveOverclockTimes,
             this::getPerformanceAverageNanos,
             this::getMaxEnergyUsage,
             () -> coolant,

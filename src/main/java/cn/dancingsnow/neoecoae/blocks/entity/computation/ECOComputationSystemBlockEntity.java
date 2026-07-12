@@ -147,29 +147,30 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         UIElement buildWindow = buildPanel(holder);
         ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig();
 
-        UIElement root = new UIElement().layout(layout -> {
-            layout.width(340);
-            layout.height(232);
-            layout.gapAll(0);
-        }).addClass("panel_bg");
+        UIElement root = new UIElement().layout(layout -> layout
+            .width(340)
+            .height(232)
+            .flexDirection(FlexDirection.COLUMN))
+            .addClasses("panel_bg", "eco-computation-host");
 
-        root.addChild(new TextElement()
+        UIElement header = new UIElement().layout(layout -> layout
+            .widthPercent(100)
+            .height(18)
+            .flexDirection(FlexDirection.ROW)
+            .alignItems(AlignItems.CENTER));
+        header.addChild(new TextElement()
             .setText(getItemFromBlockEntity().getDescription())
             .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
-            .layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(8);
-                layout.top(8);
-            }));
+            .layout(layout -> layout.flex(1)));
+        header.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig));
+        root.addChild(header);
 
-        UIElement panels = new UIElement().layout(layout -> {
-            layout.positionType(TaffyPosition.ABSOLUTE);
-            layout.left(6);
-            layout.top(24);
-            layout.flexDirection(FlexDirection.ROW);
-            layout.alignItems(AlignItems.STRETCH);
-            layout.gapAll(10);
-        });
+        UIElement panels = new UIElement().layout(layout -> layout
+            .widthPercent(100)
+            .height(ComputationHostPanelUI.PANEL_HEIGHT)
+            .flexDirection(FlexDirection.ROW)
+            .alignItems(AlignItems.STRETCH)
+            .gapAll(10));
         UIElement leftColumn = new UIElement().layout(layout -> {
             layout.width(ComputationHostPanelUI.LEFT_PANEL_WIDTH);
             layout.height(ComputationHostPanelUI.PANEL_HEIGHT);
@@ -182,14 +183,6 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         panels.addChild(ComputationHostPanelUI.createRightPanel(panelConfig));
 
         root.addChild(panels);
-        root.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig)
-            .layout(layout -> {
-                layout.positionType(TaffyPosition.ABSOLUTE);
-                layout.left(6 + ComputationHostPanelUI.LEFT_PANEL_WIDTH + 10 + ComputationHostPanelUI.RIGHT_PANEL_WIDTH - 18);
-                layout.top(4);
-                layout.width(18);
-                layout.height(18);
-            }));
         root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
         root.addChild(buildWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);

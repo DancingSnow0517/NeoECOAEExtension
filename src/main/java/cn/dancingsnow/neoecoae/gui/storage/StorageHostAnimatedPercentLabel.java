@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.gui.storage;
 
+import cn.dancingsnow.neoecoae.gui.common.HostText;
+
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import net.minecraft.client.Minecraft;
@@ -76,7 +78,7 @@ final class StorageHostAnimatedPercentLabel extends UIElement {
         if (textOverride != null) {
             return textOverride.get();
         }
-        Component percent = Component.literal(StorageHostText.percent(ratio.value()));
+        Component percent = Component.literal(HostText.percent(ratio.value()));
         if (prefixTranslationKey == null) {
             return percent;
         }
