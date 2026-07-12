@@ -16,13 +16,13 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.gui.widget.PatternItemSlot;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
@@ -323,8 +323,32 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean insertPattern(ItemStack itemStack) {
+        if (containsPatternInCluster(itemStack)) {
+            return false;
+        }
         ItemStack result = effectiveInventory.addItems(itemStack.copy());
         return result.isEmpty();
+    }
+
+    private boolean containsPatternInCluster(ItemStack pattern) {
+        if (cluster == null) {
+            return containsPattern(pattern);
+        }
+        for (ECOCraftingPatternBusBlockEntity patternBus : cluster.getPatternBuses()) {
+            if (patternBus.containsPattern(pattern)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsPattern(ItemStack pattern) {
+        for (ItemStack storedPattern : effectiveInventory) {
+            if (ItemStack.isSameItemSameComponents(storedPattern, pattern)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     class AEEncodedPatternFilter implements IAEItemFilter {
