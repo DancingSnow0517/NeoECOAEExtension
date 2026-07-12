@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -88,16 +90,21 @@ public class NEConfig {
 
     private static final ModConfigSpec.IntValue ECO_BATCH_FAST_PATH_LIMIT = BUILDER
         .comment("单次快速路径批量推送最多合并的合成次数。")
-        .defineInRange("ecoBatchFastPathLimit", 64, 1, Integer.MAX_VALUE);
+        .defineInRange("ecoBatchFastPathLimit", 64, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE);
 
     private static final ModConfigSpec.IntValue ECO_BATCH_FAST_PATH_TICK_LIMIT = BUILDER
         .comment("每个 CPU 每 tick 最多通过快速路径批量推送的合成次数。")
-        .defineInRange("ecoBatchFastPathTickLimit", 256, 1, Integer.MAX_VALUE);
+        .defineInRange("ecoBatchFastPathTickLimit", 256, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE);
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment("每个 ECO 快速路径缓存最多保留的配方条目数量。")
         .worldRestart()
-        .defineInRange("ecoFastPathCacheSize", 512, 16, Integer.MAX_VALUE);
+        .defineInRange(
+            "ecoFastPathCacheSize",
+            512,
+            ECOCraftingFastPathCache.MIN_CACHE_SIZE,
+            ECOCraftingFastPathCache.MAX_CACHE_SIZE
+        );
 
     static {
         BUILDER.pop();

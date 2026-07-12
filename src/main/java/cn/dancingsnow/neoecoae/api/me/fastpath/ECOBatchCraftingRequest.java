@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.api.me.fastpath;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,11 +17,18 @@ public record ECOBatchCraftingRequest(
     @Nullable UUID craftingJobId
 ) {
     public ECOBatchCraftingRequest {
-        if (batchSize <= 0) {
-            throw new IllegalArgumentException("batchSize must be positive");
+        Objects.requireNonNull(details, "details");
+        Objects.requireNonNull(key, "key");
+        if (batchSize <= 0 || batchSize > ECOBatchCraftingHelper.MAX_BATCH_SIZE) {
+            throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
         }
         inputsPerCraft = List.copyOf(inputsPerCraft);
         outputsPerCraft = List.copyOf(outputsPerCraft);
         remainingPerCraft = List.copyOf(remainingPerCraft);
+        if (!ECOBatchCraftingHelper.areValidItemStacks(inputsPerCraft, Integer.MAX_VALUE, false)
+            || !ECOBatchCraftingHelper.areValidItemStacks(outputsPerCraft, Integer.MAX_VALUE, true)
+            || !ECOBatchCraftingHelper.areValidItemStacks(remainingPerCraft, Integer.MAX_VALUE, false)) {
+            throw new IllegalArgumentException("Fast-path request contains invalid item stacks");
+        }
     }
 }

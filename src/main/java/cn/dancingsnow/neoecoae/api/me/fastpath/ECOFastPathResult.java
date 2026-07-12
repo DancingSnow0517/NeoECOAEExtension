@@ -9,6 +9,7 @@ public final class ECOFastPathResult {
     private final List<GenericStack> outputEntries;
     private final List<GenericStack> remainingEntries;
     private final List<GenericStack> inputEntries;
+    private final long createdTick;
     private long lastAccessTick;
 
     private ECOFastPathResult(
@@ -24,6 +25,7 @@ public final class ECOFastPathResult {
         this.outputEntries = List.copyOf(outputEntries);
         this.remainingEntries = List.copyOf(remainingEntries);
         this.inputEntries = List.copyOf(inputEntries);
+        this.createdTick = lastAccessTick;
         this.lastAccessTick = lastAccessTick;
     }
 
@@ -68,11 +70,23 @@ public final class ECOFastPathResult {
             && inputEntries.equals(execution.inputItems());
     }
 
+    public boolean matchesBatchRequest(ECOBatchCraftingRequest request) {
+        return !negative
+            && verified
+            && outputEntries.equals(request.outputsPerCraft())
+            && remainingEntries.equals(request.remainingPerCraft())
+            && inputEntries.equals(request.inputsPerCraft());
+    }
+
     public void touch(long tick) {
         this.lastAccessTick = tick;
     }
 
     public long getLastAccessTick() {
         return lastAccessTick;
+    }
+
+    public long getCreatedTick() {
+        return createdTick;
     }
 }

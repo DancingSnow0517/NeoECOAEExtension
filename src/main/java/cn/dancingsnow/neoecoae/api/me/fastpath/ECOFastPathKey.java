@@ -92,17 +92,18 @@ public final class ECOFastPathKey {
     private static final class EntrySignature implements Comparable<EntrySignature> {
         private final AEKey key;
         private final long amount;
-        private final String sortId;
+
+        @Nullable
+        private String sortId;
 
         private EntrySignature(AEKey key, long amount) {
             this.key = key;
             this.amount = amount;
-            this.sortId = key.getType().getId() + ":" + key.getId() + ":" + key.hashCode();
         }
 
         @Override
         public int compareTo(EntrySignature other) {
-            int keyCompare = sortId.compareTo(other.sortId);
+            int keyCompare = sortId().compareTo(other.sortId());
             if (keyCompare != 0) {
                 return keyCompare;
             }
@@ -118,6 +119,13 @@ public final class ECOFastPathKey {
         @Override
         public int hashCode() {
             return 31 * key.hashCode() + Long.hashCode(amount);
+        }
+
+        private String sortId() {
+            if (sortId == null) {
+                sortId = key.getType().getId() + ":" + key.getId() + ":" + key.hashCode();
+            }
+            return sortId;
         }
     }
 }

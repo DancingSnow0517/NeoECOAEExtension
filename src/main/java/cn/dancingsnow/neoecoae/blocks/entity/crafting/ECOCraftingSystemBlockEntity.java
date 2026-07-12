@@ -250,14 +250,16 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private void updateThreadCount() {
         if (cluster != null && !cluster.getParallelCores().isEmpty()) {
             if (overclocked) {
-                threadCountPerWorker = 32 * getTier().getOverclockedCrafterQueueMultiply();
+                long calculatedPerWorker = 32L * getTier().getOverclockedCrafterQueueMultiply();
+                threadCountPerWorker = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, calculatedPerWorker));
             } else {
                 threadCountPerWorker = 32;
             }
-            threadCount = cluster.getParallelCores()
+            long calculatedThreadCount = cluster.getParallelCores()
                 .stream()
-                .mapToInt(core -> getCoreThreadCount(core.getTier(), overclocked))
+                .mapToLong(core -> getCoreThreadCount(core.getTier(), overclocked))
                 .sum();
+            threadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, calculatedThreadCount));
             recalculateRunningThreadCountFromWorkers();
         } else {
             threadCount = 0;
@@ -287,16 +289,25 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public void onWorkerThreadCountChanged(int delta) {
         int before = runningThreadCount;
-        runningThreadCount += delta;
-        if (runningThreadCount < 0) {
+        long updated = (long) runningThreadCount + delta;
+        if (updated < 0L) {
             LOGGER.warn(
                 "ECO controller runningThreadCount underflow: controller={} delta={} before correction previous={}",
                 getBlockPos(),
                 delta,
                 before
             );
-            runningThreadCount = 0;
+            updated = 0L;
+        } else if (updated > Integer.MAX_VALUE) {
+            LOGGER.warn(
+                "ECO controller runningThreadCount overflow: controller={} delta={} previous={}",
+                getBlockPos(),
+                delta,
+                before
+            );
+            updated = Integer.MAX_VALUE;
         }
+        runningThreadCount = (int) updated;
         setChanged();
     }
 
@@ -306,19 +317,27 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
 
-        runningThreadCount = cluster.getWorkers()
+        long recalculated = cluster.getWorkers()
             .stream()
-            .mapToInt(ECOCraftingWorkerBlockEntity::getRunningThreads)
+            .mapToLong(ECOCraftingWorkerBlockEntity::getRunningThreads)
             .sum();
+        runningThreadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, recalculated));
     }
 
     private void updateOverlockTimes() {
-        overlockTimes = calculateOverclockTimes(threadCount, threadCountPerWorker * workerCount);
+        long availableThreads = (long) threadCountPerWorker * workerCount;
+        overlockTimes = calculateOverclockTimes(
+            threadCount,
+            (int) Math.min(Integer.MAX_VALUE, Math.max(0L, availableThreads))
+        );
     }
 
     static int getCoreThreadCount(IECOTier coreTier, boolean overclocked) {
-        int threads = coreTier.getCrafterParallel();
-        return overclocked ? threads + coreTier.getOverclockedCrafterParallel() : threads;
+        long threads = coreTier.getCrafterParallel();
+        if (overclocked) {
+            threads += coreTier.getOverclockedCrafterParallel();
+        }
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, threads));
     }
 
     static int calculateOverclockTimes(int threadCount, int availableThreads) {

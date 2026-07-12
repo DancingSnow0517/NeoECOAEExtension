@@ -15,6 +15,12 @@ class ECOCraftingSystemBlockEntityTest {
             + 7 * ECOCraftingSystemBlockEntity.getCoreThreadCount(f4, true);
 
         assertEquals(2912, mixedOverclockedThreads);
+        assertEquals(
+            Integer.MAX_VALUE,
+            ECOCraftingSystemBlockEntity.getCoreThreadCount(
+                craftingTier(Integer.MAX_VALUE, Integer.MAX_VALUE), true
+            )
+        );
     }
 
     @Test

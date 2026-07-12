@@ -14,6 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class ECOCraftingFastPathCache {
+    public static final int MIN_CACHE_SIZE = 16;
+    public static final int MAX_CACHE_SIZE = 16_384;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final long NEGATIVE_CACHE_TTL_TICKS = 1_200L;
     private static final Set<ECOCraftingFastPathCache> ACTIVE_CACHES = Collections.newSetFromMap(new WeakHashMap<>());
@@ -45,8 +48,9 @@ public final class ECOCraftingFastPathCache {
     }
 
     public ECOCraftingFastPathCache(int limit) {
-        this.limit = Math.max(16, limit);
-        this.entries = new LinkedHashMap<>(this.limit, 0.75f, true) {
+        this.limit = Math.clamp(limit, MIN_CACHE_SIZE, MAX_CACHE_SIZE);
+        int initialCapacity = Math.min(this.limit, 1_024);
+        this.entries = new LinkedHashMap<>(initialCapacity, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<ECOFastPathKey, ECOFastPathResult> eldest) {
                 return size() > ECOCraftingFastPathCache.this.limit;
@@ -64,7 +68,7 @@ public final class ECOCraftingFastPathCache {
             missCount++;
             return null;
         }
-        if (result.isNegative() && tick - result.getLastAccessTick() >= NEGATIVE_CACHE_TTL_TICKS) {
+        if (result.isNegative() && isNegativeExpired(result, tick)) {
             entries.remove(key);
             missCount++;
             return null;
@@ -90,6 +94,15 @@ public final class ECOCraftingFastPathCache {
         List<GenericStack> inputs,
         long tick
     ) {
+        if (!ECOBatchCraftingHelper.areValidItemStacks(outputs, Integer.MAX_VALUE, true)
+            || !ECOBatchCraftingHelper.areValidItemStacks(remaining, Integer.MAX_VALUE, false)
+            || !ECOBatchCraftingHelper.areValidItemStacks(inputs, Integer.MAX_VALUE, false)
+            || !ECOFastPathStacks.isSafeForFastPath(outputs, false)
+            || !ECOFastPathStacks.isSafeForFastPath(remaining, false)
+            || !ECOFastPathStacks.isSafeForFastPath(inputs, true)) {
+            putNegative(key, tick);
+            return;
+        }
         entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick));
         verifySuccessCount++;
     }
@@ -165,7 +178,10 @@ public final class ECOCraftingFastPathCache {
     }
 
     public void maybeLogStats(String owner, long tick) {
-        if (!NEConfig.debugEcoFastPath || tick - lastStatsLogTick < 100) {
+        if (!NEConfig.debugEcoFastPath) {
+            return;
+        }
+        if (!isStatsLogDue(lastStatsLogTick, tick)) {
             return;
         }
         lastStatsLogTick = tick;
@@ -195,5 +211,26 @@ public final class ECOCraftingFastPathCache {
             coolantRejectCount,
             noThreadRejectCount
         );
+    }
+
+    int size() {
+        return entries.size();
+    }
+
+    int limit() {
+        return limit;
+    }
+
+    private static boolean isNegativeExpired(ECOFastPathResult result, long tick) {
+        long age = tick - result.getCreatedTick();
+        return age < 0L || age >= NEGATIVE_CACHE_TTL_TICKS;
+    }
+
+    static boolean isStatsLogDue(long previousTick, long tick) {
+        if (previousTick == Long.MIN_VALUE) {
+            return true;
+        }
+        long elapsed = tick - previousTick;
+        return elapsed < 0L || elapsed >= 100L;
     }
 }

@@ -43,11 +43,16 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPULogic {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+
     final ECOCraftingCPU cpu;
 
     /**
@@ -354,8 +359,13 @@ public class ECOCraftingCPULogic {
                 Math.min(NEConfig.ecoBatchFastPathLimit, NEConfig.ecoBatchFastPathTickLimit));
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
+        Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
         for (ICraftingProvider provider : providers) {
             if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)) {
+                continue;
+            }
+            ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
+            if (controller == null || !visitedControllers.add(controller)) {
                 continue;
             }
             var offer = patternBus.findBatchFastPathOffer(execution, requested);
@@ -394,12 +404,18 @@ public class ECOCraftingCPULogic {
 
         var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
         boolean extraInputsExtracted = false;
+        boolean ownershipTransferred = false;
         try {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
                 return 0;
             }
-            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE,
-                    PowerMultiplier.CONFIG) < patternPower * batchSize - 0.01) {
+            double requiredPower = patternPower * batchSize;
+            double simulatedPower = energyService.extractAEPower(
+                requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG
+            );
+            if (!Double.isFinite(requiredPower)
+                || Double.isNaN(simulatedPower)
+                || simulatedPower < requiredPower - 0.01D) {
                 return 0;
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
@@ -412,20 +428,48 @@ public class ECOCraftingCPULogic {
                     execution.expectedOutputs(),
                     execution.expectedContainerItems(),
                     job.link.getCraftingID());
-            if (!selectedPatternBus.pushBatch(request)) {
+            if (!selectedPatternBus.pushBatch(request, selectedOffer)) {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
                 return -1;
             }
-            energyService.extractAEPower(patternPower * batchSize, Actionable.MODULATE, PowerMultiplier.CONFIG);
-            recordPushedPattern(execution, batchSize);
+            // The worker owns every input from this point onward. Never reinject them into the CPU.
+            ownershipTransferred = true;
+            try {
+                double chargedPower = energyService.extractAEPower(
+                    requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG
+                );
+                if (Double.isNaN(chargedPower) || chargedPower < requiredPower - 0.01D) {
+                    selectedOffer.worker().getFastPathCache().recordException();
+                    LOGGER.error(
+                        "ECO batch was accepted, but only {} of {} crafting energy was charged",
+                        chargedPower,
+                        requiredPower
+                    );
+                }
+            } catch (RuntimeException e) {
+                selectedOffer.worker().getFastPathCache().recordException();
+                LOGGER.error("ECO batch was accepted, but its crafting energy could not be charged", e);
+            }
+            try {
+                recordPushedPattern(execution, batchSize);
+            } catch (RuntimeException e) {
+                selectedOffer.worker().getFastPathCache().recordException();
+                LOGGER.error("ECO batch was accepted, but its CPU accounting update failed", e);
+            }
             return batchSize;
         } catch (RuntimeException e) {
-            rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             selectedOffer.worker().getFastPathCache().recordException();
+            if (ownershipTransferred) {
+                LOGGER.error("ECO batch failed after ownership transfer; accounting it as accepted", e);
+                return batchSize;
+            }
+            rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             return -1;
         } catch (Error e) {
-            rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             selectedOffer.worker().getFastPathCache().recordException();
+            if (!ownershipTransferred) {
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
+            }
             throw e;
         }
     }
@@ -453,25 +497,13 @@ public class ECOCraftingCPULogic {
     }
 
     private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {
-        if (requested <= 0) {
-            return 0;
-        }
-        if (patternPower <= 0.0D) {
-            return requested;
-        }
-        int low = 0;
-        int high = requested;
-        while (low < high) {
-            int batchSize = low + (high - low + 1) / 2;
-            double totalPower = patternPower * batchSize;
-            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG) >= totalPower
-                    - 0.01) {
-                low = batchSize;
-            } else {
-                high = batchSize - 1;
-            }
-        }
-        return low;
+        return ECOBatchCraftingHelper.maxAffordableCrafts(
+            patternPower,
+            requested,
+            totalPower -> energyService.extractAEPower(
+                totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG
+            )
+        );
     }
 
     private void recordPushedPattern(ECOExtractedPatternExecution execution, int craftCount) {

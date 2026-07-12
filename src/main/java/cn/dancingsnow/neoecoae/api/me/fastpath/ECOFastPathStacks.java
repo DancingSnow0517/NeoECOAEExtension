@@ -153,15 +153,47 @@ public final class ECOFastPathStacks {
     }
 
     public static List<GenericStack> readGenericStacks(HolderLookup.Provider registries, ListTag tag) {
-        List<GenericStack> stacks = new ArrayList<>(tag.size());
-        for (int i = 0; i < tag.size(); i++) {
-            CompoundTag stackTag = tag.getCompound(i);
-            GenericStack stack = GenericStack.readTag(registries, stackTag);
-            if (stack != null && stack.amount() > 0) {
+        try {
+            List<GenericStack> stacks = new ArrayList<>(tag.size());
+            for (int i = 0; i < tag.size(); i++) {
+                CompoundTag stackTag = tag.getCompound(i);
+                GenericStack stack = GenericStack.readTag(registries, stackTag);
+                if (stack != null && stack.amount() > 0) {
+                    stacks.add(stack);
+                }
+            }
+            return List.copyOf(stacks);
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+    }
+
+    public static Optional<List<GenericStack>> readValidatedBatchItemStacks(
+        HolderLookup.Provider registries,
+        ListTag tag,
+        boolean requireNonEmpty
+    ) {
+        if (tag.size() > ECOBatchCraftingHelper.MAX_BATCH_STACK_ENTRIES
+            || requireNonEmpty && tag.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            List<GenericStack> stacks = new ArrayList<>(tag.size());
+            for (int i = 0; i < tag.size(); i++) {
+                GenericStack stack = GenericStack.readTag(registries, tag.getCompound(i));
+                if (stack == null) {
+                    return Optional.empty();
+                }
                 stacks.add(stack);
             }
+            if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(
+                    stacks, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, requireNonEmpty)) {
+                return Optional.empty();
+            }
+            return Optional.of(List.copyOf(stacks));
+        } catch (RuntimeException e) {
+            return Optional.empty();
         }
-        return List.copyOf(stacks);
     }
 
     private static List<GenericStack> copySorted(KeyCounter counter) {

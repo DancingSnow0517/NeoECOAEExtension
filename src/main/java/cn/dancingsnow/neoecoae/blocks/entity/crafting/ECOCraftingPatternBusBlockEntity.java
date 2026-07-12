@@ -52,6 +52,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -62,6 +63,8 @@ import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -85,6 +88,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private static final int PAGE_LABEL_WIDTH = 16;
     private static final int UI_CONTENT_WIDTH = ROW_SIZE * 18;
     private static final int PAGE_CONTROLS_WIDTH = PAGE_BUTTON_SIZE * 2 + PAGE_CONTROL_GAP * 2 + PAGE_LABEL_WIDTH;
+    private static final int PATTERN_UPDATE_QUIET_TICKS = 2;
     public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
 
     @Persisted
@@ -93,6 +97,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private final InternalInventory effectiveInventory = new EffectivePatternInventory();
     private final IItemHandlerModifiable pageItemHandler = new PagedPatternItemHandler();
     private final List<IPatternDetails> patternDetails = new ArrayList<>();
+    private final IPatternDetails[] decodedPatternDetails =
+        new IPatternDetails[NEConfig.getMaxCraftingPatternBusSlotCount()];
+    private final BitSet dirtyPatternSlots = new BitSet(NEConfig.getMaxCraftingPatternBusSlotCount());
     public final IItemHandlerModifiable itemHandler;
     @Persisted
     @DescSynced
@@ -100,6 +107,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @DescSynced
     private int currentPage;
     private int nextWorkerIndex = 0;
+    private boolean patternDetailsUpdateQueued;
+    private boolean rebuildAllPatternDetails = true;
+    private int patternDetailsUpdateTick;
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
@@ -138,12 +148,25 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     public boolean pushBatch(ECOBatchCraftingRequest request) {
-        BatchFastPathOffer offer = findBatchFastPathOffer(request.key(), null, request.batchSize());
-        if (offer == null) {
+        BatchFastPathOffer offer = findBatchFastPathOffer(
+            request.key(), null, request, request.batchSize()
+        );
+        return pushBatch(request, offer);
+    }
+
+    public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {
+        if (offer == null
+            || cluster == null
+            || !cluster.getWorkers().contains(offer.worker())
+            || offer.maxBatchSize() < request.batchSize()
+            || offer.worker().getAvailableThreadSlots() < request.batchSize()
+            || getAvailableThreadSlots() < request.batchSize()
+            || !offer.result().matchesBatchRequest(request)) {
             return false;
         }
+        int nextIndex = nextWorkerIndexAfter(offer.worker());
         if (offer.worker().pushBatch(request)) {
-            nextWorkerIndex = nextWorkerIndexAfter(offer.worker());
+            nextWorkerIndex = nextIndex;
             return true;
         }
         return false;
@@ -154,13 +177,14 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (execution.key() == null) {
             return null;
         }
-        return findBatchFastPathOffer(execution.key(), execution, requestedBatchSize);
+        return findBatchFastPathOffer(execution.key(), execution, null, requestedBatchSize);
     }
 
     @Nullable
     private BatchFastPathOffer findBatchFastPathOffer(
         ECOFastPathKey key,
         @Nullable ECOExtractedPatternExecution execution,
+        @Nullable ECOBatchCraftingRequest request,
         int requestedBatchSize
     ) {
         if (cluster == null || requestedBatchSize <= 0) {
@@ -187,6 +211,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 ? worker.getFastPathCache().peek(key)
                 : worker.getVerifiedFastPathResult(execution);
             if (result == null || result.isNegative()) {
+                continue;
+            }
+            if (request != null && !result.matchesBatchRequest(request)) {
+                worker.getFastPathCache().recordExpectedMismatch();
                 continue;
             }
             int maxBatchSize = Math.min(requestedBatchSize, Math.min(availableSlots, globalAvailableSlots));
@@ -325,24 +353,78 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
         this.saveChanges();
-        updatePatternDetails();
+        if (slot >= 0 && slot < decodedPatternDetails.length) {
+            dirtyPatternSlots.set(slot);
+        } else {
+            rebuildAllPatternDetails = true;
+        }
+        queuePatternDetailsUpdate();
     }
 
     @Override
     public void onReady() {
         super.onReady();
+        rebuildAllPatternDetails = true;
         updatePatternDetails();
     }
 
     private void updatePatternDetails() {
+        int slotCount = getPatternSlotCount();
+        if (rebuildAllPatternDetails) {
+            Arrays.fill(decodedPatternDetails, null);
+            for (int slot = 0; slot < slotCount; slot++) {
+                decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
+                    inventory.getStackInSlot(slot), level
+                );
+            }
+        } else {
+            for (int slot = dirtyPatternSlots.nextSetBit(0);
+                 slot >= 0;
+                 slot = dirtyPatternSlots.nextSetBit(slot + 1)) {
+                decodedPatternDetails[slot] = PatternDetailsHelper.decodePattern(
+                    inventory.getStackInSlot(slot), level
+                );
+            }
+        }
+        rebuildAllPatternDetails = false;
+        dirtyPatternSlots.clear();
+
         patternDetails.clear();
-        for (ItemStack itemStack : this.effectiveInventory) {
-            IPatternDetails details = PatternDetailsHelper.decodePattern(itemStack, this.level);
+        for (int slot = 0; slot < slotCount; slot++) {
+            IPatternDetails details = decodedPatternDetails[slot];
             if (details != null) {
                 patternDetails.add(details);
             }
         }
         ICraftingProvider.requestUpdate(this.getMainNode());
+    }
+
+    private void queuePatternDetailsUpdate() {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            updatePatternDetails();
+            return;
+        }
+        patternDetailsUpdateTick = serverLevel.getServer().getTickCount() + PATTERN_UPDATE_QUIET_TICKS;
+        if (patternDetailsUpdateQueued) {
+            return;
+        }
+        patternDetailsUpdateQueued = true;
+        schedulePatternDetailsUpdate(serverLevel, patternDetailsUpdateTick);
+    }
+
+    private void schedulePatternDetailsUpdate(ServerLevel serverLevel, int tick) {
+        serverLevel.getServer().tell(new TickTask(tick, () -> {
+            if (isRemoved() || level != serverLevel) {
+                patternDetailsUpdateQueued = false;
+                return;
+            }
+            if (serverLevel.getServer().getTickCount() < patternDetailsUpdateTick) {
+                schedulePatternDetailsUpdate(serverLevel, patternDetailsUpdateTick);
+                return;
+            }
+            patternDetailsUpdateQueued = false;
+            updatePatternDetails();
+        }));
     }
 
     @Override

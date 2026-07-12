@@ -9,10 +9,12 @@ import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -33,6 +35,7 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingWorkerBlockEntity>
     implements IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final int MAX_PERSISTED_THREAD_RECORDS = ECOBatchCraftingHelper.MAX_BATCH_SIZE;
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
@@ -138,6 +141,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public boolean pushBatch(ECOBatchCraftingRequest request) {
+        if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
+            fastPathCache.recordDisabled();
+            return false;
+        }
         if (cluster == null || cluster.getController() == null) {
             return false;
         }
@@ -214,6 +221,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return 0;
     }
 
+    public boolean isControlledBy(ECOCraftingSystemBlockEntity controller) {
+        return cluster != null && cluster.getController() == controller;
+    }
+
     public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {
         List<ECOCraftingThread.Snapshot> snapshots = new ArrayList<>();
         for (ECOCraftingThread thread : craftingThreads) {
@@ -247,12 +258,27 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public void onThreadWork(int occupiedThreadSlots) {
         int slots = Math.max(1, occupiedThreadSlots);
-        runningThreads += slots;
-        if (cluster != null && cluster.getController() != null) {
-            cluster.getController().onWorkerThreadCountChanged(slots);
+        int previousRunningThreads = runningThreads;
+        runningThreads = Math.addExact(runningThreads, slots);
+        ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
+        boolean controllerUpdateAttempted = controller != null;
+        try {
+            if (controller != null) {
+                controller.onWorkerThreadCountChanged(slots);
+            }
+            setChanged();
+            wakeTickingDevice();
+        } catch (RuntimeException | Error e) {
+            runningThreads = previousRunningThreads;
+            if (controllerUpdateAttempted) {
+                try {
+                    controller.onWorkerThreadCountChanged(-slots);
+                } catch (RuntimeException | Error rollbackFailure) {
+                    e.addSuppressed(rollbackFailure);
+                }
+            }
+            throw e;
         }
-        setChanged();
-        wakeTickingDevice();
     }
 
     @Override
@@ -317,8 +343,15 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
         fastPathCache.clear();
-        int busyThreads = 0;
-        for (int i = 0; i < threads.size(); i++) {
+        if (threads.size() > MAX_PERSISTED_THREAD_RECORDS) {
+            LOGGER.error(
+                "ECO worker persisted too many crafting threads; excess records will be ignored: worker={} count={}",
+                getBlockPos(),
+                threads.size()
+            );
+        }
+        long busyThreads = 0L;
+        for (int i = 0; i < Math.min(threads.size(), MAX_PERSISTED_THREAD_RECORDS); i++) {
             ECOCraftingThread thread = new ECOCraftingThread(this);
             thread.deserializeNBT(registries, threads.getCompound(i));
             craftingThreads.add(thread);
@@ -326,7 +359,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 busyThreads += thread.getOccupiedThreadSlots();
             }
         }
-        runningThreads = busyThreads;
+        runningThreads = (int) Math.min(ECOBatchCraftingHelper.MAX_BATCH_SIZE, busyThreads);
         nextFreeThreadIndex = 0;
     }
 
