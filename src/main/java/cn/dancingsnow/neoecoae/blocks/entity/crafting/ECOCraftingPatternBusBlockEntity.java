@@ -217,7 +217,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 worker.getFastPathCache().recordExpectedMismatch();
                 continue;
             }
-            int maxBatchSize = Math.min(requestedBatchSize, Math.min(availableSlots, globalAvailableSlots));
+            int maxBatchSize = calculateBatchOfferSize(requestedBatchSize, availableSlots, globalAvailableSlots);
             if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
                 bestOffer = new BatchFastPathOffer(worker, result, maxBatchSize);
                 if (maxBatchSize >= requestedBatchSize) {
@@ -251,6 +251,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {}
+
+    static int calculateBatchOfferSize(int requestedBatchSize, int workerAvailableSlots, int hostAvailableSlots) {
+        return Math.max(0, Math.min(requestedBatchSize, Math.min(workerAvailableSlots, hostAvailableSlots)));
+    }
 
     @Override
     public boolean isBusy() {

@@ -272,8 +272,6 @@
   "neoecoae.configuration.debugEcoFastPath.tooltip": "定時書 ECO 捷徑緩藏之數於誌。",
   "neoecoae.configuration.ecoAe2FastPathEnabled": "啟 ECO AE2 捷徑",
   "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "啟 ECO AE2 捷徑批冶緩藏。\n可大減重行 pattern 之費；若整合包方相不協，可閉此項以復慢徑。\n啟冶造事件時，捷徑自禁，以存事件之義。",
-  "neoecoae.configuration.ecoBatchFastPathLimit": "批捷徑之限",
-  "neoecoae.configuration.ecoBatchFastPathLimit.tooltip": "一次捷徑批推可合冶之最大數。",
   "neoecoae.configuration.ecoBatchFastPathTickLimit": "批捷徑每刻之限",
   "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip": "每 CPU 每刻可由捷徑批推之最大冶數。",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 每刻推送之限",

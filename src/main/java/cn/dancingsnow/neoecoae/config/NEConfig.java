@@ -88,10 +88,6 @@ public class NEConfig {
             "实际值仍会受可用协处理器数量限制。")
         .defineInRange("ecoCpuPushTickLimit", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
 
-    private static final ModConfigSpec.IntValue ECO_BATCH_FAST_PATH_LIMIT = BUILDER
-        .comment("单次快速路径批量推送最多合并的合成次数。")
-        .defineInRange("ecoBatchFastPathLimit", 64, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE);
-
     private static final ModConfigSpec.IntValue ECO_BATCH_FAST_PATH_TICK_LIMIT = BUILDER
         .comment("每个 CPU 每 tick 最多通过快速路径批量推送的合成次数。")
         .defineInRange("ecoBatchFastPathTickLimit", 256, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE);
@@ -121,7 +117,6 @@ public class NEConfig {
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
-    public static int ecoBatchFastPathLimit = 64;
     public static int ecoBatchFastPathTickLimit = 256;
     public static int ecoFastPathCacheSize = 512;
 
@@ -136,7 +131,6 @@ public class NEConfig {
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
-        ecoBatchFastPathLimit = ECO_BATCH_FAST_PATH_LIMIT.get();
         ecoBatchFastPathTickLimit = ECO_BATCH_FAST_PATH_TICK_LIMIT.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
     }

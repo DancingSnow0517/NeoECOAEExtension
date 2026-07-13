@@ -405,9 +405,10 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        int requested = (int) Math.min(
-                Math.min(taskRemaining, tickBudgetRemaining),
-                Math.min(NEConfig.ecoBatchFastPathLimit, NEConfig.ecoBatchFastPathTickLimit));
+        // Ask providers for the full amount this CPU may still push this tick. The selected
+        // crafting host and worker then cap the offer to their current available thread slots.
+        int requested = calculateBatchRequestSize(
+                taskRemaining, tickBudgetRemaining, NEConfig.ecoBatchFastPathTickLimit);
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
@@ -517,6 +518,13 @@ public class ECOCraftingCPULogic {
             }
             throw e;
         }
+    }
+
+    static int calculateBatchRequestSize(long taskRemaining, int tickBudgetRemaining, int tickLimit) {
+        long requested = Math.min(
+                Math.max(0L, taskRemaining),
+                Math.min(Math.max(0, tickBudgetRemaining), Math.max(0, tickLimit)));
+        return (int) Math.min(ECOBatchCraftingHelper.MAX_BATCH_SIZE, requested);
     }
 
     private void rollbackBatchInputs(

@@ -32,6 +32,13 @@ class ECOCraftingSystemBlockEntityTest {
         assertEquals(9, ECOCraftingSystemBlockEntity.calculateOverclockTimes(14080, 5632));
     }
 
+    @Test
+    void batchOfferUsesCurrentWorkerAndHostCapacity() {
+        assertEquals(128, ECOCraftingPatternBusBlockEntity.calculateBatchOfferSize(256, 128, 192));
+        assertEquals(80, ECOCraftingPatternBusBlockEntity.calculateBatchOfferSize(256, 128, 80));
+        assertEquals(0, ECOCraftingPatternBusBlockEntity.calculateBatchOfferSize(256, 0, 192));
+    }
+
     private static IECOTier craftingTier(int parallel, int overclockedParallel) {
         return new IECOTier() {
             @Override

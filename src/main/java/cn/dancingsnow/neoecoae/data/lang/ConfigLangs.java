@@ -67,11 +67,6 @@ public class ConfigLangs {
             "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n" +
                 "The effective value is still capped by available co-processors."
         );
-        provider.add("neoecoae.configuration.ecoBatchFastPathLimit", "Batch Fast Path Limit");
-        provider.add(
-            "neoecoae.configuration.ecoBatchFastPathLimit.tooltip",
-            "Maximum crafts merged into a single fast path batch push."
-        );
         provider.add("neoecoae.configuration.ecoBatchFastPathTickLimit", "Batch Fast Path Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip",

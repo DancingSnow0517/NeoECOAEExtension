@@ -11,4 +11,10 @@ class ECOCraftingCompatibilityTest {
 
         assertEquals(void.class, method.getReturnType());
     }
+
+    @Test
+    void batchRequestIsNotCappedAtLegacySingleBatchLimit() {
+        assertEquals(192, ECOCraftingCPULogic.calculateBatchRequestSize(512L, 192, 256));
+        assertEquals(80, ECOCraftingCPULogic.calculateBatchRequestSize(80L, 192, 256));
+    }
 }
