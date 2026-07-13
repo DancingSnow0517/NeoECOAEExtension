@@ -64,16 +64,16 @@ public class NeoECOAEClient {
     }
 
     @SubscribeEvent
+    public static void onAddChunkGeometry(AddSectionGeometryEvent event) {
+        event.addRenderer(c -> FixedBlockEntityRenderers.render(c, event.getSectionOrigin()));
+    }
+
+    @SubscribeEvent
     public static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
         Item[] cells = BuiltInRegistries.ITEM.stream()
             .filter(item -> item instanceof ECOStorageCellItem)
             .toArray(Item[]::new);
         event.register(NEItemColors::getCellColor, cells);
-    }
-
-    @SubscribeEvent
-    public static void onAddChunkGeometry(AddSectionGeometryEvent event) {
-        event.addRenderer(c -> FixedBlockEntityRenderers.render(c, event.getSectionOrigin()));
     }
 
     @SuppressWarnings("unchecked")
