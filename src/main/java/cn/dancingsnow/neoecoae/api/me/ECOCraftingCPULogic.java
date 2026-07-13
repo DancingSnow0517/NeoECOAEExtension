@@ -82,6 +82,8 @@ public class ECOCraftingCPULogic {
     private final Set<AEKey> batchedStatusChanges = new HashSet<>();
     private boolean batchedAnyStatusChange = false;
     private boolean batchedFullStatusChange = false;
+    private boolean deliveringBufferedFinalOutput = false;
+    private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -186,22 +188,40 @@ public class ECOCraftingCPULogic {
     }
 
     private void retryBufferedFinalOutput() {
+        if (job == null || job.finalOutput == null) {
+            return;
+        }
         AEKey key = job.finalOutput.what();
-        long buffered = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
+        long buffered = job.bufferedFinalOutput.amount();
         if (buffered <= 0L) {
             return;
         }
-        long accepted = deliverFinalOutput(key, buffered, Actionable.MODULATE);
+        long deliverable = Math.min(buffered, Math.max(0L, job.remainingAmount));
+        if (deliverable <= 0L) {
+            return;
+        }
+        final long accepted;
+        try {
+            deliveringBufferedFinalOutput = true;
+            accepted = validateInsertionAmount(
+                deliverFinalOutput(key, deliverable, Actionable.MODULATE),
+                deliverable,
+                "final-output requester"
+            );
+        } catch (RuntimeException e) {
+            logFinalOutputDeliveryFailure(e);
+            return;
+        } finally {
+            deliveringBufferedFinalOutput = false;
+        }
         if (accepted <= 0L) {
             return;
         }
-        inventory.extract(key, accepted, Actionable.MODULATE);
-        job.timeTracker.decrementItems(accepted, key.getType());
-        job.waitingFor.extract(key, accepted, Actionable.MODULATE);
+        job.bufferedFinalOutput.removeDelivered(accepted);
         job.remainingAmount = Math.max(0L, job.remainingAmount - accepted);
         postChange(key);
         cpu.markDirty();
-        if (job.remainingAmount <= 0L) {
+        if (job.remainingAmount <= 0L && job.bufferedFinalOutput.amount() == 0L) {
             finishJob(true);
         }
     }
@@ -532,8 +552,11 @@ public class ECOCraftingCPULogic {
      */
     public long insert(AEKey what, long amount, Actionable type) {
         // 任务完成时也停止接收物品，防止在 storeItems 推出物品时重新插入
-        if (what == null || job == null)
+        if (what == null || amount <= 0L || job == null)
             return 0;
+        if (deliveringBufferedFinalOutput && job.finalOutput != null && what.matches(job.finalOutput)) {
+            return 0L;
+        }
 
         // 只接收正在等待的物品。
         var waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
@@ -552,41 +575,24 @@ public class ECOCraftingCPULogic {
             cpu.markDirty();
         }
 
-        long inserted = amount;
         if (what.matches(job.finalOutput)) {
-            inserted = deliverFinalOutput(what, amount, type);
-
-            // 注意：我们忽略任何余数（如果没有请求者，余数可能是整个输入），
-            // 我们已经将物品标记为已完成，甚至可能完成整个任务。
-
-            // 这意味着即使某些物品实际未被插入，任务也可能被标记为完成。
-            // 在某些情况下，最终输出的一小部分反复插入失败可能会阻止某些配方被推送。
-            // TODO: 考虑修复此问题，也许可以使用网络监视器检查实际插入量。
-            // TODO: 另一种解决方案是等待所有配方被推送后再取消任务。
-
-            if (type == Actionable.MODULATE) {
-                // 更新计数和显示的 CPU 堆栈，如果可能则完成任务。
-                job.timeTracker.decrementItems(inserted, what.getType());
-                job.waitingFor.extract(what, inserted, Actionable.MODULATE);
-                long remainder = amount - inserted;
-                if (remainder > 0L) {
-                    inventory.insert(what, remainder, Actionable.MODULATE);
-                }
+            long acceptedOwnership = job.bufferedFinalOutput.accept(amount, type);
+            if (type == Actionable.MODULATE && acceptedOwnership > 0L) {
+                // Ownership commits here. Delivery happens separately, so a network callback cannot make the Worker
+                // retry or make this CPU accept the same physical output again.
+                job.timeTracker.decrementItems(acceptedOwnership, what.getType());
+                job.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
                 postChange(what);
-                job.remainingAmount = Math.max(0, job.remainingAmount - inserted);
                 cpu.markDirty();
-
-                if (job.remainingAmount <= 0) {
-                    finishJob(true);
-                }
             }
+            return acceptedOwnership;
         } else {
             if (type == Actionable.MODULATE) {
                 inventory.insert(what, amount, Actionable.MODULATE);
             }
         }
 
-        return inserted;
+        return amount;
     }
 
     private long deliverFinalOutput(AEKey what, long amount, Actionable mode) {
@@ -603,12 +609,31 @@ public class ECOCraftingCPULogic {
         return grid.getStorageService().getInventory().insert(what, amount, mode, cpu.getActionSource());
     }
 
+    private static long validateInsertionAmount(long inserted, long requested, String target) {
+        if (inserted < 0L || inserted > requested) {
+            throw new IllegalStateException(
+                "Invalid insertion result from " + target + ": " + inserted + " for " + requested
+            );
+        }
+        return inserted;
+    }
+
+    private void logFinalOutputDeliveryFailure(RuntimeException e) {
+        long tick = TickHandler.instance().getCurrentTick();
+        long elapsed = tick - lastFinalOutputDeliveryFailureLogTick;
+        if (lastFinalOutputDeliveryFailureLogTick == Long.MIN_VALUE || elapsed < 0L || elapsed >= 100L) {
+            lastFinalOutputDeliveryFailureLogTick = tick;
+            LOGGER.error("ECO final-output delivery failed; the CPU-owned output remains buffered", e);
+        }
+    }
+
     /**
      * 完成当前合成任务。
      *
      * @param success 任务完成则为 true，取消则为 false。
      */
     private void finishJob(boolean success) {
+        preserveBufferedFinalOutput();
         if (success) {
             job.link.markDone();
         } else {
@@ -634,6 +659,25 @@ public class ECOCraftingCPULogic {
 
         // 存储所有剩余物品。
         this.storeItems();
+    }
+
+    private void preserveBufferedFinalOutput() {
+        long buffered = job.bufferedFinalOutput.amount();
+        if (buffered <= 0L) {
+            return;
+        }
+        if (job.finalOutput == null) {
+            throw new IllegalStateException("Buffered final output has no key");
+        }
+        AEKey key = job.finalOutput.what();
+        long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
+        Math.addExact(stored, buffered);
+
+        // Move ownership between the two local ledgers before notifying observers.
+        inventory.list.add(key, buffered);
+        job.bufferedFinalOutput.removeDelivered(buffered);
+        postChange(key);
+        cpu.markDirty();
     }
 
     /**
@@ -832,7 +876,12 @@ public class ECOCraftingCPULogic {
     }
 
     public long getStored(AEKey template) {
-        return this.inventory.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
+        long stored = this.inventory.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
+        if (job != null && job.finalOutput != null && template.matches(job.finalOutput)) {
+            long buffered = job.bufferedFinalOutput.amount();
+            return stored > Long.MAX_VALUE - buffered ? Long.MAX_VALUE : stored + buffered;
+        }
+        return stored;
     }
 
     public long getWaitingFor(AEKey template) {
@@ -870,6 +919,9 @@ public class ECOCraftingCPULogic {
     public void getAllItems(KeyCounter out) {
         out.addAll(this.inventory.list);
         if (this.job != null) {
+            if (job.finalOutput != null && job.bufferedFinalOutput.amount() > 0L) {
+                out.add(job.finalOutput.what(), job.bufferedFinalOutput.amount());
+            }
             out.addAll(job.waitingFor.list);
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {

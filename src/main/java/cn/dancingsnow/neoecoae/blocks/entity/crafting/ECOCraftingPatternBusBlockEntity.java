@@ -323,6 +323,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean insertPattern(ItemStack itemStack) {
+        // ECO Workers only execute molecular-assembler crafting patterns. Reject processing patterns before they can
+        // be advertised to a crafting CPU, which would otherwise extract and later reinject their inputs.
+        if (!isExecutablePattern(itemStack)) {
+            return false;
+        }
         if (containsPatternInCluster(itemStack)) {
             return false;
         }
@@ -351,12 +356,16 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return false;
     }
 
+    private boolean isExecutablePattern(ItemStack stack) {
+        return PatternDetailsHelper.decodePattern(stack, level) instanceof IMolecularAssemblerSupportedPattern;
+    }
+
     class AEEncodedPatternFilter implements IAEItemFilter {
         @Override
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
             return slot >= 0
                 && slot < getPatternSlotCount()
-                && PatternDetailsHelper.decodePattern(stack, level) instanceof IMolecularAssemblerSupportedPattern;
+                && isExecutablePattern(stack);
         }
     }
 
@@ -416,7 +425,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         patternDetails.clear();
         for (int slot = 0; slot < slotCount; slot++) {
             IPatternDetails details = decodedPatternDetails[slot];
-            if (details != null) {
+            // Old saves and external inventory APIs may bypass the slot filter. Never publish such processing
+            // patterns as executable providers, even if their encoded item remains stored for manual removal.
+            if (details instanceof IMolecularAssemblerSupportedPattern) {
                 patternDetails.add(details);
             }
         }
