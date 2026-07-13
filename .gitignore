@@ -40,3 +40,4 @@ src/generated/resources/.cache/
 .gitignore
 .codex/config.toml
 logs/
+docs/

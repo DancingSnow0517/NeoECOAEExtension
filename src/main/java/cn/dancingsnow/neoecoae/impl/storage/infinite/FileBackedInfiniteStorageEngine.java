@@ -59,7 +59,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private final KeyCounter visibleStacks = new KeyCounter();
     private final Map<AEKeyType, MutableTypeStats> typeStats = new HashMap<>();
     private final Map<AEKey, HugeAmount> hugeStacks = new HashMap<>();
-    private final Map<AEKey, BigInteger> pendingWalDeltas = new HashMap<>();
+    private final Map<AEKey, Long> pendingWalDeltas = new HashMap<>();
     private final Set<Integer> dirtyShards = new HashSet<>();
     private final Set<UUID> committedTransactions = new HashSet<>();
     private final long[] shardRevisions = new long[SHARD_COUNT];
@@ -92,7 +92,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             if (degraded) {
                 return 0L;
             }
-            applyDelta(key, BigInteger.valueOf(amount), true);
+            applyDelta(key, amount, true);
         }
         return amount;
     }
@@ -109,7 +109,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             committedTransactions.add(transactionId);
             return amount;
         }
-        applyDelta(key, BigInteger.valueOf(amount), false);
+        applyDelta(key, amount, false);
         appendWal(key, BigInteger.valueOf(amount), transactionId);
         flushWalOutput();
         try {
@@ -138,7 +138,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             if (degraded) {
                 return 0L;
             }
-            applyDelta(key, BigInteger.valueOf(visible).negate(), true);
+            applyDelta(key, -visible, true);
         }
         return visible;
     }
@@ -182,8 +182,8 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         List<TypeStats> snapshot = new ArrayList<>(typeStats.size());
         for (Map.Entry<AEKeyType, MutableTypeStats> entry : typeStats.entrySet()) {
             MutableTypeStats stats = entry.getValue();
-            if (stats.storedTypes > 0L && stats.storedAmount.signum() > 0) {
-                snapshot.add(new TypeStats(entry.getKey(), stats.storedTypes, HugeAmount.of(stats.storedAmount)));
+            if (stats.storedTypes > 0L && !stats.storedAmount.isZero()) {
+                snapshot.add(new TypeStats(entry.getKey(), stats.storedTypes, stats.storedAmount));
             }
         }
         typeStatsSnapshot = List.copyOf(snapshot);
@@ -267,16 +267,56 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         closeWalOutput();
     }
 
-    private void applyDelta(AEKey key, BigInteger delta, boolean writeWal) {
-        if (delta.signum() == 0) {
+    private void applyDelta(AEKey key, long delta, boolean writeWal) {
+        if (delta == 0L) {
             return;
         }
         HugeAmount current = getAmount(key);
-        BigInteger nextValue = current.toBigInteger().add(delta);
-        if (nextValue.signum() < 0) {
-            nextValue = BigInteger.ZERO;
+        boolean added = delta > 0L;
+        HugeAmount changed;
+        HugeAmount next;
+        if (added) {
+            changed = HugeAmount.of(delta);
+            next = current.add(changed);
+        } else {
+            long requested = -delta;
+            changed = HugeAmount.of(requested).min(current);
+            next = current.subtract(changed);
         }
+        applyChange(key, current, next, changed, added);
+        if (writeWal) {
+            mergePendingWalDelta(key, delta);
+        }
+    }
+
+    private void applyDelta(AEKey key, BigInteger delta) {
+        if (delta.signum() == 0) {
+            return;
+        }
+        if (delta.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) <= 0
+            && delta.compareTo(BigInteger.valueOf(-Long.MAX_VALUE)) >= 0) {
+            applyDelta(key, delta.longValue(), false);
+            return;
+        }
+        HugeAmount current = getAmount(key);
+        BigInteger nextValue = current.toBigInteger().add(delta).max(BigInteger.ZERO);
         HugeAmount next = HugeAmount.of(nextValue);
+        int comparison = next.compareTo(current);
+        if (comparison == 0) {
+            return;
+        }
+        boolean added = comparison > 0;
+        HugeAmount changed = added ? next.subtract(current) : current.subtract(next);
+        applyChange(key, current, next, changed, added);
+    }
+
+    private void applyChange(
+        AEKey key,
+        HugeAmount current,
+        HugeAmount next,
+        HugeAmount changed,
+        boolean added
+    ) {
         int shard = shardFor(key);
         if (next.isZero()) {
             amounts.remove(key);
@@ -285,13 +325,29 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             amounts.put(key, next);
             addShardIndex(key, shard);
         }
-        storedAmount = HugeAmount.of(storedAmount.toBigInteger().add(nextValue.subtract(current.toBigInteger())));
-        updateIndexes(key, current, next);
+        storedAmount = added ? storedAmount.add(changed) : storedAmount.subtract(changed);
+        updateIndexes(key, current, next, changed, added);
         dirtyShards.add(shard);
         revision = revision == Long.MAX_VALUE ? 0L : revision + 1L;
         lastMutationNanos = System.nanoTime();
-        if (writeWal) {
-            pendingWalDeltas.merge(key, delta, BigInteger::add);
+    }
+
+    private void mergePendingWalDelta(AEKey key, long delta) {
+        Long pending = pendingWalDeltas.get(key);
+        if (pending == null) {
+            pendingWalDeltas.put(key, delta);
+            return;
+        }
+        try {
+            long merged = Math.addExact(pending, delta);
+            if (merged == 0L) {
+                pendingWalDeltas.remove(key);
+            } else {
+                pendingWalDeltas.put(key, merged);
+            }
+        } catch (ArithmeticException overflow) {
+            appendWal(key, BigInteger.valueOf(pending), null);
+            pendingWalDeltas.put(key, delta);
         }
     }
 
@@ -299,10 +355,10 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         if (pendingWalDeltas.isEmpty()) {
             return;
         }
-        for (Map.Entry<AEKey, BigInteger> entry : new ArrayList<>(pendingWalDeltas.entrySet())) {
-            BigInteger delta = entry.getValue();
-            if (delta.signum() != 0) {
-                appendWal(entry.getKey(), delta, null);
+        for (Map.Entry<AEKey, Long> entry : new ArrayList<>(pendingWalDeltas.entrySet())) {
+            long delta = entry.getValue();
+            if (delta != 0L) {
+                appendWal(entry.getKey(), BigInteger.valueOf(delta), null);
             }
         }
         pendingWalDeltas.clear();
@@ -359,11 +415,17 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         for (Map.Entry<AEKey, HugeAmount> entry : amounts.entrySet()) {
             storedAmount = storedAmount.add(entry.getValue());
             addShardIndex(entry.getKey(), shardFor(entry.getKey()));
-            updateIndexes(entry.getKey(), HugeAmount.ZERO, entry.getValue());
+            updateIndexes(entry.getKey(), HugeAmount.ZERO, entry.getValue(), entry.getValue(), true);
         }
     }
 
-    private void updateIndexes(AEKey key, HugeAmount previous, HugeAmount next) {
+    private void updateIndexes(
+        AEKey key,
+        HugeAmount previous,
+        HugeAmount next,
+        HugeAmount changed,
+        boolean added
+    ) {
         if (next.isZero()) {
             visibleStacks.remove(key);
         } else {
@@ -376,17 +438,16 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             hugeStacksSnapshotDirty = true;
         }
 
-        BigInteger delta = next.toBigInteger().subtract(previous.toBigInteger());
         int typeDelta = (previous.isZero() ? 0 : -1) + (next.isZero() ? 0 : 1);
-        if (delta.signum() == 0 && typeDelta == 0) {
+        if (changed.isZero() && typeDelta == 0) {
             return;
         }
 
         AEKeyType keyType = key.getType();
         MutableTypeStats stats = typeStats.computeIfAbsent(keyType, ignored -> new MutableTypeStats());
         stats.storedTypes += typeDelta;
-        stats.storedAmount = stats.storedAmount.add(delta);
-        if (stats.storedTypes <= 0L || stats.storedAmount.signum() <= 0) {
+        stats.storedAmount = added ? stats.storedAmount.add(changed) : stats.storedAmount.subtract(changed);
+        if (stats.storedTypes <= 0L || stats.storedAmount.isZero()) {
             typeStats.remove(keyType);
         }
         typeStatsSnapshotDirty = true;
@@ -547,7 +608,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 UUID transactionId = tag.hasUUID("transaction") ? tag.getUUID("transaction") : null;
                 if (key != null) {
                     if (recordRevision > loadedKeyRevisions.getOrDefault(key, 0L)) {
-                        applyDelta(key, new BigInteger(tag.getString("delta")), false);
+                        applyDelta(key, new BigInteger(tag.getString("delta")));
                     }
                     if (transactionId != null) {
                         committedTransactions.add(transactionId);
@@ -658,6 +719,6 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     private static final class MutableTypeStats {
         private long storedTypes;
-        private BigInteger storedAmount = BigInteger.ZERO;
+        private HugeAmount storedAmount = HugeAmount.ZERO;
     }
 }

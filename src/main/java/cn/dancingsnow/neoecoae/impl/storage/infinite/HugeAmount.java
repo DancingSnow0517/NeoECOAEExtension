@@ -69,6 +69,19 @@ public final class HugeAmount implements Comparable<HugeAmount> {
         return of(toBigInteger().add(other.toBigInteger()));
     }
 
+    public HugeAmount add(long other) {
+        if (other < 0L) {
+            throw new IllegalArgumentException("Amount must not be negative");
+        }
+        if (other == 0L) {
+            return this;
+        }
+        if (!isBig() && Long.MAX_VALUE - longValue >= other) {
+            return of(longValue + other);
+        }
+        return of(toBigInteger().add(BigInteger.valueOf(other)));
+    }
+
     public HugeAmount subtract(HugeAmount other) {
         if (other == null || other.isZero()) {
             return this;
@@ -80,6 +93,22 @@ public final class HugeAmount implements Comparable<HugeAmount> {
             return of(longValue - other.longValue);
         }
         return of(toBigInteger().subtract(other.toBigInteger()));
+    }
+
+    public HugeAmount subtract(long other) {
+        if (other < 0L) {
+            throw new IllegalArgumentException("Amount must not be negative");
+        }
+        if (other == 0L) {
+            return this;
+        }
+        if (!isBig()) {
+            if (longValue < other) {
+                throw new IllegalArgumentException("Amount subtraction would become negative");
+            }
+            return of(longValue - other);
+        }
+        return of(bigValue.subtract(BigInteger.valueOf(other)));
     }
 
     public HugeAmount min(HugeAmount other) {
