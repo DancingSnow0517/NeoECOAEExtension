@@ -35,6 +35,16 @@ class ECOFinalOutputBufferTest {
     }
 
     @Test
+    void deliveredOwnershipCannotBeConsumedTwice() {
+        ECOFinalOutputBuffer buffer = new ECOFinalOutputBuffer(1L);
+
+        buffer.removeDelivered(1L);
+
+        assertEquals(0L, buffer.amount());
+        assertThrows(IllegalArgumentException.class, () -> buffer.removeDelivered(1L));
+    }
+
+    @Test
     void persistedAmountCannotBeNegative() {
         assertThrows(IllegalArgumentException.class, () -> new ECOFinalOutputBuffer(-1L));
     }

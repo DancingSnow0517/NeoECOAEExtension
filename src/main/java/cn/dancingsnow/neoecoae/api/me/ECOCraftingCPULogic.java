@@ -188,15 +188,23 @@ public class ECOCraftingCPULogic {
     }
 
     private void retryBufferedFinalOutput() {
-        if (job == null || job.finalOutput == null) {
+        ExecutingCraftingJob currentJob = job;
+        if (currentJob == null) {
             return;
         }
-        AEKey key = job.finalOutput.what();
-        long buffered = job.bufferedFinalOutput.amount();
+        drainBufferedFinalOutput(currentJob);
+    }
+
+    private void drainBufferedFinalOutput(ExecutingCraftingJob currentJob) {
+        if (job != currentJob || currentJob.finalOutput == null) {
+            return;
+        }
+        AEKey key = currentJob.finalOutput.what();
+        long buffered = currentJob.bufferedFinalOutput.amount();
         if (buffered <= 0L) {
             return;
         }
-        long deliverable = Math.min(buffered, Math.max(0L, job.remainingAmount));
+        long deliverable = Math.min(buffered, Math.max(0L, currentJob.remainingAmount));
         if (deliverable <= 0L) {
             return;
         }
@@ -217,11 +225,17 @@ public class ECOCraftingCPULogic {
         if (accepted <= 0L) {
             return;
         }
-        job.bufferedFinalOutput.removeDelivered(accepted);
-        job.remainingAmount = Math.max(0L, job.remainingAmount - accepted);
+        if (job != currentJob) {
+            // The target already accepted these items. Never throw back into the Worker after that ownership
+            // transfer, since a retry would duplicate the physical output.
+            LOGGER.error("Crafting job changed after accepting {} buffered final-output items", accepted);
+            return;
+        }
+        currentJob.bufferedFinalOutput.removeDelivered(accepted);
+        currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
         postChange(key);
         cpu.markDirty();
-        if (job.remainingAmount <= 0L && job.bufferedFinalOutput.amount() == 0L) {
+        if (currentJob.remainingAmount <= 0L && currentJob.bufferedFinalOutput.amount() == 0L) {
             finishJob(true);
         }
     }
@@ -276,6 +290,7 @@ public class ECOCraftingCPULogic {
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
                     int batchResult = tryPushVerifiedFastPathBatch(
+                            job,
                             details,
                             execution,
                             craftingContainer,
@@ -286,6 +301,9 @@ public class ECOCraftingCPULogic {
                             maxPatterns - pushedPatterns);
                     if (batchResult > 0) {
                         pushedPatterns += batchResult;
+                        if (this.job != job) {
+                            break taskLoop;
+                        }
                         task.getValue().value -= batchResult;
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
@@ -321,7 +339,10 @@ public class ECOCraftingCPULogic {
 
                         energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
                         pushedPatterns++;
-                        recordPushedPattern(execution, 1);
+                        if (this.job != job) {
+                            break taskLoop;
+                        }
+                        recordPushedPattern(job, execution, 1);
 
                         task.getValue().value--;
                         postPatternOutputsChange(details);
@@ -362,6 +383,7 @@ public class ECOCraftingCPULogic {
     }
 
     private int tryPushVerifiedFastPathBatch(
+            ExecutingCraftingJob job,
             IPatternDetails details,
             ECOExtractedPatternExecution execution,
             KeyCounter[] firstCraftingContainer,
@@ -426,16 +448,8 @@ public class ECOCraftingCPULogic {
         boolean extraInputsExtracted = false;
         boolean ownershipTransferred = false;
         try {
-            if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
-                return 0;
-            }
             double requiredPower = patternPower * batchSize;
-            double simulatedPower = energyService.extractAEPower(
-                requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG
-            );
-            if (!Double.isFinite(requiredPower)
-                || Double.isNaN(simulatedPower)
-                || simulatedPower < requiredPower - 0.01D) {
+            if (!Double.isFinite(requiredPower)) {
                 return 0;
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
@@ -471,7 +485,9 @@ public class ECOCraftingCPULogic {
                 LOGGER.error("ECO batch was accepted, but its crafting energy could not be charged", e);
             }
             try {
-                recordPushedPattern(execution, batchSize);
+                if (this.job == job) {
+                    recordPushedPattern(job, execution, batchSize);
+                }
             } catch (RuntimeException e) {
                 selectedOffer.worker().getFastPathCache().recordException();
                 LOGGER.error("ECO batch was accepted, but its CPU accounting update failed", e);
@@ -526,7 +542,8 @@ public class ECOCraftingCPULogic {
         );
     }
 
-    private void recordPushedPattern(ECOExtractedPatternExecution execution, int craftCount) {
+    private void recordPushedPattern(
+            ExecutingCraftingJob job, ECOExtractedPatternExecution execution, int craftCount) {
         int multiplier = Math.max(1, craftCount);
         for (var expectedOutput : execution.expectedOutputs()) {
             job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount() * multiplier, Actionable.MODULATE);
@@ -576,14 +593,16 @@ public class ECOCraftingCPULogic {
         }
 
         if (what.matches(job.finalOutput)) {
-            long acceptedOwnership = job.bufferedFinalOutput.accept(amount, type);
+            ExecutingCraftingJob currentJob = job;
+            long acceptedOwnership = currentJob.bufferedFinalOutput.accept(amount, type);
             if (type == Actionable.MODULATE && acceptedOwnership > 0L) {
                 // Ownership commits here. Delivery happens separately, so a network callback cannot make the Worker
                 // retry or make this CPU accept the same physical output again.
-                job.timeTracker.decrementItems(acceptedOwnership, what.getType());
-                job.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
+                currentJob.timeTracker.decrementItems(acceptedOwnership, what.getType());
+                currentJob.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
                 postChange(what);
                 cpu.markDirty();
+                drainBufferedFinalOutput(currentJob);
             }
             return acceptedOwnership;
         } else {
