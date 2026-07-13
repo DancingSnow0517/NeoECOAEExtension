@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import appeng.api.config.Actionable;
 import org.junit.jupiter.api.Test;
@@ -32,6 +34,17 @@ class ECOFinalOutputBufferTest {
         buffer.removeDelivered(2L);
         assertEquals(1L, buffer.amount());
         assertThrows(IllegalArgumentException.class, () -> buffer.removeDelivered(2L));
+    }
+
+    @Test
+    void surplusOutputDoesNotKeepSatisfiedJobOpen() {
+        ECOFinalOutputBuffer buffer = new ECOFinalOutputBuffer(2_001L);
+
+        buffer.removeDelivered(2_000L);
+
+        assertEquals(1L, buffer.amount());
+        assertTrue(ECOCraftingCPULogic.isFinalOutputSatisfied(0L));
+        assertFalse(ECOCraftingCPULogic.isFinalOutputSatisfied(1L));
     }
 
     @Test

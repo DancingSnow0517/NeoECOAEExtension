@@ -199,6 +199,10 @@ public class ECOCraftingCPULogic {
         if (job != currentJob || currentJob.finalOutput == null) {
             return;
         }
+        if (isFinalOutputSatisfied(currentJob.remainingAmount)) {
+            finishJob(true);
+            return;
+        }
         AEKey key = currentJob.finalOutput.what();
         long buffered = currentJob.bufferedFinalOutput.amount();
         if (buffered <= 0L) {
@@ -235,9 +239,14 @@ public class ECOCraftingCPULogic {
         currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
         postChange(key);
         cpu.markDirty();
-        if (currentJob.remainingAmount <= 0L && currentJob.bufferedFinalOutput.amount() == 0L) {
+        if (isFinalOutputSatisfied(currentJob.remainingAmount)) {
             finishJob(true);
         }
+    }
+
+    static boolean isFinalOutputSatisfied(long remainingAmount) {
+        // The buffer may still own recipe-rounding surplus. finishJob preserves that surplus and stores it normally.
+        return remainingAmount <= 0L;
     }
 
     private int getOperationLimit() {
