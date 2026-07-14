@@ -33,6 +33,8 @@ import org.jetbrains.annotations.Nullable;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
@@ -85,7 +87,7 @@ public final class StorageHostPanelUI {
     private static final int RIGHT_HUGE_STACK_Y = RIGHT_DETAIL_Y + RIGHT_DETAIL_LINE_HEIGHT * 4 + 1;
     private static final int RIGHT_HUGE_STACK_WIDTH = RIGHT_DETAIL_WIDTH;
     private static final int RIGHT_HUGE_STACK_HEIGHT = RIGHT_INFINITE_COMPONENT_SLOT_Y - RIGHT_HUGE_STACK_Y - 3;
-    private static final int SCROLLBAR_HORIZONTAL_OFFSET = 0;
+    private static final int SCROLLBAR_HORIZONTAL_OFFSET = 2;
     private static final int PROGRESS_ROW_LABEL_WIDTH = 24;
     private static final int PROGRESS_ROW_BAR_WIDTH = 36;
     private static final int INFINITE_TEXT_COLOR = 0xCA6CFF;
@@ -105,7 +107,8 @@ public final class StorageHostPanelUI {
         LongSupplier usedBytes,
         LongSupplier totalBytes,
         Supplier<String> infiniteBytesText,
-        Supplier<String> infiniteBytesTooltipText
+        Supplier<String> infiniteBytesTooltipText,
+        Supplier<String> infiniteBytesExactText
     ) {
     }
 
@@ -207,6 +210,13 @@ public final class StorageHostPanelUI {
                 RIGHT_INSET_HEIGHT
             ));
             view.addChild(HostElements.absolute(
+                new SystemLoadTooltipElement(config),
+                RIGHT_INSET_X,
+                RIGHT_INSET_Y,
+                RIGHT_INSET_WIDTH,
+                RIGHT_INSET_HEIGHT
+            ));
+            view.addChild(HostElements.absolute(
                 StorageHostLoadGauge.bindRatio(
                     () -> {
                         if (config.migratingToInfinite().getAsBoolean()) {
@@ -221,7 +231,8 @@ public final class StorageHostPanelUI {
                         StorageTotals totals = storageTotals(config);
                         return HostText.usageRatio(totals.usedBytes(), totals.totalBytes());
                     },
-                    loadRatio
+                    loadRatio,
+                    config.storageTypes()
                 ),
                 RIGHT_GAUGE_X,
                 RIGHT_GAUGE_Y,
@@ -667,6 +678,92 @@ public final class StorageHostPanelUI {
 
     private static HoverTooltips tooltipOf(Component... components) {
         return new HoverTooltips(List.of(components), null, null, null);
+    }
+
+    private static Component systemLoadBytesTooltip(Config config) {
+        BigInteger total = BigInteger.ZERO;
+        for (StorageTypeLine line : config.storageTypes()) {
+            total = total.add(parseHugeAmount(line.infiniteBytesExactText().get()));
+        }
+        return Component.literal(HostText.preciseHugeAmount(total)).withColor(HostText.USED)
+            .append(Component.literal(" ").withColor(HostText.MUTED))
+            .append(Component.translatable("gui.neoecoae.storage.bytes_used").withColor(HostText.MUTED));
+    }
+
+    private static Component systemLoadTypesTooltip(Config config) {
+        long total = 0L;
+        for (StorageTypeLine line : config.storageTypes()) {
+            total = saturatedAdd(total, line.usedTypes().getAsLong());
+        }
+        return Component.translatable("gui.neoecoae.common.types").withColor(HostText.MUTED)
+            .append(Component.literal(": " + HostText.fullTypeProgress(total, 0L).usedText()).withColor(HostText.MUTED));
+    }
+
+    private static Component systemLoadTypeTooltip(StorageTypeLine line) {
+        long usedTypes = Math.max(0L, line.usedTypes().getAsLong());
+        if (usedTypes == 0L) {
+            return Component.empty();
+        }
+        return line.type().desc().copy()
+            .withColor(HostText.storageTypeAccentColor(line.type(), line.registryIndex()))
+            .append(Component.literal(" ").withColor(HostText.MUTED))
+            .append(Component.translatable("gui.neoecoae.common.types").withColor(HostText.MUTED))
+            .append(Component.literal(": " + HostText.fullTypeProgress(usedTypes, 0L).usedText()).withColor(HostText.MUTED));
+    }
+
+    private static BigInteger parseHugeAmount(String value) {
+        try {
+            return new BigInteger(value == null || value.isBlank() ? "0" : value);
+        } catch (NumberFormatException ignored) {
+            return BigInteger.ZERO;
+        }
+    }
+
+    private static final class SystemLoadTooltipElement extends UIElement {
+        private final List<TooltipValueElement> values = new ArrayList<>();
+
+        private SystemLoadTooltipElement(Config config) {
+            addValue(() -> Component.translatable("gui.neoecoae.storage.system_load").withColor(0x55FFFF));
+            addValue(() -> systemLoadBytesTooltip(config));
+            addValue(() -> systemLoadTypesTooltip(config));
+            for (StorageTypeLine line : config.storageTypes()) {
+                addValue(() -> systemLoadTypeTooltip(line));
+            }
+            addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+                List<Component> lines = values.stream()
+                    .map(TooltipValueElement::getValue)
+                    .filter(value -> !Component.empty().equals(value))
+                    .toList();
+                event.hoverTooltips = new HoverTooltips(lines, null, null, null);
+            });
+        }
+
+        private void addValue(Supplier<Component> supplier) {
+            TooltipValueElement value = new TooltipValueElement(supplier);
+            values.add(value);
+            addChild(value);
+        }
+    }
+
+    private static final class TooltipValueElement extends UIElement implements IBindable<Component> {
+        private Component value;
+
+        private TooltipValueElement(Supplier<Component> supplier) {
+            value = supplier.get();
+            bind(DataBindingBuilder.componentS2C(supplier).build());
+            layout(layout -> layout.width(0).height(0));
+        }
+
+        @Override
+        public IDataSource<Component> setValue(@Nullable Component value) {
+            this.value = value == null ? Component.empty() : value;
+            return this;
+        }
+
+        @Override
+        public Component getValue() {
+            return value;
+        }
     }
 
     private static final class TooltipProgressBarElement extends UIElement implements IBindable<Component> {

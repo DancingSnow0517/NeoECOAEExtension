@@ -36,6 +36,8 @@ public final class HostText {
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
     private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
         ThreadLocal.withInitial(() -> new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.US)));
+    private static final ThreadLocal<DecimalFormat> PRECISE_HUGE_DECIMAL =
+        ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
         ThreadLocal.withInitial(() -> new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.US)));
 
@@ -86,6 +88,35 @@ public final class HostText {
         return new BigDecimal(safe)
             .divide(new BigDecimal(unit), 0, RoundingMode.HALF_UP)
             .toPlainString() + EXPANDED_BYTE_UNITS[unitIndex];
+    }
+
+    /** Matches the 1.20.1 System Load tooltip: retain up to ten integer digits plus two decimals. */
+    public static String preciseHugeAmount(BigInteger value) {
+        BigInteger safe = value == null || value.signum() < 0 ? BigInteger.ZERO : value;
+        if (safe.signum() == 0) {
+            return "0";
+        }
+        int unitIndex = 0;
+        BigInteger unit = BigInteger.ONE;
+        while (unitIndex < EXPANDED_BYTE_UNITS.length - 1
+            && safe.compareTo(unit.multiply(BIG_BYTES_IN_K)) >= 0) {
+            unit = unit.multiply(BIG_BYTES_IN_K);
+            unitIndex++;
+        }
+        while (unitIndex > 0) {
+            BigInteger smallerUnit = unit.divide(BIG_BYTES_IN_K);
+            if (safe.divide(smallerUnit).toString().length() > 10) {
+                break;
+            }
+            unit = smallerUnit;
+            unitIndex--;
+        }
+        if (unitIndex == 0) {
+            return NUMBER_FORMAT.get().format(safe);
+        }
+        BigDecimal scaled = new BigDecimal(safe)
+            .divide(new BigDecimal(unit), 2, RoundingMode.DOWN);
+        return PRECISE_HUGE_DECIMAL.get().format(scaled) + EXPANDED_BYTE_UNITS[unitIndex];
     }
 
     public static String hugeStackAmount(BigInteger value) {

@@ -10,8 +10,10 @@ import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 final class StorageHostLoadGauge extends UIElement implements IBindable<Float> {
@@ -32,17 +34,26 @@ final class StorageHostLoadGauge extends UIElement implements IBindable<Float> {
         .setSprite(GAUGE_MID_U, GAUGE_MID_V, GAUGE_WIDTH, GAUGE_MID_HEIGHT);
     private static final SpriteTexture BOTTOM_CAP = SpriteTexture.of(STORAGE_ELEMENTS)
         .setSprite(GAUGE_BOTTOM_U, GAUGE_BOTTOM_V, GAUGE_WIDTH, GAUGE_CAP_HEIGHT);
+    private static final int INFINITE_GAUGE_COLOR = 0xD8CA6CFF;
 
     private final StorageHostAnimatedRatio animatedRatio;
     private float ratio;
 
-    private StorageHostLoadGauge(Supplier<Float> ratio, StorageHostAnimatedRatio animatedRatio) {
+    private StorageHostLoadGauge(
+        Supplier<Float> ratio,
+        StorageHostAnimatedRatio animatedRatio,
+        List<StorageHostPanelUI.StorageTypeLine> storageTypes
+    ) {
         this.animatedRatio = animatedRatio;
         bind(DataBindingBuilder.floatValS2C(ratio).build());
     }
 
-    static StorageHostLoadGauge bindRatio(Supplier<Float> ratio, StorageHostAnimatedRatio animatedRatio) {
-        return new StorageHostLoadGauge(ratio, animatedRatio);
+    static StorageHostLoadGauge bindRatio(
+        Supplier<Float> ratio,
+        StorageHostAnimatedRatio animatedRatio,
+        List<StorageHostPanelUI.StorageTypeLine> storageTypes
+    ) {
+        return new StorageHostLoadGauge(ratio, animatedRatio, storageTypes);
     }
 
     @Override
@@ -59,7 +70,7 @@ final class StorageHostLoadGauge extends UIElement implements IBindable<Float> {
         int color;
         if (animatedRatio.infinite()) {
             top = getPositionY();
-            color = 0x22CA6CFF;
+            color = INFINITE_GAUGE_COLOR;
         } else {
             float bodyHeight = Math.max(0.0F, height - GAUGE_CAP_HEIGHT);
             float barHeight = Math.round(bodyHeight * clamped);

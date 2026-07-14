@@ -331,7 +331,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         () -> getStorageValue(id, StorageValue.USED_BYTES),
                         () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
                         () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText(),
-                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesTooltipText()
+                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesTooltipText(),
+                        () -> getStorageUiSnapshot().storageTypeTotals(id).displayUsedBytes().toString()
                     );
                 })
                 .toList(),
