@@ -24,14 +24,14 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.compat.ae2.ExtendedAEPlusVirtualCraftingCompat;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.DoubleSupplier;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -791,9 +792,8 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        int requested = (int) Math.min(
-                Math.min(taskRemaining, totalBudgetRemaining),
-                Math.min(effectiveFastPathBatchLimit(null), batchBudgetRemaining));
+        int requested = calculateBatchRequestSize(
+                taskRemaining, Math.min(totalBudgetRemaining, batchBudgetRemaining), effectiveFastPathTickLimit());
         requested = Math.min(requested, maxCraftsNeededForFinalOutput(execution));
         if (requested <= 1) {
             return 0;
@@ -802,10 +802,14 @@ public class ECOCraftingCPULogic {
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             var offer = patternBus.findBatchFastPathOffer(execution, requested);
-            if (offer != null && offer.maxBatchSize() > 1) {
+            if (offer != null
+                    && offer.maxBatchSize() > 1
+                    && (selectedOffer == null || offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
                 selectedPatternBus = patternBus;
                 selectedOffer = offer;
-                break;
+                if (offer.maxBatchSize() >= requested) {
+                    break;
+                }
             }
         }
         if (selectedPatternBus == null || selectedOffer == null) {
@@ -846,13 +850,18 @@ public class ECOCraftingCPULogic {
 
         var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
         boolean extraInputsExtracted = false;
-        boolean batchAccepted = false;
+        boolean ownershipTransferred = false;
         try {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
                 return 0;
             }
-            if (energyService.extractAEPower(patternPower * batchSize, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                    < patternPower * batchSize - 0.01) {
+            double requiredPower = patternPower * batchSize;
+            if (!Double.isFinite(requiredPower)) {
+                return 0;
+            }
+            double simulatedPower = energyService.extractAEPower(
+                    requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+            if (Double.isNaN(simulatedPower) || simulatedPower < requiredPower - 0.01D) {
                 return 0;
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
@@ -869,23 +878,74 @@ public class ECOCraftingCPULogic {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, false, extraInputsExtracted);
                 return 0;
             }
-            batchAccepted = true;
-            energyService.extractAEPower(patternPower * batchSize, Actionable.MODULATE, PowerMultiplier.CONFIG);
-            recordPushedPattern(accounting);
+            ownershipTransferred = true;
+            AcceptedBatchCompletion completion = completeAcceptedBatch(
+                    requiredPower,
+                    () -> energyService.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG),
+                    () -> recordPushedPattern(accounting));
+            if (!completion.energyChargeComplete()) {
+                selectedOffer.worker().getFastPathCache().recordException();
+                if (completion.energyFailure() != null) {
+                    LOGGER.error(
+                            "ECO batch was accepted, but its crafting energy could not be charged",
+                            completion.energyFailure());
+                } else {
+                    LOGGER.error(
+                            "ECO batch was accepted, but only {} of {} crafting energy was charged",
+                            completion.chargedPower(),
+                            requiredPower);
+                }
+            }
+            if (completion.accountingFailure() != null) {
+                selectedOffer.worker().getFastPathCache().recordException();
+                LOGGER.error(
+                        "ECO batch was accepted, but its CPU accounting update failed", completion.accountingFailure());
+            }
             return batchSize;
         } catch (RuntimeException e) {
-            if (batchAccepted) {
-                LOGGER.error(
-                        "ECO batch fast path was accepted but post-accept accounting failed; suspending ECO CPU job",
-                        e);
+            if (ownershipTransferred) {
+                LOGGER.error("ECO batch failed after ownership transfer; accounting it as accepted", e);
                 selectedOffer.worker().getFastPathCache().recordException();
-                job.suspended = true;
-                return -1;
+                return batchSize;
             }
             LOGGER.warn("ECO batch fast path failed, reinjecting inputs and falling back to the slow path", e);
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             selectedOffer.worker().getFastPathCache().recordException();
             return -1;
+        } catch (Error e) {
+            if (!ownershipTransferred) {
+                rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
+            }
+            throw e;
+        }
+    }
+
+    static AcceptedBatchCompletion completeAcceptedBatch(
+            double requiredPower, DoubleSupplier energyCharge, Runnable accountingUpdate) {
+        double chargedPower = Double.NaN;
+        RuntimeException energyFailure = null;
+        try {
+            chargedPower = energyCharge.getAsDouble();
+        } catch (RuntimeException e) {
+            energyFailure = e;
+        }
+
+        RuntimeException accountingFailure = null;
+        try {
+            accountingUpdate.run();
+        } catch (RuntimeException e) {
+            accountingFailure = e;
+        }
+        return new AcceptedBatchCompletion(requiredPower, chargedPower, energyFailure, accountingFailure);
+    }
+
+    record AcceptedBatchCompletion(
+            double requiredPower,
+            double chargedPower,
+            @Nullable RuntimeException energyFailure,
+            @Nullable RuntimeException accountingFailure) {
+        boolean energyChargeComplete() {
+            return energyFailure == null && !Double.isNaN(chargedPower) && chargedPower >= requiredPower - 0.01D;
         }
     }
 
@@ -905,30 +965,16 @@ public class ECOCraftingCPULogic {
     }
 
     private int maxBatchSizeFromEnergy(IEnergyService energyService, double patternPower, int requested) {
-        if (requested <= 0) {
-            return 0;
-        }
-        if (patternPower <= 0.0D) {
-            return requested;
-        }
-        double requestedPower = patternPower * requested;
-        if (energyService.extractAEPower(requestedPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                >= requestedPower - 0.01) {
-            return requested;
-        }
-        int low = 0;
-        int high = requested - 1;
-        while (low < high) {
-            int middle = low + (high - low + 1) / 2;
-            double totalPower = patternPower * middle;
-            if (energyService.extractAEPower(totalPower, Actionable.SIMULATE, PowerMultiplier.CONFIG)
-                    >= totalPower - 0.01) {
-                low = middle;
-            } else {
-                high = middle - 1;
-            }
-        }
-        return low;
+        return ECOBatchCraftingHelper.maxAffordableCrafts(
+                patternPower,
+                requested,
+                power -> energyService.extractAEPower(power, Actionable.SIMULATE, PowerMultiplier.CONFIG));
+    }
+
+    static int calculateBatchRequestSize(long taskRemaining, int tickBudgetRemaining, int tickLimit) {
+        long requested = Math.min(
+                Math.max(0L, taskRemaining), Math.min(Math.max(0, tickBudgetRemaining), Math.max(0, tickLimit)));
+        return (int) Math.min(ECOBatchCraftingHelper.MAX_BATCH_SIZE, requested);
     }
 
     private int effectiveFastPathTickLimit() {
@@ -941,11 +987,10 @@ public class ECOCraftingCPULogic {
     }
 
     private int effectiveFastPathBatchLimit(@Nullable ECOCraftingSystemBlockEntity controller) {
-        if (!NEConfig.isEcoAggressiveFastPathEnabled()) {
-            return NEConfig.getEcoFastPathBatchLimit();
-        }
         int dynamicLimit = controller == null ? aggressiveFastPathCapacity() : controller.getMaxInFlightCrafts();
-        return dynamicLimit > 0 ? dynamicLimit : NEConfig.getEcoFastPathBatchLimit();
+        return dynamicLimit > 0
+                ? Math.min(dynamicLimit, ECOBatchCraftingHelper.MAX_BATCH_SIZE)
+                : ECOBatchCraftingHelper.MAX_BATCH_SIZE;
     }
 
     private int aggressiveFastPathCapacity() {

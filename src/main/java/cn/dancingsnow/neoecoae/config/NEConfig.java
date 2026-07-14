@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import com.google.common.math.LongMath;
 import net.minecraft.util.Mth;
 import net.minecraftforge.common.ForgeConfigSpec;
@@ -78,15 +80,10 @@ public class NEConfig {
                     "Set JVM property -Dneoecoae.ecoCpuPushTickLimit=<value> to override this config.")
             .defineInRange("ecoCpuPushTickLimit", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
 
-    private static final ForgeConfigSpec.IntValue ECO_BATCH_FAST_PATH_LIMIT = BUILDER.comment(
-                    "Maximum crafts merged into a single fast path batch push.",
-                    "Set JVM property -Dneoecoae.ecoBatchFastPathLimit=<value> to override this config.")
-            .defineInRange("ecoBatchFastPathLimit", 64, 1, Integer.MAX_VALUE);
-
     private static final ForgeConfigSpec.IntValue ECO_BATCH_FAST_PATH_TICK_LIMIT = BUILDER.comment(
                     "Maximum fast path batch crafts a CPU may push per tick.",
                     "Set JVM property -Dneoecoae.ecoBatchFastPathTickLimit=<value> to override this config.")
-            .defineInRange("ecoBatchFastPathTickLimit", 256, 1, Integer.MAX_VALUE);
+            .defineInRange("ecoBatchFastPathTickLimit", 256, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE);
 
     private static final ForgeConfigSpec.BooleanValue ENABLE_ECO_AGGRESSIVE_FAST_PATH = BUILDER.comment(
                     "Enable the aggressive ECO fast path.",
@@ -95,26 +92,23 @@ public class NEConfig {
                     "Set JVM property -Dneoecoae.ecoAggressiveFastPath=true to force-enable this optimization without editing the config.")
             .define("ecoAggressiveFastPathEnabled", true);
 
-    private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_LIMIT = BUILDER.comment(
-                    "Fallback maximum crafts merged into a single aggressive fast path batch push.",
-                    "When a controller's dynamic FX capacity is available, that capacity is used instead.",
-                    "Only used when ecoAggressiveFastPathEnabled is true.",
-                    "Set JVM property -Dneoecoae.ecoAggressiveFastPathLimit=<value> to override this config.")
-            .defineInRange("ecoAggressiveFastPathLimit", 4096, 1, Integer.MAX_VALUE);
-
     private static final ForgeConfigSpec.IntValue ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT = BUILDER.comment(
                     "Maximum new aggressive fast path crafts a CPU may schedule per tick.",
                     "This also scales the simulated crafting power cap so batches up to this limit can advance at the controller's full progress rate when enough AE power is available.",
                     "The controller's dynamic FX capacity still caps total in-flight simulated crafts.",
                     "Only used when ecoAggressiveFastPathEnabled is true.",
                     "Set JVM property -Dneoecoae.ecoAggressiveFastPathTickLimit=<value> to override this config.")
-            .defineInRange("ecoAggressiveFastPathTickLimit", 16384, 1, Integer.MAX_VALUE);
+            .defineInRange("ecoAggressiveFastPathTickLimit", 16384, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE);
 
     private static final ForgeConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER.comment(
                     "Maximum recipe entries kept in each ECO fast path cache.",
                     "Set JVM property -Dneoecoae.ecoFastPathCacheSize=<value> to override this config.",
                     "Changes fully apply to newly created caches after re-entering the world or restarting the server.")
-            .defineInRange("ecoFastPathCacheSize", 512, 16, Integer.MAX_VALUE);
+            .defineInRange(
+                    "ecoFastPathCacheSize",
+                    512,
+                    ECOCraftingFastPathCache.MIN_CACHE_SIZE,
+                    ECOCraftingFastPathCache.MAX_CACHE_SIZE);
 
     static {
         BUILDER.pop();
@@ -149,10 +143,8 @@ public class NEConfig {
     public static boolean enableEcoAe2FastPath;
     public static boolean debugEcoFastPath;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
-    public static int ecoBatchFastPathLimit = 64;
     public static int ecoBatchFastPathTickLimit = 256;
     public static boolean enableEcoAggressiveFastPath = true;
-    public static int ecoAggressiveFastPathLimit = 4096;
     public static int ecoAggressiveFastPathTickLimit = 16384;
     public static int ecoFastPathCacheSize = 512;
     public static int craftingPatternBusPages = 2;
@@ -189,18 +181,16 @@ public class NEConfig {
         enableEcoAe2FastPath = ENABLE_ECO_AE2_FAST_PATH.get();
         debugEcoFastPath = getBooleanProperty("neoecoae.debugEcoFastPath", DEBUG_ECO_FAST_PATH.get());
         ecoCpuPushTickLimit = getPositiveIntProperty("neoecoae.ecoCpuPushTickLimit", ECO_CPU_PUSH_TICK_LIMIT.get());
-        ecoBatchFastPathLimit =
-                getPositiveIntProperty("neoecoae.ecoBatchFastPathLimit", ECO_BATCH_FAST_PATH_LIMIT.get());
-        ecoBatchFastPathTickLimit =
-                getPositiveIntProperty("neoecoae.ecoBatchFastPathTickLimit", ECO_BATCH_FAST_PATH_TICK_LIMIT.get());
+        ecoBatchFastPathTickLimit = boundedFastPathValue(
+                getPositiveIntProperty("neoecoae.ecoBatchFastPathTickLimit", ECO_BATCH_FAST_PATH_TICK_LIMIT.get()));
         enableEcoAggressiveFastPath =
                 getBooleanProperty("neoecoae.ecoAggressiveFastPath", ENABLE_ECO_AGGRESSIVE_FAST_PATH.get());
-        ecoAggressiveFastPathLimit =
-                getPositiveIntProperty("neoecoae.ecoAggressiveFastPathLimit", ECO_AGGRESSIVE_FAST_PATH_LIMIT.get());
-        ecoAggressiveFastPathTickLimit = getPositiveIntProperty(
-                "neoecoae.ecoAggressiveFastPathTickLimit", ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT.get());
-        ecoFastPathCacheSize =
-                Math.max(16, getPositiveIntProperty("neoecoae.ecoFastPathCacheSize", ECO_FAST_PATH_CACHE_SIZE.get()));
+        ecoAggressiveFastPathTickLimit = boundedFastPathValue(getPositiveIntProperty(
+                "neoecoae.ecoAggressiveFastPathTickLimit", ECO_AGGRESSIVE_FAST_PATH_TICK_LIMIT.get()));
+        ecoFastPathCacheSize = Mth.clamp(
+                getPositiveIntProperty("neoecoae.ecoFastPathCacheSize", ECO_FAST_PATH_CACHE_SIZE.get()),
+                ECOCraftingFastPathCache.MIN_CACHE_SIZE,
+                ECOCraftingFastPathCache.MAX_CACHE_SIZE);
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         increaseStorageCellCapacity = INCREASE_STORAGE_CELL_CAPACITY.get();
         enableInfiniteStorage = ENABLE_INFINITE_STORAGE.get();
@@ -216,12 +206,12 @@ public class NEConfig {
         return isEcoAe2FastPathEnabled() && enableEcoAggressiveFastPath;
     }
 
-    public static int getEcoFastPathBatchLimit() {
-        return isEcoAggressiveFastPathEnabled() ? ecoAggressiveFastPathLimit : ecoBatchFastPathLimit;
-    }
-
     public static int getEcoFastPathTickLimit() {
         return isEcoAggressiveFastPathEnabled() ? ecoAggressiveFastPathTickLimit : ecoBatchFastPathTickLimit;
+    }
+
+    private static int boundedFastPathValue(int value) {
+        return Mth.clamp(value, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE);
     }
 
     public static boolean isIncreaseStorageCellCapacity() {

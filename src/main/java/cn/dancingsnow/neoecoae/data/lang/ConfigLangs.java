@@ -45,10 +45,6 @@ public class ConfigLangs {
                 "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
                 "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n"
                         + "The effective value is still capped by available co-processors.");
-        provider.add("neoecoae.configuration.ecoBatchFastPathLimit", "Batch Fast Path Limit");
-        provider.add(
-                "neoecoae.configuration.ecoBatchFastPathLimit.tooltip",
-                "Maximum crafts merged into a single fast path batch push.");
         provider.add("neoecoae.configuration.ecoBatchFastPathTickLimit", "Batch Fast Path Tick Limit");
         provider.add(
                 "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip",
@@ -58,10 +54,6 @@ public class ConfigLangs {
                 "neoecoae.configuration.ecoAggressiveFastPathEnabled.tooltip",
                 "Allow much larger ECO Pattern Bus batch pushes while keeping the normal fast path safety checks.\n"
                         + "Default on. Disable if a modpack has recipe compatibility issues.");
-        provider.add("neoecoae.configuration.ecoAggressiveFastPathLimit", "Aggressive Fast Path Fallback Limit");
-        provider.add(
-                "neoecoae.configuration.ecoAggressiveFastPathLimit.tooltip",
-                "Fallback maximum crafts merged into a single fast path batch push when dynamic controller capacity is unavailable.");
         provider.add("neoecoae.configuration.ecoAggressiveFastPathTickLimit", "Aggressive Fast Path Tick Pacing Limit");
         provider.add(
                 "neoecoae.configuration.ecoAggressiveFastPathTickLimit.tooltip",

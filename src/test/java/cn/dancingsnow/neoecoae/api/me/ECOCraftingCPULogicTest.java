@@ -14,12 +14,13 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingCpuHelper;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.config.NEConfig;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
@@ -44,11 +45,12 @@ class ECOCraftingCPULogicTest {
 
     @Test
     void batchBudgetIsIndependentFromSlowOperationBudget() {
-        assertEquals(64, NEConfig.ecoBatchFastPathLimit);
         assertEquals(256, NEConfig.ecoBatchFastPathTickLimit);
-        assertEquals(64, NEConfig.getEcoFastPathBatchLimit());
         assertEquals(256, NEConfig.getEcoFastPathTickLimit());
         assertEquals(256, ECOCraftingCPULogic.totalPatternBudget(64, 256));
+        assertEquals(192, ECOCraftingCPULogic.calculateBatchRequestSize(512L, 192, 256));
+        assertEquals(80, ECOCraftingCPULogic.calculateBatchRequestSize(80L, 192, 256));
+        assertEquals(0, ECOCraftingCPULogic.calculateBatchRequestSize(-1L, 192, 256));
     }
 
     @Test
@@ -56,23 +58,19 @@ class ECOCraftingCPULogicTest {
         boolean previousFastPath = NEConfig.enableEcoAe2FastPath;
         boolean previousPostCraftingEvent = NEConfig.postCraftingEvent;
         boolean previousAggressive = NEConfig.enableEcoAggressiveFastPath;
-        int previousAggressiveLimit = NEConfig.ecoAggressiveFastPathLimit;
         int previousAggressiveTickLimit = NEConfig.ecoAggressiveFastPathTickLimit;
 
         try {
             NEConfig.enableEcoAe2FastPath = true;
             NEConfig.postCraftingEvent = false;
             NEConfig.enableEcoAggressiveFastPath = true;
-            NEConfig.ecoAggressiveFastPathLimit = 4096;
             NEConfig.ecoAggressiveFastPathTickLimit = 4096;
 
-            assertEquals(4096, NEConfig.getEcoFastPathBatchLimit());
             assertEquals(4096, NEConfig.getEcoFastPathTickLimit());
         } finally {
             NEConfig.enableEcoAe2FastPath = previousFastPath;
             NEConfig.postCraftingEvent = previousPostCraftingEvent;
             NEConfig.enableEcoAggressiveFastPath = previousAggressive;
-            NEConfig.ecoAggressiveFastPathLimit = previousAggressiveLimit;
             NEConfig.ecoAggressiveFastPathTickLimit = previousAggressiveTickLimit;
         }
     }
@@ -109,7 +107,6 @@ class ECOCraftingCPULogicTest {
             NEConfig.postCraftingEvent = false;
             NEConfig.enableEcoAggressiveFastPath = true;
 
-            assertEquals(64, NEConfig.getEcoFastPathBatchLimit());
             assertEquals(256, NEConfig.getEcoFastPathTickLimit());
         } finally {
             NEConfig.enableEcoAe2FastPath = previousFastPath;
@@ -137,6 +134,47 @@ class ECOCraftingCPULogicTest {
         assertEquals(0, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100_000, 100_000, 1));
         assertEquals(1, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100_000, 99_999, 4));
         assertEquals(Integer.MAX_VALUE, ECOCraftingCPULogic.maxCraftsForFinalOutputDemand(100, 0, 0));
+    }
+
+    @Test
+    void acceptedBatchStillRunsAccountingWhenEnergyIsUndercharged() {
+        AtomicBoolean accountingCalled = new AtomicBoolean();
+
+        var completion =
+                ECOCraftingCPULogic.completeAcceptedBatch(100.0D, () -> 99.0D, () -> accountingCalled.set(true));
+
+        assertFalse(completion.energyChargeComplete());
+        assertTrue(accountingCalled.get());
+        assertEquals(99.0D, completion.chargedPower());
+    }
+
+    @Test
+    void acceptedBatchContainsEnergyFailureAndContinuesAccounting() {
+        AtomicBoolean accountingCalled = new AtomicBoolean();
+        RuntimeException energyFailure = new IllegalStateException("energy failure");
+
+        var completion = ECOCraftingCPULogic.completeAcceptedBatch(
+                100.0D,
+                () -> {
+                    throw energyFailure;
+                },
+                () -> accountingCalled.set(true));
+
+        assertFalse(completion.energyChargeComplete());
+        assertEquals(energyFailure, completion.energyFailure());
+        assertTrue(accountingCalled.get());
+    }
+
+    @Test
+    void acceptedBatchContainsAccountingFailureWithoutUndoingEnergyCharge() {
+        RuntimeException accountingFailure = new IllegalStateException("accounting failure");
+
+        var completion = ECOCraftingCPULogic.completeAcceptedBatch(100.0D, () -> 100.0D, () -> {
+            throw accountingFailure;
+        });
+
+        assertTrue(completion.energyChargeComplete());
+        assertEquals(accountingFailure, completion.accountingFailure());
     }
 
     @Test
