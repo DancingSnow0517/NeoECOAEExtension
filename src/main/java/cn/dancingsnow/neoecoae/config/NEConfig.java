@@ -121,7 +121,16 @@ public class NEConfig {
     public static int ecoFastPathCacheSize = 512;
 
     @SubscribeEvent
-    public static void onLoad(ModConfigEvent event) {
+    public static void onLoad(ModConfigEvent.Loading event) {
+        applyConfig();
+    }
+
+    @SubscribeEvent
+    public static void onReload(ModConfigEvent.Reloading event) {
+        applyConfig();
+    }
+
+    private static void applyConfig() {
         craftingSystemMaxLength = CRAFTING_SYSTEM_MAX_LENGTH.get();
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
