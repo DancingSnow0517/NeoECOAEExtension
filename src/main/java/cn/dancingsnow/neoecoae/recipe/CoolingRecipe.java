@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.recipe.ingredient.SizedFluidIngredient;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import net.minecraft.core.RegistryAccess;

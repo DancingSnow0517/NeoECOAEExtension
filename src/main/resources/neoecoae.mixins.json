@@ -1,27 +1,27 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "cn.dancingsnow.neoecoae.forge.mixin",
+  "package": "cn.dancingsnow.neoecoae.mixins",
   "refmap": "neoecoae.refmap.json",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "CraftingServiceMixin120",
-    "CraftingCPUMenuMixin120",
-    "CraftingCpuListEntryMixin120",
-    "CraftingStatusMenuMixin120",
-    "IOPortMenuMixin120",
-    "PatternEncodingTermMenuMixin120",
-    "StorageCellsMixin120",
+    "CraftingServiceMixin",
+    "CraftingCPUMenuMixin",
+    "CraftingCpuListEntryMixin",
+    "CraftingStatusMenuMixin",
+    "IOPortMenuMixin",
+    "PatternEncodingTermMenuMixin",
+    "StorageCellsMixin",
     "ae2.AECraftingPatternAccessor",
     "aae.ContainerExIOPortMixin",
     "aae.TileExIOPortMixin"
   ],
   "client": [
-    "CraftingCPUScreenMixin120",
-    "CPUSelectionListMixin120",
-    "EmiScreenBaseAccessor120",
-    "EmiScreenBaseMixin120",
-    "PatternEncodingTermScreenMixin120"
+    "CraftingCPUScreenMixin",
+    "CPUSelectionListMixin",
+    "EmiScreenBaseAccessor",
+    "EmiScreenBaseMixin",
+    "PatternEncodingTermScreenMixin"
   ],
   "server": [],
   "injectors": {

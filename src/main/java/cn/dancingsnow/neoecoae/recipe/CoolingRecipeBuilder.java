@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.recipe;
 
-import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.recipe.ingredient.SizedFluidIngredient;
 import com.google.gson.JsonObject;
 import java.util.Objects;
 import java.util.function.Consumer;

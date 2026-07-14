@@ -438,15 +438,15 @@ tasks.register('verifyReleaseJar') {
                         "Release jar is not reobfuscated. Run reobfJar before distributing: ${jarFile}")
             }
 
-            if (zip.getEntry('cn/dancingsnow/neoecoae/forge/mixin/StorageCellsMixin120.class') == null) {
-                throw new GradleException("Release jar is missing StorageCellsMixin120.class: ${jarFile}")
+            if (zip.getEntry('cn/dancingsnow/neoecoae/mixins/StorageCellsMixin.class') == null) {
+                throw new GradleException("Release jar is missing StorageCellsMixin.class: ${jarFile}")
             }
 
             if (zip.getEntry('cn/dancingsnow/neoecoae/gui/ldlib/support/NEPagedItemTransfer.class') == null) {
                 throw new GradleException("Release jar is missing NEPagedItemTransfer.class: ${jarFile}")
             }
 
-            if (zip.getEntry('cn/dancingsnow/neoecoae/forge/mixin/IOPortBlockEntityMixin120.class') != null) {
+            if (zip.getEntry('cn/dancingsnow/neoecoae/mixins/IOPortBlockEntityMixin.class') != null) {
                 throw new GradleException("Release jar still contains the removed IO port ticking mixin: ${jarFile}")
             }
 

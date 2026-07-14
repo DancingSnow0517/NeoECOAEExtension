@@ -1,9 +1,9 @@
 package cn.dancingsnow.neoecoae.recipe;
 
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
-import cn.dancingsnow.neoecoae.compat.crafting.FluidIngredient;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedFluidIngredient;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.recipe.ingredient.FluidIngredient;
+import cn.dancingsnow.neoecoae.recipe.ingredient.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.recipe.ingredient.SizedIngredient;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;

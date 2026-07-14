@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.inventories.InternalInventory;
-import cn.dancingsnow.neoecoae.compat.crafting.SizedIngredient;
+import cn.dancingsnow.neoecoae.recipe.ingredient.SizedIngredient;
 import java.util.List;
 import org.jetbrains.annotations.Nullable;
 

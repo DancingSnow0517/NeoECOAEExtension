@@ -27,7 +27,6 @@ run-data
 
 repo
 NeoSkills.md
-docs/audit/
 
 src/generated/resources/.cache/
 
@@ -45,4 +44,4 @@ logs/
 .aider*
 src/main/java/cn/dancingsnow/neoecoae.zip
 CHANGELOG.md
-docs/tooltips.md
+docs/

@@ -17,10 +17,11 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOBatchCraftingRequest;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathLimits;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLimits;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
@@ -127,7 +128,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     @Nullable private BatchFastPathOffer findBatchFastPathOffer(
-            cn.dancingsnow.neoecoae.api.me.fastpath.ECOFastPathKey key,
+            ECOFastPathKey key,
             @Nullable ECOExtractedPatternExecution execution,
             int requestedBatchSize) {
         if (cluster == null || requestedBatchSize <= 0) {

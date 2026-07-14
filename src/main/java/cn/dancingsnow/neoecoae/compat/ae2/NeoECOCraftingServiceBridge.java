@@ -17,7 +17,7 @@ import cn.dancingsnow.neoecoae.api.IECOComputationHost;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.compat.advancedae.AdvancedAECraftingCompat;
+import cn.dancingsnow.neoecoae.integration.advancedae.AdvancedAECraftingCompat;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;

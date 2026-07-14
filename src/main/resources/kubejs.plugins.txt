@@ -1,1 +1,1 @@
-cn.dancingsnow.neoecoae.compat.kubejs.NEKubeJSPlugin neoecoae
+cn.dancingsnow.neoecoae.integration.kubejs.NEKubeJSPlugin neoecoae

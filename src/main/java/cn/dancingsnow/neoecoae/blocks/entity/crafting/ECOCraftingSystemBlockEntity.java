@@ -18,7 +18,7 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingCapacity;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;

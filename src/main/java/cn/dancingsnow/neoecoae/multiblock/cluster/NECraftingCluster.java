@@ -1,6 +1,6 @@
 package cn.dancingsnow.neoecoae.multiblock.cluster;
 
-import cn.dancingsnow.neoecoae.api.me.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity;
