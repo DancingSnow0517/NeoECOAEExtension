@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.gui.ldlib.widget;
+package cn.dancingsnow.neoecoae.gui.ldlib.storage;
 
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
@@ -8,10 +8,9 @@ import java.util.List;
 import java.util.Locale;
 import net.minecraft.network.chat.Component;
 
-final class NEStorageMetricsModel {
-    private NEStorageMetricsModel() {}
-
-    static StorageMetrics from(NEStorageUiState state) {
+/** Maps synchronized storage state to presentation-ready metrics. */
+public final class NEStorageMetricsModel {
+    public static StorageMetrics from(NEStorageUiState state) {
         List<NEStorageUiTypeState> types = state.typeStates();
         NEStorageUiTypeState itemState = findTypeState(types, "item");
         NEStorageUiTypeState fluidState = findTypeState(types, "fluid");
@@ -34,22 +33,19 @@ final class NEStorageMetricsModel {
                 continue;
             }
             typeMetrics.add(createTypeMetric(
-                    type.typeId().toString(),
-                    type,
-                    type.displayComponent(),
-                    typeAccentColor(type, typeMetrics.size())));
+                    type.typeId().toString(), type, type.displayComponent(), typeAccentColor(type, typeMetrics.size())));
         }
         return new StorageMetrics(energy, List.copyOf(typeMetrics));
     }
 
-    static List<Metric> columnMetrics(StorageMetrics metrics) {
-        List<Metric> activeMetrics = new ArrayList<>();
+    public static List<Metric> activeMetrics(StorageMetrics metrics) {
+        List<Metric> active = new ArrayList<>();
         for (Metric metric : metrics.types()) {
             if (metric.max() > 0 || metric.totalTypes() > 0) {
-                activeMetrics.add(metric);
+                active.add(metric);
             }
         }
-        return activeMetrics.isEmpty() ? metrics.types() : activeMetrics;
+        return List.copyOf(active);
     }
 
     private static Metric createTypeMetric(
@@ -122,9 +118,9 @@ final class NEStorageMetricsModel {
         return false;
     }
 
-    record StorageMetrics(Metric energy, List<Metric> types) {}
+    public record StorageMetrics(Metric energy, List<Metric> types) {}
 
-    record Metric(
+    public record Metric(
             String key,
             Component label,
             long used,
@@ -133,8 +129,10 @@ final class NEStorageMetricsModel {
             long totalTypes,
             String usedAmount,
             int accentColor) {
-        double percent() {
-            return NELDLibMachineWidget.percent(used, max);
+        public double percent() {
+            return NEStorageUsageModel.percent(used, max);
         }
     }
+
+    private NEStorageMetricsModel() {}
 }

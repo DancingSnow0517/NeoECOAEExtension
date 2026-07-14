@@ -153,7 +153,16 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         for (Map.Entry<AEKey, HugeAmount> entry : hugeStacks.entrySet()) {
             snapshot.add(new HugeStack(entry.getKey(), entry.getValue()));
         }
-        snapshot.sort((left, right) -> right.amount().compareTo(left.amount()));
+        snapshot.sort((left, right) -> {
+            int amountOrder = right.amount().compareTo(left.amount());
+            if (amountOrder != 0) {
+                return amountOrder;
+            }
+            return left.key()
+                    .toTagGeneric()
+                    .toString()
+                    .compareTo(right.key().toTagGeneric().toString());
+        });
         hugeStacksSnapshot = List.copyOf(snapshot);
         hugeStacksSnapshotDirty = false;
         return hugeStacksSnapshot;

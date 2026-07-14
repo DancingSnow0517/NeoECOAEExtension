@@ -1,16 +1,11 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.support;
 
 import appeng.api.config.CpuSelectionMode;
-import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
-import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageHugeStackState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageInterfaceUiState;
-import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
-import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
-import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,133 +14,11 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 
 public final class NELDLibStateCodecs {
-    private static final int MAX_STORAGE_UI_TYPES = 64;
-    private static final int MAX_STORAGE_DRIVES = 384;
-    private static final int MAX_STORAGE_HUGE_STACKS = 128;
     private static final int MAX_CRAFTING_RECIPE_ENTRIES = 64;
     private static final int MAX_WORKER_OUTPUTS = 128;
     private static final int MAX_PARALLEL_CORE_TIERS = 128;
     private static final int MAX_CRAFTING_MODULE_CELLS = 384;
     private static final int MAX_STRUCTURE_TERMINAL_MATERIALS = 512;
-
-    public static void writeStorage(FriendlyByteBuf buf, NEStorageUiState state) {
-        buf.writeBlockPos(state.pos());
-        buf.writeLong(state.storedEnergy());
-        buf.writeLong(state.maxEnergy());
-        buf.writeBoolean(state.formed());
-        buf.writeBoolean(state.infiniteSlotVisible());
-        buf.writeBoolean(state.infiniteMode());
-        buf.writeVarInt(Math.max(0, state.infiniteComponentCount()));
-        buf.writeBoolean(state.canTakeInfiniteComponent());
-        buf.writeBoolean(state.infiniteDomainEmpty());
-        List<NEStorageUiMatrixState> matrices = state.matrixStates();
-        buf.writeVarInt(Math.min(matrices.size(), MAX_STORAGE_DRIVES));
-        int matricesWritten = 0;
-        for (NEStorageUiMatrixState matrix : matrices) {
-            if (matricesWritten++ >= MAX_STORAGE_DRIVES) {
-                break;
-            }
-            buf.writeVarInt(matrix.row());
-            buf.writeVarInt(matrix.column());
-            buf.writeItem(matrix.stack());
-            buf.writeVarInt(matrix.tier());
-            buf.writeLong(matrix.usedTypes());
-            buf.writeLong(matrix.totalTypes());
-            buf.writeLong(matrix.usedBytes());
-            buf.writeLong(matrix.totalBytes());
-            buf.writeBoolean(matrix.infiniteMember());
-        }
-        List<NEStorageUiTypeState> types = state.typeStates();
-        buf.writeVarInt(Math.min(types.size(), MAX_STORAGE_UI_TYPES));
-        int written = 0;
-        for (NEStorageUiTypeState type : types) {
-            if (written++ >= MAX_STORAGE_UI_TYPES) {
-                break;
-            }
-            buf.writeResourceLocation(type.typeId());
-            writeBoundedUtf(buf, type.displayName(), 128);
-            buf.writeLong(type.usedTypes());
-            buf.writeLong(type.totalTypes());
-            buf.writeLong(type.usedBytes());
-            buf.writeLong(type.totalBytes());
-            writeHugeDisplayAmount(buf, type.safeUsedAmount());
-        }
-        List<NEStorageHugeStackState> hugeStacks = state.hugeStacks();
-        buf.writeVarInt(Math.min(hugeStacks.size(), MAX_STORAGE_HUGE_STACKS));
-        int hugeWritten = 0;
-        for (NEStorageHugeStackState hugeStack : hugeStacks) {
-            if (hugeWritten++ >= MAX_STORAGE_HUGE_STACKS) {
-                break;
-            }
-            AEKey.writeKey(buf, hugeStack.key());
-            writeHugeDisplayAmount(buf, hugeStack.amount());
-        }
-    }
-
-    public static NEStorageUiState readStorage(FriendlyByteBuf buf) {
-        BlockPos pos = buf.readBlockPos();
-        long storedEnergy = buf.readLong();
-        long maxEnergy = buf.readLong();
-        boolean formed = buf.readBoolean();
-        boolean infiniteSlotVisible = buf.readBoolean();
-        boolean infiniteMode = buf.readBoolean();
-        int infiniteComponentCount = buf.readVarInt();
-        boolean canTakeInfiniteComponent = buf.readBoolean();
-        boolean infiniteDomainEmpty = buf.readBoolean();
-        int matrixCount = buf.readVarInt();
-        if (matrixCount > MAX_STORAGE_DRIVES) {
-            throw new IllegalArgumentException("Storage drive count exceeds protocol limit: " + matrixCount);
-        }
-        List<NEStorageUiMatrixState> matrices = new ArrayList<>(matrixCount);
-        for (int i = 0; i < matrixCount; i++) {
-            matrices.add(new NEStorageUiMatrixState(
-                    buf.readVarInt(),
-                    buf.readVarInt(),
-                    buf.readItem(),
-                    buf.readVarInt(),
-                    buf.readLong(),
-                    buf.readLong(),
-                    buf.readLong(),
-                    buf.readLong(),
-                    buf.readBoolean()));
-        }
-        int typeCount = buf.readVarInt();
-        if (typeCount > MAX_STORAGE_UI_TYPES) {
-            throw new IllegalArgumentException("Storage UI type count exceeds protocol limit: " + typeCount);
-        }
-        List<NEStorageUiTypeState> types = new ArrayList<>(typeCount);
-        for (int i = 0; i < typeCount; i++) {
-            types.add(new NEStorageUiTypeState(
-                    buf.readResourceLocation(),
-                    buf.readUtf(128),
-                    buf.readLong(),
-                    buf.readLong(),
-                    buf.readLong(),
-                    buf.readLong(),
-                    buf.readUtf(128)));
-        }
-        int hugeStackCount = buf.readVarInt();
-        if (hugeStackCount > MAX_STORAGE_HUGE_STACKS) {
-            throw new IllegalArgumentException("Storage huge stack count exceeds protocol limit: " + hugeStackCount);
-        }
-        List<NEStorageHugeStackState> hugeStacks = new ArrayList<>(hugeStackCount);
-        for (int i = 0; i < hugeStackCount; i++) {
-            hugeStacks.add(new NEStorageHugeStackState(AEKey.readKey(buf), buf.readUtf(128)));
-        }
-        return new NEStorageUiState(
-                pos,
-                types,
-                matrices,
-                hugeStacks,
-                storedEnergy,
-                maxEnergy,
-                formed,
-                infiniteSlotVisible,
-                infiniteMode,
-                infiniteComponentCount,
-                canTakeInfiniteComponent,
-                infiniteDomainEmpty);
-    }
 
     public static void writeStorageInterface(FriendlyByteBuf buf, NEStorageInterfaceUiState state) {
         buf.writeBlockPos(state.pos());
@@ -555,10 +428,6 @@ public final class NELDLibStateCodecs {
             throw new IllegalArgumentException(fieldName + " outside protocol limit: " + value);
         }
         return value;
-    }
-
-    private static void writeHugeDisplayAmount(FriendlyByteBuf buf, String amount) {
-        writeBoundedUtf(buf, NELDLibText.compactHugeAmountForSync(amount), 128);
     }
 
     private static void writeBoundedUtf(FriendlyByteBuf buf, String value, int maxLength) {

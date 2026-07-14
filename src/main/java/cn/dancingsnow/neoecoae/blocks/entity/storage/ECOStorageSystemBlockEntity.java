@@ -16,6 +16,7 @@ import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
 import appeng.helpers.IPriorityHost;
+import appeng.hooks.ticking.TickHandler;
 import appeng.menu.ISubMenu;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
@@ -32,6 +33,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageHugeStackState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiMatrixState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiTypeState;
+import cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStoragePaging;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
@@ -82,6 +84,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int INFINITE_MEMBER_REQUIRED = 16;
     private static final long INFINITE_FLUSH_BUDGET_NANOS = 1_000_000L;
+    private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
     private final IECOTier tier;
@@ -137,6 +140,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private long storedEnergy;
     private long maxEnergy;
+    private long performanceAverageNanos;
+    private long performanceWindowStartTick = Long.MIN_VALUE;
+    private long performanceWindowNanos;
 
     public ECOStorageSystemBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
         super(type, pos, blockState);
@@ -194,15 +200,39 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        updateInfiniteStorageMode();
-        flushInfiniteEngineBudgeted();
-        long transferred = transferStorageInterfaceContents();
-        ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
-        if (storageInterface != null) {
-            storageInterface.recordStorageInterfaceExport(transferred);
+        long startNanos = System.nanoTime();
+        try {
+            updateInfiniteStorageMode();
+            flushInfiniteEngineBudgeted();
+            long transferred = transferStorageInterfaceContents();
+            ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+            if (storageInterface != null) {
+                storageInterface.recordStorageInterfaceExport(transferred);
+            }
+            updateInfos();
+            return TickRateModulation.URGENT;
+        } finally {
+            recordPerformanceSample(System.nanoTime() - startNanos);
         }
-        updateInfos();
-        return TickRateModulation.URGENT;
+    }
+
+    void recordPerformanceSample(long elapsedNanos) {
+        if (elapsedNanos < 0L || level != null && level.isClientSide) {
+            return;
+        }
+        long currentTick = TickHandler.instance().getCurrentTick();
+        if (performanceWindowStartTick == Long.MIN_VALUE || currentTick < performanceWindowStartTick) {
+            performanceWindowStartTick = currentTick;
+            performanceWindowNanos = 0L;
+        }
+        performanceWindowNanos = LongMath.saturatedAdd(performanceWindowNanos, elapsedNanos);
+        long elapsedTicks = currentTick - performanceWindowStartTick;
+        if (elapsedTicks < PERFORMANCE_SAMPLE_WINDOW_TICKS) {
+            return;
+        }
+        performanceAverageNanos = performanceWindowNanos / Math.max(1L, elapsedTicks);
+        performanceWindowStartTick = currentTick;
+        performanceWindowNanos = 0L;
     }
 
     @Override
@@ -639,9 +669,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         && !stack.isEmpty()
                         && (domainId == null || ECOInfiniteStorageMember.isMemberOf(stack, domainId))) {
                     ECOInfiniteStorageMember.clearMember(stack);
-                    drive.invalidateCellInventoryForHostChange();
-                    drive.requestStorageProviderUpdate();
-                    drive.scheduleRenderUpdate();
                 }
             }
         }
@@ -650,7 +677,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             ECOInfiniteStorageDomains.close(serverLevel, domainId);
         }
         infiniteDomainId = null;
-        requestProviderUpdates();
+        refreshNormalDriveMountsAfterInfiniteExit();
+    }
+
+    private void refreshNormalDriveMountsAfterInfiniteExit() {
+        if (cluster != null) {
+            for (ECODriveBlockEntity drive : cluster.getDrives()) {
+                // Some members are converted before the domain becomes empty. Refresh every drive only after
+                // hostMode is normal again so AE2 sees a fresh normal-cell inventory during the provider rebuild.
+                drive.invalidateCellInventoryForHostChange();
+                IStorageProvider.requestUpdate(drive.getMainNode());
+                drive.scheduleRenderUpdate();
+            }
+        }
         IStorageProvider.requestUpdate(getMainNode());
     }
 
@@ -688,6 +727,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
      * </p>
      */
     public NEStorageUiState createStorageUiState() {
+        return createStorageUiState(0);
+    }
+
+    public NEStorageUiState createStorageUiState(int requestedHugeStackPage) {
         if (level != null && !level.isClientSide) {
             ensureStorageStatsCurrent();
         }
@@ -765,30 +808,44 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
 
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        NEStoragePaging.Page<NEStorageHugeStackState> hugeStackPage = createHugeStackPage(
+                hostMode == ECOStorageHostMode.FORMED_INFINITE ? engine : null, requestedHugeStackPage);
         return new NEStorageUiState(
                 worldPosition,
                 typeStates,
                 matrixStates,
-                createHugeStackStates(engine),
+                hugeStackPage.entries(),
+                hugeStackPage.pageIndex(),
+                hugeStackPage.pageCount(),
+                hugeStackPage.totalCount(),
                 storedEnergy,
                 maxEnergy,
+                performanceAverageNanos,
                 formed,
                 isInfiniteSlotVisible(),
                 isInfiniteMode(),
+                hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE,
+                getInfiniteMigrationProgressPercent(),
                 infiniteComponentHandler.getStackInSlot(0).getCount(),
                 canTakeInfiniteStorageComponent(),
                 engine == null || engine.isEmpty());
     }
 
-    private static List<NEStorageHugeStackState> createHugeStackStates(@Nullable ECOInfiniteStorageEngine engine) {
+    private static NEStoragePaging.Page<NEStorageHugeStackState> createHugeStackPage(
+            @Nullable ECOInfiniteStorageEngine engine, int requestedPage) {
         if (engine == null) {
-            return List.of();
+            return NEStoragePaging.page(List.of(), requestedPage);
         }
-        List<NEStorageHugeStackState> stacks = new ArrayList<>();
-        for (ECOInfiniteStorageEngine.HugeStack stack : engine.getHugeStacks()) {
+        List<ECOInfiniteStorageEngine.HugeStack> source = List.copyOf(engine.getHugeStacks());
+        NEStoragePaging.Page<ECOInfiniteStorageEngine.HugeStack> sourcePage =
+                NEStoragePaging.page(source, requestedPage);
+        List<NEStorageHugeStackState> stacks =
+                new ArrayList<>(sourcePage.entries().size());
+        for (ECOInfiniteStorageEngine.HugeStack stack : sourcePage.entries()) {
             stacks.add(new NEStorageHugeStackState(stack.key(), stack.amount().toString()));
         }
-        return List.copyOf(stacks);
+        return new NEStoragePaging.Page<>(
+                List.copyOf(stacks), sourcePage.pageIndex(), sourcePage.pageCount(), sourcePage.totalCount());
     }
 
     private static void mergeInfiniteDomainTypeStates(
@@ -902,9 +959,28 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public void tick(Level level, BlockPos pos, BlockState state) {
-        tickBuild(level);
-        updateInfiniteStorageMode();
-        flushInfiniteEngineBudgeted();
+        long startNanos = System.nanoTime();
+        try {
+            tickBuild(level);
+            updateInfiniteStorageMode();
+            flushInfiniteEngineBudgeted();
+        } finally {
+            recordPerformanceSample(System.nanoTime() - startNanos);
+        }
+    }
+
+    int getInfiniteMigrationProgressPercent() {
+        if (!hostMode.isInfiniteState()) {
+            return 0;
+        }
+        return migrationProgressPercent(countInfiniteMembers(), INFINITE_MEMBER_REQUIRED);
+    }
+
+    static int migrationProgressPercent(int migratedMembers, int requiredMembers) {
+        if (requiredMembers <= 0) {
+            return 0;
+        }
+        return Math.max(0, Math.min(100, Math.round(migratedMembers * 100.0F / requiredMembers)));
     }
 
     public long getStoredEnergy() {
