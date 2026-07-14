@@ -66,6 +66,11 @@ public final class NELDLibStateCodecs {
             buf.writeVarLong(Math.max(0L, entry.totalTicks()));
             buf.writeVarLong(Math.max(0L, entry.remainingTicks()));
             buf.writeEnum(entry.status());
+            buf.writeUtf(NELDLibText.bounded(entry.taskHostName(), 128), 128);
+            buf.writeVarLong(Math.max(0L, entry.taskStorage()));
+            buf.writeVarInt(Math.max(0, entry.taskCoProcessors()));
+            buf.writeVarLong(Math.max(0L, entry.requestedAmount()));
+            buf.writeVarLong(Math.max(0L, entry.elapsedNanos()));
         }
     }
 
@@ -93,7 +98,12 @@ public final class NELDLibStateCodecs {
                     buf.readVarLong(),
                     buf.readVarLong(),
                     buf.readVarLong(),
-                    buf.readEnum(NECraftingRecipeUiEntry.Status.class)));
+                    buf.readEnum(NECraftingRecipeUiEntry.Status.class),
+                    buf.readUtf(128),
+                    buf.readVarLong(),
+                    buf.readVarInt(),
+                    buf.readVarLong(),
+                    buf.readVarLong()));
         }
         return new NEComputationUiState(
                 pos,
@@ -140,6 +150,7 @@ public final class NELDLibStateCodecs {
         buf.writeVarInt(state.maxRecipeSlots());
         buf.writeVarInt(state.occupiedRecipeSlots());
         buf.writeVarInt(state.batchParallel());
+        buf.writeVarInt(Math.max(0, state.overflowThreads()));
         buf.writeVarLong(Math.max(0L, state.performanceAverageNanos()));
 
         List<NECraftingRecipeUiEntry> recipes = state.recipeEntries();
@@ -223,6 +234,7 @@ public final class NELDLibStateCodecs {
         int maxRecipeSlots = buf.readVarInt();
         int occupiedRecipeSlots = buf.readVarInt();
         int batchParallel = buf.readVarInt();
+        int overflowThreads = buf.readVarInt();
         long performanceAverageNanos = buf.readVarLong();
 
         int recipeCount = buf.readVarInt();
@@ -303,6 +315,7 @@ public final class NELDLibStateCodecs {
                 maxRecipeSlots,
                 occupiedRecipeSlots,
                 batchParallel,
+                overflowThreads,
                 performanceAverageNanos,
                 recipes,
                 outputs,

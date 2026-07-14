@@ -3,9 +3,12 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostTaskListRenderer;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostTextures;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTaskCards;
@@ -42,13 +45,14 @@ import net.minecraftforge.registries.ForgeRegistries;
 public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraftingUiState> {
     // UI 尺寸与布局常量
     public static final int UI_WIDTH = 304;
-    public static final int UI_HEIGHT = 192;
+    public static final int UI_HEIGHT = 196;
     private static final float TEXT_SCALE = 0.8F;
-    private static final long ENERGY_GAUGE_REFERENCE = 1_000_000_000L;
+    private static final long ENERGY_GAUGE_REFERENCE = 1_000_000L;
     private static final int HEADER_STATUS_LABEL_COLOR = 0xFF5D5D5D;
     private static final int HEADER_STATUS_SUCCESS_COLOR = 0xFF00A850;
     private static final int HEADER_STATUS_ERROR_COLOR = 0xFFC03434;
     private static final int HEADER_STATUS_MUTED_COLOR = 0xFF606060;
+    private static final int OVERFLOW_VALUE_COLOR = 0xFF000000;
     private static final ThreadLocal<DecimalFormat> PERFORMANCE_MS_FORMAT =
             ThreadLocal.withInitial(() -> new DecimalFormat("0.###", DecimalFormatSymbols.getInstance(Locale.US)));
 
@@ -67,12 +71,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     // 主面板 / 工具栏布局常量
     private static final int PANEL_MARGIN = 6;
     private static final int MAIN_PANEL_X = PANEL_MARGIN;
-    private static final int MAIN_PANEL_Y = 20;
+    private static final int MAIN_PANEL_Y = 27;
     private static final int MAIN_PANEL_W = UI_WIDTH - PANEL_MARGIN * 2;
-    private static final int MAIN_PANEL_H = 83;
-    private static final int TOOLBAR_BUTTON_SIZE = 14;
-    private static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 3;
-    private static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 3 - 3 * 2;
+    private static final int MAIN_PANEL_H = 70;
+    private static final int TOOLBAR_BUTTON_SIZE = 16;
+    private static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 4;
+    private static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 3 - 4 * 2;
     private static final int TOOLBAR_Y = 4;
 
     // 模块预览区域布局常量
@@ -86,39 +90,41 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private static final int MODULE_GRID_H = MODULE_AREA_H - 18;
 
     // 状态 / 统计 / 仪表盘区域布局常量
-    private static final int MIDDLE_AREA_Y = MAIN_PANEL_Y + 6;
-    private static final int STATUS_AREA_X = MODULE_AREA_X;
-    private static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATUS_AREA_W = 76;
-    private static final int STATUS_AREA_H = 70;
+    private static final int MIDDLE_AREA_Y = MAIN_PANEL_Y;
+    static final int STATUS_AREA_X = PANEL_MARGIN;
+    static final int STATUS_AREA_Y = MIDDLE_AREA_Y;
+    static final int STATUS_AREA_W = 76;
+    static final int STATUS_AREA_H = MAIN_PANEL_H;
     private static final int STATUS_ROW_X = STATUS_AREA_X + 8;
     private static final int STATUS_TEXT_GAP = 16;
     private static final int STATUS_VALUE_RIGHT_PAD = 6;
-    private static final int STATS_AREA_X = STATUS_AREA_X + STATUS_AREA_W + 6;
-    private static final int STATS_AREA_Y = MIDDLE_AREA_Y;
-    private static final int STATS_AREA_W = 126;
-    private static final int STATS_AREA_H = 70;
-    private static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + 6;
-    private static final int GAUGE_AREA_Y = MIDDLE_AREA_Y;
-    private static final int GAUGE_AREA_W = MODULE_AREA_X + MODULE_AREA_W - GAUGE_AREA_X;
-    private static final int GAUGE_AREA_H = 70;
-    private static final int GAUGE_BAR_Y = GAUGE_AREA_Y + 19;
+    static final int STATS_AREA_X = STATUS_AREA_X + STATUS_AREA_W + 6;
+    static final int STATS_AREA_Y = MIDDLE_AREA_Y;
+    static final int STATS_AREA_W = 114;
+    static final int STATS_AREA_H = MAIN_PANEL_H;
+    static final int GAUGE_AREA_X = STATS_AREA_X + STATS_AREA_W + 6;
+    static final int GAUGE_AREA_Y = MIDDLE_AREA_Y;
+    static final int GAUGE_AREA_W = UI_WIDTH - PANEL_MARGIN - GAUGE_AREA_X;
+    static final int GAUGE_AREA_H = MAIN_PANEL_H;
+    static final int GAUGE_BAR_Y = GAUGE_AREA_Y + 26;
     private static final int GAUGE_BAR_H = 32;
-    private static final int GAUGE_BAR_W = 23;
+    static final int ENERGY_GAUGE_W = 20;
+    static final int COOLANT_GAUGE_W = 23;
+    static final int GAUGE_GAP = 14;
 
     // 玩家背包格子布局常量
     private static final int SLOT_SIZE = 18;
-    private static final int PLAYER_INV_X = MODULE_AREA_X;
-    private static final int PLAYER_INV_LABEL_Y = MAIN_PANEL_Y + MAIN_PANEL_H - 2;
-    private static final int PLAYER_INV_Y = PLAYER_INV_LABEL_Y + 10;
+    static final int PLAYER_INV_X = PANEL_MARGIN;
+    static final int PLAYER_INV_LABEL_Y = 102;
+    private static final int PLAYER_INV_Y = PLAYER_INV_LABEL_Y + 11;
     private static final int PLAYER_HOTBAR_Y = PLAYER_INV_Y + SLOT_SIZE * 3 + 2;
 
     // 任务面板布局常量
     private static final int TASK_PANEL_GAP = 8;
-    private static final int TASK_PANEL_X = PLAYER_INV_X + SLOT_SIZE * 9 + TASK_PANEL_GAP;
-    private static final int TASK_PANEL_Y = PLAYER_INV_LABEL_Y - 2;
-    private static final int TASK_PANEL_W = UI_WIDTH - TASK_PANEL_X - PANEL_MARGIN;
-    private static final int TASK_PANEL_H = PLAYER_HOTBAR_Y + SLOT_SIZE - TASK_PANEL_Y;
+    static final int TASK_PANEL_X = PLAYER_INV_X + SLOT_SIZE * 9 + TASK_PANEL_GAP;
+    static final int TASK_PANEL_Y = PLAYER_INV_LABEL_Y;
+    static final int TASK_PANEL_W = 122;
+    static final int TASK_PANEL_H = 88;
     private static final int TASK_CARD_X = TASK_PANEL_X + 8;
     private static final int TASK_CARD_Y = TASK_PANEL_Y + 19;
     private static final int TASK_CARD_W = TASK_PANEL_W - 16;
@@ -192,12 +198,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         NECraftingUiState state = currentState();
         updateToolbarIcons(state);
 
-        NELDLibClientStyle.drawDarkInsetRect(
-                graphics, ox + STATUS_AREA_X, oy + STATUS_AREA_Y, STATUS_AREA_W, STATUS_AREA_H);
-        NELDLibClientStyle.drawDarkInsetRect(
-                graphics, ox + STATS_AREA_X, oy + STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H);
-        NELDLibClientStyle.drawDarkInsetRect(
-                graphics, ox + GAUGE_AREA_X, oy + GAUGE_AREA_Y, GAUGE_AREA_W, GAUGE_AREA_H);
+        NEHostTextures.drawPanel(
+                graphics, ox + STATUS_AREA_X, oy + STATUS_AREA_Y, STATUS_AREA_W, STATUS_AREA_H, mouseX, mouseY);
+        NEHostTextures.drawPanel(
+                graphics, ox + STATS_AREA_X, oy + STATS_AREA_Y, STATS_AREA_W, STATS_AREA_H, mouseX, mouseY);
+        NEHostTextures.drawPanel(
+                graphics, ox + GAUGE_AREA_X, oy + GAUGE_AREA_Y, GAUGE_AREA_W, GAUGE_AREA_H, mouseX, mouseY);
         drawThreadUsageBar(
                 graphics,
                 absX(STATS_AREA_X + 8),
@@ -208,8 +214,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 state.maxRecipeSlots());
         drawGaugeArea(graphics, state);
         drawPlayerInventorySlots(graphics);
-        NELDLibClientStyle.drawDarkInsetRect(
-                graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H);
+        NEHostTextures.drawPanel(
+                graphics, ox + TASK_PANEL_X, oy + TASK_PANEL_Y, TASK_PANEL_W, TASK_PANEL_H, mouseX, mouseY);
     }
 
     // 绘制前景层（标题 + 状态 / 统计 / 模块 / 仪表盘 / 任务面板）
@@ -516,37 +522,24 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 x,
                 y);
         y += 11;
-        drawInlineValueLine(
-                g,
-                Component.translatable("gui.neoecoae.crafting.patterns_short").getString() + ": ",
-                state.patternBusCount(),
-                x,
-                y);
-        drawInlineValueLine(
-                g,
-                Component.translatable("gui.neoecoae.crafting.ft_cores_short").getString() + ": ",
-                state.parallelCount(),
-                x + 64,
-                y);
+        drawOverflowLine(g, state, x, y);
     }
 
     // 绘制仪表盘（能量 / 冷却液柱状图）
     private void drawGaugeArea(GuiGraphics g, NECraftingUiState state) {
         int gaugeY = GAUGE_BAR_Y;
         int gaugeH = GAUGE_BAR_H;
-        int gaugeW = GAUGE_BAR_W;
-        int energyX = GAUGE_AREA_X + 8;
-        int coolantX = GAUGE_AREA_X + GAUGE_AREA_W - 8 - gaugeW;
+        int energyX = energyGaugeX();
+        int coolantX = coolantGaugeX();
         double energyRatio = clampRatio(state.energyUsage(), ENERGY_GAUGE_REFERENCE);
         double coolantRatio = clampRatio(state.coolantAmount(), state.coolantCapacity());
 
         drawVerticalReserveGauge(
-                g, absX(energyX), absY(gaugeY), gaugeW, gaugeH, energyGaugeColor(energyRatio), energyRatio);
-        drawVerticalReserveGauge(
-                g, absX(coolantX), absY(gaugeY), gaugeW, gaugeH, NELDLibStyle.DARK_TEXT_BLUE, coolantRatio);
+                g, absX(energyX), absY(gaugeY), ENERGY_GAUGE_W, gaugeH, energyGaugeColor(energyRatio), energyRatio);
+        drawCoolantGauge(g, absX(coolantX), absY(gaugeY), COOLANT_GAUGE_W, gaugeH, state, coolantRatio);
     }
 
-    // 绘制仪表盘标签（能量 / 冷却液文字）
+    // 绘制仪表盘标题
     private void drawGaugeLabels(GuiGraphics g) {
         drawScaledFittedString(
                 g,
@@ -555,24 +548,15 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 absY(GAUGE_AREA_Y + 5),
                 GAUGE_AREA_W - 16,
                 NELDLibStyle.DARK_TEXT_PRIMARY);
-        int gaugeY = GAUGE_BAR_Y;
-        int gaugeH = GAUGE_BAR_H;
-        int labelY = absY(gaugeY + gaugeH + 1);
-        int columnW = (GAUGE_AREA_W - 16) / 2;
-        drawScaledCenteredFitted(
-                g,
-                Component.translatable("gui.neoecoae.crafting.energy_short"),
-                absX(GAUGE_AREA_X + 6),
-                labelY,
-                columnW,
-                NELDLibStyle.DARK_TEXT_MUTED);
-        drawScaledCenteredFitted(
-                g,
-                Component.translatable("gui.neoecoae.crafting.cooling_short"),
-                absX(GAUGE_AREA_X + GAUGE_AREA_W - 6 - columnW),
-                labelY,
-                columnW,
-                NELDLibStyle.DARK_TEXT_MUTED);
+    }
+
+    static int energyGaugeX() {
+        int groupWidth = ENERGY_GAUGE_W + GAUGE_GAP + COOLANT_GAUGE_W;
+        return GAUGE_AREA_X + (GAUGE_AREA_W - groupWidth) / 2;
+    }
+
+    static int coolantGaugeX() {
+        return energyGaugeX() + ENERGY_GAUGE_W + GAUGE_GAP;
     }
 
     private void updateToolbarIcons(NECraftingUiState state) {
@@ -733,7 +717,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             return;
         }
         float alpha = Mth.clamp(card.alpha, 0.0F, 1.0F);
-        NELDLibTaskListPanel.drawCard(
+        NEHostTaskListRenderer.drawCard(
                 g,
                 font(),
                 card.entry,
@@ -741,13 +725,27 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 absY(y),
                 TASK_CARD_W,
                 TASK_CARD_H,
-                new NELDLibTaskListPanel.CardStyle(
-                        1, 0, 20, 4, 4, 5, 20, TASK_CARD_H - 4, 25, 2, 28, TEXT_SCALE, alpha, 0.22F));
+                new NEHostTaskListRenderer.CardStyle(
+                        3,
+                        0,
+                        20,
+                        3,
+                        3,
+                        4,
+                        20,
+                        TASK_CARD_H - 4,
+                        25,
+                        2,
+                        28,
+                        TEXT_SCALE,
+                        alpha,
+                        0.22F,
+                        NEHostTaskListRenderer.CardVariant.CRAFTING));
     }
 
     // 绘制任务面板滚动条
     private void drawTaskScrollbar(GuiGraphics g, int total, int visible) {
-        NELDLibTaskListPanel.drawScrollbar(
+        NEHostTaskListRenderer.drawScrollbar(
                 g,
                 absX(TASK_PANEL_X + TASK_PANEL_W - 5),
                 absY(TASK_CARD_Y),
@@ -772,7 +770,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             }
             NECraftingRecipeUiEntry entry = card.entry;
             List<Component> lines =
-                    NELDLibTaskListPanel.tooltipLines(entry, true, false, NECraftingControllerWidget::formatTaskTime);
+                    NEHostTaskListRenderer.tooltipLines(entry, true, false, NECraftingControllerWidget::formatTaskTime);
             g.renderTooltip(font(), lines, entry.output().getTooltipImage(), entry.output(), mouseX, mouseY);
             return true;
         }
@@ -781,35 +779,59 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     // 计算任务面板可见卡片数量
     private int visibleTaskCardCount() {
-        return NELDLibTaskListPanel.visibleCardCount(TASK_CARD_Y, TASK_LIST_BOTTOM_Y, TASK_CARD_H, TASK_CARD_STRIDE);
+        return NEHostTaskListRenderer.visibleCardCount(TASK_CARD_Y, TASK_LIST_BOTTOM_Y, TASK_CARD_H, TASK_CARD_STRIDE);
     }
 
     // 限制滚动偏移量不超出范围
     private int clampTaskScrollOffset(int value, int total) {
-        return NELDLibTaskListPanel.clampScrollOffset(
+        return NEHostTaskListRenderer.clampScrollOffset(
                 value, total, TASK_CARD_Y, TASK_LIST_BOTTOM_Y, TASK_CARD_H, TASK_CARD_STRIDE);
     }
 
     // 绘制垂直柱状仪表盘（能量 / 冷却液）
     private void drawVerticalReserveGauge(
             GuiGraphics g, int x, int y, int w, int h, int accentColor, double fillRatio) {
-        NELDLibClientStyle.drawDarkInsetRect(g, x, y, w, h);
-        int ix = x + 7;
-        int iy = y + 7;
-        int iw = w - 14;
-        int ih = h - 14;
+        NEHostTextures.drawPanel(g, x, y, w, h, 0, 0);
+        int ix = x + 4;
+        int iy = y + 4;
+        int iw = w - 8;
+        int ih = h - 8;
+        g.fill(x + 3, y + 3, x + w - 3, y + h - 3, 0xFF17141E);
         int fillH = (int) Math.round(ih * Math.max(0.0D, Math.min(1.0D, fillRatio)));
         int fillY = iy + ih - fillH;
-        g.fill(ix, iy, ix + iw, iy + ih, 0xAA17141E);
+        g.fill(ix, iy, ix + iw, iy + ih, 0xFF201E27);
         if (fillH > 0) {
             g.fill(ix, fillY, ix + iw, iy + ih, accentColor);
             g.fill(ix, fillY, ix + iw, Math.min(fillY + 2, iy + ih), 0x70FFFFFF);
         }
     }
 
+    private void drawCoolantGauge(
+            GuiGraphics g, int x, int y, int w, int h, NECraftingUiState state, double fillRatio) {
+        NEHostTextures.drawPanel(g, x, y, w, h, 0, 0);
+        int ix = x + 4;
+        int iy = y + 4;
+        int iw = w - 8;
+        int ih = h - 8;
+        g.fill(x + 3, y + 3, x + w - 3, y + h - 3, 0xFF17141E);
+        g.fill(ix, iy, ix + iw, iy + ih, 0xFF201E27);
+
+        int fillH = (int) Math.round(ih * Mth.clamp(fillRatio, 0.0D, 1.0D));
+        if (fillH <= 0) {
+            return;
+        }
+        FluidStack fluidStack = coolantFluidStack(state);
+        int fillY = iy + ih - fillH;
+        int fallbackColor = NELDLibAe2StyleRenderer.resolveFluidColor(fluidStack, NELDLibStyle.DARK_TEXT_BLUE);
+        g.fill(ix, fillY, ix + iw, iy + ih, fallbackColor);
+        NELDLibAe2StyleRenderer.drawFluidFill(
+                g, ix, iy, iw, ih, fluidStack, state.coolantAmount(), state.coolantCapacity());
+    }
+
     // 绘制线程使用率水平进度条
     private void drawThreadUsageBar(GuiGraphics g, int x, int y, int w, int h, long current, long max) {
-        NELDLibClientStyle.drawDarkInsetRect(g, x, y, w, h);
+        NEHostTextures.drawPanel(g, x, y, w, h, 0, 0);
+        g.fill(x + 2, y + 2, x + w - 2, y + h - 2, 0xFF201E27);
         int ix = x + 3;
         int iy = y + 3;
         int iw = Math.max(0, w - 6);
@@ -818,9 +840,9 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         if (iw <= 0 || ih <= 0) {
             return;
         }
-        g.fill(ix, iy, ix + iw, iy + ih, 0xAA17141E);
+        g.fill(ix, iy, ix + iw, iy + ih, 0xFF201E27);
         if (fillW > 0) {
-            g.fill(ix, iy, ix + fillW, iy + ih, NELDLibStyle.DARK_TEXT_SUCCESS);
+            g.fill(ix, iy, ix + fillW, iy + ih, NELDLibStyle.DARK_TEXT_VALUE);
         }
     }
 
@@ -880,10 +902,9 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         NECraftingUiState state = currentState();
         int gaugeY = GAUGE_BAR_Y;
         int gaugeH = GAUGE_BAR_H;
-        int gaugeW = GAUGE_BAR_W;
-        int energyX = GAUGE_AREA_X + 8;
-        int coolantX = GAUGE_AREA_X + GAUGE_AREA_W - 8 - gaugeW;
-        if (isMouseIn(energyX, gaugeY, gaugeW, gaugeH, mouseX, mouseY)) {
+        int energyX = energyGaugeX();
+        int coolantX = coolantGaugeX();
+        if (isMouseIn(energyX, gaugeY, ENERGY_GAUGE_W, gaugeH, mouseX, mouseY)) {
             g.renderTooltip(
                     font(),
                     List.of(
@@ -894,7 +915,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                     mouseY);
             return true;
         }
-        if (isMouseIn(coolantX, gaugeY, gaugeW, gaugeH, mouseX, mouseY)) {
+        if (isMouseIn(coolantX, gaugeY, COOLANT_GAUGE_W, gaugeH, mouseX, mouseY)) {
             g.renderTooltip(
                     font(),
                     List.of(
@@ -910,6 +931,15 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             return true;
         }
         return false;
+    }
+
+    private FluidStack coolantFluidStack(NECraftingUiState state) {
+        if (state.coolantAmount() <= 0L || state.coolantFluidId().isBlank()) {
+            return FluidStack.EMPTY;
+        }
+        ResourceLocation id = ResourceLocation.tryParse(state.coolantFluidId());
+        Fluid fluid = id == null ? null : ForgeRegistries.FLUIDS.getValue(id);
+        return fluid == null ? FluidStack.EMPTY : new FluidStack(fluid, 1);
     }
 
     private Component coolantFluidName(NECraftingUiState state) {
@@ -965,6 +995,17 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private void drawInlineValueLine(GuiGraphics g, String label, long value, int x, int y) {
         int cursor = drawScaledString(g, label, absX(x), absY(y), NELDLibStyle.DARK_TEXT_MUTED);
         drawScaledString(g, NELDLibText.number(value), absX(x) + cursor, absY(y), NELDLibStyle.DARK_TEXT_VALUE);
+    }
+
+    private void drawOverflowLine(GuiGraphics g, NECraftingUiState state, int x, int y) {
+        int cursor = drawScaledString(
+                g,
+                Component.translatable("gui.neoecoae.host.crafting.overflow").getString() + ": ",
+                absX(x),
+                absY(y),
+                NELDLibStyle.DARK_TEXT_MUTED);
+        drawScaledString(
+                g, NELDLibText.number(state.overflowThreads()), absX(x) + cursor, absY(y), OVERFLOW_VALUE_COLOR);
     }
 
     // 绘制紧凑成对行（label: current / max）

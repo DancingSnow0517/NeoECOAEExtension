@@ -1,4 +1,4 @@
-package cn.dancingsnow.neoecoae.gui.ldlib.widget;
+package cn.dancingsnow.neoecoae.client.gui.ldlib.host;
 
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
@@ -9,22 +9,24 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibText;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibTextRender;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.LongFunction;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
 
-final class NELDLibTaskListPanel {
+public final class NEHostTaskListRenderer {
     private static final int SCROLLBAR_BACKGROUND = 0xAA17141E;
     private static final int SCROLLBAR_THUMB = 0xFF8B83A0;
 
-    private NELDLibTaskListPanel() {}
+    private NEHostTaskListRenderer() {}
 
-    static int visibleCardCount(int cardY, int listBottomY, int cardH, int cardStride) {
+    public static int visibleCardCount(int cardY, int listBottomY, int cardH, int cardStride) {
         int space = listBottomY - cardY;
         if (space < cardH) {
             return 1;
@@ -32,12 +34,12 @@ final class NELDLibTaskListPanel {
         return Math.max(1, 1 + (space - cardH) / cardStride);
     }
 
-    static int clampScrollOffset(int value, int total, int cardY, int listBottomY, int cardH, int cardStride) {
+    public static int clampScrollOffset(int value, int total, int cardY, int listBottomY, int cardH, int cardStride) {
         int visible = visibleCardCount(cardY, listBottomY, cardH, cardStride);
         return Mth.clamp(value, 0, Math.max(0, total - visible));
     }
 
-    static void drawScrollbar(
+    public static void drawScrollbar(
             GuiGraphics g, int x, int y, int width, int height, int total, int visible, int scrollOffset) {
         if (total <= visible) {
             return;
@@ -56,10 +58,15 @@ final class NELDLibTaskListPanel {
                 10);
     }
 
-    static void drawCard(
+    public static void drawCard(
             GuiGraphics g, Font font, NECraftingRecipeUiEntry entry, int x, int y, int w, int h, CardStyle style) {
         float alpha = Mth.clamp(style.alpha(), 0.0F, 1.0F);
-        NELDLibTaskCards.drawCardRect(g, x, y, w, h, alpha, NELDLibTaskCards.statusColor(entry.status()));
+        int accentColor = NELDLibTaskCards.statusColor(entry.status());
+        if (style.variant() == CardVariant.CRAFTING) {
+            NELDLibTaskCards.drawCraftingCardRect(g, x, y, w, h, alpha, accentColor);
+        } else {
+            NELDLibTaskCards.drawCardRect(g, x, y, w, h, alpha, accentColor);
+        }
         if (alpha > style.itemMinAlpha() && !entry.output().isEmpty()) {
             NELDLibGuiRenderState.beginVanillaGuiItemBatch(g);
             try {
@@ -94,17 +101,19 @@ final class NELDLibTaskListPanel {
                 y + style.amountY(),
                 withAlpha(NELDLibStyle.DARK_TEXT_VALUE, alpha),
                 style.textScale());
-        NELDLibTaskCards.drawProgressBar(
-                g,
-                x + style.progressX(),
-                y + style.progressY(),
-                w - style.progressWidthPadding(),
-                style.progressH(),
-                entry,
-                alpha);
+        if (style.variant() == CardVariant.COMPUTATION) {
+            NELDLibTaskCards.drawProgressBar(
+                    g,
+                    x + style.progressX(),
+                    y + style.progressY(),
+                    w - style.progressWidthPadding(),
+                    style.progressH(),
+                    entry,
+                    alpha);
+        }
     }
 
-    static List<Component> tooltipLines(
+    public static List<Component> tooltipLines(
             NECraftingRecipeUiEntry entry,
             boolean includeCraftCount,
             boolean includePercentProgress,
@@ -129,6 +138,46 @@ final class NELDLibTaskListPanel {
             }
         }
         return lines;
+    }
+
+    public static List<Component> computationTaskTooltipLines(NECraftingRecipeUiEntry entry) {
+        List<Component> lines = new ArrayList<>(5);
+        lines.add(Component.literal(entry.taskHostName()));
+        lines.add(Component.translatable(
+                "gui.neoecoae.cpu.storage",
+                coloredText(NELDLibText.storageBytesCompact(entry.taskStorage()), NELDLibStyle.DARK_TEXT_VALUE)));
+        lines.add(Component.translatable(
+                "gui.neoecoae.cpu.coprocessors",
+                coloredText(NELDLibText.compactMetric(entry.taskCoProcessors()), NELDLibStyle.DARK_TEXT_VALUE)));
+        lines.add(Component.translatable(
+                "gui.neoecoae.computation.task.crafting",
+                coloredText(NELDLibText.number(entry.requestedAmount()), NELDLibStyle.DARK_TEXT_VALUE),
+                entry.output().getHoverName()));
+        long completed = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
+        lines.add(Component.translatable(
+                "gui.neoecoae.computation.task.crafted",
+                coloredText(
+                        NELDLibText.precisePercentOrNA(completed, entry.totalTicks()), NELDLibStyle.DARK_TEXT_ORANGE),
+                coloredText(formatElapsedNanos(entry.elapsedNanos()), NELDLibStyle.DARK_TEXT_VALUE)));
+        return lines;
+    }
+
+    private static MutableComponent coloredText(String text, int color) {
+        return Component.literal(text).withStyle(style -> style.withColor(color & 0x00FFFFFF));
+    }
+
+    private static String formatElapsedNanos(long nanos) {
+        long seconds = Math.max(0L, TimeUnit.NANOSECONDS.toSeconds(nanos));
+        long hours = seconds / 3_600L;
+        long minutes = seconds % 3_600L / 60L;
+        long remainingSeconds = seconds % 60L;
+        if (hours > 0L) {
+            return hours + "h" + minutes + "m" + remainingSeconds + "s";
+        }
+        if (minutes > 0L) {
+            return minutes + "m" + remainingSeconds + "s";
+        }
+        return remainingSeconds + "s";
     }
 
     private static int textWidth(Font font, String text, float scale) {
@@ -160,7 +209,12 @@ final class NELDLibTaskListPanel {
         return NELDLibTaskCards.withAlpha(color, alpha);
     }
 
-    record CardStyle(
+    public enum CardVariant {
+        COMPUTATION,
+        CRAFTING
+    }
+
+    public record CardStyle(
             int itemX,
             int itemY,
             int textX,
@@ -174,5 +228,6 @@ final class NELDLibTaskListPanel {
             int nameWidthPadding,
             float textScale,
             float alpha,
-            float itemMinAlpha) {}
+            float itemMinAlpha,
+            CardVariant variant) {}
 }

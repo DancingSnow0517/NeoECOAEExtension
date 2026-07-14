@@ -769,6 +769,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 maxRecipeSlots,
                 occupiedRecipeSlots,
                 batchParallel,
+                getOverflowThreads(),
                 performanceAverageNanos,
                 recipeEntries,
                 craftOutputs,

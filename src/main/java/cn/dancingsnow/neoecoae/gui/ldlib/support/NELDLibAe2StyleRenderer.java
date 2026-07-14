@@ -172,6 +172,18 @@ public final class NELDLibAe2StyleRenderer {
         drawFluidTextureFull(g, x, y, size, size, stack, y + size);
     }
 
+    public static void drawFluidFill(
+            GuiGraphics g, int x, int y, int width, int height, FluidStack stack, long amount, long capacity) {
+        if (width <= 0 || height <= 0 || amount <= 0L || capacity <= 0L || stack.isEmpty()) {
+            return;
+        }
+        int fillHeight = Mth.clamp((int) (Math.min(amount, capacity) * height / capacity), 1, height);
+        int fillY = y + height - fillHeight;
+        g.enableScissor(x, fillY, x + width, y + height);
+        drawFluidTextureFull(g, x, y, width, height, stack, y + height);
+        g.disableScissor();
+    }
+
     private static void drawFluidTextureFull(
             GuiGraphics g, int x, int topY, int w, int h, FluidStack stack, int bottomY) {
         if (stack.isEmpty() || stack.getFluid() == null) return;

@@ -27,6 +27,8 @@ public final class NELDLibText {
             ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =
             ThreadLocal.withInitial(() -> new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.US)));
+    private static final ThreadLocal<DecimalFormat> PRECISE_PERCENT_DECIMAL =
+            ThreadLocal.withInitial(() -> new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.US)));
 
     private NELDLibText() {}
 
@@ -48,6 +50,14 @@ public final class NELDLibText {
 
     public static String percentOrNA(long used, long max) {
         return max <= 0 ? "N/A" : percent((double) Math.max(0L, used) / (double) max);
+    }
+
+    public static String precisePercentOrNA(long used, long max) {
+        if (max <= 0L) {
+            return "N/A";
+        }
+        double ratio = Math.max(0.0D, Math.min(1.0D, (double) Math.max(0L, used) / (double) max));
+        return PRECISE_PERCENT_DECIMAL.get().format(ratio * 100.0D) + "%";
     }
 
     public static String usedTotal(long used, long max) {
@@ -234,6 +244,26 @@ public final class NELDLibText {
             return compactDecimal(safe, 1_000_000_000L, "G");
         }
         return compactDecimal(safe, 1_000_000_000_000L, "T");
+    }
+
+    public static String compactMetric(long value) {
+        long safe = Math.max(0L, value);
+        if (safe < 1_000L) {
+            return Long.toString(safe);
+        }
+        long unit = 1_000L;
+        String suffix = "K";
+        if (safe >= 1_000_000_000_000L) {
+            unit = 1_000_000_000_000L;
+            suffix = "T";
+        } else if (safe >= 1_000_000_000L) {
+            unit = 1_000_000_000L;
+            suffix = "G";
+        } else if (safe >= 1_000_000L) {
+            unit = 1_000_000L;
+            suffix = "M";
+        }
+        return COMPACT_DECIMAL.get().format((double) safe / (double) unit) + suffix;
     }
 
     public static String compactCount(long value) {

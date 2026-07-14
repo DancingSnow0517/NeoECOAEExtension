@@ -10,11 +10,27 @@ public record NECraftingRecipeUiEntry(
         long craftCount,
         long totalTicks,
         long remainingTicks,
-        Status status) {
+        Status status,
+        String taskHostName,
+        long taskStorage,
+        int taskCoProcessors,
+        long requestedAmount,
+        long elapsedNanos) {
     public enum Status {
         RUNNING,
         QUEUED,
         WAITING_OUTPUT
+    }
+
+    public NECraftingRecipeUiEntry(
+            String id,
+            ItemStack output,
+            long outputAmount,
+            long craftCount,
+            long totalTicks,
+            long remainingTicks,
+            Status status) {
+        this(id, output, outputAmount, craftCount, totalTicks, remainingTicks, status, "", 0L, 0, 0L, 0L);
     }
 
     @Override
@@ -29,7 +45,12 @@ public record NECraftingRecipeUiEntry(
                 && craftCount == other.craftCount
                 && totalTicks == other.totalTicks
                 && remainingTicks == other.remainingTicks
+                && taskStorage == other.taskStorage
+                && taskCoProcessors == other.taskCoProcessors
+                && requestedAmount == other.requestedAmount
+                && elapsedNanos == other.elapsedNanos
                 && Objects.equals(id, other.id)
+                && Objects.equals(taskHostName, other.taskHostName)
                 && ItemStack.matches(output, other.output)
                 && status == other.status;
     }
@@ -45,6 +66,11 @@ public record NECraftingRecipeUiEntry(
                 craftCount,
                 totalTicks,
                 remainingTicks,
-                status);
+                status,
+                taskHostName,
+                taskStorage,
+                taskCoProcessors,
+                requestedAmount,
+                elapsedNanos);
     }
 }

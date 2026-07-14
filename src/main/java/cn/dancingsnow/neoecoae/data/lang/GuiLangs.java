@@ -244,8 +244,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.storage_info", "Used Storage: %s / %s");
         provider.add("gui.neoecoae.computation.threads", "Threads");
         provider.add("gui.neoecoae.computation.accelerators", "Accelerators: %s");
+        provider.add("gui.neoecoae.computation.capacity", "Computation Capacity");
         provider.add("gui.neoecoae.computation.available_storage", "Available Storage");
         provider.add("gui.neoecoae.computation.storage_used", "Storage Used");
+        provider.add("gui.neoecoae.computation.task.crafting", "Crafting %s %s");
+        provider.add("gui.neoecoae.computation.task.crafted", "Crafted %s in %s");
         provider.add("gui.neoecoae.computation.parallel_count", "Parallel Count: %s");
         provider.add("gui.neoecoae.computation.cpu_selection_mode", "CPU Auto-Selection Mode");
         provider.add("gui.neoecoae.computation.cpu_selection_mode.click", "Click to cycle");
@@ -297,6 +300,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.running", "Running");
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
+        provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %s (%s%%)");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy: §b%s AE");
         provider.add(

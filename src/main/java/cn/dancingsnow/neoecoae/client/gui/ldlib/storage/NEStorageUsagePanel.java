@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client.gui.ldlib.storage;
 import static cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStorageLayout.*;
 
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostTextures;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStorageAnimatedRatio;
 import cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStorageMetricsModel;
@@ -37,7 +38,7 @@ public final class NEStorageUsagePanel {
             NEStorageUiState state,
             int mouseX,
             int mouseY) {
-        NEStorageHostTextures.drawPanel(
+        NEHostTextures.drawPanel(
                 g,
                 screenX.applyAsInt(USAGE_PANEL_X),
                 screenY.applyAsInt(USAGE_PANEL_Y),

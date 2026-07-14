@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.client.gui.ldlib.storage;
 import static cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStorageLayout.*;
 
 import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
+import cn.dancingsnow.neoecoae.client.gui.ldlib.host.NEHostTextures;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEStorageUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStorageMetricsModel;
 import cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStorageMetricsModel.Metric;
@@ -36,7 +37,7 @@ public final class NEStorageMetricsPanel {
             NEStorageUiState state,
             int mouseX,
             int mouseY) {
-        NEStorageHostTextures.drawPanel(
+        NEHostTextures.drawPanel(
                 g,
                 screenX.applyAsInt(LEFT_PANEL_X),
                 screenY.applyAsInt(LEFT_PANEL_Y),
@@ -225,8 +226,8 @@ public final class NEStorageMetricsPanel {
         int trackY = screenY.applyAsInt(LEFT_PANEL_Y);
         int trackX = scrollbarX + (STORAGE_SCROLLBAR_W - STORAGE_SCROLLBAR_TRACK_W) / 2;
         int thumbY = trackY + NEStorageScrollbar.thumbOffset(scrollPixels, maxScroll, height);
-        NEStorageHostTextures.drawScrollbarTrack(g, trackX, trackY, STORAGE_SCROLLBAR_TRACK_W, height, mouseX, mouseY);
-        NEStorageHostTextures.drawScrollbarThumb(
+        NEHostTextures.drawScrollbarTrack(g, trackX, trackY, STORAGE_SCROLLBAR_TRACK_W, height, mouseX, mouseY);
+        NEHostTextures.drawScrollbarThumb(
                 g, scrollbarX, thumbY, STORAGE_SCROLLBAR_W, STORAGE_SCROLLBAR_THUMB_H, mouseX, mouseY);
     }
 

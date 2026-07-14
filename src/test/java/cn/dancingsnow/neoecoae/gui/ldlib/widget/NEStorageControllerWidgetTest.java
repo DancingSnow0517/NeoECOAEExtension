@@ -20,7 +20,7 @@ class NEStorageControllerWidgetTest {
     }
 
     @Test
-    void ldlib2StorageBorderSpriteIsBundledAtItsNativeSize() throws Exception {
+    void ldlib2HostBorderSpriteIsBundledAtItsNativeSize() throws Exception {
         try (var stream =
                 getClass().getResourceAsStream("/assets/neoecoae/textures/gui/storage_host_panel_border.png")) {
             assertNotNull(stream);

@@ -257,7 +257,18 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                         ? NECraftingRecipeUiEntry.Status.WAITING_OUTPUT
                         : NECraftingRecipeUiEntry.Status.RUNNING;
         return new NECraftingRecipeUiEntry(
-                computationTaskId(cpu, finalOutput, index), output, remainingAmount, 1L, total, remaining, status);
+                computationTaskId(cpu, finalOutput, index),
+                output,
+                remainingAmount,
+                1L,
+                total,
+                remaining,
+                status,
+                cpu.getName() != null ? cpu.getName().getString() : cpu.getTier() + " ECO CPU",
+                Math.max(0L, cpu.getAvailableStorage()),
+                Math.max(0, cpu.getCoProcessors()),
+                Math.max(0L, finalOutput.amount()),
+                Math.max(0L, tracker.getElapsedTime()));
     }
 
     private static String computationTaskId(ECOCraftingCPU cpu, GenericStack output, int index) {
