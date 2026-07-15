@@ -1,7 +1,9 @@
 package cn.dancingsnow.neoecoae;
 
 
+import appeng.api.AECapabilities;
 import appeng.api.upgrades.Upgrades;
+import appeng.blockentity.AEBaseInvBlockEntity;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
@@ -16,9 +18,10 @@ import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETooltips;
-import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
+import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
@@ -37,6 +40,8 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
 import net.neoforged.neoforge.event.TagsUpdatedEvent;
@@ -79,6 +84,7 @@ public class NeoECOAE {
         // previews/tooltips. SERVER configs are synchronized to joining clients by NeoForge.
         modContainer.registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
 
+        modBus.addListener(NeoECOAE::registerCapabilities);
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
@@ -91,6 +97,49 @@ public class NeoECOAE {
 
     public static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+    }
+
+    private static void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.ECO_DRIVE.get(),
+            (be, side) -> be.HANDLER
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.INPUT_HATCH.get(),
+            (be, side) -> be.tank
+        );
+        event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.CRAFTING_PATTERN_BUS.get(),
+            (be, side) -> be.itemHandler
+        );
+        event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.COMPUTATION_DRIVE.get(),
+            (be, unused) -> be.getItemHandler()
+        );
+        event.registerBlockEntity(
+            AECapabilities.IN_WORLD_GRID_NODE_HOST,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            (be, unused) -> be
+        );
+        event.registerBlockEntity(
+            Capabilities.ItemHandler.BLOCK,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            AEBaseInvBlockEntity::getExposedItemHandler
+        );
+        event.registerBlockEntity(
+            Capabilities.FluidHandler.BLOCK,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            (be, side) -> be.getFluidCombined()
+        );
+        event.registerBlockEntity(
+            Capabilities.EnergyStorage.BLOCK,
+            NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
+            ECOIntegratedWorkingStationBlockEntity::getEnergyStorage
+        );
     }
 
     private static void initUpgrades(FMLCommonSetupEvent event) {

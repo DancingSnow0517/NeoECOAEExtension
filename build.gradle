@@ -40,9 +40,8 @@ repositories {
             includeGroup "curse.maven"
         }
     }
-    maven { // Registrate Fork
-        name = "Ithundxr Maven"
-        url = "https://maven.ithundxr.dev/snapshots"
+    maven { // Registrate
+        url "https://maven.gegy.dev/releases"
     }
     maven {// Ldlib
         name "firstdarkdev"
@@ -95,8 +94,8 @@ repositories {
 dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 
-    api("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
-    jarJar("com.tterrag.registrate:Registrate:MC1.21-1.3.0+67")
+    api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
+    jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
 
     compileOnly("org.appliedenergistics:guideme:21.1.1:api")
     runtimeOnly("org.appliedenergistics:guideme:21.1.1")
@@ -128,7 +127,6 @@ dependencies {
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
     runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
     compileOnly("dev.emi:emi-neoforge:${emi_version}")
-    runtimeOnly("dev.emi:emi-neoforge:${emi_version}")
 
     implementation("software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}")
 
