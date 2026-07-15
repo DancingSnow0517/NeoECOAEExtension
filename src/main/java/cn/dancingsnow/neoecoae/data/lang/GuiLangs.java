@@ -73,6 +73,10 @@ public class GuiLangs {
         provider.add("gui.neoecoae.integrated_working_station.not_implemented", "Not implemented");
         provider.add("gui.neoecoae.integrated_working_station.progress_percent", "Progress: %s%%");
         provider.add("gui.neoecoae.integrated_working_station.speed_card_upgrade", "Speed Card (%s)");
+        provider.add(
+                "gui.neoecoae.integrated_working_station.entity_speed_card_upgrade", "Entity Acceleration Card (%s)");
+        provider.add("gui.neoecoae.integrated_working_station.effective_speed", "Current Speed: %s progress/tick");
+        provider.add("gui.neoecoae.integrated_working_station.speed_limit", "Speed Limit: %s progress/tick");
         provider.add("gui.neoecoae.integrated_working_station.work_progress", "Work Progress: %s / %s");
         provider.add("gui.neoecoae.multiblock.builder", "Multiblock Builder");
         provider.add("gui.neoecoae.multiblock.close_builder", "Close Builder");

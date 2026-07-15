@@ -22,6 +22,7 @@ import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraftforge.fml.ModList;
 
 public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<NEIntegratedWorkingStationUiState> {
     public static final int UI_WIDTH = -TOGGLE_BTN_X + UPGRADE_PANEL_X + UPGRADE_PANEL_W;
@@ -332,13 +333,19 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
         if (!isMouseIn(UPGRADE_PANEL_X, UPGRADE_PANEL_Y, UPGRADE_PANEL_W, UPGRADE_PANEL_H, mouseX, mouseY)) {
             return;
         }
-        graphics.renderComponentTooltip(
-                font(),
-                List.of(
-                        Component.translatable("gui.neoecoae.integrated_working_station.available_upgrades"),
-                        Component.translatable("gui.neoecoae.integrated_working_station.speed_card_upgrade", 4)),
-                mouseX,
-                mouseY);
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("gui.neoecoae.integrated_working_station.available_upgrades"));
+        lines.add(Component.translatable("gui.neoecoae.integrated_working_station.speed_card_upgrade", 4));
+        if (ModList.get().isLoaded("extendedae_plus")) {
+            lines.add(Component.translatable("gui.neoecoae.integrated_working_station.entity_speed_card_upgrade", 4));
+        }
+        lines.add(Component.translatable(
+                "gui.neoecoae.integrated_working_station.effective_speed",
+                currentState().processingSpeed()));
+        lines.add(Component.translatable(
+                "gui.neoecoae.integrated_working_station.speed_limit",
+                ECOIntegratedWorkingStationBlockEntity.MAX_PROCESSING_SPEED));
+        graphics.renderComponentTooltip(font(), lines, mouseX, mouseY);
     }
 
     private static int mainX(int x) {

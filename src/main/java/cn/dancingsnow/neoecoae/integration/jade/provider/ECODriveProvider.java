@@ -64,7 +64,8 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
         if (accessor.getBlockEntity() instanceof ECODriveBlockEntity drive) {
             tag.putBoolean("infiniteMember", ECOInfiniteStorageMember.isMember(drive.getCellStack()));
             tag.putBoolean("mounted", drive.isMounted());
-            tag.putString("storageInterfaceMode", drive.getStorageInterfaceMode().name());
+            tag.putString(
+                    "storageInterfaceMode", drive.getStorageInterfaceMode().name());
             IECOStorageCell cellInventory = drive.getCellInventory();
             if (cellInventory != null) {
                 tag.putLong("usedBytes", cellInventory.getUsedBytes());

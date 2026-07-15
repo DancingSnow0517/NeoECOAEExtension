@@ -331,6 +331,7 @@ public final class NELDLibStateCodecs {
         buf.writeVarInt(Math.max(0, state.requiredEnergy()));
         buf.writeBoolean(state.working());
         buf.writeBoolean(state.autoExport());
+        buf.writeVarInt(Math.max(1, state.processingSpeed()));
     }
 
     public static NEIntegratedWorkingStationUiState readIntegratedWorkingStation(FriendlyByteBuf buf) {
@@ -341,7 +342,8 @@ public final class NELDLibStateCodecs {
                 buf.readVarInt(),
                 buf.readVarInt(),
                 buf.readBoolean(),
-                buf.readBoolean());
+                buf.readBoolean(),
+                buf.readVarInt());
     }
 
     public static void writeStructureTerminal(FriendlyByteBuf buf, NEStructureTerminalConfigState state) {

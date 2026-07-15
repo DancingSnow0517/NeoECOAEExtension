@@ -122,8 +122,8 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                         level,
                         upperEnergyCellStart,
                         state -> state.getBlock() instanceof ECOEnergyCellBlock cell
-                                && tier.supportsComponentTier(
-                                        cell.getBlockEntity(level, upperEnergyCellEnd).getTier())
+                                && tier.supportsComponentTier(cell.getBlockEntity(level, upperEnergyCellEnd)
+                                        .getTier())
                                 && state.getValue(ECOEnergyCellBlock.FACING) == back)) {
             return false;
         }

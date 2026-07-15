@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.IGridNodeListener;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOComputationHost;
@@ -242,10 +241,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
         GenericStack finalOutput = logic.getFinalJobOutput();
         long remainingAmount = logic.getRemainingJobOutputAmount();
-        if (finalOutput == null || remainingAmount <= 0 || !(finalOutput.what() instanceof AEItemKey itemKey)) {
+        if (finalOutput == null || remainingAmount <= 0) {
             return null;
         }
-        ItemStack output = itemKey.toStack(1);
+        ItemStack output = finalOutput.what().wrapForDisplayOrFilter();
         if (output.isEmpty()) {
             return null;
         }

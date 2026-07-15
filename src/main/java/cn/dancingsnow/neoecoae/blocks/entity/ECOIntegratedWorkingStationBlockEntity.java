@@ -37,6 +37,7 @@ import appeng.util.inv.FilteredInternalInventory;
 import appeng.util.inv.filter.AEItemFilters;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
+import cn.dancingsnow.neoecoae.api.IWSUpgradeEffects;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
@@ -79,6 +80,7 @@ import org.jetbrains.annotations.Nullable;
 
 public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockEntity
         implements IGridTickable, IUpgradeableObject, IConfigurableObject, NEBlockEntityUIHolder {
+    public static final int MAX_PROCESSING_SPEED = IntegratedWorkingStationSpeed.MAX_PROGRESS_PER_TICK;
     private static final int MAX_INPUT_SLOTS = 9;
     private static final int MAX_PROCESSING_STEPS = 200;
     private static final int MAX_POWER_STORAGE = 500000;
@@ -234,7 +236,8 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 MAX_PROCESSING_STEPS,
                 task == null ? 0 : task.energy(),
                 working,
-                isAutoExportEnabled());
+                isAutoExportEnabled(),
+                getProcessingSpeed());
     }
 
     @Override
@@ -379,6 +382,20 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
         markContentsChanged();
     }
 
+    public int getProcessingSpeed() {
+        List<Integer> addonMultipliers = new ArrayList<>();
+        IItemHandler upgradeItems = upgrades.toItemHandler();
+        for (int slot = 0; slot < upgradeItems.getSlots(); slot++) {
+            ItemStack stack = upgradeItems.getStackInSlot(slot);
+            int multiplier = IWSUpgradeEffects.getSpeedMultiplier(stack);
+            for (int count = 0; count < stack.getCount(); count++) {
+                addonMultipliers.add(multiplier);
+            }
+        }
+        return IntegratedWorkingStationSpeed.calculate(
+                upgrades.getInstalledUpgrades(AEItems.SPEED_CARD), addonMultipliers);
+    }
+
     /** Called by LDLib inventory bridges when the UI modifies the inventory. */
     public void onGuiInventoryChanged() {
         if (level != null && level.isClientSide) {
@@ -494,20 +511,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
                 IEnergyService eg = grid.getEnergyService();
                 IEnergySource src = this;
 
-                final int speedFactor =
-                        switch (this.upgrades.getInstalledUpgrades(AEItems.SPEED_CARD)) {
-                            case 0 -> 2; // 100 ticks
-                            case 1 -> 3; // 66 ticks
-                            case 2 -> 5; // 40 ticks
-                            case 3 -> 10; // 20 ticks
-                            case 4 -> 50; // 4 ticks
-                            default -> 2; // 100 ticks
-                        };
+                final int speedFactor = getProcessingSpeed();
 
                 final int progressReq = MAX_PROCESSING_STEPS - this.getProcessingTime();
-                final float powerRatio = progressReq < speedFactor ? (float) progressReq / speedFactor : 1;
-                final int requiredTicks = Mth.ceil((float) MAX_PROCESSING_STEPS / speedFactor);
-                final int powerConsumption = Mth.floor(((float) getTask().energy() / requiredTicks) * powerRatio);
+                final int desiredProgress = Math.min(progressReq, speedFactor);
+                final int powerConsumption = IntegratedWorkingStationSpeed.energyForProgress(
+                        getTask().energy(), getProcessingTime(), desiredProgress);
                 final double powerThreshold = powerConsumption - 0.01;
 
                 double powerReq = this.extractAEPower(powerConsumption, Actionable.SIMULATE, PowerMultiplier.CONFIG);
@@ -524,21 +533,25 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkPowerBlockE
 
                 if (powerReq > powerThreshold) {
                     src.extractAEPower(powerConsumption, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                    this.setProcessingTime(this.getProcessingTime() + speedFactor);
+                    this.setProcessingTime(this.getProcessingTime() + desiredProgress);
                     setShowWarning(false);
                 } else if (powerReq != 0) {
                     var progressRatio = src == this
                             ? powerReq / powerConsumption
                             : (powerReq - 10 * eg.getIdlePowerUsage()) / powerConsumption;
-                    var factor = Mth.floor(progressRatio * speedFactor);
+                    var factor = Mth.floor(progressRatio * desiredProgress);
 
-                    if (factor > 1) {
-                        var extracted = src.extractAEPower(
-                                (double) (powerConsumption * factor) / speedFactor,
-                                Actionable.MODULATE,
-                                PowerMultiplier.CONFIG);
-                        var actualFactor = (int) Math.floor(extracted / powerConsumption * speedFactor);
-                        this.setProcessingTime(this.getProcessingTime() + actualFactor);
+                    while (factor > 0
+                            && IntegratedWorkingStationSpeed.energyForProgress(
+                                            getTask().energy(), getProcessingTime(), factor)
+                                    > powerReq) {
+                        factor--;
+                    }
+                    if (factor > 0) {
+                        int partialPower = IntegratedWorkingStationSpeed.energyForProgress(
+                                getTask().energy(), getProcessingTime(), factor);
+                        src.extractAEPower(partialPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                        this.setProcessingTime(this.getProcessingTime() + factor);
                     }
                     // Add warning
                     setShowWarning(true);

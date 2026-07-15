@@ -13,9 +13,11 @@ import cn.dancingsnow.neoecoae.all.NEGridServices;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.all.NERegistries;
+import cn.dancingsnow.neoecoae.api.IWSUpgradeEffects;
 import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
+import cn.dancingsnow.neoecoae.compat.ae2.IWSUpgradeCompat;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.event.NELightningTransformEvents;
@@ -30,12 +32,14 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
+import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.NewRegistryEvent;
 import net.minecraftforge.registries.RegistryBuilder;
 
@@ -63,6 +67,7 @@ public class NeoECOAE {
         NEEcoTiers.register();
         NECellTypes.register();
         NERecipeTypes.register(modBus);
+        IWSUpgradeCompat.initialize();
 
         // Data components are a 1.20.5+ API. The 1.20.1 port will restore this
         // behavior through item NBT or Forge capabilities later.
@@ -95,7 +100,18 @@ public class NeoECOAE {
         event.enqueueWork(() -> {
             String storageCellGroup = GuiText.StorageCells.getTranslationKey();
 
-            Upgrades.add(AEItems.SPEED_CARD, NEBlocks.INTEGRATED_WORKING_STATION.get(), 4);
+            for (IWSUpgradeEffects.Entry upgrade : IWSUpgradeEffects.entries()) {
+                if (upgrade.requiredModId() != null && !ModList.get().isLoaded(upgrade.requiredModId())) {
+                    continue;
+                }
+                if (!ForgeRegistries.ITEMS.containsKey(upgrade.itemId())) {
+                    continue;
+                }
+                var item = ForgeRegistries.ITEMS.getValue(upgrade.itemId());
+                if (item != null) {
+                    Upgrades.add(item, NEBlocks.INTEGRATED_WORKING_STATION.get(), upgrade.maxInstalled());
+                }
+            }
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
                     NEItems.ECO_ITEM_CELL_16M,

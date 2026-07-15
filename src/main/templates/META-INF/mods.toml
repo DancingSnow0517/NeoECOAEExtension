@@ -81,6 +81,13 @@ config="${mod_id}.mixins.json"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
+    modId="extendedae_plus"
+    mandatory=false
+    versionRange="[1.5.5,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
     modId="kubejs"
     mandatory=false
     versionRange="[2001.6.5-build.16,)"

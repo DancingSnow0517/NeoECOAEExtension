@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.client.gui.ldlib.host;
 
+import appeng.api.stacks.GenericStack;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibGuiRenderState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibScrollBar;
@@ -80,11 +81,10 @@ public final class NEHostTaskListRenderer {
         String amountText = "x" + NELDLibText.compactTaskAmount(entry.outputAmount());
         int amountW = textWidth(font, amountText, style.textScale());
         int maxNameW = Math.max(16, w - style.nameWidthPadding() - amountW);
+        String outputName = outputDisplayName(entry).getString();
         String name = style.textScale() == 1.0F
-                ? NELDLibTextRender.fitWithEllipsis(
-                        font, entry.output().getHoverName().getString(), maxNameW)
-                : NELDLibTextRender.fitScaledWithEllipsis(
-                        font, entry.output().getHoverName().getString(), maxNameW, style.textScale());
+                ? NELDLibTextRender.fitWithEllipsis(font, outputName, maxNameW)
+                : NELDLibTextRender.fitScaledWithEllipsis(font, outputName, maxNameW, style.textScale());
         drawText(
                 g,
                 font,
@@ -118,7 +118,7 @@ public final class NEHostTaskListRenderer {
             boolean includeCraftCount,
             boolean includePercentProgress,
             @Nullable LongFunction<String> timeFormatter) {
-        List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), entry.output()));
+        List<Component> lines = outputTooltipLines(entry);
         lines.add(Component.translatable(NELDLibTaskCards.statusKey(entry.status())));
         lines.add(Component.translatable(
                 "gui.neoecoae.crafting.task.amount", NELDLibText.compactTaskAmount(entry.outputAmount())));
@@ -152,7 +152,7 @@ public final class NEHostTaskListRenderer {
         lines.add(Component.translatable(
                 "gui.neoecoae.computation.task.crafting",
                 coloredText(NELDLibText.number(entry.requestedAmount()), NELDLibStyle.DARK_TEXT_VALUE),
-                entry.output().getHoverName()));
+                outputDisplayName(entry)));
         long completed = Math.max(0L, entry.totalTicks() - entry.remainingTicks());
         lines.add(Component.translatable(
                 "gui.neoecoae.computation.task.crafted",
@@ -160,6 +160,23 @@ public final class NEHostTaskListRenderer {
                         NELDLibText.precisePercentOrNA(completed, entry.totalTicks()), NELDLibStyle.DARK_TEXT_ORANGE),
                 coloredText(formatElapsedNanos(entry.elapsedNanos()), NELDLibStyle.DARK_TEXT_VALUE)));
         return lines;
+    }
+
+    public static Component outputDisplayName(NECraftingRecipeUiEntry entry) {
+        GenericStack genericStack = GenericStack.unwrapItemStack(entry.output());
+        return genericStack == null
+                ? entry.output().getHoverName()
+                : genericStack.what().getDisplayName();
+    }
+
+    private static List<Component> outputTooltipLines(NECraftingRecipeUiEntry entry) {
+        GenericStack genericStack = GenericStack.unwrapItemStack(entry.output());
+        if (genericStack != null) {
+            List<Component> lines = new ArrayList<>();
+            lines.add(genericStack.what().getDisplayName());
+            return lines;
+        }
+        return new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), entry.output()));
     }
 
     private static MutableComponent coloredText(String text, int color) {

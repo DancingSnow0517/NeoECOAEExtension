@@ -235,8 +235,7 @@ public class NEMultiBlocks {
             builder.setBlock(pos(0, y, 1), casing);
         }
 
-        return builder
-                .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
+        return builder.setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
                 .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
                 .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
                 .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, energyCell)
@@ -262,8 +261,7 @@ public class NEMultiBlocks {
                         Vec3 myPos = pos.getCenter();
                         Vec3 controllerPos = new Vec3(1.5, 1.5, 0.5);
                         state = state.setValue(
-                                ECOMachineCasing.INVISIBLE,
-                                pos.getX() > 0 && myPos.distanceToSqr(controllerPos) <= 3);
+                                ECOMachineCasing.INVISIBLE, pos.getX() > 0 && myPos.distanceToSqr(controllerPos) <= 3);
                     }
                     level.setBlockAndUpdate(pos, state);
                 })

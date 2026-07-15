@@ -5,11 +5,13 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageKeyHash;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -38,6 +40,8 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private static final int SHARD_COUNT = 256;
     private static final int WAL_VERSION = 1;
     private static final int MAX_WAL_RECORD_BYTES = 16 * 1024 * 1024;
+    private static final int WAL_BUFFER_BYTES = 64 * 1024;
+    private static final long IDLE_CHECKPOINT_DELAY_NANOS = 5_000_000_000L;
     private static final HugeAmount LONG_MAX_AMOUNT = HugeAmount.of(Long.MAX_VALUE);
 
     private final UUID domainId;
@@ -58,8 +62,11 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private boolean hugeStacksSnapshotDirty = true;
     private HugeAmount storedAmount = HugeAmount.ZERO;
     private long revision;
+    private long lastMutationNanos = Long.MIN_VALUE;
 
     @Nullable private DataOutputStream walOut;
+
+    @Nullable private FileOutputStream walFileOut;
 
     public FileBackedInfiniteStorageEngine(UUID domainId, Path domainPath) {
         this.domainId = domainId;
@@ -170,10 +177,27 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     @Override
     public synchronized void flushBudgeted(long maxNanos) {
+        boolean hadPendingWal = !dirtyDeltas.isEmpty();
+        appendPendingWalRecords();
+        flushWalOutput();
+        if (hadPendingWal) {
+            forceWal();
+        }
         if (dirtyShards.isEmpty()) {
             return;
         }
-        long deadline = maxNanos <= 0L ? Long.MAX_VALUE : System.nanoTime() + maxNanos;
+        if (maxNanos <= 0L) {
+            checkpointDirtyShards(Long.MAX_VALUE);
+            return;
+        }
+        long now = System.nanoTime();
+        if (lastMutationNanos != Long.MIN_VALUE && now - lastMutationNanos < IDLE_CHECKPOINT_DELAY_NANOS) {
+            return;
+        }
+        checkpointDirtyShards(now + maxNanos);
+    }
+
+    private void checkpointDirtyShards(long deadline) {
         Set<Integer> pending = new HashSet<>(dirtyShards);
         for (int shard : pending) {
             writeShard(shard);
@@ -184,12 +208,17 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
         if (dirtyShards.isEmpty()) {
             truncateWal();
-            dirtyDeltas.clear();
         }
     }
 
     @Override
     public synchronized void closeAndFlush() {
+        boolean hadPendingWal = !dirtyDeltas.isEmpty();
+        appendPendingWalRecords();
+        flushWalOutput();
+        if (hadPendingWal) {
+            forceWal();
+        }
         if (!dirtyShards.isEmpty()) {
             for (int shard : new HashSet<>(dirtyShards)) {
                 writeShard(shard);
@@ -197,7 +226,6 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             dirtyShards.clear();
         }
         truncateWal();
-        dirtyDeltas.clear();
         closeWalOutput();
     }
 
@@ -218,12 +246,12 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
         storedAmount = HugeAmount.of(storedAmount.toBigInteger().add(nextValue.subtract(current.toBigInteger())));
         updateIndexes(key, current, next);
-        dirtyDeltas.merge(key, delta, BigInteger::add);
+        if (writeWal) {
+            dirtyDeltas.merge(key, delta, BigInteger::add);
+        }
         dirtyShards.add(shardFor(key));
         revision = revision == Long.MAX_VALUE ? 0L : revision + 1L;
-        if (writeWal) {
-            appendWal(key, delta);
-        }
+        lastMutationNanos = System.nanoTime();
     }
 
     private void load() {
@@ -387,18 +415,51 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             out.writeInt(payload.length);
             out.writeInt((int) crc.getValue());
             out.write(payload);
-            out.flush();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to append ECO infinite storage WAL", e);
         }
     }
 
+    private void appendPendingWalRecords() {
+        if (dirtyDeltas.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<AEKey, BigInteger> entry : new ArrayList<>(dirtyDeltas.entrySet())) {
+            if (entry.getValue().signum() != 0) {
+                appendWal(entry.getKey(), entry.getValue());
+            }
+        }
+        dirtyDeltas.clear();
+    }
+
     private DataOutputStream walOutput() throws IOException {
         if (walOut == null) {
-            walOut = new DataOutputStream(Files.newOutputStream(
-                    walPath, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND));
+            walFileOut = new FileOutputStream(walPath.toFile(), true);
+            walOut = new DataOutputStream(new BufferedOutputStream(walFileOut, WAL_BUFFER_BYTES));
         }
         return walOut;
+    }
+
+    private void flushWalOutput() {
+        if (walOut == null) {
+            return;
+        }
+        try {
+            walOut.flush();
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to flush ECO infinite storage WAL", e);
+        }
+    }
+
+    private void forceWal() {
+        if (walFileOut == null) {
+            return;
+        }
+        try {
+            walFileOut.getChannel().force(false);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to force ECO infinite storage WAL", e);
+        }
     }
 
     private void replayWal() {
@@ -465,6 +526,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             LOGGER.warn("Unable to close ECO infinite storage WAL {}", walPath, e);
         } finally {
             walOut = null;
+            walFileOut = null;
         }
     }
 

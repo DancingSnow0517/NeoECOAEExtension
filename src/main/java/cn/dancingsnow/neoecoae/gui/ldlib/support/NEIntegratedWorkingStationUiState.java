@@ -7,8 +7,9 @@ public record NEIntegratedWorkingStationUiState(
         int maxProgress,
         int requiredEnergy,
         boolean working,
-        boolean autoExport) {
+        boolean autoExport,
+        int processingSpeed) {
     public static NEIntegratedWorkingStationUiState empty() {
-        return new NEIntegratedWorkingStationUiState(0, 0, 0, 0, 0, false, false);
+        return new NEIntegratedWorkingStationUiState(0, 0, 0, 0, 0, false, false, 2);
     }
 }
