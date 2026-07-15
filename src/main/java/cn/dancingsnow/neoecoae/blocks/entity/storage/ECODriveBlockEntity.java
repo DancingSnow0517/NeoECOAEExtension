@@ -3,13 +3,16 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEStorageCluster;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.RequireRerender;
@@ -19,6 +22,9 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -26,9 +32,11 @@ import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.UUID;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
-    implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost {
+    implements ISyncPersistRPCBlockEntity, IStorageProvider, ICellHost, ISaveProvider {
+    private static final String RESTORE_RECEIPTS_TAG = "neoecoae_restore_receipts";
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -60,11 +68,20 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void setCellStack(@Nullable ItemStack cellStack) {
+        if (cellStack != null
+            && cluster instanceof NEStorageCluster storageCluster
+            && storageCluster.getController() != null
+            && storageCluster.getController().isInfiniteMode()
+            && !ECOInfiniteStorageMember.isMember(cellStack)) {
+            return;
+        }
         this.cellStack = cellStack;
-        if (cellStack != null) {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, true));
-        } else {
-            getLevel().setBlockAndUpdate(getBlockPos(), getBlockState().setValue(ECODriveBlock.HAS_CELL, false));
+        if (getLevel() != null && !isServerStopping()) {
+            BlockState state = getBlockState();
+            BlockState newState = state.setValue(ECODriveBlock.HAS_CELL, cellStack != null);
+            if (newState != state) {
+                getLevel().setBlockAndUpdate(getBlockPos(), newState);
+            }
         }
         updateState();
         this.cellStack = cellStack;
@@ -73,10 +90,32 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public boolean isItemValid(ItemStack stack) {
+        if (cluster instanceof NEStorageCluster storageCluster
+            && storageCluster.getController() != null
+            && storageCluster.getController().isInfiniteMode()
+            && !ECOInfiniteStorageMember.isMember(stack)) {
+            return false;
+        }
         return ECOStorageCells.isCellHandled(stack);
     }
 
+    @Override
+    public boolean canExtractCell() {
+        return !isLockedByInfiniteMode();
+    }
+
+    public boolean isLockedByInfiniteMode() {
+        return cluster instanceof NEStorageCluster storageCluster
+            && storageCluster.getController() != null
+            && storageCluster.getController().isInfiniteMode()
+            && cellStack != null
+            && !cellStack.isEmpty();
+    }
+
     private void updateState() {
+        if (isServerStopping()) {
+            return;
+        }
         double power = 256;
         if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
             IECOTier mainTier = storageCluster.getController().getTier();
@@ -105,7 +144,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Nullable
     public IECOStorageCell getCellInventory() {
         if (cellStack != null) {
-            return ECOStorageCells.getCellInventory(cellStack, null);
+            return ECOStorageCells.getCellInventory(cellStack, this);
         }
         return null;
     }
@@ -115,7 +154,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
             IECOTier mainTier = storageCluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
-            if (cellInventory != null && mainTier.compareTo(cellInventory.getTier()) >= 0) {
+            if (cellInventory != null
+                && mainTier.compareTo(cellInventory.getTier()) >= 0
+                && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 storageMounts.mount(cellInventory, storageCluster.getController().getStoragePriority());
                 mounted = true;
                 setChanged();
@@ -134,6 +175,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        if (isServerStopping()) {
+            return;
+        }
         super.onMainNodeStateChanged(reason);
         online = getMainNode().isOnline();
         setChanged();
@@ -142,10 +186,61 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.getServer().executeIfPossible(() -> {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 setChanged();
                 markForUpdate();
             });
         }
+    }
+
+    @Override
+    public void saveChanges() {
+        notifyPersistence();
+    }
+
+    public void convertCellToInfiniteMember(UUID domainId) {
+        if (cellStack == null || cellStack.isEmpty()) {
+            return;
+        }
+        ECOInfiniteStorageMember.clearStoredContents(cellStack);
+        ECOInfiniteStorageMember.markMember(cellStack, domainId);
+        setChanged();
+        markForUpdate();
+    }
+
+    public boolean convertInfiniteMemberToNormalStorage(UUID domainId) {
+        if (cellStack == null || cellStack.isEmpty() || !ECOInfiniteStorageMember.isMemberOf(cellStack, domainId)) {
+            return false;
+        }
+        ECOInfiniteStorageMember.clearMember(cellStack);
+        clearRestoreReceipts();
+        setChanged();
+        markForUpdate();
+        return true;
+    }
+
+    public long getRestoreReceipt(UUID transactionId) {
+        if (cellStack == null || cellStack.isEmpty()) return 0L;
+        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        return custom.getCompound(RESTORE_RECEIPTS_TAG).getLong(transactionId.toString());
+    }
+
+    public void putRestoreReceipt(UUID transactionId, long amount) {
+        if (cellStack == null || cellStack.isEmpty() || amount <= 0L) return;
+        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag receipts = custom.getCompound(RESTORE_RECEIPTS_TAG);
+        receipts.putLong(transactionId.toString(), amount);
+        custom.put(RESTORE_RECEIPTS_TAG, receipts);
+        cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
+        setChanged();
+    }
+
+    public void clearRestoreReceipts() {
+        if (cellStack == null || cellStack.isEmpty()) return;
+        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        custom.remove(RESTORE_RECEIPTS_TAG);
+        if (custom.isEmpty()) cellStack.remove(DataComponents.CUSTOM_DATA);
+        else cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
+        setChanged();
     }
 }

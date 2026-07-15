@@ -21,11 +21,15 @@ public class ECOMachineCasingBlockEntity<C extends NECluster<C>> extends NEBlock
 
     @Override
     public void updateState(boolean updateExposed) {
+        if (isServerStopping()) {
+            return;
+        }
         super.updateState(updateExposed);
         if (this.level == null || this.notLoaded() || this.isRemoved()) {
             return;
         }
-        BlockState newState = level.getBlockState(worldPosition);
+        BlockState state = level.getBlockState(worldPosition);
+        BlockState newState = state;
         if (this.cluster != null) {
             if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
                 newState = newState.setValue(ECOMachineCasing.INVISIBLE, this.cluster.shouldCasingHide(this));
@@ -35,10 +39,12 @@ public class ECOMachineCasingBlockEntity<C extends NECluster<C>> extends NEBlock
                 newState = newState.setValue(ECOMachineCasing.INVISIBLE, false);
             }
         }
-        level.setBlock(
-            worldPosition,
-            newState,
-            Block.UPDATE_CLIENTS
-        );
+        if (newState != state) {
+            level.setBlock(
+                worldPosition,
+                newState,
+                Block.UPDATE_CLIENTS
+            );
+        }
     }
 }

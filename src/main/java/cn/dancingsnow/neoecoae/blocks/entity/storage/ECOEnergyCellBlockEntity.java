@@ -15,6 +15,7 @@ import appeng.me.energy.StoredEnergyAmount;
 import appeng.util.Platform;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
+import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib2.syncdata.holder.blockentity.ISyncPersistRPCBlockEntity;
 import com.lowdragmc.lowdraglib2.syncdata.storage.FieldManagedStorage;
@@ -23,7 +24,6 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -59,6 +59,9 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     private void emitPowerEvent(GridPowerStorageStateChanged.PowerEventType type) {
+        if (isServerStopping()) {
+            return;
+        }
         getMainNode().ifPresent(
             grid -> grid.postEvent(new GridPowerStorageStateChanged(this, type)));
     }
@@ -108,7 +111,7 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
-            serverLevel.getServer().executeIfPossible(() -> {
+            ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
                 setChanged();
                 markForUpdate();
             });
@@ -116,6 +119,9 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     private void onEnergyChanged() {
+        if (isServerStopping()) {
+            return;
+        }
         setChangedNoTicketUpdate();
 
         if (!neighborChangePending) {
@@ -149,6 +155,9 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     private void setChangedNoTicketUpdate() {
+        if (isServerStopping()) {
+            return;
+        }
         if (!(this.level instanceof ServerLevel serverLevel)) {
             throw new IllegalArgumentException("Expected server level, not " + this.level);
         }
@@ -172,6 +181,9 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        if (isServerStopping()) {
+            return TickRateModulation.SLEEP;
+        }
         if (Platform.areBlockEntitiesTicking(getLevel(), getBlockPos())) {
             if (neighborChangePending) {
                 neighborChangePending = false;
@@ -185,11 +197,11 @@ public class ECOEnergyCellBlockEntity extends AbstractStorageBlockEntity<ECOEner
     }
 
     public static int getStorageLevelFromFillFactor(double fillFactor) {
-        return (int) Math.floor(4 * Mth.clamp(fillFactor + 0.01, 0, 1));
+        return (int) Math.floor(4 * Math.clamp(fillFactor + 0.01, 0, 1));
     }
 
     private void updateStateForPowerLevel() {
-        if (this.isRemoved()) {
+        if (this.isRemoved() || isServerStopping()) {
             return;
         }
 

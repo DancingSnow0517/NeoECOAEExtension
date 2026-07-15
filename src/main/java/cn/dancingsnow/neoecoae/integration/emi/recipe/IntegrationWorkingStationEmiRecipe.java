@@ -81,7 +81,7 @@ public class IntegrationWorkingStationEmiRecipe extends BasicEmiRecipe {
         // output fluid
         FluidStack fluidOutput = recipe.fluidOutput();
         if (!fluidOutput.isEmpty()) {
-            widgets.addTank(EmiStack.of(fluidOutput.getFluid(), fluidOutput.getAmount()), 146, 8, 18, 20, 16000).recipeContext(this).drawBack(false);
+            widgets.addTank(EmiStack.of(fluidOutput.getFluid(), fluidOutput.getAmount()), 146, 8, 18, 60, 16000).recipeContext(this).drawBack(false);
         }
     }
 }

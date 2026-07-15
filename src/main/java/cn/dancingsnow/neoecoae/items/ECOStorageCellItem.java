@@ -22,7 +22,9 @@ import cn.dancingsnow.neoecoae.api.storage.IECOCellHandler;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import lombok.Getter;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -90,6 +92,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag tooltipFlag) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
+                .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return;
+        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return;
@@ -100,6 +107,9 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Override
     public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            return Optional.empty();
+        }
         var handler = getCellInventory(stack);
         if (handler == null) {
             return Optional.empty();
@@ -164,8 +174,13 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
     @Nullable
     public static ECOStorageCell getCellInventory(ItemStack stack) {
+        return getCellInventory(stack, null);
+    }
+
+    @Nullable
+    public static ECOStorageCell getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
         if (stack.getItem() instanceof ECOStorageCellItem) {
-            return new ECOStorageCell(stack, null);
+            return new ECOStorageCell(stack, host);
         }
         return null;
     }
@@ -209,6 +224,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             return false;
         }
 
+        if (ECOInfiniteStorageMember.isMember(stack)) {
+            player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
+            return false;
+        }
+
         List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
         if (disassembledStacks.isEmpty()) {
             return false;
@@ -249,7 +269,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
 
         @Override
         public @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host) {
-            return ECOStorageCellItem.getCellInventory(is);
+            return ECOStorageCellItem.getCellInventory(is, host);
         }
     }
 }

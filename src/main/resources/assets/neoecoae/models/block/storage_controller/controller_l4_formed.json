@@ -1,5 +1,5 @@
 {
-    "parent": "neoecoae:block/storage_controller/controller_formed_base",
+    "parent": "neoecoae:block/storage_controller/controller_l4_formed_base",
     "textures": {
         "base": "neoecoae:block/storage/controller_formed/controller_formed_a"
     }

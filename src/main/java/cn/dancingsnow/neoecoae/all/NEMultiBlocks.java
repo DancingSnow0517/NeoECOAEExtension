@@ -120,15 +120,18 @@ public class NEMultiBlocks {
             .expandMax(NEConfig.craftingSystemMaxLength - 4)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
+                BlockState newState = state;
                 if (state.hasProperty(NEBlock.FORMED)) {
-                    state = state.setValue(NEBlock.FORMED, true);
+                    newState = newState.setValue(NEBlock.FORMED, true);
                 }
-                if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
                     Vec3 myPos = pos.getCenter();
                     Vec3 controllerPos = new Vec3(1.5, 1.5, 0.5);
-                    state = state.setValue(ECOMachineCasing.INVISIBLE, myPos.distanceToSqr(controllerPos) <= 3);
+                    newState = newState.setValue(ECOMachineCasing.INVISIBLE, myPos.distanceToSqr(controllerPos) <= 3);
                 }
-                level.setBlockAndUpdate(pos, state);
+                if (newState != state) {
+                    level.setBlockAndUpdate(pos, newState);
+                }
             })
             .create(DEFINITIONS::add);
     }
@@ -187,21 +190,24 @@ public class NEMultiBlocks {
             .expandMax(NEConfig.computationSystemMaxLength - 4)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
+                BlockState newState = state;
                 if (state.hasProperty(NEBlock.FORMED)) {
-                    state = state.setValue(NEBlock.FORMED, true);
+                    newState = newState.setValue(NEBlock.FORMED, true);
                 }
-                if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
-                    state = state.setValue(ECOMachineCasing.INVISIBLE, true);
+                if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                    newState = newState.setValue(ECOMachineCasing.INVISIBLE, true);
                 }
-                BlockEntity be = level.getBlockEntity(pos);
-                level.setBlockAndUpdate(pos, state);
-                if (be != null)level.setBlockEntity(be);
+                if (newState != state) {
+                    BlockEntity be = level.getBlockEntity(pos);
+                    level.setBlockAndUpdate(pos, newState);
+                    if (be != null) level.setBlockEntity(be);
+                }
             })
             .create(DEFINITIONS::add);
     }
 
     private static MultiBlockDefinition storageSystem(Holder<Block> owner, BlockState system, BlockState energyCell) {
-        return MultiBlockDefinition.builder(owner)
+        MultiBlockDefinition.Builder builder = MultiBlockDefinition.builder(owner)
             .setBlock(pos(1, 1, 0), system)
             .setBlock(pos(1, 0, 0), NEBlocks.STORAGE_CASING.getDefaultState())
             .setBlock(pos(2, 0, 0), NEBlocks.STORAGE_CASING.getDefaultState())
@@ -213,32 +219,46 @@ public class NEMultiBlocks {
             .setBlock(pos(2, 1, 1), NEBlocks.STORAGE_INTERFACE.getDefaultState())
             .setBlock(pos(1, 1, 1), NEBlocks.STORAGE_CASING.getDefaultState())
             .setBlock(pos(1, 2, 1), NEBlocks.STORAGE_CASING.getDefaultState())
-            .setBlock(pos(2, 2, 1), NEBlocks.STORAGE_CASING.getDefaultState())
-            .setBlockRepeatable(pos(0, 0, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
-            .setBlockRepeatable(pos(0, 1, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
-            .setBlockRepeatable(pos(0, 2, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
-            .setBlockRepeatable(pos(0, 0, 1), Direction.WEST, energyCell)
-            .setBlockRepeatable(pos(0, 1, 1), Direction.WEST, NEBlocks.STORAGE_VENT.getDefaultState().setValue(ECOStorageVentBlock.FACING, Direction.SOUTH))
-            .setBlockRepeatable(pos(0, 2, 1), Direction.WEST, energyCell)
-            .setBlockWithRepeatShifted(pos(0, 0, 0), Direction.WEST, 0, NEBlocks.STORAGE_CASING.getDefaultState())
-            .setBlockWithRepeatShifted(pos(0, 0, 1), Direction.WEST, 0, NEBlocks.STORAGE_CASING.getDefaultState())
-            .setBlockWithRepeatShifted(pos(0, 1, 0), Direction.WEST, 0, NEBlocks.STORAGE_CASING.getDefaultState())
-            .setBlockWithRepeatShifted(pos(0, 1, 1), Direction.WEST, 0, NEBlocks.STORAGE_CASING.getDefaultState())
-            .setBlockWithRepeatShifted(pos(0, 2, 0), Direction.WEST, 0, NEBlocks.STORAGE_CASING.getDefaultState())
-            .setBlockWithRepeatShifted(pos(0, 2, 1), Direction.WEST, 0, NEBlocks.STORAGE_CASING.getDefaultState())
+            .setBlock(pos(2, 2, 1), NEBlocks.STORAGE_CASING.getDefaultState());
+
+        BlockState casing = NEBlocks.STORAGE_CASING.getDefaultState();
+        for (int y = 0; y < 3; y++) {
+            builder.setBlock(pos(0, y, 0), casing);
+            builder.setBlock(pos(0, y, 1), casing);
+        }
+
+        return builder
+            .setBlockRepeatable(pos(-1, 0, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
+            .setBlockRepeatable(pos(-1, 1, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
+            .setBlockRepeatable(pos(-1, 2, 0), Direction.WEST, NEBlocks.ECO_DRIVE.getDefaultState())
+            .setBlockRepeatable(pos(-1, 0, 1), Direction.WEST, energyCell)
+            .setBlockRepeatable(pos(-1, 1, 1), Direction.WEST, NEBlocks.STORAGE_VENT.getDefaultState().setValue(ECOStorageVentBlock.FACING, Direction.SOUTH))
+            .setBlockRepeatable(pos(-1, 2, 1), Direction.WEST, energyCell)
+            .setBlockWithRepeatShifted(pos(0, 0, 0), Direction.WEST, 1, casing)
+            .setBlockWithRepeatShifted(pos(0, 0, 1), Direction.WEST, 1, casing)
+            .setBlockWithRepeatShifted(pos(0, 1, 0), Direction.WEST, 1, casing)
+            .setBlockWithRepeatShifted(pos(0, 1, 1), Direction.WEST, 1, casing)
+            .setBlockWithRepeatShifted(pos(0, 2, 0), Direction.WEST, 1, casing)
+            .setBlockWithRepeatShifted(pos(0, 2, 1), Direction.WEST, 1, casing)
             .expandMin(1)
-            .expandMax(NEConfig.storageSystemMaxLength - 3)
+            .expandMax(NEConfig.storageSystemMaxLength - 4)
             .onFormed((pos, level) -> {
                 BlockState state = level.getBlockState(pos);
+                BlockState newState = state;
                 if (state.hasProperty(NEBlock.FORMED)) {
-                    state = state.setValue(NEBlock.FORMED, true);
+                    newState = newState.setValue(NEBlock.FORMED, true);
                 }
-                if (state.hasProperty(ECOMachineCasing.INVISIBLE)) {
+                if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
                     Vec3 myPos = pos.getCenter();
                     Vec3 controllerPos = new Vec3(1.5, 1.5, 0.5);
-                    state = state.setValue(ECOMachineCasing.INVISIBLE, myPos.distanceToSqr(controllerPos) <= 3);
+                    newState = newState.setValue(
+                        ECOMachineCasing.INVISIBLE,
+                        myPos.distanceToSqr(controllerPos) <= 3
+                    );
                 }
-                level.setBlockAndUpdate(pos, state);
+                if (newState != state) {
+                    level.setBlockAndUpdate(pos, newState);
+                }
             })
             .create();
     }

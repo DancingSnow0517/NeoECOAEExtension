@@ -58,35 +58,31 @@ fluid-slot {
 // unified ECO host UI
 .eco-host-panel {
   background: built-in(ui-eco:BACKGROUND);
+  padding-all: 6;
+  gap-all: 5;
 }
 
 .eco-host-header {
-  padding-bottom: 4;
+  gap-all: 2;
 }
 
-.eco-host-status {
-  background: #143c4620;
+.eco-host-toolbar {
+  gap-all: 4;
 }
 
-.eco-host-metric, .eco-host-card, .eco-host-tile {
-  background: built-in(ui-eco:CARD_BACKGROUND);
-}
-
-.eco-host-scroll-port {
-  background: #00000000;
+.eco-host-card {
+  background: built-in(ui-eco:HOST_PANEL_BORDER);
 }
 
 .eco-host-card {
   padding-all: 6;
+  gap-all: 3;
 }
 
-.eco-host-tile {
-  padding-all: 5;
+.eco-computation-capacity {
+  gap-all: 1;
 }
 
-.eco-host-metric-spacer {
-  background: #00000000;
-}
 
 .eco-host-progress .__progress-bar_bar-container__ {
   background: #1f2f3428;
@@ -96,6 +92,95 @@ fluid-slot {
   background: #26a6bd;
 }
 
-.eco-host-footer {
-  padding-top: 2;
+.eco-host-stats-progress {
+  padding-all: 2;
+  background: built-in(ui-eco:HOST_PANEL_BORDER);
+}
+
+.eco-host-stats-progress .__progress-bar_bar-container__ {
+  padding-all: 1;
+  background: #201e27;
+}
+
+.eco-host-stats-progress .__progress-bar_bar__ {
+  background: #8377ff;
+}
+
+.eco-storage-load-inset-edge {
+  background: #c9c3d6;
+}
+
+.eco-storage-load-inset-border {
+  background: #17141e;
+}
+
+.eco-storage-load-inset-fill {
+  background: #201e27;
+}
+
+.eco-host-panel-row {
+  gap-all: 6;
+}
+
+.eco-host-bottom-row {
+  gap-all: 8;
+}
+
+.eco-host-toolbar-button {
+  padding-all: 0;
+}
+
+.eco-host-status-row {
+  gap-all: 4;
+}
+
+.eco-host-status-light-edge {
+  background: #d8d3e4;
+}
+
+.eco-host-status-light-border {
+  background: #17141e;
+}
+
+.eco-host-status-light-on {
+  background: #55ff8a;
+}
+
+.eco-host-status-light-off {
+  background: #ff6a75;
+}
+
+.eco-host-gauge-row {
+  gap-all: 14;
+}
+
+.eco-host-energy-gauge {
+  padding-all: 3;
+  background: built-in(ui-eco:HOST_PANEL_BORDER);
+}
+
+.eco-host-energy-gauge .__progress-bar_bar-container__ {
+  padding-all: 1;
+  background: #17141e;
+}
+
+.eco-host-energy-gauge .__progress-bar_bar__ {
+  background: #00fc00;
+}
+
+.eco-host-energy-medium .__progress-bar_bar__ {
+  background: #e7a943;
+}
+
+.eco-host-energy-warning .__progress-bar_bar__ {
+  background: #ffd65a;
+}
+
+.eco-host-coolant-gauge {
+  padding-all: 3;
+  background: built-in(ui-eco:HOST_PANEL_BORDER);
+}
+
+.eco-host-task-panel {
+  padding-all: 0;
 }

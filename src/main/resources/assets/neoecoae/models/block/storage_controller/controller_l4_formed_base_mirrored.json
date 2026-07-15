@@ -1,0 +1,466 @@
+{
+    "format_version":  "1.9.0",
+    "credit":  "Made with Blockbench, made by TedXenon",
+    "parent":  "block/block",
+    "render_type":  "cutout",
+    "texture_size":  [
+                         176,
+                         96
+                     ],
+    "textures":  {
+                     "particle":  "neoecoae:block/storage/casing",
+                     "base":  "neoecoae:block/storage/controller_formed/controller_formed_a"
+                 },
+    "elements":  [
+                     {
+                         "name":  "light",
+                         "from":  [
+                                      -16,
+                                      -16,
+                                      0
+                                  ],
+                         "to":  [
+                                    32,
+                                    32,
+                                    32
+                                ],
+                         "shade":  false,
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                4.36364,
+                                                                8,
+                                                                0,
+                                                                16
+                                                            ],
+                                                     "texture":  "#base",
+                                                     "neoforge_data":  {
+                                                                           "block_light":  15,
+                                                                           "sky_light":  15
+                                                                       }
+                                                 },
+                                       "west":  {
+                                                    "uv":  [
+                                                               7.27273,
+                                                               8,
+                                                               4.36364,
+                                                               16
+                                                           ],
+                                                    "texture":  "#base",
+                                                    "neoforge_data":  {
+                                                                          "block_light":  15,
+                                                                          "sky_light":  15
+                                                                      }
+                                                },
+                                       "south":  {
+                                                     "uv":  [
+                                                                11.63636,
+                                                                8,
+                                                                7.27273,
+                                                                16
+                                                            ],
+                                                     "rotation":  180,
+                                                     "texture":  "#base",
+                                                     "neoforge_data":  {
+                                                                           "block_light":  15,
+                                                                           "sky_light":  15
+                                                                       }
+                                                 }
+                                   }
+                     },
+                     {
+                         "name":  "screen",
+                         "from":  [
+                                      0,
+                                      0,
+                                      1
+                                  ],
+                         "to":  [
+                                    16,
+                                    16,
+                                    16
+                                ],
+                         "shade":  false,
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                2.90909,
+                                                                2.66667,
+                                                                1.45455,
+                                                                5.33333
+                                                            ],
+                                                     "texture":  "#base",
+                                                     "neoforge_data":  {
+                                                                           "block_light":  15,
+                                                                           "sky_light":  15
+                                                                       }
+                                                 }
+                                   }
+                     },
+                     {
+                         "name":  "back",
+                         "from":  [
+                                      -16,
+                                      -16,
+                                      16
+                                  ],
+                         "to":  [
+                                    32,
+                                    32,
+                                    32
+                                ],
+                         "faces":  {
+                                       "west":  {
+                                                    "uv":  [
+                                                               5.81818,
+                                                               0,
+                                                               4.36364,
+                                                               8
+                                                           ],
+                                                    "texture":  "#base"
+                                                },
+                                       "south":  {
+                                                     "uv":  [
+                                                                11.63636,
+                                                                0,
+                                                                7.27273,
+                                                                8
+                                                            ],
+                                                     "texture":  "#base"
+                                                 },
+                                       "up":  {
+                                                  "uv":  [
+                                                             16,
+                                                             2.5,
+                                                             11.63636,
+                                                             5.33333
+                                                         ],
+                                                  "texture":  "#base"
+                                              },
+                                       "down":  {
+                                                    "uv":  [
+                                                               16,
+                                                               0,
+                                                               11.63636,
+                                                               2.66667
+                                                           ],
+                                                    "texture":  "#base"
+                                                }
+                                   }
+                     },
+                     {
+                         "name":  "front_a",
+                         "from":  [
+                                      -16,
+                                      -16,
+                                      0
+                                  ],
+                         "to":  [
+                                    32,
+                                    0,
+                                    16
+                                ],
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                4.36364,
+                                                                5.33333,
+                                                                0,
+                                                                8
+                                                            ],
+                                                     "texture":  "#base"
+                                                 },
+                                       "west":  {
+                                                    "uv":  [
+                                                               7.27273,
+                                                               5.33333,
+                                                               5.81818,
+                                                               8
+                                                           ],
+                                                    "texture":  "#base"
+                                                },
+                                       "down":  {
+                                                    "uv":  [
+                                                               11.63636,
+                                                               5.33333,
+                                                               16,
+                                                               2.66667
+                                                           ],
+                                                    "texture":  "#base"
+                                                }
+                                   }
+                     },
+                     {
+                         "name":  "front_a",
+                         "from":  [
+                                      -16,
+                                      16,
+                                      0
+                                  ],
+                         "to":  [
+                                    32,
+                                    32,
+                                    16
+                                ],
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                4.36364,
+                                                                0,
+                                                                0,
+                                                                2.66667
+                                                            ],
+                                                     "texture":  "#base"
+                                                 },
+                                       "west":  {
+                                                    "uv":  [
+                                                               7.27273,
+                                                               0,
+                                                               5.81818,
+                                                               2.66667
+                                                           ],
+                                                    "texture":  "#base"
+                                                },
+                                       "up":  {
+                                                  "uv":  [
+                                                             10.18182,
+                                                             0,
+                                                             14.54545,
+                                                             2.5
+                                                         ],
+                                                  "texture":  "#base"
+                                              }
+                                   }
+                     },
+                     {
+                         "name":  "front_b",
+                         "from":  [
+                                      -16,
+                                      0,
+                                      0
+                                  ],
+                         "to":  [
+                                    0,
+                                    16,
+                                    16
+                                ],
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                1.45455,
+                                                                2.66667,
+                                                                0,
+                                                                5.33333
+                                                            ],
+                                                     "texture":  "#base"
+                                                 },
+                                       "west":  {
+                                                    "uv":  [
+                                                               7.27273,
+                                                               2.66667,
+                                                               5.81818,
+                                                               5.33333
+                                                           ],
+                                                    "texture":  "#base"
+                                                }
+                                   }
+                     },
+                     {
+                         "name":  "front_b",
+                         "from":  [
+                                      16,
+                                      0,
+                                      0
+                                  ],
+                         "to":  [
+                                    32,
+                                    16,
+                                    16
+                                ],
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                4.36364,
+                                                                2.66667,
+                                                                2.90909,
+                                                                5.33333
+                                                            ],
+                                                     "texture":  "#base"
+                                                 },
+                                       "west":  {
+                                                    "uv":  [
+                                                               5.81818,
+                                                               2.66667,
+                                                               4.36364,
+                                                               5.33333
+                                                           ],
+                                                    "texture":  "#base"
+                                                }
+                                   }
+                     },
+                     {
+                         "name":  "front",
+                         "from":  [
+                                      9,
+                                      0,
+                                      0
+                                  ],
+                         "to":  [
+                                    16,
+                                    16,
+                                    1
+                                ],
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                2.90909,
+                                                                2.66667,
+                                                                2.27273,
+                                                                5.33333
+                                                            ],
+                                                     "texture":  "#base",
+                                                     "cullface":  "north"
+                                                 },
+                                       "west":  {
+                                                    "uv":  [
+                                                               2.36364,
+                                                               2.66667,
+                                                               2.27273,
+                                                               5.33333
+                                                           ],
+                                                    "texture":  "#base"
+                                                }
+                                   }
+                     },
+                     {
+                         "name":  "front_pillar_a",
+                         "from":  [
+                                      3,
+                                      13,
+                                      0
+                                  ],
+                         "to":  [
+                                    9,
+                                    16,
+                                    1
+                                ],
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                2.27273,
+                                                                2.66667,
+                                                                1.72727,
+                                                                3.16667
+                                                            ],
+                                                     "texture":  "#base",
+                                                     "cullface":  "north"
+                                                 },
+                                       "down":  {
+                                                    "uv":  [
+                                                               1.72727,
+                                                               3.16667,
+                                                               2.27273,
+                                                               3
+                                                           ],
+                                                    "texture":  "#base"
+                                                }
+                                   }
+                     },
+                     {
+                         "name":  "front_pillar_b",
+                         "from":  [
+                                      0,
+                                      0,
+                                      0
+                                  ],
+                         "to":  [
+                                    3,
+                                    16,
+                                    1
+                                ],
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                1.72727,
+                                                                2.66667,
+                                                                1.45455,
+                                                                5.33333
+                                                            ],
+                                                     "texture":  "#base",
+                                                     "cullface":  "north"
+                                                 },
+                                       "east":  {
+                                                    "uv":  [
+                                                               1.72727,
+                                                               2.66667,
+                                                               1.63636,
+                                                               5.33333
+                                                           ],
+                                                    "texture":  "#base"
+                                                }
+                                   }
+                     },
+                     {
+                         "name":  "front_pillar_a",
+                         "from":  [
+                                      3,
+                                      0,
+                                      0
+                                  ],
+                         "to":  [
+                                    9,
+                                    3,
+                                    1
+                                ],
+                         "faces":  {
+                                       "north":  {
+                                                     "uv":  [
+                                                                2.27273,
+                                                                4.83333,
+                                                                1.72727,
+                                                                5.33333
+                                                            ],
+                                                     "texture":  "#base",
+                                                     "cullface":  "north"
+                                                 },
+                                       "up":  {
+                                                  "uv":  [
+                                                             1.72727,
+                                                             4.83333,
+                                                             2.27273,
+                                                             5
+                                                         ],
+                                                  "texture":  "#base"
+                                              }
+                                   }
+                     }
+                 ],
+    "display":  {
+
+                },
+    "groups":  [
+                   0,
+                   1,
+                   2,
+                   3,
+                   4,
+                   5,
+                   6,
+                   {
+                       "name":  "controller",
+                       "origin":  [
+                                      8,
+                                      8,
+                                      8
+                                  ],
+                       "scope":  0,
+                       "color":  0,
+                       "children":  [
+                                        7,
+                                        8,
+                                        9,
+                                        10
+                                    ]
+                   }
+               ]
+}

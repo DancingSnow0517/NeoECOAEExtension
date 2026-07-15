@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.definition;
 
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import com.lowdragmc.lowdraglib2.utils.data.BlockInfo;
 import com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld;
 import lombok.Getter;
@@ -35,7 +36,7 @@ public abstract class MultiBlockContext {
 
     public static class DummyDelegated extends MultiBlockContext {
         private final TrackedDummyWorld dummyWorld;
-        private final List<ItemStack> itemStacks = new ArrayList<>(16);
+        private final List<RequiredItem> itemStacks = new ArrayList<>(16);
         private final List<BlockPos> posList = new ArrayList<>();
         @Getter
         private int yMax = 0;
@@ -70,22 +71,14 @@ public abstract class MultiBlockContext {
 
         public void addRequiredItem(ItemStack itemStack) {
             if (itemStack.isEmpty()) return;
-            boolean added = false;
-            for (ItemStack stack : itemStacks) {
-                if (ItemStack.isSameItemSameComponents(itemStack, stack)) {
-                    if (stack.getCount() + itemStack.getCount() > stack.getMaxStackSize()) {
-                        itemStack.setCount(stack.getCount() + itemStack.getCount() - stack.getMaxStackSize());
-                        stack.setCount(stack.getMaxStackSize());
-                    } else {
-                        stack.setCount(stack.getCount() + itemStack.getCount());
-                    }
-                    added = true;
-                    break;
+            for (int i = 0; i < itemStacks.size(); i++) {
+                RequiredItem stack = itemStacks.get(i);
+                if (ItemStack.isSameItemSameComponents(itemStack, stack.stack())) {
+                    itemStacks.set(i, stack.grow(itemStack.getCount()));
+                    return;
                 }
             }
-            if (!added) {
-                itemStacks.add(itemStack);
-            }
+            itemStacks.add(new RequiredItem(itemStack, itemStack.getCount()));
         }
 
         @Override
@@ -98,7 +91,7 @@ public abstract class MultiBlockContext {
             return dummyWorld;
         }
 
-        public List<ItemStack> getRequiredItems() {
+        public List<RequiredItem> getRequiredItems() {
             return itemStacks;
         }
     }

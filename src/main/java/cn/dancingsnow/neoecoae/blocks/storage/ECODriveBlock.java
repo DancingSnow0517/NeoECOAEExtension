@@ -7,23 +7,19 @@ import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
     public static final BooleanProperty HAS_CELL = BooleanProperty.create("has_cell");
@@ -43,8 +39,13 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
             if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
                 if (be.getCellStack() == null) {
                     if (level.isClientSide) return ItemInteractionResult.SUCCESS;
-                    be.setCellStack(heldItem);
-                    player.setItemInHand(hand, ItemStack.EMPTY);
+                    be.setCellStack(heldItem.copyWithCount(1));
+                    if (!player.isCreative()) {
+                        heldItem.shrink(1);
+                        if (heldItem.isEmpty()) {
+                            player.setItemInHand(hand, ItemStack.EMPTY);
+                        }
+                    }
                     return ItemInteractionResult.sidedSuccess(level.isClientSide());
                 }
             }
@@ -57,6 +58,10 @@ public class ECODriveBlock extends NEBlock<ECODriveBlockEntity> {
         if (level.getBlockEntity(pos) instanceof ECODriveBlockEntity be) {
             if (be.getCellStack() != null && player.isShiftKeyDown()) {
                 if (level.isClientSide) return InteractionResult.SUCCESS;
+                if (!be.canExtractCell()) {
+                    player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member_locked"), true);
+                    return InteractionResult.SUCCESS;
+                }
                 ItemStack cellStack = be.getCellStack();
                 be.setCellStack(null);
                 player.setItemInHand(InteractionHand.MAIN_HAND, cellStack);

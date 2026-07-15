@@ -1,8 +1,6 @@
 package cn.dancingsnow.neoecoae.blocks.entity.computation;
 
 import appeng.api.networking.crafting.ICraftingPlan;
-import appeng.api.networking.crafting.ICraftingRequester;
-import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.crafting.inv.ListCraftingInventory;
@@ -18,7 +16,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -78,21 +75,37 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
 
     @Override
     public void updateCluster(@Nullable NEComputationCluster cluster) {
+        NEComputationCluster previous = this.cluster;
+        if (cluster == null && previous != null) {
+            HolderLookup.Provider registries = level != null ? level.registryAccess() : null;
+            if (registries != null) {
+                for (int i = 0; i < cpus.length; i++) {
+                    ECOCraftingCPU cpu = cpus[i];
+                    if (cpu == null) {
+                        continue;
+                    }
+                    CompoundTag tag = new CompoundTag();
+                    cpu.writeToNBT(tag, registries);
+                    deferredInit[i] = tag;
+                    previous.deactivate(cpu.getPlan());
+                    cpus[i] = null;
+                }
+                setChanged();
+            }
+        }
         super.updateCluster(cluster);
         if (cluster != null) {
             for (int i = 0; i < deferredInit.length; i++) {
                 CompoundTag tag = deferredInit[i];
                 if (tag != null) {
+                    HolderLookup.Provider registries = level != null ? level.registryAccess() : null;
+                    if (registries == null) {
+                        continue;
+                    }
                     ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
-                    HolderLookup.Provider registries = ServerLifecycleHooks.getCurrentServer()
-                        .getServerResources()
-                        .managers()
-                        .fullRegistries()
-                        .get();
                     deferredInit[i] = null;
                     cpu.readFromNBT(tag, registries);
                     if (cpu.getPlan() != null) {
-                        System.out.println("pickup cpu" + cpu + " " + cpu.getPlan());
                         cpus[i] = cpu;
                         cluster.pickup(cpu.getPlan(), cpu);
                     }
@@ -109,7 +122,6 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                 deferredInit[i] = data.getCompound("CPU" + i);
             }
         }
-        markForUpdate();
     }
 
     @Override

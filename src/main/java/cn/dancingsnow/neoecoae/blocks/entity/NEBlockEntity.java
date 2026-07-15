@@ -63,12 +63,18 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     }
 
     public void updateMultiBlock(BlockPos changedPos) {
+        if (isServerStopping()) {
+            return;
+        }
         if (level instanceof ServerLevel serverLevel) {
             calculator.updateMultiblockAfterNeighborUpdate(serverLevel, worldPosition, changedPos);
         }
     }
 
     public void rebuildMultiblock() {
+        if (isServerStopping()) {
+            return;
+        }
         if (level instanceof ServerLevel serverLevel) {
             calculator.calculateMultiblock(serverLevel, worldPosition);
         }
@@ -76,6 +82,9 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        if (isServerStopping()) {
+            return;
+        }
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.updateState(false);
         }
@@ -86,11 +95,15 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (!formed) {
             return EnumSet.noneOf(Direction.class);
         }
+        if (isServerStopping()) {
+            return EnumSet.noneOf(Direction.class);
+        }
 
         EnumSet<Direction> directions = EnumSet.noneOf(Direction.class);
         if (level != null) {
             for (Direction value : Direction.values()) {
-                if (level.getBlockEntity(this.worldPosition.relative(value)) instanceof NEBlockEntity) {
+                BlockPos adjacentPos = this.worldPosition.relative(value);
+                if (level.hasChunkAt(adjacentPos) && level.getBlockEntity(adjacentPos) instanceof NEBlockEntity) {
                     directions.add(value);
                 }
             }
@@ -100,18 +113,21 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @MustBeInvokedByOverriders
     public void updateState(boolean updateExposed) {
-        if (this.level == null || this.notLoaded() || this.isRemoved()) {
+        if (this.level == null || this.notLoaded() || this.isRemoved() || isServerStopping()) {
             return;
         }
-        BlockState newState = level.getBlockState(worldPosition);
-        if (newState.hasProperty(NEBlock.FORMED)) {
-            newState = newState.setValue(NEBlock.FORMED, formed);
+        BlockState state = level.getBlockState(worldPosition);
+        BlockState newState = state;
+        if (state.hasProperty(NEBlock.FORMED)) {
+            newState = state.setValue(NEBlock.FORMED, formed);
         }
-        level.setBlock(
-            worldPosition,
-            newState,
-            Block.UPDATE_CLIENTS
-        );
+        if (newState != state) {
+            level.setBlock(
+                worldPosition,
+                newState,
+                Block.UPDATE_CLIENTS
+            );
+        }
         if (updateExposed) {
             onGridConnectableSidesChanged();
         }
@@ -146,6 +162,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         this.cluster = cluster;
         formed = cluster != null;
         updateState(true);
+    }
+
+    protected boolean isServerStopping() {
+        return this.level instanceof ServerLevel serverLevel && serverLevel.getServer().isStopped();
     }
 
     @Override

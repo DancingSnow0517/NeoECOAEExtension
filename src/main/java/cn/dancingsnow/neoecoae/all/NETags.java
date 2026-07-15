@@ -48,6 +48,7 @@ public class NETags {
         public static final TagKey<Item> CRYSTAL_INGOT_BASE = mod("crystal_ingot_base");
         // 用于制作超导锭的基底
         public static final TagKey<Item> SUPERCONDUCTIVE_INGOT_BASE = mod("superconductive_ingot_base");
+        public static final TagKey<Item> INFINITE_CELL_COMPONENTS = mod("infinite_cell_components");
 
         private static TagKey<Item> mod(String path) {
             return ItemTags.create(NeoECOAE.id(path));

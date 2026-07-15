@@ -13,7 +13,8 @@ public class ItemModelUtil {
         return (ctx, prov) -> prov.generated(
             ctx::get,
             prov.modLoc("item/eco_%s_cell_housing".formatted(type)),
-            prov.modLoc("item/eco_cell_light_" + size)
+            prov.modLoc("item/eco_cell_light_" + size),
+            prov.modLoc("item/eco_cell_status_light")
         );
     }
 }

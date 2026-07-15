@@ -45,12 +45,12 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
 
     @Override
     public int getWidth() {
-        return 170;
+        return MultiBlockInfoWrapper.DEFAULT_WIDTH;
     }
 
     @Override
     public int getHeight() {
-        return 170;
+        return MultiBlockInfoWrapper.DEFAULT_HEIGHT;
     }
 
     @Override

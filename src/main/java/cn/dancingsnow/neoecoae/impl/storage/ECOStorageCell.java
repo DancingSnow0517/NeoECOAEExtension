@@ -169,6 +169,15 @@ public class ECOStorageCell implements IECOStorageCell {
         return cellStack.getOrDefault(AEComponents.STORAGE_CELL_INV, List.of());
     }
 
+    public static boolean canStoreKeyInsideStorageCell(AEKey what) {
+        if (what instanceof AEItemKey itemKey) {
+            var stack = itemKey.toStack();
+            var cellInv = StorageCells.getCellInventory(stack, null);
+            return cellInv == null || cellInv.canFitInsideCell();
+        }
+        return true;
+    }
+
     protected Object2LongMap<AEKey> getCellItems() {
         if (this.storedAmounts == null) {
             this.storedAmounts = new Object2LongOpenHashMap<>(maxItemTypes);
@@ -230,10 +239,11 @@ public class ECOStorageCell implements IECOStorageCell {
 
     protected void saveChanges() {
         this.isPersisted = false;
+        // The host only marks its block entity dirty; it does not serialize this
+        // transient inventory instance back into the cell stack for us.
+        this.persist();
         if (this.container != null) {
             this.container.saveChanges();
-        } else {
-            this.persist();
         }
     }
 
@@ -262,14 +272,20 @@ public class ECOStorageCell implements IECOStorageCell {
         return hasVoidUpgrade ? amount : inserted;
     }
 
-    private long innerInsert(AEKey what, long amount, Actionable mode) {
-        if (what instanceof AEItemKey itemKey) {
-            var stack = itemKey.toStack();
+    /** Inserts for a lossless migration without applying the void upgrade's reported acceptance. */
+    public long insertForMigration(AEKey what, long amount, Actionable mode) {
+        if (amount <= 0 || !keyType.contains(what)) {
+            return 0;
+        }
+        if (!partitionList.matchesFilter(what, partitionListMode) || cellType.isBlackListed(cellStack, what)) {
+            return 0;
+        }
+        return innerInsert(what, amount, mode);
+    }
 
-            var cellInv = StorageCells.getCellInventory(stack, null);
-            if (cellInv != null && !cellInv.canFitInsideCell()) {
-                return 0;
-            }
+    private long innerInsert(AEKey what, long amount, Actionable mode) {
+        if (!canStoreKeyInsideStorageCell(what)) {
+            return 0;
         }
 
         var currentAmount = this.getCellItems().getLong(what);
@@ -371,6 +387,13 @@ public class ECOStorageCell implements IECOStorageCell {
 
     public ConfigInventory getConfigInventory() {
         return ((ECOStorageCellItem) cellStack.getItem()).getConfigInventory(cellStack);
+    }
+
+    public void clearAllStoredStacks() {
+        getCellItems().clear();
+        storedItems = 0;
+        storedItemCount = 0;
+        saveChanges();
     }
 
     private static long saturatedAdd(long a, long b) {

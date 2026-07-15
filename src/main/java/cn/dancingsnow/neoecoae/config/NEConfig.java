@@ -1,6 +1,8 @@
 package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -8,6 +10,10 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 @EventBusSubscriber(modid = NeoECOAE.MOD_ID)
 public class NEConfig {
+    public static final int PATTERN_BUS_SLOTS_PER_PAGE = 63;
+    public static final int PATTERN_BUS_MIN_PAGES = 1;
+    public static final int PATTERN_BUS_MAX_PAGES = 8;
+
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     static {
@@ -44,6 +50,19 @@ public class NEConfig {
             "可能引入额外的事件/监听器开销；安装 Balm 等模组时可能会有较明显影响。")
         .define("postCraftingEvent", false);
 
+    private static final ModConfigSpec.BooleanValue ENABLE_INFINITE_STORAGE = BUILDER
+        .comment(
+            "Enable ECO infinite storage on the storage controller.",
+            "Requires 64 infinite components and 16 L9 storage matrices; disabling it blocks new infinite migrations.",
+            "Existing infinite storage domain files are preserved and are not deleted by this option.")
+        .define("enableInfiniteStorage", false);
+
+    private static final ModConfigSpec.IntValue CRAFTING_PATTERN_BUS_PAGES = BUILDER
+        .comment(
+            "Number of pattern pages exposed by one ECO smart pattern bus.",
+            "Each page stores 63 encoded patterns.")
+        .defineInRange("craftingPatternBusPages", 1, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
+
     static {
         BUILDER
             .comment(
@@ -69,18 +88,19 @@ public class NEConfig {
             "实际值仍会受可用协处理器数量限制。")
         .defineInRange("ecoCpuPushTickLimit", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
 
-    private static final ModConfigSpec.IntValue ECO_BATCH_FAST_PATH_LIMIT = BUILDER
-        .comment("单次快速路径批量推送最多合并的合成次数。")
-        .defineInRange("ecoBatchFastPathLimit", 64, 1, Integer.MAX_VALUE);
-
     private static final ModConfigSpec.IntValue ECO_BATCH_FAST_PATH_TICK_LIMIT = BUILDER
         .comment("每个 CPU 每 tick 最多通过快速路径批量推送的合成次数。")
-        .defineInRange("ecoBatchFastPathTickLimit", 256, 1, Integer.MAX_VALUE);
+        .defineInRange("ecoBatchFastPathTickLimit", 256, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE);
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment("每个 ECO 快速路径缓存最多保留的配方条目数量。")
         .worldRestart()
-        .defineInRange("ecoFastPathCacheSize", 512, 16, Integer.MAX_VALUE);
+        .defineInRange(
+            "ecoFastPathCacheSize",
+            512,
+            ECOCraftingFastPathCache.MIN_CACHE_SIZE,
+            ECOCraftingFastPathCache.MAX_CACHE_SIZE
+        );
 
     static {
         BUILDER.pop();
@@ -92,24 +112,51 @@ public class NEConfig {
     public static int computationSystemMaxLength;
     public static int storageSystemMaxLength;
     public static boolean postCraftingEvent;
+    public static boolean enableInfiniteStorage;
+    public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
-    public static int ecoBatchFastPathLimit = 64;
     public static int ecoBatchFastPathTickLimit = 256;
     public static int ecoFastPathCacheSize = 512;
 
     @SubscribeEvent
-    public static void onLoad(ModConfigEvent event) {
+    public static void onLoad(ModConfigEvent.Loading event) {
+        applyConfig();
+    }
+
+    @SubscribeEvent
+    public static void onReload(ModConfigEvent.Reloading event) {
+        applyConfig();
+    }
+
+    private static void applyConfig() {
         craftingSystemMaxLength = CRAFTING_SYSTEM_MAX_LENGTH.get();
         computationSystemMaxLength = COMPUTATION_SYSTEM_MAX_LENGTH.get();
         storageSystemMaxLength = STORAGE_SYSTEM_MAX_LENGTH.get();
         postCraftingEvent = POST_CRAFTING_EVENT.get();
+        enableInfiniteStorage = ENABLE_INFINITE_STORAGE.get();
+        craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
-        ecoBatchFastPathLimit = ECO_BATCH_FAST_PATH_LIMIT.get();
         ecoBatchFastPathTickLimit = ECO_BATCH_FAST_PATH_TICK_LIMIT.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
+    }
+
+    public static int getCraftingPatternBusPages() {
+        return Math.clamp(craftingPatternBusPages, PATTERN_BUS_MIN_PAGES, PATTERN_BUS_MAX_PAGES);
+    }
+
+    public static int getCraftingPatternBusSlotCount() {
+        return PATTERN_BUS_SLOTS_PER_PAGE * getCraftingPatternBusPages();
+    }
+
+    public static int getMaxCraftingPatternBusSlotCount() {
+        return PATTERN_BUS_SLOTS_PER_PAGE * PATTERN_BUS_MAX_PAGES;
+    }
+
+    public static boolean isInfiniteStorageEnabled() {
+        return enableInfiniteStorage;
     }
 }

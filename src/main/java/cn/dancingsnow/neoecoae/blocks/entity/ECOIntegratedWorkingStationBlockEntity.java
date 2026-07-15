@@ -39,19 +39,21 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
 import appeng.util.inv.filter.AEItemFilters;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.all.NEDataComponents;
 import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.components.AutoExportSides;
 import cn.dancingsnow.neoecoae.blocks.ECOIntegratedWorkingStation;
-import cn.dancingsnow.neoecoae.gui.AETextures;
-import cn.dancingsnow.neoecoae.gui.NEStyleSheets;
-import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.slot.ItemHandlerSlot;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.SupplierDataSource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -62,12 +64,12 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.FluidSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Toggle;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
+import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.util.WindowDragHelper;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
@@ -736,15 +738,11 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             layout.flexDirection(FlexDirection.COLUMN);
             layout.justifyContent(AlignContent.CENTER);
         }).addChildren(
-            new ProgressBar()
-                .setMaxValue(MAX_PROCESSING_STEPS)
-                .progressBarStyle(style -> style.fillDirection(FillDirection.DOWN_TO_UP).interpolate(false))
-                .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
-                .label(label -> label.setText(""))
+            new AE2InscriberProgressBar()
                 .bind(DataBindingBuilder.floatValS2C(() -> (float) processingTime).build())
                 .layout(layout -> layout.height(18).width(6))
                 .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-                    Float value = ((ProgressBar) event.currentElement).getValue();
+                    Float value = ((AE2InscriberProgressBar) event.currentElement).getValue();
                     event.hoverTooltips = new HoverTooltips(
                         List.of(Component.literal("%.0f%%".formatted(value / MAX_PROCESSING_STEPS * 100))),
                         null,
@@ -829,7 +827,12 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                 shouldAutoExport = !shouldAutoExport;
                 configManager.putSetting(Settings.AUTO_EXPORT, shouldAutoExport ? YesNo.YES : YesNo.NO);
             }).layout(layout -> layout.height(20).width(18)))
-            .bindDataSource(SupplierDataSource.of(() -> shouldAutoExport))
+            .setOnToggleChanged(on -> {
+                if (level != null && level.isClientSide) {
+                    shouldAutoExport = on;
+                }
+            })
+            .bind(DataBindingBuilder.boolS2C(() -> shouldAutoExport).build())
             .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 event.hoverTooltips = new HoverTooltips(
                     List.of(
@@ -869,6 +872,66 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
         // Add absolute-positioned floating window last so it renders on top
         root.addChild(allowOutputWindow);
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+    }
+
+    private static final class AE2InscriberProgressBar extends UIElement implements IBindable<Float> {
+        private static final ResourceLocation TEXTURE = AppEng.makeId("textures/guis/inscriber.png");
+        private static final int TEXTURE_SIZE = 256;
+        private static final int BACKGROUND_SOURCE_X = 135;
+        private static final int BACKGROUND_SOURCE_Y = 39;
+        private static final int FILL_SOURCE_X = 176;
+        private static final int WIDTH = 6;
+        private static final int HEIGHT = 18;
+
+        private float value;
+
+        @Override
+        public IDataSource<Float> setValue(@Nullable Float value) {
+            this.value = value == null ? 0.0F : Mth.clamp(value, 0.0F, MAX_PROCESSING_STEPS);
+            return this;
+        }
+
+        @Override
+        public Float getValue() {
+            return value;
+        }
+
+        @Override
+        public void drawContents(GUIContext guiContext) {
+            int x = Mth.floor(getPositionX());
+            int y = Mth.floor(getPositionY());
+            guiContext.graphics.blit(
+                TEXTURE,
+                x,
+                y,
+                0,
+                BACKGROUND_SOURCE_X,
+                BACKGROUND_SOURCE_Y,
+                WIDTH,
+                HEIGHT,
+                TEXTURE_SIZE,
+                TEXTURE_SIZE
+            );
+
+            int current = Mth.floor(value);
+            int diff = HEIGHT - HEIGHT * current / MAX_PROCESSING_STEPS;
+            int visibleHeight = HEIGHT - diff;
+            if (visibleHeight <= 0) {
+                return;
+            }
+            guiContext.graphics.blit(
+                TEXTURE,
+                x,
+                y + diff,
+                0,
+                FILL_SOURCE_X,
+                diff,
+                WIDTH,
+                visibleHeight,
+                TEXTURE_SIZE,
+                TEXTURE_SIZE
+            );
+        }
     }
 
     private UIElement allowOutputPanel() {
@@ -946,6 +1009,9 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
             }
 
             BlockPos targetPos = worldPosition.relative(worldDir);
+            if (!level.hasChunkAt(targetPos)) {
+                return IGuiTexture.EMPTY;
+            }
             BlockState targetState = level.getBlockState(targetPos);
 
             var item = targetState.getBlock().asItem();
@@ -1001,7 +1067,7 @@ public class ECOIntegratedWorkingStationBlockEntity extends AENetworkedPoweredBl
                     markForUpdate();
                 });
             });
-            toggle.bindDataSource(SupplierDataSource.of(() -> allowOutputs.contains(internalSide)));
+            toggle.bind(DataBindingBuilder.boolS2C(() -> allowOutputs.contains(internalSide)).build());
             toggle.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 var enabled = allowOutputs.contains(internalSide);
                 event.hoverTooltips = new HoverTooltips(

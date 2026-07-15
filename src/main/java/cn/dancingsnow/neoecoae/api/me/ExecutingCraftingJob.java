@@ -50,11 +50,13 @@ public class ExecutingCraftingJob {
     private static final String NBT_TASKS = "tasks";
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
     private static final String NBT_SUSPENDED = "suspended";
+    private static final String NBT_BUFFERED_FINAL_OUTPUT = "bufferedFinalOutput";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
     final Map<IPatternDetails, TaskProgress> tasks = new HashMap<>();
     final ElapsedTimeTracker timeTracker;
+    final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
     long remainingAmount;
     @Nullable
@@ -74,6 +76,7 @@ public class ExecutingCraftingJob {
 
         // Fill waiting for and tasks
         this.timeTracker = new ElapsedTimeTracker();
+        this.bufferedFinalOutput = new ECOFinalOutputBuffer();
         for (var entry : plan.emittedItems()) {
             waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
@@ -103,6 +106,7 @@ public class ExecutingCraftingJob {
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND), registries);
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
+        this.bufferedFinalOutput = new ECOFinalOutputBuffer(Math.max(0L, data.getLong(NBT_BUFFERED_FINAL_OUTPUT)));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);
         } else {
@@ -135,6 +139,7 @@ public class ExecutingCraftingJob {
 
         data.put(NBT_WAITING_FOR, waitingFor.writeToNBT(registries));
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
+        data.putLong(NBT_BUFFERED_FINAL_OUTPUT, bufferedFinalOutput.amount());
 
         final ListTag list = new ListTag();
         for (var e : this.tasks.entrySet()) {

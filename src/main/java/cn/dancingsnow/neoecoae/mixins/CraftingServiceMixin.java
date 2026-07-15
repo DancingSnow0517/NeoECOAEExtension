@@ -88,6 +88,7 @@ public abstract class CraftingServiceMixin {
                     cpu.getLogic().tickCraftingLogic(this.energyGrid, (CraftingService) (Object) this);
                     latestChangeLocal = Math.max(latestChangeLocal, cpu.getLogic().getLastModifiedOnTick());
                 }
+                cluster.pruneInactiveCPUs();
             }
         }
 

@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.api;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
-import cn.dancingsnow.neoecoae.gui.NETextures;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import lombok.Getter;
 import net.minecraft.resources.ResourceLocation;

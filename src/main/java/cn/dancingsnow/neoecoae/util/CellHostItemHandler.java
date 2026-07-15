@@ -28,6 +28,9 @@ public class CellHostItemHandler implements IItemHandler {
             if (stack.isEmpty()) {
                 return ItemStack.EMPTY;
             }
+            if (!host.isItemValid(stack)) {
+                return stack;
+            }
             if (!simulate) {
                 host.setCellStack(stack.copyWithCount(1));
             }
@@ -43,6 +46,9 @@ public class CellHostItemHandler implements IItemHandler {
             return ItemStack.EMPTY;
         }
         if (amount <= 0) {
+            return ItemStack.EMPTY;
+        }
+        if (!host.canExtractCell()) {
             return ItemStack.EMPTY;
         }
         ItemStack copy = host.getCellStack().copyWithCount(1);

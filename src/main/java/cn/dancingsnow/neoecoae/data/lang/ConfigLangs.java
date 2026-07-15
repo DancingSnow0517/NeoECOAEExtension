@@ -30,6 +30,18 @@ public class ConfigLangs {
             "Post a vanilla crafting event (ItemCraftedEvent) when the Crafting System finishes a recipe.\n" +
                 "May introduce extra event/listener overhead; can be more noticeable with mods like Balm installed."
         );
+        provider.add("neoecoae.configuration.enableInfiniteStorage", "Enable Infinite Storage");
+        provider.add(
+            "neoecoae.configuration.enableInfiniteStorage.tooltip",
+            "Enable ECO infinite storage on the storage controller.\n" +
+                "Requires 64 infinite components and 16 L9 storage matrices; disabling it blocks new infinite migrations without deleting existing domain files."
+        );
+        provider.add("neoecoae.configuration.craftingPatternBusPages", "Crafting Pattern Bus Pages");
+        provider.add(
+            "neoecoae.configuration.craftingPatternBusPages.tooltip",
+            "Number of pattern pages exposed by one ECO smart pattern bus.\n" +
+                "Each page stores 63 encoded patterns."
+        );
 
         provider.add("neoecoae.configuration.fastPath", "Fast Path");
         provider.add(
@@ -54,11 +66,6 @@ public class ConfigLangs {
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
             "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n" +
                 "The effective value is still capped by available co-processors."
-        );
-        provider.add("neoecoae.configuration.ecoBatchFastPathLimit", "Batch Fast Path Limit");
-        provider.add(
-            "neoecoae.configuration.ecoBatchFastPathLimit.tooltip",
-            "Maximum crafts merged into a single fast path batch push."
         );
         provider.add("neoecoae.configuration.ecoBatchFastPathTickLimit", "Batch Fast Path Tick Limit");
         provider.add(

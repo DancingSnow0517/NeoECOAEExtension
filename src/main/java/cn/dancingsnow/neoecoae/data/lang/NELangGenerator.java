@@ -26,12 +26,44 @@ public class NELangGenerator {
 
         provider.add("category.neoecoae.cooling", "Cooling");
         provider.add("category.neoecoae.cooling.coolant", "Coolant: %d");
+        provider.add("category.neoecoae.cooling.max_overclock", "Max Overclock: %d");
         provider.add("category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("category.neoecoae.integrated_working_station", "Integrated Working Station");
 
         provider.add("emi.category.neoecoae.multiblock", "ECO Multiblock Info");
         provider.add("emi.category.neoecoae.integrated_working_station", "Integrated Working Station");
         provider.add("emi.category.neoecoae.cooling", "Cooling");
+        provider.add("tag.item.ae2.inscriber_presses", "Inscriber Presses");
+        provider.add("tag.item.ae2.metal_ingots", "Metal Ingots");
+        provider.add("tag.item.c.budding_blocks", "Budding Blocks");
+        provider.add("tag.item.c.clusters", "Crystal Clusters");
+        provider.add("tag.item.c.dusts.aluminum", "Aluminum Dusts");
+        provider.add("tag.item.c.dusts.aluminum_alloy", "Aluminum Alloy Dusts");
+        provider.add("tag.item.c.dusts.black_tungsten_alloy", "Black Tungsten Alloy Dusts");
+        provider.add("tag.item.c.dusts.energized_crystal", "Energized Crystal Dusts");
+        provider.add("tag.item.c.dusts.energized_fluix_crystal", "Energized Fluix Crystal Dusts");
+        provider.add("tag.item.c.dusts.tungsten", "Tungsten Dusts");
+        provider.add("tag.item.c.gems.energized_crystal", "Energized Crystals");
+        provider.add("tag.item.c.gems.energized_fluix_crystal", "Energized Fluix Crystals");
+        provider.add("tag.item.c.ingots.aluminum", "Aluminum Ingots");
+        provider.add("tag.item.c.ingots.aluminum_alloy", "Aluminum Alloy Ingots");
+        provider.add("tag.item.c.ingots.black_tungsten_alloy", "Black Tungsten Alloy Ingots");
+        provider.add("tag.item.c.ingots.tungsten", "Tungsten Ingots");
+        provider.add("tag.item.c.ores.aluminum", "Aluminum Ores");
+        provider.add("tag.item.c.ores.tungsten", "Tungsten Ores");
+        provider.add("tag.item.c.raw_materials.aluminum", "Raw Aluminum");
+        provider.add("tag.item.c.raw_materials.tungsten", "Raw Tungsten");
+        provider.add("tag.item.c.storage_blocks.aluminum", "Aluminum Storage Blocks");
+        provider.add("tag.item.c.storage_blocks.aluminum_alloy", "Aluminum Alloy Storage Blocks");
+        provider.add("tag.item.c.storage_blocks.black_tungsten_alloy", "Black Tungsten Alloy Storage Blocks");
+        provider.add("tag.item.c.storage_blocks.energized_crystal", "Energized Crystal Storage Blocks");
+        provider.add("tag.item.c.storage_blocks.energized_fluix_crystal", "Energized Fluix Crystal Storage Blocks");
+        provider.add("tag.item.c.storage_blocks.raw_aluminum", "Raw Aluminum Storage Blocks");
+        provider.add("tag.item.c.storage_blocks.raw_tungsten", "Raw Tungsten Storage Blocks");
+        provider.add("tag.item.c.storage_blocks.tungsten", "Tungsten Storage Blocks");
+        provider.add("tag.item.c.tools.mining_tool", "Mining Tools");
+        provider.add("tag.item.neoecoae.crystal_ingot_base", "Crystal Ingot Base");
+        provider.add("tag.item.neoecoae.superconductive_ingot_base", "Superconductive Ingot Base");
 
         provider.add("tooltip.neoecoae.holdshift", "Hold [Shift] to show more info");
         provider.add("tooltip.neoecoae.max_lenth", "Maximum length of structure: %d");
@@ -41,6 +73,8 @@ public class NELangGenerator {
             "Can drive storage matrix",
             "The drivable storage matrix tier depends on the storage subsystem host controller"
         );
+        provider.add("tooltip.neoecoae.storage.infinite_component_locked", "Cannot remove infinite components: stored contents cannot safely fit back into normal matrices");
+        provider.add("tooltip.neoecoae.storage.infinite_member_locked", "Infinite storage matrices cannot be removed while the storage host is in infinite mode");
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
         provider.add("tooltip.neoecoae.crafting_parallels", "Parallel core provides parallel count to the crafting subsystem");

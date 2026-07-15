@@ -69,7 +69,7 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
 
     @Override
     public int getHeight() {
-        return 50;
+        return 60;
     }
 
     @Override
@@ -77,9 +77,11 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
         CoolingRecipe recipe = recipeHolder.value();
         builder.addInputSlot(10, 11)
             .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(recipe.input().getFluids()))
+            .setStandardSlotBackground()
             .setFluidRenderer(1,false, 16,16);
         builder.addOutputSlot(72, 11)
             .addFluidStack(recipe.output().getFluid(), recipe.output().getAmount())
+            .setStandardSlotBackground()
             .setFluidRenderer(1,false, 16,16);
     }
 
@@ -97,6 +99,14 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
             Component.translatable("category.neoecoae.cooling.coolant", recipe.value().coolant()),
             0,
             0,
+            0,
+            false
+        );
+        guiGraphics.drawString(
+            Minecraft.getInstance().font,
+            Component.translatable("category.neoecoae.cooling.max_overclock", recipe.value().maxOverclock()),
+            0,
+            10,
             0,
             false
         );

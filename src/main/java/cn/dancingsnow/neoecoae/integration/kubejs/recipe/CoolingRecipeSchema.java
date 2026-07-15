@@ -11,9 +11,10 @@ import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 public interface CoolingRecipeSchema {
     RecipeKey<SizedFluidIngredient> INPUT = SizedFluidIngredientComponent.FLAT.inputKey("input");
     RecipeKey<Integer> COOLANT = NumberComponent.intRange(0, Integer.MAX_VALUE).otherKey("coolant");
-    RecipeKey<FluidStack> OUTPUT = FluidStackComponent.OPTIONAL_FLUID_STACK.outputKey("output").defaultOptional();
+    RecipeKey<Integer> MAX_OVERCLOCK = NumberComponent.intRange(0, Integer.MAX_VALUE).otherKey("max_overclock").defaultOptional();
+    RecipeKey<FluidStack> OUTPUT = FluidStackComponent.OPTIONAL_FLUID_STACK.outputKey("output");
 
-    RecipeSchema SCHEMA = new RecipeSchema(INPUT, COOLANT, OUTPUT)
-        .constructor(INPUT, COOLANT, OUTPUT)
-        .constructor(INPUT, COOLANT);
+    RecipeSchema SCHEMA = new RecipeSchema(INPUT, COOLANT, OUTPUT, MAX_OVERCLOCK)
+        .constructor(INPUT, COOLANT, OUTPUT, MAX_OVERCLOCK)
+        .constructor(INPUT, COOLANT, OUTPUT);
 }

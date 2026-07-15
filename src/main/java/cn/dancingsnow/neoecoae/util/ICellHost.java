@@ -8,4 +8,8 @@ public interface ICellHost {
     ItemStack getCellStack();
 
     boolean isItemValid(ItemStack stack);
+
+    default boolean canExtractCell() {
+        return true;
+    }
 }

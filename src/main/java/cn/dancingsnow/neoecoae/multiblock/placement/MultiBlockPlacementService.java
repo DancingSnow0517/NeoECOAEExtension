@@ -14,6 +14,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.BlockSnapshot;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -57,7 +60,7 @@ public final class MultiBlockPlacementService {
         List<WorldPlannedBlock> allBlocks = new ArrayList<>();
         List<WorldPlannedBlock> missingBlocks = new ArrayList<>();
         List<BlockPos> conflictPositions = new ArrayList<>();
-        List<ItemStack> requiredItems = new ArrayList<>();
+        List<RequiredItem> requiredItems = new ArrayList<>();
         int reusedBlockCount = 0;
 
         for (PlannedBlock plannedBlock : context.getPlannedBlocks()) {
@@ -85,18 +88,20 @@ public final class MultiBlockPlacementService {
         return new MultiBlockPlacementPlan(allBlocks, missingBlocks, conflictPositions, requiredItems, reusedBlockCount);
     }
 
-    public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan) {
+    public static boolean buildInstant(ServerLevel level, MultiBlockPlacementPlan plan, ServerPlayer player) {
         if (!plan.getConflictPositions().isEmpty()) {
             return false;
         }
         for (WorldPlannedBlock worldBlock : plan.getMissingBlocks()) {
-            level.setBlock(worldBlock.worldPos(), worldBlock.targetState(), Block.UPDATE_ALL);
+            if (!placeWithPermissionCheck(level, worldBlock, player)) {
+                return false;
+            }
         }
         return true;
     }
 
     public static MultiBlockBuildSession createBuildSession(ServerLevel level, MultiBlockPlacementPlan plan) {
-        return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay(level));
+        return new MultiBlockBuildSession(plan.getMissingBlocks(), nextPlacementDelay());
     }
 
     public static PlacementTickResult tickBuild(ServerLevel level, MultiBlockBuildSession session, ServerPlayer player) {
@@ -114,20 +119,23 @@ public final class MultiBlockPlacementService {
         }
 
         if (!existingState.equals(worldBlock.targetState())) {
-            if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
+            if (!placeWithPermissionCheck(level, worldBlock, player)) {
                 return PlacementTickResult.BLOCKED;
             }
-            level.setBlock(worldBlock.worldPos(), worldBlock.targetState(), Block.UPDATE_ALL);
+            if (!player.isCreative() && !consumeRequiredItem(player, worldBlock.requiredItem())) {
+                level.setBlock(worldBlock.worldPos(), existingState, Block.UPDATE_ALL);
+                return PlacementTickResult.BLOCKED;
+            }
             playPlacementSound(level, worldBlock);
         }
 
-        session.advance(nextPlacementDelay(level));
+        session.advance(nextPlacementDelay());
         return session.isFinished() ? PlacementTickResult.COMPLETED : PlacementTickResult.ADVANCED;
     }
 
-    public static boolean hasRequiredItems(Player player, List<ItemStack> requiredItems) {
-        for (ItemStack requiredItem : requiredItems) {
-            if (countMatchingItems(player, requiredItem) < requiredItem.getCount()) {
+    public static boolean hasRequiredItems(Player player, List<RequiredItem> requiredItems) {
+        for (RequiredItem requiredItem : requiredItems) {
+            if (countMatchingItems(player, requiredItem.stack()) < requiredItem.count()) {
                 return false;
             }
         }
@@ -231,17 +239,34 @@ public final class MultiBlockPlacementService {
         return remaining;
     }
 
-    private static void mergeItem(List<ItemStack> requiredItems, ItemStack toAdd) {
-        for (ItemStack requiredItem : requiredItems) {
-            if (ItemStack.isSameItemSameComponents(requiredItem, toAdd)) {
-                requiredItem.grow(toAdd.getCount());
+    private static void mergeItem(List<RequiredItem> requiredItems, ItemStack toAdd) {
+        for (int i = 0; i < requiredItems.size(); i++) {
+            RequiredItem requiredItem = requiredItems.get(i);
+            if (ItemStack.isSameItemSameComponents(requiredItem.stack(), toAdd)) {
+                requiredItems.set(i, requiredItem.grow(toAdd.getCount()));
                 return;
             }
         }
-        requiredItems.add(toAdd.copy());
+        requiredItems.add(new RequiredItem(toAdd, toAdd.getCount()));
     }
 
-    private static int nextPlacementDelay(ServerLevel level) {
+    private static boolean placeWithPermissionCheck(ServerLevel level, WorldPlannedBlock worldBlock, ServerPlayer player) {
+        BlockPos pos = worldBlock.worldPos();
+        BlockSnapshot snapshot = BlockSnapshot.create(level.dimension(), level, pos, Block.UPDATE_ALL);
+        BlockState placedAgainst = level.getBlockState(pos.below());
+        if (!level.setBlock(pos, worldBlock.targetState(), Block.UPDATE_ALL)) {
+            return false;
+        }
+        BlockEvent.EntityPlaceEvent event = new BlockEvent.EntityPlaceEvent(snapshot, placedAgainst, player);
+        NeoForge.EVENT_BUS.post(event);
+        if (event.isCanceled()) {
+            snapshot.restore();
+            return false;
+        }
+        return true;
+    }
+
+    private static int nextPlacementDelay() {
         return 1;
     }
 

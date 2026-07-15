@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.api.integration.IntegrationManager;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.data.NEDataGen;
+import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
@@ -74,7 +75,9 @@ public class NeoECOAE {
         integrationManager.compileContent();
         integrationManager.loadAllIntegrations();
         StartupNotificationManager.addModMessage("[Neo ECO AE Extension] Integrations Load Complete");
-        modContainer.registerConfig(ModConfig.Type.COMMON, NEConfig.SPEC);
+        // These values govern server-authoritative gameplay and are also read by client-side
+        // previews/tooltips. SERVER configs are synchronized to joining clients by NeoForge.
+        modContainer.registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
 
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
@@ -82,6 +85,8 @@ public class NeoECOAE {
         modBus.addListener(NeoECOAE::addClassicPack);
         NeoForge.EVENT_BUS.addListener(NETooltips::register);
         NeoForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelSave);
+        NeoForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);
     }
 
     public static ResourceLocation id(String path) {
@@ -96,7 +101,7 @@ public class NeoECOAE {
 
             List<ItemEntry<ECOStorageCellItem>> cells = List.of(
                 NEItems.ECO_ITEM_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_ITEM_CELL_256M,
-                NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_ITEM_CELL_64M, NEItems.ECO_FLUID_CELL_256M
+                NEItems.ECO_FLUID_CELL_16M, NEItems.ECO_FLUID_CELL_64M, NEItems.ECO_FLUID_CELL_256M
             );
             for (ItemEntry<ECOStorageCellItem> cell : cells) {
                 Upgrades.add(AEItems.FUZZY_CARD.get(), cell, 1, storageCellGroup);
