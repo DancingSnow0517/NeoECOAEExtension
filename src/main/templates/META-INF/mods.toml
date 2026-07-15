@@ -52,6 +52,41 @@ config="${mod_id}.mixins.json"
     ordering="AFTER"
     side="BOTH"
 
+[[dependencies.${mod_id}]]
+    modId="gtceu"
+    mandatory=false
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="mekanism"
+    mandatory=false
+    versionRange="[10.4.16,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="advanced_ae"
+    mandatory=false
+    versionRange="[1.3.2,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="expatternprovider"
+    mandatory=false
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="kubejs"
+    mandatory=false
+    versionRange="[2001.6.5-build.16,)"
+    ordering="AFTER"
+    side="BOTH"
+
 [mc-publish]
     modrinth="udZtKfzP"
     curseforge=1460639

@@ -16,9 +16,6 @@ final class MaterialRequirementStrip {
     }
 
     void render(GuiGraphics g, MultiblockPreviewLayout layout, int mouseX, int mouseY, float delta) {
-        MultiblockPreviewLayout.Rect slots = layout.materialSlots();
-        g.fill(slots.x() - 2, slots.y() - 2, slots.right() + 2, slots.bottom() + 2, 0x66808080);
-
         int start = state.materialPage() * MultiblockPreviewState.MATERIAL_PAGE_SIZE;
         int count = Math.min(
                 MultiblockPreviewState.MATERIAL_PAGE_SIZE,
@@ -45,7 +42,7 @@ final class MaterialRequirementStrip {
                     font,
                     page,
                     layout.previousPageButton().x() - 4 - font.width(page),
-                    layout.materialTitleY(),
+                    layout.previousPageButton().y() + 2,
                     MultiblockPreviewStyle.TEXT_COLOR,
                     false);
         }

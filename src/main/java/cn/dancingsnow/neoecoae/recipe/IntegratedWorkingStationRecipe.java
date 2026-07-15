@@ -14,6 +14,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
@@ -29,6 +30,7 @@ public record IntegratedWorkingStationRecipe(
         FluidStack fluidOutput,
         int energy)
         implements Recipe<IntegratedWorkingStationRecipe.Input> {
+    public static final int MAX_INPUT_ITEMS = 9;
 
     public static IntegratedWorkingStationRecipeBuilder builder() {
         return new IntegratedWorkingStationRecipeBuilder();
@@ -37,28 +39,8 @@ public record IntegratedWorkingStationRecipe(
     @Override
     public boolean matches(Input recipeInput, Level level) {
         List<ItemStack> provided = recipeInput.inputs();
-        int[] remaining = new int[provided.size()];
-        for (int i = 0; i < provided.size(); i++) {
-            ItemStack stack = provided.get(i);
-            remaining[i] = stack == null ? 0 : stack.getCount();
-        }
-
-        for (SizedIngredient req : inputItems) {
-            int needed = req.count();
-            for (int i = 0; i < provided.size() && needed > 0; i++) {
-                ItemStack stack = provided.get(i);
-                if (stack != null
-                        && !stack.isEmpty()
-                        && remaining[i] > 0
-                        && req.ingredient().test(stack)) {
-                    int take = Math.min(remaining[i], needed);
-                    remaining[i] -= take;
-                    needed -= take;
-                }
-            }
-            if (needed > 0) {
-                return false;
-            }
+        if (ItemIngredientConsumptionPlanner.createPlan(provided, inputItems) == null) {
+            return false;
         }
 
         FluidStack providedFluid = recipeInput.fluid();
@@ -122,6 +104,9 @@ public record IntegratedWorkingStationRecipe(
         public IntegratedWorkingStationRecipe fromJson(ResourceLocation id, JsonObject json) {
             List<SizedIngredient> inputItems = new ArrayList<>();
             if (json.has("inputItems")) {
+                if (!json.get("inputItems").isJsonArray()) {
+                    throw new JsonParseException("Recipe " + id + " inputItems must be an array");
+                }
                 JsonArray array = json.getAsJsonArray("inputItems");
                 for (int i = 0; i < array.size(); i++) {
                     try {
@@ -141,19 +126,63 @@ public record IntegratedWorkingStationRecipe(
                 throw new JsonParseException("Recipe " + id + " inputFluid " + e.getMessage(), e);
             }
 
+            if (json.has("itemOutput") && !json.get("itemOutput").isJsonObject()) {
+                throw new JsonParseException("Recipe " + id + " itemOutput must be an object");
+            }
+            if (json.has("fluidOutput") && !json.get("fluidOutput").isJsonObject()) {
+                throw new JsonParseException("Recipe " + id + " fluidOutput must be an object");
+            }
             ItemStack itemOutput = json.has("itemOutput")
                     ? RecipeOutputJson.readItemStack(id, "itemOutput", json.getAsJsonObject("itemOutput"))
                     : ItemStack.EMPTY;
             FluidStack fluidOutput = json.has("fluidOutput")
                     ? RecipeOutputJson.readFluidStack(id, "fluidOutput", json.getAsJsonObject("fluidOutput"))
                     : FluidStack.EMPTY;
-            int energy = json.has("energy") ? json.get("energy").getAsInt() : 0;
+            long energyValue = json.has("energy") ? json.get("energy").getAsLong() : 1000L;
+            if (energyValue <= 0 || energyValue > Integer.MAX_VALUE) {
+                throw new JsonParseException("Recipe " + id + " energy must be positive");
+            }
+            int energy = (int) energyValue;
+            validate(id, inputItems, inputFluid, itemOutput, fluidOutput, energy);
             return new IntegratedWorkingStationRecipe(id, inputItems, inputFluid, itemOutput, fluidOutput, energy);
+        }
+
+        private static void validate(
+                ResourceLocation id,
+                List<SizedIngredient> inputItems,
+                SizedFluidIngredient inputFluid,
+                ItemStack itemOutput,
+                FluidStack fluidOutput,
+                int energy) {
+            if (inputItems.size() > MAX_INPUT_ITEMS) {
+                throw new JsonParseException(
+                        "Recipe " + id + " has " + inputItems.size() + " item inputs; maximum is " + MAX_INPUT_ITEMS);
+            }
+            if (inputItems.isEmpty() && inputFluid.ingredient().isEmpty()) {
+                throw new JsonParseException("Recipe " + id + " must have at least one input");
+            }
+            for (int i = 0; i < inputItems.size(); i++) {
+                SizedIngredient input = inputItems.get(i);
+                if (input.ingredient() == Ingredient.EMPTY || input.count() <= 0) {
+                    throw new JsonParseException(
+                            "Recipe " + id + " inputItems[" + i + "] must be non-empty with a positive count");
+                }
+            }
+            if (itemOutput.isEmpty() && fluidOutput.isEmpty()) {
+                throw new JsonParseException("Recipe " + id + " must have at least one output");
+            }
+            if (energy <= 0) {
+                throw new JsonParseException("Recipe " + id + " energy must be positive");
+            }
         }
 
         @Override
         public IntegratedWorkingStationRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
             int size = buffer.readVarInt();
+            if (size < 0 || size > MAX_INPUT_ITEMS) {
+                throw new IllegalArgumentException(
+                        "Recipe " + id + " item input count must be between 0 and " + MAX_INPUT_ITEMS);
+            }
             List<SizedIngredient> inputItems = new ArrayList<>(size);
             for (int i = 0; i < size; i++) {
                 inputItems.add(SizedIngredient.fromNetwork(buffer));

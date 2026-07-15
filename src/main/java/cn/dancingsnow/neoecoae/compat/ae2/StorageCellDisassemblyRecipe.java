@@ -121,12 +121,26 @@ public final class StorageCellDisassemblyRecipe implements Recipe<SimpleContaine
     public static class Serializer implements RecipeSerializer<StorageCellDisassemblyRecipe> {
         @Override
         public StorageCellDisassemblyRecipe fromJson(ResourceLocation id, JsonObject json) {
+            if (!json.has("cell") || !json.get("cell").isJsonPrimitive()) {
+                throw new JsonParseException("Recipe " + id + " must contain string field 'cell'");
+            }
+            if (!json.has("cell_disassembly_items")
+                    || !json.get("cell_disassembly_items").isJsonArray()) {
+                throw new JsonParseException("Recipe " + id + " must contain array field 'cell_disassembly_items'");
+            }
             Item storageCell = readItem(id, json.get("cell").getAsString(), "cell");
 
             List<ItemStack> outputs = new ArrayList<>();
             JsonArray items = json.getAsJsonArray("cell_disassembly_items");
             for (int i = 0; i < items.size(); i++) {
+                if (!items.get(i).isJsonObject()) {
+                    throw new JsonParseException(
+                            "Recipe " + id + " cell_disassembly_items[" + i + "] must be an object");
+                }
                 outputs.add(readItemStack(id, items.get(i).getAsJsonObject(), "cell_disassembly_items[" + i + "]"));
+            }
+            if (outputs.isEmpty()) {
+                throw new JsonParseException("Recipe " + id + " must contain at least one disassembly item");
             }
             return new StorageCellDisassemblyRecipe(id, storageCell, outputs);
         }
@@ -135,6 +149,9 @@ public final class StorageCellDisassemblyRecipe implements Recipe<SimpleContaine
         public StorageCellDisassemblyRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
             Item storageCell = readItem(id, buffer.readResourceLocation().toString(), "cell");
             int count = buffer.readVarInt();
+            if (count <= 0 || count > 64) {
+                throw new IllegalArgumentException("Disassembly recipe output entry count must be between 1 and 64");
+            }
             List<ItemStack> outputs = new ArrayList<>(count);
             for (int i = 0; i < count; i++) {
                 outputs.add(buffer.readItem());
@@ -157,7 +174,11 @@ public final class StorageCellDisassemblyRecipe implements Recipe<SimpleContaine
     }
 
     private static Item readItem(ResourceLocation recipeId, String itemName, String field) {
-        ResourceLocation itemId = ResourceLocation.parse(itemName);
+        ResourceLocation itemId = ResourceLocation.tryParse(itemName);
+        if (itemId == null) {
+            throw new JsonParseException(
+                    "Recipe " + recipeId + " has invalid item id in " + field + " '" + itemName + "'");
+        }
         Item item = ForgeRegistries.ITEMS.getValue(itemId);
         if (item == null || item == Items.AIR) {
             throw new JsonParseException("Recipe " + recipeId + " has unknown item in " + field + " '" + itemId + "'");
@@ -171,8 +192,12 @@ public final class StorageCellDisassemblyRecipe implements Recipe<SimpleContaine
             throw new JsonParseException("Recipe " + recipeId + " " + field + " must contain 'item' or 'id'");
         }
         Item item = readItem(recipeId, object.get(itemField).getAsString(), field);
-        int count = object.has("count") ? object.get("count").getAsInt() : 1;
-        return new ItemStack(item, count);
+        long count = object.has("count") ? object.get("count").getAsLong() : 1L;
+        if (count <= 0 || count > item.getMaxStackSize()) {
+            throw new JsonParseException(
+                    "Recipe " + recipeId + " " + field + " count must be between 1 and " + item.getMaxStackSize());
+        }
+        return new ItemStack(item, (int) count);
     }
 
     private record Result(ResourceLocation id, Item storageCell, List<ItemStack> disassemblyItems)

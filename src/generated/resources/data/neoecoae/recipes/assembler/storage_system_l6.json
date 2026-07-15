@@ -1,5 +1,11 @@
 {
   "type": "gtceu:assembler",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
   "duration": 600,
   "inputs": {
     "fluid": [

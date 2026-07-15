@@ -14,6 +14,9 @@ final class RecipeOutputJson {
     private RecipeOutputJson() {}
 
     static ItemStack readItemStack(ResourceLocation recipeId, String fieldName, JsonObject object) {
+        if (object == null) {
+            throw new JsonParseException("Recipe " + recipeId + " " + fieldName + " must be an object");
+        }
         JsonObject normalized = object.deepCopy();
         if (!normalized.has("item") && normalized.has("id")) {
             normalized.add("item", normalized.get("id"));
@@ -29,6 +32,9 @@ final class RecipeOutputJson {
     }
 
     static FluidStack readFluidStack(ResourceLocation recipeId, String fieldName, JsonObject object) {
+        if (object == null) {
+            throw new JsonParseException("Recipe " + recipeId + " " + fieldName + " must be an object");
+        }
         if (object.size() == 0) {
             return FluidStack.EMPTY;
         }
@@ -39,15 +45,19 @@ final class RecipeOutputJson {
         if (idField == null) {
             throw new JsonParseException("Recipe " + recipeId + " " + fieldName + " must contain 'fluid' or 'id'");
         }
-        ResourceLocation fluidId = ResourceLocation.parse(object.get(idField).getAsString());
+        ResourceLocation fluidId = ResourceLocation.tryParse(object.get(idField).getAsString());
+        if (fluidId == null) {
+            throw new JsonParseException("Recipe " + recipeId + " " + fieldName + " has invalid fluid id '"
+                    + object.get(idField).getAsString() + "'");
+        }
         Fluid fluid = ForgeRegistries.FLUIDS.getValue(fluidId);
         if (fluid == null || fluid == Fluids.EMPTY) {
             throw new JsonParseException("Recipe " + recipeId + " has unknown fluid output '" + fluidId + "'");
         }
-        int amount = object.has("amount") ? object.get("amount").getAsInt() : 1000;
-        if (amount <= 0) {
+        long amount = object.has("amount") ? object.get("amount").getAsLong() : 1000L;
+        if (amount <= 0 || amount > Integer.MAX_VALUE) {
             throw new JsonParseException("Recipe " + recipeId + " " + fieldName + " amount must be positive");
         }
-        return new FluidStack(fluid, amount);
+        return new FluidStack(fluid, (int) amount);
     }
 }

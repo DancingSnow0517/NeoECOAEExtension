@@ -9,6 +9,7 @@ import java.util.List;
 import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraftforge.common.crafting.conditions.ModLoadedCondition;
 
 public final class GTCEuRecipes {
     private static final String GTCEU = "gtceu";
@@ -471,7 +472,7 @@ public final class GTCEuRecipes {
         }
 
         private void save(RegistrateRecipeProvider provider) {
-            provider.accept(this);
+            provider.accept(new ConditionalFinishedRecipe(this, new ModLoadedCondition(GTCEU)));
         }
 
         @Override

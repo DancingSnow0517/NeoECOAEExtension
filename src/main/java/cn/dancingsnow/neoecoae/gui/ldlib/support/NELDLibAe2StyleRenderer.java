@@ -14,12 +14,12 @@ import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.minecraftforge.fluids.FluidStack;
 
 public final class NELDLibAe2StyleRenderer {
+    private static final ResourceLocation NE_SLOT =
+            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/slot.png");
     private static final ResourceLocation AE_EXTRA_PANELS =
             ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/extra_panels.png");
     private static final ResourceLocation AE_INSCRIBER =
             ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/inscriber.png");
-    private static final ResourceLocation AE_IO_PORT =
-            ResourceLocation.fromNamespaceAndPath("ae2", "textures/guis/io_port.png");
 
     private static final int EXTRA_TEX_W = 128;
     private static final int EXTRA_TEX_H = 128;
@@ -29,11 +29,6 @@ public final class NELDLibAe2StyleRenderer {
     private static final int INSCRIBER_PROGRESS_H = 18;
     private static final int INSCRIBER_TEX_W = 256;
     private static final int INSCRIBER_TEX_H = 256;
-    private static final int AE_MACHINE_TEX_W = 256;
-    private static final int AE_MACHINE_TEX_H = 256;
-    private static final int AE_BAKED_SLOT_U = 7;
-    private static final int AE_BAKED_SLOT_V = 83;
-    private static final int AE_BAKED_SLOT_SIZE = 18;
     private static final int UPGRADE_PADDING = 7;
     private static final int SLOT_SIZE = 18;
 
@@ -44,16 +39,7 @@ public final class NELDLibAe2StyleRenderer {
     }
 
     public static void drawAeSlot(GuiGraphics g, int x, int y) {
-        g.blit(
-                AE_IO_PORT,
-                x,
-                y,
-                AE_BAKED_SLOT_U,
-                AE_BAKED_SLOT_V,
-                AE_BAKED_SLOT_SIZE,
-                AE_BAKED_SLOT_SIZE,
-                AE_MACHINE_TEX_W,
-                AE_MACHINE_TEX_H);
+        g.blit(NE_SLOT, x, y, 0, 0, SLOT_SIZE, SLOT_SIZE, SLOT_SIZE, SLOT_SIZE);
     }
 
     public static void drawAeIcon(GuiGraphics g, Icon icon, int x, int y, float alpha) {

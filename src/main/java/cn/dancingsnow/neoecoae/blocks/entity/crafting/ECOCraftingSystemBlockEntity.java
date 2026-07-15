@@ -18,17 +18,18 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
+import cn.dancingsnow.neoecoae.recipe.CoolingTransferMath;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -1145,7 +1146,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return 0;
         }
 
-        long drainAmount = Math.min(inputHatch.getFluidAmount(), getMaxDrainByOutput(recipe, outputHatch));
+        long requiredInput = CoolingTransferMath.inputForDeficit(deficit, inputAmount, recipe.coolant());
+        long drainAmount = Math.min(requiredInput, inputHatch.getFluidAmount());
+        drainAmount = Math.min(drainAmount, getMaxDrainByOutput(recipe, outputHatch));
         if (drainAmount <= 0) {
             return 0;
         }
@@ -1159,13 +1162,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
         FluidStack output = recipe.output();
         if (!output.isEmpty() && !autoClearCoolingWaste) {
-            int outputAmount = (int) ((long) drained * recipe.outputAmount() / inputAmount);
+            int outputAmount = CoolingTransferMath.scaleAmount(drained, recipe.outputAmount(), inputAmount);
             if (outputAmount > 0) {
                 outputHatch.fill(new FluidStack(output, outputAmount), IFluidHandler.FluidAction.EXECUTE);
             }
         }
 
-        int coolantGain = (int) ((long) drained * recipe.coolant() / inputAmount);
+        int coolantGain = CoolingTransferMath.scaleAmount(drained, recipe.coolant(), inputAmount);
         if (coolantGain <= 0) {
             return 0;
         }
@@ -1186,7 +1189,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return Long.MAX_VALUE;
         }
         FluidStack stored = outputHatch.getFluid();
-        if (!stored.isEmpty() && !stored.isFluidStackIdentical(output)) {
+        if (!stored.isEmpty() && !stored.isFluidEqual(output)) {
             return 0;
         }
         int outputAmount = recipe.outputAmount();

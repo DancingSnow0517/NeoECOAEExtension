@@ -1,5 +1,7 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
+import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.texture.ResourceBorderTexture;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -11,19 +13,16 @@ public final class MultiblockPreviewStyle {
     public static final int TEXT_COLOR = 0xFF404040;
     public static final int PANEL_COLOR = 0xFFE3E3E3;
     public static final int PANEL_BORDER = 0xFF4F4F4F;
-    public static final int BUTTON_BG = 0xFF8F8F8F;
-    public static final int BUTTON_BG_HOVER = 0xFFABABAB;
-    public static final int BUTTON_BORDER = 0xFF303030;
     public static final int SLOT_SIZE = 18;
+    private static final IGuiTexture BUTTON =
+            new ResourceBorderTexture("neoecoae:textures/gui/button.png", 20, 20, 2, 2);
+    private static final IGuiTexture BUTTON_HOVER =
+            new ResourceBorderTexture("neoecoae:textures/gui/button_hover.png", 20, 20, 2, 2);
 
     private MultiblockPreviewStyle() {}
 
     public static void drawPanel(GuiGraphics g, int width, int height) {
         g.fill(0, 0, width, height, PANEL_COLOR);
-        g.fill(0, 0, width, 1, PANEL_BORDER);
-        g.fill(0, height - 1, width, height, PANEL_BORDER);
-        g.fill(0, 0, 1, height, PANEL_BORDER);
-        g.fill(width - 1, 0, width, height, PANEL_BORDER);
     }
 
     static void drawButton(GuiGraphics g, MultiblockPreviewLayout.Rect rect, String text, int mouseX, int mouseY) {
@@ -33,8 +32,8 @@ public final class MultiblockPreviewStyle {
     public static void drawButton(
             GuiGraphics g, int x, int y, int width, int height, String text, double mouseX, double mouseY) {
         boolean hovered = contains(mouseX, mouseY, x, y, width, height);
-        g.fill(x, y, x + width, y + height, BUTTON_BORDER);
-        g.fill(x + 1, y + 1, x + width - 1, y + height - 1, hovered ? BUTTON_BG_HOVER : BUTTON_BG);
+        IGuiTexture texture = hovered ? BUTTON_HOVER : BUTTON;
+        texture.draw(g, (int) mouseX, (int) mouseY, x, y, width, height);
         drawCenteredFittedString(g, Component.literal(text), x + 2, y, width - 4, height, 0xFFFFFFFF);
     }
 

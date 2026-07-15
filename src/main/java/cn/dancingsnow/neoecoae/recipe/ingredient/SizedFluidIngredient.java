@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.recipe.ingredient;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.material.Fluid;
@@ -31,10 +32,20 @@ public record SizedFluidIngredient(FluidIngredient ingredient, int amount) {
         if (json == null || json.isJsonNull()) {
             return new SizedFluidIngredient(FluidIngredient.empty(), 0);
         }
+        if (!json.isJsonObject()) {
+            throw new JsonParseException("Sized fluid ingredient must be an object");
+        }
         JsonObject object = json.getAsJsonObject();
-        int amount = object.has("amount") ? object.get("amount").getAsInt() : 1;
+        long amountValue = object.has("amount") ? object.get("amount").getAsLong() : 1L;
+        if (amountValue <= 0 || amountValue > Integer.MAX_VALUE) {
+            throw new JsonParseException("Sized fluid ingredient amount must be positive");
+        }
         JsonElement ingredientJson = object.has("ingredient") ? object.get("ingredient") : object;
-        return new SizedFluidIngredient(FluidIngredient.fromJson(ingredientJson), amount);
+        FluidIngredient ingredient = FluidIngredient.fromJson(ingredientJson);
+        if (ingredient.isEmpty()) {
+            throw new JsonParseException("Sized fluid ingredient must not be empty");
+        }
+        return new SizedFluidIngredient(ingredient, (int) amountValue);
     }
 
     public JsonElement toJson() {

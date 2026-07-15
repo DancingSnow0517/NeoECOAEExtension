@@ -1,5 +1,11 @@
 {
   "type": "gtceu:mixer",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
   "duration": 480,
   "inputs": {
     "fluid": [

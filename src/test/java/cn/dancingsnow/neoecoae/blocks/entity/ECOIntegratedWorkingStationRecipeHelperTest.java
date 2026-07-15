@@ -27,4 +27,12 @@ class ECOIntegratedWorkingStationRecipeHelperTest {
 
         assertNull(plan);
     }
+
+    @Test
+    void reallocatesBroadIngredientToPreserveNarrowIngredientMatch() {
+        int[] plan = ECOIntegratedWorkingStationRecipeHelper.createItemConsumptionPlan(
+                new int[] {1, 1}, new boolean[][] {{true, true}, {true, false}}, new int[] {1, 1});
+
+        assertArrayEquals(new int[] {1, 1}, plan);
+    }
 }

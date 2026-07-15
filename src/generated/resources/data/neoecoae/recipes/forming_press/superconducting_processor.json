@@ -1,5 +1,11 @@
 {
   "type": "gtceu:forming_press",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
   "duration": 200,
   "inputs": {
     "item": [

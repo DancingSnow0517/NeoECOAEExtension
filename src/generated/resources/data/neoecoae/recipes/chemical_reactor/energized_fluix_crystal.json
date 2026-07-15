@@ -1,5 +1,11 @@
 {
   "type": "gtceu:chemical_reactor",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtceu"
+    }
+  ],
   "duration": 200,
   "inputs": {
     "fluid": [

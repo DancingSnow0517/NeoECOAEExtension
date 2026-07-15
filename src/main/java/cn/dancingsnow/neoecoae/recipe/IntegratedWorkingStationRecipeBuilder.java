@@ -20,6 +20,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
@@ -131,6 +132,9 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     @Override
     public void save(Consumer<FinishedRecipe> recipeOutput) {
+        if (itemOutput.isEmpty()) {
+            throw new IllegalStateException("Fluid-only recipes require an explicit recipe id");
+        }
         save(
                 recipeOutput,
                 NeoECOAE.id(BuiltInRegistries.ITEM.getKey(itemOutput.getItem()).getPath()));
@@ -138,12 +142,26 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
 
     @Override
     public void save(Consumer<FinishedRecipe> recipeOutput, ResourceLocation id) {
-        // check
         if (itemOutput.isEmpty() && fluidOutput.isEmpty()) {
             throw new IllegalStateException("Recipe must have at least one output");
         }
         if (inputItems.isEmpty() && inputFluid.ingredient().isEmpty()) {
             throw new IllegalStateException("Recipe must have at least one input");
+        }
+        if (inputItems.size() > IntegratedWorkingStationRecipe.MAX_INPUT_ITEMS) {
+            throw new IllegalStateException("Recipe has " + inputItems.size() + " item inputs; maximum is "
+                    + IntegratedWorkingStationRecipe.MAX_INPUT_ITEMS);
+        }
+        for (SizedIngredient inputItem : inputItems) {
+            if (inputItem.ingredient() == Ingredient.EMPTY || inputItem.count() <= 0) {
+                throw new IllegalStateException("Item inputs must be non-empty with positive counts");
+            }
+        }
+        if (!inputFluid.ingredient().isEmpty() && inputFluid.amount() <= 0) {
+            throw new IllegalStateException("Fluid input amount must be positive");
+        }
+        if (energy <= 0) {
+            throw new IllegalStateException("Recipe energy must be positive");
         }
 
         recipeOutput.accept(
@@ -179,6 +197,9 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
                 }
                 output.addProperty("item", itemId.toString());
                 output.addProperty("count", itemOutput.getCount());
+                if (itemOutput.hasTag()) {
+                    output.addProperty("nbt", itemOutput.getTag().toString());
+                }
                 json.add("itemOutput", output);
             }
             if (!fluidOutput.isEmpty()) {
@@ -194,9 +215,17 @@ public class IntegratedWorkingStationRecipeBuilder implements RecipeBuilder {
         }
 
         private static JsonElement serializeSizedIngredient(SizedIngredient ingredient) {
-            JsonObject json = ingredient.ingredient().toJson().getAsJsonObject();
-            json.addProperty("count", ingredient.count());
-            return json;
+            JsonElement ingredientJson = ingredient.ingredient().toJson().deepCopy();
+            if (ingredientJson.isJsonObject()) {
+                JsonObject json = ingredientJson.getAsJsonObject();
+                json.addProperty("count", ingredient.count());
+                return json;
+            }
+
+            JsonObject sized = new JsonObject();
+            sized.add("ingredient", ingredientJson);
+            sized.addProperty("count", ingredient.count());
+            return sized;
         }
 
         @Override

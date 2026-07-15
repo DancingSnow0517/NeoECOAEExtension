@@ -80,7 +80,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
                         PRIORITY_BUTTON_H,
                         NEAe2IconButtonWidget.Ae2Icon.WRENCH,
                         click -> {
-                            if (!click.isRemote && player instanceof ServerPlayer serverPlayer && storage.isFormed()) {
+                            if (!click.isRemote && player instanceof ServerPlayer serverPlayer) {
                                 MenuOpener.open(PriorityMenu.TYPE, serverPlayer, MenuLocators.forBlockEntity(storage));
                             }
                         })

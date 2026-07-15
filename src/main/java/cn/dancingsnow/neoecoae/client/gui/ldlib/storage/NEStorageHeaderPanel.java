@@ -29,7 +29,7 @@ public final class NEStorageHeaderPanel {
         int y = screenY.applyAsInt(8);
 
         g.enableScissor(titleX, y - 1, Math.max(titleX, statusX - 6), y + font.lineHeight + 1);
-        g.drawString(font, title, titleX, y, NELDLibStyle.DARK_TEXT_PRIMARY, false);
+        g.drawString(font, title, titleX, y, 0xFF4A4A4A, false);
         g.disableScissor();
         g.drawString(font, formedLabel, statusX, y, 0xFF4A4A4A, false);
         g.drawString(

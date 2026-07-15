@@ -38,18 +38,21 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockInfoRecipe> {
-    private static final int WIDTH = 176;
-    private static final int HEIGHT = 200;
+    private static final int WIDTH = 170;
+    private static final int HEIGHT = 190;
+    private static final int PADDING = 4;
+    private static final int MATERIAL_PAGE_SIZE = 9;
 
-    private static final Rect LENGTH_BUTTON = new Rect(4, 20, 52, 14);
-    private static final Rect LAYER_BUTTON = new Rect(60, 20, 52, 14);
-    private static final Rect FORMED_BUTTON = new Rect(116, 20, 56, 14);
-    private static final Rect SCENE = new Rect(4, 38, 168, 88);
-
-    private static final int MATERIALS_TITLE_Y = 130;
-    private static final int MATERIALS_X = 7;
-    private static final int MATERIALS_Y = 142;
-    private static final int MATERIAL_COLUMNS = 9;
+    private static final Rect SCENE = new Rect(PADDING, 28, WIDTH - PADDING * 2, 129);
+    private static final Rect LENGTH_BUTTON = new Rect(SCENE.right() - 46, SCENE.y() + 2, 44, 18);
+    private static final Rect LAYER_BUTTON = new Rect(LENGTH_BUTTON.x(), LENGTH_BUTTON.bottom(), 44, 18);
+    private static final Rect FORMED_BUTTON = new Rect(LAYER_BUTTON.x(), LAYER_BUTTON.bottom(), 44, 18);
+    private static final int MATERIALS_X = PADDING;
+    private static final int MATERIALS_Y = 163;
+    private static final Rect PREVIOUS_PAGE_BUTTON =
+            new Rect(SCENE.right() - 32, SCENE.bottom() - 14, 14, 12);
+    private static final Rect NEXT_PAGE_BUTTON =
+            new Rect(SCENE.right() - 16, SCENE.bottom() - 14, 14, 12);
 
     private final IDrawable icon;
     private final Component title;
@@ -89,12 +92,12 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
     public void setRecipe(IRecipeLayoutBuilder builder, MultiblockInfoRecipe recipe, IFocusGroup focuses) {
         PreviewState state = state(recipe);
         List<ItemStack> materials = state.materials();
-        for (int i = 0; i < materials.size(); i++) {
-            int x = MATERIALS_X + i % MATERIAL_COLUMNS * MultiblockPreviewStyle.SLOT_SIZE;
-            int y = MATERIALS_Y + i / MATERIAL_COLUMNS * MultiblockPreviewStyle.SLOT_SIZE;
-            builder.addInputSlot(x, y)
-                    .setSlotName("material_" + i)
-                    .addItemStack(materials.get(i).copy());
+        for (int i = 0; i < MATERIAL_PAGE_SIZE; i++) {
+            int x = MATERIALS_X + i * MultiblockPreviewStyle.SLOT_SIZE;
+            var slot = builder.addInputSlot(x, MATERIALS_Y).setSlotName("material_" + i);
+            if (i < materials.size()) {
+                slot.addItemStack(materials.get(i).copy());
+            }
         }
         builder.addInvisibleIngredients(RecipeIngredientRole.OUTPUT).addItemLike(recipe.ownerBlock());
     }
@@ -111,7 +114,16 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
             @Override
             public boolean handleInput(double mouseX, double mouseY, IJeiUserInput input) {
                 InputConstants.Key key = input.getKey();
-                return key.getType() == InputConstants.Type.MOUSE && key.getValue() == GLFW.GLFW_MOUSE_BUTTON_LEFT;
+                if (key.getType() != InputConstants.Type.MOUSE || key.getValue() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                    return false;
+                }
+                double recipeMouseX = mouseX + SCENE.x();
+                double recipeMouseY = mouseY + SCENE.y();
+                return !LENGTH_BUTTON.contains(recipeMouseX, recipeMouseY)
+                        && !LAYER_BUTTON.contains(recipeMouseX, recipeMouseY)
+                        && !FORMED_BUTTON.contains(recipeMouseX, recipeMouseY)
+                        && !PREVIOUS_PAGE_BUTTON.contains(recipeMouseX, recipeMouseY)
+                        && !NEXT_PAGE_BUTTON.contains(recipeMouseX, recipeMouseY);
             }
 
             @Override
@@ -155,9 +167,6 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
         MultiblockPreviewStyle.drawPanel(graphics, WIDTH, HEIGHT);
         MultiblockPreviewStyle.drawFittedString(
                 graphics, recipe.definition().getName(), 4, 4, WIDTH - 8, MultiblockPreviewStyle.TEXT_COLOR);
-        drawButton(graphics, LENGTH_BUTTON, "E: " + state.expand(), mouseX, mouseY);
-        drawButton(graphics, LAYER_BUTTON, state.layer() < 0 ? "Y: *" : "Y: " + state.layer(), mouseX, mouseY);
-        drawButton(graphics, FORMED_BUTTON, state.formed() ? "F: 1" : "F: 0", mouseX, mouseY);
 
         state.renderer()
                 .render(
@@ -169,16 +178,13 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
                         SCENE.width(),
                         SCENE.height(),
                         Minecraft.getInstance().getFrameTime());
-        graphics.drawString(
-                font,
-                Component.translatable("emi.neoecoae.multiblock.requirements"),
-                4,
-                MATERIALS_TITLE_Y,
-                MultiblockPreviewStyle.TEXT_COLOR,
-                false);
-        for (int i = 0; i < state.materials().size(); i++) {
-            int x = MATERIALS_X + i % MATERIAL_COLUMNS * MultiblockPreviewStyle.SLOT_SIZE - 1;
-            int y = MATERIALS_Y + i / MATERIAL_COLUMNS * MultiblockPreviewStyle.SLOT_SIZE - 1;
+        drawButton(graphics, LENGTH_BUTTON, "E: " + state.expand(), mouseX, mouseY);
+        drawButton(graphics, LAYER_BUTTON, state.layer() < 0 ? "L: *" : "L: " + state.layer(), mouseX, mouseY);
+        drawButton(graphics, FORMED_BUTTON, state.formed() ? "F: true" : "F: false", mouseX, mouseY);
+
+        for (int i = 0; i < MATERIAL_PAGE_SIZE; i++) {
+            int x = MATERIALS_X + i * MultiblockPreviewStyle.SLOT_SIZE - 1;
+            int y = MATERIALS_Y - 1;
             graphics.fill(x, y, x + MultiblockPreviewStyle.SLOT_SIZE, y + MultiblockPreviewStyle.SLOT_SIZE, 0xFF707070);
             graphics.fill(
                     x + 1,
@@ -186,6 +192,18 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
                     x + MultiblockPreviewStyle.SLOT_SIZE - 1,
                     y + MultiblockPreviewStyle.SLOT_SIZE - 1,
                     0xFFE8E8E8);
+        }
+        if (state.materialPages() > 1) {
+            drawButton(graphics, PREVIOUS_PAGE_BUTTON, "<", mouseX, mouseY);
+            drawButton(graphics, NEXT_PAGE_BUTTON, ">", mouseX, mouseY);
+            String page = (state.materialPage() + 1) + "/" + state.materialPages();
+            graphics.drawString(
+                    font,
+                    page,
+                    PREVIOUS_PAGE_BUTTON.x() - 4 - font.width(page),
+                    PREVIOUS_PAGE_BUTTON.y() + 2,
+                    MultiblockPreviewStyle.TEXT_COLOR,
+                    false);
         }
     }
 
@@ -210,6 +228,10 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
                     state.formed()
                             ? Component.translatable("emi.neoecoae.multiblock.show_formed")
                             : Component.translatable("emi.neoecoae.multiblock.show_unformed"));
+        } else if (state.materialPages() > 1 && PREVIOUS_PAGE_BUTTON.contains(mouseX, mouseY)) {
+            tooltip.add(Component.translatable("emi.neoecoae.multiblock.previous_page"));
+        } else if (state.materialPages() > 1 && NEXT_PAGE_BUTTON.contains(mouseX, mouseY)) {
+            tooltip.add(Component.translatable("emi.neoecoae.multiblock.next_page"));
         }
     }
 
@@ -231,6 +253,14 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
         }
         if (FORMED_BUTTON.contains(mouseX, mouseY)) {
             state.toggleFormed();
+            return true;
+        }
+        if (state.materialPages() > 1 && PREVIOUS_PAGE_BUTTON.contains(mouseX, mouseY)) {
+            state.previousMaterialsPage();
+            return true;
+        }
+        if (state.materialPages() > 1 && NEXT_PAGE_BUTTON.contains(mouseX, mouseY)) {
+            state.nextMaterialsPage();
             return true;
         }
         return false;
@@ -273,6 +303,7 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
         private List<ItemStack> materials = List.of();
         private int expand;
         private int layer = -1;
+        private int materialPage;
         private boolean formed;
 
         private PreviewState(MultiblockInfoRecipe recipe) {
@@ -287,6 +318,9 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
                     copyItems(StructureTerminalMaterialRequirements.collectRequiredItems(recipe.definition(), expand));
             if (scene != null && layer > scene.yMax()) {
                 layer = -1;
+            }
+            if (materialPage >= materialPages()) {
+                materialPage = Math.max(0, materialPages() - 1);
             }
             refreshSlotOverrides();
         }
@@ -321,7 +355,7 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
 
         private void refreshSlotOverrides() {
             for (Map.Entry<Integer, IRecipeSlotDrawable> entry : materialSlots.entrySet()) {
-                int index = entry.getKey();
+                int index = materialPage * MATERIAL_PAGE_SIZE + entry.getKey();
                 IRecipeSlotDrawable slot = entry.getValue();
                 if (index >= 0 && index < materials.size()) {
                     slot.createDisplayOverrides()
@@ -356,6 +390,20 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
             rebuild();
         }
 
+        private int materialPages() {
+            return Math.max(1, (materials.size() + MATERIAL_PAGE_SIZE - 1) / MATERIAL_PAGE_SIZE);
+        }
+
+        private void previousMaterialsPage() {
+            materialPage = materialPage <= 0 ? materialPages() - 1 : materialPage - 1;
+            refreshSlotOverrides();
+        }
+
+        private void nextMaterialsPage() {
+            materialPage = materialPage + 1 >= materialPages() ? 0 : materialPage + 1;
+            refreshSlotOverrides();
+        }
+
         private List<BlockPos> renderedPositions() {
             if (scene == null) {
                 return List.of();
@@ -385,6 +433,10 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
 
         private boolean formed() {
             return formed;
+        }
+
+        private int materialPage() {
+            return materialPage;
         }
     }
 }

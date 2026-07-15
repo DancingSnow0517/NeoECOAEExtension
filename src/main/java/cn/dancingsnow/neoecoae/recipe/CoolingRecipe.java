@@ -24,7 +24,7 @@ public record CoolingRecipe(
 
     @Override
     public boolean matches(Input i, Level l) {
-        return input.test(i.input) && (i.output.isEmpty() || output.isFluidEqual(i.output));
+        return input.test(i.input) && (output.isEmpty() || i.output.isEmpty() || output.isFluidEqual(i.output));
     }
 
     @Override
@@ -74,13 +74,28 @@ public record CoolingRecipe(
             } catch (JsonParseException e) {
                 throw new JsonParseException("Recipe " + id + " input " + e.getMessage(), e);
             }
+            if (json.has("output") && !json.get("output").isJsonObject()) {
+                throw new JsonParseException("Recipe " + id + " output must be an object");
+            }
             FluidStack output = json.has("output")
                     ? RecipeOutputJson.readFluidStack(id, "output", json.getAsJsonObject("output"))
                     : FluidStack.EMPTY;
-            int coolant = json.get("coolant").getAsInt();
-            int maxOverclock =
-                    json.has("max_overclock") ? json.get("max_overclock").getAsInt() : 0;
-            return new CoolingRecipe(id, input, output, coolant, maxOverclock);
+            if (!json.has("coolant")) {
+                throw new JsonParseException("Recipe " + id + " must contain 'coolant'");
+            }
+            long coolantValue = json.get("coolant").getAsLong();
+            long maxOverclockValue =
+                    json.has("max_overclock") ? json.get("max_overclock").getAsLong() : 0L;
+            if (input.ingredient().isEmpty() || input.amount() <= 0) {
+                throw new JsonParseException("Recipe " + id + " input must be non-empty with a positive amount");
+            }
+            if (coolantValue <= 0 || coolantValue > Integer.MAX_VALUE) {
+                throw new JsonParseException("Recipe " + id + " coolant must be positive");
+            }
+            if (maxOverclockValue < 0 || maxOverclockValue > Integer.MAX_VALUE) {
+                throw new JsonParseException("Recipe " + id + " max_overclock must not be negative");
+            }
+            return new CoolingRecipe(id, input, output, (int) coolantValue, (int) maxOverclockValue);
         }
 
         @Override

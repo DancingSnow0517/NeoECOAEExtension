@@ -82,6 +82,12 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
     @Override
     public void save(Consumer<FinishedRecipe> recipeOutput, ResourceLocation id) {
         Objects.requireNonNull(input, "input must not be null");
+        if (input.ingredient().isEmpty() || input.amount() <= 0) {
+            throw new IllegalStateException("input must contain a fluid or fluid tag with a positive amount");
+        }
+        if (!output.isEmpty() && output.getAmount() <= 0) {
+            throw new IllegalStateException("output amount must be positive");
+        }
         if (coolant <= 0) {
             throw new IllegalStateException("coolant must be greater than 0");
         }
@@ -97,16 +103,16 @@ public class CoolingRecipeBuilder implements RecipeBuilder {
         @Override
         public void serializeRecipeData(JsonObject json) {
             json.add("input", input.toJson());
-            JsonObject outputJson = new JsonObject();
             if (!output.isEmpty()) {
                 ResourceLocation fluidId = ForgeRegistries.FLUIDS.getKey(output.getFluid());
                 if (fluidId == null) {
                     throw new IllegalStateException("Cannot serialize unregistered fluid " + output.getFluid());
                 }
+                JsonObject outputJson = new JsonObject();
                 outputJson.addProperty("fluid", fluidId.toString());
                 outputJson.addProperty("amount", output.getAmount());
+                json.add("output", outputJson);
             }
-            json.add("output", outputJson);
             json.addProperty("coolant", coolant);
             json.addProperty("max_overclock", maxOverclock);
         }

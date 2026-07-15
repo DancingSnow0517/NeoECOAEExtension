@@ -1,22 +1,20 @@
 package cn.dancingsnow.neoecoae.integration.emi.recipe;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 
 final class MultiblockPreviewLayout {
-    static final int WIDTH = 176;
-    private static final int MAX_HEIGHT = 170;
-    private static final int MID_HEIGHT = 150;
-    private static final int MIN_HEIGHT = 136;
+    static final int WIDTH = 170;
+    private static final int MAX_HEIGHT = 190;
+    private static final int MIN_HEIGHT = 120;
+    private static final int EMI_VERTICAL_RESERVE = 105;
+    private static final int PADDING = 4;
+    private static final int GAP = 2;
+    private static final int HEADER_HEIGHT = 22;
+    private static final int MATERIALS_HEIGHT = 27;
     private static final int TITLE_Y = 4;
-    private static final int BUTTON_Y = 20;
-    private static final int BUTTON_W = 42;
-    private static final int BUTTON_H = 16;
-    private static final int BUTTON_GAP = 4;
-    private static final int SCENE_Y = 42;
-    private static final int SCENE_PAD = 4;
-    private static final int MATERIAL_BLOCK_H = 35;
-    private static final int MATERIAL_TITLE_GAP = 4;
-    private static final int MATERIAL_SLOT_GAP = 13;
+    private static final int BUTTON_W = 44;
+    private static final int BUTTON_H = 18;
     private static final int SLOT_SIZE = 18;
     private static final int PAGE_BUTTON_W = 14;
     private static final int PAGE_BUTTON_H = 12;
@@ -35,13 +33,7 @@ final class MultiblockPreviewLayout {
             return MAX_HEIGHT;
         }
         int guiHeight = minecraft.getWindow().getGuiScaledHeight();
-        if (guiHeight <= 300) {
-            return MIN_HEIGHT;
-        }
-        if (guiHeight <= 360) {
-            return MID_HEIGHT;
-        }
-        return MAX_HEIGHT;
+        return Mth.clamp(guiHeight - EMI_VERTICAL_RESERVE, MIN_HEIGHT, MAX_HEIGHT);
     }
 
     int width() {
@@ -57,35 +49,38 @@ final class MultiblockPreviewLayout {
     }
 
     Rect expandButton() {
-        return new Rect(4, BUTTON_Y, BUTTON_W, BUTTON_H);
+        Rect scene = scene();
+        return new Rect(scene.right() - BUTTON_W - 2, scene.y() + 2, BUTTON_W, BUTTON_H);
     }
 
     Rect layerButton() {
         Rect expand = expandButton();
-        return new Rect(expand.x() + BUTTON_W + BUTTON_GAP, BUTTON_Y, BUTTON_W, BUTTON_H);
+        return new Rect(expand.x(), expand.bottom(), BUTTON_W, BUTTON_H);
     }
 
     Rect formedButton() {
         Rect layer = layerButton();
-        return new Rect(layer.x() + BUTTON_W + BUTTON_GAP, BUTTON_Y, BUTTON_W, BUTTON_H);
+        return new Rect(layer.x(), layer.bottom(), BUTTON_W, BUTTON_H);
     }
 
     Rect scene() {
-        return new Rect(
-                SCENE_PAD, SCENE_Y, width - SCENE_PAD * 2, Math.max(54, height - SCENE_Y - 4 - MATERIAL_BLOCK_H));
+        int y = PADDING + HEADER_HEIGHT + GAP;
+        int sceneHeight = height - PADDING * 2 - GAP * 2 - HEADER_HEIGHT - MATERIALS_HEIGHT;
+        return new Rect(PADDING, y, width - PADDING * 2, Math.max(1, sceneHeight));
     }
 
-    int materialTitleY() {
+    Rect materials() {
         Rect scene = scene();
-        return scene.y() + scene.height() + MATERIAL_TITLE_GAP;
+        return new Rect(PADDING, scene.bottom() + GAP, width - PADDING * 2, MATERIALS_HEIGHT);
     }
 
     int slotsY() {
-        return materialTitleY() + MATERIAL_SLOT_GAP;
+        Rect materials = materials();
+        return materials.y() + (materials.height() - SLOT_SIZE) / 2;
     }
 
     int materialSlotsX() {
-        return Math.max(4, (width - MultiblockPreviewState.MATERIAL_PAGE_SIZE * SLOT_SIZE) / 2);
+        return PADDING;
     }
 
     Rect materialSlots() {
@@ -97,11 +92,15 @@ final class MultiblockPreviewLayout {
     }
 
     Rect previousPageButton() {
-        return new Rect(width - PAGE_BUTTON_W * 2 - 8, materialTitleY() - 2, PAGE_BUTTON_W, PAGE_BUTTON_H);
+        Rect scene = scene();
+        return new Rect(scene.right() - PAGE_BUTTON_W * 2 - 4, scene.bottom() - PAGE_BUTTON_H - 2,
+                PAGE_BUTTON_W, PAGE_BUTTON_H);
     }
 
     Rect nextPageButton() {
-        return new Rect(width - PAGE_BUTTON_W - 4, materialTitleY() - 2, PAGE_BUTTON_W, PAGE_BUTTON_H);
+        Rect scene = scene();
+        return new Rect(scene.right() - PAGE_BUTTON_W - 2, scene.bottom() - PAGE_BUTTON_H - 2,
+                PAGE_BUTTON_W, PAGE_BUTTON_H);
     }
 
     record Rect(int x, int y, int width, int height) {

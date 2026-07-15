@@ -32,6 +32,17 @@ class NEStorageControllerWidgetTest {
     }
 
     @Test
+    void playerInventorySlotUsesAnIndependentNativeSizeSprite() throws Exception {
+        try (var stream = getClass().getResourceAsStream("/assets/neoecoae/textures/gui/slot.png")) {
+            assertNotNull(stream);
+            var image = ImageIO.read(stream);
+            assertNotNull(image);
+            assertEquals(18, image.getWidth());
+            assertEquals(18, image.getHeight());
+        }
+    }
+
+    @Test
     void hugeStackFooterOnlyRequestsAvailableAdjacentPages() {
         var list = new NEStorageHugeStackList();
         var middlePage = pageState(1, 3);

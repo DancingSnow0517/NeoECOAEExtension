@@ -16,7 +16,6 @@ import dev.emi.emi.api.widget.WidgetHolder;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.core.BlockPos;
@@ -106,19 +105,11 @@ public class MultiblockEmiRecipe implements EmiRecipe {
         public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
             updateDrag(mouseX, mouseY);
 
-            Font font = Minecraft.getInstance().font;
             MultiblockPreviewStyle.drawPanel(g, layout.width(), layout.height());
             MultiblockPreviewStyle.drawFittedString(
                     g, definition.getName(), 4, layout.titleY(), layout.width() - 8, MultiblockPreviewStyle.TEXT_COLOR);
-            renderButtons(g, mouseX, mouseY);
             renderScene(g, delta);
-            g.drawString(
-                    font,
-                    Component.translatable("emi.neoecoae.multiblock.requirements"),
-                    4,
-                    layout.materialTitleY(),
-                    MultiblockPreviewStyle.TEXT_COLOR,
-                    false);
+            renderButtons(g, mouseX, mouseY);
             materialStrip.render(g, layout, mouseX, mouseY, delta);
         }
 

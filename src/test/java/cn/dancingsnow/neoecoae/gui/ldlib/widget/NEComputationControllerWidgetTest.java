@@ -4,6 +4,7 @@ import static cn.dancingsnow.neoecoae.gui.ldlib.computation.NEComputationLayout.
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.computation.NEComputationTaskPanel;
 import org.junit.jupiter.api.Test;
 
@@ -31,5 +32,12 @@ class NEComputationControllerWidgetTest {
         assertEquals(132, TASK_CARD_W);
         assertEquals(28, TASK_CARD_H);
         assertEquals(30, TASK_CARD_STRIDE);
+    }
+
+    @Test
+    void cpuSelectionModeCyclesEvenWithoutAFormedCluster() {
+        assertEquals(CpuSelectionMode.PLAYER_ONLY, NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.ANY));
+        assertEquals(CpuSelectionMode.MACHINE_ONLY, NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.PLAYER_ONLY));
+        assertEquals(CpuSelectionMode.ANY, NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.MACHINE_ONLY));
     }
 }

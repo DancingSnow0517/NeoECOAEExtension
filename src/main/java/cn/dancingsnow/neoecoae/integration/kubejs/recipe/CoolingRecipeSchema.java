@@ -8,12 +8,12 @@ import dev.latvian.mods.kubejs.recipe.schema.RecipeSchema;
 
 public interface CoolingRecipeSchema {
     RecipeKey<InputFluid> INPUT = NERecipeComponents.ID_COMPAT_INPUT_FLUID.key("input");
-    RecipeKey<Integer> COOLANT = NumberComponent.intRange(0, Integer.MAX_VALUE).key("coolant");
+    RecipeKey<Integer> COOLANT = NumberComponent.intRange(1, Integer.MAX_VALUE).key("coolant");
     RecipeKey<OutputFluid> OUTPUT =
             NERecipeComponents.ID_COMPAT_OUTPUT_FLUID.key("output").defaultOptional();
     RecipeKey<Integer> MAX_OVERCLOCK = NumberComponent.intRange(0, Integer.MAX_VALUE)
             .key("max_overclock")
-            .defaultOptional()
+            .optional(0)
             .preferred("maxOverclock");
 
     RecipeSchema SCHEMA = new RecipeSchema(INPUT, COOLANT, OUTPUT, MAX_OVERCLOCK)

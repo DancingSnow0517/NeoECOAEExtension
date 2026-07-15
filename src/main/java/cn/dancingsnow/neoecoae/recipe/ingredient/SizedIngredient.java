@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.recipe.ingredient;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
@@ -27,39 +28,54 @@ public record SizedIngredient(Ingredient ingredient, int count) {
         }
 
         JsonObject object = json.isJsonObject() ? json.getAsJsonObject() : null;
-        int count = object != null && object.has("count") ? object.get("count").getAsInt() : 1;
+        long countValue =
+                object != null && object.has("count") ? object.get("count").getAsLong() : 1L;
+        if (countValue <= 0 || countValue > Integer.MAX_VALUE) {
+            throw new JsonParseException("Sized ingredient count must be positive");
+        }
+        int count = (int) countValue;
         JsonElement ingredientJson = object != null && object.has("ingredient") ? object.get("ingredient") : json;
         ingredientJson = normalizeIngredientJson(ingredientJson);
 
-        if (!ingredientJson.isJsonObject()) {
+        if (!ingredientJson.isJsonObject() && !ingredientJson.isJsonArray()) {
             throw new JsonParseException("Sized ingredient must contain 'item', 'id', 'tag', or 'ingredient'");
         }
 
-        JsonObject ingredientObject = ingredientJson.getAsJsonObject();
-        // Remove count/amount keys so vanilla Ingredient.fromJson does not choke
-        if (ingredientObject.has("count")) ingredientObject.remove("count");
-        if (ingredientObject.has("amount")) ingredientObject.remove("amount");
-        if (!ingredientObject.has("item") && !ingredientObject.has("tag") && !ingredientObject.has("id")) {
-            throw new JsonParseException("Sized ingredient must contain 'item', 'id', or 'tag'");
+        if (ingredientJson.isJsonObject()) {
+            JsonObject ingredientObject = ingredientJson.getAsJsonObject();
+            ingredientObject.remove("count");
+            ingredientObject.remove("amount");
+            if (!ingredientObject.has("item") && !ingredientObject.has("tag") && !ingredientObject.has("type")) {
+                throw new JsonParseException("Sized ingredient must contain 'item', 'id', 'tag', or 'type'");
+            }
         }
 
-        return new SizedIngredient(Ingredient.fromJson(ingredientObject), count);
+        return new SizedIngredient(Ingredient.fromJson(ingredientJson), count);
     }
 
-    private static JsonElement normalizeIngredientJson(JsonElement json) {
-        if (json == null || json.isJsonNull() || !json.isJsonObject()) {
+    static JsonElement normalizeIngredientJson(JsonElement json) {
+        if (json == null || json.isJsonNull()) {
             return json;
         }
 
-        JsonObject object = json.getAsJsonObject();
+        if (json.isJsonArray()) {
+            JsonArray normalized = new JsonArray();
+            for (JsonElement element : json.getAsJsonArray()) {
+                normalized.add(normalizeIngredientJson(element));
+            }
+            return normalized;
+        }
+        if (!json.isJsonObject()) {
+            return json;
+        }
+
+        JsonObject object = json.getAsJsonObject().deepCopy();
         if (object.has("ingredient")) {
             return normalizeIngredientJson(object.get("ingredient"));
         }
 
         if (object.has("id") && !object.has("item") && !object.has("tag")) {
-            JsonObject normalized = new JsonObject();
-            normalized.addProperty("item", object.get("id").getAsString());
-            return normalized;
+            object.add("item", object.remove("id"));
         }
 
         return object;

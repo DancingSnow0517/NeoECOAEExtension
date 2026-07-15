@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.widget;
 
 import static cn.dancingsnow.neoecoae.gui.ldlib.computation.NEComputationLayout.*;
 
+import appeng.api.config.CpuSelectionMode;
 import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.computation.NEComputationCapacityPanel;
@@ -56,10 +57,12 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                         NEComputationCluster cluster = computation.getCluster();
                         if (cluster != null) {
                             cluster.cycleSelectionMode();
-                            computation.markComputationStatsDirty();
-                            computation.updateInfos();
-                            syncStateNow();
+                        } else {
+                            computation.setCpuSelectionMode(nextCpuSelectionMode(computation.getCpuSelectionMode()));
                         }
+                        computation.markComputationStatsDirty();
+                        computation.updateInfos();
+                        syncStateNow();
                     }
                 });
         addWidget(cpuModeButton);
@@ -113,6 +116,14 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
             case PLAYER_ONLY -> Icon.CRAFT_HAMMER;
             case MACHINE_ONLY -> Icon.BACKGROUND_WIRELESS_TERM;
             case ANY -> Icon.TYPE_FILTER_ALL;
+        };
+    }
+
+    static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {
+        return switch (mode) {
+            case ANY -> CpuSelectionMode.PLAYER_ONLY;
+            case PLAYER_ONLY -> CpuSelectionMode.MACHINE_ONLY;
+            case MACHINE_ONLY -> CpuSelectionMode.ANY;
         };
     }
 }

@@ -62,7 +62,7 @@ public interface IntegratedWorkingStationRecipeSchema {
     RecipeKey<OutputFluid> FLUID_OUTPUT =
             NERecipeComponents.ID_COMPAT_OUTPUT_FLUID.key("fluidOutput").defaultOptional();
     RecipeKey<Integer> ENERGY =
-            NumberComponent.intRange(0, Integer.MAX_VALUE).key("energy").defaultOptional();
+            NumberComponent.intRange(1, Integer.MAX_VALUE).key("energy").optional(1000);
 
     RecipeSchema SCHEMA = new RecipeSchema(
                     IntegratedWorkingStationRecipeJS.class,

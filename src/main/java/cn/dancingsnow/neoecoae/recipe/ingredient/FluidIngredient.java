@@ -47,17 +47,22 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
             return fromJson(object.get("ingredient"));
         }
         if (object.has("tag")) {
-            return new FluidIngredient(
-                    null,
-                    TagKey.create(
-                            Registries.FLUID,
-                            ResourceLocation.parse(object.get("tag").getAsString())));
+            ResourceLocation tagId = ResourceLocation.tryParse(object.get("tag").getAsString());
+            if (tagId == null) {
+                throw new JsonParseException(
+                        "Invalid fluid tag id '" + object.get("tag").getAsString() + "'");
+            }
+            return new FluidIngredient(null, TagKey.create(Registries.FLUID, tagId));
         }
         String field = object.has("fluid") ? "fluid" : object.has("id") ? "id" : null;
         if (field == null) {
             throw new JsonParseException("Fluid ingredient must contain 'fluid', 'id', or 'tag'");
         }
-        ResourceLocation id = ResourceLocation.parse(object.get(field).getAsString());
+        ResourceLocation id = ResourceLocation.tryParse(object.get(field).getAsString());
+        if (id == null) {
+            throw new JsonParseException(
+                    "Invalid fluid id '" + object.get(field).getAsString() + "'");
+        }
         Fluid fluid = ForgeRegistries.FLUIDS.getValue(id);
         if (fluid == null || fluid == Fluids.EMPTY) {
             throw new JsonParseException("Unknown fluid '" + id + "'");
@@ -72,7 +77,7 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
         } else if (fluid != null) {
             ResourceLocation id = ForgeRegistries.FLUIDS.getKey(fluid);
             if (id == null) {
-                return object;
+                throw new IllegalStateException("Cannot serialize unregistered fluid " + fluid);
             }
             object.addProperty("fluid", id.toString());
         }
@@ -99,8 +104,11 @@ public record FluidIngredient(@Nullable Fluid fluid, @Nullable TagKey<Fluid> tag
         }
         if (fluid != null) {
             ResourceLocation id = ForgeRegistries.FLUIDS.getKey(fluid);
+            if (id == null) {
+                throw new IllegalStateException("Cannot synchronize unregistered fluid " + fluid);
+            }
             buffer.writeByte(1);
-            buffer.writeResourceLocation(id == null ? ResourceLocation.fromNamespaceAndPath("minecraft", "empty") : id);
+            buffer.writeResourceLocation(id);
             return;
         }
         buffer.writeByte(2);

@@ -5,6 +5,5 @@
     "amount": 100,
     "fluid": "neoecoae:cryotheum_solution"
   },
-  "max_overclock": 9,
-  "output": {}
+  "max_overclock": 9
 }

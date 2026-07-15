@@ -180,6 +180,14 @@ class GTCEuRecipesGeneratedJsonTest {
 
                 assertTrue(input.has("fluid"), path.toString());
                 assertFalse(input.has("tag"), path.toString());
+
+                JsonObject recipe =
+                        JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+                if (recipe.has("output")) {
+                    JsonObject output = recipe.getAsJsonObject("output");
+                    assertTrue(output.has("fluid"), path.toString());
+                    assertTrue(output.has("amount"), path.toString());
+                }
             }
         }
     }
@@ -239,6 +247,55 @@ class GTCEuRecipesGeneratedJsonTest {
             "mixer/cryotheum_solution"
         }) {
             assertTrue(recipe(path).get("type").getAsString().startsWith("gtceu:"));
+        }
+    }
+
+    @Test
+    void thirdPartyRecipeSerializersHaveLoadConditions() throws IOException {
+        try (Stream<Path> recipes = Files.walk(RECIPE_ROOT)) {
+            for (Path path : recipes.filter(Files::isRegularFile)
+                    .filter(file -> file.toString().endsWith(".json"))
+                    .toList()) {
+                JsonObject recipe =
+                        JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+                String type = recipe.get("type").getAsString();
+                String requiredMod =
+                        switch (type.substring(0, type.indexOf(':'))) {
+                            case "gtceu" -> "gtceu";
+                            case "mekanism" -> "mekanism";
+                            case "advanced_ae" -> "advanced_ae";
+                            case "expatternprovider" -> "expatternprovider";
+                            case "botania" -> "appbot";
+                            case "ars_nouveau" -> "arseng";
+                            default -> null;
+                        };
+                if (requiredMod != null) {
+                    assertTrue(hasModLoadedCondition(recipe, requiredMod), path.toString());
+                }
+                assertFalse(type.startsWith("extendedae:"), path.toString());
+            }
+        }
+    }
+
+    @Test
+    void generatedCustomRecipesRespectRuntimeBounds() throws IOException {
+        try (Stream<Path> recipes = Files.walk(RECIPE_ROOT)) {
+            for (Path path : recipes.filter(Files::isRegularFile)
+                    .filter(file -> file.toString().endsWith(".json"))
+                    .toList()) {
+                JsonObject recipe =
+                        JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+                String type = recipe.get("type").getAsString();
+                if ("neoecoae:integrated_working_station".equals(type)) {
+                    assertTrue(recipe.get("energy").getAsInt() > 0, path.toString());
+                    assertTrue(recipe.getAsJsonArray("inputItems").size() <= 9, path.toString());
+                    assertTrue(recipe.has("itemOutput") || recipe.has("fluidOutput"), path.toString());
+                } else if ("neoecoae:cooling".equals(type)) {
+                    assertTrue(recipe.get("coolant").getAsInt() > 0, path.toString());
+                    assertTrue(recipe.getAsJsonObject("input").get("amount").getAsInt() > 0, path.toString());
+                    assertTrue(recipe.get("max_overclock").getAsInt() >= 0, path.toString());
+                }
+            }
         }
     }
 
@@ -441,6 +498,20 @@ class GTCEuRecipesGeneratedJsonTest {
                         && dataStack.get("Count").getAsInt() == 1) {
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasModLoadedCondition(JsonObject recipe, String modId) {
+        if (!recipe.has("conditions")) {
+            return false;
+        }
+        for (var element : recipe.getAsJsonArray("conditions")) {
+            JsonObject condition = element.getAsJsonObject();
+            if ("forge:mod_loaded".equals(condition.get("type").getAsString())
+                    && modId.equals(condition.get("modid").getAsString())) {
+                return true;
             }
         }
         return false;

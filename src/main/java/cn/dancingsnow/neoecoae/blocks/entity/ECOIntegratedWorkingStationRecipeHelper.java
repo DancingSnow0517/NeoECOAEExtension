@@ -1,8 +1,11 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.inventories.InternalInventory;
+import cn.dancingsnow.neoecoae.recipe.ItemIngredientConsumptionPlanner;
 import cn.dancingsnow.neoecoae.recipe.ingredient.SizedIngredient;
+import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -15,40 +18,14 @@ final class ECOIntegratedWorkingStationRecipeHelper {
     private ECOIntegratedWorkingStationRecipeHelper() {}
 
     @Nullable static int[] createItemConsumptionPlan(InternalInventory inputInv, List<SizedIngredient> ingredients) {
-        int[] available = new int[inputInv.size()];
-        boolean[][] matches = new boolean[ingredients.size()][inputInv.size()];
-        int[] required = new int[ingredients.size()];
+        List<ItemStack> stacks = new ArrayList<>(inputInv.size());
         for (int slot = 0; slot < inputInv.size(); slot++) {
-            available[slot] = inputInv.getStackInSlot(slot).getCount();
+            stacks.add(inputInv.getStackInSlot(slot));
         }
-        for (int ingredient = 0; ingredient < ingredients.size(); ingredient++) {
-            SizedIngredient requirement = ingredients.get(ingredient);
-            required[ingredient] = requirement.count();
-            for (int slot = 0; slot < inputInv.size(); slot++) {
-                matches[ingredient][slot] = requirement.ingredient().test(inputInv.getStackInSlot(slot));
-            }
-        }
-        return createItemConsumptionPlan(available, matches, required);
+        return ItemIngredientConsumptionPlanner.createPlan(stacks, ingredients);
     }
 
     @Nullable static int[] createItemConsumptionPlan(int[] available, boolean[][] matches, int[] required) {
-        int[] remainingBySlot = available.clone();
-        int[] consumption = new int[available.length];
-        for (int ingredient = 0; ingredient < required.length; ingredient++) {
-            int remaining = required[ingredient];
-            for (int slot = 0; slot < remainingBySlot.length && remaining > 0; slot++) {
-                if (remainingBySlot[slot] <= 0 || !matches[ingredient][slot]) {
-                    continue;
-                }
-                int taken = Math.min(remainingBySlot[slot], remaining);
-                remainingBySlot[slot] -= taken;
-                consumption[slot] += taken;
-                remaining -= taken;
-            }
-            if (remaining > 0) {
-                return null;
-            }
-        }
-        return consumption;
+        return ItemIngredientConsumptionPlanner.createPlan(available, matches, required);
     }
 }
