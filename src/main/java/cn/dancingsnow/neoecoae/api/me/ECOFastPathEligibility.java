@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.api.me;
 
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathEligibility {

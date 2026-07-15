@@ -69,11 +69,20 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         if (!validateBlock(level, controllerPos.relative(down), BlockState::is, NEBlocks.STORAGE_CASING.get())) {
             return false;
         }
-        BlockPos storageBlocksStart = controllerPos.relative(right).relative(top);
+        BlockPos transitionCenter = controllerPos.relative(right);
+        if (!validateCasing(level, transitionCenter, top, down)) {
+            return false;
+        }
+        if (!validateCasing(level, transitionCenter.relative(back), top, down)) {
+            return false;
+        }
+
+        BlockPos firstStorageColumn = transitionCenter.relative(right);
+        BlockPos storageBlocksStart = firstStorageColumn.relative(top);
         BlockPos storageBlocksEnd = expandTowards(
                 level,
                 right,
-                controllerPos.relative(right).relative(down),
+                firstStorageColumn.relative(down),
                 ((state, pos) -> state.is(NEBlocks.ECO_DRIVE.get())
                         && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == front));
         if (!validateBlocks(
@@ -84,7 +93,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
                         && state.getValue(BlockStateProperties.HORIZONTAL_FACING) == front)) {
             return false;
         }
-        BlockPos ventStart = controllerPos.relative(right).relative(back);
+        BlockPos ventStart = firstStorageColumn.relative(back);
         DataResult<BlockPos> ventEndResult = validateBlockLine(
                 level,
                 right,
@@ -95,8 +104,7 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
         }
         BlockPos ventEnd = ventEndResult.getOrThrow(false, ignored -> {});
 
-        BlockPos upperEnergyCellStart =
-                controllerPos.relative(back).relative(top).relative(right);
+        BlockPos upperEnergyCellStart = firstStorageColumn.relative(back).relative(top);
         DataResult<BlockPos> upperEnergyCellResult = validateBlockLine(
                 level,
                 right,
@@ -109,8 +117,17 @@ public class NEStorageClusterCalculator extends NEClusterCalculator<NEStorageClu
             return false;
         }
         BlockPos upperEnergyCellEnd = upperEnergyCellResult.getOrThrow(false, ignored -> {});
-        BlockPos lowerEnergyCellStart =
-                controllerPos.relative(back).relative(down).relative(right);
+        if (upperEnergyCellEnd.equals(upperEnergyCellStart)
+                && !validateBlock(
+                        level,
+                        upperEnergyCellStart,
+                        state -> state.getBlock() instanceof ECOEnergyCellBlock cell
+                                && tier.supportsComponentTier(
+                                        cell.getBlockEntity(level, upperEnergyCellEnd).getTier())
+                                && state.getValue(ECOEnergyCellBlock.FACING) == back)) {
+            return false;
+        }
+        BlockPos lowerEnergyCellStart = firstStorageColumn.relative(back).relative(down);
         DataResult<BlockPos> lowerEnergyCellResult = validateBlockLine(
                 level,
                 right,

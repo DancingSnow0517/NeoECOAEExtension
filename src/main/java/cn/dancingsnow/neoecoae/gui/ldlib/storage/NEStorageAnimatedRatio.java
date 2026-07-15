@@ -51,8 +51,6 @@ public final class NEStorageAnimatedRatio {
 
     private static double cubicBezierSlope(double t, double p1, double p2) {
         double inverse = 1.0D - t;
-        return 3.0D * inverse * inverse * p1
-                + 6.0D * inverse * t * (p2 - p1)
-                + 3.0D * t * t * (1.0D - p2);
+        return 3.0D * inverse * inverse * p1 + 6.0D * inverse * t * (p2 - p1) + 3.0D * t * t * (1.0D - p2);
     }
 }

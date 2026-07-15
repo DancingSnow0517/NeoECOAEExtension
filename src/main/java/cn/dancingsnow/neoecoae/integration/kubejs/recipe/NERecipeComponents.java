@@ -11,7 +11,6 @@ import dev.latvian.mods.kubejs.item.InputItem;
 import dev.latvian.mods.kubejs.item.OutputItem;
 import dev.latvian.mods.kubejs.recipe.RecipeJS;
 import dev.latvian.mods.kubejs.recipe.component.ComponentRole;
-import dev.latvian.mods.kubejs.recipe.component.FluidComponents;
 import dev.latvian.mods.kubejs.recipe.component.ItemComponents;
 import dev.latvian.mods.kubejs.recipe.component.RecipeComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -110,7 +109,8 @@ interface NERecipeComponents {
         }
 
         @Override
-        public boolean isOutput(RecipeJS recipe, OutputFluid value, dev.latvian.mods.kubejs.recipe.ReplacementMatch match) {
+        public boolean isOutput(
+                RecipeJS recipe, OutputFluid value, dev.latvian.mods.kubejs.recipe.ReplacementMatch match) {
             return match instanceof FluidLike fluidLike && value.matches(fluidLike);
         }
     };

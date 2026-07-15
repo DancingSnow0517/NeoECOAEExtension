@@ -859,8 +859,8 @@ public class ECOCraftingCPULogic {
             if (!Double.isFinite(requiredPower)) {
                 return 0;
             }
-            double simulatedPower = energyService.extractAEPower(
-                    requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+            double simulatedPower =
+                    energyService.extractAEPower(requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG);
             if (Double.isNaN(simulatedPower) || simulatedPower < requiredPower - 0.01D) {
                 return 0;
             }

@@ -1,11 +1,11 @@
 package cn.dancingsnow.neoecoae.integration.jei.categories;
 
 import cn.dancingsnow.neoecoae.all.NEBlocks;
-import cn.dancingsnow.neoecoae.recipe.ingredient.SizedFluidIngredient;
-import cn.dancingsnow.neoecoae.recipe.ingredient.SizedIngredient;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.integration.jei.NeoECOAEJeiPlugin;
 import cn.dancingsnow.neoecoae.recipe.IntegratedWorkingStationRecipe;
+import cn.dancingsnow.neoecoae.recipe.ingredient.SizedFluidIngredient;
+import cn.dancingsnow.neoecoae.recipe.ingredient.SizedIngredient;
 import java.util.List;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.forge.ForgeTypes;

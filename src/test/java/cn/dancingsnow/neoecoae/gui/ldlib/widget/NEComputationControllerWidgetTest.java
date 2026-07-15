@@ -36,8 +36,13 @@ class NEComputationControllerWidgetTest {
 
     @Test
     void cpuSelectionModeCyclesEvenWithoutAFormedCluster() {
-        assertEquals(CpuSelectionMode.PLAYER_ONLY, NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.ANY));
-        assertEquals(CpuSelectionMode.MACHINE_ONLY, NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.PLAYER_ONLY));
-        assertEquals(CpuSelectionMode.ANY, NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.MACHINE_ONLY));
+        assertEquals(
+                CpuSelectionMode.PLAYER_ONLY, NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.ANY));
+        assertEquals(
+                CpuSelectionMode.MACHINE_ONLY,
+                NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.PLAYER_ONLY));
+        assertEquals(
+                CpuSelectionMode.ANY,
+                NEComputationControllerWidget.nextCpuSelectionMode(CpuSelectionMode.MACHINE_ONLY));
     }
 }

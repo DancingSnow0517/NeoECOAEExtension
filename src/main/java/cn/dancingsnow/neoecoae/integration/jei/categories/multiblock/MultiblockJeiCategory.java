@@ -49,10 +49,8 @@ public final class MultiblockJeiCategory implements IRecipeCategory<MultiblockIn
     private static final Rect FORMED_BUTTON = new Rect(LAYER_BUTTON.x(), LAYER_BUTTON.bottom(), 44, 18);
     private static final int MATERIALS_X = PADDING;
     private static final int MATERIALS_Y = 163;
-    private static final Rect PREVIOUS_PAGE_BUTTON =
-            new Rect(SCENE.right() - 32, SCENE.bottom() - 14, 14, 12);
-    private static final Rect NEXT_PAGE_BUTTON =
-            new Rect(SCENE.right() - 16, SCENE.bottom() - 14, 14, 12);
+    private static final Rect PREVIOUS_PAGE_BUTTON = new Rect(SCENE.right() - 32, SCENE.bottom() - 14, 14, 12);
+    private static final Rect NEXT_PAGE_BUTTON = new Rect(SCENE.right() - 16, SCENE.bottom() - 14, 14, 12);
 
     private final IDrawable icon;
     private final Component title;

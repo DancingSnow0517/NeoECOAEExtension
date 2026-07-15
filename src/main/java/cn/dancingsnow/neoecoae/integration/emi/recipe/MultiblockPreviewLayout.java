@@ -93,14 +93,17 @@ final class MultiblockPreviewLayout {
 
     Rect previousPageButton() {
         Rect scene = scene();
-        return new Rect(scene.right() - PAGE_BUTTON_W * 2 - 4, scene.bottom() - PAGE_BUTTON_H - 2,
-                PAGE_BUTTON_W, PAGE_BUTTON_H);
+        return new Rect(
+                scene.right() - PAGE_BUTTON_W * 2 - 4,
+                scene.bottom() - PAGE_BUTTON_H - 2,
+                PAGE_BUTTON_W,
+                PAGE_BUTTON_H);
     }
 
     Rect nextPageButton() {
         Rect scene = scene();
-        return new Rect(scene.right() - PAGE_BUTTON_W - 2, scene.bottom() - PAGE_BUTTON_H - 2,
-                PAGE_BUTTON_W, PAGE_BUTTON_H);
+        return new Rect(
+                scene.right() - PAGE_BUTTON_W - 2, scene.bottom() - PAGE_BUTTON_H - 2, PAGE_BUTTON_W, PAGE_BUTTON_H);
     }
 
     record Rect(int x, int y, int width, int height) {

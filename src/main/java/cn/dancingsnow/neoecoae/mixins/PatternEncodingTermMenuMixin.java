@@ -23,8 +23,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = PatternEncodingTermMenu.class, remap = false)
-public abstract class PatternEncodingTermMenuMixin extends MEStorageMenu
-        implements PatternEncodingTermMenuExtension {
+public abstract class PatternEncodingTermMenuMixin extends MEStorageMenu implements PatternEncodingTermMenuExtension {
     @Unique private static final String NEOECOAE_ACTION_UPLOAD_PATTERN = "neoecoae:uploadPattern";
 
     @Shadow
@@ -34,8 +33,7 @@ public abstract class PatternEncodingTermMenuMixin extends MEStorageMenu
     @Shadow
     public EncodingMode mode;
 
-    public PatternEncodingTermMenuMixin(
-            MenuType<?> menuType, int id, Inventory playerInventory, ITerminalHost host) {
+    public PatternEncodingTermMenuMixin(MenuType<?> menuType, int id, Inventory playerInventory, ITerminalHost host) {
         super(menuType, id, playerInventory, host);
     }
 
