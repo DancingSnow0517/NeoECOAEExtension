@@ -77,9 +77,11 @@ public class CoolingCategory implements IRecipeCategory<RecipeHolder<CoolingReci
         CoolingRecipe recipe = recipeHolder.value();
         builder.addInputSlot(10, 11)
             .addIngredients(NeoForgeTypes.FLUID_STACK, Arrays.asList(recipe.input().getFluids()))
+            .setStandardSlotBackground()
             .setFluidRenderer(1,false, 16,16);
         builder.addOutputSlot(72, 11)
             .addFluidStack(recipe.output().getFluid(), recipe.output().getAmount())
+            .setStandardSlotBackground()
             .setFluidRenderer(1,false, 16,16);
     }
 

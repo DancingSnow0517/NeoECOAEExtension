@@ -251,9 +251,10 @@ public class NEMultiBlocks {
                 if (newState.hasProperty(ECOMachineCasing.INVISIBLE)) {
                     Vec3 myPos = pos.getCenter();
                     Vec3 controllerPos = new Vec3(1.5, 1.5, 0.5);
-                    boolean insideControllerModel = pos.getX() > 0
-                        && myPos.distanceToSqr(controllerPos) <= 3;
-                    newState = newState.setValue(ECOMachineCasing.INVISIBLE, insideControllerModel);
+                    newState = newState.setValue(
+                        ECOMachineCasing.INVISIBLE,
+                        myPos.distanceToSqr(controllerPos) <= 3
+                    );
                 }
                 if (newState != state) {
                     level.setBlockAndUpdate(pos, newState);

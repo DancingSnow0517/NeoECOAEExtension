@@ -33,6 +33,7 @@ import org.appliedenergistics.yoga.YogaPositionType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntConsumer;
 
 public class MultiBlockInfoWrapper {
 
@@ -53,6 +54,7 @@ public class MultiBlockInfoWrapper {
     private final TrackedDummyWorld world;
     private final int width;
     private final int height;
+    private final IntConsumer expandChanged;
 
     private Scene scene;
     private Button expandButton;
@@ -72,10 +74,20 @@ public class MultiBlockInfoWrapper {
     }
 
     public MultiBlockInfoWrapper(MultiBlockDefinition definition, int width, int height) {
+        this(definition, width, height, ignored -> {});
+    }
+
+    public MultiBlockInfoWrapper(
+        MultiBlockDefinition definition,
+        int width,
+        int height,
+        IntConsumer expandChanged
+    ) {
         this.definition = definition;
         this.world = new TrackedDummyWorld();
         this.width = Math.max(width, DEFAULT_WIDTH);
         this.height = Math.max(height, MIN_HEIGHT);
+        this.expandChanged = expandChanged;
     }
 
     public ModularUI createModularUI() {
@@ -126,8 +138,10 @@ public class MultiBlockInfoWrapper {
 
         UIElement buttons = new UIElement().layout(layout -> layout
             .positionType(YogaPositionType.ABSOLUTE)
-            .setWidth(CONTROL_BUTTON_WIDTH)
-            .setHeight(CONTROL_BUTTON_HEIGHT * 3)
+            .setWidth(CONTROL_BUTTON_WIDTH * 3 + GAP * 2)
+            .setHeight(CONTROL_BUTTON_HEIGHT)
+            .flexDirection(YogaFlexDirection.ROW)
+            .setGap(YogaGutter.ALL, GAP)
             .setPosition(YogaEdge.RIGHT, 2)
             .setPosition(YogaEdge.TOP, 2)
         );
@@ -163,6 +177,7 @@ public class MultiBlockInfoWrapper {
         requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(MATERIALS_HEIGHT));
         root.addChild(requiredItems);
 
+        expandChanged.accept(expand);
         createScene();
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))));
     }
@@ -188,6 +203,7 @@ public class MultiBlockInfoWrapper {
         } else {
             expand++;
         }
+        expandChanged.accept(expand);
         expandButton.setText("E: " + expand);
         if (formed) {
             cycleFormed();
