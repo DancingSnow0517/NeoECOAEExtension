@@ -13,6 +13,10 @@ public record RequiredItem(ItemStack stack, int count) {
         return stack.copy();
     }
 
+    public ItemStack stackWithCount() {
+        return stack.copyWithCount(count);
+    }
+
     public boolean isEmpty() {
         return stack.isEmpty() || count <= 0;
     }

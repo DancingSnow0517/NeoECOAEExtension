@@ -231,9 +231,9 @@ public class MultiBlockInfoWrapper {
         requiredItems.viewContainer.clearAllChildren();
         for (RequiredItem requiredItem : context.getRequiredItems()) {
             requiredItems.addScrollViewChild(new RequiredItemSlot(requiredItem.count())
-                .setItem(requiredItem.stack())
+                .setItem(requiredItem.stackWithCount())
                 .xeiRecipeIngredient(IngredientIO.INPUT)
-                .xeiRecipeSlot(IngredientIO.INPUT, requiredItem.count()));
+                .xeiRecipeSlot(IngredientIO.INPUT, 1));
         }
 //        for (int i = 0; i < itemHandler.getSlots(); i++) {
 //            SlotWidget widget = new SlotWidget(itemHandler, i, 4 + i * 18, 0, false, false)
