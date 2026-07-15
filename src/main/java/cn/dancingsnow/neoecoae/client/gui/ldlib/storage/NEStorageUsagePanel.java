@@ -27,6 +27,7 @@ import net.minecraft.network.chat.Component;
 /** Renderer and input coordinator for the right-hand storage usage panel. */
 public final class NEStorageUsagePanel {
     private static final float DETAIL_TEXT_SCALE = 8.0F / 9.0F;
+    private static final int INFINITE_ACCENT_COLOR = 0xFFCA6CFF;
 
     private final NEStorageAnimatedRatio usageAnimation = new NEStorageAnimatedRatio();
     private final NEStorageHugeStackList hugeStackList = new NEStorageHugeStackList();
@@ -58,7 +59,7 @@ public final class NEStorageUsagePanel {
         int x = screenX.applyAsInt(STORAGE_GAUGE_X);
         int y = screenY.applyAsInt(STORAGE_GAUGE_Y);
         if (state.infiniteMode() && !state.migratingToInfinite()) {
-            NEStorageGaugeRenderer.drawInfinite(g, x, y, state, NEStorageMetricsModel.from(state));
+            NEStorageGaugeRenderer.drawInfinite(g, x, y);
         } else {
             NEStorageGaugeRenderer.drawFinite(g, x, y, usage, NEStorageGaugeRenderer.colorForPercent(usage));
         }
@@ -107,7 +108,7 @@ public final class NEStorageUsagePanel {
                                         ? "MAX"
                                         : NELDLibText.percentOrNA(highestMatrix.used(), highestMatrix.total()))),
                 y,
-                state.infiniteMode() ? 0x22CA6CFF : NELDLibStyle.DARK_TEXT_WARNING);
+                state.infiniteMode() ? INFINITE_ACCENT_COLOR : NELDLibStyle.DARK_TEXT_WARNING);
         y += USAGE_DETAIL_LINE_H;
         Metric highestType = state.infiniteMode() ? null : highestPressureMetric(metrics);
         drawDetailLine(
@@ -122,7 +123,7 @@ public final class NEStorageUsagePanel {
                                         ? Component.translatable("gui.neoecoae.storage.infinite_value")
                                         : storageStatus(highestType)),
                 y,
-                state.infiniteMode() ? 0x22CA6CFF : statusColor(highestType));
+                state.infiniteMode() ? INFINITE_ACCENT_COLOR : statusColor(highestType));
         y += USAGE_DETAIL_LINE_H;
         drawDetailLine(
                 g,
@@ -148,7 +149,7 @@ public final class NEStorageUsagePanel {
                 STORAGE_GAUGE_W,
                 8,
                 state.infiniteMode()
-                        ? 0xFFCA6CFF
+                        ? INFINITE_ACCENT_COLOR
                         : state.totalBytes() <= 0L
                                 ? NELDLibStyle.DARK_TEXT_MUTED
                                 : NELDLibStyle.usedValueColor(
