@@ -207,9 +207,9 @@ public abstract class CraftingServiceMixin {
         CallbackInfoReturnable<ICraftingSubmitResult> cir,
         @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
-        if (target instanceof NEComputationCluster advCpuCluster) {
-            cir.setReturnValue(advCpuCluster.submitJob(this.grid, job, src, requestingMachine));
-        } else {
+        if (target instanceof ECOCraftingCPU ecoCpu) {
+            cir.setReturnValue(ecoCpu.getCluster().submitJob(this.grid, job, src, requestingMachine));
+        } else if (target == null) {
             var cluster = neoecoae$findSuitableAdvCraftingCPU(job, src, unsuitableCpusResult);
             if (cluster != null) {
                 updateList = true;
