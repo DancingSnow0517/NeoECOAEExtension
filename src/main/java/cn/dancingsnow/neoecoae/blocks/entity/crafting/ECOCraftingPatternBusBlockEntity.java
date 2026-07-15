@@ -37,7 +37,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.syncdata.annotation.DescSynced;
@@ -55,7 +54,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -63,7 +61,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -92,7 +89,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     private static final int UI_CONTENT_WIDTH = ROW_SIZE * 18;
     private static final int PAGE_CONTROLS_WIDTH = PAGE_BUTTON_SIZE * 2 + PAGE_CONTROL_GAP * 2 + PAGE_LABEL_WIDTH;
     private static final int PATTERN_UPDATE_QUIET_TICKS = 2;
-    private static final int PLAYER_STORAGE_SLOT_COUNT = 36;
     public static final int SLOTS_PER_PAGE = ROW_SIZE * COL_SIZE;
 
     @Persisted
@@ -498,19 +494,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             .justifyContent(AlignContent.CENTER)
         ).addClass("panel_bg");
 
-        // Keep the panel focused so the shortcut works immediately after opening and while a slot is focused.
-        root.addEventListener(UIEvents.MUI_CHANGED, event -> root.focus());
-        root.addEventListener(UIEvents.KEY_DOWN, event -> {
-            if (event.keyCode == GLFW.GLFW_KEY_SPACE) {
-                event.stopPropagation();
-            }
-        });
-        root.addServerEventListener(UIEvents.KEY_DOWN, event -> {
-            if (event.keyCode == GLFW.GLFW_KEY_SPACE) {
-                movePlayerCraftingPatterns(holder.player.getInventory());
-            }
-        });
-
         root.addChild(headerRow());
 
         UIElement patternInv = new UIElement().addClass("panel_border");
@@ -527,22 +510,6 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         root.addChild(patternInv);
         root.addChild(new InventorySlots().layout(layout -> layout.marginTop(5)));
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
-    }
-
-    private void movePlayerCraftingPatterns(Inventory playerInventory) {
-        int slotCount = Math.min(PLAYER_STORAGE_SLOT_COUNT, playerInventory.getContainerSize());
-        for (int slot = 0; slot < slotCount; slot++) {
-            ItemStack stack = playerInventory.getItem(slot);
-            if (stack.isEmpty() || !isExecutablePattern(stack)) {
-                continue;
-            }
-
-            ItemStack remainder = effectiveInventory.addItems(stack.copy());
-            if (remainder.getCount() != stack.getCount()) {
-                playerInventory.setItem(slot, remainder);
-            }
-        }
-        playerInventory.setChanged();
     }
 
     private UIElement headerRow() {
