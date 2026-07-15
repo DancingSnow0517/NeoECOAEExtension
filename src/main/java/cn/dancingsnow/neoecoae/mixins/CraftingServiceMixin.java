@@ -13,7 +13,6 @@ import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
-import com.google.common.collect.ImmutableSet;
 import java.util.Set;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -68,11 +67,6 @@ public abstract class CraftingServiceMixin {
                 (CraftingService) (Object) this, this.grid, this.energyGrid, this.currentlyCrafting)) {
             this.updateList = true;
         }
-    }
-
-    @Inject(method = "getCpus", at = @At("RETURN"), cancellable = true)
-    private void neoecoae$getCpus(CallbackInfoReturnable<ImmutableSet<ICraftingCPU>> cir) {
-        cir.setReturnValue(NeoECOCraftingServiceBridge.getCpus(this.grid, cir.getReturnValue()));
     }
 
     @Inject(
