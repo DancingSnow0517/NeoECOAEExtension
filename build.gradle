@@ -78,10 +78,6 @@ repositories {
         }
     }
     maven {
-        name = "TerraformersMC"
-        url = "https://maven.terraformersmc.com/"
-    }
-    maven {
         url = 'https://jitpack.io'
         content {
             includeGroup "com.github.rtyley"
@@ -226,9 +222,9 @@ dependencies {
     compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
     compileOnly("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
     runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
-    compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
-    // runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
-    annotationProcessor "dev.emi:emi-forge:${emi_version}"
+    compileOnly fg.deobf("maven.modrinth:emi:${emi_version}")
+    // runtimeOnly fg.deobf("maven.modrinth:emi:${emi_version}")
+    annotationProcessor "maven.modrinth:emi:${emi_version}"
 
     compileOnly fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
     runtimeOnly fg.deobf("curse.maven:ldlib-626676:${ldlib_file_id}")
