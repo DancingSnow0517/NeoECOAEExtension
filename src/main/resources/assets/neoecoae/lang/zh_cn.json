@@ -501,6 +501,8 @@
   "jade.neoecoae.crafting.worker_count": "工作核心数量: %s",
   "jade.neoecoae.drive_mounted": "ECO 驱动器已挂载",
   "jade.neoecoae.drive_unmounted": "ECO 驱动器未挂载",
+  "jade.neoecoae.drive_input_mode": "输入模式",
+  "jade.neoecoae.drive_output_mode": "输出模式",
   "jade.neoecoae.energy_per_tick_label": "能耗: ",
   "jade.neoecoae.formed": "已成型: %s",
   "jade.neoecoae.no": "否",

@@ -4,6 +4,7 @@ import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.entity.storage.ECODriveBlockEntity;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
@@ -31,6 +32,19 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
             if (mounted) {
                 tooltip.add(
                         Component.translatable("jade.neoecoae.drive_mounted").withStyle(ChatFormatting.GREEN));
+            } else if (data.contains("storageInterfaceMode")) {
+                ECOStorageInterfaceMode mode = ECOStorageInterfaceMode.byName(data.getString("storageInterfaceMode"));
+                if (mode == ECOStorageInterfaceMode.INPUT) {
+                    tooltip.add(Component.translatable("jade.neoecoae.drive_input_mode")
+                            .withStyle(ChatFormatting.BLUE));
+                } else if (mode == ECOStorageInterfaceMode.OUTPUT) {
+                    tooltip.add(Component.translatable("jade.neoecoae.drive_output_mode")
+                            .withStyle(ChatFormatting.BLUE));
+                } else {
+                    tooltip.add(Component.translatable("jade.neoecoae.drive_unmounted")
+                            .withStyle(ChatFormatting.RED));
+                    return;
+                }
             } else {
                 tooltip.add(
                         Component.translatable("jade.neoecoae.drive_unmounted").withStyle(ChatFormatting.RED));
@@ -50,6 +64,7 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
         if (accessor.getBlockEntity() instanceof ECODriveBlockEntity drive) {
             tag.putBoolean("infiniteMember", ECOInfiniteStorageMember.isMember(drive.getCellStack()));
             tag.putBoolean("mounted", drive.isMounted());
+            tag.putString("storageInterfaceMode", drive.getStorageInterfaceMode().name());
             IECOStorageCell cellInventory = drive.getCellInventory();
             if (cellInventory != null) {
                 tag.putLong("usedBytes", cellInventory.getUsedBytes());

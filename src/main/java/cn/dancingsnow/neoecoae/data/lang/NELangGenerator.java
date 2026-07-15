@@ -15,6 +15,8 @@ public class NELangGenerator {
 
         provider.add("jade.neoecoae.drive_mounted", "ECO drive mounted");
         provider.add("jade.neoecoae.drive_unmounted", "ECO drive unmounted");
+        provider.add("jade.neoecoae.drive_input_mode", "Input mode");
+        provider.add("jade.neoecoae.drive_output_mode", "Output mode");
         provider.add("jade.neoecoae.worker_threads", "Threads: %s/%s");
         provider.add("jade.neoecoae.formed", "Formed: %s");
         provider.add("jade.neoecoae.running", "Running: %s");

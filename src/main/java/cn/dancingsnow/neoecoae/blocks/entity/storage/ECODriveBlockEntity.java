@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
@@ -138,6 +139,11 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     public void scheduleRenderUpdate() {
         markForUpdate();
+    }
+
+    public ECOStorageInterfaceMode getStorageInterfaceMode() {
+        ECOStorageSystemBlockEntity controller = getController();
+        return controller == null ? ECOStorageInterfaceMode.STORAGE : controller.getStorageInterfaceMode();
     }
 
     @Override

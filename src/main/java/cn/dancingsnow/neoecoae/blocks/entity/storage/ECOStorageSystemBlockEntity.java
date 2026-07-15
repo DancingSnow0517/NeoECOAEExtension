@@ -37,6 +37,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.storage.NEStoragePaging;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
@@ -1084,6 +1085,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     public boolean isStorageInterfaceOutputMode() {
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
         return storageInterface != null && storageInterface.isStorageOutputMode();
+    }
+
+    public ECOStorageInterfaceMode getStorageInterfaceMode() {
+        ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
+        return storageInterface == null ? ECOStorageInterfaceMode.STORAGE : storageInterface.getStorageInterfaceMode();
     }
 
     public boolean isStorageInterfaceTransferMode() {
