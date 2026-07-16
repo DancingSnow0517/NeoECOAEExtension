@@ -77,7 +77,7 @@ public class NEArsEnergistiqueItems {
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_64M = REGISTRATE
         .item("eco_source_storage_cell_64m", p -> new ECOStorageCellItem(
             p,
-            ECOTier.L4,
+            ECOTier.L6,
             SourceKeyType.TYPE,
             NEArsEnergistiqueCellTypes.SOURCE
         ))
@@ -99,7 +99,7 @@ public class NEArsEnergistiqueItems {
     public static final ItemEntry<ECOStorageCellItem> ECO_SOURCE_CELL_256M = REGISTRATE
         .item("eco_source_storage_cell_256m", p -> new ECOStorageCellItem(
             p,
-            ECOTier.L4,
+            ECOTier.L9,
             SourceKeyType.TYPE,
             NEArsEnergistiqueCellTypes.SOURCE
         ))
