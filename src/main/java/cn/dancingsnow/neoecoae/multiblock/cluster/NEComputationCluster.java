@@ -90,6 +90,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public void pickup(ICraftingPlan plan, ECOCraftingCPU cpu) {
         this.activeCpus.put(plan, cpu);
+        // Restored CPUs are registered after the cluster's initial formed-state capacity calculation.
+        // Recalculate immediately so persisted jobs consume their bytes and jobs restored without enough
+        // computation cells are cancelled before they can intercept items from network storage.
+        this.recalculateRemainingStorage();
     }
 
     @Override
