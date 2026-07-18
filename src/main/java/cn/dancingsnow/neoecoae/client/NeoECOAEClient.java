@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.client;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.all.NEBlockEntities;
+import cn.dancingsnow.neoecoae.api.ECOCellModels;
 import cn.dancingsnow.neoecoae.api.ECOComputationModels;
 import cn.dancingsnow.neoecoae.api.rendering.FixedBlockEntityRenderers;
 import cn.dancingsnow.neoecoae.client.all.NEExtraModels;
@@ -24,20 +25,18 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.AddSectionGeometryEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
 @Mod(value = NeoECOAE.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid =  NeoECOAE.MOD_ID, value = Dist.CLIENT)
 public class NeoECOAEClient {
     public NeoECOAEClient(IEventBus modBus, ModContainer container) {
         NEExtraModels.register();
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
     }
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         NeoECOAE.getIntegrationManager().loadAllClientIntegrations();
+        ECOCellModels.runDeferredRegistration();
         ECOComputationModels.runDeferredRegistration();
         FixedBlockEntityRenderers.register(
             NEBlockEntities.COMPUTATION_DRIVE.get(),

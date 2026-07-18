@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import lombok.Getter;
@@ -45,9 +46,7 @@ public enum ECOTier implements IECOTier {
     );
     @Getter
     private final int tier;
-    @Getter
     private final int crafterParallel;
-    @Getter
     private final int overclockedCrafterParallel;
     private final int cpuAccelerators;
     private final int cpuThreads;
@@ -85,8 +84,18 @@ public enum ECOTier implements IECOTier {
     }
 
     @Override
+    public int getCrafterParallel() {
+        return NEConfig.getCraftingParallelCoreCount(crafterParallel);
+    }
+
+    @Override
+    public int getOverclockedCrafterParallel() {
+        return NEConfig.getCraftingParallelCoreCount(overclockedCrafterParallel);
+    }
+
+    @Override
     public int getCPUAccelerators() {
-        return cpuAccelerators;
+        return NEConfig.getComputationParallelCoreCount(cpuAccelerators);
     }
 
     @Override

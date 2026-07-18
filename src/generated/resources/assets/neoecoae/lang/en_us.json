@@ -316,8 +316,6 @@
   "neoecoae.configuration.debugEcoFastPath.tooltip": "Periodically log ECO fast path cache statistics.",
   "neoecoae.configuration.ecoAe2FastPathEnabled": "Enable ECO AE2 Fast Path",
   "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "Enable ECO AE2 fast path batch crafting cache.\nThis can greatly reduce repeated pattern execution cost. If recipe compatibility issues occur in a modpack, disable this option to fall back to the slow path.\nFast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics.",
-  "neoecoae.configuration.ecoBatchFastPathTickLimit": "Batch Fast Path Tick Limit",
-  "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip": "Maximum fast path batch crafts a CPU may push per tick.",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU Push Tick Limit",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "Maximum normal crafting pattern pushes a CPU may attempt per tick.\nThe effective value is still capped by available co-processors.",
   "neoecoae.configuration.ecoFastPathCacheSize": "Fast Path Cache Size",

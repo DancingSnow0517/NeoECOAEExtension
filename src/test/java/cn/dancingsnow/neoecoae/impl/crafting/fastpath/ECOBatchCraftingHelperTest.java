@@ -38,6 +38,17 @@ class ECOBatchCraftingHelperTest {
     }
 
     @Test
+    void energySearchSupportsIntegerMaxBatchSizeWithoutOverflow() {
+        int result = ECOBatchCraftingHelper.maxAffordableCrafts(
+            1.0D,
+            Integer.MAX_VALUE,
+            requested -> Math.min(requested, 1_000_000.0D)
+        );
+
+        assertEquals(1_000_000, result);
+    }
+
+    @Test
     void clampsUntrustedEnergySearchInputs() {
         AtomicInteger simulations = new AtomicInteger();
 
@@ -50,7 +61,7 @@ class ECOBatchCraftingHelperTest {
             return requested;
         });
 
-        assertEquals(ECOBatchCraftingHelper.MAX_BATCH_SIZE, bounded);
+        assertEquals(Integer.MAX_VALUE, bounded);
         assertEquals(0, invalid);
         assertEquals(1, simulations.get());
     }
@@ -65,7 +76,7 @@ class ECOBatchCraftingHelperTest {
         ECOFastPathKey key = ECOFastPathKey.of("request", new KeyCounter[0], null, 0L).orElseThrow();
 
         assertThrows(IllegalArgumentException.class, () -> new ECOBatchCraftingRequest(
-            details, key, ECOBatchCraftingHelper.MAX_BATCH_SIZE + 1, List.of(), List.of(), List.of(), null
+            details, key, 0, List.of(), List.of(), List.of(), null
         ));
         assertThrows(IllegalArgumentException.class, () -> new ECOBatchCraftingRequest(
             details, key, 1, List.of(), List.of(), List.of(), null

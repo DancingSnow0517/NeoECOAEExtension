@@ -9,7 +9,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 
 import java.util.HashMap;
@@ -21,7 +20,7 @@ public class ECOCellModels {
     private static final Map<Holder<Item>, ResourceLocation> deferredRegistration = new HashMap<>();
     @Getter
     private static final Map<Item, ResourceLocation> registry = new IdentityHashMap<>();
-    public static final ResourceLocation DEFAULT_MODEL = NeoECOAE.id("cell/storage_cell_default");
+    public static final ResourceLocation DEFAULT_MODEL = NeoECOAE.id("block/cell/storage_cell_default");
 
     static {
         register(NEItems.ECO_ITEM_CELL_16M, NeoECOAE.id("block/cell/storage_cell_l4_item"));
@@ -48,8 +47,7 @@ public class ECOCellModels {
         registry.put(item, model);
     }
 
-    @SubscribeEvent
-    public static void on(FMLClientSetupEvent e) {
+    public static void runDeferredRegistration() {
         deferredRegistration.forEach((itemHolder, location) -> {
             register(itemHolder.value(), location);
         });

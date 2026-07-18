@@ -13,8 +13,20 @@ class ECOCraftingCompatibilityTest {
     }
 
     @Test
-    void batchRequestIsNotCappedAtLegacySingleBatchLimit() {
-        assertEquals(192, ECOCraftingCPULogic.calculateBatchRequestSize(512L, 192, 256));
-        assertEquals(80, ECOCraftingCPULogic.calculateBatchRequestSize(80L, 192, 256));
+    void batchRequestIsDrivenByTaskAndCraftingHostInsteadOfCpuTickBudget() {
+        assertEquals(512, ECOCraftingCPULogic.calculateBatchRequestSize(512L));
+        assertEquals(80, ECOCraftingCPULogic.calculateBatchRequestSize(80L));
+        assertEquals(10_000_000, ECOCraftingCPULogic.calculateBatchRequestSize(10_000_000L));
+        assertEquals(Integer.MAX_VALUE, ECOCraftingCPULogic.calculateBatchRequestSize(Long.MAX_VALUE));
+        assertEquals(0, ECOCraftingCPULogic.calculateBatchRequestSize(-1L));
+    }
+
+    @Test
+    void operationLimitSaturatesWhenCoProcessorCountIsMaxInt() {
+        assertEquals(
+            Integer.MAX_VALUE,
+            ECOCraftingCPULogic.calculateOperationLimit(Integer.MAX_VALUE, Integer.MAX_VALUE)
+        );
+        assertEquals(64, ECOCraftingCPULogic.calculateOperationLimit(Integer.MAX_VALUE, 64));
     }
 }

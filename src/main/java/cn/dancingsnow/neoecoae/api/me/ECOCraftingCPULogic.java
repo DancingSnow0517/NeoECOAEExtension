@@ -250,8 +250,13 @@ public class ECOCraftingCPULogic {
     }
 
     private int getOperationLimit() {
-        int baseLimit = Math.max(1, cpu.getCoProcessors() + 1);
-        return Math.min(baseLimit, NEConfig.ecoCpuPushTickLimit);
+        return calculateOperationLimit(cpu.getCoProcessors(), NEConfig.ecoCpuPushTickLimit);
+    }
+
+    static int calculateOperationLimit(int coProcessors, int configuredLimit) {
+        long baseLimit = (long) Math.max(0, coProcessors) + 1L;
+        long safeConfiguredLimit = Math.max(0, configuredLimit);
+        return (int) Math.min(Integer.MAX_VALUE, Math.min(baseLimit, safeConfiguredLimit));
     }
 
     /**
@@ -303,13 +308,14 @@ public class ECOCraftingCPULogic {
                             details,
                             execution,
                             craftingContainer,
-                            providers,
-                            energyService,
-                            patternPower,
-                            task.getValue().value,
-                            maxPatterns - pushedPatterns);
+                             providers,
+                             energyService,
+                             patternPower,
+                             task.getValue().value);
                     if (batchResult > 0) {
-                        pushedPatterns += batchResult;
+                        // One provider dispatch consumes one CPU scheduling operation regardless of how many
+                        // crafts the F-series host accepted in that batch.
+                        pushedPatterns++;
                         if (this.job != job) {
                             break taskLoop;
                         }
@@ -338,15 +344,23 @@ public class ECOCraftingCPULogic {
                             break;
                         }
 
-                        pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                                ? patternBus.pushPattern(execution, job.link.getCraftingID())
-                                : provider.pushPattern(details, craftingContainer);
+                        try {
+                            pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                                    ? patternBus.pushPattern(execution, job.link.getCraftingID())
+                                    : provider.pushPattern(details, craftingContainer);
+                        } catch (RuntimeException e) {
+                            LOGGER.error(
+                                "Crafting provider rejected a pattern with an exception; CPU inputs remain owned locally",
+                                e
+                            );
+                            pushed = false;
+                        }
 
                         if (!pushed) {
                             continue;
                         }
 
-                        energyService.extractAEPower(patternPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                        chargeAcceptedPatternEnergy(energyService, patternPower);
                         pushedPatterns++;
                         if (this.job != job) {
                             break taskLoop;
@@ -380,6 +394,24 @@ public class ECOCraftingCPULogic {
         return pushedPatterns;
     }
 
+    private void chargeAcceptedPatternEnergy(IEnergyService energyService, double requiredPower) {
+        try {
+            double charged = energyService.extractAEPower(
+                requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG
+            );
+            if (Double.isNaN(charged) || charged < requiredPower - 0.01D) {
+                LOGGER.error(
+                    "Crafting pattern was accepted, but only {} of {} crafting energy was charged",
+                    charged,
+                    requiredPower
+                );
+            }
+        } catch (RuntimeException e) {
+            // The provider already owns the inputs. Accounting must continue so this pattern is not scheduled twice.
+            LOGGER.error("Crafting pattern was accepted, but its crafting energy could not be charged", e);
+        }
+    }
+
     private List<ICraftingProvider> collectAvailableProviders(CraftingService craftingService,
             IPatternDetails details) {
         List<ICraftingProvider> providers = new ArrayList<>();
@@ -399,16 +431,14 @@ public class ECOCraftingCPULogic {
             List<ICraftingProvider> providers,
             IEnergyService energyService,
             double patternPower,
-            long taskRemaining,
-            int tickBudgetRemaining) {
-        if (!canAttemptBatchFastPath(execution) || taskRemaining <= 1 || tickBudgetRemaining <= 1) {
+            long taskRemaining) {
+        if (!canAttemptBatchFastPath(execution) || taskRemaining <= 1) {
             return 0;
         }
 
-        // Ask providers for the full amount this CPU may still push this tick. The selected
-        // crafting host and worker then cap the offer to their current available thread slots.
-        int requested = calculateBatchRequestSize(
-                taskRemaining, tickBudgetRemaining, NEConfig.ecoBatchFastPathTickLimit);
+        // Ask providers for the full remaining task. The selected F-series host and worker cap the
+        // offer to their live thread capacity; inventory, energy and coolant apply further bounds.
+        int requested = calculateBatchRequestSize(taskRemaining);
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
@@ -520,11 +550,8 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    static int calculateBatchRequestSize(long taskRemaining, int tickBudgetRemaining, int tickLimit) {
-        long requested = Math.min(
-                Math.max(0L, taskRemaining),
-                Math.min(Math.max(0, tickBudgetRemaining), Math.max(0, tickLimit)));
-        return (int) Math.min(ECOBatchCraftingHelper.MAX_BATCH_SIZE, requested);
+    static int calculateBatchRequestSize(long taskRemaining) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, taskRemaining));
     }
 
     private void rollbackBatchInputs(
@@ -703,7 +730,13 @@ public class ECOCraftingCPULogic {
             return;
         }
         if (job.finalOutput == null) {
-            throw new IllegalStateException("Buffered final output has no key");
+            LOGGER.error(
+                "Discarding {} buffered final-output units because their persisted key is invalid",
+                buffered
+            );
+            job.bufferedFinalOutput.removeDelivered(buffered);
+            cpu.markDirty();
+            return;
         }
         AEKey key = job.finalOutput.what();
         long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
@@ -967,6 +1000,14 @@ public class ECOCraftingCPULogic {
         }
     }
 
+    /** Collects only items physically owned by this CPU, excluding planned and in-flight outputs. */
+    public void getOwnedItems(KeyCounter out) {
+        out.addAll(this.inventory.list);
+        if (this.job != null && this.job.finalOutput != null && this.job.bufferedFinalOutput.amount() > 0L) {
+            out.add(this.job.finalOutput.what(), this.job.bufferedFinalOutput.amount());
+        }
+    }
+
     public boolean isJobSuspended() {
         return job != null && job.suspended;
     }
@@ -981,7 +1022,7 @@ public class ECOCraftingCPULogic {
         this.lastModifiedOnTick = TickHandler.instance().getCurrentTick();
 
         var playerId = job.playerId;
-        if (playerId == null) {
+        if (playerId == null || job.finalOutput == null) {
             return;
         }
 

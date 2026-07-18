@@ -297,8 +297,6 @@
   "neoecoae.configuration.debugEcoFastPath.tooltip": "定期向日志输出 ECO 快速路径缓存统计信息。",
   "neoecoae.configuration.ecoAe2FastPathEnabled": "启用 ECO AE2 快速路径",
   "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "启用 ECO AE2 快速路径批量合成缓存。\n可大幅减少重复 pattern 执行开销；如果整合包遇到配方兼容问题，可关闭此选项回退到慢速路径。\n启用触发合成事件时，快速路径会自动禁用以保留事件语义。",
-  "neoecoae.configuration.ecoBatchFastPathTickLimit": "批量快速路径 Tick 上限",
-  "neoecoae.configuration.ecoBatchFastPathTickLimit.tooltip": "每个 CPU 每 tick 最多通过快速路径批量推送的合成次数。",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 推送 Tick 上限",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。\n实际值仍会受可用协处理器数量限制。",
   "neoecoae.configuration.ecoFastPathCacheSize": "快速路径缓存大小",

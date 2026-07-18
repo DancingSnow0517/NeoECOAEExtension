@@ -800,7 +800,22 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             && formed
             && cluster != null
             && hasRequiredInfiniteComponents()
+            && !hasForeignInfiniteMembers()
             && countEligibleInfiniteMatrices() >= INFINITE_MEMBER_REQUIRED;
+    }
+
+    private boolean hasForeignInfiniteMembers() {
+        if (cluster == null) {
+            return false;
+        }
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            ItemStack stack = drive.getCellStack();
+            if (ECOInfiniteStorageMember.isMember(stack)
+                && (infiniteDomainId == null || !ECOInfiniteStorageMember.isMemberOf(stack, infiniteDomainId))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasRequiredInfiniteComponents() {
@@ -850,6 +865,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         UUID domainId = ensureInfiniteDomainId();
         ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.get(serverLevel, domainId);
+        if (!engine.isHealthy()) {
+            return;
+        }
         boolean hasPending = false;
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             ItemStack stack = drive.getCellStack();
@@ -857,8 +875,17 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             if (stack == null || stack.isEmpty() || cell == null || cell.getTier() != ECOTier.L9) {
                 continue;
             }
-            if (ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
-                continue;
+            if (ECOInfiniteStorageMember.isMember(stack)) {
+                if (ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+                    continue;
+                }
+                LOGGER.error(
+                    "Foreign ECO infinite storage member at {} blocks migration into domain {}",
+                    drive.getBlockPos(),
+                    domainId
+                );
+                restoreInfiniteDomainToNormalStorage();
+                return;
             }
             hasPending = true;
             migrateDriveToDomain(drive, cell, engine, domainId);
@@ -923,7 +950,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private RestorePlan createInfiniteRestorePlan(boolean enforceMargin) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null || engine.isEmpty()) {
+        if (engine == null) {
+            return RestorePlan.blocked("missing infinite storage engine");
+        }
+        if (!engine.isHealthy()) {
+            return RestorePlan.blocked("infinite storage domain is degraded and requires recovery");
+        }
+        if (engine.isEmpty()) {
             return RestorePlan.allowed(List.of());
         }
         if (cluster == null || infiniteDomainId == null) {
@@ -1140,7 +1173,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private void exitInfiniteModeIfSafe() {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine != null && !engine.isEmpty()) {
+        if (engine == null || !engine.isHealthy() || !engine.isEmpty()) {
             return;
         }
         UUID domainId = infiniteDomainId;

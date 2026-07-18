@@ -328,7 +328,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     private int getParallelCount() {
-        return cluster == null ? 0 : cluster.getParallelCores().stream().mapToInt(e -> e.getTier().getCPUAccelerators()).sum();
+        return cluster == null ? 0 : cluster.getCPUAccelerators();
     }
 
     private long getAvailableBytes() {

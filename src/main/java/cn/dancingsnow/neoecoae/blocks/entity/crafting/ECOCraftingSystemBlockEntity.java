@@ -13,6 +13,7 @@ import cn.dancingsnow.neoecoae.all.NERecipeTypes;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
@@ -101,9 +102,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     @Getter
     private int threadCount = 0;
+    private long exactThreadCount = 0L;
 
     @Getter
     private int threadCountPerWorker = 0;
+    private long exactAvailableThreadCount = 0L;
 
     @Getter
     private int overlockTimes = 0;
@@ -249,21 +252,30 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateThreadCount() {
         if (cluster != null && !cluster.getParallelCores().isEmpty()) {
+            int baseCrafts = NEConfig.getCraftingWorkerBaseCrafts();
+            long calculatedPerWorker;
             if (overclocked) {
-                long calculatedPerWorker = 32L * getTier().getOverclockedCrafterQueueMultiply();
+                calculatedPerWorker = saturatingMultiply(
+                    baseCrafts,
+                    getTier().getOverclockedCrafterQueueMultiply()
+                );
                 threadCountPerWorker = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, calculatedPerWorker));
             } else {
-                threadCountPerWorker = 32;
+                calculatedPerWorker = Math.max(0L, baseCrafts);
+                threadCountPerWorker = baseCrafts;
             }
-            long calculatedThreadCount = cluster.getParallelCores()
+            exactAvailableThreadCount = saturatingMultiply(calculatedPerWorker, getWorkerCount());
+            exactThreadCount = cluster.getParallelCores()
                 .stream()
-                .mapToLong(core -> getCoreThreadCount(core.getTier(), overclocked))
-                .sum();
-            threadCount = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, calculatedThreadCount));
+                .mapToLong(core -> getCoreThreadCountLong(core.getTier(), overclocked))
+                .reduce(0L, ECOCraftingSystemBlockEntity::saturatingAdd);
+            threadCount = (int) Math.min(Integer.MAX_VALUE, exactThreadCount);
             recalculateRunningThreadCountFromWorkers();
         } else {
             threadCount = 0;
+            exactThreadCount = 0L;
             threadCountPerWorker = 0;
+            exactAvailableThreadCount = 0L;
             runningThreadCount = 0;
         }
     }
@@ -325,28 +337,45 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateOverlockTimes() {
-        long availableThreads = (long) threadCountPerWorker * workerCount;
-        overlockTimes = calculateOverclockTimes(
-            threadCount,
-            (int) Math.min(Integer.MAX_VALUE, Math.max(0L, availableThreads))
-        );
+        overlockTimes = calculateOverclockTimes(exactThreadCount, exactAvailableThreadCount);
     }
 
     static int getCoreThreadCount(IECOTier coreTier, boolean overclocked) {
-        long threads = coreTier.getCrafterParallel();
-        if (overclocked) {
-            threads += coreTier.getOverclockedCrafterParallel();
-        }
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, threads));
+        return (int) Math.min(Integer.MAX_VALUE, getCoreThreadCountLong(coreTier, overclocked));
     }
 
-    static int calculateOverclockTimes(int threadCount, int availableThreads) {
-        int overflow = threadCount - availableThreads;
+    private static long getCoreThreadCountLong(IECOTier coreTier, boolean overclocked) {
+        long threads = Math.max(0L, coreTier.getCrafterParallel());
+        if (overclocked) {
+            threads = saturatingAdd(threads, Math.max(0L, coreTier.getOverclockedCrafterParallel()));
+        }
+        return threads;
+    }
+
+    static int calculateOverclockTimes(long threadCount, long availableThreads) {
+        long overflow = threadCount - availableThreads;
         if (threadCount <= 0 || overflow <= 0) {
             return 0;
         }
-        float overflowRatio = (float) overflow / threadCount;
-        return Math.clamp(Math.round(overflowRatio / 0.05f), 0, 9);
+        double overflowRatio = (double) overflow / (double) threadCount;
+        return (int) Math.clamp(Math.round(overflowRatio / 0.05D), 0L, 9L);
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (left <= 0L) {
+            return Math.max(0L, right);
+        }
+        if (right <= 0L) {
+            return left;
+        }
+        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
@@ -412,16 +441,17 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private int getOverflowThreads() {
-        return Math.max(0, threadCount - getAvailableThreads());
+        long overflow = Math.max(0L, exactThreadCount - exactAvailableThreadCount);
+        return (int) Math.min(Integer.MAX_VALUE, overflow);
     }
 
     private int getAvailableThreads() {
-        return threadCountPerWorker * workerCount;
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, exactAvailableThreadCount));
     }
 
     private long getMaxEnergyUsage() {
         if (overclocked && !activeCooling) {
-            return getAvailableThreads() * tier.getOverclockedCrafterPowerMultiply() * 100L;
+            return (long) getAvailableThreads() * tier.getOverclockedCrafterPowerMultiply() * 100L;
         }
         return getAvailableThreads() * 100L;
     }
@@ -475,7 +505,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private int getTargetCoolantBuffer() {
-        int requiredPerTick = getAvailableThreads() * COOLANT_PER_CRAFT;
+        long requiredPerTick = (long) getAvailableThreads() * COOLANT_PER_CRAFT;
         if (requiredPerTick <= 0) {
             return 0;
         }

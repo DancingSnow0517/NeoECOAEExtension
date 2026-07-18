@@ -165,7 +165,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return false;
         }
         int nextIndex = nextWorkerIndexAfter(offer.worker());
-        if (offer.worker().pushBatch(request)) {
+        // Reuse the result already verified while selecting the offer. Crafting runs on the
+        // server thread, so looking the same key up again in the Worker cannot make it safer.
+        if (offer.worker().pushBatch(request, offer.result())) {
             nextWorkerIndex = nextIndex;
             return true;
         }

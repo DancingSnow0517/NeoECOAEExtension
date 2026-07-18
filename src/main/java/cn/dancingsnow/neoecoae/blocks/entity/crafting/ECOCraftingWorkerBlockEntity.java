@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingWorkerBlockEntity>
     implements IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
-    private static final int MAX_PERSISTED_THREAD_RECORDS = ECOBatchCraftingHelper.MAX_BATCH_SIZE;
+    private static final int MAX_PERSISTED_THREAD_RECORDS = 65_536;
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
     private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
@@ -140,7 +140,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
     }
 
-    public boolean pushBatch(ECOBatchCraftingRequest request) {
+    public boolean pushBatch(ECOBatchCraftingRequest request, ECOFastPathResult verifiedResult) {
         if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
             fastPathCache.recordDisabled();
             return false;
@@ -164,7 +164,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (!thread.isFree()) {
                     continue;
                 }
-                if (thread.pushBatch(request, controller)) {
+                if (thread.pushBatch(request, controller, verifiedResult)) {
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                     return true;
                 }
@@ -180,7 +180,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
         setChanged();
         markForUpdate();
-        return thread.pushBatch(request, controller);
+        return thread.pushBatch(request, controller, verifiedResult);
     }
 
     public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
@@ -359,7 +359,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 busyThreads += thread.getOccupiedThreadSlots();
             }
         }
-        runningThreads = (int) Math.min(ECOBatchCraftingHelper.MAX_BATCH_SIZE, busyThreads);
+        runningThreads = (int) Math.min(Integer.MAX_VALUE, busyThreads);
         nextFreeThreadIndex = 0;
     }
 

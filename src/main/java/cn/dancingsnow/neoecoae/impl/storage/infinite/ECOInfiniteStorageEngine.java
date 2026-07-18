@@ -28,6 +28,10 @@ public interface ECOInfiniteStorageEngine {
 
     boolean isEmpty();
 
+    default boolean isHealthy() {
+        return true;
+    }
+
     HugeAmount getStoredAmount();
 
     int getStoredTypes();

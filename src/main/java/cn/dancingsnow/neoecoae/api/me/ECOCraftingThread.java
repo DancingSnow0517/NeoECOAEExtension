@@ -83,6 +83,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     private UUID craftingJobId = null;
 
     private int progress = 0;
+    private double progressRemainder = 0.0D;
     private int occupiedThreadSlots = 1;
     private boolean outputsReady = false;
     private RecoveryState recoveryState = RecoveryState.CLEARED;
@@ -100,6 +101,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     public TickRateModulation tick(int overlockTimes, int powerMultiply, int ticksSinceLastCall) {
         if (!isBusy) {
             progress = 0;
+            progressRemainder = 0.0D;
             setChanged();
             return TickRateModulation.SLEEP;
         }
@@ -120,8 +122,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return ejectOutputsSafely();
         }
 
-        int bonusValue = Math.min(10 + overlockTimes * 10, 100);
-        progress += userPower(ticksSinceLastCall, bonusValue, powerMultiply);
+        int bonusValue = calculateProgressPerTick(overlockTimes);
+        progress += userPower(ticksSinceLastCall, bonusValue, powerMultiply, MAX_PROGRESS - progress);
 
         if (this.progress >= MAX_PROGRESS) {
             outputsReady = true;
@@ -191,7 +193,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return acceptPattern(execution, controller, craftingJobId);
     }
 
-    public boolean pushBatch(ECOBatchCraftingRequest request, ECOCraftingSystemBlockEntity controller) {
+    public boolean pushBatch(
+        ECOBatchCraftingRequest request,
+        ECOCraftingSystemBlockEntity controller,
+        ECOFastPathResult verifiedResult
+    ) {
         if (isBusy) {
             return false;
         }
@@ -206,14 +212,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             cache.recordNoThreadReject();
             return false;
         }
-        ECOFastPathResult cached = cache.peek(request.key());
-        if (cached == null || !cached.matchesBatchRequest(request)) {
+        if (verifiedResult == null || verifiedResult.isNegative() || !verifiedResult.matchesBatchRequest(request)) {
             cache.recordExpectedMismatch();
             return false;
         }
-        var outputTotal = ECOBatchCraftingHelper.multiply(cached.outputEntries(), request.batchSize());
-        var inputTotal = ECOBatchCraftingHelper.multiply(cached.inputEntries(), request.batchSize());
-        var remainingTotal = ECOBatchCraftingHelper.multiply(cached.remainingEntries(), request.batchSize());
+        var outputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.outputEntries(), request.batchSize());
+        var inputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.inputEntries(), request.batchSize());
+        var remainingTotal = ECOBatchCraftingHelper.multiply(verifiedResult.remainingEntries(), request.batchSize());
         var work = new ECOBatchCraftingWork(
             request.batchSize(),
             inputTotal,
@@ -277,11 +282,11 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 cache.recordCoolantReject();
                 return false;
             }
+            cache.recordFastPathAccepted();
+            cache.maybeLogStats(worker.getBlockPos().toShortString(), tick);
             startWork(
                 List.of(fastPathWork.output()), fastPathWork.inputs(), fastPathWork.remaining(), craftingJobId, 1
             );
-            cache.recordFastPathAccepted();
-            cache.maybeLogStats(worker.getBlockPos().toShortString(), tick);
             return true;
         }
 
@@ -344,10 +349,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (verifyFastPath) {
             verifyAndCacheFastPath(execution, outputItem, inputs, list, tick);
         }
-        startWork(List.of(outputItem.copy()), inputs, list, craftingJobId, 1);
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         cache.recordSlowPathAccepted();
         cache.maybeLogStats(worker.getBlockPos().toShortString(), tick);
+        startWork(List.of(outputItem.copy()), inputs, list, craftingJobId, 1);
         return true;
     }
 
@@ -395,6 +400,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         copyStacks(outputs, outputItems);
         this.craftingJobId = craftingJobId;
         this.occupiedThreadSlots = Math.max(1, occupiedThreadSlots);
+        this.progressRemainder = 0.0D;
         this.outputsReady = false;
         inputItems.clear();
         copyStacks(inputs, inputItems);
@@ -404,10 +410,15 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         batchInputItems.clear();
         batchRemainingItems.clear();
         craftingEventOutput = outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0).copy();
-        worker.onThreadWork(this.occupiedThreadSlots);
-        recoveryState = RecoveryState.ACTIVE;
-        reboot = true;
-        isBusy = true;
+        try {
+            worker.onThreadWork(this.occupiedThreadSlots);
+            recoveryState = RecoveryState.ACTIVE;
+            reboot = true;
+            isBusy = true;
+        } catch (RuntimeException | Error e) {
+            clearWork();
+            throw e;
+        }
     }
 
     private void startBatchWork(
@@ -429,11 +440,17 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         craftingEventOutput = ItemStack.EMPTY;
         this.craftingJobId = craftingJobId;
         this.occupiedThreadSlots = Math.max(1, occupiedThreadSlots);
+        this.progressRemainder = 0.0D;
         this.outputsReady = false;
-        worker.onThreadWork(this.occupiedThreadSlots);
-        recoveryState = RecoveryState.ACTIVE;
-        reboot = true;
-        isBusy = true;
+        try {
+            worker.onThreadWork(this.occupiedThreadSlots);
+            recoveryState = RecoveryState.ACTIVE;
+            reboot = true;
+            isBusy = true;
+        } catch (RuntimeException | Error e) {
+            clearWork();
+            throw e;
+        }
     }
 
     private static void copyStacks(List<ItemStack> source, List<ItemStack> target) {
@@ -461,17 +478,86 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return inputs;
     }
 
-    private int userPower(int ticksPassed, int bonusValue, double acceleratorTax) {
+    private int userPower(int ticksPassed, int bonusValue, double acceleratorTax, int remainingProgress) {
         var grid = this.worker.getMainNode().getGrid();
-        if (grid != null) {
-            double slotScaledTax = acceleratorTax * Math.max(1, occupiedThreadSlots);
-            var safePower = Math.min(ticksPassed * bonusValue * slotScaledTax, 500000);
-            return (int) (grid.getEnergyService().extractAEPower(safePower, Actionable.MODULATE, PowerMultiplier.CONFIG)
-                / slotScaledTax);
-        } else {
+        if (grid == null) {
             return 0;
         }
+
+        int requestedProgress = calculateRequestedProgress(ticksPassed, bonusValue, remainingProgress);
+        double powerPerProgress = calculatePowerPerProgress(acceleratorTax, occupiedThreadSlots);
+        if (requestedProgress <= 0 || powerPerProgress <= 0.0D) {
+            return 0;
+        }
+
+        double requestedPower = Math.max(0.0D, requestedProgress - progressRemainder) * powerPerProgress;
+        if (!Double.isFinite(requestedPower) || requestedPower <= 0.0D) {
+            return 0;
+        }
+        double extractedPower = grid.getEnergyService().extractAEPower(
+            requestedPower, Actionable.MODULATE, PowerMultiplier.CONFIG
+        );
+        PowerProgress powered = accumulatePoweredProgress(
+            extractedPower,
+            powerPerProgress,
+            requestedProgress,
+            progressRemainder
+        );
+        progressRemainder = powered.remainder();
+        return powered.completed();
     }
+
+    static int calculateProgressPerTick(int overclockTimes) {
+        return Math.clamp(10 + Math.max(0, overclockTimes) * 10, 10, MAX_PROGRESS);
+    }
+
+    static int calculateRequestedProgress(int ticksPassed, int bonusValue, int remainingProgress) {
+        long requested = (long) Math.max(0, ticksPassed) * Math.max(0, bonusValue);
+        return (int) Math.min(Math.max(0, remainingProgress), Math.min(Integer.MAX_VALUE, requested));
+    }
+
+    static double calculatePowerPerProgress(double acceleratorTax, int occupiedThreadSlots) {
+        if (!Double.isFinite(acceleratorTax) || acceleratorTax <= 0.0D) {
+            return 0.0D;
+        }
+        return acceleratorTax * Math.max(1, occupiedThreadSlots);
+    }
+
+    static int calculatePoweredProgress(double extractedPower, double powerPerProgress, int requestedProgress) {
+        return accumulatePoweredProgress(extractedPower, powerPerProgress, requestedProgress, 0.0D).completed();
+    }
+
+    static PowerProgress accumulatePoweredProgress(
+        double extractedPower,
+        double powerPerProgress,
+        int requestedProgress,
+        double previousRemainder
+    ) {
+        double safeRemainder = Double.isFinite(previousRemainder)
+            && previousRemainder >= 0.0D
+            && previousRemainder < 1.0D
+                ? previousRemainder
+                : 0.0D;
+        if (!Double.isFinite(extractedPower) || extractedPower <= 0.0D
+            || !Double.isFinite(powerPerProgress) || powerPerProgress <= 0.0D
+            || requestedProgress <= 0) {
+            return new PowerProgress(0, safeRemainder);
+        }
+        double fundedProgress = Math.min(
+            requestedProgress,
+            safeRemainder + extractedPower / powerPerProgress
+        );
+        int completed = (int) Math.min(
+            requestedProgress,
+            Math.floor(fundedProgress + 1.0E-9D)
+        );
+        double remainder = completed >= requestedProgress
+            ? 0.0D
+            : Math.max(0.0D, Math.min(Math.nextDown(1.0D), fundedProgress - completed));
+        return new PowerProgress(completed, remainder);
+    }
+
+    record PowerProgress(int completed, double remainder) {}
 
     private boolean ejectOutputs() {
         IGrid grid = worker.getMainNode().getGrid();
@@ -776,6 +862,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         isBusy = false;
         reboot = true;
         progress = 0;
+        progressRemainder = 0.0D;
         occupiedThreadSlots = 1;
         outputsReady = false;
         recoveryState = RecoveryState.CLEARED;
@@ -966,6 +1053,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         tag.putBoolean("isBusy", isBusy);
         tag.putBoolean("reboot", reboot);
         tag.putInt("progress", progress);
+        writeProgressRemainder(tag, progressRemainder);
         tag.putInt("neoecoae_version", 2);
         tag.putInt("occupiedThreadSlots", occupiedThreadSlots);
         tag.putBoolean("outputsReady", outputsReady);
@@ -1056,6 +1144,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             || persistedOccupiedThreadSlots <= 0
             || persistedOccupiedThreadSlots > ECOBatchCraftingHelper.MAX_BATCH_SIZE;
         this.progress = Math.clamp(persistedProgress, 0, MAX_PROGRESS);
+        this.progressRemainder = readProgressRemainder(nbt);
         this.occupiedThreadSlots = Math.clamp(
             persistedOccupiedThreadSlots, 1, ECOBatchCraftingHelper.MAX_BATCH_SIZE
         );
@@ -1196,6 +1285,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             recoverOutputs
         );
         progress = 0;
+        progressRemainder = 0.0D;
         reboot = true;
         if (recoverOutputs) {
             inputItems.clear();
@@ -1217,6 +1307,21 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 clearWork();
             }
         }
+    }
+
+    static void writeProgressRemainder(CompoundTag tag, double remainder) {
+        double safeRemainder = sanitizeProgressRemainder(remainder);
+        if (safeRemainder > 0.0D) {
+            tag.putDouble("progressRemainder", safeRemainder);
+        }
+    }
+
+    static double readProgressRemainder(CompoundTag tag) {
+        return sanitizeProgressRemainder(tag.getDouble("progressRemainder"));
+    }
+
+    private static double sanitizeProgressRemainder(double remainder) {
+        return Double.isFinite(remainder) && remainder >= 0.0D && remainder < 1.0D ? remainder : 0.0D;
     }
 
     private record FastPathWork(ItemStack output, List<ItemStack> inputs, List<ItemStack> remaining) {}

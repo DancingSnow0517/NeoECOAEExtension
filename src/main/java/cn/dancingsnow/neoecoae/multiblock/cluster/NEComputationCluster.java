@@ -47,7 +47,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     @Getter
     @Nullable
     private IActionSource actionSource;
-    private int accelerators = 0;
     @Getter
     private int maxThreads = 0;
     @Getter
@@ -100,10 +99,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     public void updateFormed(boolean formed) {
         super.updateFormed(formed);
         if (formed) {
-            this.accelerators = blockEntities.stream()
-                .filter(it -> it instanceof ECOComputationParallelCoreBlockEntity)
-                .mapToInt(it -> ((ECOComputationParallelCoreBlockEntity) it).getTier().getCPUAccelerators())
-                .sum();
             recalculateRemainingStorage();
             this.fakeCpu = new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
             this.maxThreads = threadingCores.stream().mapToInt(it -> it.getTier().getCPUThreads()).sum();
@@ -111,7 +106,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 this.selectionMode = controller.getCpuSelectionMode();
             }
         } else {
-            accelerators = 0;
             availableStorage = 0;
         }
     }
@@ -130,7 +124,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public int getCPUAccelerators() {
-        return accelerators;
+        long total = parallelCores.stream()
+            .mapToLong(core -> core.getTier().getCPUAccelerators())
+            .sum();
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, total));
     }
 
     public boolean canBeAutoSelectedFor(IActionSource actionSource) {

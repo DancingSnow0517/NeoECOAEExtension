@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
@@ -12,15 +14,20 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationBlockEntity<ECOComputationThreadingCoreBlockEntity> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOComputationThreadingCoreBlockEntity.class);
     @Getter
     private final IECOTier tier;
     @Getter
@@ -69,6 +76,8 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                 CompoundTag tag = new CompoundTag();
                 cpu.writeToNBT(tag, registries);
                 data.put("CPU" + i, tag);
+            } else if (deferredInit[i] != null) {
+                data.put("CPU" + i, deferredInit[i].copy());
             }
         }
     }
@@ -103,11 +112,17 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                         continue;
                     }
                     ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, null, this);
-                    deferredInit[i] = null;
-                    cpu.readFromNBT(tag, registries);
-                    if (cpu.getPlan() != null) {
-                        cpus[i] = cpu;
-                        cluster.pickup(cpu.getPlan(), cpu);
+                    try {
+                        cpu.readFromNBT(tag, registries);
+                        if (cpu.getPlan() != null) {
+                            cpus[i] = cpu;
+                            deferredInit[i] = null;
+                            cluster.pickup(cpu.getPlan(), cpu);
+                        } else {
+                            LOGGER.error("Deferred ECO crafting CPU at {} has no valid plan; keeping it quarantined", worldPosition);
+                        }
+                    } catch (RuntimeException e) {
+                        LOGGER.error("Unable to restore deferred ECO crafting CPU at {}; keeping its data", worldPosition, e);
                     }
                 }
             }
@@ -117,6 +132,8 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     @Override
     public void loadTag(CompoundTag data, HolderLookup.Provider registries) {
         super.loadTag(data, registries);
+        Arrays.fill(cpus, null);
+        Arrays.fill(deferredInit, null);
         for (int i = 0; i < cpus.length; i++) {
             if (data.contains("CPU" + i)) {
                 deferredInit[i] = data.getCompound("CPU" + i);
@@ -127,20 +144,54 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        for (ECOCraftingCPU cpu : cpus) {
-            if (cpu == null) continue;
-            ListCraftingInventory inventory = cpu.getLogic().getInventory();
-            for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
-                if (entry.getKey() instanceof AEItemKey itemKey) {
-                    long amount = entry.getLongValue();
-                    while (amount > 0) {
-                        long taken = Math.min(amount, itemKey.getMaxStackSize());
-                        amount -= taken;
-                        drops.add(itemKey.toStack((int) taken));
-                    }
-                    continue;
+        HolderLookup.Provider registries = level.registryAccess();
+        for (int i = 0; i < cpus.length; i++) {
+            KeyCounter owned = new KeyCounter();
+            ECOCraftingCPU cpu = cpus[i];
+            if (cpu != null) {
+                cpu.getLogic().getOwnedItems(owned);
+            } else if (deferredInit[i] != null) {
+                collectDeferredOwnedItems(deferredInit[i], registries, owned);
+            }
+            addOwnedDrops(owned, drops, level, pos);
+        }
+    }
+
+    private static void collectDeferredOwnedItems(
+        CompoundTag cpuTag,
+        HolderLookup.Provider registries,
+        KeyCounter out
+    ) {
+        ListCraftingInventory inventory = new ListCraftingInventory(ignored -> {});
+        inventory.readFromNBT(cpuTag.getList("inventory", Tag.TAG_COMPOUND), registries);
+        out.addAll(inventory.list);
+
+        CompoundTag jobTag = cpuTag.getCompound("job");
+        long buffered = Math.max(0L, jobTag.getLong("bufferedFinalOutput"));
+        if (buffered <= 0L) {
+            return;
+        }
+        try {
+            GenericStack finalOutput = GenericStack.readTag(registries, jobTag.getCompound("finalOutput"));
+            if (finalOutput != null) {
+                out.add(finalOutput.what(), buffered);
+            }
+        } catch (RuntimeException e) {
+            LOGGER.error("Unable to decode buffered output from deferred ECO crafting CPU", e);
+        }
+    }
+
+    private static void addOwnedDrops(KeyCounter owned, List<ItemStack> drops, Level level, BlockPos pos) {
+        for (Object2LongMap.Entry<AEKey> entry : owned) {
+            if (entry.getKey() instanceof AEItemKey itemKey) {
+                long amount = entry.getLongValue();
+                while (amount > 0L) {
+                    int taken = (int) Math.min(amount, itemKey.getMaxStackSize());
+                    amount -= taken;
+                    drops.add(itemKey.toStack(taken));
                 }
-                entry.getKey().addDrops(entry.getLongValue(), drops, level, worldPosition);
+            } else {
+                entry.getKey().addDrops(entry.getLongValue(), drops, level, pos);
             }
         }
     }

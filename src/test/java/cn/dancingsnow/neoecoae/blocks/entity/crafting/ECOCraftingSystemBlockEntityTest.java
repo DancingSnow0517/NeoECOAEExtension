@@ -33,6 +33,19 @@ class ECOCraftingSystemBlockEntityTest {
     }
 
     @Test
+    void calculatesOverclockBeforeLargeCapacityIsNarrowedToInt() {
+        long f9CoreThreadsAtPower16 = (256L + 384L) << 16;
+        long f9WorkerThreadsAtPower16 = (32L << 16) * (2L << 3);
+        long totalCoreThreads = f9CoreThreadsAtPower16 * 64L;
+        long totalWorkerThreads = f9WorkerThreadsAtPower16 * 64L;
+
+        assertEquals(4, ECOCraftingSystemBlockEntity.calculateOverclockTimes(
+            totalCoreThreads,
+            totalWorkerThreads
+        ));
+    }
+
+    @Test
     void batchOfferUsesCurrentWorkerAndHostCapacity() {
         assertEquals(128, ECOCraftingPatternBusBlockEntity.calculateBatchOfferSize(256, 128, 192));
         assertEquals(80, ECOCraftingPatternBusBlockEntity.calculateBatchOfferSize(256, 128, 80));

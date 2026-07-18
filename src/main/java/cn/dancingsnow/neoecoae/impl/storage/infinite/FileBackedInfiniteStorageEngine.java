@@ -165,6 +165,11 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     }
 
     @Override
+    public synchronized boolean isHealthy() {
+        return !degraded;
+    }
+
+    @Override
     public synchronized HugeAmount getStoredAmount() {
         return storedAmount;
     }
@@ -470,6 +475,9 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 if (key != null && !amount.isZero()) {
                     int targetShard = shardFor(key);
                     if (targetShard != shard || hashVersion < ECOStorageKeyHash.VERSION) {
+                        // Rewriting the source removes stale pre-hash-version records. Without this, a key that is
+                        // later emptied in its target shard would be resurrected from the old shard on next load.
+                        dirtyShards.add(shard);
                         dirtyShards.add(targetShard);
                     }
                     Long previousRevision = loadedKeyRevisions.get(key);

@@ -96,11 +96,6 @@ public class ExecutingCraftingJob {
     ExecutingCraftingJob(CompoundTag data, HolderLookup.Provider registries,
             CraftingDifferenceListener postCraftingDifference, ECOCraftingCPULogic logic) {
         this.link = new CraftingLink(data.getCompound(NBT_LINK), logic.cpu);
-        IGrid grid = logic.cpu.getGrid();
-        if (grid != null) {
-            ((CraftingService) grid.getCraftingService()).addLink(link);
-        }
-
         this.finalOutput = GenericStack.readTag(registries, data.getCompound(NBT_FINAL_OUTPUT));
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
@@ -126,6 +121,10 @@ public class ExecutingCraftingJob {
         }
 
         this.suspended = data.getBoolean(NBT_SUSPENDED);
+        IGrid grid = logic.cpu.getGrid();
+        if (grid != null) {
+            ((CraftingService) grid.getCraftingService()).addLink(link);
+        }
     }
 
     CompoundTag writeToNBT(HolderLookup.Provider registries) {

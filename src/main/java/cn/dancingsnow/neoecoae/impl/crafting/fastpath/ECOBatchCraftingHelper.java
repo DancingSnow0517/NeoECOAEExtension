@@ -14,7 +14,7 @@ import java.util.function.DoubleUnaryOperator;
 import net.minecraft.world.item.ItemStack;
 
 public final class ECOBatchCraftingHelper {
-    public static final int MAX_BATCH_SIZE = 65_536;
+    public static final int MAX_BATCH_SIZE = Integer.MAX_VALUE;
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
     public static final long MAX_BATCH_STACK_AMOUNT = (long) Integer.MAX_VALUE * MAX_BATCH_SIZE;
 
@@ -40,7 +40,10 @@ public final class ECOBatchCraftingHelper {
             if (stack.amount() <= 0) {
                 return 0;
             }
-            long available = inventory.extract(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE);
+            // The CPU inventory is already an in-memory KeyCounter. Reading it directly avoids one
+            // simulated crafting-inventory transaction per ingredient while preserving the exact
+            // same concrete-input semantics as the verified fast-path key.
+            long available = inventory.list.get(stack.what());
             max = Math.min(max, (int) Math.min(Integer.MAX_VALUE, available / stack.amount()));
             if (max <= 0) {
                 return 0;
@@ -65,7 +68,7 @@ public final class ECOBatchCraftingHelper {
         DoubleUnaryOperator simulatedExtraction
     ) {
         Objects.requireNonNull(simulatedExtraction, "simulatedExtraction");
-        int boundedRequested = Math.min(requested, MAX_BATCH_SIZE);
+        int boundedRequested = Math.max(0, requested);
         if (boundedRequested <= 0 || !Double.isFinite(patternPower) || patternPower < 0.0D) {
             return 0;
         }
@@ -79,7 +82,7 @@ public final class ECOBatchCraftingHelper {
         int low = 0;
         int high = boundedRequested - 1;
         while (low < high) {
-            int batchSize = low + (high - low + 1) / 2;
+            int batchSize = low + (int) (((long) high - low + 1L) / 2L);
             if (hasEnoughEnergy(patternPower, batchSize, simulatedExtraction)) {
                 low = batchSize;
             } else {
