@@ -41,3 +41,4 @@ src/generated/resources/.cache/
 .codex/config.toml
 logs/
 docs/
+src/test
