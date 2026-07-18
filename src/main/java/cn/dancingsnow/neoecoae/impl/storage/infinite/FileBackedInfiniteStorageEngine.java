@@ -13,8 +13,8 @@ import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -612,15 +612,19 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     private void writeShardSnapshot(int shard, long snapshotRevision, CompoundTag tag) {
         try {
+            ByteArrayOutputStream compressed = new ByteArrayOutputStream();
+            NbtIo.writeCompressed(tag, compressed);
+            ByteBuffer data = ByteBuffer.wrap(compressed.toByteArray());
             Path tmp = domainPath.resolve(shardFileName(shard) + ".tmp");
             try (FileChannel channel = FileChannel.open(
                 tmp,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING,
                 StandardOpenOption.WRITE
-            ); OutputStream output = java.nio.channels.Channels.newOutputStream(channel)) {
-                NbtIo.writeCompressed(tag, output);
-                output.flush();
+            )) {
+                while (data.hasRemaining()) {
+                    channel.write(data);
+                }
                 channel.force(true);
             }
             replaceAtomically(tmp, shardPath(shard));
