@@ -40,6 +40,10 @@ public interface ECOInfiniteStorageEngine {
 
     Collection<HugeStack> getHugeStacks();
 
+    /**
+     * Flushes pending WAL records and schedules checkpoint work. A positive budget is a main-thread snapshot
+     * budget; the actual file I/O runs on the persistence workers.
+     */
     void flushBudgeted(long maxNanos);
 
     void closeAndFlush();

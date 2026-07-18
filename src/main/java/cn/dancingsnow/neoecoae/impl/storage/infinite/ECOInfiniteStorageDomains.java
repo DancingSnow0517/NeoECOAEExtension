@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public final class ECOInfiniteStorageDomains {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOInfiniteStorageDomains.class);
+    private static final long TICK_CHECKPOINT_BUDGET_NANOS = 1_000_000L;
     private static final Map<String, FileBackedInfiniteStorageEngine> ENGINES = new HashMap<>();
 
     private ECOInfiniteStorageDomains() {}
@@ -41,11 +42,53 @@ public final class ECOInfiniteStorageDomains {
         }
     }
 
-    public static synchronized void closeAll() {
-        for (FileBackedInfiniteStorageEngine engine : new ArrayList<>(ENGINES.values())) {
-            engine.closeAndFlush();
+    public static synchronized void awaitPreviousTick() {
+        // The writer normally finishes while the server is between ticks. Waiting here bounds the durability window
+        // to one tick without putting force(false) on every storage-system block entity tick.
+        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
+            engine.submitPendingWal();
         }
-        ENGINES.clear();
+        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
+            engine.awaitPendingWal();
+        }
+    }
+
+    public static synchronized void flushTick() {
+        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
+            engine.submitPendingWal();
+        }
+        long deadline = System.nanoTime() + TICK_CHECKPOINT_BUDGET_NANOS;
+        for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0L) {
+                break;
+            }
+            engine.checkpointBudgeted(remaining);
+        }
+    }
+
+    public static synchronized void closeAll() {
+        RuntimeException failure = null;
+        try {
+            for (FileBackedInfiniteStorageEngine engine : new ArrayList<>(ENGINES.values())) {
+                try {
+                    engine.closeAndFlush();
+                } catch (RuntimeException e) {
+                    LOGGER.error("Unable to close an ECO infinite storage domain", e);
+                    if (failure == null) {
+                        failure = e;
+                    } else {
+                        failure.addSuppressed(e);
+                    }
+                }
+            }
+        } finally {
+            ENGINES.clear();
+            ECOInfiniteStorageIoWorker.shutdown();
+        }
+        if (failure != null) {
+            throw failure;
+        }
     }
 
     private static String keyFor(ServerLevel level, UUID domainId) {

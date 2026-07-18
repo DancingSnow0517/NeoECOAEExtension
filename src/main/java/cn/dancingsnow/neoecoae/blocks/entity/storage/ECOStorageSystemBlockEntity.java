@@ -89,7 +89,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int INFINITE_MEMBER_REQUIRED = 16;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
-    private static final long INFINITE_FLUSH_BUDGET_NANOS = 1_000_000L;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
     private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
@@ -206,7 +205,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long startNanos = System.nanoTime();
         try {
             updateInfiniteStorageMode();
-            flushInfiniteEngineBudgeted();
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
                 storageInterface.recordStorageInterfaceTransfer(transferStorageInterfaceContents(storageInterface));
@@ -1209,13 +1207,6 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return null;
         }
         return ECOInfiniteStorageDomains.get(serverLevel, infiniteDomainId);
-    }
-
-    private void flushInfiniteEngineBudgeted() {
-        ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine != null) {
-            engine.flushBudgeted(INFINITE_FLUSH_BUDGET_NANOS);
-        }
     }
 
     private static boolean isInfiniteComponent(ItemStack stack) {
