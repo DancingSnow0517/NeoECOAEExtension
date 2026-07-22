@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 public class ECOFluidInputHatchBlockEntity extends AbstractCraftingBlockEntity<ECOFluidInputHatchBlockEntity>
         implements NEBlockEntityUIHolder {
 
-    private static final int TANK_CAPACITY = 64000;
+    private static final int TANK_CAPACITY = 16000;
 
     public FluidTank tank = new FluidTank(TANK_CAPACITY) {
         @Override

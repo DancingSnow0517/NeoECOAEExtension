@@ -292,8 +292,6 @@ def handwrittenResourceOverrides = [
         'assets/neoecoae/models/item/eco_source_storage_cell_64m.json',
         'assets/neoecoae/models/item/structure_terminal.json',
         'data/forge/tags/items/dusts.json',
-        'data/forge/tags/items/dusts/aluminium.json',
-        'data/forge/tags/items/dusts/aluminum.json',
         'data/neoecoae/loot_tables/blocks/aluminum_ore.json',
         'data/neoecoae/loot_tables/blocks/energized_crystal_cluster.json',
         'data/neoecoae/loot_tables/blocks/tungsten_ore.json',

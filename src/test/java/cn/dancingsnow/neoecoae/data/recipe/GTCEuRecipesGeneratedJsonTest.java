@@ -203,6 +203,19 @@ class GTCEuRecipesGeneratedJsonTest {
     }
 
     @Test
+    void gtceuCompatibleAluminumDustTagsKeepEcoFallback() throws IOException {
+        for (String path : new String[] {"dusts/aluminium", "dusts/aluminum"}) {
+            JsonObject tag = JsonParser.parseString(
+                            Files.readString(Path.of("src/generated/resources/data/forge/tags/items").resolve(path + ".json")))
+                    .getAsJsonObject();
+
+            assertTrue(hasTagValue(tag, "neoecoae:aluminum_dust"), path);
+            assertTrue(hasOptionalTagValue(tag, "gtceu:aluminium_dust"), path);
+            assertTrue(hasOptionalTagValue(tag, "gtceu:aluminum_dust"), path);
+        }
+    }
+
+    @Test
     void inscriberRecipesHaveGtceuFormingPressAlternatives() throws IOException {
         assertGtStage("macerator/iron_dust", "gtceu:macerator", 512);
         assertGtStage("macerator/aluminum_dust", "gtceu:macerator", 512);
