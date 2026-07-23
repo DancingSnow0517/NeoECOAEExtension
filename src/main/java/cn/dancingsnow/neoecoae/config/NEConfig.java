@@ -15,6 +15,7 @@ public class NEConfig {
     public static final int CAPACITY_POWER_MIN = 0;
     public static final int CAPACITY_POWER_MAX = 16;
     private static final int CAPACITY_POWER_DEFAULT = 0;
+    private static final int DEBUG_OVERDRIVE_CAPACITY_POWER = 4;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
@@ -124,6 +125,27 @@ public class NEConfig {
     static {
         BUILDER
             .comment(
+                "ECO 主机调试超频选项。",
+                "ECO host debug overdrive options.")
+            .push("debug");
+    }
+
+    private static final ModConfigSpec.BooleanValue DEBUG_ECO_HOST_OVERDRIVE = BUILDER
+        .comment(
+            "开启后，计算主机总 CPU 存储固定为 9.2E；计算并行核心与合成工作器单次执行量均为 x16。",
+            "仅用于调试，不应作为正常游戏平衡配置。",
+            "When enabled, computation hosts use a fixed 9.2E total CPU storage; computation parallel cores",
+            "and crafting-worker batch size are multiplied by x16.",
+            "Debug only. This is not intended for normal gameplay balance.")
+        .define("debugECOHostOverdrive", false);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER
+            .comment(
                 "ECO AE2 快速路径缓存与批量合成选项。",
                 "如果整合包遇到配方兼容问题，可以关闭或调低这些值。",
                 "ECO AE2 fast-path cache and batch crafting options.",
@@ -181,6 +203,7 @@ public class NEConfig {
     public static int craftingPatternBusPages = 1;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
+    public static boolean debugECOHostOverdrive;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
     public static int ecoFastPathCacheSize = 512;
 
@@ -204,6 +227,7 @@ public class NEConfig {
         // Read the locked entries so NeoForge can correct legacy values, but never apply them at runtime.
         CRAFTING_CAPACITY_POWER.get();
         COMPUTATION_PARALLEL_CORE_POWER.get();
+        debugECOHostOverdrive = DEBUG_ECO_HOST_OVERDRIVE.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
@@ -223,7 +247,7 @@ public class NEConfig {
     }
 
     public static int getCraftingWorkerBaseCrafts() {
-        return multiplyByPowerOfTwo(CRAFTING_WORKER_BASE_CRAFTS, CAPACITY_POWER_DEFAULT);
+        return multiplyByPowerOfTwo(CRAFTING_WORKER_BASE_CRAFTS, getDebugOverdrivePower());
     }
 
     public static int getCraftingParallelCoreCount(int baseCount) {
@@ -231,13 +255,17 @@ public class NEConfig {
     }
 
     public static int getComputationParallelCoreCount(int baseCount) {
-        return multiplyByPowerOfTwo(baseCount, CAPACITY_POWER_DEFAULT);
+        return multiplyByPowerOfTwo(baseCount, getDebugOverdrivePower());
     }
 
     static int multiplyByPowerOfTwo(int baseValue, int power) {
         int clampedPower = Math.clamp(power, CAPACITY_POWER_MIN, CAPACITY_POWER_MAX);
         long result = (long) Math.max(0, baseValue) << clampedPower;
         return (int) Math.min(Integer.MAX_VALUE, result);
+    }
+
+    private static int getDebugOverdrivePower() {
+        return debugECOHostOverdrive ? DEBUG_OVERDRIVE_CAPACITY_POWER : CAPACITY_POWER_DEFAULT;
     }
 
     public static boolean isInfiniteStorageEnabled() {

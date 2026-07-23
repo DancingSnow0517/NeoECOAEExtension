@@ -2,11 +2,13 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,21 +31,19 @@ public final class ECODagDemandSolver {
         Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
         problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
         Map<R, Long> executions = new LinkedHashMap<>();
+        ArrayDeque<K> deficientMaterials = new ArrayDeque<>();
+        Set<K> queued = new HashSet<>();
+        for (K requested : problem.requested().keySet()) {
+            enqueueIfDeficient(requested, balances, graph, deficientMaterials, queued);
+        }
         long expansions = 0;
 
-        while (true) {
-            K deficient = null;
-            for (var entry : balances.entrySet()) {
-                if (entry.getValue() < 0 && !graph.producersOf(entry.getKey()).isEmpty()) {
-                    deficient = entry.getKey();
-                    break;
-                }
+        while (!deficientMaterials.isEmpty()) {
+            K deficientMaterial = deficientMaterials.removeFirst();
+            queued.remove(deficientMaterial);
+            if (balances.getOrDefault(deficientMaterial, 0L) >= 0) {
+                continue;
             }
-            if (deficient == null) {
-                break;
-            }
-
-            K deficientMaterial = deficient;
             List<ECOPlanningOperation<K, R>> producers = graph.producersOf(deficientMaterial).stream()
                 .filter(operation -> operation.netOutput(deficientMaterial) > 0)
                 .toList();
@@ -54,8 +54,14 @@ public final class ECODagDemandSolver {
             long missing = -balances.get(deficientMaterial);
             long batches = ceilDiv(missing, operation.netOutput(deficientMaterial));
             executions.merge(operation.reference(), batches, Math::addExact);
-            operation.inputs().forEach((key, amount) -> mergeScaled(balances, key, amount, -batches));
-            operation.outputs().forEach((key, amount) -> mergeScaled(balances, key, amount, batches));
+            operation.inputs().forEach((key, amount) -> {
+                mergeScaled(balances, key, amount, -batches);
+                enqueueIfDeficient(key, balances, graph, deficientMaterials, queued);
+            });
+            operation.outputs().forEach((key, amount) -> {
+                mergeScaled(balances, key, amount, batches);
+                enqueueIfDeficient(key, balances, graph, deficientMaterials, queued);
+            });
             expansions++;
         }
 
@@ -94,16 +100,54 @@ public final class ECODagDemandSolver {
     }
 
     private static <K, R> boolean containsCycle(ECOPlanningGraph<K, R> graph) {
-        if (ECOStrongComponents.find(graph).stream().anyMatch(component -> component.size() > 1)) {
-            return true;
+        Map<K, Set<K>> edges = new LinkedHashMap<>();
+        Map<K, Integer> indegree = new LinkedHashMap<>();
+        for (K material : graph.materials()) {
+            edges.put(material, new LinkedHashSet<>());
+            indegree.put(material, 0);
         }
         for (var operation : graph.operations()) {
-            Set<K> outputs = operation.outputs().keySet();
-            if (operation.inputs().keySet().stream().anyMatch(outputs::contains)) {
-                return true;
+            for (K input : operation.inputs().keySet()) {
+                for (K output : operation.outputs().keySet()) {
+                    if (edges.computeIfAbsent(input, ignored -> new LinkedHashSet<>()).add(output)) {
+                        indegree.merge(output, 1, Integer::sum);
+                    }
+                }
             }
         }
-        return false;
+
+        ArrayDeque<K> ready = new ArrayDeque<>();
+        for (var entry : indegree.entrySet()) {
+            if (entry.getValue() == 0) {
+                ready.addLast(entry.getKey());
+            }
+        }
+        int visited = 0;
+        while (!ready.isEmpty()) {
+            K material = ready.removeFirst();
+            visited++;
+            for (K output : edges.getOrDefault(material, Set.of())) {
+                int remaining = indegree.merge(output, -1, Integer::sum);
+                if (remaining == 0) {
+                    ready.addLast(output);
+                }
+            }
+        }
+        return visited != indegree.size();
+    }
+
+    private static <K, R> void enqueueIfDeficient(
+        K material,
+        Map<K, Long> balances,
+        ECOPlanningGraph<K, R> graph,
+        ArrayDeque<K> deficientMaterials,
+        Set<K> queued
+    ) {
+        if (balances.getOrDefault(material, 0L) < 0
+            && !graph.producersOf(material).isEmpty()
+            && queued.add(material)) {
+            deficientMaterials.addLast(material);
+        }
     }
 
     private static long ceilDiv(long numerator, long denominator) {

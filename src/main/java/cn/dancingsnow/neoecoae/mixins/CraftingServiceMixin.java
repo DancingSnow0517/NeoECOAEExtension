@@ -21,7 +21,6 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -66,6 +65,9 @@ public abstract class CraftingServiceMixin {
     private IGrid grid;
     @Shadow
     private long lastProcessedCraftingLogicChangeTick;
+
+    @Shadow
+    private long lastProcessedCraftableChangeTick;
     @Shadow
     @Final
     private IEnergyService energyGrid;
@@ -95,21 +97,25 @@ public abstract class CraftingServiceMixin {
         if (lease.isEmpty()) {
             return;
         }
-        var snapshot = ECOAE2SnapshotFactory.capture(this.grid, simRequester, what, amount, strategy);
-        if (snapshot.isEmpty()) {
-            lease.get().close();
-            return;
-        }
-
-        // Constructing this on the server thread preserves AE2's fallback snapshot and thread-safety contract.
-        var fallback = new CraftingCalculation(
-            level,
+        // Keep AE2 construction lazy. ECO normally completes without ever paying
+        // the original graph initialization cost. Snapshot capture and the fallback
+        // are both kept inside the planning worker as in AE2's optimized path.
+        cir.setReturnValue(ECOPlanningService.submit(
             this.grid,
             simRequester,
-            new GenericStack(what, amount),
-            strategy
-        );
-        cir.setReturnValue(ECOPlanningService.submit(snapshot.get(), lease.get(), fallback::run));
+            what,
+            amount,
+            strategy,
+            this.lastProcessedCraftableChangeTick,
+            lease.get(),
+            () -> new CraftingCalculation(
+                level,
+                this.grid,
+                simRequester,
+                new GenericStack(what, amount),
+                strategy
+            ).run()
+        ));
     }
 
     @Inject(
