@@ -315,8 +315,6 @@
   "neoecoae.configuration.craftingSystemMaxLength.tooltip": "合成子系统多方块结构允许的最大长度（单位：方块）。\n数值越大，可扩展的模块/组件越长，但结构检测开销也可能更高。",
   "neoecoae.configuration.debugEcoFastPath": "调试 ECO 快速路径",
   "neoecoae.configuration.debugEcoFastPath.tooltip": "定期向日志输出 ECO 快速路径缓存统计信息。",
-  "neoecoae.configuration.debugMaxComputationStorage": "调试计算主机最大存储",
-  "neoecoae.configuration.debugMaxComputationStorage.tooltip": "将计算主机存储容量覆盖为 long 上限（约 9.2E18）。\n关闭时按已安装计算单元的实际容量求和。",
   "neoecoae.configuration.ecoAe2FastPathEnabled": "启用 ECO AE2 快速路径",
   "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "启用 ECO AE2 快速路径批量合成缓存。\n可大幅减少重复 pattern 执行开销；如果整合包遇到配方兼容问题，可关闭此选项回退到慢速路径。\n启用触发合成事件时，快速路径会自动禁用以保留事件语义。",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 推送 Tick 上限",

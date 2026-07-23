@@ -17,7 +17,6 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBloc
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -50,6 +49,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private IActionSource actionSource;
     @Getter
     private int maxThreads = 0;
+    @Getter
+    private long totalStorage = 0;
     @Getter
     private long availableStorage = 0;
     @Getter
@@ -107,6 +108,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 this.selectionMode = controller.getCpuSelectionMode();
             }
         } else {
+            totalStorage = 0;
             availableStorage = 0;
         }
     }
@@ -202,9 +204,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public void recalculateRemainingStorage() {
-        long totalStorage = NEConfig.debugMaxComputationStorage
-            ? Long.MAX_VALUE
-            : collectStorage(upperDrives) + collectStorage(lowerDrives);
+        this.totalStorage = collectStorage(upperDrives) + collectStorage(lowerDrives);
         long usedStorage = getActiveJobBytes();
 
         this.availableStorage = totalStorage - usedStorage;

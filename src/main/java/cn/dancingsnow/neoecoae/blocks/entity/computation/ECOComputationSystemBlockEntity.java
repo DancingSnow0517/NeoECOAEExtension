@@ -13,7 +13,6 @@ import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
-import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
@@ -336,25 +335,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     private long getTotalBytes() {
-        if (cluster == null) {
-            return 0;
-        }
-        long total = 0;
-        for (ECOComputationDriveBlockEntity drive : cluster.getUpperDrives()) {
-            total += getDriveBytes(drive);
-        }
-        for (ECOComputationDriveBlockEntity drive : cluster.getLowerDrives()) {
-            total += getDriveBytes(drive);
-        }
-        return total;
-    }
-
-    private static long getDriveBytes(ECOComputationDriveBlockEntity drive) {
-        ItemStack cellStack = drive.getCellStack();
-        if (cellStack != null && cellStack.getItem() instanceof ECOComputationCellItem cellItem) {
-            return cellItem.getTier().getCPUTotalBytes();
-        }
-        return 0;
+        return cluster == null ? 0 : cluster.getTotalStorage();
     }
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {

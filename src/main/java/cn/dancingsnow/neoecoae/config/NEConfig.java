@@ -84,43 +84,38 @@ public class NEConfig {
     static {
         BUILDER
             .comment(
-                "ECO 合成与运算系统的容量倍率。",
-                "Capacity multipliers for ECO crafting and computation systems.")
+                "ECO 合成与运算系统的容量倍率暂时固定为默认值。",
+                "Capacity multipliers for ECO crafting and computation systems are temporarily locked to defaults.")
             .push("capacity");
     }
 
     private static final ModConfigSpec.IntValue CRAFTING_CAPACITY_POWER = BUILDER
         .comment(
-            "合成容量倍率指数，实际倍率为 2 的该次方。",
-            "The crafting capacity multiplier exponent. The effective multiplier is 2 raised to this power.")
+            "合成容量倍率暂时锁定为默认值 0（x1），无法调整。",
+            "L4/L6/L9 合成工作器和 FT 并行核心均使用各自的默认数值。",
+            "The crafting capacity multiplier is temporarily locked to the default value 0 (x1) and cannot be changed.",
+            "L4/L6/L9 crafting workers and FT parallel cores use their respective default values.")
         .worldRestart()
         .defineInRange(
             "craftingCapacityPower",
             CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_MIN,
-            CAPACITY_POWER_MAX
+            CAPACITY_POWER_DEFAULT,
+            CAPACITY_POWER_DEFAULT
         );
 
     private static final ModConfigSpec.IntValue COMPUTATION_PARALLEL_CORE_POWER = BUILDER
         .comment(
-            "运算并行核心倍率指数，实际倍率为 2 的该次方。",
-            "The computation parallel-core multiplier exponent. The effective multiplier is 2 raised to this power.")
+            "运算并行核心倍率暂时锁定为默认值 0（x1），无法调整。",
+            "L4/L6/L9 运算并行核心均使用各自的默认数值。",
+            "The computation parallel-core multiplier is temporarily locked to the default value 0 (x1) and cannot be changed.",
+            "L4/L6/L9 computation parallel cores use their respective default values.")
         .worldRestart()
         .defineInRange(
             "computationParallelCorePower",
             CAPACITY_POWER_DEFAULT,
-            CAPACITY_POWER_MIN,
-            CAPACITY_POWER_MAX
+            CAPACITY_POWER_DEFAULT,
+            CAPACITY_POWER_DEFAULT
         );
-
-    private static final ModConfigSpec.BooleanValue DEBUG_MAX_COMPUTATION_STORAGE = BUILDER
-        .comment(
-            "调试开关：将计算主机的总存储容量覆盖为 long 上限（约 9.2E18）。",
-            "关闭时仍按计算单元的实际容量求和。",
-            "Debug option: override computation host storage with the long limit (about 9.2E18).",
-            "When disabled, storage is still calculated from the installed computation cells.")
-        .worldRestart()
-        .define("debugMaxComputationStorage", true);
 
     static {
         BUILDER.pop();
@@ -184,11 +179,8 @@ public class NEConfig {
     public static boolean postCraftingEvent;
     public static boolean enableInfiniteStorage;
     public static int craftingPatternBusPages = 1;
-    public static int craftingCapacityPower = CAPACITY_POWER_DEFAULT;
-    public static int computationParallelCorePower = CAPACITY_POWER_DEFAULT;
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
-    public static boolean debugMaxComputationStorage = true;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
     public static int ecoFastPathCacheSize = 512;
 
@@ -209,11 +201,11 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         enableInfiniteStorage = ENABLE_INFINITE_STORAGE.get();
         craftingPatternBusPages = CRAFTING_PATTERN_BUS_PAGES.get();
-        craftingCapacityPower = CRAFTING_CAPACITY_POWER.get();
-        computationParallelCorePower = COMPUTATION_PARALLEL_CORE_POWER.get();
+        // Read the locked entries so NeoForge can correct legacy values, but never apply them at runtime.
+        CRAFTING_CAPACITY_POWER.get();
+        COMPUTATION_PARALLEL_CORE_POWER.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
-        debugMaxComputationStorage = DEBUG_MAX_COMPUTATION_STORAGE.get();
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
     }
@@ -231,15 +223,15 @@ public class NEConfig {
     }
 
     public static int getCraftingWorkerBaseCrafts() {
-        return multiplyByPowerOfTwo(CRAFTING_WORKER_BASE_CRAFTS, craftingCapacityPower);
+        return multiplyByPowerOfTwo(CRAFTING_WORKER_BASE_CRAFTS, CAPACITY_POWER_DEFAULT);
     }
 
     public static int getCraftingParallelCoreCount(int baseCount) {
-        return multiplyByPowerOfTwo(baseCount, craftingCapacityPower);
+        return multiplyByPowerOfTwo(baseCount, CAPACITY_POWER_DEFAULT);
     }
 
     public static int getComputationParallelCoreCount(int baseCount) {
-        return multiplyByPowerOfTwo(baseCount, computationParallelCorePower);
+        return multiplyByPowerOfTwo(baseCount, CAPACITY_POWER_DEFAULT);
     }
 
     static int multiplyByPowerOfTwo(int baseValue, int power) {

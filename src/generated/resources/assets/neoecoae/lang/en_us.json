@@ -315,8 +315,6 @@
   "neoecoae.configuration.craftingSystemMaxLength.tooltip": "Maximum length (in blocks) allowed for the Crafting System multiblock.\nHigher values allow longer expansions but may increase structure check cost.",
   "neoecoae.configuration.debugEcoFastPath": "Debug ECO Fast Path",
   "neoecoae.configuration.debugEcoFastPath.tooltip": "Periodically log ECO fast path cache statistics.",
-  "neoecoae.configuration.debugMaxComputationStorage": "Debug Maximum Computation Storage",
-  "neoecoae.configuration.debugMaxComputationStorage.tooltip": "Override computation host storage with the long limit (about 9.2E18).\nWhen disabled, storage is calculated from the installed computation cells.",
   "neoecoae.configuration.ecoAe2FastPathEnabled": "Enable ECO AE2 Fast Path",
   "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "Enable ECO AE2 fast path batch crafting cache.\nThis can greatly reduce repeated pattern execution cost. If recipe compatibility issues occur in a modpack, disable this option to fall back to the slow path.\nFast Path is automatically disabled when Post Crafting Event is enabled to preserve event semantics.",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU Push Tick Limit",

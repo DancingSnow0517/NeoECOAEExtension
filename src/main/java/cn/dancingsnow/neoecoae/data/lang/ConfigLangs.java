@@ -61,12 +61,6 @@ public class ConfigLangs {
             "neoecoae.configuration.debugEcoFastPath.tooltip",
             "Periodically log ECO fast path cache statistics."
         );
-        provider.add("neoecoae.configuration.debugMaxComputationStorage", "Debug Maximum Computation Storage");
-        provider.add(
-            "neoecoae.configuration.debugMaxComputationStorage.tooltip",
-            "Override computation host storage with the long limit (about 9.2E18).\n" +
-                "When disabled, storage is calculated from the installed computation cells."
-        );
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
