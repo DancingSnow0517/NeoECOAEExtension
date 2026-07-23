@@ -73,6 +73,10 @@ public final class ECOIntegerHyperflowSolver {
         }
 
         private void explore(long[] counts, int depth) {
+            if (Thread.currentThread().isInterrupted()) {
+                exhausted = true;
+                return;
+            }
             if (expandedStates >= budget.maxExpandedStates() || depth > budget.maxDepth()) {
                 exhausted = true;
                 return;

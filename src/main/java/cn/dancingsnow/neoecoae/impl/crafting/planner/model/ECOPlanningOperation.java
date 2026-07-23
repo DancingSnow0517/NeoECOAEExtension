@@ -3,19 +3,29 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.model;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** An immutable weighted hyperedge in the ECO crafting graph. */
 public record ECOPlanningOperation<K, R>(
     R reference,
     Map<K, Long> inputs,
-    Map<K, Long> outputs
+    Map<K, Long> outputs,
+    Set<K> selectableOutputs
 ) {
+    public ECOPlanningOperation(R reference, Map<K, Long> inputs, Map<K, Long> outputs) {
+        this(reference, inputs, outputs, outputs.keySet());
+    }
+
     public ECOPlanningOperation {
         Objects.requireNonNull(reference, "reference");
         inputs = copyAmounts(inputs, "inputs");
         outputs = copyAmounts(outputs, "outputs");
         if (outputs.isEmpty()) {
             throw new IllegalArgumentException("A planning operation must have at least one output");
+        }
+        selectableOutputs = Set.copyOf(Objects.requireNonNull(selectableOutputs, "selectableOutputs"));
+        if (selectableOutputs.isEmpty() || !outputs.keySet().containsAll(selectableOutputs)) {
+            throw new IllegalArgumentException("Selectable outputs must be a non-empty subset of outputs");
         }
     }
 
