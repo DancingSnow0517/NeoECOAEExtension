@@ -26,6 +26,14 @@ public final class ECOInfiniteStorageDomains {
                 key, ignored -> new FileBackedInfiniteStorageEngine(level.registryAccess(), domainId, domainPath(level, domainId)));
     }
 
+    public static boolean exists(ServerLevel level, UUID domainId) {
+        Path storageRoot = storageRoot(level);
+        if (Files.isDirectory(storageRoot.resolve("domain_" + domainId))) {
+            return true;
+        }
+        return findLegacyDomainPath(storageRoot, domainId) != null;
+    }
+
     public static synchronized void close(ServerLevel level, UUID domainId) {
         String key = keyFor(level, domainId);
         FileBackedInfiniteStorageEngine engine = ENGINES.get(key);
@@ -101,11 +109,14 @@ public final class ECOInfiniteStorageDomains {
     }
 
     private static Path domainPath(ServerLevel level, UUID domainId) {
-        Path storageRoot = level.getServer()
+        return resolveDomainPath(storageRoot(level), domainId);
+    }
+
+    private static Path storageRoot(ServerLevel level) {
+        return level.getServer()
                 .getWorldPath(LevelResource.ROOT)
                 .resolve("data")
                 .resolve("neoecoae_storage");
-        return resolveDomainPath(storageRoot, domainId);
     }
 
     static Path resolveDomainPath(Path storageRoot, UUID domainId) {

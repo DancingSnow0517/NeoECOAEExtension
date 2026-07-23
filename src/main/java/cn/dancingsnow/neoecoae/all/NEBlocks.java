@@ -63,6 +63,23 @@ public class NEBlocks {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
 
+    public static final BlockEntry<Block> ECO_NETWORK_SWITCH = REGISTRATE
+        .block("eco_network_switch", Block::new)
+        .initialProperties(() -> Blocks.IRON_BLOCK)
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate((ctx, prov) -> prov.simpleBlock(
+            ctx.get(),
+            prov.models().getExistingFile(prov.modLoc("block/eco_network_switch"))
+        ))
+        .item()
+        .model((ctx, prov) -> prov.withExistingParent(
+            ctx.getName(),
+            prov.modLoc("block/eco_network_switch")
+        ))
+        .build()
+        .lang("ECO Network Switch")
+        .register();
+
     public static final BlockEntry<Block> ALUMINUM_ORE = REGISTRATE
         .block("aluminum_ore", Block::new)
         .initialProperties(() -> Blocks.IRON_ORE)
