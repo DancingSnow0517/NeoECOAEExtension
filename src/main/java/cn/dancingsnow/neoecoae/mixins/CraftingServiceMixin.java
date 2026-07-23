@@ -13,12 +13,16 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.crafting.CraftingLink;
+import appeng.crafting.execution.CraftingSubmitResult;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
+import com.llamalad7.mixinextras.expression.Definition;
+import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
 import net.minecraft.nbt.CompoundTag;
@@ -174,7 +178,7 @@ public abstract class CraftingServiceMixin {
         long amount,
         Actionable type,
         CallbackInfoReturnable<Long> cir,
-        @Local(ordinal = 1) LocalLongRef inserted
+        @Local(name = "inserted") LocalLongRef inserted
     ) {
         for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
             if (cluster != null) {
@@ -185,16 +189,12 @@ public abstract class CraftingServiceMixin {
         }
     }
 
+    @Definition(id = "findSuitableCraftingCPU", method = "appeng/me/service/CraftingService.findSuitableCraftingCPU(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;Lorg/apache/commons/lang3/mutable/MutableObject;)Lappeng/me/cluster/implementations/CraftingCPUCluster;")
+    @Expression("? = ?.findSuitableCraftingCPU(?, ?, ?, ?)")
     @Inject(
         method = "submitJob",
         at =
-        @At(
-            value = "INVOKE",
-            target = "appeng/me/service/CraftingService.findSuitableCraftingCPU "
-                + "(Lappeng/api/networking/crafting/ICraftingPlan;ZLappeng/api/networking/security/IActionSource;"
-                + "Lorg/apache/commons/lang3/mutable/MutableObject;)"
-                + "Lappeng/me/cluster/implementations/CraftingCPUCluster;"
-        ),
+        @At(value = "MIXINEXTRAS:EXPRESSION", shift = At.Shift.AFTER),
         cancellable = true,
         order = 500
     )
@@ -205,6 +205,7 @@ public abstract class CraftingServiceMixin {
         boolean prioritizePower,
         IActionSource src,
         CallbackInfoReturnable<ICraftingSubmitResult> cir,
+        @Local(name = "cpuCluster") CraftingCPUCluster cpuCluster,
         @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
         if (target instanceof ECOCraftingCPU ecoCpu) {
@@ -213,9 +214,14 @@ public abstract class CraftingServiceMixin {
             var cluster = neoecoae$findSuitableAdvCraftingCPU(job, src, unsuitableCpusResult);
             if (cluster != null) {
                 updateList = true;
-                ICraftingSubmitResult result = cluster.submitJob(this.grid, job, src, requestingMachine);
-                if (result.successful()) {
-                    cir.setReturnValue(result);
+                cir.setReturnValue(cluster.submitJob(this.grid, job, src, requestingMachine));
+            } else if (cpuCluster == null) {
+                // If no CPUs were unsuitable, but we couldn't find one, that means there aren't any
+                UnsuitableCpus unsuitableCpus = unsuitableCpusResult.getValue();
+                if (unsuitableCpus == null) {
+                    cir.setReturnValue(CraftingSubmitResult.NO_CPU_FOUND);
+                } else {
+                    cir.setReturnValue(CraftingSubmitResult.noSuitableCpu(unsuitableCpus));
                 }
             }
         }

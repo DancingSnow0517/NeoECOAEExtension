@@ -192,7 +192,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             threadingCore.deactivate(cpu);
         }
         if (!submitted) {
-            return CraftingSubmitResult.NO_CPU_FOUND;
+            return result == null ? CraftingSubmitResult.NO_CPU_FOUND : result;
         }
         this.activeCpus.put(job, cpu);
         this.recalculateRemainingStorage();
