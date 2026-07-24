@@ -15,7 +15,7 @@ public class NEConfig {
     public static final int CAPACITY_POWER_MIN = 0;
     public static final int CAPACITY_POWER_MAX = 16;
     private static final int CAPACITY_POWER_DEFAULT = 0;
-    private static final int DEBUG_OVERDRIVE_CAPACITY_POWER = 4;
+    private static final int DEBUG_OVERDRIVE_CAPACITY_POWER = 15;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
@@ -132,10 +132,10 @@ public class NEConfig {
 
     private static final ModConfigSpec.BooleanValue DEBUG_ECO_HOST_OVERDRIVE = BUILDER
         .comment(
-            "开启后，计算主机总 CPU 存储固定为 9.2E；计算并行核心与合成工作器单次执行量均为 x16。",
+            "开启后，计算主机总 CPU 存储固定为 9.2E；计算并行核心、合成并行核心和合成工作器单次执行量均为原始值的 2^15 倍（x32768）。",
             "仅用于调试，不应作为正常游戏平衡配置。",
-            "When enabled, computation hosts use a fixed 9.2E total CPU storage; computation parallel cores",
-            "and crafting-worker batch size are multiplied by x16.",
+            "When enabled, computation hosts use a fixed 9.2E total CPU storage; computation parallel cores,",
+            "crafting parallel cores, and crafting-worker batch size are multiplied by 2^15 (x32768).",
             "Debug only. This is not intended for normal gameplay balance.")
         .define("debugECOHostOverdrive", false);
 
@@ -251,7 +251,7 @@ public class NEConfig {
     }
 
     public static int getCraftingParallelCoreCount(int baseCount) {
-        return multiplyByPowerOfTwo(baseCount, CAPACITY_POWER_DEFAULT);
+        return multiplyByPowerOfTwo(baseCount, getDebugOverdrivePower());
     }
 
     public static int getComputationParallelCoreCount(int baseCount) {

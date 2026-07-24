@@ -5,9 +5,11 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.ArrayDeque;
@@ -19,9 +21,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/** Captures every mutable AE2 input needed by the ECO worker while still on the server thread. */
+/** Captures the immutable AE2 input view consumed by the ECO planning worker. */
 public final class ECOAE2SnapshotFactory {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int MAX_MATERIALS = 16_384;
     private static final int MAX_OPERATIONS = 65_536;
     private static final long NO_GENERATION = Long.MIN_VALUE;
@@ -48,33 +53,36 @@ public final class ECOAE2SnapshotFactory {
         CalculationStrategy strategy,
         long craftableGeneration
     ) {
-        if (requestedAmount <= 0 || strategy != CalculationStrategy.REPORT_MISSING_ITEMS) {
+        if (requestedAmount <= 0
+            || (strategy != CalculationStrategy.REPORT_MISSING_ITEMS
+                && strategy != CalculationStrategy.CRAFT_LESS)) {
             return Optional.empty();
         }
         try {
             Map<AEKey, Long> inventory = copyInventory(grid, requester);
 
             var craftingService = grid.getCraftingService();
-            Optional<PatternGraph> graph = graphFor(
-                craftingService,
-                requestedKey,
-                craftableGeneration,
-                inventory
-            );
+            Optional<PatternGraph> graph = graphFor(craftingService, requestedKey, craftableGeneration);
             if (graph.isEmpty()) {
                 return Optional.empty();
             }
 
+            List<ECOPlanningOperation<AEKey, IPatternDetails>> operations = materialize(
+                graph.get(),
+                inventory,
+                craftingService
+            );
+
             // Stored copies of the requested output must not short-circuit a normal
             // request, but they are valid seed material for self-increasing patterns.
-            boolean requestedIsInput = graph.get().operations().stream()
+            boolean requestedIsInput = operations.stream()
                 .anyMatch(operation -> operation.inputs().containsKey(requestedKey));
             if (!requestedIsInput) {
                 inventory.remove(requestedKey);
             }
 
             var problem = new ECOPlanningProblem<>(
-                graph.get().operations(),
+                operations,
                 inventory,
                 Map.of(requestedKey, requestedAmount)
             );
@@ -85,7 +93,8 @@ public final class ECOAE2SnapshotFactory {
                 graph.get().multiplePaths(),
                 graph.get().inputSlotCounts()
             ));
-        } catch (RuntimeException | LinkageError ignored) {
+        } catch (RuntimeException | LinkageError failure) {
+            LOGGER.debug("ECO AE2 snapshot capture failed; the caller will use AE2 crafting calculation", failure);
             return Optional.empty();
         }
     }
@@ -93,37 +102,33 @@ public final class ECOAE2SnapshotFactory {
     private static Optional<PatternGraph> graphFor(
         ICraftingService craftingService,
         AEKey requestedKey,
-        long craftableGeneration,
-        Map<AEKey, Long> inventory
+        long craftableGeneration
     ) {
         if (craftableGeneration == NO_GENERATION) {
-            return buildGraph(craftingService, requestedKey, inventory);
+            return buildGraph(craftingService, requestedKey);
         }
-        long inventorySignature = inventorySignature(inventory);
         synchronized (GRAPH_CACHE) {
             CachedGraphs cached = GRAPH_CACHE.get(craftingService);
-            if (cached == null
-                || cached.generation() != craftableGeneration
-                || cached.inventorySignature() != inventorySignature) {
-                cached = new CachedGraphs(craftableGeneration, inventorySignature, new LinkedHashMap<>());
+            if (cached == null || cached.generation() != craftableGeneration) {
+                cached = new CachedGraphs(craftableGeneration, new LinkedHashMap<>());
                 GRAPH_CACHE.put(craftingService, cached);
             }
             return cached.graphs().computeIfAbsent(
                 requestedKey,
-                ignored -> buildGraph(craftingService, requestedKey, inventory)
+                ignored -> buildGraph(craftingService, requestedKey)
             );
         }
     }
 
     private static Optional<PatternGraph> buildGraph(
         ICraftingService craftingService,
-        AEKey requestedKey,
-        Map<AEKey, Long> inventory
+        AEKey requestedKey
     ) {
         ArrayDeque<AEKey> pending = new ArrayDeque<>();
         Set<AEKey> visitedMaterials = new HashSet<>();
-        Set<IPatternDetails> visitedPatterns = new HashSet<>();
-        List<ECOPlanningOperation<AEKey, IPatternDetails>> operations = new ArrayList<>();
+        Set<AEItemKey> visitedPatterns = new HashSet<>();
+        Map<AEItemKey, IPatternDetails> canonicalPatterns = new LinkedHashMap<>();
+        List<IPatternDetails> patterns = new ArrayList<>();
         Map<IPatternDetails, Integer> inputSlotCounts = new LinkedHashMap<>();
         boolean multiplePaths = false;
         pending.add(requestedKey);
@@ -137,29 +142,83 @@ public final class ECOAE2SnapshotFactory {
                 return Optional.empty();
             }
             var producers = List.copyOf(craftingService.getCraftingFor(material));
-            multiplePaths |= producers.size() > 1;
+            Set<AEItemKey> logicalProducerIdentities = new HashSet<>();
             for (IPatternDetails details : producers) {
-                if (!visitedPatterns.add(details)) {
-                    continue;
-                }
-                Optional<ECOPlanningOperation<AEKey, IPatternDetails>> operation = convert(
-                    details,
-                    material,
-                    pending,
-                    inventory,
-                    craftingService
-                );
-                if (operation.isEmpty()) {
+                AEItemKey logicalIdentity = details.getDefinition();
+                if (logicalIdentity == null) {
                     return Optional.empty();
                 }
-                operations.add(operation.get());
-                inputSlotCounts.put(details, details.getInputs().length);
-                if (operations.size() > MAX_OPERATIONS) {
+                logicalProducerIdentities.add(logicalIdentity);
+                IPatternDetails canonical = canonicalPatterns.computeIfAbsent(logicalIdentity, ignored -> details);
+                if (!visitedPatterns.add(logicalIdentity)) {
+                    continue;
+                }
+                if (!inspect(canonical, pending)) {
+                    return Optional.empty();
+                }
+                patterns.add(canonical);
+                multiplePaths |= hasAlternativeInput(canonical);
+                inputSlotCounts.put(canonical, canonical.getInputs().length);
+                if (patterns.size() > MAX_OPERATIONS) {
                     return Optional.empty();
                 }
             }
+            multiplePaths |= logicalProducerIdentities.size() > 1;
         }
-        return Optional.of(new PatternGraph(operations, inputSlotCounts, multiplePaths));
+        return Optional.of(new PatternGraph(patterns, inputSlotCounts, multiplePaths));
+    }
+
+    private static boolean inspect(IPatternDetails details, ArrayDeque<AEKey> pending) {
+        if (details.getPrimaryOutput() == null || details.getOutputs().isEmpty()) {
+            return false;
+        }
+        for (GenericStack output : details.getOutputs()) {
+            if (output == null || output.amount() <= 0) {
+                return false;
+            }
+        }
+        for (IPatternDetails.IInput input : details.getInputs()) {
+            if (input.getMultiplier() <= 0) {
+                return false;
+            }
+            GenericStack[] choices = input.getPossibleInputs();
+            boolean hasChoice = false;
+            for (GenericStack choice : choices) {
+                if (choice != null && choice.amount() > 0) {
+                    hasChoice = true;
+                    pending.addLast(choice.what());
+                }
+            }
+            if (!hasChoice) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean hasAlternativeInput(IPatternDetails details) {
+        for (IPatternDetails.IInput input : details.getInputs()) {
+            int choices = 0;
+            for (GenericStack choice : input.getPossibleInputs()) {
+                if (choice != null && choice.amount() > 0 && ++choices > 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static List<ECOPlanningOperation<AEKey, IPatternDetails>> materialize(
+        PatternGraph graph,
+        Map<AEKey, Long> inventory,
+        ICraftingService craftingService
+    ) {
+        List<ECOPlanningOperation<AEKey, IPatternDetails>> operations = new ArrayList<>(graph.patterns().size());
+        for (IPatternDetails details : graph.patterns()) {
+            var operation = convert(details, inventory, craftingService).orElseThrow();
+            operations.add(operation);
+        }
+        return List.copyOf(operations);
     }
 
     private static Map<AEKey, Long> copyInventory(IGrid grid, ICraftingSimulationRequester requester) {
@@ -181,8 +240,6 @@ public final class ECOAE2SnapshotFactory {
 
     private static Optional<ECOPlanningOperation<AEKey, IPatternDetails>> convert(
         IPatternDetails details,
-        AEKey primaryMaterial,
-        ArrayDeque<AEKey> pending,
         Map<AEKey, Long> inventory,
         ICraftingService craftingService
     ) {
@@ -201,8 +258,6 @@ public final class ECOAE2SnapshotFactory {
             long multiplier = input.getMultiplier();
             long amount = Math.multiplyExact(selected.amount(), multiplier);
             inputs.merge(selected.what(), amount, Math::addExact);
-            pending.addLast(selected.what());
-
         }
 
         Map<AEKey, Long> outputs = new LinkedHashMap<>();
@@ -211,9 +266,6 @@ public final class ECOAE2SnapshotFactory {
                 return Optional.empty();
             }
             outputs.merge(output.what(), output.amount(), Math::addExact);
-        }
-        if (!outputs.containsKey(primaryMaterial)) {
-            return Optional.empty();
         }
         for (int i = 0; i < details.getInputs().length; i++) {
             IPatternDetails.IInput input = details.getInputs()[i];
@@ -270,31 +322,19 @@ public final class ECOAE2SnapshotFactory {
         return selected;
     }
 
-    private static long inventorySignature(Map<AEKey, Long> inventory) {
-        long signature = 0xcbf29ce484222325L;
-        for (var entry : inventory.entrySet()) {
-            signature ^= entry.getKey().hashCode();
-            signature *= 0x100000001b3L;
-            signature ^= entry.getValue();
-            signature *= 0x100000001b3L;
-        }
-        return signature;
-    }
-
     private record PatternGraph(
-        List<ECOPlanningOperation<AEKey, IPatternDetails>> operations,
+        List<IPatternDetails> patterns,
         Map<IPatternDetails, Integer> inputSlotCounts,
         boolean multiplePaths
     ) {
         private PatternGraph {
-            operations = List.copyOf(operations);
+            patterns = List.copyOf(patterns);
             inputSlotCounts = Map.copyOf(inputSlotCounts);
         }
     }
 
     private record CachedGraphs(
         long generation,
-        long inventorySignature,
         Map<AEKey, Optional<PatternGraph>> graphs
     ) {
     }

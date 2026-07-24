@@ -21,4 +21,21 @@ public record ECOAE2PlanningSnapshot(
         }
         inputSlotCounts = Map.copyOf(Objects.requireNonNull(inputSlotCounts, "inputSlotCounts"));
     }
+
+    public ECOAE2PlanningSnapshot forAmount(long amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive");
+        }
+        return new ECOAE2PlanningSnapshot(
+            new ECOPlanningProblem<>(
+                problem.operations(),
+                problem.inventory(),
+                Map.of(requestedKey, amount)
+            ),
+            requestedKey,
+            amount,
+            multiplePaths,
+            inputSlotCounts
+        );
+    }
 }

@@ -20,10 +20,16 @@ public final class ECODagDemandSolver {
     }
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(ECOPlanningProblem<K, R> problem) {
-        ECOPlanningGraph<K, R> graph = ECOGraphPruner.targetReachable(
+        return trySolve(problem, ECOGraphPruner.targetReachable(
             new ECOPlanningGraph<>(problem.operations()),
             problem.requested().keySet()
-        );
+        ));
+    }
+
+    public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph
+    ) {
         if (containsCycle(graph)) {
             return Optional.empty();
         }

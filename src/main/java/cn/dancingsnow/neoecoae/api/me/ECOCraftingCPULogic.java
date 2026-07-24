@@ -638,17 +638,40 @@ public class ECOCraftingCPULogic {
 
         if (what.matches(job.finalOutput)) {
             ExecutingCraftingJob currentJob = job;
-            long acceptedOwnership = currentJob.bufferedFinalOutput.accept(amount, type);
-            if (type == Actionable.MODULATE && acceptedOwnership > 0L) {
+            if (type == Actionable.SIMULATE) {
+                return amount;
+            }
+
+            // A final-output item can also be the input of a remaining task (for example,
+            // A + B -> 2A). Keep the amount needed to continue that task in local storage;
+            // only the surplus belongs to the requester.
+            long held = inventory.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
+            long pendingInput = pendingInputAmount(what);
+            long retained = Math.min(amount, Math.max(0L, pendingInput - held));
+            if (retained > 0L) {
+                currentJob.timeTracker.decrementItems(retained, what.getType());
+                currentJob.waitingFor.extract(what, retained, Actionable.MODULATE);
+                inventory.insert(what, retained, Actionable.MODULATE);
+            }
+
+            long finalAmount = amount - retained;
+            long acceptedOwnership = finalAmount <= 0L
+                ? 0L
+                : currentJob.bufferedFinalOutput.accept(finalAmount, Actionable.MODULATE);
+            if (acceptedOwnership > 0L) {
                 // Ownership commits here. Delivery happens separately, so a network callback cannot make the Worker
-                // retry or make this CPU accept the same physical output again.
+                // retry or make the same physical output again.
                 currentJob.timeTracker.decrementItems(acceptedOwnership, what.getType());
                 currentJob.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
+            }
+            if (retained > 0L || acceptedOwnership > 0L) {
                 postChange(what);
                 cpu.markDirty();
-                drainBufferedFinalOutput(currentJob);
+                if (acceptedOwnership > 0L) {
+                    drainBufferedFinalOutput(currentJob);
+                }
             }
-            return acceptedOwnership;
+            return retained + acceptedOwnership;
         } else {
             if (type == Actionable.MODULATE) {
                 inventory.insert(what, amount, Actionable.MODULATE);
@@ -656,6 +679,32 @@ public class ECOCraftingCPULogic {
         }
 
         return amount;
+    }
+
+    private long pendingInputAmount(AEKey what) {
+        if (job == null) {
+            return 0L;
+        }
+        long total = 0L;
+        for (var task : job.tasks.entrySet()) {
+            long batches = task.getValue().value;
+            if (batches <= 0L) {
+                continue;
+            }
+            long perBatch = 0L;
+            for (var input : task.getKey().getInputs()) {
+                long selectedAmount = 0L;
+                for (var possible : input.getPossibleInputs()) {
+                    if (possible != null && possible.amount() > 0L && what.equals(possible.what())) {
+                        selectedAmount = Math.max(selectedAmount,
+                            Math.multiplyExact(possible.amount(), input.getMultiplier()));
+                    }
+                }
+                perBatch = Math.addExact(perBatch, selectedAmount);
+            }
+            total = Math.addExact(total, Math.multiplyExact(perBatch, batches));
+        }
+        return total;
     }
 
     private long deliverFinalOutput(AEKey what, long amount, Actionable mode) {

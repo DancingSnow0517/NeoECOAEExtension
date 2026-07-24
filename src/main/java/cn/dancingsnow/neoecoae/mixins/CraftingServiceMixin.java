@@ -21,6 +21,7 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
@@ -97,24 +98,40 @@ public abstract class CraftingServiceMixin {
         if (lease.isEmpty()) {
             return;
         }
-        // Keep AE2 construction lazy. ECO normally completes without ever paying
-        // the original graph initialization cost. Snapshot capture and the fallback
-        // are both kept inside the planning worker as in AE2's optimized path.
-        cir.setReturnValue(ECOPlanningService.submit(
+        var snapshot = ECOAE2SnapshotFactory.capture(
             this.grid,
             simRequester,
             what,
             amount,
             strategy,
-            this.lastProcessedCraftableChangeTick,
-            lease.get(),
-            () -> new CraftingCalculation(
+            this.lastProcessedCraftableChangeTick
+        );
+        if (snapshot.isEmpty()) {
+            lease.get().close();
+            return;
+        }
+
+        // AE2 constructs its calculation on the server thread because the constructor
+        // snapshots mutable network state. Keep that object ready before dispatching
+        // ECO's independent planning worker.
+        CraftingCalculation fallback;
+        try {
+            fallback = new CraftingCalculation(
                 level,
                 this.grid,
                 simRequester,
                 new GenericStack(what, amount),
                 strategy
-            ).run()
+            );
+        } catch (RuntimeException | LinkageError failure) {
+            lease.get().close();
+            return;
+        }
+        cir.setReturnValue(ECOPlanningService.submit(
+            snapshot.get(),
+            strategy,
+            lease.get(),
+            fallback::run
         ));
     }
 
