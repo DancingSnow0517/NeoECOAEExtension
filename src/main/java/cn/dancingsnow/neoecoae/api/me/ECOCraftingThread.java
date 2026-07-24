@@ -141,11 +141,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
         double slotScaledTax = powerMultiply * Math.max(1, occupiedThreadSlots);
         int requestedProgress = calculateRequestedProgress(
-                ticksSinceLastCall,
-                calculateProgressPerTick(overlockTimes),
-                MAX_PROGRESS - progress);
-        PowerProgress powered = accumulatePoweredProgress(
-                extractedPower, slotScaledTax, requestedProgress, progressRemainder);
+                ticksSinceLastCall, calculateProgressPerTick(overlockTimes), MAX_PROGRESS - progress);
+        PowerProgress powered =
+                accumulatePoweredProgress(extractedPower, slotScaledTax, requestedProgress, progressRemainder);
         progressRemainder = powered.remainder();
         progress += powered.completed();
 
@@ -412,13 +410,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return 0;
         }
         double safePower = Math.min(requestedProgress * slotScaledTax, 500000.0D);
-        double extractedPower = grid.getEnergyService().extractAEPower(
-                safePower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        double extractedPower =
+                grid.getEnergyService().extractAEPower(safePower, Actionable.MODULATE, PowerMultiplier.CONFIG);
         if (!Double.isFinite(extractedPower) || extractedPower <= 0.0D) {
             return 0;
         }
-        PowerProgress powered = accumulatePoweredProgress(
-                extractedPower, slotScaledTax, requestedProgress, progressRemainder);
+        PowerProgress powered =
+                accumulatePoweredProgress(extractedPower, slotScaledTax, requestedProgress, progressRemainder);
         progressRemainder = powered.remainder();
         return powered.completed();
     }
@@ -430,26 +428,23 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     static int calculateRequestedProgress(int ticksPassed, int bonusValue, int remainingProgress) {
         long requested = (long) Math.max(0, ticksPassed) * Math.max(0, bonusValue);
-        return (int) Math.min(
-                Math.max(0, remainingProgress),
-                Math.min(Integer.MAX_VALUE, Math.max(0L, requested)));
+        return (int) Math.min(Math.max(0, remainingProgress), Math.min(Integer.MAX_VALUE, Math.max(0L, requested)));
     }
 
     static PowerProgress accumulatePoweredProgress(
             double extractedPower, double powerPerProgress, int requestedProgress, double previousRemainder) {
-        double safeRemainder = Double.isFinite(previousRemainder)
-                && previousRemainder >= 0.0D
-                && previousRemainder < 1.0D
-                ? previousRemainder
-                : 0.0D;
-        if (!Double.isFinite(extractedPower) || extractedPower <= 0.0D
-                || !Double.isFinite(powerPerProgress) || powerPerProgress <= 0.0D
+        double safeRemainder =
+                Double.isFinite(previousRemainder) && previousRemainder >= 0.0D && previousRemainder < 1.0D
+                        ? previousRemainder
+                        : 0.0D;
+        if (!Double.isFinite(extractedPower)
+                || extractedPower <= 0.0D
+                || !Double.isFinite(powerPerProgress)
+                || powerPerProgress <= 0.0D
                 || requestedProgress <= 0) {
             return new PowerProgress(0, safeRemainder);
         }
-        double fundedProgress = Math.min(
-                requestedProgress,
-                safeRemainder + extractedPower / powerPerProgress);
+        double fundedProgress = Math.min(requestedProgress, safeRemainder + extractedPower / powerPerProgress);
         int completed = (int) Math.min(requestedProgress, Math.floor(fundedProgress + 1.0E-9D));
         double remainder = completed >= requestedProgress
                 ? 0.0D
@@ -741,9 +736,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         this.reboot = nbt.getBoolean("reboot");
         int persistedProgress = nbt.getInt("progress");
         int persistedSlots = nbt.contains("occupiedThreadSlots") ? nbt.getInt("occupiedThreadSlots") : 1;
-        boolean invalidPersistedState = persistedProgress < 0
-                || persistedSlots <= 0
-                || persistedSlots > ECOBatchCraftingHelper.MAX_BATCH_SIZE;
+        boolean invalidPersistedState =
+                persistedProgress < 0 || persistedSlots <= 0 || persistedSlots > ECOBatchCraftingHelper.MAX_BATCH_SIZE;
         this.progress = Math.max(0, Math.min(MAX_PROGRESS, persistedProgress));
         this.progressRemainder = readProgressRemainder(nbt);
         this.occupiedThreadSlots = Math.max(1, Math.min(ECOBatchCraftingHelper.MAX_BATCH_SIZE, persistedSlots));
@@ -780,9 +774,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         this.craftingJobId = nbt.hasUUID("craftingJobId") ? nbt.getUUID("craftingJobId") : null;
 
-        if (isBusy && (!isRecoverableState()
-                || recoveryState == RecoveryState.RECOVERING_INPUTS && inputStacks.isEmpty()
-                || recoveryState != RecoveryState.RECOVERING_INPUTS && outputStacks.isEmpty())) {
+        if (isBusy
+                && (!isRecoverableState()
+                        || recoveryState == RecoveryState.RECOVERING_INPUTS && inputStacks.isEmpty()
+                        || recoveryState != RecoveryState.RECOVERING_INPUTS && outputStacks.isEmpty())) {
             invalidPersistedState = true;
         }
 

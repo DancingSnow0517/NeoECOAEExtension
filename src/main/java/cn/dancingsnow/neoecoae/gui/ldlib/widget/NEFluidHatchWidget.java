@@ -26,8 +26,8 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
     private static final int TANK_Y = 28;
     private static final int INVENTORY_Y = 60;
     private static final int HOTBAR_Y = 119;
-    private static final ResourceTexture SLOT_TEXTURE = new ResourceTexture(
-            ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/slot.png"));
+    private static final ResourceTexture SLOT_TEXTURE =
+            new ResourceTexture(ResourceLocation.fromNamespaceAndPath("neoecoae", "textures/gui/slot.png"));
 
     private final FluidTank tank;
     private final Inventory playerInventory;
@@ -71,18 +71,12 @@ public class NEFluidHatchWidget extends NELDLibMachineWidget {
     }
 
     private void addPlayerInventorySlots() {
-        NEPlayerInventoryWidgets.addPlayerInventorySlots(
-                this, playerInventory, inventoryX(), INVENTORY_Y, HOTBAR_Y);
+        NEPlayerInventoryWidgets.addPlayerInventorySlots(this, playerInventory, inventoryX(), INVENTORY_Y, HOTBAR_Y);
     }
 
     private void drawPlayerInventoryBackground(GuiGraphics graphics) {
         NEPlayerInventoryWidgets.drawPlayerInventorySlots(
-                graphics,
-                this::absX,
-                this::absY,
-                inventoryX(),
-                INVENTORY_Y,
-                HOTBAR_Y);
+                graphics, this::absX, this::absY, inventoryX(), INVENTORY_Y, HOTBAR_Y);
     }
 
     private int inventoryX() {

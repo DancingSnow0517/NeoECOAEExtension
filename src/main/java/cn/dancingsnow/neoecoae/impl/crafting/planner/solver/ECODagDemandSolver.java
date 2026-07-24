@@ -16,17 +16,14 @@ import java.util.Set;
 
 /** Linear-time batch propagation for acyclic target slices with one producer per demanded material. */
 public final class ECODagDemandSolver {
-    private ECODagDemandSolver() {
-    }
+    private ECODagDemandSolver() {}
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(ECOPlanningProblem<K, R> problem) {
         return trySolve(problem, ECOGraphPruner.targetReachable(problem));
     }
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph) {
         if (containsCycle(graph)) {
             return Optional.empty();
         }
@@ -48,8 +45,8 @@ public final class ECODagDemandSolver {
                 continue;
             }
             List<ECOPlanningOperation<K, R>> producers = graph.producersOf(deficientMaterial).stream()
-                .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0)
-                .toList();
+                    .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0)
+                    .toList();
             if (producers.size() != 1) {
                 return Optional.empty();
             }
@@ -87,33 +84,29 @@ public final class ECODagDemandSolver {
                 surplus = Math.addExact(surplus, entry.getValue());
             }
         }
-        ECOPlanCandidate<R> candidate = new ECOPlanCandidate<>(
-            executions, requestedShortfall, dependencyShortfall, sourceShortfall, surplus
-        );
+        ECOPlanCandidate<R> candidate =
+                new ECOPlanCandidate<>(executions, requestedShortfall, dependencyShortfall, sourceShortfall, surplus);
         ECOHyperflowResult.Status status = requestedShortfall > 0 || dependencyShortfall > 0
-            ? ECOHyperflowResult.Status.NO_ROUTE
-            : sourceShortfall > 0
-                ? ECOHyperflowResult.Status.MISSING_SOURCES
-                : ECOHyperflowResult.Status.COMPLETE;
+                ? ECOHyperflowResult.Status.NO_ROUTE
+                : sourceShortfall > 0 ? ECOHyperflowResult.Status.MISSING_SOURCES : ECOHyperflowResult.Status.COMPLETE;
         return Optional.of(new ECOHyperflowResult<>(status, candidate, expansions));
     }
 
     private static <K, R> boolean containsCycle(ECOPlanningGraph<K, R> graph) {
         return ECOStrongComponents.find(graph).stream().anyMatch(scc -> scc.size() > 1)
-            || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
-                .anyMatch(operation.outputs()::containsKey));
+                || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
+                        .anyMatch(operation.outputs()::containsKey));
     }
 
     private static <K, R> void enqueueIfDeficient(
-        K material,
-        Map<K, Long> balances,
-        ECOPlanningGraph<K, R> graph,
-        ArrayDeque<K> deficientMaterials,
-        Set<K> queued
-    ) {
+            K material,
+            Map<K, Long> balances,
+            ECOPlanningGraph<K, R> graph,
+            ArrayDeque<K> deficientMaterials,
+            Set<K> queued) {
         if (balances.getOrDefault(material, 0L) < 0
-            && !graph.producersOf(material).isEmpty()
-            && queued.add(material)) {
+                && !graph.producersOf(material).isEmpty()
+                && queued.add(material)) {
             deficientMaterials.addLast(material);
         }
     }

@@ -11,8 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class ECOStrongComponents {
-    private ECOStrongComponents() {
-    }
+    private ECOStrongComponents() {}
 
     public static <K, R> List<Set<K>> find(ECOPlanningGraph<K, R> graph) {
         Map<K, Set<K>> edges = new LinkedHashMap<>();
@@ -22,7 +21,7 @@ public final class ECOStrongComponents {
         for (var operation : graph.operations()) {
             for (K input : operation.inputs().keySet()) {
                 edges.computeIfAbsent(input, ignored -> new LinkedHashSet<>())
-                    .addAll(operation.outputs().keySet());
+                        .addAll(operation.outputs().keySet());
             }
         }
         Tarjan<K> tarjan = new Tarjan<>(edges);

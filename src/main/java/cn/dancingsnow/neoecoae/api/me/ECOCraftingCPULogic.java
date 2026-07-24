@@ -276,9 +276,7 @@ public class ECOCraftingCPULogic {
         try {
             deliveringBufferedFinalOutput = true;
             accepted = validateInsertionAmount(
-                    deliverFinalOutput(key, deliverable, Actionable.MODULATE),
-                    deliverable,
-                    "final-output requester");
+                    deliverFinalOutput(key, deliverable, Actionable.MODULATE), deliverable, "final-output requester");
         } catch (RuntimeException e) {
             logFinalOutputDeliveryFailure(e);
             return;
@@ -1560,9 +1558,8 @@ public class ECOCraftingCPULogic {
             }
 
             long finalAmount = amount - retained;
-            long acceptedOwnership = finalAmount <= 0L
-                    ? 0L
-                    : currentJob.bufferedFinalOutput.accept(finalAmount, Actionable.MODULATE);
+            long acceptedOwnership =
+                    finalAmount <= 0L ? 0L : currentJob.bufferedFinalOutput.accept(finalAmount, Actionable.MODULATE);
             if (acceptedOwnership > 0L) {
                 currentJob.timeTracker.decrementItems(acceptedOwnership, what.getType());
                 currentJob.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
@@ -1607,9 +1604,8 @@ public class ECOCraftingCPULogic {
                 long selectedAmount = 0L;
                 for (var possible : input.getPossibleInputs()) {
                     if (possible != null && possible.amount() > 0L && what.equals(possible.what())) {
-                        selectedAmount = Math.max(
-                                selectedAmount,
-                                Math.multiplyExact(possible.amount(), input.getMultiplier()));
+                        selectedAmount =
+                                Math.max(selectedAmount, Math.multiplyExact(possible.amount(), input.getMultiplier()));
                     }
                 }
                 perBatch = Math.addExact(perBatch, selectedAmount);

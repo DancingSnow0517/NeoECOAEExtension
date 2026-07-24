@@ -13,13 +13,10 @@ import java.util.Set;
 
 /** Validates that integer operation counts have an inventory-enabled execution order. */
 public final class ECOInventoryScheduler {
-    private ECOInventoryScheduler() {
-    }
+    private ECOInventoryScheduler() {}
 
     public static <K, R> ECOInventorySchedule<K, R> schedule(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanCandidate<R> candidate
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanCandidate<R> candidate) {
         Map<K, Long> inventory = new LinkedHashMap<>(problem.inventory());
         Map<R, Long> remaining = new LinkedHashMap<>(candidate.executions());
         List<ECOScheduledStep<R>> steps = new ArrayList<>();
@@ -86,20 +83,16 @@ public final class ECOInventoryScheduler {
     }
 
     private static <K, R> void enqueue(
-        ECOPlanningOperation<K, R> operation,
-        ArrayDeque<ECOPlanningOperation<K, R>> pendingOperations,
-        Set<R> queued
-    ) {
+            ECOPlanningOperation<K, R> operation,
+            ArrayDeque<ECOPlanningOperation<K, R>> pendingOperations,
+            Set<R> queued) {
         if (queued.add(operation.reference())) {
             pendingOperations.addLast(operation);
         }
     }
 
     private static <K, R> long maxExecutable(
-        ECOPlanningOperation<K, R> operation,
-        Map<K, Long> inventory,
-        long pending
-    ) {
+            ECOPlanningOperation<K, R> operation, Map<K, Long> inventory, long pending) {
         long result = pending;
         for (var input : operation.inputs().entrySet()) {
             result = Math.min(result, inventory.getOrDefault(input.getKey(), 0L) / input.getValue());
@@ -107,12 +100,7 @@ public final class ECOInventoryScheduler {
         return result;
     }
 
-    private static <K> void apply(
-        Map<K, Long> amounts,
-        Map<K, Long> inventory,
-        long batches,
-        boolean add
-    ) {
+    private static <K> void apply(Map<K, Long> amounts, Map<K, Long> inventory, long batches, boolean add) {
         amounts.forEach((key, amount) -> {
             long delta = Math.multiplyExact(amount, batches);
             inventory.merge(key, add ? delta : -delta, Math::addExact);

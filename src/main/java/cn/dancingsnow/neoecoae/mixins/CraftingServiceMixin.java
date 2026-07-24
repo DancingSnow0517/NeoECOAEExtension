@@ -3,8 +3,8 @@ package cn.dancingsnow.neoecoae.mixins;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
-import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.CalculationStrategy;
+import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
@@ -20,9 +20,9 @@ import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
+import java.util.Set;
 import java.util.concurrent.Future;
 import net.minecraft.world.level.Level;
-import java.util.Set;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -63,18 +63,12 @@ public abstract class CraftingServiceMixin {
             return;
         }
 
-        var lease = ECOPlanningHostLease.tryAcquire(
-                NeoECOCraftingServiceBridge.getComputationClusters(this.grid));
+        var lease = ECOPlanningHostLease.tryAcquire(NeoECOCraftingServiceBridge.getComputationClusters(this.grid));
         if (lease.isEmpty()) {
             return;
         }
 
-        var snapshot = ECOAE2SnapshotFactory.capture(
-                this.grid,
-                simRequester,
-                what,
-                amount,
-                strategy);
+        var snapshot = ECOAE2SnapshotFactory.capture(this.grid, simRequester, what, amount, strategy);
         if (snapshot.isEmpty()) {
             lease.get().close();
             return;
@@ -82,22 +76,14 @@ public abstract class CraftingServiceMixin {
 
         CraftingCalculation fallback;
         try {
-            fallback = new CraftingCalculation(
-                    level,
-                    this.grid,
-                    simRequester,
-                    new GenericStack(what, amount),
-                    strategy);
+            fallback =
+                    new CraftingCalculation(level, this.grid, simRequester, new GenericStack(what, amount), strategy);
         } catch (RuntimeException | LinkageError failure) {
             lease.get().close();
             return;
         }
 
-        cir.setReturnValue(ECOPlanningService.submit(
-                snapshot.get(),
-                strategy,
-                lease.get(),
-                fallback::run));
+        cir.setReturnValue(ECOPlanningService.submit(snapshot.get(), strategy, lease.get(), fallback::run));
     }
 
     @Inject(method = "addNode", at = @At("TAIL"))

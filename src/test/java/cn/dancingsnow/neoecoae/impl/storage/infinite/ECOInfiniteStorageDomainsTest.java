@@ -32,8 +32,6 @@ class ECOInfiniteStorageDomainsTest {
         Files.createDirectories(tempDir.resolve("dim_a").resolve("domain_" + domainId));
         Files.createDirectories(tempDir.resolve("dim_b").resolve("domain_" + domainId));
 
-        assertThrows(
-                IllegalStateException.class,
-                () -> ECOInfiniteStorageDomains.resolveDomainPath(tempDir, domainId));
+        assertThrows(IllegalStateException.class, () -> ECOInfiniteStorageDomains.resolveDomainPath(tempDir, domainId));
     }
 }

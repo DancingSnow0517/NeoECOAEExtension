@@ -17,15 +17,12 @@ import java.util.Optional;
 
 /** Converts a validated ECO result into the complete plan contract consumed by AE2 CPUs. */
 public final class ECOAE2PlanAssembler {
-    private ECOAE2PlanAssembler() {
-    }
+    private ECOAE2PlanAssembler() {}
 
     public static Optional<CraftingPlan> assemble(
-        ECOAE2PlanningSnapshot snapshot,
-        ECOHyperflowResult<IPatternDetails> result
-    ) {
+            ECOAE2PlanningSnapshot snapshot, ECOHyperflowResult<IPatternDetails> result) {
         if (result.status() != ECOHyperflowResult.Status.COMPLETE
-            && result.status() != ECOHyperflowResult.Status.MISSING_SOURCES) {
+                && result.status() != ECOHyperflowResult.Status.MISSING_SOURCES) {
             return Optional.empty();
         }
 
@@ -34,11 +31,8 @@ public final class ECOAE2PlanAssembler {
         Map<AEKey, Long> missing = findMissingSources(problem, candidate);
         Map<AEKey, Long> schedulableInventory = new LinkedHashMap<>(problem.inventory());
         missing.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
-        var schedulableProblem = new ECOPlanningProblem<>(
-            problem.operations(),
-            schedulableInventory,
-            problem.requested()
-        );
+        var schedulableProblem =
+                new ECOPlanningProblem<>(problem.operations(), schedulableInventory, problem.requested());
         var schedule = ECOInventoryScheduler.schedule(schedulableProblem, candidate);
         if (!schedule.executable()) {
             return Optional.empty();
@@ -52,21 +46,18 @@ public final class ECOAE2PlanAssembler {
         KeyCounter emittedItems = new KeyCounter();
         long bytes = estimateBytes(snapshot, candidate);
         return Optional.of(new CraftingPlan(
-            new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
-            bytes,
-            !missing.isEmpty(),
-            snapshot.multiplePaths(),
-            usedItems.get(),
-            emittedItems,
-            missingItems,
-            candidate.executions()
-        ));
+                new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
+                bytes,
+                !missing.isEmpty(),
+                snapshot.multiplePaths(),
+                usedItems.get(),
+                emittedItems,
+                missingItems,
+                candidate.executions()));
     }
 
     private static Map<AEKey, Long> findMissingSources(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        ECOPlanCandidate<IPatternDetails> candidate
-    ) {
+            ECOPlanningProblem<AEKey, IPatternDetails> problem, ECOPlanCandidate<IPatternDetails> candidate) {
         Map<AEKey, Long> balances = new LinkedHashMap<>(problem.inventory());
         Map<AEKey, Boolean> craftable = new HashMap<>();
         for (var operation : problem.operations()) {
@@ -87,11 +78,11 @@ public final class ECOAE2PlanAssembler {
     }
 
     private static Optional<KeyCounter> calculateUsedItems(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        ECOPlanCandidate<IPatternDetails> candidate,
-        Map<AEKey, Long> missing,
-        java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<IPatternDetails>> steps
-    ) {
+            ECOPlanningProblem<AEKey, IPatternDetails> problem,
+            ECOPlanCandidate<IPatternDetails> candidate,
+            Map<AEKey, Long> missing,
+            java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<IPatternDetails>>
+                    steps) {
         Map<IPatternDetails, ECOPlanningOperation<AEKey, IPatternDetails>> byReference = new HashMap<>();
         problem.operations().forEach(operation -> byReference.put(operation.reference(), operation));
         Map<AEKey, Long> current = new LinkedHashMap<>(problem.inventory());
@@ -108,7 +99,8 @@ public final class ECOAE2PlanAssembler {
                     long needed = Math.multiplyExact(input.getValue(), step.batches());
                     long available = current.getOrDefault(input.getKey(), 0L);
                     if (available < needed) {
-                        long supplied = Math.min(needed - available, syntheticRemaining.getOrDefault(input.getKey(), 0L));
+                        long supplied =
+                                Math.min(needed - available, syntheticRemaining.getOrDefault(input.getKey(), 0L));
                         if (supplied > 0) {
                             current.merge(input.getKey(), supplied, Math::addExact);
                             syntheticRemaining.merge(input.getKey(), -supplied, Math::addExact);
@@ -136,23 +128,24 @@ public final class ECOAE2PlanAssembler {
         }
     }
 
-    private static long estimateBytes(
-        ECOAE2PlanningSnapshot snapshot,
-        ECOPlanCandidate<IPatternDetails> candidate
-    ) {
-        double bytes = 8.0 * snapshot.requestedAmount()
-            / snapshot.requestedKey().getType().getAmountPerByte();
+    private static long estimateBytes(ECOAE2PlanningSnapshot snapshot, ECOPlanCandidate<IPatternDetails> candidate) {
+        double bytes = 8.0
+                * snapshot.requestedAmount()
+                / snapshot.requestedKey().getType().getAmountPerByte();
         long graphNodes = 1;
         for (var operation : snapshot.problem().operations()) {
             long count = candidate.executions().getOrDefault(operation.reference(), 0L);
             if (count <= 0) continue;
             bytes += count;
-            graphNodes += 1L + snapshot.inputSlotCounts().getOrDefault(
-                operation.reference(),
-                operation.inputs().size()
-            );
+            graphNodes += 1L
+                    + snapshot.inputSlotCounts()
+                            .getOrDefault(
+                                    operation.reference(), operation.inputs().size());
             for (var input : operation.inputs().entrySet()) {
-                bytes += 8.0 * input.getValue() * count / input.getKey().getType().getAmountPerByte();
+                bytes += 8.0
+                        * input.getValue()
+                        * count
+                        / input.getKey().getType().getAmountPerByte();
             }
         }
         bytes += graphNodes * 8.0;

@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.data.tag;
 
+import appeng.core.definitions.AEItems;
 import cn.dancingsnow.neoecoae.all.NEItems;
 import cn.dancingsnow.neoecoae.all.NETags;
-import appeng.core.definitions.AEItems;
 import com.tterrag.registrate.providers.RegistrateItemTagsProvider;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;

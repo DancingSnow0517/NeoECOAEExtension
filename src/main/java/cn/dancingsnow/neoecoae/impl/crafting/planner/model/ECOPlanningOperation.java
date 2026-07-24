@@ -7,11 +7,7 @@ import java.util.Set;
 
 /** An immutable weighted hyperedge in the ECO crafting graph. */
 public record ECOPlanningOperation<K, R>(
-    R reference,
-    Map<K, Long> inputs,
-    Map<K, Long> outputs,
-    Set<K> selectableOutputs
-) {
+        R reference, Map<K, Long> inputs, Map<K, Long> outputs, Set<K> selectableOutputs) {
     public ECOPlanningOperation(R reference, Map<K, Long> inputs, Map<K, Long> outputs) {
         this(reference, inputs, outputs, outputs.keySet());
     }

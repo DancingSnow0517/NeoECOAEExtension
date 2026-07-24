@@ -9,8 +9,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanAssembler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanningSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOPlanningSolver;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
@@ -30,23 +30,21 @@ public final class ECOPlanningService {
         return thread;
     });
 
-    private ECOPlanningService() {
-    }
+    private ECOPlanningService() {}
 
     public static Future<ICraftingPlan> submit(
-        ECOAE2PlanningSnapshot snapshot,
-        CalculationStrategy strategy,
-        ECOPlanningHostLease lease,
-        Supplier<ICraftingPlan> ae2Fallback
-    ) {
+            ECOAE2PlanningSnapshot snapshot,
+            CalculationStrategy strategy,
+            ECOPlanningHostLease lease,
+            Supplier<ICraftingPlan> ae2Fallback) {
         return PLANNING_POOL.submit(() -> {
             try {
                 long deadlineNanos = lease.budget().deadlineNanos();
                 Optional<CraftingPlan> ecoPlan = Optional.empty();
                 try {
                     ecoPlan = strategy == CalculationStrategy.CRAFT_LESS
-                        ? solveCraftLess(snapshot, lease, deadlineNanos)
-                        : solve(snapshot, lease, deadlineNanos);
+                            ? solveCraftLess(snapshot, lease, deadlineNanos)
+                            : solve(snapshot, lease, deadlineNanos);
                 } catch (CancellationException cancelled) {
                     throw cancelled;
                 } catch (RuntimeException | LinkageError failure) {
@@ -67,10 +65,7 @@ public final class ECOPlanningService {
     }
 
     private static Optional<CraftingPlan> solve(
-        ECOAE2PlanningSnapshot snapshot,
-        ECOPlanningHostLease lease,
-        long deadlineNanos
-    ) {
+            ECOAE2PlanningSnapshot snapshot, ECOPlanningHostLease lease, long deadlineNanos) {
         try {
             var result = ECOPlanningSolver.solve(snapshot.problem(), lease.budget(), deadlineNanos);
             return ECOAE2PlanAssembler.assemble(snapshot, result);
@@ -83,14 +78,10 @@ public final class ECOPlanningService {
     }
 
     private static Optional<CraftingPlan> solveCraftLess(
-        ECOAE2PlanningSnapshot snapshot,
-        ECOPlanningHostLease lease,
-        long deadlineNanos
-    ) {
+            ECOAE2PlanningSnapshot snapshot, ECOPlanningHostLease lease, long deadlineNanos) {
         ECOPlanningGraph<appeng.api.stacks.AEKey, IPatternDetails> graph = ECOGraphPruner.targetReachable(
-            new ECOPlanningGraph<>(snapshot.problem().operations()),
-            snapshot.problem().requested().keySet()
-        );
+                new ECOPlanningGraph<>(snapshot.problem().operations()),
+                snapshot.problem().requested().keySet());
         long low = 0L;
         long high = snapshot.requestedAmount();
         CraftingPlan best = null;
@@ -111,11 +102,10 @@ public final class ECOPlanningService {
     }
 
     private static Optional<CraftingPlan> calculate(
-        ECOAE2PlanningSnapshot snapshot,
-        ECOPlanningGraph<appeng.api.stacks.AEKey, IPatternDetails> graph,
-        ECOPlanningHostLease lease,
-        long deadlineNanos
-    ) {
+            ECOAE2PlanningSnapshot snapshot,
+            ECOPlanningGraph<appeng.api.stacks.AEKey, IPatternDetails> graph,
+            ECOPlanningHostLease lease,
+            long deadlineNanos) {
         try {
             var result = ECOPlanningSolver.solve(snapshot.problem(), graph, lease.budget(), deadlineNanos);
             return ECOAE2PlanAssembler.assemble(snapshot, result);

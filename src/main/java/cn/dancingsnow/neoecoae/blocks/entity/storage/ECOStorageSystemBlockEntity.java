@@ -414,23 +414,27 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         if (memberDomains.size() != 1) {
             if (memberDomains.size() > 1) {
-                LOGGER.error("Unable to recover ECO infinite storage at {} because members reference multiple domains: {}",
-                        worldPosition, memberDomains);
+                LOGGER.error(
+                        "Unable to recover ECO infinite storage at {} because members reference multiple domains: {}",
+                        worldPosition,
+                        memberDomains);
             }
             return;
         }
         UUID recoveredDomainId = memberDomains.iterator().next();
         if (!ECOInfiniteStorageDomains.exists(serverLevel, recoveredDomainId)) {
-            LOGGER.error("Unable to recover missing ECO infinite storage domain {} at {}",
-                    recoveredDomainId, worldPosition);
+            LOGGER.error(
+                    "Unable to recover missing ECO infinite storage domain {} at {}", recoveredDomainId, worldPosition);
             return;
         }
         infiniteDomainId = recoveredDomainId;
         if (!hostMode.isInfiniteState()) {
             hostMode = ECOStorageHostMode.MIGRATING_TO_INFINITE;
         }
-        LOGGER.warn("Recovered ECO infinite storage domain {} at {} from storage matrix members",
-                recoveredDomainId, worldPosition);
+        LOGGER.warn(
+                "Recovered ECO infinite storage domain {} at {} from storage matrix members",
+                recoveredDomainId,
+                worldPosition);
         setChanged();
     }
 
@@ -558,16 +562,18 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         ECOCellStorageManager.flushBudgeted(0L);
     }
 
-    private UUID migrationTransactionId(UUID domainId, ECODriveBlockEntity drive, AEKey key, long amount, String direction) {
-        String value = domainId + ":" + direction + ":" + drive.getBlockPos().asLong() + ":"
-                + key.toTagGeneric() + ":" + amount;
+    private UUID migrationTransactionId(
+            UUID domainId, ECODriveBlockEntity drive, AEKey key, long amount, String direction) {
+        String value = domainId + ":" + direction + ":" + drive.getBlockPos().asLong() + ":" + key.toTagGeneric() + ":"
+                + amount;
         return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
     }
 
     private void restoreInfiniteDomainToNormalStorage() {
         RestorePlan plan = createInfiniteRestorePlan(false);
         if (!plan.canRestore()) {
-            logInfiniteRestoreWarning("Unable to restore ECO infinite storage domain {}: {}", infiniteDomainId, plan.reason());
+            logInfiniteRestoreWarning(
+                    "Unable to restore ECO infinite storage domain {}: {}", infiniteDomainId, plan.reason());
             return;
         }
         restoreInfiniteDomainToNormalStorage(plan);
@@ -619,8 +625,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 if (remaining <= 0L) {
                     break;
                 }
-                long inserted = target.simulatedCell().simulateInsertForMigration(
-                        key, remaining, target.simulatedContents());
+                long inserted =
+                        target.simulatedCell().simulateInsertForMigration(key, remaining, target.simulatedContents());
                 if (inserted > 0L) {
                     target.simulatedContents().add(key, inserted);
                     remaining -= inserted;
@@ -649,8 +655,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             if (stack == null || stack.isEmpty()) {
                 continue;
             }
-            if (ECOInfiniteStorageMember.isMember(stack)
-                    && !ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
+            if (ECOInfiniteStorageMember.isMember(stack) && !ECOInfiniteStorageMember.isMemberOf(stack, domainId)) {
                 continue;
             }
             ItemStack simulationStack = stack.copy();
@@ -679,7 +684,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         long reserved = Math.max(
                 1L,
-                total / INFINITE_RESTORE_MARGIN_DENOMINATOR
+                total
+                        / INFINITE_RESTORE_MARGIN_DENOMINATOR
                         * (INFINITE_RESTORE_MARGIN_DENOMINATOR - INFINITE_RESTORE_MARGIN_NUMERATOR));
         return used <= total - reserved;
     }
@@ -694,7 +700,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         if (engine.getRevision() != plan.engineRevision()) {
-            logInfiniteRestoreWarning("ECO infinite storage domain {} changed during restore planning; retrying later", infiniteDomainId);
+            logInfiniteRestoreWarning(
+                    "ECO infinite storage domain {} changed during restore planning; retrying later", infiniteDomainId);
             return;
         }
 
@@ -717,7 +724,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 if (!(cell instanceof ECOStorageCell ecoCell)) {
                     continue;
                 }
-                UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, original, "from-domain");
+                UUID transactionId =
+                        migrationTransactionId(infiniteDomainId, target.drive(), key, original, "from-domain");
                 long inserted = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
                 if (inserted <= 0L) {
                     inserted = insertForRestore(ecoCell, key, remaining, Actionable.MODULATE, source);
@@ -731,20 +739,26 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 }
             }
             if (remaining > 0L) {
-                logInfiniteRestoreWarning("ECO infinite storage restore changed during execution; keeping domain {} mounted", infiniteDomainId);
+                logInfiniteRestoreWarning(
+                        "ECO infinite storage restore changed during execution; keeping domain {} mounted",
+                        infiniteDomainId);
                 engine.flushBudgeted(0L);
                 return;
             }
         }
 
         if (engine.getRevision() != plan.engineRevision()) {
-            logInfiniteRestoreWarning("ECO infinite storage domain {} changed before restore verification; keeping it mounted", infiniteDomainId);
+            logInfiniteRestoreWarning(
+                    "ECO infinite storage domain {} changed before restore verification; keeping it mounted",
+                    infiniteDomainId);
             engine.flushBudgeted(0L);
             return;
         }
         serverLevel.getChunkSource().save(true);
         if (!verifyRestoredContents(plan.targets(), expectedFinalAmounts)) {
-            LOGGER.error("Unable to verify restored ECO storage contents for domain {}; keeping the domain mounted", infiniteDomainId);
+            LOGGER.error(
+                    "Unable to verify restored ECO storage contents for domain {}; keeping the domain mounted",
+                    infiniteDomainId);
             engine.flushBudgeted(0L);
             return;
         }
@@ -756,7 +770,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
             long extracted = engine.extract(entry.getKey(), amount, Actionable.MODULATE);
             if (extracted != amount) {
-                LOGGER.warn("Unable to finalize ECO infinite storage restore for domain {}; keeping it mounted", infiniteDomainId);
+                LOGGER.warn(
+                        "Unable to finalize ECO infinite storage restore for domain {}; keeping it mounted",
+                        infiniteDomainId);
                 engine.flushBudgeted(0L);
                 return;
             }
@@ -778,7 +794,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             long domainAmount = entry.getLongValue();
             long alreadyRestored = 0L;
             for (RestoreTarget target : targets) {
-                UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, domainAmount, "from-domain");
+                UUID transactionId =
+                        migrationTransactionId(infiniteDomainId, target.drive(), key, domainAmount, "from-domain");
                 alreadyRestored = saturatedAdd(alreadyRestored, target.drive().getRestoreReceipt(transactionId));
             }
             long outstanding = Math.max(0L, domainAmount - Math.min(domainAmount, alreadyRestored));
@@ -808,8 +825,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return restored;
     }
 
-    private long insertForRestore(
-            ECOStorageCell cell, AEKey key, long amount, Actionable mode, IActionSource source) {
+    private long insertForRestore(ECOStorageCell cell, AEKey key, long amount, Actionable mode, IActionSource source) {
         return cell.insertForMigration(key, amount, mode);
     }
 

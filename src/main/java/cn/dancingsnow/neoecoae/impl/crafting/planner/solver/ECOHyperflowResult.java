@@ -3,11 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import java.util.Objects;
 
-public record ECOHyperflowResult<R>(
-    Status status,
-    ECOPlanCandidate<R> candidate,
-    long expandedStates
-) {
+public record ECOHyperflowResult<R>(Status status, ECOPlanCandidate<R> candidate, long expandedStates) {
     public ECOHyperflowResult {
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(candidate, "candidate");

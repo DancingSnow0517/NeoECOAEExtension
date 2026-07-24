@@ -10,19 +10,17 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -77,6 +75,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private long revision;
     private long lastMutationNanos = Long.MIN_VALUE;
     private volatile boolean degraded;
+
     @Nullable private volatile Throwable persistenceFailure;
 
     @Nullable private DataOutputStream walOut;
@@ -477,10 +476,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             ByteBuffer data = ByteBuffer.wrap(compressed.toByteArray());
             Path tmp = domainPath.resolve(shardFileName(shard) + ".tmp");
             try (FileChannel channel = FileChannel.open(
-                    tmp,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.WRITE)) {
+                    tmp, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
                 while (data.hasRemaining()) {
                     channel.write(data);
                 }
@@ -791,10 +787,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             Files.createDirectories(receipt.getParent());
             Path tmp = receipt.resolveSibling(receipt.getFileName() + ".tmp");
             Files.writeString(
-                    tmp,
-                    transactionId.toString(),
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING);
+                    tmp, transactionId.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
                 channel.force(true);
             }

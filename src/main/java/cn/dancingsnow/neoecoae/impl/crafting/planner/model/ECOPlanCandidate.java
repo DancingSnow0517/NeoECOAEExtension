@@ -5,12 +5,11 @@ import java.util.Map;
 import java.util.Objects;
 
 public record ECOPlanCandidate<R>(
-    Map<R, Long> executions,
-    long requestedShortfall,
-    long dependencyShortfall,
-    long sourceShortfall,
-    long surplus
-) {
+        Map<R, Long> executions,
+        long requestedShortfall,
+        long dependencyShortfall,
+        long sourceShortfall,
+        long surplus) {
     public ECOPlanCandidate {
         Objects.requireNonNull(executions, "executions");
         Map<R, Long> copy = new LinkedHashMap<>();

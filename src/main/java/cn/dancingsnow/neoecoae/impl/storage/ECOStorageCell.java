@@ -264,7 +264,8 @@ public class ECOStorageCell implements IECOStorageCell {
 
     /** Inserts for a lossless migration without applying a void upgrade's reported acceptance. */
     public long insertForMigration(AEKey what, long amount, Actionable mode) {
-        if (amount <= 0L || !keyType.contains(what)
+        if (amount <= 0L
+                || !keyType.contains(what)
                 || !partitionList.matchesFilter(what, partitionListMode)
                 || cellType.isBlackListed(cellStack, what)) {
             return 0L;
@@ -277,7 +278,9 @@ public class ECOStorageCell implements IECOStorageCell {
      * a restore plan is being preflighted.
      */
     public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
-        if (amount <= 0L || simulatedContents == null || !keyType.contains(what)
+        if (amount <= 0L
+                || simulatedContents == null
+                || !keyType.contains(what)
                 || !partitionList.matchesFilter(what, partitionListMode)
                 || cellType.isBlackListed(cellStack, what)
                 || !canStoreKeyInsideStorageCell(what)) {
@@ -294,35 +297,31 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        long unusedItemCount = storedItemCount % amountPerByte == 0L
-                ? 0L
-                : amountPerByte - storedItemCount % amountPerByte;
+        long unusedItemCount =
+                storedItemCount % amountPerByte == 0L ? 0L : amountPerByte - storedItemCount % amountPerByte;
         long roundedItemCount = LongMath.saturatedAdd(storedItemCount, unusedItemCount);
         long bytesForItems = roundedItemCount / amountPerByte;
         long typeBytes = LongMath.saturatedMultiply(storedTypes, getBytesPerType());
         long usedBytes = LongMath.saturatedAdd(typeBytes, bytesForItems);
         long freeBytes = Math.max(0L, getTotalBytes() - usedBytes);
-        long remainingItemCount = LongMath.saturatedAdd(
-                LongMath.saturatedMultiply(freeBytes, amountPerByte), unusedItemCount);
+        long remainingItemCount =
+                LongMath.saturatedAdd(LongMath.saturatedMultiply(freeBytes, amountPerByte), unusedItemCount);
         long remainingTypes = Math.min(
                 getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes),
                 getBytesPerType() <= 0 ? 0L : freeBytes / getBytesPerType());
 
         if (currentAmount <= 0L) {
-            boolean canHoldNewType = (freeBytes > getBytesPerType()
-                    || freeBytes == getBytesPerType() && unusedItemCount > 0L)
-                    && remainingTypes > 0L;
+            boolean canHoldNewType =
+                    (freeBytes > getBytesPerType() || freeBytes == getBytesPerType() && unusedItemCount > 0L)
+                            && remainingTypes > 0L;
             if (!canHoldNewType) {
                 return 0L;
             }
-            remainingItemCount = Math.max(
-                    0L,
-                    remainingItemCount - (long) getBytesPerType() * amountPerByte);
+            remainingItemCount = Math.max(0L, remainingItemCount - (long) getBytesPerType() * amountPerByte);
         }
 
-        remainingItemCount = Math.min(
-                remainingItemCount,
-                Math.max(0L, maxItemsPerType - Math.min(maxItemsPerType, currentAmount)));
+        remainingItemCount =
+                Math.min(remainingItemCount, Math.max(0L, maxItemsPerType - Math.min(maxItemsPerType, currentAmount)));
         return Math.min(amount, remainingItemCount);
     }
 
@@ -339,13 +338,11 @@ public class ECOStorageCell implements IECOStorageCell {
             }
         }
         long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
-        long unusedItemCount = storedItemCount % amountPerByte == 0L
-                ? 0L
-                : amountPerByte - storedItemCount % amountPerByte;
+        long unusedItemCount =
+                storedItemCount % amountPerByte == 0L ? 0L : amountPerByte - storedItemCount % amountPerByte;
         long roundedItemCount = LongMath.saturatedAdd(storedItemCount, unusedItemCount);
         long bytesForItems = roundedItemCount / amountPerByte;
-        return LongMath.saturatedAdd(
-                LongMath.saturatedMultiply(storedTypes, getBytesPerType()), bytesForItems);
+        return LongMath.saturatedAdd(LongMath.saturatedMultiply(storedTypes, getBytesPerType()), bytesForItems);
     }
 
     public void clearAllStoredStacks() {

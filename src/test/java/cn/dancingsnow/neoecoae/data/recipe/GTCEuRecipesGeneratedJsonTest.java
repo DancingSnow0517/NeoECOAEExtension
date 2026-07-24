@@ -206,7 +206,8 @@ class GTCEuRecipesGeneratedJsonTest {
     void gtceuCompatibleAluminumDustTagsKeepEcoFallback() throws IOException {
         for (String path : new String[] {"dusts/aluminium", "dusts/aluminum"}) {
             JsonObject tag = JsonParser.parseString(
-                            Files.readString(Path.of("src/generated/resources/data/forge/tags/items").resolve(path + ".json")))
+                            Files.readString(Path.of("src/generated/resources/data/forge/tags/items")
+                                    .resolve(path + ".json")))
                     .getAsJsonObject();
 
             assertTrue(hasTagValue(tag, "neoecoae:aluminum_dust"), path);

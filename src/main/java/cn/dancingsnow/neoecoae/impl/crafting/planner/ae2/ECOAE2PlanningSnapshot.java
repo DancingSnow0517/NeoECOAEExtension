@@ -7,12 +7,11 @@ import java.util.Map;
 import java.util.Objects;
 
 public record ECOAE2PlanningSnapshot(
-    ECOPlanningProblem<AEKey, IPatternDetails> problem,
-    AEKey requestedKey,
-    long requestedAmount,
-    boolean multiplePaths,
-    Map<IPatternDetails, Integer> inputSlotCounts
-) {
+        ECOPlanningProblem<AEKey, IPatternDetails> problem,
+        AEKey requestedKey,
+        long requestedAmount,
+        boolean multiplePaths,
+        Map<IPatternDetails, Integer> inputSlotCounts) {
     public ECOAE2PlanningSnapshot {
         Objects.requireNonNull(problem, "problem");
         Objects.requireNonNull(requestedKey, "requestedKey");
@@ -27,15 +26,10 @@ public record ECOAE2PlanningSnapshot(
             throw new IllegalArgumentException("amount must be positive");
         }
         return new ECOAE2PlanningSnapshot(
-            new ECOPlanningProblem<>(
-                problem.operations(),
-                problem.inventory(),
-                Map.of(requestedKey, amount)
-            ),
-            requestedKey,
-            amount,
-            multiplePaths,
-            inputSlotCounts
-        );
+                new ECOPlanningProblem<>(problem.operations(), problem.inventory(), Map.of(requestedKey, amount)),
+                requestedKey,
+                amount,
+                multiplePaths,
+                inputSlotCounts);
     }
 }

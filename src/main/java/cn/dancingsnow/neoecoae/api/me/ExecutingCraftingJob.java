@@ -135,8 +135,8 @@ public class ExecutingCraftingJob {
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND));
-        boolean invalidPersistedState = !readCounter(
-                inFlightOutputs, data.getList(NBT_IN_FLIGHT_OUTPUTS, Tag.TAG_COMPOUND));
+        boolean invalidPersistedState =
+                !readCounter(inFlightOutputs, data.getList(NBT_IN_FLIGHT_OUTPUTS, Tag.TAG_COMPOUND));
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);

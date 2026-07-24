@@ -1,11 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
-public record ECOSolveBudget(
-    long maxExpandedStates,
-    int maxDepth,
-    int extraBatchChoices,
-    long maxDurationNanos
-) {
+public record ECOSolveBudget(long maxExpandedStates, int maxDepth, int extraBatchChoices, long maxDurationNanos) {
     private static final long DEFAULT_MAX_DURATION_NANOS = 1_000_000_000L;
     public static final ECOSolveBudget DEFAULT = new ECOSolveBudget(50_000, 256, 2);
 
@@ -27,6 +22,6 @@ public record ECOSolveBudget(
 
     public static boolean shouldStop(long deadlineNanos) {
         return Thread.currentThread().isInterrupted()
-            || (deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0L);
+                || (deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0L);
     }
 }

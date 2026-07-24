@@ -17,32 +17,21 @@ import java.util.Set;
 
 /** Bounded integer search over the target-reachable crafting hypergraph. */
 public final class ECOIntegerHyperflowSolver {
-    private ECOIntegerHyperflowSolver() {
-    }
+    private ECOIntegerHyperflowSolver() {}
 
-    public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOSolveBudget budget
-    ) {
+    public static <K, R> ECOHyperflowResult<R> solve(ECOPlanningProblem<K, R> problem, ECOSolveBudget budget) {
         long deadlineNanos = budget.deadlineNanos();
         ECOPlanningGraph<K, R> graph = ECOGraphPruner.targetReachable(problem);
         return solve(problem, graph, budget, deadlineNanos);
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        ECOSolveBudget budget
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph, ECOSolveBudget budget) {
         return solve(problem, graph, budget, budget.deadlineNanos());
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
-        ECOPlanningProblem<K, R> problem,
-        ECOPlanningGraph<K, R> graph,
-        ECOSolveBudget budget,
-        long deadlineNanos
-    ) {
+            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph, ECOSolveBudget budget, long deadlineNanos) {
         Search<K, R> search = new Search<>(problem, graph, budget, deadlineNanos);
         return search.run();
     }
@@ -61,11 +50,10 @@ public final class ECOIntegerHyperflowSolver {
         private boolean exhausted;
 
         private Search(
-            ECOPlanningProblem<K, R> problem,
-            ECOPlanningGraph<K, R> graph,
-            ECOSolveBudget budget,
-            long deadlineNanos
-        ) {
+                ECOPlanningProblem<K, R> problem,
+                ECOPlanningGraph<K, R> graph,
+                ECOSolveBudget budget,
+                long deadlineNanos) {
             this.problem = problem;
             this.graph = graph;
             this.budget = budget;
@@ -86,8 +74,11 @@ public final class ECOIntegerHyperflowSolver {
             explore(new long[operations.size()], 0);
             if (best == null) {
                 best = new ECOPlanCandidate<>(
-                    Map.of(), ECOPlannerMath.saturatedSum(problem.requested().values()), 0, 0, 0
-                );
+                        Map.of(),
+                        ECOPlannerMath.saturatedSum(problem.requested().values()),
+                        0,
+                        0,
+                        0);
             }
             ECOHyperflowResult.Status status;
             if (exhausted && best.requestedShortfall() > 0) {
@@ -124,9 +115,7 @@ public final class ECOIntegerHyperflowSolver {
             if (best == null || compare(evaluation.candidate, best) < 0) {
                 best = evaluation.candidate;
             }
-            if (best.requestedShortfall() == 0
-                && best.dependencyShortfall() == 0
-                && best.sourceShortfall() == 0) {
+            if (best.requestedShortfall() == 0 && best.dependencyShortfall() == 0 && best.sourceShortfall() == 0) {
                 return;
             }
             Deficiency<K> deficiency = chooseExpandableDeficiency(evaluation.balances);
@@ -135,12 +124,10 @@ public final class ECOIntegerHyperflowSolver {
             }
 
             List<ECOPlanningOperation<K, R>> producers = new ArrayList<>(graph.producersOf(deficiency.material));
-            producers.sort(Comparator.comparingLong(
-                operation -> -ECOPlannerMath.positiveNet(operation, deficiency.material)
-            ));
+            producers.sort(
+                    Comparator.comparingLong(operation -> -ECOPlannerMath.positiveNet(operation, deficiency.material)));
             long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
-                deficiency.material, producers, evaluation.balances, problem.requested()
-            );
+                    deficiency.material, producers, evaluation.balances, problem.requested());
             for (var producer : producers) {
                 if (shouldStop()) {
                     exhausted = true;
@@ -210,9 +197,8 @@ public final class ECOIntegerHyperflowSolver {
                     return null;
                 }
                 long present = Math.max(0, available.getOrDefault(request.getKey(), 0L));
-                requestedShortfall = ECOPlannerMath.saturatedAdd(
-                    requestedShortfall, Math.max(0, request.getValue() - present)
-                );
+                requestedShortfall =
+                        ECOPlannerMath.saturatedAdd(requestedShortfall, Math.max(0, request.getValue() - present));
                 balances.merge(request.getKey(), -request.getValue(), ECOPlannerMath::saturatedAdd);
             }
 
@@ -236,9 +222,9 @@ public final class ECOIntegerHyperflowSolver {
                 }
             }
             return new Evaluation<>(
-                balances,
-                new ECOPlanCandidate<>(executions, requestedShortfall, dependencyShortfall, sourceShortfall, surplus)
-            );
+                    balances,
+                    new ECOPlanCandidate<>(
+                            executions, requestedShortfall, dependencyShortfall, sourceShortfall, surplus));
         }
 
         private Deficiency<K> chooseExpandableDeficiency(Map<K, Long> balances) {
@@ -283,7 +269,9 @@ public final class ECOIntegerHyperflowSolver {
             if (result == 0) result = Long.compare(left.sourceShortfall(), right.sourceShortfall());
             if (result == 0) result = Long.compare(left.totalExecutions(), right.totalExecutions());
             if (result == 0) result = Long.compare(left.surplus(), right.surplus());
-            if (result == 0) result = Integer.compare(left.executions().size(), right.executions().size());
+            if (result == 0)
+                result = Integer.compare(
+                        left.executions().size(), right.executions().size());
             return result;
         }
     }
@@ -298,11 +286,9 @@ public final class ECOIntegerHyperflowSolver {
         target.merge(key, delta, ECOPlannerMath::saturatedAdd);
     }
 
-    private record Evaluation<K, R>(Map<K, Long> balances, ECOPlanCandidate<R> candidate) {
-    }
+    private record Evaluation<K, R>(Map<K, Long> balances, ECOPlanCandidate<R> candidate) {}
 
-    private record Deficiency<K>(K material, long amount) {
-    }
+    private record Deficiency<K>(K material, long amount) {}
 
     private static final class CountVector {
         private final long[] values;

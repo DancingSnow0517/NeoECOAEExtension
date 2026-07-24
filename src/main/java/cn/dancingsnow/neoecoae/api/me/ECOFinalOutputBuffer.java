@@ -6,8 +6,7 @@ import appeng.api.config.Actionable;
 final class ECOFinalOutputBuffer {
     private long amount;
 
-    ECOFinalOutputBuffer() {
-    }
+    ECOFinalOutputBuffer() {}
 
     ECOFinalOutputBuffer(long amount) {
         if (amount < 0L) {

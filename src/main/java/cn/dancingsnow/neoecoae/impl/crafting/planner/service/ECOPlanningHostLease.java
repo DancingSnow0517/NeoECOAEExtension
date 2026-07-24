@@ -31,15 +31,17 @@ public final class ECOPlanningHostLease implements AutoCloseable {
     public static Optional<ECOPlanningHostLease> tryAcquire(Collection<NEComputationCluster> candidates) {
         var ordered = new ArrayList<>(candidates);
         ordered.sort(Comparator.comparingInt(NEComputationCluster::getCPUAccelerators)
-            .reversed()
-            .thenComparing(Comparator.comparingInt(NEComputationCluster::getMaxThreads).reversed())
-            .thenComparing(Comparator.comparingLong(NEComputationCluster::getAvailableStorage).reversed()));
+                .reversed()
+                .thenComparing(Comparator.comparingInt(NEComputationCluster::getMaxThreads)
+                        .reversed())
+                .thenComparing(Comparator.comparingLong(NEComputationCluster::getAvailableStorage)
+                        .reversed()));
         synchronized (ACTIVE_JOBS) {
             for (NEComputationCluster candidate : ordered) {
                 if (candidate == null
-                    || !candidate.isActive()
-                    || candidate.getMaxThreads() <= 0
-                    || candidate.getAvailableStorage() <= 0) {
+                        || !candidate.isActive()
+                        || candidate.getMaxThreads() <= 0
+                        || candidate.getAvailableStorage() <= 0) {
                     continue;
                 }
                 int active = ACTIVE_JOBS.getOrDefault(candidate, 0);
