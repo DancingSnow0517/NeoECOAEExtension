@@ -1,8 +1,8 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
-import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 
 /** Selects the linear/component path before falling back to bounded integer search. */
 public final class ECOPlanningSolver {
@@ -14,7 +14,8 @@ public final class ECOPlanningSolver {
         ECOSolveBudget budget
     ) {
         long deadlineNanos = budget.deadlineNanos();
-        return solve(problem, budget, deadlineNanos);
+        ECOPlanningGraph<K, R> graph = ECOGraphPruner.targetReachable(problem);
+        return solve(problem, graph, budget, deadlineNanos);
     }
 
     public static <K, R> ECOHyperflowResult<R> solve(
@@ -22,10 +23,7 @@ public final class ECOPlanningSolver {
         ECOSolveBudget budget,
         long deadlineNanos
     ) {
-        ECOPlanningGraph<K, R> graph = ECOGraphPruner.targetReachable(
-            new ECOPlanningGraph<>(problem.operations()),
-            problem.requested().keySet()
-        );
+        ECOPlanningGraph<K, R> graph = ECOGraphPruner.targetReachable(problem);
         return solve(problem, graph, budget, deadlineNanos);
     }
 

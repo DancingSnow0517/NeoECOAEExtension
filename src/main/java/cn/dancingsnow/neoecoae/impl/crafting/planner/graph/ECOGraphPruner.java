@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.graph;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -29,5 +30,10 @@ public final class ECOGraphPruner {
             }
         }
         return new ECOPlanningGraph<>(retained.stream().toList());
+    }
+
+    /** Convenience overload that extracts operations and requested keys from a problem. */
+    public static <K, R> ECOPlanningGraph<K, R> targetReachable(ECOPlanningProblem<K, R> problem) {
+        return targetReachable(new ECOPlanningGraph<>(problem.operations()), problem.requested().keySet());
     }
 }

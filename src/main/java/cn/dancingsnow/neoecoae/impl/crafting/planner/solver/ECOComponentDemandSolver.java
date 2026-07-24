@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.ArrayDeque;
@@ -30,10 +29,7 @@ public final class ECOComponentDemandSolver {
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(
         ECOPlanningProblem<K, R> problem
     ) {
-        return trySolve(problem, ECOGraphPruner.targetReachable(
-            new ECOPlanningGraph<>(problem.operations()),
-            problem.requested().keySet()
-        ), ECOSolveBudget.DEFAULT.deadlineNanos());
+        return trySolve(problem, ECOGraphPruner.targetReachable(problem), ECOSolveBudget.DEFAULT.deadlineNanos());
     }
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(
@@ -73,10 +69,11 @@ public final class ECOComponentDemandSolver {
                 if (deficit <= 0) {
                     continue;
                 }
+                List<ECOPlanningOperation<K, R>> producers = graph.producersOf(material);
                 ECOPlanningOperation<K, R> producer = chooseProducer(
                     material,
                     deficit,
-                    graph.producersOf(material),
+                    producers,
                     balances,
                     problem.requested(),
                     expandableMaterials,
@@ -93,13 +90,10 @@ public final class ECOComponentDemandSolver {
                     continue;
                 }
                 long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
-                    material,
-                    graph.producersOf(material),
-                    balances,
-                    problem.requested()
+                    material, producers, balances, problem.requested()
                 );
                 long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
-                long batches = ceilDiv(demand, net);
+                long batches = ECOPlannerMath.ceilDiv(demand, net);
                 executions.merge(producer.reference(), batches, Math::addExact);
                 producer.inputs().forEach((key, amount) -> {
                     balances.merge(key, Math.multiplyExact(amount, -batches), Math::addExact);
@@ -118,39 +112,7 @@ public final class ECOComponentDemandSolver {
             return Optional.empty();
         }
 
-        long requestedShortfall = 0;
-        long dependencyShortfall = 0;
-        long sourceShortfall = 0;
-        long surplus = 0;
-        for (var entry : balances.entrySet()) {
-            long balance = entry.getValue();
-            if (balance < 0) {
-                long missing = balance == Long.MIN_VALUE ? Long.MAX_VALUE : -balance;
-                if (problem.requested().containsKey(entry.getKey())) {
-                    requestedShortfall = saturatedAdd(requestedShortfall, missing);
-                } else if (expandableMaterials.contains(entry.getKey())) {
-                    dependencyShortfall = saturatedAdd(dependencyShortfall, missing);
-                } else {
-                    sourceShortfall = saturatedAdd(sourceShortfall, missing);
-                }
-            } else {
-                surplus = saturatedAdd(surplus, balance);
-            }
-        }
-
-        ECOPlanCandidate<R> candidate = new ECOPlanCandidate<>(
-            executions,
-            requestedShortfall,
-            dependencyShortfall,
-            sourceShortfall,
-            surplus
-        );
-        ECOHyperflowResult.Status status = requestedShortfall > 0 || dependencyShortfall > 0
-            ? ECOHyperflowResult.Status.NO_ROUTE
-            : sourceShortfall > 0
-                ? ECOHyperflowResult.Status.MISSING_SOURCES
-                : ECOHyperflowResult.Status.COMPLETE;
-        return Optional.of(new ECOHyperflowResult<>(status, candidate, expansions));
+        return Optional.of(ECOPlannerMath.buildResult(balances, executions, problem.requested(), expandableMaterials, expansions));
     }
 
     private static <K, R> ECOPlanningOperation<K, R> chooseProducer(
@@ -162,6 +124,8 @@ public final class ECOComponentDemandSolver {
         Set<K> expandableMaterials,
         long deadlineNanos
     ) {
+        // bootstrapDeficit does not depend on the current producer — compute once outside the loop.
+        long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(material, producers, balances, requested);
         ECOPlanningOperation<K, R> best = null;
         long bestScore = Long.MAX_VALUE;
         for (var operation : producers) {
@@ -171,18 +135,12 @@ public final class ECOComponentDemandSolver {
             if (!ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)) {
                 continue;
             }
-            long net = positiveNet(operation, material);
+            long net = ECOPlannerMath.positiveNet(operation, material);
             if (net <= 0) {
                 continue;
             }
-            long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
-                material,
-                producers,
-                balances,
-                requested
-            );
             long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
-            long batches = ceilDiv(demand, net);
+            long batches = ECOPlannerMath.ceilDiv(demand, net);
             long score = 0;
             for (var input : operation.inputs().entrySet()) {
                 long available = Math.max(0L, balances.getOrDefault(input.getKey(), 0L));
@@ -195,32 +153,28 @@ public final class ECOComponentDemandSolver {
                 long missing = required <= available ? 0L : required - available;
                 if (operation.outputs().containsKey(input.getKey())) {
                     long bootstrapMissing = ECOCycleBootstrap.missingBootstrapAmount(
-                        operation,
-                        input.getKey(),
-                        missing,
-                        balances,
-                        requested
+                        operation, input.getKey(), missing, balances, requested
                     );
                     if (bootstrapMissing > 0L) {
-                        score = saturatedAdd(score, ECOCycleBootstrap.bootstrapPenalty());
+                        score = ECOPlannerMath.saturatedAdd(score, ECOCycleBootstrap.bootstrapPenalty());
                         missing = bootstrapMissing;
                     } else {
                         missing = 0L;
                     }
                 }
                 if (missing > 0) {
-                    score = saturatedAdd(
+                    score = ECOPlannerMath.saturatedAdd(
                         score,
                         expandableMaterials.contains(input.getKey())
-                            ? saturatedMultiply(missing, 4L)
+                            ? ECOPlannerMath.saturatedMultiply(missing, 4L)
                             : 1_000_000L
                     );
                 }
             }
             // Prefer fewer local steps and better output density after dependency cost.
-            score = saturatedAdd(score, operation.inputs().size() * 16L);
-            score = saturatedAdd(score, Math.max(0L, 1_000L / Math.min(net, 1_000L)));
-            score = saturatedAdd(score, Math.max(0L, batches - 1L));
+            score = ECOPlannerMath.saturatedAdd(score, operation.inputs().size() * 16L);
+            score = ECOPlannerMath.saturatedAdd(score, Math.max(0L, 1_000L / Math.min(net, 1_000L)));
+            score = ECOPlannerMath.saturatedAdd(score, Math.max(0L, batches - 1L));
             if (score < bestScore) {
                 best = operation;
                 bestScore = score;
@@ -247,41 +201,11 @@ public final class ECOComponentDemandSolver {
         Set<K> expandable = new HashSet<>();
         for (var operation : graph.operations()) {
             for (K output : operation.selectableOutputs()) {
-                if (positiveNet(operation, output) > 0) {
+                if (ECOPlannerMath.positiveNet(operation, output) > 0) {
                     expandable.add(output);
                 }
             }
         }
         return expandable;
-    }
-
-    private static <K, R> long positiveNet(ECOPlanningOperation<K, R> operation, K material) {
-        try {
-            return operation.netOutput(material);
-        } catch (ArithmeticException ignored) {
-            return Long.MAX_VALUE;
-        }
-    }
-
-    private static long ceilDiv(long numerator, long denominator) {
-        return numerator == Long.MAX_VALUE
-            ? Long.MAX_VALUE
-            : 1 + (numerator - 1) / denominator;
-    }
-
-    private static long saturatedAdd(long left, long right) {
-        try {
-            return Math.addExact(left, right);
-        } catch (ArithmeticException ignored) {
-            return Long.MAX_VALUE;
-        }
-    }
-
-    private static long saturatedMultiply(long left, long right) {
-        try {
-            return Math.multiplyExact(left, right);
-        } catch (ArithmeticException ignored) {
-            return Long.MAX_VALUE;
-        }
     }
 }

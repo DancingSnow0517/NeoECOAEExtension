@@ -2,13 +2,13 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -20,10 +20,7 @@ public final class ECODagDemandSolver {
     }
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(ECOPlanningProblem<K, R> problem) {
-        return trySolve(problem, ECOGraphPruner.targetReachable(
-            new ECOPlanningGraph<>(problem.operations()),
-            problem.requested().keySet()
-        ));
+        return trySolve(problem, ECOGraphPruner.targetReachable(problem));
     }
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(
@@ -51,14 +48,14 @@ public final class ECODagDemandSolver {
                 continue;
             }
             List<ECOPlanningOperation<K, R>> producers = graph.producersOf(deficientMaterial).stream()
-                .filter(operation -> operation.netOutput(deficientMaterial) > 0)
+                .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0)
                 .toList();
             if (producers.size() != 1) {
                 return Optional.empty();
             }
             ECOPlanningOperation<K, R> operation = producers.getFirst();
             long missing = -balances.get(deficientMaterial);
-            long batches = ceilDiv(missing, operation.netOutput(deficientMaterial));
+            long batches = ECOPlannerMath.ceilDiv(missing, ECOPlannerMath.positiveNet(operation, deficientMaterial));
             executions.merge(operation.reference(), batches, Math::addExact);
             operation.inputs().forEach((key, amount) -> {
                 mergeScaled(balances, key, amount, -batches);
@@ -106,40 +103,9 @@ public final class ECODagDemandSolver {
     }
 
     private static <K, R> boolean containsCycle(ECOPlanningGraph<K, R> graph) {
-        Map<K, Set<K>> edges = new LinkedHashMap<>();
-        Map<K, Integer> indegree = new LinkedHashMap<>();
-        for (K material : graph.materials()) {
-            edges.put(material, new LinkedHashSet<>());
-            indegree.put(material, 0);
-        }
-        for (var operation : graph.operations()) {
-            for (K input : operation.inputs().keySet()) {
-                for (K output : operation.outputs().keySet()) {
-                    if (edges.computeIfAbsent(input, ignored -> new LinkedHashSet<>()).add(output)) {
-                        indegree.merge(output, 1, Integer::sum);
-                    }
-                }
-            }
-        }
-
-        ArrayDeque<K> ready = new ArrayDeque<>();
-        for (var entry : indegree.entrySet()) {
-            if (entry.getValue() == 0) {
-                ready.addLast(entry.getKey());
-            }
-        }
-        int visited = 0;
-        while (!ready.isEmpty()) {
-            K material = ready.removeFirst();
-            visited++;
-            for (K output : edges.getOrDefault(material, Set.of())) {
-                int remaining = indegree.merge(output, -1, Integer::sum);
-                if (remaining == 0) {
-                    ready.addLast(output);
-                }
-            }
-        }
-        return visited != indegree.size();
+        return ECOStrongComponents.find(graph).stream().anyMatch(scc -> scc.size() > 1)
+            || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
+                .anyMatch(operation.outputs()::containsKey));
     }
 
     private static <K, R> void enqueueIfDeficient(
@@ -154,10 +120,6 @@ public final class ECODagDemandSolver {
             && queued.add(material)) {
             deficientMaterials.addLast(material);
         }
-    }
-
-    private static long ceilDiv(long numerator, long denominator) {
-        return 1 + (numerator - 1) / denominator;
     }
 
     private static <K> void mergeScaled(Map<K, Long> balances, K key, long amount, long batches) {

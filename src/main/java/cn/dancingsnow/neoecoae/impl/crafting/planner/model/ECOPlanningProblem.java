@@ -37,8 +37,7 @@ public record ECOPlanningProblem<K, R>(
     }
 
     private static <K> Map<K, Long> copyPositive(Map<K, Long> source, String name) {
-        Map<K, Long> copy = new LinkedHashMap<>(copyNonNegative(source, name));
-        copy.values().removeIf(amount -> amount == 0);
-        return Map.copyOf(copy);
+        // copyNonNegative already omits zero-amount entries, so no further filtering is needed.
+        return copyNonNegative(source, name);
     }
 }
