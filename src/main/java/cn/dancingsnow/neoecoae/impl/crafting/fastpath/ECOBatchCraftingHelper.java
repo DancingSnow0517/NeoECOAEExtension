@@ -37,7 +37,9 @@ public final class ECOBatchCraftingHelper {
             if (stack.amount() <= 0) {
                 return 0;
             }
-            long available = inventory.extract(stack.what(), Long.MAX_VALUE, Actionable.SIMULATE);
+            // The CPU inventory is already an in-memory KeyCounter. Avoid a simulated extraction for every
+            // ingredient while retaining the same concrete-input accounting.
+            long available = inventory.list.get(stack.what());
             max = Math.min(max, (int) Math.min(Integer.MAX_VALUE, available / stack.amount()));
             if (max <= 0) {
                 return 0;

@@ -4,15 +4,24 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
+import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.compat.ae2.NeoECOCraftingServiceBridge;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
+import java.util.concurrent.Future;
+import net.minecraft.world.level.Level;
 import java.util.Set;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -41,6 +50,55 @@ public abstract class CraftingServiceMixin {
 
     @Shadow
     public abstract void addLink(CraftingLink link);
+
+    @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, require = 0)
+    private void neoecoae$beginPlanningOnECOHost(
+            Level level,
+            ICraftingSimulationRequester simRequester,
+            AEKey what,
+            long amount,
+            CalculationStrategy strategy,
+            CallbackInfoReturnable<Future<ICraftingPlan>> cir) {
+        if (level == null || simRequester == null || this.grid == null) {
+            return;
+        }
+
+        var lease = ECOPlanningHostLease.tryAcquire(
+                NeoECOCraftingServiceBridge.getComputationClusters(this.grid));
+        if (lease.isEmpty()) {
+            return;
+        }
+
+        var snapshot = ECOAE2SnapshotFactory.capture(
+                this.grid,
+                simRequester,
+                what,
+                amount,
+                strategy);
+        if (snapshot.isEmpty()) {
+            lease.get().close();
+            return;
+        }
+
+        CraftingCalculation fallback;
+        try {
+            fallback = new CraftingCalculation(
+                    level,
+                    this.grid,
+                    simRequester,
+                    new GenericStack(what, amount),
+                    strategy);
+        } catch (RuntimeException | LinkageError failure) {
+            lease.get().close();
+            return;
+        }
+
+        cir.setReturnValue(ECOPlanningService.submit(
+                snapshot.get(),
+                strategy,
+                lease.get(),
+                fallback::run));
+    }
 
     @Inject(method = "addNode", at = @At("TAIL"))
     private void neoecoae$onAddNode(IGridNode gridNode, net.minecraft.nbt.CompoundTag savedData, CallbackInfo ci) {

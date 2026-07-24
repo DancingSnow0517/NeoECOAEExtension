@@ -10,8 +10,11 @@ public final class ECOStorageLifecycleEvents {
     private ECOStorageLifecycleEvents() {}
 
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) {
+        if (event.phase == TickEvent.Phase.START) {
+            ECOInfiniteStorageDomains.awaitPreviousTick();
+        } else if (event.phase == TickEvent.Phase.END) {
             ECOCellStorageManager.tick();
+            ECOInfiniteStorageDomains.flushTick();
         }
     }
 

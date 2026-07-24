@@ -97,6 +97,8 @@ public class ECOCraftingCPULogic {
     private final Set<AggressivePoolReservation> aggressivePoolReservations = new HashSet<>();
     private boolean flushingAggressiveSimulatedOutput = false;
     private boolean recoverAggressiveAfterFlush = false;
+    private boolean deliveringBufferedFinalOutput = false;
+    private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
 
     // ── NBT restore state ──
     @Getter
@@ -221,6 +223,11 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        retryBufferedFinalOutput();
+        if (this.job == null) {
+            return;
+        }
+
         if (job.link.isDone() || job.remainingAmount <= 0) {
             finishJob(true);
             return;
@@ -242,6 +249,87 @@ public class ECOCraftingCPULogic {
         var batchBudget = new FastPathBatchBudget(effectiveFastPathTickLimit());
         int totalPatternBudget = totalPatternBudget(slowPatternBudget, batchBudget.remaining());
         executeCrafting(slowPatternBudget, totalPatternBudget, cc, eg, cpu.getLevel(), batchBudget);
+    }
+
+    private void retryBufferedFinalOutput() {
+        ExecutingCraftingJob currentJob = job;
+        if (currentJob != null) {
+            drainBufferedFinalOutput(currentJob);
+        }
+    }
+
+    private void drainBufferedFinalOutput(ExecutingCraftingJob currentJob) {
+        if (job != currentJob || currentJob.finalOutput == null) {
+            return;
+        }
+        if (currentJob.remainingAmount <= 0L) {
+            finishJob(true);
+            return;
+        }
+        long buffered = currentJob.bufferedFinalOutput.amount();
+        if (buffered <= 0L) {
+            return;
+        }
+        AEKey key = currentJob.finalOutput.what();
+        long deliverable = Math.min(buffered, currentJob.remainingAmount);
+        final long accepted;
+        try {
+            deliveringBufferedFinalOutput = true;
+            accepted = validateInsertionAmount(
+                    deliverFinalOutput(key, deliverable, Actionable.MODULATE),
+                    deliverable,
+                    "final-output requester");
+        } catch (RuntimeException e) {
+            logFinalOutputDeliveryFailure(e);
+            return;
+        } finally {
+            deliveringBufferedFinalOutput = false;
+        }
+        if (accepted <= 0L) {
+            return;
+        }
+        if (job != currentJob) {
+            LOGGER.error("Crafting job changed after accepting {} buffered final-output items", accepted);
+            return;
+        }
+        currentJob.bufferedFinalOutput.removeDelivered(accepted);
+        currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
+        postChange(key);
+        cpu.markDirty();
+        if (currentJob.remainingAmount <= 0L) {
+            finishJob(true);
+        }
+    }
+
+    private long deliverFinalOutput(AEKey key, long amount, Actionable mode) {
+        if (job == null || amount <= 0L) {
+            return 0L;
+        }
+        if (!job.link.isStandalone()) {
+            return job.link.insert(key, amount, mode);
+        }
+        IGrid grid = cpu.getGrid();
+        if (grid == null) {
+            return 0L;
+        }
+        return grid.getStorageService().getInventory().insert(key, amount, mode, cpu.getActionSource());
+    }
+
+    private static long validateInsertionAmount(long inserted, long requested, String target) {
+        if (inserted < 0L || inserted > requested) {
+            throw new IllegalStateException(
+                    "Invalid insertion result from " + target + ": " + inserted + " for " + requested);
+        }
+        return inserted;
+    }
+
+    private void logFinalOutputDeliveryFailure(RuntimeException e) {
+        long tick = TickHandler.instance().getCurrentTick();
+        long elapsed = tick - lastFinalOutputDeliveryFailureLogTick;
+        if (lastFinalOutputDeliveryFailureLogTick == Long.MIN_VALUE || elapsed < 0L || elapsed >= 100L) {
+            lastFinalOutputDeliveryFailureLogTick = tick;
+            LOGGER.error("ECO final-output delivery failed; the CPU-owned output remains buffered", e);
+        }
     }
 
     /**
@@ -709,12 +797,19 @@ public class ECOCraftingCPULogic {
             }
 
             boolean virtualCompletesJob = shouldCompleteVirtualCraftingJob(provider, progress);
-            boolean pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                    ? patternBus.pushPattern(attempt.execution(), job.link.getCraftingID())
-                    : provider.pushPattern(details, attempt.craftingContainer());
+            boolean pushed;
+            try {
+                pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
+                        ? patternBus.pushPattern(attempt.execution(), job.link.getCraftingID())
+                        : provider.pushPattern(details, attempt.craftingContainer());
+            } catch (RuntimeException e) {
+                LOGGER.error(
+                        "Crafting provider rejected a pattern with an exception; CPU inputs remain owned locally", e);
+                pushed = false;
+            }
 
             if (pushed) {
-                energyService.extractAEPower(attempt.patternPower(), Actionable.MODULATE, PowerMultiplier.CONFIG);
+                chargeAcceptedPatternEnergy(energyService, attempt.patternPower());
                 executionProgress.recordSlowPush();
                 if (virtualCompletesJob) {
                     finishJob(true);
@@ -727,6 +822,20 @@ public class ECOCraftingCPULogic {
 
         reinjectExtractedInputs(attempt);
         return PushResult.notPushed();
+    }
+
+    private void chargeAcceptedPatternEnergy(IEnergyService energyService, double requiredPower) {
+        try {
+            double charged = energyService.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            if (Double.isNaN(charged) || charged < requiredPower - 0.01D) {
+                LOGGER.error(
+                        "Crafting pattern was accepted, but only {} of {} crafting energy was charged",
+                        charged,
+                        requiredPower);
+            }
+        } catch (RuntimeException e) {
+            LOGGER.error("Crafting pattern was accepted, but its crafting energy could not be charged", e);
+        }
     }
 
     private DispatchTaskResult commitPushedCrafts(
@@ -1416,7 +1525,10 @@ public class ECOCraftingCPULogic {
         // also stop accepting items when the job is complete, i.e. to prevent
         // re-insertion when pushing out
         // items during storeItems
-        if (what == null || job == null || amount <= 0) return 0;
+        if (what == null || job == null || amount <= 0L) return 0;
+        if (deliveringBufferedFinalOutput && job.finalOutput != null && what.matches(job.finalOutput)) {
+            return 0L;
+        }
 
         // Only accept items we are waiting for.
         var waitingFor = job.waitingFor.extract(what, amount, Actionable.SIMULATE);
@@ -1430,20 +1542,40 @@ public class ECOCraftingCPULogic {
         }
 
         if (what.matches(job.finalOutput)) {
-            long accepted = job.link.insert(what, amount, type);
-            if (type == Actionable.MODULATE) {
-                job.timeTracker.decrementItems(amount, what.getType());
-                job.waitingFor.extract(what, amount, Actionable.MODULATE);
-                job.removeInFlightOutput(what, amount);
-                cpu.markDirty();
-                postChange(what);
-                job.remainingAmount = Math.max(0, job.remainingAmount - amount);
-                if (job.remainingAmount <= 0) {
-                    finishJob(true);
-                }
+            ExecutingCraftingJob currentJob = job;
+            if (type == Actionable.SIMULATE) {
+                return amount;
             }
 
-            return accepted;
+            // A final output can also be needed by a remaining task. Keep that part local;
+            // ownership of the surplus is buffered until the requester accepts it.
+            long held = inventory.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
+            long pendingInput = pendingInputAmount(what);
+            long retained = Math.min(amount, Math.max(0L, pendingInput - held));
+            if (retained > 0L) {
+                currentJob.timeTracker.decrementItems(retained, what.getType());
+                currentJob.waitingFor.extract(what, retained, Actionable.MODULATE);
+                currentJob.removeInFlightOutput(what, retained);
+                inventory.insert(what, retained, Actionable.MODULATE);
+            }
+
+            long finalAmount = amount - retained;
+            long acceptedOwnership = finalAmount <= 0L
+                    ? 0L
+                    : currentJob.bufferedFinalOutput.accept(finalAmount, Actionable.MODULATE);
+            if (acceptedOwnership > 0L) {
+                currentJob.timeTracker.decrementItems(acceptedOwnership, what.getType());
+                currentJob.waitingFor.extract(what, acceptedOwnership, Actionable.MODULATE);
+                currentJob.removeInFlightOutput(what, acceptedOwnership);
+            }
+            if (retained > 0L || acceptedOwnership > 0L) {
+                cpu.markDirty();
+                postChange(what);
+                if (acceptedOwnership > 0L) {
+                    drainBufferedFinalOutput(currentJob);
+                }
+            }
+            return retained + acceptedOwnership;
         }
 
         if (type == Actionable.MODULATE) {
@@ -1460,6 +1592,33 @@ public class ECOCraftingCPULogic {
         return amount;
     }
 
+    private long pendingInputAmount(AEKey what) {
+        if (job == null) {
+            return 0L;
+        }
+        long total = 0L;
+        for (var task : job.tasks.entrySet()) {
+            long batches = task.getValue().value;
+            if (batches <= 0L) {
+                continue;
+            }
+            long perBatch = 0L;
+            for (var input : task.getKey().getInputs()) {
+                long selectedAmount = 0L;
+                for (var possible : input.getPossibleInputs()) {
+                    if (possible != null && possible.amount() > 0L && what.equals(possible.what())) {
+                        selectedAmount = Math.max(
+                                selectedAmount,
+                                Math.multiplyExact(possible.amount(), input.getMultiplier()));
+                    }
+                }
+                perBatch = Math.addExact(perBatch, selectedAmount);
+            }
+            total = Math.addExact(total, Math.multiplyExact(perBatch, batches));
+        }
+        return total;
+    }
+
     /**
      * Finish the current job.
      *
@@ -1470,6 +1629,8 @@ public class ECOCraftingCPULogic {
             return;
         }
         UUID craftingJobId = job.link.getCraftingID();
+
+        preserveBufferedFinalOutput();
 
         if (flushingAggressiveSimulatedOutput) {
             recoverAggressiveAfterFlush = true;
@@ -1515,6 +1676,29 @@ public class ECOCraftingCPULogic {
         if (this.inventory.list.isEmpty()) {
             cpu.deactivate();
         }
+    }
+
+    private void preserveBufferedFinalOutput() {
+        if (job == null) {
+            return;
+        }
+        long buffered = job.bufferedFinalOutput.amount();
+        if (buffered <= 0L) {
+            return;
+        }
+        if (job.finalOutput == null) {
+            LOGGER.error("Discarding {} buffered final-output units because the persisted key is invalid", buffered);
+            job.bufferedFinalOutput.removeDelivered(buffered);
+            cpu.markDirty();
+            return;
+        }
+        AEKey key = job.finalOutput.what();
+        long stored = inventory.extract(key, Long.MAX_VALUE, Actionable.SIMULATE);
+        Math.addExact(stored, buffered);
+        inventory.list.add(key, buffered);
+        job.bufferedFinalOutput.removeDelivered(buffered);
+        postChange(key);
+        cpu.markDirty();
     }
 
     /**
@@ -1867,13 +2051,23 @@ public class ECOCraftingCPULogic {
         }
         aggressivePoolReservations.clear();
         if (data.contains("job")) {
-            this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
-            markStatusDirty();
-            if (this.job.finalOutput == null) {
+            try {
+                this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
+            } catch (RuntimeException e) {
+                LOGGER.error("Unable to restore ECO crafting job; quarantining the CPU job data", e);
+                recoverAggressiveSimulatedCraftsToInventory();
+                this.job = null;
+                markedForDeletion = true;
+            }
+            if (this.job != null) {
+                markStatusDirty();
+            }
+            if (this.job != null && this.job.finalOutput == null) {
                 LOGGER.warn(
                         "ECO CPU restored with null finalOutput (job NBT may be corrupted). "
                                 + "Dropping job and marking CPU for cleanup. cpu={}",
                         cpu.getName());
+                recoverAggressiveSimulatedCraftsToInventory();
                 this.job = null;
                 markedForDeletion = true;
             } else {
@@ -1931,7 +2125,12 @@ public class ECOCraftingCPULogic {
     }
 
     public long getStored(AEKey template) {
-        return this.inventory.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
+        long stored = this.inventory.extract(template, Long.MAX_VALUE, Actionable.SIMULATE);
+        if (job != null && job.finalOutput != null && template.matches(job.finalOutput)) {
+            long buffered = job.bufferedFinalOutput.amount();
+            return stored > Long.MAX_VALUE - buffered ? Long.MAX_VALUE : stored + buffered;
+        }
+        return stored;
     }
 
     public long getWaitingFor(AEKey template) {
@@ -1969,12 +2168,23 @@ public class ECOCraftingCPULogic {
     public void getAllItems(KeyCounter out) {
         out.addAll(this.inventory.list);
         if (this.job != null) {
+            if (job.finalOutput != null && job.bufferedFinalOutput.amount() > 0L) {
+                out.add(job.finalOutput.what(), job.bufferedFinalOutput.amount());
+            }
             out.addAll(job.waitingFor.list);
             for (var t : job.tasks.entrySet()) {
                 for (var output : t.getKey().getOutputs()) {
                     out.add(output.what(), output.amount() * t.getValue().value);
                 }
             }
+        }
+    }
+
+    /** Collects items physically owned by this CPU, excluding planned and in-flight outputs. */
+    public void getOwnedItems(KeyCounter out) {
+        out.addAll(this.inventory.list);
+        if (job != null && job.finalOutput != null && job.bufferedFinalOutput.amount() > 0L) {
+            out.add(job.finalOutput.what(), job.bufferedFinalOutput.amount());
         }
     }
 

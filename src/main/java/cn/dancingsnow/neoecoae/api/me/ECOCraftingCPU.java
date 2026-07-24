@@ -8,6 +8,7 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
@@ -175,6 +176,8 @@ public class ECOCraftingCPU implements ICraftingCPU {
     }
 
     public boolean hasRemainingItems() {
-        return !logic.getInventory().list.isEmpty();
+        KeyCounter owned = new KeyCounter();
+        logic.getOwnedItems(owned);
+        return !owned.isEmpty();
     }
 }

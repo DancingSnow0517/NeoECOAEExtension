@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.blocks.entity.computation;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.IECOTier;
@@ -15,6 +17,7 @@ import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -225,9 +228,49 @@ public class ECOComputationThreadingCoreBlockEntity
     @Override
     public void addAdditionalDrops(Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        for (ECOCraftingCPU cpu : cpus) {
-            if (cpu == null) continue;
-            addCpuInventoryDrops(cpu, level, pos, drops);
+        for (int i = 0; i < cpus.length; i++) {
+            KeyCounter owned = new KeyCounter();
+            if (cpus[i] != null) {
+                cpus[i].getLogic().getOwnedItems(owned);
+            } else if (deferredInit[i] != null) {
+                collectDeferredOwnedItems(deferredInit[i], owned);
+            }
+            addOwnedDrops(owned, drops, level, pos);
+        }
+    }
+
+    private static void collectDeferredOwnedItems(CompoundTag cpuTag, KeyCounter out) {
+        ListCraftingInventory inventory = new ListCraftingInventory(ignored -> {});
+        inventory.readFromNBT(cpuTag.getList("inventory", Tag.TAG_COMPOUND));
+        out.addAll(inventory.list);
+
+        CompoundTag jobTag = cpuTag.getCompound("job");
+        long buffered = Math.max(0L, jobTag.getLong("bufferedFinalOutput"));
+        if (buffered <= 0L) {
+            return;
+        }
+        try {
+            GenericStack finalOutput = GenericStack.readTag(jobTag.getCompound("finalOutput"));
+            if (finalOutput != null) {
+                out.add(finalOutput.what(), buffered);
+            }
+        } catch (RuntimeException e) {
+            LOGGER.error("Unable to decode buffered output from deferred ECO crafting CPU", e);
+        }
+    }
+
+    private static void addOwnedDrops(KeyCounter owned, List<ItemStack> drops, Level level, BlockPos pos) {
+        for (Object2LongMap.Entry<AEKey> entry : owned) {
+            if (entry.getKey() instanceof AEItemKey itemKey) {
+                long amount = entry.getLongValue();
+                while (amount > 0L) {
+                    long taken = Math.min(amount, itemKey.getMaxStackSize());
+                    amount -= taken;
+                    drops.add(itemKey.toStack((int) taken));
+                }
+            } else {
+                entry.getKey().addDrops(entry.getLongValue(), drops, level, pos);
+            }
         }
     }
 
@@ -266,19 +309,9 @@ public class ECOComputationThreadingCoreBlockEntity
     }
 
     private static void addCpuInventoryDrops(ECOCraftingCPU cpu, Level level, BlockPos pos, List<ItemStack> drops) {
-        ListCraftingInventory inventory = cpu.getLogic().getInventory();
-        for (Object2LongMap.Entry<AEKey> entry : inventory.list) {
-            if (entry.getKey() instanceof AEItemKey itemKey) {
-                long amount = entry.getLongValue();
-                while (amount > 0) {
-                    long taken = Math.min(amount, itemKey.getMaxStackSize());
-                    amount -= taken;
-                    drops.add(itemKey.toStack((int) taken));
-                }
-                continue;
-            }
-            entry.getKey().addDrops(entry.getLongValue(), drops, level, pos);
-        }
+        KeyCounter owned = new KeyCounter();
+        cpu.getLogic().getOwnedItems(owned);
+        addOwnedDrops(owned, drops, level, pos);
     }
 
     public void deactivate(ECOCraftingCPU cpu) {

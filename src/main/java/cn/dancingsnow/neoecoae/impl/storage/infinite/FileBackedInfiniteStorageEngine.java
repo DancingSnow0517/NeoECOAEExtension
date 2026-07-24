@@ -16,6 +16,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -26,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.zip.CRC32;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -38,7 +45,8 @@ import org.slf4j.LoggerFactory;
 public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileBackedInfiniteStorageEngine.class);
     private static final int SHARD_COUNT = 256;
-    private static final int WAL_VERSION = 1;
+    private static final int LEGACY_WAL_VERSION = 1;
+    private static final int WAL_VERSION = 2;
     private static final int MAX_WAL_RECORD_BYTES = 16 * 1024 * 1024;
     private static final int WAL_BUFFER_BYTES = 64 * 1024;
     private static final long IDLE_CHECKPOINT_DELAY_NANOS = 5_000_000_000L;
@@ -48,6 +56,8 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private final Path domainPath;
     private final Path walPath;
     private final Map<AEKey, HugeAmount> amounts = new HashMap<>();
+    private final Map<AEKey, Integer> keyShards = new HashMap<>();
+    private final List<Set<AEKey>> keysByShard = createShardKeySets();
     private final Map<AEKey, Long> loadedKeyRevisions = new HashMap<>();
     private final Map<AEKey, Integer> loadedKeySourceShards = new HashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
@@ -55,7 +65,10 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private final Map<AEKey, HugeAmount> hugeStacks = new HashMap<>();
     private final Map<AEKey, BigInteger> dirtyDeltas = new HashMap<>();
     private final Set<Integer> dirtyShards = new HashSet<>();
+    private final Map<Integer, CheckpointWrite> checkpointWrites = new HashMap<>();
+    private final Set<UUID> committedTransactions = new HashSet<>();
     private final long[] shardRevisions = new long[SHARD_COUNT];
+    private final long[] shardMutationRevisions = new long[SHARD_COUNT];
     private List<TypeStats> typeStatsSnapshot = List.of();
     private boolean typeStatsSnapshotDirty = true;
     private List<HugeStack> hugeStacksSnapshot = List.of();
@@ -63,10 +76,14 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private HugeAmount storedAmount = HugeAmount.ZERO;
     private long revision;
     private long lastMutationNanos = Long.MIN_VALUE;
+    private volatile boolean degraded;
+    @Nullable private volatile Throwable persistenceFailure;
 
     @Nullable private DataOutputStream walOut;
 
     @Nullable private FileOutputStream walFileOut;
+
+    @Nullable private Future<?> pendingWalWrite;
 
     public FileBackedInfiniteStorageEngine(UUID domainId, Path domainPath) {
         this.domainId = domainId;
@@ -81,8 +98,31 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             return 0L;
         }
         if (mode == Actionable.MODULATE) {
+            if (degraded) {
+                return 0L;
+            }
             applyDelta(key, BigInteger.valueOf(amount), true);
         }
+        return amount;
+    }
+
+    @Override
+    public synchronized long insertOnce(UUID transactionId, AEKey key, long amount) {
+        if (transactionId == null || key == null || amount <= 0L || degraded) {
+            return 0L;
+        }
+        if (committedTransactions.contains(transactionId)) {
+            return amount;
+        }
+        if (Files.isRegularFile(transactionReceipt(transactionId))) {
+            committedTransactions.add(transactionId);
+            return amount;
+        }
+        applyDelta(key, BigInteger.valueOf(amount), false);
+        submitWalRecords(List.of(createWalRecord(key, BigInteger.valueOf(amount), transactionId)));
+        awaitPendingWal();
+        committedTransactions.add(transactionId);
+        writeTransactionReceipt(transactionId);
         return amount;
     }
 
@@ -98,6 +138,9 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
         long visible = extracted.toLongSaturated();
         if (mode == Actionable.MODULATE) {
+            if (degraded) {
+                return 0L;
+            }
             applyDelta(key, BigInteger.valueOf(visible).negate(), true);
         }
         return visible;
@@ -122,6 +165,11 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     @Override
     public synchronized boolean isEmpty() {
         return amounts.isEmpty();
+    }
+
+    @Override
+    public synchronized boolean isHealthy() {
+        return !degraded;
     }
 
     @Override
@@ -177,55 +225,65 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     @Override
     public synchronized void flushBudgeted(long maxNanos) {
-        boolean hadPendingWal = !dirtyDeltas.isEmpty();
-        appendPendingWalRecords();
-        flushWalOutput();
-        if (hadPendingWal) {
-            forceWal();
-        }
-        if (dirtyShards.isEmpty()) {
+        submitPendingWal();
+        checkpointBudgeted(maxNanos);
+    }
+
+    synchronized void checkpointBudgeted(long maxNanos) {
+        throwIfPersistenceFailed();
+        if (degraded || dirtyShards.isEmpty()) {
             return;
         }
         if (maxNanos <= 0L) {
+            awaitPendingWal();
             checkpointDirtyShards(Long.MAX_VALUE);
             return;
         }
         long now = System.nanoTime();
         if (lastMutationNanos != Long.MIN_VALUE && now - lastMutationNanos < IDLE_CHECKPOINT_DELAY_NANOS) {
+            completeCheckpointWrites(false);
             return;
         }
         checkpointDirtyShards(now + maxNanos);
     }
 
-    private void checkpointDirtyShards(long deadline) {
-        Set<Integer> pending = new HashSet<>(dirtyShards);
-        for (int shard : pending) {
-            writeShard(shard);
-            dirtyShards.remove(shard);
-            if (System.nanoTime() >= deadline) {
-                break;
-            }
+    synchronized void submitPendingWal() {
+        throwIfPersistenceFailed();
+        if (!degraded) {
+            submitWalRecords(drainPendingWalRecords());
         }
-        if (dirtyShards.isEmpty()) {
+    }
+
+    private void checkpointDirtyShards(long deadline) {
+        boolean waitForAll = deadline == Long.MAX_VALUE;
+        do {
+            completeCheckpointWrites(false);
+            Set<Integer> pending = new HashSet<>(dirtyShards);
+            for (int shard : pending) {
+                scheduleCheckpoint(shard);
+                if (System.nanoTime() >= deadline) {
+                    break;
+                }
+            }
+            completeCheckpointWrites(waitForAll);
+        } while (waitForAll && !dirtyShards.isEmpty());
+        if (dirtyShards.isEmpty() && checkpointWrites.isEmpty()) {
+            awaitPendingWal();
             truncateWal();
         }
     }
 
     @Override
     public synchronized void closeAndFlush() {
-        boolean hadPendingWal = !dirtyDeltas.isEmpty();
-        appendPendingWalRecords();
-        flushWalOutput();
-        if (hadPendingWal) {
-            forceWal();
+        if (degraded) {
+            awaitPendingWalQuietly();
+            closeWalOutput();
+            return;
         }
-        if (!dirtyShards.isEmpty()) {
-            for (int shard : new HashSet<>(dirtyShards)) {
-                writeShard(shard);
-            }
-            dirtyShards.clear();
-        }
-        truncateWal();
+        throwIfPersistenceFailed();
+        submitWalRecords(drainPendingWalRecords());
+        awaitPendingWal();
+        checkpointDirtyShards(Long.MAX_VALUE);
         closeWalOutput();
     }
 
@@ -241,16 +299,19 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         HugeAmount next = HugeAmount.of(nextValue);
         if (next.isZero()) {
             amounts.remove(key);
+            removeShardIndex(key, shardFor(key));
         } else {
             amounts.put(key, next);
+            addShardIndex(key, shardFor(key));
         }
         storedAmount = HugeAmount.of(storedAmount.toBigInteger().add(nextValue.subtract(current.toBigInteger())));
         updateIndexes(key, current, next);
         if (writeWal) {
             dirtyDeltas.merge(key, delta, BigInteger::add);
         }
-        dirtyShards.add(shardFor(key));
         revision = revision == Long.MAX_VALUE ? 0L : revision + 1L;
+        dirtyShards.add(shardFor(key));
+        shardMutationRevisions[shardFor(key)] = revision;
         lastMutationNanos = System.nanoTime();
     }
 
@@ -263,8 +324,20 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         for (int shard = 0; shard < SHARD_COUNT; shard++) {
             readShard(shard);
         }
+        if (degraded) {
+            amounts.clear();
+            rebuildIndexes();
+            return;
+        }
         discardSupersededLegacyShardEntries();
+        rebuildIndexes();
         replayWal();
+        if (degraded) {
+            amounts.clear();
+            dirtyShards.clear();
+            rebuildIndexes();
+            return;
+        }
         Set<Integer> recoveredDirtyShards = new HashSet<>(dirtyShards);
         rebuildIndexes();
         loadedKeyRevisions.clear();
@@ -272,6 +345,9 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         dirtyDeltas.clear();
         dirtyShards.clear();
         dirtyShards.addAll(recoveredDirtyShards);
+        for (int shard : dirtyShards) {
+            shardMutationRevisions[shard] = revision;
+        }
     }
 
     private void discardSupersededLegacyShardEntries() {
@@ -293,11 +369,14 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         visibleStacks.clear();
         typeStats.clear();
         hugeStacks.clear();
+        keyShards.clear();
+        keysByShard.forEach(Set::clear);
         hugeStacksSnapshot = List.of();
         hugeStacksSnapshotDirty = true;
         storedAmount = HugeAmount.ZERO;
         for (Map.Entry<AEKey, HugeAmount> entry : amounts.entrySet()) {
             storedAmount = storedAmount.add(entry.getValue());
+            addShardIndex(entry.getKey(), shardFor(entry.getKey()));
             updateIndexes(entry.getKey(), HugeAmount.ZERO, entry.getValue());
         }
     }
@@ -348,6 +427,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 if (key != null && !amount.isZero()) {
                     int targetShard = shardFor(key);
                     if (targetShard != shard || hashVersion < ECOStorageKeyHash.VERSION) {
+                        dirtyShards.add(shard);
                         dirtyShards.add(targetShard);
                     }
                     Long previousRevision = loadedKeyRevisions.get(key);
@@ -363,73 +443,165 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             revision = Math.max(revision, shardRevision);
             shardRevisions[shard] = shardRevision;
         } catch (RuntimeException | IOException e) {
+            degraded = true;
             LOGGER.error("Unable to read ECO infinite storage shard {}", path, e);
         }
     }
 
-    private void writeShard(int shard) {
+    private CompoundTag createShardSnapshot(int shard, long snapshotRevision) {
+        CompoundTag tag = new CompoundTag();
+        tag.putInt("version", 1);
+        tag.putInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG, ECOStorageKeyHash.VERSION);
+        tag.putLong("revision", snapshotRevision);
+        tag.putString("domain", domainId.toString());
+        ListTag entries = new ListTag();
+        for (AEKey key : keysByShard.get(shard)) {
+            HugeAmount amount = amounts.get(key);
+            if (amount == null || amount.isZero()) {
+                continue;
+            }
+            CompoundTag entryTag = new CompoundTag();
+            entryTag.put("key", key.toTagGeneric());
+            entryTag.put("amount", amount.write());
+            entries.add(entryTag);
+        }
+        tag.put("entries", entries);
+        return tag;
+    }
+
+    private void writeShardSnapshot(int shard, long snapshotRevision, CompoundTag tag) {
         try {
             Files.createDirectories(domainPath);
-            CompoundTag tag = new CompoundTag();
-            tag.putInt("version", 1);
-            tag.putInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG, ECOStorageKeyHash.VERSION);
-            tag.putLong("revision", revision);
-            tag.putString("domain", domainId.toString());
-            ListTag entries = new ListTag();
-            for (Map.Entry<AEKey, HugeAmount> entry : amounts.entrySet()) {
-                if (shardFor(entry.getKey()) != shard || entry.getValue().isZero()) {
-                    continue;
-                }
-                CompoundTag entryTag = new CompoundTag();
-                entryTag.put("key", entry.getKey().toTagGeneric());
-                entryTag.put("amount", entry.getValue().write());
-                entries.add(entryTag);
-            }
-            tag.put("entries", entries);
+            ByteArrayOutputStream compressed = new ByteArrayOutputStream();
+            NbtIo.writeCompressed(tag, compressed);
+            ByteBuffer data = ByteBuffer.wrap(compressed.toByteArray());
             Path tmp = domainPath.resolve(shardFileName(shard) + ".tmp");
-            try (OutputStream output = Files.newOutputStream(tmp)) {
-                NbtIo.writeCompressed(tag, output);
+            try (FileChannel channel = FileChannel.open(
+                    tmp,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE)) {
+                while (data.hasRemaining()) {
+                    channel.write(data);
+                }
+                channel.force(true);
             }
-            Files.move(tmp, shardPath(shard), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            shardRevisions[shard] = revision;
-        } catch (IOException e) {
+            replaceAtomically(tmp, shardPath(shard));
+        } catch (IOException | RuntimeException e) {
+            degraded = true;
+            persistenceFailure = e;
+            LOGGER.error("Unable to write ECO infinite storage shard {} at revision {}", shard, snapshotRevision, e);
             throw new IllegalStateException("Unable to write ECO infinite storage shard " + shard, e);
         }
     }
 
-    private void appendWal(AEKey key, BigInteger delta) {
-        try {
-            Files.createDirectories(domainPath);
-            CompoundTag tag = new CompoundTag();
-            tag.putInt("version", WAL_VERSION);
-            tag.putLong("revision", revision);
-            tag.putString("domain", domainId.toString());
-            tag.put("key", key.toTagGeneric());
-            tag.putString("delta", delta.toString());
-            ByteArrayOutputStream payloadOut = new ByteArrayOutputStream();
-            NbtIo.writeCompressed(tag, payloadOut);
-            byte[] payload = payloadOut.toByteArray();
-            CRC32 crc = new CRC32();
-            crc.update(payload);
-            DataOutputStream out = walOutput();
-            out.writeInt(payload.length);
-            out.writeInt((int) crc.getValue());
-            out.write(payload);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to append ECO infinite storage WAL", e);
+    private void scheduleCheckpoint(int shard) {
+        if (checkpointWrites.containsKey(shard)) {
+            return;
+        }
+        long snapshotRevision = shardMutationRevisions[shard];
+        CompoundTag snapshot = createShardSnapshot(shard, snapshotRevision);
+        Future<?> future = ECOInfiniteStorageIoWorker.submitCheckpoint(
+                () -> writeShardSnapshot(shard, snapshotRevision, snapshot));
+        checkpointWrites.put(shard, new CheckpointWrite(snapshotRevision, future));
+    }
+
+    private void completeCheckpointWrites(boolean waitForAll) {
+        for (Map.Entry<Integer, CheckpointWrite> entry : new ArrayList<>(checkpointWrites.entrySet())) {
+            int shard = entry.getKey();
+            CheckpointWrite write = entry.getValue();
+            if (!waitForAll && !write.future().isDone()) {
+                continue;
+            }
+            awaitPersistenceTask(write.future(), "checkpoint shard " + shard);
+            checkpointWrites.remove(shard);
+            shardRevisions[shard] = write.revision();
+            if (shardMutationRevisions[shard] == write.revision()) {
+                dirtyShards.remove(shard);
+            }
         }
     }
 
-    private void appendPendingWalRecords() {
-        if (dirtyDeltas.isEmpty()) {
-            return;
+    private CompoundTag createWalRecord(AEKey key, BigInteger delta, @Nullable UUID transactionId) {
+        CompoundTag tag = new CompoundTag();
+        tag.putInt("version", LEGACY_WAL_VERSION);
+        tag.putString("domain", domainId.toString());
+        tag.putLong("revision", revision);
+        tag.put("key", key.toTagGeneric());
+        tag.putString("delta", delta.toString());
+        if (transactionId != null) {
+            tag.putUUID("transaction", transactionId);
         }
+        return tag;
+    }
+
+    private List<CompoundTag> drainPendingWalRecords() {
+        if (dirtyDeltas.isEmpty()) {
+            return List.of();
+        }
+        List<CompoundTag> records = new ArrayList<>(dirtyDeltas.size());
         for (Map.Entry<AEKey, BigInteger> entry : new ArrayList<>(dirtyDeltas.entrySet())) {
             if (entry.getValue().signum() != 0) {
-                appendWal(entry.getKey(), entry.getValue());
+                records.add(createWalRecord(entry.getKey(), entry.getValue(), null));
             }
         }
         dirtyDeltas.clear();
+        return records;
+    }
+
+    private void submitWalRecords(List<CompoundTag> records) {
+        if (records.isEmpty()) {
+            return;
+        }
+        pendingWalWrite = ECOInfiniteStorageIoWorker.submit(() -> writeWalRecords(records));
+    }
+
+    private void writeWalRecords(List<CompoundTag> records) {
+        try {
+            Files.createDirectories(domainPath);
+            CompoundTag batch = new CompoundTag();
+            batch.putInt("version", WAL_VERSION);
+            batch.putString("domain", domainId.toString());
+            ListTag entries = new ListTag();
+            for (CompoundTag record : records) {
+                entries.add(record);
+            }
+            batch.put("records", entries);
+            ByteArrayOutputStream payloadOut = new ByteArrayOutputStream();
+            NbtIo.writeCompressed(batch, payloadOut);
+            byte[] payload = payloadOut.toByteArray();
+            DataOutputStream out = walOutput();
+            if (payload.length > 0 && payload.length <= MAX_WAL_RECORD_BYTES) {
+                writeWalFrame(out, payload);
+            } else {
+                for (CompoundTag record : records) {
+                    ByteArrayOutputStream recordOut = new ByteArrayOutputStream();
+                    NbtIo.writeCompressed(record, recordOut);
+                    byte[] recordPayload = recordOut.toByteArray();
+                    if (recordPayload.length <= 0 || recordPayload.length > MAX_WAL_RECORD_BYTES) {
+                        throw new IOException("ECO infinite storage WAL record is too large");
+                    }
+                    writeWalFrame(out, recordPayload);
+                }
+            }
+            out.flush();
+            if (walFileOut != null) {
+                walFileOut.getChannel().force(false);
+            }
+        } catch (IOException | RuntimeException e) {
+            degraded = true;
+            persistenceFailure = e;
+            LOGGER.error("Unable to persist ECO infinite storage WAL {}", walPath, e);
+            throw new IllegalStateException("Unable to persist ECO infinite storage WAL", e);
+        }
+    }
+
+    private static void writeWalFrame(DataOutputStream out, byte[] payload) throws IOException {
+        CRC32 crc = new CRC32();
+        crc.update(payload);
+        out.writeInt(payload.length);
+        out.writeInt((int) crc.getValue());
+        out.write(payload);
     }
 
     private DataOutputStream walOutput() throws IOException {
@@ -440,68 +612,129 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         return walOut;
     }
 
-    private void flushWalOutput() {
-        if (walOut == null) {
+    synchronized void awaitPendingWal() {
+        Future<?> pending = pendingWalWrite;
+        if (pending == null) {
             return;
         }
         try {
-            walOut.flush();
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to flush ECO infinite storage WAL", e);
+            pending.get();
+            if (pendingWalWrite == pending) {
+                pendingWalWrite = null;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while persisting ECO infinite storage WAL", e);
+        } catch (ExecutionException e) {
+            throw persistenceException(e.getCause());
+        }
+        throwIfPersistenceFailed();
+    }
+
+    private void awaitPendingWalQuietly() {
+        try {
+            awaitPendingWal();
+        } catch (RuntimeException e) {
+            LOGGER.error("Unable to finish ECO infinite storage WAL before shutdown", e);
         }
     }
 
-    private void forceWal() {
-        if (walFileOut == null) {
-            return;
-        }
+    private void awaitPersistenceTask(Future<?> task, String operation) {
         try {
-            walFileOut.getChannel().force(false);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to force ECO infinite storage WAL", e);
+            task.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while persisting ECO infinite storage " + operation, e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            persistenceFailure = cause;
+            degraded = true;
+            throw persistenceException(cause);
         }
+    }
+
+    private void throwIfPersistenceFailed() {
+        if (persistenceFailure != null) {
+            throw persistenceException(persistenceFailure);
+        }
+    }
+
+    private IllegalStateException persistenceException(Throwable cause) {
+        return cause instanceof IllegalStateException exception
+                ? exception
+                : new IllegalStateException("Unable to persist ECO infinite storage", cause);
     }
 
     private void replayWal() {
         if (!Files.isRegularFile(walPath)) {
             return;
         }
+        long repairOffset = -1L;
         try (DataInputStream in = new DataInputStream(Files.newInputStream(walPath))) {
-            while (true) {
-                int length;
-                int expectedCrc;
-                try {
-                    length = in.readInt();
-                    expectedCrc = in.readInt();
-                } catch (EOFException e) {
+            long fileSize = Files.size(walPath);
+            long offset = 0L;
+            while (offset < fileSize) {
+                long recordStart = offset;
+                if (fileSize - offset < Integer.BYTES * 2L) {
+                    repairOffset = recordStart;
                     break;
                 }
+                int length = in.readInt();
+                int expectedCrc = in.readInt();
+                offset += Integer.BYTES * 2L;
                 if (length <= 0 || length > MAX_WAL_RECORD_BYTES) {
+                    if (offset == fileSize) {
+                        repairOffset = recordStart;
+                    } else {
+                        degraded = true;
+                        LOGGER.error("Invalid ECO infinite storage WAL record length {} in {}", length, walPath);
+                    }
+                    break;
+                }
+                if (fileSize - offset < length) {
+                    repairOffset = recordStart;
                     break;
                 }
                 byte[] payload = new byte[length];
-                try {
-                    in.readFully(payload);
-                } catch (EOFException e) {
-                    break;
-                }
+                in.readFully(payload);
+                offset += length;
                 CRC32 crc = new CRC32();
                 crc.update(payload);
                 if ((int) crc.getValue() != expectedCrc) {
+                    if (offset == fileSize) {
+                        repairOffset = recordStart;
+                    } else {
+                        degraded = true;
+                        LOGGER.error("CRC mismatch in ECO infinite storage WAL {}", walPath);
+                    }
                     break;
                 }
                 CompoundTag tag = NbtIo.readCompressed(new ByteArrayInputStream(payload));
-                AEKey key = AEKey.fromTagGeneric(tag.getCompound("key"));
-                long recordRevision = tag.getLong("revision");
-                if (key != null) {
-                    if (recordRevision > loadedKeyRevisions.getOrDefault(key, 0L)) {
-                        applyDelta(key, new BigInteger(tag.getString("delta")), false);
+                int version = tag.getInt("version");
+                if (version == WAL_VERSION) {
+                    validateWalDomain(tag);
+                    ListTag records = tag.getList("records", Tag.TAG_COMPOUND);
+                    for (int i = 0; i < records.size(); i++) {
+                        replayWalRecord(records.getCompound(i));
                     }
-                    revision = Math.max(revision, recordRevision);
+                } else if (version == LEGACY_WAL_VERSION) {
+                    validateWalDomain(tag);
+                    replayWalRecord(tag);
+                } else {
+                    throw new IOException("Unsupported ECO infinite storage WAL version " + version);
                 }
             }
         } catch (RuntimeException | IOException e) {
+            degraded = true;
             LOGGER.error("Unable to replay ECO infinite storage WAL {}", walPath, e);
+        }
+        if (!degraded && repairOffset >= 0L) {
+            repairWalTail(repairOffset);
+        }
+        if (!degraded) {
+            for (UUID transactionId : committedTransactions) {
+                writeTransactionReceipt(transactionId);
+            }
         }
     }
 
@@ -509,10 +742,86 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         try {
             closeWalOutput();
             Files.createDirectories(domainPath);
-            Files.deleteIfExists(walPath);
-            Files.createFile(walPath);
+            try (FileChannel channel = FileChannel.open(
+                    walPath,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE)) {
+                channel.force(true);
+            }
         } catch (IOException e) {
+            degraded = true;
+            persistenceFailure = e;
             throw new IllegalStateException("Unable to checkpoint ECO infinite storage WAL", e);
+        }
+    }
+
+    private void replayWalRecord(CompoundTag tag) {
+        AEKey key = AEKey.fromTagGeneric(tag.getCompound("key"));
+        long recordRevision = tag.getLong("revision");
+        UUID transactionId = tag.hasUUID("transaction") ? tag.getUUID("transaction") : null;
+        if (key != null) {
+            if (recordRevision > loadedKeyRevisions.getOrDefault(key, 0L)) {
+                applyDelta(key, new BigInteger(tag.getString("delta")), false);
+            }
+            if (transactionId != null) {
+                committedTransactions.add(transactionId);
+            }
+            revision = Math.max(revision, recordRevision);
+        }
+    }
+
+    private void validateWalDomain(CompoundTag tag) throws IOException {
+        String recordDomain = tag.getString("domain");
+        if (!domainId.toString().equals(recordDomain)) {
+            throw new IOException("ECO infinite storage WAL domain mismatch: " + recordDomain);
+        }
+    }
+
+    private Path transactionReceipt(UUID transactionId) {
+        return domainPath.resolve("transactions").resolve(transactionId + ".done");
+    }
+
+    private void writeTransactionReceipt(UUID transactionId) {
+        Path receipt = transactionReceipt(transactionId);
+        if (Files.isRegularFile(receipt)) {
+            return;
+        }
+        try {
+            Files.createDirectories(receipt.getParent());
+            Path tmp = receipt.resolveSibling(receipt.getFileName() + ".tmp");
+            Files.writeString(
+                    tmp,
+                    transactionId.toString(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+            try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
+                channel.force(true);
+            }
+            replaceAtomically(tmp, receipt);
+        } catch (IOException e) {
+            degraded = true;
+            persistenceFailure = e;
+            throw new IllegalStateException("Unable to persist ECO infinite storage transaction receipt", e);
+        }
+    }
+
+    private void repairWalTail(long validLength) {
+        try (FileChannel channel = FileChannel.open(walPath, StandardOpenOption.WRITE)) {
+            channel.truncate(validLength);
+            channel.force(true);
+            LOGGER.warn("Discarded incomplete ECO infinite storage WAL tail in {} at byte {}", walPath, validLength);
+        } catch (IOException e) {
+            degraded = true;
+            LOGGER.error("Unable to repair ECO infinite storage WAL tail {}", walPath, e);
+        }
+    }
+
+    private static void replaceAtomically(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -538,9 +847,35 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         return "shard_%03d.dat".formatted(shard);
     }
 
-    private static int shardFor(AEKey key) {
-        return ECOStorageKeyHash.shardFor(key, SHARD_COUNT);
+    private int shardFor(AEKey key) {
+        Integer cached = keyShards.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        int shard = ECOStorageKeyHash.shardFor(key, SHARD_COUNT);
+        keyShards.put(key, shard);
+        return shard;
     }
+
+    private void addShardIndex(AEKey key, int shard) {
+        keyShards.put(key, shard);
+        keysByShard.get(shard).add(key);
+    }
+
+    private void removeShardIndex(AEKey key, int shard) {
+        keysByShard.get(shard).remove(key);
+        keyShards.remove(key);
+    }
+
+    private static List<Set<AEKey>> createShardKeySets() {
+        List<Set<AEKey>> shards = new ArrayList<>(SHARD_COUNT);
+        for (int shard = 0; shard < SHARD_COUNT; shard++) {
+            shards.add(new HashSet<>());
+        }
+        return shards;
+    }
+
+    private record CheckpointWrite(long revision, Future<?> future) {}
 
     private static final class MutableTypeStats {
         private long storedTypes;

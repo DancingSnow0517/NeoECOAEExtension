@@ -16,7 +16,9 @@ import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import cn.dancingsnow.neoecoae.util.CellHostItemHandler;
 import cn.dancingsnow.neoecoae.util.ICellHost;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -54,6 +56,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private boolean online = false;
 
     @Nullable private CellState lastSyncedCellState = null;
+
+    private final Map<UUID, Long> restoreReceipts = new HashMap<>();
 
     public ECODriveBlockEntity(BlockEntityType<ECODriveBlockEntity> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -253,10 +257,33 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         return true;
     }
 
+    public long getRestoreReceipt(UUID transactionId) {
+        return restoreReceipts.getOrDefault(transactionId, 0L);
+    }
+
+    public void putRestoreReceipt(UUID transactionId, long amount) {
+        if (transactionId == null || amount <= 0L) {
+            return;
+        }
+        restoreReceipts.merge(transactionId, amount, ECODriveBlockEntity::saturatedAdd);
+        setChanged();
+    }
+
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
         loadDriveVisualState(data);
+        restoreReceipts.clear();
+        var receipts = data.getList("ecoRestoreReceipts", Tag.TAG_COMPOUND);
+        for (int i = 0; i < receipts.size(); i++) {
+            CompoundTag receipt = receipts.getCompound(i);
+            if (receipt.hasUUID("id")) {
+                long amount = receipt.getLong("amount");
+                if (amount > 0L) {
+                    restoreReceipts.put(receipt.getUUID("id"), amount);
+                }
+            }
+        }
         invalidateCellInventoryCache();
         pendingContentSave = false;
         pendingControllerStatsDirty = false;
@@ -267,6 +294,14 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         flushPendingCellContent();
         super.saveAdditional(data);
         saveDriveVisualState(data);
+        var receipts = new net.minecraft.nbt.ListTag();
+        for (var entry : restoreReceipts.entrySet()) {
+            CompoundTag receipt = new CompoundTag();
+            receipt.putUUID("id", entry.getKey());
+            receipt.putLong("amount", entry.getValue());
+            receipts.add(receipt);
+        }
+        data.put("ecoRestoreReceipts", receipts);
     }
 
     @Override
@@ -510,6 +545,10 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     private void releaseCellBackend() {
         ECOCellStorageManager.release(cellStack, cellSaveProvider);
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        return right > 0L && left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
     }
 
     @Override

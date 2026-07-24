@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 public final class ECOFastPathStacks {
+    private static final int MAX_PERSISTED_GENERIC_STACK_ENTRIES = 256;
     private static final ThreadLocal<Map<AEKey, String>> KEY_SORT_ID_CACHE = ThreadLocal.withInitial(WeakHashMap::new);
 
     private ECOFastPathStacks() {}
@@ -120,14 +121,27 @@ public final class ECOFastPathStacks {
     }
 
     public static List<GenericStack> readGenericStacks(ListTag tag) {
+        return readGenericStacksChecked(tag).stacks();
+    }
+
+    public static GenericStackReadResult readGenericStacksChecked(ListTag tag) {
         List<GenericStack> stacks = new ArrayList<>();
-        for (int i = 0; i < tag.size(); i++) {
-            GenericStack stack = GenericStack.readTag(tag.getCompound(i));
-            if (stack != null && stack.amount() > 0) {
-                stacks.add(stack);
+        boolean valid = tag.size() <= MAX_PERSISTED_GENERIC_STACK_ENTRIES;
+        int count = Math.min(tag.size(), MAX_PERSISTED_GENERIC_STACK_ENTRIES);
+        for (int i = 0; i < count; i++) {
+            try {
+                GenericStack stack = GenericStack.readTag(tag.getCompound(i));
+                if (stack != null && stack.amount() > 0) {
+                    stacks.add(stack);
+                } else {
+                    valid = false;
+                }
+            } catch (RuntimeException ignored) {
+                // A malformed persisted entry must not prevent the rest of a CPU or job from loading.
+                valid = false;
             }
         }
-        return List.copyOf(stacks);
+        return new GenericStackReadResult(List.copyOf(stacks), valid);
     }
 
     public static void readGenericStacksInto(KeyCounter counter, ListTag tag) {
@@ -135,6 +149,8 @@ public final class ECOFastPathStacks {
             counter.add(stack.what(), stack.amount());
         }
     }
+
+    public record GenericStackReadResult(List<GenericStack> stacks, boolean valid) {}
 
     public static boolean isSafeForFastPath(List<GenericStack> stacks, boolean input) {
         for (GenericStack stack : stacks) {

@@ -259,17 +259,93 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     public long forceInsertOverflow(AEKey what, long amount, Actionable mode) {
-        if (amount <= 0 || !keyType.contains(what)) {
-            return 0;
+        return insertForMigration(what, amount, mode);
+    }
+
+    /** Inserts for a lossless migration without applying a void upgrade's reported acceptance. */
+    public long insertForMigration(AEKey what, long amount, Actionable mode) {
+        if (amount <= 0L || !keyType.contains(what)
+                || !partitionList.matchesFilter(what, partitionListMode)
+                || cellType.isBlackListed(cellStack, what)) {
+            return 0L;
         }
-        if (mode == Actionable.MODULATE) {
-            if (backend == null) {
-                return 0;
+        return innerInsert(what, amount, mode);
+    }
+
+    /**
+     * Computes migration capacity against a caller-owned simulated inventory. This avoids mutating a real cell while
+     * a restore plan is being preflighted.
+     */
+    public long simulateInsertForMigration(AEKey what, long amount, KeyCounter simulatedContents) {
+        if (amount <= 0L || simulatedContents == null || !keyType.contains(what)
+                || !partitionList.matchesFilter(what, partitionListMode)
+                || cellType.isBlackListed(cellStack, what)
+                || !canStoreKeyInsideStorageCell(what)) {
+            return 0L;
+        }
+
+        long currentAmount = simulatedContents.get(what);
+        long storedTypes = 0L;
+        long storedItemCount = 0L;
+        for (var entry : simulatedContents) {
+            if (entry.getLongValue() > 0L) {
+                storedTypes = LongMath.saturatedAdd(storedTypes, 1L);
+                storedItemCount = LongMath.saturatedAdd(storedItemCount, entry.getLongValue());
             }
-            backend.insert(what, amount, Actionable.MODULATE);
-            this.saveChanges();
         }
-        return amount;
+        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
+        long unusedItemCount = storedItemCount % amountPerByte == 0L
+                ? 0L
+                : amountPerByte - storedItemCount % amountPerByte;
+        long roundedItemCount = LongMath.saturatedAdd(storedItemCount, unusedItemCount);
+        long bytesForItems = roundedItemCount / amountPerByte;
+        long typeBytes = LongMath.saturatedMultiply(storedTypes, getBytesPerType());
+        long usedBytes = LongMath.saturatedAdd(typeBytes, bytesForItems);
+        long freeBytes = Math.max(0L, getTotalBytes() - usedBytes);
+        long remainingItemCount = LongMath.saturatedAdd(
+                LongMath.saturatedMultiply(freeBytes, amountPerByte), unusedItemCount);
+        long remainingTypes = Math.min(
+                getTotalItemTypes() - Math.min(getTotalItemTypes(), storedTypes),
+                getBytesPerType() <= 0 ? 0L : freeBytes / getBytesPerType());
+
+        if (currentAmount <= 0L) {
+            boolean canHoldNewType = (freeBytes > getBytesPerType()
+                    || freeBytes == getBytesPerType() && unusedItemCount > 0L)
+                    && remainingTypes > 0L;
+            if (!canHoldNewType) {
+                return 0L;
+            }
+            remainingItemCount = Math.max(
+                    0L,
+                    remainingItemCount - (long) getBytesPerType() * amountPerByte);
+        }
+
+        remainingItemCount = Math.min(
+                remainingItemCount,
+                Math.max(0L, maxItemsPerType - Math.min(maxItemsPerType, currentAmount)));
+        return Math.min(amount, remainingItemCount);
+    }
+
+    public long getUsedBytesForMigration(KeyCounter contents) {
+        if (contents == null) {
+            return 0L;
+        }
+        long storedTypes = 0L;
+        long storedItemCount = 0L;
+        for (var entry : contents) {
+            if (entry.getLongValue() > 0L) {
+                storedTypes = LongMath.saturatedAdd(storedTypes, 1L);
+                storedItemCount = LongMath.saturatedAdd(storedItemCount, entry.getLongValue());
+            }
+        }
+        long amountPerByte = Math.max(1L, keyType.getAmountPerByte());
+        long unusedItemCount = storedItemCount % amountPerByte == 0L
+                ? 0L
+                : amountPerByte - storedItemCount % amountPerByte;
+        long roundedItemCount = LongMath.saturatedAdd(storedItemCount, unusedItemCount);
+        long bytesForItems = roundedItemCount / amountPerByte;
+        return LongMath.saturatedAdd(
+                LongMath.saturatedMultiply(storedTypes, getBytesPerType()), bytesForItems);
     }
 
     public void clearAllStoredStacks() {

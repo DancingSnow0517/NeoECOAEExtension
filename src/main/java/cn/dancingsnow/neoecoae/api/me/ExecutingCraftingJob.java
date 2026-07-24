@@ -65,6 +65,7 @@ public class ExecutingCraftingJob {
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
     private static final String NBT_SUSPENDED = "suspended";
     private static final String NBT_USER_PAUSED = "userPaused";
+    private static final String NBT_BUFFERED_FINAL_OUTPUT = "bufferedFinalOutput";
 
     final CraftingLink link;
     final ListCraftingInventory waitingFor;
@@ -74,6 +75,7 @@ public class ExecutingCraftingJob {
     final Map<IPatternDetails, List<AEKey>> inputKeys = new IdentityHashMap<>();
     final Map<IPatternDetails, List<AEKey>> dependencyOutputKeys = new IdentityHashMap<>();
     final ElapsedTimeTracker timeTracker;
+    final ECOFinalOutputBuffer bufferedFinalOutput;
     GenericStack finalOutput;
     long remainingAmount;
 
@@ -99,6 +101,7 @@ public class ExecutingCraftingJob {
 
         // Fill waiting for and tasks
         this.timeTracker = new ElapsedTimeTracker();
+        this.bufferedFinalOutput = new ECOFinalOutputBuffer();
         for (var entry : plan.emittedItems()) {
             waitingFor.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
             timeTracker.addMaxItems(entry.getLongValue(), entry.getKey().getType());
@@ -132,7 +135,8 @@ public class ExecutingCraftingJob {
         this.remainingAmount = data.getLong(NBT_REMAINING_AMOUNT);
         this.waitingFor = new ListCraftingInventory(postCraftingDifference::onCraftingDifference);
         this.waitingFor.readFromNBT(data.getList(NBT_WAITING_FOR, Tag.TAG_COMPOUND));
-        readCounter(inFlightOutputs, data.getList(NBT_IN_FLIGHT_OUTPUTS, Tag.TAG_COMPOUND));
+        boolean invalidPersistedState = !readCounter(
+                inFlightOutputs, data.getList(NBT_IN_FLIGHT_OUTPUTS, Tag.TAG_COMPOUND));
         this.timeTracker = new ElapsedTimeTracker(data.getCompound(NBT_TIME_TRACKER));
         if (data.contains(NBT_PLAYER_ID, Tag.TAG_INT)) {
             this.playerId = data.getInt(NBT_PLAYER_ID);
@@ -140,26 +144,34 @@ public class ExecutingCraftingJob {
             this.playerId = null;
         }
 
+        this.bufferedFinalOutput = new ECOFinalOutputBuffer(Math.max(0L, data.getLong(NBT_BUFFERED_FINAL_OUTPUT)));
+
         ListTag tasksTag = data.getList(NBT_TASKS, Tag.TAG_COMPOUND);
         boolean missingTaskPattern = false;
         for (int i = 0; i < tasksTag.size(); ++i) {
-            final CompoundTag item = tasksTag.getCompound(i);
-            var pattern = AEItemKey.fromTag(item);
-            var details = PatternDetailsHelper.decodePattern(pattern, logic.cpu.getLevel());
-            if (details != null) {
-                final TaskProgress tp = new TaskProgress();
-                tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
-                this.tasks.put(details, tp);
-            } else {
+            try {
+                final CompoundTag item = tasksTag.getCompound(i);
+                var pattern = AEItemKey.fromTag(item);
+                var details = PatternDetailsHelper.decodePattern(pattern, logic.cpu.getLevel());
+                if (details != null) {
+                    final TaskProgress tp = new TaskProgress();
+                    tp.value = Math.max(0L, item.getLong(NBT_CRAFTING_PROGRESS));
+                    this.tasks.put(details, tp);
+                } else {
+                    missingTaskPattern = true;
+                }
+            } catch (RuntimeException e) {
                 missingTaskPattern = true;
-                LOGGER.warn(
-                        "Unable to decode saved ECO crafting task pattern; restoring job as suspended. jobId={}",
-                        this.link.getCraftingID());
             }
+        }
+        if (missingTaskPattern) {
+            LOGGER.warn(
+                    "Unable to decode one or more saved ECO crafting task patterns; restoring job as suspended. jobId={}",
+                    this.link.getCraftingID());
         }
         rebuildTaskOrderAndDependencies(logic.cpu.getLevel());
 
-        this.suspended = data.getBoolean(NBT_SUSPENDED) || missingTaskPattern;
+        this.suspended = data.getBoolean(NBT_SUSPENDED) || missingTaskPattern || invalidPersistedState;
         this.userPaused = data.getBoolean(NBT_USER_PAUSED);
     }
 
@@ -173,6 +185,7 @@ public class ExecutingCraftingJob {
         data.put(NBT_FINAL_OUTPUT, GenericStack.writeTag(finalOutput));
 
         data.put(NBT_WAITING_FOR, waitingFor.writeToNBT());
+        data.putLong(NBT_BUFFERED_FINAL_OUTPUT, bufferedFinalOutput.amount());
         data.put(NBT_IN_FLIGHT_OUTPUTS, writeCounter(inFlightOutputs));
         data.put(NBT_TIME_TRACKER, timeTracker.writeToNBT());
 
@@ -338,8 +351,12 @@ public class ExecutingCraftingJob {
         return ECOFastPathStacks.writeGenericStacks(ECOFastPathStacks.copyCounterUnsorted(counter));
     }
 
-    private static void readCounter(KeyCounter counter, ListTag list) {
-        ECOFastPathStacks.readGenericStacksInto(counter, list);
+    private static boolean readCounter(KeyCounter counter, ListTag list) {
+        var result = ECOFastPathStacks.readGenericStacksChecked(list);
+        for (GenericStack stack : result.stacks()) {
+            counter.add(stack.what(), stack.amount());
+        }
+        return result.valid();
     }
 
     enum DispatchBlock {

@@ -1060,11 +1060,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 craftingJobId = thread.craftingJobId();
             }
             int slots = Math.max(1, thread.occupiedThreadSlots());
-            outputAmount += Math.max(1L, thread.outputItem().getCount());
+            long nextOutputAmount = outputAmount + Math.max(1L, thread.outputAmount());
+            outputAmount = nextOutputAmount < 0L ? Long.MAX_VALUE : nextOutputAmount;
             craftCount += slots;
             weightedTotalProgress += (long) Math.max(1, thread.maxProgress()) * slots;
             weightedRemainingProgress += (long) Math.max(0, thread.maxProgress() - thread.progress()) * slots;
-            waitingOutput &= thread.progress() >= thread.maxProgress();
+            waitingOutput &= thread.outputsReady();
         }
 
         private NECraftingRecipeUiEntry toEntry(BlockPos workerPos, int aggregateIndex) {

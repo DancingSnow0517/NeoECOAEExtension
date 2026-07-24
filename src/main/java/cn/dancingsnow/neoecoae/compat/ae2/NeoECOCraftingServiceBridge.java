@@ -147,7 +147,7 @@ public final class NeoECOCraftingServiceBridge {
         return false;
     }
 
-    private static List<NEComputationCluster> getComputationClusters(IGrid grid) {
+    public static List<NEComputationCluster> getComputationClusters(IGrid grid) {
         Set<NEComputationCluster> clusters = Collections.newSetFromMap(new IdentityHashMap<>());
 
         for (var node : grid.getNodes()) {
