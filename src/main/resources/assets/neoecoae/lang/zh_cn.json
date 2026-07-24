@@ -15,6 +15,7 @@
   "block.neoecoae.computation_parallel_core_l4": "ECO - CT4 并行核心",
   "block.neoecoae.computation_parallel_core_l6": "ECO - CT6 并行核心",
   "block.neoecoae.computation_parallel_core_l9": "ECO - CT9 并行核心",
+  "block.neoecoae.eco_network_switch": "ECO 网络交换机",
   "block.neoecoae.computation_system_l4": "ECO - C4 可拓展计算子系统主机",
   "block.neoecoae.computation_system_l6": "ECO - C6 可拓展计算子系统主机",
   "block.neoecoae.computation_system_l9": "ECO - C9 可拓展计算子系统主机",

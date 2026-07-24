@@ -478,6 +478,9 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             rebuildIndexes();
             return;
         }
+        // WAL replay updates the derived totals and indexes through applyChange. Initialize them from the
+        // checkpoint first, otherwise the first negative delta tries to subtract from a zero storedAmount.
+        rebuildIndexes();
         replayWal();
         if (degraded) {
             amounts.clear();

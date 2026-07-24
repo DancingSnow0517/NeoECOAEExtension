@@ -4,14 +4,18 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
+import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.crafting.UnsuitableCpus;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
@@ -19,6 +23,9 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.expression.Definition;
@@ -26,6 +33,7 @@ import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalLongRef;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.Level;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Debug;
@@ -43,6 +51,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Future;
 
 @Debug(export = true)
 @Mixin(CraftingService.class)
@@ -61,6 +70,9 @@ public abstract class CraftingServiceMixin {
     private IGrid grid;
     @Shadow
     private long lastProcessedCraftingLogicChangeTick;
+
+    @Shadow
+    private long lastProcessedCraftableChangeTick;
     @Shadow
     @Final
     private IEnergyService energyGrid;
@@ -73,6 +85,59 @@ public abstract class CraftingServiceMixin {
 
     @Unique
     private final Set<NEComputationCluster> neoecoae$computationClusters = new HashSet<>();
+
+    @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, order = 500)
+    private void neoecoae$beginPlanningOnECOHost(
+        Level level,
+        ICraftingSimulationRequester simRequester,
+        AEKey what,
+        long amount,
+        CalculationStrategy strategy,
+        CallbackInfoReturnable<Future<ICraftingPlan>> cir
+    ) {
+        if (level == null || simRequester == null) {
+            return;
+        }
+        var lease = ECOPlanningHostLease.tryAcquire(this.neoecoae$computationClusters);
+        if (lease.isEmpty()) {
+            return;
+        }
+        var snapshot = ECOAE2SnapshotFactory.capture(
+            this.grid,
+            simRequester,
+            what,
+            amount,
+            strategy,
+            this.lastProcessedCraftableChangeTick
+        );
+        if (snapshot.isEmpty()) {
+            lease.get().close();
+            return;
+        }
+
+        // AE2 constructs its calculation on the server thread because the constructor
+        // snapshots mutable network state. Keep that object ready before dispatching
+        // ECO's independent planning worker.
+        CraftingCalculation fallback;
+        try {
+            fallback = new CraftingCalculation(
+                level,
+                this.grid,
+                simRequester,
+                new GenericStack(what, amount),
+                strategy
+            );
+        } catch (RuntimeException | LinkageError failure) {
+            lease.get().close();
+            return;
+        }
+        cir.setReturnValue(ECOPlanningService.submit(
+            snapshot.get(),
+            strategy,
+            lease.get(),
+            fallback::run
+        ));
+    }
 
     @Inject(
         method = "onServerEndTick",

@@ -17,6 +17,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBloc
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -32,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 
 public class NEComputationCluster extends NECluster<NEComputationCluster> {
+
+    private static final long DEBUG_OVERDRIVE_CPU_BYTES = 9_200_000_000_000_000_000L;
 
     @Getter
     private final List<ECOComputationDriveBlockEntity> upperDrives = new ArrayList<>();
@@ -49,13 +52,14 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private IActionSource actionSource;
     @Getter
     private int maxThreads = 0;
-    @Getter
+    private long totalStorage = 0;
     private long availableStorage = 0;
     @Getter
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
 
     private final Map<ICraftingPlan, ECOCraftingCPU> activeCpus = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
+    private boolean lastDebugOverdriveState;
 
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -106,6 +110,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
                 this.selectionMode = controller.getCpuSelectionMode();
             }
         } else {
+            totalStorage = 0;
             availableStorage = 0;
         }
     }
@@ -128,6 +133,16 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             .mapToLong(core -> core.getTier().getCPUAccelerators())
             .sum();
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, total));
+    }
+
+    public long getTotalStorage() {
+        ensureDebugOverdriveState();
+        return totalStorage;
+    }
+
+    public long getAvailableStorage() {
+        ensureDebugOverdriveState();
+        return availableStorage;
     }
 
     public boolean canBeAutoSelectedFor(IActionSource actionSource) {
@@ -175,7 +190,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (!this.isActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }
-        if (this.availableStorage < job.bytes()) {
+        if (this.getAvailableStorage() < job.bytes()) {
             return CraftingSubmitResult.CPU_TOO_SMALL;
         }
         ECOCraftingCPU cpu = null;
@@ -201,7 +216,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public void recalculateRemainingStorage() {
-        long totalStorage = collectStorage(upperDrives) + collectStorage(lowerDrives);
+        lastDebugOverdriveState = NEConfig.debugECOHostOverdrive;
+        this.totalStorage = NEConfig.debugECOHostOverdrive
+            ? DEBUG_OVERDRIVE_CPU_BYTES
+            : collectStorage(upperDrives) + collectStorage(lowerDrives);
         long usedStorage = getActiveJobBytes();
 
         this.availableStorage = totalStorage - usedStorage;
@@ -215,6 +233,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
 
         this.availableStorage = Math.max(0, totalStorage - getActiveJobBytes());
+    }
+
+    private void ensureDebugOverdriveState() {
+        if (lastDebugOverdriveState != NEConfig.debugECOHostOverdrive) {
+            recalculateRemainingStorage();
+        }
     }
 
     private long getActiveJobBytes() {
@@ -253,8 +277,13 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public ECOCraftingCPU getFakeCPU() {
-        if (this.fakeCpu == null || this.fakeCpu.getAvailableStorage() != this.availableStorage) {
-            this.fakeCpu = new ECOCraftingCPU(this, this.availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
+        long currentAvailableStorage = this.getAvailableStorage();
+        if (this.fakeCpu == null || this.fakeCpu.getAvailableStorage() != currentAvailableStorage) {
+            this.fakeCpu = new ECOCraftingCPU(
+                this,
+                currentAvailableStorage,
+                controller != null ? controller.getTier() : ECOTier.L4
+            );
         }
         return fakeCpu;
     }

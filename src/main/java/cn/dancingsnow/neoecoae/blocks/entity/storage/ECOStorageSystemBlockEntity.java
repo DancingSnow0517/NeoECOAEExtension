@@ -77,10 +77,13 @@ import org.slf4j.LoggerFactory;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOStorageSystemBlockEntity>
@@ -136,6 +139,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private long performanceAverageNanos = 0L;
     private long performanceWindowStartTick = Long.MIN_VALUE;
     private long performanceWindowNanos = 0L;
+    private transient Set<UUID> loggedConflictingMemberDomains = Set.of();
+    @Nullable private transient UUID loggedMissingMemberDomain;
     @Setter
     private boolean mirrored;
 
@@ -753,24 +758,26 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         ECOStorageHostMode previous = hostMode;
+        UUID previousDomainId = infiniteDomainId;
         if (!formed || cluster == null) {
             if (!hostMode.isInfiniteState()) {
                 hostMode = ECOStorageHostMode.UNFORMED;
             }
-            syncInfiniteModeChanges(previous);
+            syncInfiniteModeChanges(previous, previousDomainId);
             return;
         }
+        recoverInfiniteDomainFromMembers();
         if (hostMode == ECOStorageHostMode.UNFORMED) {
             hostMode = ECOStorageHostMode.FORMED_NORMAL;
         }
         if (hostMode.isInfiniteState() && !NEConfig.isInfiniteStorageEnabled()) {
             restoreInfiniteDomainToNormalStorage();
-            syncInfiniteModeChanges(previous);
+            syncInfiniteModeChanges(previous, previousDomainId);
             return;
         }
         if (hostMode.isInfiniteState() && !hasRequiredInfiniteComponents()) {
             restoreInfiniteDomainToNormalStorageIfPossible();
-            syncInfiniteModeChanges(previous);
+            syncInfiniteModeChanges(previous, previousDomainId);
             return;
         }
         if (hostMode == ECOStorageHostMode.FORMED_NORMAL && canStartInfiniteMigration()) {
@@ -780,16 +787,67 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
             runInfiniteMigrationStep();
         }
-        syncInfiniteModeChanges(previous);
+        syncInfiniteModeChanges(previous, previousDomainId);
     }
 
-    private void syncInfiniteModeChanges(ECOStorageHostMode previous) {
-        if (previous != hostMode) {
+    private void syncInfiniteModeChanges(ECOStorageHostMode previous, @Nullable UUID previousDomainId) {
+        if (previous != hostMode || !Objects.equals(previousDomainId, infiniteDomainId)) {
             storageUiSnapshotGameTime = Long.MIN_VALUE;
             refreshDriveStorageProviders();
             setChanged();
             markForUpdate();
         }
+    }
+
+    private void recoverInfiniteDomainFromMembers() {
+        if (infiniteDomainId != null || !(level instanceof ServerLevel serverLevel) || cluster == null) {
+            return;
+        }
+
+        Set<UUID> memberDomains = new HashSet<>();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            ECOInfiniteStorageMember.getDomainId(drive.getCellStack()).ifPresent(memberDomains::add);
+        }
+        if (memberDomains.size() > 1) {
+            if (!memberDomains.equals(loggedConflictingMemberDomains)) {
+                LOGGER.error(
+                    "Unable to recover ECO infinite storage domain at {} because its members reference multiple domains: {}",
+                    worldPosition,
+                    memberDomains
+                );
+                loggedConflictingMemberDomains = Set.copyOf(memberDomains);
+            }
+            return;
+        }
+        loggedConflictingMemberDomains = Set.of();
+        if (memberDomains.isEmpty()) {
+            loggedMissingMemberDomain = null;
+            return;
+        }
+
+        UUID recoveredDomainId = memberDomains.iterator().next();
+        if (!ECOInfiniteStorageDomains.exists(serverLevel, recoveredDomainId)) {
+            if (!recoveredDomainId.equals(loggedMissingMemberDomain)) {
+                LOGGER.error(
+                    "Unable to recover ECO infinite storage domain {} at {} because its persisted data is missing",
+                    recoveredDomainId,
+                    worldPosition
+                );
+                loggedMissingMemberDomain = recoveredDomainId;
+            }
+            return;
+        }
+
+        loggedMissingMemberDomain = null;
+        infiniteDomainId = recoveredDomainId;
+        if (!hostMode.isInfiniteState()) {
+            hostMode = ECOStorageHostMode.MIGRATING_TO_INFINITE;
+        }
+        LOGGER.warn(
+            "Recovered ECO infinite storage domain {} at {} from its storage matrix members after controller data loss",
+            recoveredDomainId,
+            worldPosition
+        );
     }
 
     private boolean canStartInfiniteMigration() {
