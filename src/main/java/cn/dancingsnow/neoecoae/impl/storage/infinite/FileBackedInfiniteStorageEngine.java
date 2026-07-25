@@ -10,11 +10,13 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.FilterOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -23,6 +25,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,8 +50,13 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private static final int SHARD_COUNT = 256;
     private static final int LEGACY_WAL_VERSION = 1;
     private static final int WAL_VERSION = 2;
+    private static final int BINARY_WAL_MAGIC = 0x45434F33;
+    private static final int BINARY_WAL_VERSION = 3;
     private static final int MAX_WAL_RECORD_BYTES = 16 * 1024 * 1024;
     private static final int WAL_BUFFER_BYTES = 64 * 1024;
+    private static final long WAL_SEGMENT_MAX_BYTES = 32L * 1024L * 1024L;
+    private static final long WAL_SEGMENT_MAX_RECORDS = 100_000L;
+    private static final long WAL_CHECKPOINT_INTERVAL_NANOS = 60_000_000_000L;
     private static final long IDLE_CHECKPOINT_DELAY_NANOS = 5_000_000_000L;
     private static final HugeAmount LONG_MAX_AMOUNT = HugeAmount.of(Long.MAX_VALUE);
 
@@ -64,10 +72,13 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private final KeyCounter visibleStacks = new KeyCounter();
     private final Map<AEKeyType, MutableTypeStats> typeStats = new HashMap<>();
     private final Map<AEKey, HugeAmount> hugeStacks = new HashMap<>();
-    private final Map<AEKey, Long> pendingWalDeltas = new HashMap<>();
-    private final List<CompoundTag> stagedWalRecords = new ArrayList<>();
+    private final Map<AEKey, PendingWalDelta> pendingWalDeltas = new HashMap<>();
+    private final List<WalRecord> stagedWalRecords = new ArrayList<>();
     private final Set<Integer> dirtyShards = new HashSet<>();
     private final Map<Integer, CheckpointWrite> checkpointWrites = new HashMap<>();
+    private final Object walStateLock = new Object();
+    private final List<SealedWalSegment> sealedWalSegments = new ArrayList<>();
+    private final Map<Integer, Long> activeWalShardRevisions = new HashMap<>();
     private final Set<UUID> committedTransactions = new HashSet<>();
     private final long[] shardRevisions = new long[SHARD_COUNT];
     private final long[] shardMutationRevisions = new long[SHARD_COUNT];
@@ -78,12 +89,16 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private HugeAmount storedAmount = HugeAmount.ZERO;
     private long revision;
     private long lastMutationNanos = Long.MIN_VALUE;
+    private volatile long lastCheckpointNanos = System.nanoTime();
     private volatile boolean degraded;
     @Nullable private volatile Throwable persistenceFailure;
 
     @Nullable private DataOutputStream walOut;
     @Nullable private FileOutputStream walFileOut;
     @Nullable private Future<?> pendingWalWrite;
+    private long activeWalBytes;
+    private long activeWalRecordCount;
+    private long activeWalMaxRevision;
 
     public FileBackedInfiniteStorageEngine(HolderLookup.Provider registries, UUID domainId, Path domainPath) {
         this.registries = registries;
@@ -119,8 +134,10 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             committedTransactions.add(transactionId);
             return amount;
         }
+        submitWalRecords(drainPendingWalRecords());
+        awaitPendingWal();
         applyDelta(key, amount, false);
-        submitWalRecords(List.of(createWalRecord(key, BigInteger.valueOf(amount), transactionId)));
+        submitWalRecords(List.of(createWalRecord(key, BigInteger.valueOf(amount), transactionId, revision)));
         awaitPendingWal();
         committedTransactions.add(transactionId);
         writeTransactionReceipt(transactionId);
@@ -226,20 +243,21 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         if (degraded) {
             return;
         }
-        if (dirtyShards.isEmpty()) {
-            return;
-        }
+        completeCheckpointWrites(false);
+        reclaimCoveredWalSegments();
         if (maxNanos <= 0L) {
             awaitPendingWal();
-            checkpointDirtyShards(Long.MAX_VALUE);
+            checkpointShards(Long.MAX_VALUE, true);
             return;
         }
         long now = System.nanoTime();
-        if (lastMutationNanos != Long.MIN_VALUE && now - lastMutationNanos < IDLE_CHECKPOINT_DELAY_NANOS) {
+        boolean idle = lastMutationNanos != Long.MIN_VALUE
+            && now - lastMutationNanos >= IDLE_CHECKPOINT_DELAY_NANOS;
+        if (!idle && !hasUncoveredWalSegments()) {
             return;
         }
         awaitPendingWal();
-        checkpointDirtyShards(now + maxNanos);
+        checkpointShards(now + maxNanos, false);
     }
 
     synchronized void submitPendingWal() {
@@ -249,13 +267,14 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
     }
 
-    private void checkpointDirtyShards(long deadline) {
+    private void checkpointShards(long deadline, boolean forceAll) {
         // Snapshot construction is bounded on the server thread; compression, replacement, and force happen on the
-        // checkpoint worker. A newer mutation leaves the shard dirty until a later snapshot catches up.
-        boolean waitForAll = deadline == Long.MAX_VALUE;
+        // checkpoint worker. Sealed WAL segments only require the snapshot to cover their per-shard barrier; newer
+        // mutations may leave the shard dirty without preventing reclamation of the older segment.
+        boolean waitForAll = forceAll || deadline == Long.MAX_VALUE;
         do {
             completeCheckpointWrites(false);
-            Set<Integer> pending = new HashSet<>(dirtyShards);
+            Set<Integer> pending = forceAll ? new HashSet<>(dirtyShards) : checkpointCandidates();
             for (int shard : pending) {
                 scheduleCheckpoint(shard);
                 if (System.nanoTime() >= deadline) {
@@ -264,10 +283,28 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             }
             completeCheckpointWrites(waitForAll);
         } while (waitForAll && !dirtyShards.isEmpty());
-        if (dirtyShards.isEmpty() && checkpointWrites.isEmpty()) {
+        reclaimCoveredWalSegments();
+        if (dirtyShards.isEmpty() && checkpointWrites.isEmpty() && !hasSealedWalSegments()) {
             awaitPendingWal();
             truncateWal();
         }
+    }
+
+    private Set<Integer> checkpointCandidates() {
+        Set<Integer> candidates = new HashSet<>();
+        synchronized (walStateLock) {
+            for (SealedWalSegment segment : sealedWalSegments) {
+                for (Map.Entry<Integer, Long> entry : segment.shardRevisions().entrySet()) {
+                    if (shardRevisions[entry.getKey()] < entry.getValue()) {
+                        candidates.add(entry.getKey());
+                    }
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            candidates.addAll(dirtyShards);
+        }
+        return candidates;
     }
 
     private void scheduleCheckpoint(int shard) {
@@ -292,6 +329,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             awaitPersistenceTask(write.future(), "checkpoint shard " + shard);
             checkpointWrites.remove(shard);
             shardRevisions[shard] = write.revision();
+            lastCheckpointNanos = System.nanoTime();
             if (shardMutationRevisions[shard] == write.revision()) {
                 dirtyShards.remove(shard);
             }
@@ -308,7 +346,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         throwIfPersistenceFailed();
         submitWalRecords(drainPendingWalRecords());
         awaitPendingWal();
-        checkpointDirtyShards(Long.MAX_VALUE);
+        checkpointShards(Long.MAX_VALUE, true);
         closeWalOutput();
     }
 
@@ -379,44 +417,48 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     }
 
     private void mergePendingWalDelta(AEKey key, long delta) {
-        Long pending = pendingWalDeltas.get(key);
+        PendingWalDelta pending = pendingWalDeltas.get(key);
         if (pending == null) {
-            pendingWalDeltas.put(key, delta);
+            pendingWalDeltas.put(key, new PendingWalDelta(delta, revision));
             return;
         }
         try {
-            long merged = Math.addExact(pending, delta);
+            long merged = Math.addExact(pending.delta(), delta);
             if (merged == 0L) {
                 pendingWalDeltas.remove(key);
             } else {
-                pendingWalDeltas.put(key, merged);
+                pendingWalDeltas.put(key, new PendingWalDelta(merged, revision));
             }
         } catch (ArithmeticException overflow) {
-            stagedWalRecords.add(createWalRecord(key, BigInteger.valueOf(pending), null));
-            pendingWalDeltas.put(key, delta);
+            stagedWalRecords.add(createWalRecord(key, BigInteger.valueOf(pending.delta()), null, pending.revision()));
+            pendingWalDeltas.put(key, new PendingWalDelta(delta, revision));
         }
     }
 
-    private List<CompoundTag> drainPendingWalRecords() {
+    private List<WalRecord> drainPendingWalRecords() {
         if (pendingWalDeltas.isEmpty() && stagedWalRecords.isEmpty()) {
             return List.of();
         }
-        List<CompoundTag> records = new ArrayList<>(stagedWalRecords.size() + pendingWalDeltas.size());
+        List<WalRecord> records = new ArrayList<>(stagedWalRecords.size() + pendingWalDeltas.size());
         records.addAll(stagedWalRecords);
         stagedWalRecords.clear();
-        for (Map.Entry<AEKey, Long> entry : new ArrayList<>(pendingWalDeltas.entrySet())) {
-            long delta = entry.getValue();
+        for (Map.Entry<AEKey, PendingWalDelta> entry : new ArrayList<>(pendingWalDeltas.entrySet())) {
+            PendingWalDelta pending = entry.getValue();
+            long delta = pending.delta();
             if (delta != 0L) {
-                records.add(createWalRecord(entry.getKey(), BigInteger.valueOf(delta), null));
+                records.add(createWalRecord(entry.getKey(), BigInteger.valueOf(delta), null, pending.revision()));
             }
         }
         pendingWalDeltas.clear();
         return records;
     }
 
-    private void submitWalRecords(List<CompoundTag> records) {
+    private void submitWalRecords(List<WalRecord> records) {
         if (records.isEmpty()) {
             return;
+        }
+        if (pendingWalWrite != null) {
+            awaitPendingWal();
         }
         pendingWalWrite = ECOInfiniteStorageIoWorker.submit(() -> writeWalRecords(records));
     }
@@ -615,20 +657,17 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     private void writeShardSnapshot(int shard, long snapshotRevision, CompoundTag tag) {
         try {
-            ByteArrayOutputStream compressed = new ByteArrayOutputStream();
-            NbtIo.writeCompressed(tag, compressed);
-            ByteBuffer data = ByteBuffer.wrap(compressed.toByteArray());
             Path tmp = domainPath.resolve(shardFileName(shard) + ".tmp");
-            try (FileChannel channel = FileChannel.open(
-                tmp,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE
-            )) {
-                while (data.hasRemaining()) {
-                    channel.write(data);
-                }
-                channel.force(true);
+            try (FileOutputStream fileOut = new FileOutputStream(tmp.toFile(), false)) {
+                OutputStream nonClosingOut = new FilterOutputStream(fileOut) {
+                    @Override
+                    public void close() throws IOException {
+                        flush();
+                    }
+                };
+                NbtIo.writeCompressed(tag, nonClosingOut);
+                nonClosingOut.flush();
+                fileOut.getChannel().force(true);
             }
             replaceAtomically(tmp, shardPath(shard));
         } catch (IOException | RuntimeException e) {
@@ -639,44 +678,47 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
     }
 
-    private CompoundTag createWalRecord(AEKey key, BigInteger delta, @Nullable UUID transactionId) {
-        CompoundTag tag = new CompoundTag();
-        // Keep legacy fields on nested records so an unusually large batch can fall back to v1 frames safely.
-        tag.putInt("version", LEGACY_WAL_VERSION);
-        tag.putString("domain", domainId.toString());
-        tag.putLong("revision", revision);
-        tag.put("key", key.toTagGeneric(registries));
-        tag.putString("delta", delta.toString());
-        if (transactionId != null) {
-            tag.putUUID("transaction", transactionId);
-        }
-        return tag;
+    private WalRecord createWalRecord(
+        AEKey key,
+        BigInteger delta,
+        @Nullable UUID transactionId,
+        long recordRevision
+    ) {
+        return new WalRecord(recordRevision, shardFor(key), key, delta, transactionId);
     }
 
-    private void writeWalRecords(List<CompoundTag> records) {
+    private void writeWalRecords(List<WalRecord> records) {
         try {
-            CompoundTag batch = new CompoundTag();
-            batch.putInt("version", WAL_VERSION);
-            batch.putString("domain", domainId.toString());
-            ListTag entries = new ListTag();
-            for (CompoundTag tag : records) {
-                entries.add(tag);
-            }
-            batch.put("records", entries);
-
-            ByteArrayOutputStream payloadOut = new ByteArrayOutputStream();
-            NbtIo.writeCompressed(batch, payloadOut);
-            byte[] payload = payloadOut.toByteArray();
             DataOutputStream out = walOutput();
-            if (payload.length > 0 && payload.length <= MAX_WAL_RECORD_BYTES) {
+            long bytesWritten = 0L;
+            for (WalRecord record : records) {
+                byte[] payload = encodeWalRecord(record);
+                if (payload.length <= 0 || payload.length > MAX_WAL_RECORD_BYTES) {
+                    throw new IOException("ECO infinite storage WAL record is too large");
+                }
                 writeWalFrame(out, payload);
-            } else {
-                LOGGER.warn("ECO infinite storage WAL batch exceeded {} bytes; using legacy frames", MAX_WAL_RECORD_BYTES);
-                writeLegacyWalFrames(out, records);
+                bytesWritten += Integer.BYTES * 2L + payload.length;
             }
             out.flush();
+
+            boolean rotate;
+            synchronized (walStateLock) {
+                activeWalBytes += bytesWritten;
+                activeWalRecordCount += records.size();
+                for (WalRecord record : records) {
+                    activeWalMaxRevision = Math.max(activeWalMaxRevision, record.revision());
+                    activeWalShardRevisions.merge(record.shard(), record.revision(), Math::max);
+                }
+                rotate = shouldRotateActiveWal();
+            }
+
+            // Strict durability is intentionally fixed: each tick's WAL batch is forced before the next tick waits
+            // for this task, preserving the existing one-tick maximum durability window.
             if (walFileOut != null) {
                 walFileOut.getChannel().force(false);
+            }
+            if (rotate) {
+                sealActiveWal();
             }
         } catch (IOException | RuntimeException e) {
             degraded = true;
@@ -686,16 +728,41 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
     }
 
-    private void writeLegacyWalFrames(DataOutputStream out, List<CompoundTag> records) throws IOException {
-        for (CompoundTag record : records) {
-            ByteArrayOutputStream payloadOut = new ByteArrayOutputStream();
-            NbtIo.writeCompressed(record, payloadOut);
-            byte[] payload = payloadOut.toByteArray();
-            if (payload.length <= 0 || payload.length > MAX_WAL_RECORD_BYTES) {
-                throw new IOException("ECO infinite storage WAL record is too large");
+    private byte[] encodeWalRecord(WalRecord record) throws IOException {
+        ByteArrayOutputStream payloadBytes = new ByteArrayOutputStream();
+        try (DataOutputStream payload = new DataOutputStream(payloadBytes)) {
+            payload.writeInt(BINARY_WAL_MAGIC);
+            payload.writeInt(BINARY_WAL_VERSION);
+            payload.writeLong(domainId.getMostSignificantBits());
+            payload.writeLong(domainId.getLeastSignificantBits());
+            payload.writeLong(record.revision());
+            payload.writeBoolean(record.transactionId() != null);
+            if (record.transactionId() != null) {
+                payload.writeLong(record.transactionId().getMostSignificantBits());
+                payload.writeLong(record.transactionId().getLeastSignificantBits());
             }
-            writeWalFrame(out, payload);
+
+            ByteArrayOutputStream keyBytes = new ByteArrayOutputStream();
+            try (DataOutputStream keyOut = new DataOutputStream(keyBytes)) {
+                NbtIo.write(record.key().toTagGeneric(registries), keyOut);
+            }
+            payload.writeInt(keyBytes.size());
+            keyBytes.writeTo(payload);
+
+            byte[] delta = record.delta().toByteArray();
+            payload.writeInt(delta.length);
+            payload.write(delta);
         }
+        return payloadBytes.toByteArray();
+    }
+
+    private boolean shouldRotateActiveWal() {
+        if (activeWalRecordCount <= 0L) {
+            return false;
+        }
+        return activeWalBytes >= WAL_SEGMENT_MAX_BYTES
+            || activeWalRecordCount >= WAL_SEGMENT_MAX_RECORDS
+            || System.nanoTime() - lastCheckpointNanos >= WAL_CHECKPOINT_INTERVAL_NANOS;
     }
 
     private static void writeWalFrame(DataOutputStream out, byte[] payload) throws IOException {
@@ -714,6 +781,45 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         return walOut;
     }
 
+    private void sealActiveWal() throws IOException {
+        long barrierRevision;
+        Map<Integer, Long> shardBarriers;
+        synchronized (walStateLock) {
+            if (activeWalRecordCount <= 0L) {
+                return;
+            }
+            barrierRevision = activeWalMaxRevision;
+            shardBarriers = Map.copyOf(activeWalShardRevisions);
+        }
+
+        closeWalOutputChecked();
+        Path sealedPath = sealedWalPath(barrierRevision);
+        if (Files.exists(sealedPath)) {
+            throw new IOException("ECO infinite storage sealed WAL already exists: " + sealedPath);
+        }
+        moveAtomically(walPath, sealedPath);
+        synchronized (walStateLock) {
+            sealedWalSegments.add(new SealedWalSegment(sealedPath, barrierRevision, shardBarriers));
+            sealedWalSegments.sort(Comparator.comparingLong(SealedWalSegment::barrierRevision));
+            activeWalBytes = 0L;
+            activeWalRecordCount = 0L;
+            activeWalMaxRevision = 0L;
+            activeWalShardRevisions.clear();
+        }
+    }
+
+    private void closeWalOutputChecked() throws IOException {
+        if (walOut == null) {
+            return;
+        }
+        try {
+            walOut.close();
+        } finally {
+            walOut = null;
+            walFileOut = null;
+        }
+    }
+
     private void throwIfPersistenceFailed() {
         if (persistenceFailure != null) {
             throw persistenceException(persistenceFailure);
@@ -728,12 +834,47 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     }
 
     private void replayWal() {
-        if (!Files.isRegularFile(walPath)) {
-            return;
+        List<Path> sealedPaths = listSealedWalPaths();
+        for (Path sealedPath : sealedPaths) {
+            WalScanResult result = replayWalFile(sealedPath, false);
+            if (degraded) {
+                return;
+            }
+            sealedWalSegments.add(new SealedWalSegment(
+                sealedPath,
+                result.maxRevision(),
+                Map.copyOf(result.shardRevisions())
+            ));
         }
+        sealedWalSegments.sort(Comparator.comparingLong(SealedWalSegment::barrierRevision));
+        if (Files.isRegularFile(walPath)) {
+            WalScanResult active = replayWalFile(walPath, true);
+            if (degraded) {
+                return;
+            }
+            try {
+                activeWalBytes = Files.size(walPath);
+            } catch (IOException e) {
+                degraded = true;
+                LOGGER.error("Unable to inspect ECO infinite storage WAL {}", walPath, e);
+                return;
+            }
+            activeWalRecordCount = active.recordCount();
+            activeWalMaxRevision = active.maxRevision();
+            activeWalShardRevisions.putAll(active.shardRevisions());
+        }
+        for (UUID transactionId : committedTransactions) {
+            writeTransactionReceipt(transactionId);
+        }
+    }
+
+    private WalScanResult replayWalFile(Path path, boolean repairTail) {
+        Map<Integer, Long> walShardRevisions = new HashMap<>();
+        long recordCount = 0L;
+        long maxRevision = 0L;
         long repairOffset = -1L;
-        try (DataInputStream in = new DataInputStream(Files.newInputStream(walPath))) {
-            long fileSize = Files.size(walPath);
+        try (DataInputStream in = new DataInputStream(Files.newInputStream(path))) {
+            long fileSize = Files.size(path);
             long offset = 0L;
             while (offset < fileSize) {
                 long recordStart = offset;
@@ -749,7 +890,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                         repairOffset = recordStart;
                     } else {
                         degraded = true;
-                        LOGGER.error("Invalid ECO infinite storage WAL record length {} in {}", length, walPath);
+                        LOGGER.error("Invalid ECO infinite storage WAL record length {} in {}", length, path);
                     }
                     break;
                 }
@@ -767,40 +908,119 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                         repairOffset = recordStart;
                     } else {
                         degraded = true;
-                        LOGGER.error("CRC mismatch in ECO infinite storage WAL {}", walPath);
+                        LOGGER.error("CRC mismatch in ECO infinite storage WAL {}", path);
                     }
                     break;
                 }
-                CompoundTag tag = NbtIo.readCompressed(
-                    new ByteArrayInputStream(payload),
-                    NbtAccounter.unlimitedHeap()
-                );
-                int version = tag.getInt("version");
-                if (version == WAL_VERSION) {
-                    validateWalDomain(tag);
-                    ListTag records = tag.getList("records", Tag.TAG_COMPOUND);
-                    for (int i = 0; i < records.size(); i++) {
-                        replayWalRecord(records.getCompound(i));
-                    }
-                } else if (version == LEGACY_WAL_VERSION) {
-                    validateWalDomain(tag);
-                    replayWalRecord(tag);
-                } else {
-                    throw new IOException("Unsupported ECO infinite storage WAL version " + version);
+                List<WalRecord> records = decodeWalPayload(payload);
+                for (WalRecord record : records) {
+                    replayWalRecord(record);
+                    recordCount++;
+                    maxRevision = Math.max(maxRevision, record.revision());
+                    walShardRevisions.merge(record.shard(), record.revision(), Math::max);
                 }
             }
         } catch (RuntimeException | IOException e) {
             degraded = true;
-            LOGGER.error("Unable to replay ECO infinite storage WAL {}", walPath, e);
+            LOGGER.error("Unable to replay ECO infinite storage WAL {}", path, e);
         }
-        if (!degraded && repairOffset >= 0L) {
-            repairWalTail(repairOffset);
+        if (!degraded && repairOffset >= 0L && repairTail) {
+            repairWalTail(path, repairOffset);
+        } else if (!degraded && repairOffset >= 0L) {
+            degraded = true;
+            LOGGER.error("Incomplete sealed ECO infinite storage WAL {}", path);
         }
-        if (!degraded) {
-            for (UUID transactionId : committedTransactions) {
-                writeTransactionReceipt(transactionId);
+        return new WalScanResult(recordCount, maxRevision, walShardRevisions);
+    }
+
+    private List<WalRecord> decodeWalPayload(byte[] payload) throws IOException {
+        if (payload.length >= Integer.BYTES && readInt(payload, 0) == BINARY_WAL_MAGIC) {
+            return List.of(decodeBinaryWalRecord(payload));
+        }
+        CompoundTag tag = NbtIo.readCompressed(
+            new ByteArrayInputStream(payload),
+            NbtAccounter.unlimitedHeap()
+        );
+        int version = tag.getInt("version");
+        if (version == WAL_VERSION) {
+            validateWalDomain(tag);
+            ListTag entries = tag.getList("records", Tag.TAG_COMPOUND);
+            List<WalRecord> records = new ArrayList<>(entries.size());
+            for (int i = 0; i < entries.size(); i++) {
+                WalRecord record = decodeLegacyWalRecord(entries.getCompound(i));
+                if (record != null) {
+                    records.add(record);
+                }
             }
+            return records;
         }
+        if (version == LEGACY_WAL_VERSION) {
+            validateWalDomain(tag);
+            WalRecord record = decodeLegacyWalRecord(tag);
+            return record == null ? List.of() : List.of(record);
+        }
+        throw new IOException("Unsupported ECO infinite storage WAL version " + version);
+    }
+
+    private WalRecord decodeBinaryWalRecord(byte[] payload) throws IOException {
+        try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(payload))) {
+            if (in.readInt() != BINARY_WAL_MAGIC || in.readInt() != BINARY_WAL_VERSION) {
+                throw new IOException("Unsupported ECO infinite storage binary WAL record");
+            }
+            UUID recordDomain = new UUID(in.readLong(), in.readLong());
+            if (!domainId.equals(recordDomain)) {
+                throw new IOException("ECO infinite storage WAL domain mismatch: " + recordDomain);
+            }
+            long recordRevision = in.readLong();
+            UUID transactionId = in.readBoolean() ? new UUID(in.readLong(), in.readLong()) : null;
+            int keyLength = in.readInt();
+            if (keyLength <= 0 || keyLength > MAX_WAL_RECORD_BYTES || keyLength > in.available()) {
+                throw new IOException("Invalid ECO infinite storage WAL key length " + keyLength);
+            }
+            byte[] keyBytes = in.readNBytes(keyLength);
+            CompoundTag keyTag;
+            try (DataInputStream keyIn = new DataInputStream(new ByteArrayInputStream(keyBytes))) {
+                keyTag = NbtIo.read(keyIn, NbtAccounter.unlimitedHeap());
+            }
+            AEKey key = AEKey.fromTagGeneric(registries, keyTag);
+            int deltaLength = in.readInt();
+            if (deltaLength <= 0 || deltaLength > MAX_WAL_RECORD_BYTES || deltaLength > in.available()) {
+                throw new IOException("Invalid ECO infinite storage WAL delta length " + deltaLength);
+            }
+            byte[] deltaBytes = in.readNBytes(deltaLength);
+            if (in.available() != 0) {
+                throw new IOException("Trailing bytes in ECO infinite storage WAL record");
+            }
+            if (key == null) {
+                throw new IOException("Unknown AE key in ECO infinite storage WAL");
+            }
+            return new WalRecord(recordRevision, shardFor(key), key, new BigInteger(deltaBytes), transactionId);
+        } catch (EOFException e) {
+            throw new IOException("Truncated ECO infinite storage binary WAL record", e);
+        }
+    }
+
+    @Nullable
+    private WalRecord decodeLegacyWalRecord(CompoundTag tag) {
+        AEKey key = AEKey.fromTagGeneric(registries, tag.getCompound("key"));
+        if (key == null) {
+            return null;
+        }
+        UUID transactionId = tag.hasUUID("transaction") ? tag.getUUID("transaction") : null;
+        return new WalRecord(
+            tag.getLong("revision"),
+            shardFor(key),
+            key,
+            new BigInteger(tag.getString("delta")),
+            transactionId
+        );
+    }
+
+    private static int readInt(byte[] bytes, int offset) {
+        return (bytes[offset] & 0xff) << 24
+            | (bytes[offset + 1] & 0xff) << 16
+            | (bytes[offset + 2] & 0xff) << 8
+            | bytes[offset + 3] & 0xff;
     }
 
     private Path transactionReceipt(UUID transactionId) {
@@ -838,6 +1058,12 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             )) {
                 channel.force(true);
             }
+            synchronized (walStateLock) {
+                activeWalBytes = 0L;
+                activeWalRecordCount = 0L;
+                activeWalMaxRevision = 0L;
+                activeWalShardRevisions.clear();
+            }
         } catch (IOException e) {
             degraded = true;
             persistenceFailure = e;
@@ -845,19 +1071,24 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
     }
 
-    private void replayWalRecord(CompoundTag tag) {
-        AEKey key = AEKey.fromTagGeneric(registries, tag.getCompound("key"));
-        long recordRevision = tag.getLong("revision");
-        UUID transactionId = tag.hasUUID("transaction") ? tag.getUUID("transaction") : null;
-        if (key != null) {
-            if (recordRevision > loadedKeyRevisions.getOrDefault(key, 0L)) {
-                applyDelta(key, new BigInteger(tag.getString("delta")));
-            }
-            if (transactionId != null) {
-                committedTransactions.add(transactionId);
-            }
-            revision = Math.max(revision, recordRevision);
+    private void replayWalRecord(WalRecord record) {
+        long shardCheckpointRevision = shardRevisions[record.shard()];
+        long loadedKeyRevision = loadedKeyRevisions.getOrDefault(record.key(), 0L);
+        if (!isWalRecordCovered(record.revision(), shardCheckpointRevision, loadedKeyRevision)) {
+            applyDelta(record.key(), record.delta());
         }
+        if (record.transactionId() != null) {
+            committedTransactions.add(record.transactionId());
+        }
+        revision = Math.max(revision, record.revision());
+    }
+
+    static boolean isWalRecordCovered(
+        long recordRevision,
+        long shardCheckpointRevision,
+        long loadedKeyRevision
+    ) {
+        return recordRevision <= Math.max(shardCheckpointRevision, loadedKeyRevision);
     }
 
     private void validateWalDomain(CompoundTag tag) throws IOException {
@@ -875,14 +1106,70 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         }
     }
 
-    private void repairWalTail(long validLength) {
-        try (FileChannel channel = FileChannel.open(walPath, StandardOpenOption.WRITE)) {
+    private static void moveAtomically(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(source, target);
+        }
+    }
+
+    private void repairWalTail(Path path, long validLength) {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.WRITE)) {
             channel.truncate(validLength);
             channel.force(true);
-            LOGGER.warn("Discarded incomplete ECO infinite storage WAL tail in {} at byte {}", walPath, validLength);
+            LOGGER.warn("Discarded incomplete ECO infinite storage WAL tail in {} at byte {}", path, validLength);
         } catch (IOException e) {
             degraded = true;
-            LOGGER.error("Unable to repair ECO infinite storage WAL tail {}", walPath, e);
+            LOGGER.error("Unable to repair ECO infinite storage WAL tail {}", path, e);
+        }
+    }
+
+    private boolean hasSealedWalSegments() {
+        synchronized (walStateLock) {
+            return !sealedWalSegments.isEmpty();
+        }
+    }
+
+    private boolean hasUncoveredWalSegments() {
+        synchronized (walStateLock) {
+            for (SealedWalSegment segment : sealedWalSegments) {
+                if (!isWalSegmentCovered(segment)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private boolean isWalSegmentCovered(SealedWalSegment segment) {
+        return isCheckpointBarrierCovered(segment.shardRevisions(), shardRevisions);
+    }
+
+    static boolean isCheckpointBarrierCovered(Map<Integer, Long> barrier, long[] checkpointRevisions) {
+        for (Map.Entry<Integer, Long> entry : barrier.entrySet()) {
+            if (checkpointRevisions[entry.getKey()] < entry.getValue()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void reclaimCoveredWalSegments() {
+        synchronized (walStateLock) {
+            while (!sealedWalSegments.isEmpty()) {
+                SealedWalSegment segment = sealedWalSegments.getFirst();
+                if (!isWalSegmentCovered(segment)) {
+                    return;
+                }
+                try {
+                    Files.deleteIfExists(segment.path());
+                    sealedWalSegments.removeFirst();
+                } catch (IOException e) {
+                    LOGGER.warn("Unable to remove checkpointed ECO infinite storage WAL segment {}", segment.path(), e);
+                    return;
+                }
+            }
         }
     }
 
@@ -902,6 +1189,27 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
     private Path shardPath(int shard) {
         return domainPath.resolve(shardFileName(shard));
+    }
+
+    private Path sealedWalPath(long barrierRevision) {
+        return domainPath.resolve("wal_%020d.sealed".formatted(barrierRevision));
+    }
+
+    private List<Path> listSealedWalPaths() {
+        try (var paths = Files.list(domainPath)) {
+            return paths
+                .filter(Files::isRegularFile)
+                .filter(path -> {
+                    String name = path.getFileName().toString();
+                    return name.startsWith("wal_") && name.endsWith(".sealed");
+                })
+                .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                .toList();
+        } catch (IOException e) {
+            degraded = true;
+            LOGGER.error("Unable to list ECO infinite storage WAL segments in {}", domainPath, e);
+            return List.of();
+        }
     }
 
     private static String shardFileName(int shard) {
@@ -937,6 +1245,20 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     }
 
     private record CheckpointWrite(long revision, Future<?> future) {}
+
+    private record PendingWalDelta(long delta, long revision) {}
+
+    private record WalRecord(
+        long revision,
+        int shard,
+        AEKey key,
+        BigInteger delta,
+        @Nullable UUID transactionId
+    ) {}
+
+    private record WalScanResult(long recordCount, long maxRevision, Map<Integer, Long> shardRevisions) {}
+
+    private record SealedWalSegment(Path path, long barrierRevision, Map<Integer, Long> shardRevisions) {}
 
     private static final class MutableTypeStats {
         private long storedTypes;
