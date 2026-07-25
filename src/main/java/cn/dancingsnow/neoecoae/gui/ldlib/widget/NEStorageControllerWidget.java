@@ -31,7 +31,7 @@ public class NEStorageControllerWidget extends NELDLibSyncedStateWidget<NEStorag
     public static final int UI_WIDTH = NEStorageLayout.UI_WIDTH;
     public static final int UI_HEIGHT = NEStorageLayout.UI_HEIGHT;
 
-    private static final int ACTION_HUGE_STACK_PAGE = 2;
+    private static final int ACTION_HUGE_STACK_PAGE = FIRST_CUSTOM_UPDATE_ID + 1;
 
     private final ECOStorageSystemBlockEntity storage;
     private final Player player;

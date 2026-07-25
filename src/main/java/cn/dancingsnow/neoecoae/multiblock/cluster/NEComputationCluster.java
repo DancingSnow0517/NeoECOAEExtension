@@ -17,7 +17,9 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBloc
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.NEComputationUpgradeRules;
 import cn.dancingsnow.neoecoae.items.ECOComputationCellItem;
+import com.google.common.math.LongMath;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -151,15 +153,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     public void updateFormed(boolean formed) {
         super.updateFormed(formed);
         if (formed) {
-            this.accelerators = blockEntities.stream()
-                    .filter(it -> it instanceof ECOComputationParallelCoreBlockEntity)
-                    .mapToInt(it -> ((ECOComputationParallelCoreBlockEntity) it)
-                            .getTier()
-                            .getCPUAccelerators())
-                    .sum();
-            this.maxThreads = threadingCores.stream()
-                    .mapToInt(it -> it.getTier().getCPUThreads())
-                    .sum();
+            applyComputationUpgradeCapacity();
 
             // Step 1: restore CPU NBT from each threading core's deferredInit
             for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
@@ -186,10 +180,6 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
             this.fakeCpu =
                     new ECOCraftingCPU(this, availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
-            this.maxThreads = threadingCores.stream()
-                    .mapToInt(it -> it.getTier().getCPUThreads())
-                    .sum();
-
             // Apply the controller's persisted CPU auto-selection mode to the cluster
             if (controller != null) {
                 this.selectionMode = controller.getCpuSelectionMode();
@@ -282,11 +272,71 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             ItemStack itemStack = driveBlockEntity.getCellStack();
             if (itemStack != null && !itemStack.isEmpty()) {
                 if (itemStack.getItem() instanceof ECOComputationCellItem cellItem) {
-                    ret += cellItem.getBytes();
+                    ret = LongMath.saturatedAdd(ret, cellItem.getBytes());
                 }
             }
         }
         return ret;
+    }
+
+    /** Reapplies the controller upgrade after a slot change without rebuilding the multiblock. */
+    public void recalculateUpgradeStats() {
+        applyComputationUpgradeCapacity();
+        recalculateRemainingStorage();
+        updateGridForChangedCpu(this);
+    }
+
+    private void applyComputationUpgradeCapacity() {
+        ItemStack upgrade = controller != null
+                ? controller.getComputationUpgradeItemHandler().getStackInSlot(0)
+                : ItemStack.EMPTY;
+        if (NEComputationUpgradeRules.hasInfiniteCapacity(upgrade)) {
+            accelerators = controller != null
+                    ? controller.getParallelAccelerators()
+                    : NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS;
+        } else {
+            int multiplier = NEComputationUpgradeRules.fieldGeneratorMultiplier(upgrade);
+            accelerators = saturatedAcceleratorMultiply(baseAcceleratorCapacity(), multiplier);
+        }
+        int multiplier = NEComputationUpgradeRules.fieldGeneratorMultiplier(upgrade);
+        maxThreads = saturatedIntMultiply(baseThreadCapacity(), multiplier);
+        for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
+            core.ensureCpuCapacity(multiplier);
+        }
+    }
+
+    private int baseAcceleratorCapacity() {
+        long capacity = 0L;
+        for (ECOComputationParallelCoreBlockEntity core : parallelCores) {
+            capacity = LongMath.saturatedAdd(capacity, core.getTier().getCPUAccelerators());
+        }
+        return capacity >= NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS
+                ? NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS
+                : (int) capacity;
+    }
+
+    private int baseThreadCapacity() {
+        long capacity = 0L;
+        for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
+            capacity = LongMath.saturatedAdd(capacity, core.getTier().getCPUThreads());
+        }
+        return capacity >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) capacity;
+    }
+
+    private static int saturatedIntMultiply(int value, int multiplier) {
+        if (value <= 0 || multiplier <= 0) {
+            return 0;
+        }
+        return value > Integer.MAX_VALUE / multiplier ? Integer.MAX_VALUE : value * multiplier;
+    }
+
+    private static int saturatedAcceleratorMultiply(int value, int multiplier) {
+        if (value <= 0 || multiplier <= 0) {
+            return 0;
+        }
+        return value > NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS / multiplier
+                ? NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS
+                : value * multiplier;
     }
 
     public int getCPUAccelerators() {
@@ -372,12 +422,21 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public void recalculateRemainingStorage() {
         long oldAvailableStorage = this.availableStorage;
-        this.totalStorageBytes = collectStorage(upperDrives) + collectStorage(lowerDrives);
+        long baseStorage = LongMath.saturatedAdd(collectStorage(upperDrives), collectStorage(lowerDrives));
+        ItemStack upgrade = controller != null
+                ? controller.getComputationUpgradeItemHandler().getStackInSlot(0)
+                : ItemStack.EMPTY;
+        if (NEComputationUpgradeRules.hasInfiniteCapacity(upgrade)) {
+            this.totalStorageBytes = Long.MAX_VALUE;
+        } else {
+            this.totalStorageBytes = LongMath.saturatedMultiply(
+                    baseStorage, NEComputationUpgradeRules.fieldGeneratorMultiplier(upgrade));
+        }
 
         this.activeJobBytes = 0L;
 
         for (ICraftingPlan plan : this.activeCpus.values()) {
-            this.activeJobBytes += plan.bytes();
+            this.activeJobBytes = LongMath.saturatedAdd(this.activeJobBytes, plan.bytes());
         }
         this.activeCpuCount = this.activeCpus.size();
 
@@ -486,6 +545,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public boolean hasFreeThread() {
+        if (activeCpuCount >= maxThreads) {
+            return false;
+        }
         for (ECOComputationThreadingCoreBlockEntity threadingCore : threadingCores) {
             if (threadingCore.hasFreeCpuSlot()) {
                 return true;

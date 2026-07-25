@@ -57,7 +57,8 @@ final class NEStructureTerminalLayout {
     static final int FORMED_PREVIEW_X = PATTERN_PANEL_X + 7;
     static final int FORMED_PREVIEW_Y = PATTERN_PANEL_Y + PATTERN_PANEL_H - CONTROL_H - 7;
 
-    static final int ACTION_UPDATE_ID = 2;
+    /** Kept above the ids LDLib's {@code WidgetGroup} reserves for its children. */
+    static final int ACTION_UPDATE_ID = NELDLibMachineWidget.FIRST_CUSTOM_UPDATE_ID + 1;
 
     static int patternVisibleSlots() {
         return PATTERN_MATERIAL_COLS * PATTERN_MATERIAL_ROWS;

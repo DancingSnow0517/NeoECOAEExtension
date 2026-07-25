@@ -27,6 +27,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
 public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity>
@@ -45,6 +47,31 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     /** CPU auto-selection mode, persisted in the controller's NBT. */
     private CpuSelectionMode cpuSelectionMode = CpuSelectionMode.ANY;
+
+    /** Configured co-processors used while the controller has a full infinite component stack. */
+    private int parallelAccelerators = NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS;
+
+    private final ItemStackHandler computationUpgradeHandler = new ItemStackHandler(1) {
+        @Override
+        protected int getStackLimit(int slot, ItemStack stack) {
+            return NEComputationUpgradeRules.requiredCount(stack);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return NEComputationUpgradeRules.INFINITE_COMPONENT_COUNT;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return NEComputationUpgradeRules.isValid(stack);
+        }
+
+        @Override
+        protected void onContentsChanged(int slot) {
+            onComputationUpgradeSlotChanged();
+        }
+    };
 
     private boolean computationStatsDirty = true;
     /** Shared preview/build state, delegates NBT sync to {@link BuildPreviewState}. */
@@ -98,7 +125,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             parallelCount = 0;
             availableBytes = 0;
             totalBytes = 0;
-            acceleratorCount = 0;
+            acceleratorCount = hasInfiniteCapacityUpgrade() ? parallelAccelerators : 0;
         }
     }
 
@@ -187,6 +214,77 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         markUiStateDirty();
     }
 
+    public int getParallelAccelerators() {
+        return parallelAccelerators;
+    }
+
+    public boolean hasInfiniteCapacityUpgrade() {
+        return NEComputationUpgradeRules.hasInfiniteCapacity(computationUpgradeHandler.getStackInSlot(0));
+    }
+
+    /** Applies a validated server-side parallel setting from the computation UI. */
+    public boolean setParallelAccelerators(int value) {
+        if (level == null
+                || level.isClientSide
+                || !hasInfiniteCapacityUpgrade()
+                || value < 0
+                || value > NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS) {
+            return false;
+        }
+        if (parallelAccelerators == value) {
+            return true;
+        }
+        parallelAccelerators = value;
+        if (cluster != null) {
+            cluster.recalculateUpgradeStats();
+        }
+        markComputationStatsDirty();
+        updateInfos();
+        setChanged();
+        markForUpdate();
+        return true;
+    }
+
+    /** Parses and validates raw text received by LDLib's number field on the server. */
+    public boolean setParallelAcceleratorsFromText(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return false;
+        }
+        try {
+            long value = Long.parseLong(rawValue.trim());
+            if (value < 0L || value > NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS) {
+                return false;
+            }
+            return setParallelAccelerators((int) value);
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    /** Applies a bounded step from the compact parallel-control buttons. */
+    public boolean adjustParallelAccelerators(int delta) {
+        long adjusted = (long) parallelAccelerators + delta;
+        int bounded = (int) Math.max(0L, Math.min(NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS, adjusted));
+        return setParallelAccelerators(bounded);
+    }
+
+    public IItemHandler getComputationUpgradeItemHandler() {
+        return computationUpgradeHandler;
+    }
+
+    public void onComputationUpgradeSlotChanged() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        if (cluster != null) {
+            cluster.recalculateUpgradeStats();
+        }
+        markComputationStatsDirty();
+        updateInfos();
+        setChanged();
+        markForUpdate();
+    }
+
     /**
      * Creates a snapshot of current computation stats for S2C UI sync.
      * <p>
@@ -207,6 +305,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 totalBytes,
                 parallelCount,
                 acceleratorCount,
+                getParallelAccelerators(),
+                hasInfiniteCapacityUpgrade(),
                 mode,
                 collectComputationRecipeEntries());
     }
@@ -339,6 +439,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         super.saveAdditional(tag);
         tag.putInt("selectedBuildLength", getSelectedBuildLength());
         tag.putInt("cpuSelectionMode", cpuSelectionMode.ordinal());
+        tag.putInt("parallelAccelerators", parallelAccelerators);
+        tag.put("computationUpgradeSlot", computationUpgradeHandler.serializeNBT());
     }
 
     @Override
@@ -351,6 +453,15 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             if (ordinal >= 0 && ordinal < values.length) {
                 cpuSelectionMode = values[ordinal];
             }
+        }
+        if (tag.contains("parallelAccelerators")) {
+            int saved = tag.getInt("parallelAccelerators");
+            parallelAccelerators = saved < 0 || saved > NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS
+                    ? NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS
+                    : saved;
+        }
+        if (tag.contains("computationUpgradeSlot")) {
+            computationUpgradeHandler.deserializeNBT(tag.getCompound("computationUpgradeSlot"));
         }
         buildPreview.buildInProgress = false;
         buildPreview.resetPreview(BuildPreviewState.DEFAULT_STATUS_KEY);

@@ -12,7 +12,11 @@ public class UploadButton extends Button {
     private final ItemStack iconStack;
 
     public UploadButton(int x, int y, ItemStack iconStack, OnPress onPress) {
-        super(x, y, 20, 22, Component.empty(), onPress, unused -> Component.empty());
+        this(x, y, 20, 22, iconStack, onPress);
+    }
+
+    public UploadButton(int x, int y, int width, int height, ItemStack iconStack, OnPress onPress) {
+        super(x, y, width, height, Component.empty(), onPress, unused -> Component.empty());
         this.iconStack = iconStack.copy();
         this.iconStack.setCount(1);
     }

@@ -13,7 +13,6 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
-import com.lowdragmc.lowdraglib.gui.widget.TankWidget;
 import com.lowdragmc.lowdraglib.side.item.IItemTransfer;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +28,7 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
     public static final int UI_HEIGHT = PANEL_H;
     private static final int MAIN_X = -TOGGLE_BTN_X;
     private static final int AUTO_EXPORT_BUTTON_X = 0;
-    private static final int CLEAR_FLUID_ACTION_ID = 2;
+    private static final int CLEAR_FLUID_ACTION_ID = FIRST_CUSTOM_UPDATE_ID + 1;
 
     private final ECOIntegratedWorkingStationBlockEntity station;
     private final Inventory playerInventory;
@@ -112,27 +111,23 @@ public class NEIntegratedWorkingStationWidget extends NELDLibSyncedStateWidget<N
                 });
         addWidget(autoExportButton);
 
-        addWidget(new TankWidget(
+        addWidget(new NEAeTankWidget(
                         new NEForgeFluidStorage(station.getInputTank()),
                         mainX(FLUID_IN_X),
                         FLUID_IN_Y,
                         FLUID_IN_W,
-                        FLUID_IN_H,
-                        true,
-                        true)
+                        FLUID_IN_H)
                 .setShowAmount(false)
                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
                 .setAllowClickFilled(true)
                 .setAllowClickDrained(true)
                 .setChangeListener(station::onGuiInventoryChanged));
-        addWidget(new TankWidget(
+        addWidget(new NEAeTankWidget(
                         new NEForgeFluidStorage(station.getOutputTank()),
                         mainX(FLUID_OUT_X),
                         FLUID_OUT_Y,
                         FLUID_OUT_W,
-                        FLUID_OUT_H,
-                        true,
-                        true)
+                        FLUID_OUT_H)
                 .setShowAmount(false)
                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
                 .setAllowClickFilled(false)

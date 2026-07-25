@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -36,9 +37,9 @@ public class ECOComputationThreadingCoreBlockEntity
     private final IECOTier tier;
 
     @Getter
-    private final ECOCraftingCPU[] cpus;
+    private ECOCraftingCPU[] cpus;
 
-    private final CompoundTag[] deferredInit;
+    private CompoundTag[] deferredInit;
 
     public ECOComputationThreadingCoreBlockEntity(
             BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
@@ -49,6 +50,9 @@ public class ECOComputationThreadingCoreBlockEntity
     }
 
     @Nullable public ECOCraftingCPU spawn(ICraftingPlan plan) {
+        if (cluster != null && cluster.getActiveCpuCountCached() >= cluster.getMaxThreads()) {
+            return null;
+        }
         for (int i = 0; i < cpus.length; i++) {
             if (cpus[i] == null) {
                 ECOCraftingCPU cpu = new ECOCraftingCPU(cluster, plan, this);
@@ -67,6 +71,14 @@ public class ECOComputationThreadingCoreBlockEntity
             }
         }
         return false;
+    }
+
+    /** Expands the CPU slots exposed by this core for the controller's field-generator multiplier. */
+    public void ensureCpuCapacity(int multiplier) {
+        int safeMultiplier = Math.max(1, multiplier);
+        long requested = (long) tier.getCPUThreads() * safeMultiplier;
+        int target = requested >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) requested;
+        ensureCpuCapacityTo(target);
     }
 
     public boolean isWorking() {
@@ -165,6 +177,7 @@ public class ECOComputationThreadingCoreBlockEntity
                     worldPosition);
             return;
         }
+        data.putInt("cpuCapacity", cpus.length);
         int saved = 0;
         int preserved = 0;
         for (int i = 0; i < cpus.length; i++) {
@@ -217,12 +230,32 @@ public class ECOComputationThreadingCoreBlockEntity
     @Override
     public void loadTag(CompoundTag data) {
         super.loadTag(data);
+        int savedCapacity = Math.max(tier.getCPUThreads(), data.getInt("cpuCapacity"));
+        for (String key : data.getAllKeys()) {
+            if (!key.startsWith("CPU")) {
+                continue;
+            }
+            try {
+                savedCapacity = Math.max(savedCapacity, Integer.parseInt(key.substring(3)) + 1);
+            } catch (NumberFormatException ignored) {
+                // Ignore unrelated keys with a CPU prefix.
+            }
+        }
+        ensureCpuCapacityTo(savedCapacity);
         for (int i = 0; i < cpus.length; i++) {
             if (data.contains("CPU" + i)) {
                 deferredInit[i] = data.getCompound("CPU" + i);
             }
         }
         markForUpdate();
+    }
+
+    private void ensureCpuCapacityTo(int target) {
+        if (target <= cpus.length) {
+            return;
+        }
+        cpus = Arrays.copyOf(cpus, target);
+        deferredInit = Arrays.copyOf(deferredInit, target);
     }
 
     @Override

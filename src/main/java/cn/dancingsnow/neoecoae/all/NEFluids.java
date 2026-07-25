@@ -13,6 +13,7 @@ public class NEFluids {
     public static final FluidEntry<ForgeFlowingFluid.Flowing> CRYOTHEUM_SOLUTION = REGISTRATE
             .object("cryotheum_solution")
             .fluid("cryotheum_solution")
+            .properties(p -> p.temperature(1))
             .fluidProperties(p -> p.tickRate(2).slopeFindDistance(0))
             .block()
             .properties(BlockBehaviour.Properties::noLootTable)

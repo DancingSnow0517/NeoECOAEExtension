@@ -26,6 +26,14 @@ public abstract class NELDLibMachineWidget extends WidgetGroup {
     protected static final int TEXT_WARNING = NELDLibUiConstants.TEXT_WARNING;
     protected static final int TEXT_ERROR = NELDLibUiConstants.TEXT_ERROR;
 
+    /**
+     * LDLib's {@link WidgetGroup} already uses update ids {@code 1} (child widget update) and {@code 2}
+     * (child widget initial data) on every group. A group that reserves one of those ids for its own
+     * {@code writeUpdateInfo}/{@code readUpdateInfo} swallows all updates coming from its children
+     * (tanks, progress bars, text), so custom ids must start above them.
+     */
+    protected static final int FIRST_CUSTOM_UPDATE_ID = 16;
+
     protected final Component title;
     protected final int width;
     protected final int height;

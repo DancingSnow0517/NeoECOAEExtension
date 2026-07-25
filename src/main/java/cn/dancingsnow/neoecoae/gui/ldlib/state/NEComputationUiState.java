@@ -14,9 +14,11 @@ public record NEComputationUiState(
         long totalStorage,
         int parallelCount,
         int accelerators,
+        int configuredAccelerators,
+        boolean infiniteCapacity,
         CpuSelectionMode cpuSelectionMode,
         List<NECraftingRecipeUiEntry> recipeEntries) {
     public static NEComputationUiState empty(BlockPos pos) {
-        return new NEComputationUiState(pos, false, false, 0, 0, 0, 0, 0, 0, CpuSelectionMode.ANY, List.of());
+        return new NEComputationUiState(pos, false, false, 0, 0, 0, 0, 0, 0, 0, false, CpuSelectionMode.ANY, List.of());
     }
 }

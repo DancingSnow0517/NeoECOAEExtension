@@ -11,14 +11,18 @@ import org.junit.jupiter.api.Test;
 class NEComputationControllerWidgetTest {
     @Test
     void ldlib2HostGeometryFitsTheCompactCanvas() {
-        assertEquals(344, NEComputationControllerWidget.UI_WIDTH);
+        assertEquals(344, BASE_UI_WIDTH);
         assertEquals(232, NEComputationControllerWidget.UI_HEIGHT);
+        assertEquals(BASE_UI_WIDTH + MAIN_X, NEComputationControllerWidget.UI_WIDTH);
+        assertEquals(80, PARALLEL_PANEL_W);
+        assertEquals(34, PARALLEL_PANEL_H);
+        assertEquals(64, PARALLEL_STEP);
         assertEquals(162, CAPACITY_PANEL_W);
         assertEquals(108, CAPACITY_PANEL_H);
         assertEquals(156, TASK_PANEL_W);
         assertEquals(200, TASK_PANEL_H);
         assertTrue(CAPACITY_PANEL_X + CAPACITY_PANEL_W < TASK_PANEL_X);
-        assertTrue(TASK_PANEL_X + TASK_PANEL_W <= UI_WIDTH);
+        assertTrue(TASK_PANEL_X + TASK_PANEL_W <= BASE_UI_WIDTH);
         assertTrue(PLAYER_HOTBAR_Y + 18 <= UI_HEIGHT);
         assertTrue(TASK_PANEL_Y + TASK_PANEL_H <= UI_HEIGHT);
     }

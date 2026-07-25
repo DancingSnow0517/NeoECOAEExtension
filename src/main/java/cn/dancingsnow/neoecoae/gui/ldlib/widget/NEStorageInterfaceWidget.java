@@ -18,7 +18,7 @@ public class NEStorageInterfaceWidget extends NELDLibSyncedStateWidget<NEStorage
     public static final int UI_WIDTH = 224;
     public static final int UI_HEIGHT = 116;
 
-    private static final int ACTION_SET_MODE = 2;
+    private static final int ACTION_SET_MODE = FIRST_CUSTOM_UPDATE_ID + 1;
     private static final int PANEL_X = 8;
     private static final int PANEL_Y = 24;
     private static final int PANEL_W = UI_WIDTH - 16;

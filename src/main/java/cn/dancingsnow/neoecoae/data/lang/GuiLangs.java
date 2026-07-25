@@ -249,11 +249,25 @@ public class GuiLangs {
         provider.add("gui.neoecoae.computation.threads", "Threads");
         provider.add("gui.neoecoae.computation.accelerators", "Accelerators: %s");
         provider.add("gui.neoecoae.computation.capacity", "Computation Capacity");
+        provider.add("gui.neoecoae.computation.upgrade_slot", "Computation Controller Upgrade Slot");
+        provider.add(
+                "gui.neoecoae.computation.upgrade_slot.field_generators", "Field generators: IV/LuV/ZPM/UV, 16 each");
+        provider.add(
+                "gui.neoecoae.computation.upgrade_slot.infinite_component", "Infinite component: full stack of 64");
         provider.add("gui.neoecoae.computation.available_storage", "Available Storage");
         provider.add("gui.neoecoae.computation.storage_used", "Storage Used");
         provider.add("gui.neoecoae.computation.task.crafting", "Crafting %s %s");
         provider.add("gui.neoecoae.computation.task.crafted", "Crafted %s in %s");
         provider.add("gui.neoecoae.computation.parallel_count", "Parallel Count: %s");
+        provider.add("gui.neoecoae.computation.parallel_control", "Parallel Control");
+        provider.add(
+                "gui.neoecoae.computation.parallel_control.enabled", "Enter a value for the infinite component mode");
+        provider.add(
+                "gui.neoecoae.computation.parallel_control.requires_infinite",
+                "Requires a full stack of 64 infinite components");
+        provider.add("gui.neoecoae.computation.parallel_input.tooltip", "Allowed range: 0 - 2,147,483,646");
+        provider.add("gui.neoecoae.computation.parallel_max", "Maximum: %s");
+        provider.add("gui.neoecoae.computation.parallel_value", "Accelerators");
         provider.add("gui.neoecoae.computation.cpu_selection_mode", "CPU Auto-Selection Mode");
         provider.add("gui.neoecoae.computation.cpu_selection_mode.click", "Click to cycle");
         provider.add("gui.neoecoae.computation.cpu_selection_mode.any", "CPU Auto-Selection: Any Source");

@@ -30,9 +30,9 @@ import org.slf4j.LoggerFactory;
 
 public class NECraftingPatternBusWidget extends NELDLibMachineWidget {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
-    private static final int PAGE_UPDATE_ID = 1;
-    private static final int PAGE_ACTION_ID = 2;
-    private static final int INSERT_PLAYER_PATTERNS_ACTION_ID = 3;
+    private static final int PAGE_UPDATE_ID = FIRST_CUSTOM_UPDATE_ID;
+    private static final int PAGE_ACTION_ID = FIRST_CUSTOM_UPDATE_ID + 1;
+    private static final int INSERT_PLAYER_PATTERNS_ACTION_ID = FIRST_CUSTOM_UPDATE_ID + 2;
     private static final int SPACE_KEY = 32;
     private static final int PLAYER_MAIN_INVENTORY_SIZE = 36;
     private static final int PAGE_BUTTON_Y = 4;

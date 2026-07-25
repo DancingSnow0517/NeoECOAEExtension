@@ -80,6 +80,22 @@ public final class NELDLibAe2StyleRenderer {
         }
     }
 
+    /**
+     * Slot-style frame with a 1px border, matching {@code textures/gui/slot.png} but drawn with solid fills so a
+     * resource pack cannot make it disappear. The 1px border leaves exactly the inner area LDLib's
+     * {@code TankWidget} fills, so it can be used as a tank background.
+     */
+    public static void drawAeSlotFrame(GuiGraphics g, int x, int y, int w, int h) {
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        g.fill(x, y, x + w, y + h, 0xFF8B8B8B);
+        g.fill(x, y, x + w - 1, y + 1, 0xFF373737);
+        g.fill(x, y, x + 1, y + h - 1, 0xFF373737);
+        g.fill(x + 1, y + h - 1, x + w, y + h, 0xFFFFFFFF);
+        g.fill(x + w - 1, y + 1, x + w, y + h, 0xFFFFFFFF);
+    }
+
     public static void drawAeInsetRect(GuiGraphics g, int x, int y, int w, int h, int fillColor) {
         g.fill(x, y, x + w, y + 1, 0xFF3F3F3F);
         g.fill(x, y, x + 1, y + h, 0xFF3F3F3F);

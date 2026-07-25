@@ -8,7 +8,8 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 
 public abstract class NELDLibSyncedStateWidget<S> extends NELDLibMachineWidget {
-    private static final int STATE_UPDATE_ID = 1;
+    /** Must stay clear of the ids {@link com.lowdragmc.lowdraglib.gui.widget.WidgetGroup} uses for its children. */
+    protected static final int STATE_UPDATE_ID = FIRST_CUSTOM_UPDATE_ID;
 
     private final Supplier<S> stateSupplier;
     private final BiConsumer<FriendlyByteBuf, S> encoder;
