@@ -14,8 +14,8 @@ class NEComputationControllerWidgetTest {
         assertEquals(344, BASE_UI_WIDTH);
         assertEquals(232, NEComputationControllerWidget.UI_HEIGHT);
         assertEquals(BASE_UI_WIDTH + MAIN_X, NEComputationControllerWidget.UI_WIDTH);
-        assertEquals(80, PARALLEL_PANEL_W);
-        assertEquals(34, PARALLEL_PANEL_H);
+        assertEquals(108, PARALLEL_PANEL_W);
+        assertEquals(48, PARALLEL_PANEL_H);
         assertEquals(64, PARALLEL_STEP);
         assertEquals(162, CAPACITY_PANEL_W);
         assertEquals(108, CAPACITY_PANEL_H);

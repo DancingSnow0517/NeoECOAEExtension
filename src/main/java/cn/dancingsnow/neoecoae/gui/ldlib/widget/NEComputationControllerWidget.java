@@ -18,7 +18,6 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
-import com.lowdragmc.lowdraglib.gui.widget.TextFieldWidget;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.IntUnaryOperator;
@@ -39,11 +38,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private final NEComputationCapacityPanel capacityPanel = new NEComputationCapacityPanel();
     private final NEComputationTaskPanel taskPanel = new NEComputationTaskPanel();
     private NEAe2IconButtonWidget cpuModeButton;
-    private NEAe2IconButtonWidget parallelToggleButton;
-    private NEAe2TextButtonWidget parallelDecreaseButton;
-    private NEAe2TextButtonWidget parallelIncreaseButton;
-    private TextFieldWidget parallelInput;
-    private boolean parallelPanelOpen;
+    private NEGtceuConfiguratorTabWidget parallelConfigurator;
 
     public NEComputationControllerWidget(ECOComputationSystemBlockEntity computation, Player player) {
         super(
@@ -87,65 +82,14 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 });
         addWidget(cpuModeButton);
         if (hasUpgradeLayout()) {
-            parallelToggleButton = new NEAe2IconButtonWidget(
-                            PARALLEL_TOGGLE_X,
-                            PARALLEL_TOGGLE_Y,
-                            PARALLEL_TOGGLE_W,
-                            PARALLEL_TOGGLE_H,
-                            parallelToggleIcon(),
-                            click -> {
-                                if (click.isRemote && currentState().infiniteCapacity()) {
-                                    parallelPanelOpen = !parallelPanelOpen;
-                                    updateParallelControls();
-                                }
-                            })
-                    .useAeTabButton();
-            addWidget(parallelToggleButton);
-
-            parallelDecreaseButton = new NEAe2TextButtonWidget(
-                            PARALLEL_DECREASE_X,
-                            PARALLEL_STEP_BUTTON_Y,
-                            PARALLEL_STEP_BUTTON_W,
-                            PARALLEL_STEP_BUTTON_H,
-                            () -> Component.literal("-" + PARALLEL_STEP),
-                            click -> {
-                                if (!click.isRemote) {
-                                    computation.adjustParallelAccelerators(-PARALLEL_STEP);
-                                }
-                            },
-                            () -> false,
-                            NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR)
-                    .setTextColors(TEXT_PRIMARY, TEXT_PRIMARY, TEXT_MUTED);
-            parallelIncreaseButton = new NEAe2TextButtonWidget(
-                            PARALLEL_INCREASE_X,
-                            PARALLEL_STEP_BUTTON_Y,
-                            PARALLEL_STEP_BUTTON_W,
-                            PARALLEL_STEP_BUTTON_H,
-                            () -> Component.literal("+" + PARALLEL_STEP),
-                            click -> {
-                                if (!click.isRemote) {
-                                    computation.adjustParallelAccelerators(PARALLEL_STEP);
-                                }
-                            },
-                            () -> false,
-                            NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR)
-                    .setTextColors(TEXT_PRIMARY, TEXT_PRIMARY, TEXT_MUTED);
-            addWidget(parallelDecreaseButton);
-            addWidget(parallelIncreaseButton);
-
-            parallelInput = new TextFieldWidget(
-                            PARALLEL_FIELD_X,
-                            PARALLEL_FIELD_Y,
-                            PARALLEL_FIELD_W,
-                            PARALLEL_FIELD_H,
-                            () -> Integer.toString(currentState().configuredAccelerators()),
-                            computation::setParallelAcceleratorsFromText)
-                    .setBackground(IGuiTexture.EMPTY)
-                    .setBordered(false)
-                    .setTextColor(0xFFF5F6F8)
-                    .setMaxStringLength(10)
-                    .setNumbersOnly(0, NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS);
-            addWidget(parallelInput);
+            parallelConfigurator = new NEGtceuConfiguratorTabWidget(
+                    PARALLEL_PANEL_X,
+                    PARALLEL_PANEL_Y,
+                    Component.translatable("gui.neoecoae.computation.parallel_control"),
+                    () -> currentState().configuredAccelerators(),
+                    computation::setParallelAccelerators,
+                    () -> currentState().infiniteCapacity());
+            addWidget(parallelConfigurator);
 
             addWidget(new SlotWidget(
                             new NEForgeItemTransfer(
@@ -173,16 +117,6 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         updateParallelControls();
         NELDLibAe2StyleRenderer.drawAeMainPanel(graphics, absX(MAIN_X), absY(0), BASE_UI_WIDTH, UI_HEIGHT);
-        if (isParallelPageVisible()) {
-            drawPanel(graphics, PARALLEL_PANEL_X, PARALLEL_PANEL_Y, PARALLEL_PANEL_W, PARALLEL_PANEL_H);
-            cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle.drawTinyInsetRect(
-                    graphics,
-                    absX(PARALLEL_FIELD_X),
-                    absY(PARALLEL_FIELD_Y),
-                    PARALLEL_FIELD_W,
-                    PARALLEL_FIELD_H,
-                    0xFF0D0D11);
-        }
         cpuModeButton.setIcon(cpuModeIcon());
         capacityPanel.drawBackground(graphics, mainScreenX(), this::absY, currentState(), mouseX, mouseY);
         if (hasUpgradeLayout()) {
@@ -205,14 +139,6 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 PLAYER_INV_LABEL_Y,
                 TEXT_MUTED);
         taskPanel.draw(graphics, font(), mainScreenX(), this::absY, currentState());
-        if (isParallelPageVisible()) {
-            drawLocalString(
-                    graphics,
-                    Component.translatable("gui.neoecoae.computation.parallel_control"),
-                    PARALLEL_TITLE_X,
-                    PARALLEL_TITLE_Y,
-                    TEXT_PRIMARY);
-        }
     }
 
     @Override
@@ -262,9 +188,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private boolean drawParallelTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (parallelToggleButton != null
-                && isMouseIn(
-                        PARALLEL_TOGGLE_X, PARALLEL_TOGGLE_Y, PARALLEL_TOGGLE_W, PARALLEL_TOGGLE_H, mouseX, mouseY)) {
+        if (parallelConfigurator != null && parallelConfigurator.isToggleHovered(mouseX, mouseY)) {
             Component status = currentState().infiniteCapacity()
                     ? Component.translatable("gui.neoecoae.computation.parallel_control.enabled")
                     : Component.translatable("gui.neoecoae.computation.parallel_control.requires_infinite");
@@ -275,8 +199,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                     mouseY);
             return true;
         }
-        if (isParallelPageVisible()
-                && isMouseIn(PARALLEL_FIELD_X, PARALLEL_FIELD_Y, PARALLEL_FIELD_W, PARALLEL_FIELD_H, mouseX, mouseY)) {
+        if (parallelConfigurator != null && parallelConfigurator.isInputHovered(mouseX, mouseY)) {
             graphics.renderComponentTooltip(
                     font(),
                     List.of(Component.translatable("gui.neoecoae.computation.parallel_input.tooltip")),
@@ -289,34 +212,9 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     private void updateParallelControls() {
         boolean available = hasUpgradeLayout() && currentState().infiniteCapacity();
-        if (!available) {
-            parallelPanelOpen = false;
+        if (parallelConfigurator != null) {
+            parallelConfigurator.setEnabled(available);
         }
-        if (parallelToggleButton != null) {
-            parallelToggleButton.setVisible(true);
-            parallelToggleButton.setActive(available);
-            parallelToggleButton.setIcon(parallelToggleIcon());
-        }
-        if (parallelInput != null) {
-            parallelInput.setVisible(available && parallelPanelOpen);
-            parallelInput.setActive(available && parallelPanelOpen);
-        }
-        if (parallelDecreaseButton != null) {
-            parallelDecreaseButton.setVisible(available && parallelPanelOpen);
-            parallelDecreaseButton.setActive(available && parallelPanelOpen);
-        }
-        if (parallelIncreaseButton != null) {
-            parallelIncreaseButton.setVisible(available && parallelPanelOpen);
-            parallelIncreaseButton.setActive(available && parallelPanelOpen);
-        }
-    }
-
-    private boolean isParallelPageVisible() {
-        return parallelPanelOpen && currentState().infiniteCapacity();
-    }
-
-    private Icon parallelToggleIcon() {
-        return Icon.BACKGROUND_ENCODED_PATTERN;
     }
 
     private int mainX(int localX) {
