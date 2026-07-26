@@ -67,6 +67,12 @@ public class ConfigLangs {
             "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n" +
                 "The effective value is still capped by available co-processors."
         );
+        provider.add("neoecoae.configuration.ecoCpuTickBudgetMicros", "CPU Tick Time Budget (Microseconds)");
+        provider.add(
+            "neoecoae.configuration.ecoCpuTickBudgetMicros.tooltip",
+            "Shared scheduling time budget (in microseconds) for all ECO crafting CPUs within one server tick.\n" +
+                "Once exhausted, remaining pattern pushes resume on the next tick, so expensive third-party patterns or many CPUs cannot stall the server thread."
+        );
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
             "neoecoae.configuration.ecoFastPathCacheSize.tooltip",

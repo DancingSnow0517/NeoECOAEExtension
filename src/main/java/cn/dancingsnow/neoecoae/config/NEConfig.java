@@ -150,6 +150,15 @@ public class NEConfig {
             "The effective value is still limited by the number of available co-processors.")
         .defineInRange("ecoCpuPushTickLimit", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
 
+    private static final ModConfigSpec.IntValue ECO_CPU_TICK_BUDGET_MICROS = BUILDER
+        .comment(
+            "所有 ECO 合成 CPU 在同一服务器 tick 内共享的调度时间预算（微秒）。",
+            "预算耗尽后，剩余的 pattern 推送会推迟到下一 tick 继续；昂贵的第三方 pattern 或大量 CPU 无法拖垮服务器线程。",
+            "Shared scheduling time budget (in microseconds) for all ECO crafting CPUs within one server tick.",
+            "Once exhausted, remaining pattern pushes resume on the next tick, so expensive third-party patterns",
+            "or many CPUs cannot stall the server thread.")
+        .defineInRange("ecoCpuTickBudgetMicros", 5000, 100, 1_000_000);
+
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment(
             "每个 ECO 快速路径缓存最多保留的配方条目数量。",
@@ -178,6 +187,7 @@ public class NEConfig {
     public static boolean debugEcoFastPath;
     public static boolean debugECOHostOverdrive;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
+    public static int ecoCpuTickBudgetMicros = 5000;
     public static int ecoFastPathCacheSize = 512;
 
     @SubscribeEvent
@@ -205,6 +215,7 @@ public class NEConfig {
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         debugEcoFastPath = false;
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
+        ecoCpuTickBudgetMicros = ECO_CPU_TICK_BUDGET_MICROS.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
     }
 

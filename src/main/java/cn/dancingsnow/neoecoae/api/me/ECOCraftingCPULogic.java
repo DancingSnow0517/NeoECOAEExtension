@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.IntUnaryOperator;
 
 import com.google.common.base.Preconditions;
 
@@ -172,19 +173,41 @@ public class ECOCraftingCPULogic {
             return;
         }
 
+        // 所有 ECO CPU（跨集群与电网）共享同一 tick 的调度时间预算；预算耗尽时推迟到下一 tick。
+        var budget = ECOCraftingTickBudget.shared();
+        budget.startTick(TickHandler.instance().getCurrentTick());
+        if (budget.isExhausted()) {
+            return;
+        }
+
         var remainingOperations = getOperationLimit();
 
         if (remainingOperations > 0) {
-            do {
-                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel());
-
-                if (pushedPatterns > 0) {
-                    remainingOperations -= pushedPatterns;
-                } else {
-                    break;
-                }
-            } while (remainingOperations > 0);
+            budget.beginWork();
+            try {
+                drainOperations(remainingOperations, budget,
+                    operations -> executeCrafting(operations, budget, cc, eg, cpu.getLevel()));
+            } finally {
+                budget.endWork();
+            }
         }
+    }
+
+    /**
+     * 反复执行调度轮次，直到操作数上限或共享时间预算耗尽，或某一轮没有任何推送。
+     *
+     * @return 实际推送的操作总数。
+     */
+    static int drainOperations(int operationLimit, ECOCraftingTickBudget budget, IntUnaryOperator round) {
+        int remaining = operationLimit;
+        while (remaining > 0 && budget.hasTimeRemaining()) {
+            int pushed = round.applyAsInt(remaining);
+            if (pushed <= 0) {
+                break;
+            }
+            remaining -= pushed;
+        }
+        return operationLimit - remaining;
     }
 
     private void retryBufferedFinalOutput() {
@@ -266,6 +289,22 @@ public class ECOCraftingCPULogic {
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        return executeCrafting(maxPatterns, null, craftingService, energyService, level);
+    }
+
+    /**
+     * 尝试将 pattern 推送到可用接口中，即执行实际的合成操作。
+     *
+     * <p>当共享时间预算耗尽时提前停止调度；预算只在两次操作之间检查，绝不打断所有权转移。
+     *
+     * @return 成功推送的 pattern 数量。
+     */
+    public int executeCrafting(
+            int maxPatterns,
+            @Nullable ECOCraftingTickBudget budget,
+            CraftingService craftingService,
+            IEnergyService energyService,
+            Level level) {
         var job = this.job;
         if (job == null)
             return 0;
@@ -284,9 +323,18 @@ public class ECOCraftingCPULogic {
                 }
 
                 var details = task.getKey();
+                // 同一调度轮次内按任务收集一次提供者列表，避免每次推送都重建列表并重复查询。
+                List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
+                if (providers.isEmpty()) {
+                    continue;
+                }
+                List<ECOCraftingPatternBusBlockEntity> patternBuses = collectPatternBuses(providers);
                 while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
-                    List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
-                    if (providers.isEmpty()) {
+                    if (budget != null && budget.isExhausted()) {
+                        // 共享时间预算耗尽；任务保持原样，下一 tick 继续。
+                        break taskLoop;
+                    }
+                    if (!hasReadyProvider(providers)) {
                         continue taskLoop;
                     }
 
@@ -308,7 +356,7 @@ public class ECOCraftingCPULogic {
                             details,
                             execution,
                             craftingContainer,
-                             providers,
+                             patternBuses,
                              energyService,
                              patternPower,
                              task.getValue().value);
@@ -423,16 +471,38 @@ public class ECOCraftingCPULogic {
         return providers;
     }
 
+    private static List<ECOCraftingPatternBusBlockEntity> collectPatternBuses(List<ICraftingProvider> providers) {
+        List<ECOCraftingPatternBusBlockEntity> patternBuses = null;
+        for (ICraftingProvider provider : providers) {
+            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
+                if (patternBuses == null) {
+                    patternBuses = new ArrayList<>();
+                }
+                patternBuses.add(patternBus);
+            }
+        }
+        return patternBuses == null ? List.of() : patternBuses;
+    }
+
+    private static boolean hasReadyProvider(List<ICraftingProvider> providers) {
+        for (ICraftingProvider provider : providers) {
+            if (!provider.isBusy()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private int tryPushVerifiedFastPathBatch(
             ExecutingCraftingJob job,
             IPatternDetails details,
             ECOExtractedPatternExecution execution,
             KeyCounter[] firstCraftingContainer,
-            List<ICraftingProvider> providers,
+            List<ECOCraftingPatternBusBlockEntity> patternBuses,
             IEnergyService energyService,
             double patternPower,
             long taskRemaining) {
-        if (!canAttemptBatchFastPath(execution) || taskRemaining <= 1) {
+        if (patternBuses.isEmpty() || !canAttemptBatchFastPath(execution) || taskRemaining <= 1) {
             return 0;
         }
 
@@ -442,10 +512,7 @@ public class ECOCraftingCPULogic {
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
-        for (ICraftingProvider provider : providers) {
-            if (!(provider instanceof ECOCraftingPatternBusBlockEntity patternBus)) {
-                continue;
-            }
+        for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
             if (controller == null || !visitedControllers.add(controller)) {
                 continue;
@@ -588,22 +655,39 @@ public class ECOCraftingCPULogic {
 
     private void recordPushedPattern(
             ExecutingCraftingJob job, ECOExtractedPatternExecution execution, int craftCount) {
-        int multiplier = Math.max(1, craftCount);
         for (var expectedOutput : execution.expectedOutputs()) {
-            job.waitingFor.insert(expectedOutput.what(), expectedOutput.amount() * multiplier, Actionable.MODULATE);
+            job.waitingFor.insert(
+                    expectedOutput.what(),
+                    scaledPatternAmount(expectedOutput.amount(), craftCount),
+                    Actionable.MODULATE);
         }
         postGenericStackKeysChange(execution.expectedOutputs());
 
         for (var expectedContainerItem : execution.expectedContainerItems()) {
-            job.waitingFor.insert(
-                    expectedContainerItem.what(), expectedContainerItem.amount() * multiplier, Actionable.MODULATE);
-            job.timeTracker.addMaxItems(
-                    expectedContainerItem.amount() * multiplier,
-                    expectedContainerItem.what().getType());
+            long scaled = scaledPatternAmount(expectedContainerItem.amount(), craftCount);
+            job.waitingFor.insert(expectedContainerItem.what(), scaled, Actionable.MODULATE);
+            job.timeTracker.addMaxItems(scaled, expectedContainerItem.what().getType());
         }
         postGenericStackKeysChange(execution.expectedContainerItems());
 
         cpu.markDirty();
+    }
+
+    /**
+     * 计算一次批量推送应记入 waitingFor 的数量。
+     *
+     * <p>饱和而非溢出：负的 waitingFor 记账会让 CPU 误以为产物已经交付，从而丢失产出。
+     */
+    static long scaledPatternAmount(long perCraftAmount, int craftCount) {
+        if (perCraftAmount <= 0L) {
+            return 0L;
+        }
+        int multiplier = Math.max(1, craftCount);
+        try {
+            return Math.multiplyExact(perCraftAmount, (long) multiplier);
+        } catch (ArithmeticException e) {
+            return Long.MAX_VALUE;
+        }
     }
 
     /**
