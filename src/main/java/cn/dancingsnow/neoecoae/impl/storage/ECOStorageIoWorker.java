@@ -1,31 +1,37 @@
-package cn.dancingsnow.neoecoae.impl.storage.infinite;
+package cn.dancingsnow.neoecoae.impl.storage;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-final class ECOInfiniteStorageIoWorker {
+/**
+ * Write-behind threads shared by every ECO storage subsystem: one for WAL appends, one for checkpoints.
+ *
+ * <p>Keeping WAL appends on a single thread is what lets a whole tick's mutations - across every cell and every
+ * infinite domain - be amortised into one fsync.
+ */
+public final class ECOStorageIoWorker {
     private static final Object LOCK = new Object();
 
     private static ExecutorService walExecutor;
     private static ExecutorService checkpointExecutor;
 
-    private ECOInfiniteStorageIoWorker() {}
+    private ECOStorageIoWorker() {}
 
-    static Future<?> submit(Runnable task) {
+    public static Future<?> submit(Runnable task) {
         synchronized (LOCK) {
             return walExecutor().submit(task);
         }
     }
 
-    static Future<?> submitCheckpoint(Runnable task) {
+    public static Future<?> submitCheckpoint(Runnable task) {
         synchronized (LOCK) {
             return checkpointExecutor().submit(task);
         }
     }
 
-    static void shutdown() {
+    public static void shutdown() {
         ExecutorService currentWal;
         ExecutorService currentCheckpoint;
         synchronized (LOCK) {
@@ -41,7 +47,7 @@ final class ECOInfiniteStorageIoWorker {
     private static ExecutorService walExecutor() {
         if (walExecutor == null) {
             walExecutor = Executors.newSingleThreadExecutor(task -> {
-                Thread thread = new Thread(task, "NeoECOAE-InfiniteStorage-WAL");
+                Thread thread = new Thread(task, "NeoECOAE-Storage-WAL");
                 thread.setDaemon(true);
                 return thread;
             });
@@ -52,7 +58,7 @@ final class ECOInfiniteStorageIoWorker {
     private static ExecutorService checkpointExecutor() {
         if (checkpointExecutor == null) {
             checkpointExecutor = Executors.newSingleThreadExecutor(task -> {
-                Thread thread = new Thread(task, "NeoECOAE-InfiniteStorage-Checkpoint");
+                Thread thread = new Thread(task, "NeoECOAE-Storage-Checkpoint");
                 thread.setDaemon(true);
                 return thread;
             });

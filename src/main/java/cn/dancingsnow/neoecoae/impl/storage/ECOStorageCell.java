@@ -226,9 +226,15 @@ public class ECOStorageCell implements IECOStorageCell {
     }
 
     private void updateSummary() {
-        if (backend != null) {
-            ECOCellHandle.updateSummary(cellStack, backend, getUsedBytes());
+        if (backend == null) {
+            return;
         }
+        if (backend.isDegraded()) {
+            // A locked cell reports nothing; writing that back would erase the summary the player still needs to see.
+            ECOCellHandle.markLocked(cellStack);
+            return;
+        }
+        ECOCellHandle.updateSummary(cellStack, backend, getUsedBytes());
     }
 
     @Override

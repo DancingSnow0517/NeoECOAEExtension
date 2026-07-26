@@ -86,8 +86,8 @@ public final class ECOInfiniteStorageDomains {
                 }
             }
         } finally {
+            // The IO threads are shared with the cell storage, so only the lifecycle handler may retire them.
             ENGINES.clear();
-            ECOInfiniteStorageIoWorker.shutdown();
         }
         if (failure != null) {
             throw failure;

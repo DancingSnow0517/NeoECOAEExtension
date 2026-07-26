@@ -86,6 +86,7 @@ public class NeoECOAE {
             cn.dancingsnow.neoecoae.client.NeoECOAEClient.init(modBus, context);
         }
         MinecraftForge.EVENT_BUS.addListener(NeoECOAE::onTagsUpdated);
+        MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onLevelSave);
         MinecraftForge.EVENT_BUS.addListener(ECOStorageLifecycleEvents::onServerStopping);

@@ -6,44 +6,66 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.HugeAmount;
 import com.google.common.math.LongMath;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Persistence for a single ECO storage cell.
+ *
+ * <p>A cell lives in exactly one file, {@code <uuid>/cell.dat}. The type caps this mod hands out (315 item types at
+ * the very top, 25 for fluids, 1 for mana/FE/source - see {@code ECOAETypeCounts}) mean the whole inventory is a few
+ * tens of kilobytes, so a checkpoint is one small atomic write rather than a scatter across shard files.
+ *
+ * <p>Durability comes from the shared WAL owned by {@link ECOCellStorageManager}: mutations are appended there every
+ * tick and fsynced once for all cells together, while {@code cell.dat} is rewritten lazily in the background. This
+ * class therefore exposes its pending records and its checkpoint state to the manager instead of scheduling its own
+ * writes.
+ */
 public final class FileBackedECOStorageBackend implements ECOStorageBackend {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileBackedECOStorageBackend.class);
-    private static final int SHARD_COUNT = 256;
+    private static final int CELL_VERSION = 3;
+    private static final String CELL_FILE = "cell.dat";
 
     private final UUID storageId;
     private final Path storagePath;
-    private final Map<AEKey, Long> amounts = new HashMap<>();
-    private final Map<AEKey, Long> loadedKeyRevisions = new HashMap<>();
-    private final Map<AEKey, Integer> loadedKeySourceShards = new HashMap<>();
+    private final Map<AEKey, Long> amounts = new LinkedHashMap<>();
     private final KeyCounter visibleStacks = new KeyCounter();
-    private final Set<Integer> dirtyShards = new HashSet<>();
-    private final long[] shardRevisions = new long[SHARD_COUNT];
+    private final Map<AEKey, PendingDelta> pendingDeltas = new LinkedHashMap<>();
+
+    @Nullable private ECOLegacyCellShardReader legacyReader;
+
+    @Nullable private Future<?> checkpointWrite;
+
+    private long checkpointWriteRevision;
 
     private boolean loaded;
     private boolean loadRequested;
     private boolean loading;
-    private int nextLoadShard;
     private long storedAmount;
     private int storedTypes;
     private long revision;
+    private long checkpointedRevision;
+    private boolean checkpointDirty;
+    private volatile boolean degraded;
+
+    @Nullable private volatile Throwable persistenceFailure;
 
     public FileBackedECOStorageBackend(UUID storageId, Path storagePath, int summaryTypes, long summaryAmount) {
         this.storageId = storageId;
@@ -52,16 +74,33 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
         this.storedAmount = Math.max(0L, summaryAmount);
     }
 
+    static boolean hasPersistentData(Path storagePath) {
+        return Files.isRegularFile(storagePath.resolve(CELL_FILE)) || ECOLegacyCellShardReader.isPresent(storagePath);
+    }
+
+    static Path cellFile(Path storagePath) {
+        return storagePath.resolve(CELL_FILE);
+    }
+
     public synchronized boolean hasPersistentData() {
-        if (Files.isRegularFile(storagePath.resolve("manifest.dat"))) {
-            return true;
-        }
-        for (int shard = 0; shard < SHARD_COUNT; shard++) {
-            if (Files.isRegularFile(shardPath(shard))) {
-                return true;
-            }
-        }
-        return false;
+        return hasPersistentData(storagePath);
+    }
+
+    /**
+     * A cell whose file could not be read. It refuses every operation and is never written back, so a transient read
+     * failure cannot end with the good data being overwritten by an apparently empty cell.
+     */
+    @Override
+    public boolean isDegraded() {
+        return degraded;
+    }
+
+    UUID storageId() {
+        return storageId;
+    }
+
+    Path storagePath() {
+        return storagePath;
     }
 
     public synchronized void importLegacyNow(List<GenericStack> stacks) {
@@ -80,26 +119,26 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
                 continue;
             }
             long current = amounts.getOrDefault(stack.what(), 0L);
-            long next = LongMath.saturatedAdd(current, stack.amount());
-            amounts.put(stack.what(), next);
+            amounts.put(stack.what(), LongMath.saturatedAdd(current, stack.amount()));
         }
         rebuildVisibleStacks();
-        dirtyShards.clear();
-        for (AEKey key : amounts.keySet()) {
-            dirtyShards.add(shardFor(key));
-        }
         loaded = true;
         loadRequested = false;
         loading = false;
-        closeAndFlush();
+        revision++;
+        checkpointDirty = true;
+        checkpointNow();
     }
 
     @Override
     public synchronized long insert(AEKey key, long amount, Actionable mode) {
-        if (key == null || amount <= 0L) {
+        if (key == null || amount <= 0L || degraded) {
             return 0L;
         }
         ensureLoadedBlocking();
+        if (degraded) {
+            return 0L;
+        }
         if (mode == Actionable.MODULATE) {
             applyDelta(key, amount);
         }
@@ -108,10 +147,13 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
 
     @Override
     public synchronized long extract(AEKey key, long amount, Actionable mode) {
-        if (key == null || amount <= 0L) {
+        if (key == null || amount <= 0L || degraded) {
             return 0L;
         }
         ensureLoadedBlocking();
+        if (degraded) {
+            return 0L;
+        }
         long current = amounts.getOrDefault(key, 0L);
         long extracted = Math.min(current, amount);
         if (extracted <= 0L) {
@@ -125,12 +167,18 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
 
     @Override
     public synchronized long getAmount(AEKey key) {
+        if (key == null || degraded) {
+            return 0L;
+        }
         ensureLoadedBlocking();
-        return key == null ? 0L : amounts.getOrDefault(key, 0L);
+        return degraded ? 0L : amounts.getOrDefault(key, 0L);
     }
 
     @Override
     public synchronized void getAvailableStacks(KeyCounter out) {
+        if (degraded) {
+            return;
+        }
         if (!loaded) {
             requestLoad();
             return;
@@ -140,6 +188,10 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
 
     @Override
     public synchronized boolean isEmpty() {
+        if (degraded) {
+            // Never advertise a locked cell as empty; AE2 would happily start filling it.
+            return false;
+        }
         return loaded ? amounts.isEmpty() : storedTypes <= 0 && storedAmount <= 0L;
     }
 
@@ -176,60 +228,184 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
             return false;
         }
         startLoading();
-        long deadline = maxNanos <= 0L ? Long.MAX_VALUE : System.nanoTime() + maxNanos;
-        while (nextLoadShard < SHARD_COUNT) {
-            readShard(nextLoadShard);
-            nextLoadShard++;
-            if (System.nanoTime() >= deadline) {
+        ECOLegacyCellShardReader reader = legacyReader;
+        if (reader != null) {
+            if (!reader.readBudgeted(maxNanos)) {
                 return false;
             }
+            finishLegacyLoading(reader);
+            return true;
         }
+        readCellFile();
+        if (degraded) {
+            loading = false;
+            loadRequested = false;
+            return true;
+        }
+        rebuildVisibleStacks();
         finishLoading();
         return true;
     }
 
     @Override
-    public synchronized boolean flushBudgeted(long maxNanos) {
-        if (dirtyShards.isEmpty()) {
-            return false;
-        }
-        long deadline = maxNanos <= 0L ? Long.MAX_VALUE : System.nanoTime() + maxNanos;
-        Set<Integer> pending = new HashSet<>(dirtyShards);
-        boolean wrote = false;
-        for (int shard : pending) {
-            writeShard(shard);
-            dirtyShards.remove(shard);
-            wrote = true;
-            if (System.nanoTime() >= deadline) {
-                break;
-            }
-        }
-        if (dirtyShards.isEmpty()) {
-            writeManifest();
-        }
-        return wrote;
+    public boolean flushBudgeted(long maxNanos) {
+        return ECOCellStorageManager.flushCell(this, maxNanos);
     }
 
     @Override
-    public synchronized void closeAndFlush() {
-        if (!loaded && loadRequested) {
-            ensureLoadedBlocking();
-        }
-        if (!dirtyShards.isEmpty()) {
-            for (int shard : new HashSet<>(dirtyShards)) {
-                writeShard(shard);
-            }
-            dirtyShards.clear();
-        }
-        writeManifest();
+    public void closeAndFlush() {
+        ECOCellStorageManager.closeCell(this);
     }
 
+    // ---------------------------------------------------------------------------------------------------------
+    // Shared-WAL plumbing. Called by ECOCellStorageManager, which owns the log and the pacing.
+    // ---------------------------------------------------------------------------------------------------------
+
+    synchronized List<ECOCellWalRecord> drainPendingWalRecords() {
+        if (pendingDeltas.isEmpty() || degraded) {
+            pendingDeltas.clear();
+            return List.of();
+        }
+        List<ECOCellWalRecord> records = new ArrayList<>(pendingDeltas.size());
+        for (Map.Entry<AEKey, PendingDelta> entry : pendingDeltas.entrySet()) {
+            PendingDelta pending = entry.getValue();
+            if (pending.delta != 0L) {
+                records.add(new ECOCellWalRecord(storageId, entry.getKey(), pending.delta, pending.revision));
+            }
+        }
+        pendingDeltas.clear();
+        return records;
+    }
+
+    synchronized boolean hasPendingWalRecords() {
+        return !pendingDeltas.isEmpty();
+    }
+
+    synchronized boolean isCheckpointDirty() {
+        return checkpointDirty && !degraded;
+    }
+
+    synchronized boolean hasPendingCheckpointWrite() {
+        return checkpointWrite != null;
+    }
+
+    /** Builds the snapshot on the calling thread and hands the bytes to the checkpoint thread. */
+    synchronized void scheduleCheckpoint() {
+        if (degraded || checkpointWrite != null || !checkpointDirty) {
+            return;
+        }
+        if (!pendingDeltas.isEmpty()) {
+            // A record folds several mutations into one delta stamped with the newest of them. A snapshot taken now
+            // would hold part of that delta yet compare as older than the record, and recovery cannot apply only the
+            // missing half. The manager always drains first; this defers rather than corrupts if one day it does not.
+            LOGGER.warn("Deferring the ECO cell storage {} snapshot: log records are still pending", storageId);
+            ECOCellStorageManager.markDirty(this);
+            return;
+        }
+        long snapshotRevision = revision;
+        byte[] payload;
+        try {
+            payload = createCheckpointPayload(snapshotRevision);
+        } catch (IOException | RuntimeException e) {
+            failPersistence(e);
+            throw new IllegalStateException("Unable to serialize ECO cell storage " + storageId, e);
+        }
+        Path target = cellFile(storagePath);
+        checkpointWriteRevision = snapshotRevision;
+        checkpointWrite = ECOStorageIoWorker.submitCheckpoint(() -> {
+            try {
+                ECOStorageFiles.writeAtomically(target, payload);
+            } catch (IOException | RuntimeException e) {
+                failPersistence(e);
+                throw new IllegalStateException("Unable to write ECO cell storage " + target, e);
+            }
+        });
+    }
+
+    /** Returns {@code true} when no checkpoint write is left in flight. */
+    synchronized boolean completeCheckpointWrite(boolean wait) {
+        Future<?> write = checkpointWrite;
+        if (write == null) {
+            return true;
+        }
+        if (!wait && !write.isDone()) {
+            return false;
+        }
+        try {
+            write.get();
+            checkpointedRevision = checkpointWriteRevision;
+            if (revision == checkpointWriteRevision) {
+                checkpointDirty = false;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while writing ECO cell storage " + storageId, e);
+        } catch (ExecutionException e) {
+            failPersistence(e.getCause());
+            throw new IllegalStateException("Unable to write ECO cell storage " + storageId, e.getCause());
+        } finally {
+            checkpointWrite = null;
+        }
+        return true;
+    }
+
+    /** Blocking full checkpoint. Used on shutdown, on fork and right after a legacy migration. */
+    synchronized void checkpointNow() {
+        if (degraded) {
+            return;
+        }
+        completeCheckpointWrite(true);
+        if (!checkpointDirty) {
+            return;
+        }
+        scheduleCheckpoint();
+        completeCheckpointWrite(true);
+    }
+
+    synchronized long checkpointedRevision() {
+        return checkpointedRevision;
+    }
+
+    /**
+     * Replays one WAL record recovered at startup. Records the checkpoint already contains carry a revision no higher
+     * than the one stamped into {@code cell.dat}, so they are dropped rather than applied twice.
+     */
+    synchronized boolean applyRecoveredRecord(AEKey key, long delta, long recordRevision) {
+        if (degraded || key == null) {
+            return false;
+        }
+        ensureLoadedBlocking();
+        if (degraded || recordRevision <= revision) {
+            return false;
+        }
+        long previous = amounts.getOrDefault(key, 0L);
+        long next = Math.max(0L, LongMath.saturatedAdd(previous, delta));
+        if (next <= 0L) {
+            amounts.remove(key);
+            visibleStacks.remove(key);
+        } else {
+            amounts.put(key, next);
+            visibleStacks.set(key, next);
+        }
+        storedAmount = LongMath.saturatedAdd(storedAmount, next - previous);
+        if (previous <= 0L && next > 0L) {
+            storedTypes++;
+        } else if (previous > 0L && next <= 0L) {
+            storedTypes = Math.max(0, storedTypes - 1);
+        }
+        revision = recordRevision;
+        checkpointDirty = true;
+        return true;
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
     private void ensureLoadedBlocking() {
-        if (loaded) {
+        if (loaded || degraded) {
             return;
         }
         requestLoad();
-        while (!loaded) {
+        while (!loaded && !degraded) {
             loadBudgeted(0L);
         }
     }
@@ -239,41 +415,104 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
             return;
         }
         loading = true;
-        nextLoadShard = 0;
         amounts.clear();
-        loadedKeyRevisions.clear();
-        loadedKeySourceShards.clear();
         visibleStacks.clear();
         try {
             Files.createDirectories(storagePath);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to create ECO cell storage directory " + storagePath, e);
         }
+        // cell.dat's presence is the migration marker: if it exists the legacy shards are stale leftovers.
+        legacyReader = Files.isRegularFile(cellFile(storagePath)) || !ECOLegacyCellShardReader.isPresent(storagePath)
+                ? null
+                : new ECOLegacyCellShardReader(storagePath);
     }
 
     private void finishLoading() {
-        discardSupersededLegacyShardEntries();
-        rebuildVisibleStacks();
-        loadedKeyRevisions.clear();
-        loadedKeySourceShards.clear();
         loaded = true;
         loadRequested = false;
         loading = false;
     }
 
-    private void discardSupersededLegacyShardEntries() {
-        amounts.entrySet().removeIf(entry -> {
-            AEKey key = entry.getKey();
-            int targetShard = shardFor(key);
-            int sourceShard = loadedKeySourceShards.getOrDefault(key, targetShard);
-            long sourceRevision = loadedKeyRevisions.getOrDefault(key, 0L);
-            if (sourceShard != targetShard && shardRevisions[targetShard] > sourceRevision) {
-                loadedKeyRevisions.put(key, shardRevisions[targetShard]);
-                loadedKeySourceShards.put(key, targetShard);
-                return true;
+    private void finishLegacyLoading(ECOLegacyCellShardReader reader) {
+        legacyReader = null;
+        if (reader.isFailed()) {
+            degraded = true;
+            loading = false;
+            loadRequested = false;
+            LOGGER.error(
+                    "Refusing to migrate ECO cell storage {}: a legacy shard could not be read, so the cell is locked"
+                            + " instead of being rewritten from partial contents",
+                    storagePath);
+            return;
+        }
+        amounts.putAll(reader.finish());
+        revision = reader.revision() + 1L;
+        rebuildVisibleStacks();
+        finishLoading();
+
+        // Publish the single-file form first; only retire the shards once cell.dat is durable. A crash in between
+        // simply repeats the legacy read on the next load.
+        checkpointDirty = true;
+        checkpointNow();
+        if (degraded) {
+            return;
+        }
+        try {
+            ECOLegacyCellShardReader.delete(storagePath);
+            LOGGER.info("Migrated ECO cell storage {} from 256 shards to a single cell.dat", storageId);
+        } catch (IOException e) {
+            LOGGER.warn("Unable to remove legacy ECO cell storage shards in {}", storagePath, e);
+        }
+    }
+
+    private void readCellFile() {
+        Path path = cellFile(storagePath);
+        if (!Files.isRegularFile(path)) {
+            return;
+        }
+        try (InputStream input = Files.newInputStream(path)) {
+            CompoundTag tag = NbtIo.readCompressed(input);
+            revision = tag.getLong("revision");
+            ListTag entries = tag.getList("entries", Tag.TAG_COMPOUND);
+            for (int i = 0; i < entries.size(); i++) {
+                CompoundTag entry = entries.getCompound(i);
+                AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
+                long amount = Math.max(0L, entry.getLong("amount"));
+                if (key != null && amount > 0L) {
+                    amounts.put(key, amount);
+                }
             }
-            return false;
-        });
+            checkpointedRevision = revision;
+        } catch (RuntimeException | IOException e) {
+            // Leave storedTypes/storedAmount at the item-stack summary so the tooltip still shows what was in here.
+            degraded = true;
+            LOGGER.error("Unable to read ECO cell storage {}; locking the cell to protect its contents", path, e);
+        }
+    }
+
+    private byte[] createCheckpointPayload(long snapshotRevision) throws IOException {
+        CompoundTag tag = new CompoundTag();
+        tag.putInt("version", CELL_VERSION);
+        tag.putString("kind", "cell");
+        tag.putUUID("id", storageId);
+        tag.putLong("revision", snapshotRevision);
+        tag.putInt("storedTypes", storedTypes);
+        tag.putString("storedAmount", Long.toString(storedAmount));
+        ListTag entries = new ListTag();
+        for (Map.Entry<AEKey, Long> entry : amounts.entrySet()) {
+            if (entry.getValue() == null || entry.getValue() <= 0L) {
+                continue;
+            }
+            CompoundTag entryTag = new CompoundTag();
+            entryTag.put("key", entry.getKey().toTagGeneric());
+            entryTag.putLong("amount", entry.getValue());
+            entries.add(entryTag);
+        }
+        tag.put("entries", entries);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        NbtIo.writeCompressed(tag, out);
+        return out.toByteArray();
     }
 
     private void applyDelta(AEKey key, long delta) {
@@ -295,8 +534,14 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
         } else if (previous > 0L && next <= 0L) {
             storedTypes = Math.max(0, storedTypes - 1);
         }
-        dirtyShards.add(shardFor(key));
         revision = revision == Long.MAX_VALUE ? 0L : revision + 1L;
+        checkpointDirty = true;
+
+        // The record must carry this mutation's own revision, not the cell's revision at drain time, or a checkpoint
+        // taken between the mutation and the drain would look older than a record it already contains.
+        long mutationRevision = revision;
+        pendingDeltas.merge(key, new PendingDelta(delta, mutationRevision), PendingDelta::mergedWith);
+        ECOCellStorageManager.markDirty(this);
     }
 
     private void rebuildVisibleStacks() {
@@ -312,99 +557,17 @@ public final class FileBackedECOStorageBackend implements ECOStorageBackend {
         }
     }
 
-    private void readShard(int shard) {
-        Path path = shardPath(shard);
-        if (!Files.isRegularFile(path)) {
-            return;
+    private void failPersistence(@Nullable Throwable cause) {
+        degraded = true;
+        if (persistenceFailure == null) {
+            persistenceFailure = cause;
         }
-        try (InputStream input = Files.newInputStream(path)) {
-            CompoundTag tag = NbtIo.readCompressed(input);
-            long shardRevision = tag.getLong("revision");
-            int hashVersion = tag.getInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG);
-            shardRevisions[shard] = shardRevision;
-            ListTag entries = tag.getList("entries", Tag.TAG_COMPOUND);
-            for (int i = 0; i < entries.size(); i++) {
-                CompoundTag entry = entries.getCompound(i);
-                AEKey key = AEKey.fromTagGeneric(entry.getCompound("key"));
-                long amount = Math.max(0L, entry.getLong("amount"));
-                if (key != null && amount > 0L) {
-                    int targetShard = shardFor(key);
-                    if (targetShard != shard || hashVersion < ECOStorageKeyHash.VERSION) {
-                        dirtyShards.add(targetShard);
-                    }
-                    Long previousRevision = loadedKeyRevisions.get(key);
-                    if (previousRevision == null
-                            || shardRevision > previousRevision
-                            || (shardRevision == previousRevision && targetShard == shard)) {
-                        amounts.put(key, amount);
-                        loadedKeyRevisions.put(key, shardRevision);
-                        loadedKeySourceShards.put(key, shard);
-                    }
-                }
-            }
-            revision = Math.max(revision, shardRevision);
-        } catch (RuntimeException | IOException e) {
-            LOGGER.error("Unable to read ECO cell storage shard {}", path, e);
+        LOGGER.error("ECO cell storage {} failed to persist and is now locked", storageId, cause);
+    }
+
+    private record PendingDelta(long delta, long revision) {
+        PendingDelta mergedWith(PendingDelta newer) {
+            return new PendingDelta(LongMath.saturatedAdd(delta, newer.delta), Math.max(revision, newer.revision));
         }
-    }
-
-    private void writeShard(int shard) {
-        try {
-            Files.createDirectories(storagePath);
-            CompoundTag tag = new CompoundTag();
-            tag.putInt("version", 1);
-            tag.putInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG, ECOStorageKeyHash.VERSION);
-            tag.putLong("revision", revision);
-            tag.putString("cell", storageId.toString());
-            ListTag entries = new ListTag();
-            for (Map.Entry<AEKey, Long> entry : amounts.entrySet()) {
-                if (shardFor(entry.getKey()) != shard || entry.getValue() <= 0L) {
-                    continue;
-                }
-                CompoundTag entryTag = new CompoundTag();
-                entryTag.put("key", entry.getKey().toTagGeneric());
-                entryTag.putLong("amount", entry.getValue());
-                entries.add(entryTag);
-            }
-            tag.put("entries", entries);
-
-            Path tmp = storagePath.resolve(shardFileName(shard) + ".tmp");
-            try (OutputStream output = Files.newOutputStream(tmp)) {
-                NbtIo.writeCompressed(tag, output);
-            }
-            Files.move(tmp, shardPath(shard), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to write ECO cell storage shard " + shard, e);
-        }
-    }
-
-    private void writeManifest() {
-        try {
-            Files.createDirectories(storagePath);
-            CompoundTag tag = new CompoundTag();
-            tag.putInt("version", 2);
-            tag.putString("kind", "cell");
-            tag.putUUID("id", storageId);
-            tag.putLong("revision", revision);
-            tag.putInt("storedTypes", storedTypes);
-            tag.putString("storedAmount", Long.toString(storedAmount));
-            try (OutputStream output = Files.newOutputStream(storagePath.resolve("manifest.dat"))) {
-                NbtIo.writeCompressed(tag, output);
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to write ECO cell storage manifest " + storagePath, e);
-        }
-    }
-
-    private Path shardPath(int shard) {
-        return storagePath.resolve(shardFileName(shard));
-    }
-
-    private static String shardFileName(int shard) {
-        return "shard_%03d.dat".formatted(shard);
-    }
-
-    private static int shardFor(AEKey key) {
-        return ECOStorageKeyHash.shardFor(key, SHARD_COUNT);
     }
 }
