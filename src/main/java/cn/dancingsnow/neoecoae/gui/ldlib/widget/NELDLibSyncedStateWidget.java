@@ -11,6 +11,9 @@ public abstract class NELDLibSyncedStateWidget<S> extends NELDLibMachineWidget {
     /** Must stay clear of the ids {@link com.lowdragmc.lowdraglib.gui.widget.WidgetGroup} uses for its children. */
     protected static final int STATE_UPDATE_ID = FIRST_CUSTOM_UPDATE_ID;
 
+    /** {@link #stateRevision()} opt-out: nothing to report, so only the interval decides. */
+    protected static final long NO_REVISION = Long.MIN_VALUE;
+
     private final Supplier<S> stateSupplier;
     private final BiConsumer<FriendlyByteBuf, S> encoder;
     private final Function<FriendlyByteBuf, S> decoder;
@@ -19,6 +22,7 @@ public abstract class NELDLibSyncedStateWidget<S> extends NELDLibMachineWidget {
     private S currentState;
     private S lastSentState;
     private int ticks;
+    private long lastRevision = NO_REVISION;
 
     protected NELDLibSyncedStateWidget(
             Component title,
@@ -68,11 +72,30 @@ public abstract class NELDLibSyncedStateWidget<S> extends NELDLibMachineWidget {
         super.readInitialData(buffer);
     }
 
+    /**
+     * Out-of-band sync trigger, opt-in per subclass. The interval keeps continuously drifting
+     * numbers -- byte counts, elapsed job times -- from being encoded and shipped every tick, but it
+     * delays changes the player just caused by up to a full interval, which reads as the UI ignoring
+     * the interaction. A host that counts those rare configuration edits can return that counter
+     * here to have them pushed on the very next tick instead.
+     *
+     * <p>Only return a counter that moves on player-visible edits. Wiring this to something that
+     * also tracks per-tick machine churn would reinstate the per-tick encode the interval avoids.
+     *
+     * @return a value that changes when the state must be pushed promptly, or {@link #NO_REVISION}
+     */
+    protected long stateRevision() {
+        return NO_REVISION;
+    }
+
     @Override
     public void detectAndSendChanges() {
         super.detectAndSendChanges();
         ticks++;
-        if (ticks == 1 || ticks % syncIntervalTicks == 0) {
+        long revision = stateRevision();
+        boolean revisionChanged = revision != NO_REVISION && revision != lastRevision;
+        lastRevision = revision;
+        if (ticks == 1 || revisionChanged || ticks % syncIntervalTicks == 0) {
             S state = stateSupplier.get();
             if (state != null && !Objects.equals(state, lastSentState)) {
                 lastSentState = state;

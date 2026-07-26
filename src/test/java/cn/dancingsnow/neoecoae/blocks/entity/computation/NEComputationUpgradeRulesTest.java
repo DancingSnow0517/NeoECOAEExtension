@@ -7,13 +7,16 @@ import org.junit.jupiter.api.Test;
 
 class NEComputationUpgradeRulesTest {
     @Test
-    void fieldGeneratorMultipliersUseExactStackSize() {
+    void fieldGeneratorMultipliersRequireAtLeastAFullSlot() {
         assertEquals(2, multiplier("iv_field_generator", 16));
         assertEquals(4, multiplier("luv_field_generator", 16));
         assertEquals(8, multiplier("zpm_field_generator", 16));
         assertEquals(16, multiplier("uv_field_generator", 16));
         assertEquals(1, multiplier("uv_field_generator", 15));
-        assertEquals(1, multiplier("uv_field_generator", 17));
+        // Oversized stacks can only arrive from a pre-slot-limit save or an item handler that
+        // bypasses getStackLimit; they still satisfy the requirement instead of silently doing
+        // nothing, which keeps this in step with NEComputationUpgradeRules.isValid.
+        assertEquals(16, multiplier("uv_field_generator", 17));
         assertEquals(
                 1,
                 NEComputationUpgradeRules.fieldGeneratorMultiplier(

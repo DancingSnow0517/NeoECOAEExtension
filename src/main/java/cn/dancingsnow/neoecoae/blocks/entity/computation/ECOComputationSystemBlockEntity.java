@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -44,11 +45,13 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private long totalBytes;
     /** Sum of CPU accelerators from all parallel cores in the cluster. */
     private int acceleratorCount;
+    /** Maximum accelerators allowed by the current upgrade and parallel cores. */
+    private int acceleratorLimit;
 
     /** CPU auto-selection mode, persisted in the controller's NBT. */
     private CpuSelectionMode cpuSelectionMode = CpuSelectionMode.ANY;
 
-    /** Configured co-processors used while the controller has a full infinite component stack. */
+    /** Configured parallel accelerators, persisted independently from the upgrade slot. */
     private int parallelAccelerators = NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS;
 
     private final ItemStackHandler computationUpgradeHandler = new ItemStackHandler(1) {
@@ -64,7 +67,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return NEComputationUpgradeRules.isValid(stack);
+            return NEComputationUpgradeRules.isAllowedItem(stack);
         }
 
         @Override
@@ -78,6 +81,15 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private final BuildPreviewState buildPreview = new BuildPreviewState();
 
     private long uiRevision = 0L;
+
+    /**
+     * Counts only edits the player can see: the upgrade slot, the accelerator setting and its limit,
+     * the CPU selection mode. Kept apart from {@link #uiRevision}, which also moves with the storage
+     * byte churn of running jobs -- an open screen watches this one to sync promptly, and following
+     * the churny counter instead would re-encode the whole state, recipe list included, nearly every
+     * tick of an active cluster.
+     */
+    private long configRevision = 0L;
 
     public ECOComputationSystemBlockEntity(
             BlockEntityType<?> type, BlockPos pos, BlockState blockState, IECOTier tier) {
@@ -119,13 +131,15 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             totalThread = cluster.getMaxThreads();
             parallelCount = cluster.getParallelCores().size();
             acceleratorCount = cluster.getCPUAccelerators();
+            acceleratorLimit = cluster.getCPUAcceleratorLimit();
         } else {
             usedThread = 0;
             totalThread = 0;
             parallelCount = 0;
             availableBytes = 0;
             totalBytes = 0;
-            acceleratorCount = hasInfiniteCapacityUpgrade() ? parallelAccelerators : 0;
+            acceleratorCount = 0;
+            acceleratorLimit = hasInfiniteCapacityUpgrade() ? NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS : 0;
         }
     }
 
@@ -149,6 +163,17 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         uiRevision++;
     }
 
+    /** Returns a counter that moves only on player-visible configuration edits. */
+    public long getConfigRevision() {
+        return configRevision;
+    }
+
+    /** Flags a configuration edit the open screen should learn about on the next tick, not in a second. */
+    private void markConfigDirty() {
+        configRevision++;
+        markUiStateDirty();
+    }
+
     private void ensureStatsCurrent() {
         if (!computationStatsDirty) {
             return;
@@ -164,6 +189,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     public void tick(Level level, BlockPos pos, BlockState state) {
         tickBuild(level);
+        if (cluster != null) {
+            cluster.tick();
+        }
     }
 
     public int getUsedThread() {
@@ -211,61 +239,70 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     public void setCpuSelectionMode(CpuSelectionMode mode) {
         this.cpuSelectionMode = mode;
         setChanged();
-        markUiStateDirty();
+        markConfigDirty();
     }
 
     public int getParallelAccelerators() {
-        return parallelAccelerators;
+        return Math.min(parallelAccelerators, getParallelAcceleratorLimit());
     }
 
     public boolean hasInfiniteCapacityUpgrade() {
         return NEComputationUpgradeRules.hasInfiniteCapacity(computationUpgradeHandler.getStackInSlot(0));
     }
 
-    /** Applies a validated server-side parallel setting from the computation UI. */
-    public boolean setParallelAccelerators(int value) {
-        if (level == null
-                || level.isClientSide
-                || !hasInfiniteCapacityUpgrade()
-                || value < 0
-                || value > NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS) {
-            return false;
-        }
-        if (parallelAccelerators == value) {
-            return true;
-        }
-        parallelAccelerators = value;
-        if (cluster != null) {
-            cluster.recalculateUpgradeStats();
-        }
-        markComputationStatsDirty();
-        updateInfos();
-        setChanged();
-        markForUpdate();
-        return true;
+    public int getParallelAcceleratorLimit() {
+        ensureStatsCurrent();
+        return Math.max(0, Math.min(NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS, acceleratorLimit));
     }
 
-    /** Parses and validates raw text received by LDLib's number field on the server. */
-    public boolean setParallelAcceleratorsFromText(String rawValue) {
-        if (rawValue == null || rawValue.isBlank()) {
+    /** Returns the persisted value without applying the current upgrade limit. */
+    public int getConfiguredParallelAccelerators() {
+        return Math.max(0, parallelAccelerators);
+    }
+
+    /**
+     * Applies a validated server-side parallel setting from the computation UI.
+     * Immediately delegates to the cluster for application.
+     */
+    public boolean setParallelAccelerators(int value) {
+        if (level == null || level.isClientSide) {
             return false;
         }
-        try {
-            long value = Long.parseLong(rawValue.trim());
-            if (value < 0L || value > NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS) {
+        if (cluster != null) {
+            // Cluster validates and applies immediately
+            if (!cluster.setConfiguredAccelerators(value)) {
                 return false;
             }
-            return setParallelAccelerators((int) value);
-        } catch (NumberFormatException ignored) {
-            return false;
+            // Cluster will call onClusterAcceleratorsChanged to persist
+            return true;
+        } else {
+            // No cluster: just store the configuration for when it forms
+            if (value < 0 || value > NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS) {
+                return false;
+            }
+            parallelAccelerators = value;
+            setChanged();
+            markConfigDirty();
+            return true;
         }
     }
 
-    /** Applies a bounded step from the compact parallel-control buttons. */
-    public boolean adjustParallelAccelerators(int delta) {
-        long adjusted = (long) parallelAccelerators + delta;
-        int bounded = (int) Math.max(0L, Math.min(NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS, adjusted));
-        return setParallelAccelerators(bounded);
+    /**
+     * Called by the cluster when accelerators are changed via setConfiguredAccelerators.
+     * Persists the value and marks UI dirty.
+     */
+    public void onClusterAcceleratorsChanged(int value) {
+        parallelAccelerators = value;
+        setChanged();
+        markConfigDirty();
+    }
+
+    /**
+     * Called by the cluster when the accelerator limit changes due to upgrade or structure changes.
+     * Marks UI dirty to update the widget's max value.
+     */
+    public void onClusterLimitChanged(int newLimit) {
+        markConfigDirty();
     }
 
     public IItemHandler getComputationUpgradeItemHandler() {
@@ -276,10 +313,50 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         if (level == null || level.isClientSide) {
             return;
         }
-        if (cluster != null) {
-            cluster.recalculateUpgradeStats();
-        }
+        ItemStack upgrade = computationUpgradeHandler.getStackInSlot(0);
+        boolean isValidUpgrade = NEComputationUpgradeRules.isValid(upgrade);
+
         markComputationStatsDirty();
+        // The slot is a configuration edit in its own right. The cluster paths below usually flag one
+        // too, but not when the upgrade only changes something the value and limit don't cover.
+        markConfigDirty();
+        if (cluster != null) {
+            // Store old limit before recalculation
+            int oldLimit = cluster.getCPUAcceleratorLimit();
+            int oldConfigured = cluster.getConfiguredAccelerators();
+
+            // Cluster recalculates limit immediately
+            cluster.recalculateAcceleratorLimit();
+
+            int newLimit = cluster.getCPUAcceleratorLimit();
+
+            // A player parked at the maximum is asking for everything the structure can do, not for
+            // that particular number, so track the limit when an upgrade moves it. Without this, a
+            // field generator raises the ceiling but leaves the value at the old ceiling, and the
+            // upgrade looks like it did nothing.
+            boolean wasAtLimit = oldLimit > 0 && oldConfigured >= oldLimit;
+
+            // Auto-set to max when:
+            // 1. Inserting a valid upgrade into an empty slot (oldLimit was 0)
+            // 2. Inserting infinite capacity upgrade
+            // 3. Current config is 0 (first time setup)
+            // 4. The configuration was pinned to the previous maximum
+            if ((oldLimit == 0 && isValidUpgrade)
+                    || NEComputationUpgradeRules.hasInfiniteCapacity(upgrade)
+                    || parallelAccelerators == 0
+                    || wasAtLimit) {
+                cluster.setConfiguredAccelerators(newLimit);
+            }
+        } else {
+            // No cluster: calculate limit and auto-set to max if needed
+            int newLimit = getParallelAcceleratorLimit();
+
+            if (isValidUpgrade || NEComputationUpgradeRules.hasInfiniteCapacity(upgrade) || parallelAccelerators == 0) {
+                parallelAccelerators = newLimit;
+            } else {
+                parallelAccelerators = Math.min(parallelAccelerators, newLimit);
+            }
+        }
         updateInfos();
         setChanged();
         markForUpdate();
@@ -305,6 +382,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 totalBytes,
                 parallelCount,
                 acceleratorCount,
+                acceleratorLimit,
                 getParallelAccelerators(),
                 hasInfiniteCapacityUpgrade(),
                 mode,
@@ -315,13 +393,12 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         if (cluster == null) {
             return List.of();
         }
-        List<ECOCraftingCPU> activeCpus = cluster.getActiveCPUs();
-        if (activeCpus.isEmpty()) {
+        if (cluster.getActiveCpuCountCached() <= 0) {
             return List.of();
         }
-        List<NECraftingRecipeUiEntry> entries = new ArrayList<>(activeCpus.size());
+        List<NECraftingRecipeUiEntry> entries = new ArrayList<>();
         int index = 0;
-        for (ECOCraftingCPU cpu : activeCpus) {
+        for (ECOCraftingCPU cpu : cluster.activeCpusView()) {
             NECraftingRecipeUiEntry entry = createComputationRecipeEntry(cpu, index);
             if (entry != null) {
                 entries.add(entry);
@@ -367,7 +444,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 Math.max(0L, cpu.getAvailableStorage()),
                 Math.max(0, cpu.getCoProcessors()),
                 Math.max(0L, finalOutput.amount()),
-                Math.max(0L, tracker.getElapsedTime()));
+                TimeUnit.SECONDS.toNanos(TimeUnit.NANOSECONDS.toSeconds(Math.max(0L, tracker.getElapsedTime()))));
     }
 
     private static String computationTaskId(ECOCraftingCPU cpu, GenericStack output, int index) {

@@ -10,7 +10,8 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
-public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockSceneWidget {
+public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockSceneWidget
+        implements NEMultiblockPatternViewer {
     private final PatternState patternState;
 
     public NEMultiblockPatternViewerWidget(
@@ -66,6 +67,11 @@ public final class NEMultiblockPatternViewerWidget extends NELDLibMultiblockScen
 
     public int selectedLayer() {
         return patternState.selectedLayer();
+    }
+
+    @Override
+    public NEMultiblockPatternViewerWidget asWidget() {
+        return this;
     }
 
     private static final class PatternState {

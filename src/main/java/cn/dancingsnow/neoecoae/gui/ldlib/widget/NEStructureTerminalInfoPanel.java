@@ -7,11 +7,11 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 final class NEStructureTerminalInfoPanel {
-    private final NEMultiblockPatternViewerWidget patternViewer;
+    private final NEMultiblockPatternViewer patternViewer;
     private final NEStructureTerminalMaterialPanel materialPanel;
 
     NEStructureTerminalInfoPanel(
-            NEMultiblockPatternViewerWidget patternViewer, NEStructureTerminalMaterialPanel materialPanel) {
+            NEMultiblockPatternViewer patternViewer, NEStructureTerminalMaterialPanel materialPanel) {
         this.patternViewer = patternViewer;
         this.materialPanel = materialPanel;
     }

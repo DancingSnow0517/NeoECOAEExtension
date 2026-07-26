@@ -4,17 +4,21 @@ import appeng.client.Point;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.CPUSelectionList;
 import appeng.client.gui.widgets.Scrollbar;
+import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
 import cn.dancingsnow.neoecoae.util.NETextFormat;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -40,6 +44,8 @@ public abstract class CPUSelectionListMixin {
     private static final int OVERLAY_H = 10;
     private static final int OVERLAY_RIGHT_MARGIN = 2;
     private static final int OVERLAY_TOP_MARGIN = 2;
+    /** AE2 15.4.10 repeats its last byte divisor and overflows at this boundary. */
+    private static final long AE2_BYTE_TOOLTIP_LIMIT = 1000L * 1024L * 1024L * 1024L;
 
     @Inject(method = "drawBackgroundLayer", at = @At("RETURN"), require = 0)
     private void neoecoae$drawCpuTierOverlay(
@@ -82,5 +88,21 @@ public abstract class CPUSelectionListMixin {
             long storageKB = cpu.storage() / 1024;
             cir.setReturnValue(NETextFormat.formatKiloUnit(storageKB));
         }
+    }
+
+    /** Keeps AE2's CPU tooltip from indexing past its four-entry BYTE_NUMS array. */
+    @Redirect(
+            method = "getTooltip",
+            at =
+                    @At(
+                            value = "INVOKE",
+                            target =
+                                    "Lappeng/core/localization/Tooltips;ofBytes(J)Lnet/minecraft/network/chat/MutableComponent;"),
+            require = 0)
+    private MutableComponent neoecoae$formatCpuTooltipStorage(long bytes) {
+        if (bytes < AE2_BYTE_TOOLTIP_LIMIT) {
+            return Tooltips.ofBytes(bytes);
+        }
+        return Component.literal(NETextFormat.formatBytes(bytes)).withStyle(Tooltips.NUMBER_TEXT);
     }
 }

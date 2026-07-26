@@ -20,7 +20,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     private final HeldItemUIFactory.HeldItemHolder holder;
 
-    private NEMultiblockPatternViewerWidget patternViewer;
+    private NEMultiblockPatternViewer patternViewer;
     private NEStructureTerminalButtonPanel buttonPanel;
     private NEStructureTerminalMaterialPanel materialPanel;
     private NEStructureTerminalInfoPanel infoPanel;
@@ -40,7 +40,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
 
     @Override
     protected void initLdWidgets() {
-        patternViewer = new NEMultiblockPatternViewerWidget(
+        patternViewer = NEMultiblockPatternViewerFactory.create(
                 NEStructureTerminalLayout.SCENE_X,
                 NEStructureTerminalLayout.SCENE_Y,
                 NEStructureTerminalLayout.SCENE_W,
@@ -50,7 +50,7 @@ public class NEStructureTerminalWidget extends NELDLibSyncedStateWidget<NEStruct
                 () -> currentState().previewMirrored(),
                 () -> currentState().previewFormed(),
                 () -> currentState().previewLayer());
-        addWidget(patternViewer);
+        addWidget(patternViewer.asWidget());
 
         materialPanel = new NEStructureTerminalMaterialPanel(
                 this::currentState, this::patternMaterials, this::sendMaterialScroll);

@@ -55,7 +55,22 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     @Getter
     @Nullable private IActionSource actionSource;
 
-    private int accelerators = 0;
+    /**
+     * User-configured parallel accelerators (persisted by controller).
+     * This is the desired value set by the player.
+     */
+    private int configuredAccelerators = 0;
+
+    /**
+     * Effective parallel accelerators actually applied to CPUs.
+     * This is min(configuredAccelerators, acceleratorLimit).
+     */
+    private int effectiveAccelerators = 0;
+
+    /**
+     * Maximum accelerators allowed by the current upgrade and parallel cores.
+     */
+    private int acceleratorLimit = 0;
 
     @Getter
     private int maxThreads = 0;
@@ -153,7 +168,21 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     public void updateFormed(boolean formed) {
         super.updateFormed(formed);
         if (formed) {
+            // Load persisted configuration from controller and apply upgrade capacity
+            if (controller != null) {
+                configuredAccelerators = controller.getConfiguredParallelAccelerators();
+            }
             applyComputationUpgradeCapacity();
+
+            // Auto-set to max if configuration is 0 or uninitialized
+            if (configuredAccelerators == 0 && acceleratorLimit > 0) {
+                configuredAccelerators = acceleratorLimit;
+                effectiveAccelerators = acceleratorLimit;
+                // Persist back to controller
+                if (controller != null) {
+                    controller.onClusterAcceleratorsChanged(acceleratorLimit);
+                }
+            }
 
             // Step 1: restore CPU NBT from each threading core's deferredInit
             for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
@@ -188,11 +217,13 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             LOGGER.debug(
                     "NE computation cluster formed: controller={} accelerators={} maxThreads={} availableStorage={}",
                     controller != null ? controller.getBlockPos() : null,
-                    accelerators,
+                    effectiveAccelerators,
                     maxThreads,
                     availableStorage);
         } else {
-            accelerators = 0;
+            configuredAccelerators = 0;
+            effectiveAccelerators = 0;
+            acceleratorLimit = 0;
             activeJobBytes = 0;
             activeCpuCount = 0;
             totalStorageBytes = 0;
@@ -279,26 +310,88 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return ret;
     }
 
-    /** Reapplies the controller upgrade after a slot change without rebuilding the multiblock. */
-    public void recalculateUpgradeStats() {
-        applyComputationUpgradeCapacity();
+    /**
+     * Sets the user-configured parallel accelerators and applies them immediately.
+     * This is called from the UI when the player changes the setting.
+     *
+     * @param value the desired accelerator count (will be clamped to [0, acceleratorLimit])
+     * @return true if the value was accepted and applied
+     */
+    public boolean setConfiguredAccelerators(int value) {
+        if (value < 0 || value > acceleratorLimit) {
+            return false;
+        }
+        this.configuredAccelerators = value;
+        this.effectiveAccelerators = Math.min(value, acceleratorLimit);
+
+        // Notify controller to persist the configuration
+        if (controller != null) {
+            controller.onClusterAcceleratorsChanged(value);
+        }
+
+        // Notify the grid that CPU capacity has changed
+        updateGridForChangedCpu(this);
+        return true;
+    }
+
+    /**
+     * Recalculates the accelerator limit based on upgrade items and parallel cores,
+     * then applies the configured value within the new limit.
+     * Called when upgrade slot changes or multiblock structure changes.
+     */
+    public void recalculateAcceleratorLimit() {
+        ItemStack upgrade = controller != null
+                ? controller.getComputationUpgradeItemHandler().getStackInSlot(0)
+                : ItemStack.EMPTY;
+        int multiplier = NEComputationUpgradeRules.fieldGeneratorMultiplier(upgrade);
+
+        // Calculate new limit
+        int oldLimit = acceleratorLimit;
+        acceleratorLimit = NEComputationUpgradeRules.hasInfiniteCapacity(upgrade)
+                ? NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS
+                : saturatedAcceleratorMultiply(baseAcceleratorCapacity(), multiplier);
+
+        // Clamp configured value to new limit. Push the clamp through to the controller too: it owns
+        // the persisted copy, and a silent divergence here would resurface the old, larger value the
+        // next time the cluster forms.
+        int clamped = Math.min(configuredAccelerators, acceleratorLimit);
+        if (clamped != configuredAccelerators) {
+            configuredAccelerators = clamped;
+            if (controller != null) {
+                controller.onClusterAcceleratorsChanged(clamped);
+            }
+        }
+        effectiveAccelerators = clamped;
+
+        // Update thread capacity
+        maxThreads = saturatedIntMultiply(baseThreadCapacity(), multiplier);
+        for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
+            core.ensureCpuCapacity(multiplier);
+        }
+
+        // Notify controller if limit changed
+        if (controller != null && oldLimit != acceleratorLimit) {
+            controller.onClusterLimitChanged(acceleratorLimit);
+        }
+
+        // Recalculate storage and notify grid
         recalculateRemainingStorage();
         updateGridForChangedCpu(this);
+    }
+
+    public void tick() {
+        pruneInactiveCpus();
     }
 
     private void applyComputationUpgradeCapacity() {
         ItemStack upgrade = controller != null
                 ? controller.getComputationUpgradeItemHandler().getStackInSlot(0)
                 : ItemStack.EMPTY;
-        if (NEComputationUpgradeRules.hasInfiniteCapacity(upgrade)) {
-            accelerators = controller != null
-                    ? controller.getParallelAccelerators()
-                    : NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS;
-        } else {
-            int multiplier = NEComputationUpgradeRules.fieldGeneratorMultiplier(upgrade);
-            accelerators = saturatedAcceleratorMultiply(baseAcceleratorCapacity(), multiplier);
-        }
         int multiplier = NEComputationUpgradeRules.fieldGeneratorMultiplier(upgrade);
+        acceleratorLimit = NEComputationUpgradeRules.hasInfiniteCapacity(upgrade)
+                ? NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS
+                : saturatedAcceleratorMultiply(baseAcceleratorCapacity(), multiplier);
+        effectiveAccelerators = Math.max(0, Math.min(acceleratorLimit, configuredAccelerators));
         maxThreads = saturatedIntMultiply(baseThreadCapacity(), multiplier);
         for (ECOComputationThreadingCoreBlockEntity core : threadingCores) {
             core.ensureCpuCapacity(multiplier);
@@ -340,7 +433,15 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public int getCPUAccelerators() {
-        return accelerators;
+        return effectiveAccelerators;
+    }
+
+    public int getCPUAcceleratorLimit() {
+        return acceleratorLimit;
+    }
+
+    public int getConfiguredAccelerators() {
+        return configuredAccelerators;
     }
 
     public boolean canBeAutoSelectedFor(IActionSource actionSource) {
@@ -502,12 +603,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {
-        pruneInactiveCpus();
-        List<ECOCraftingCPU> cpus = new ArrayList<>();
-        for (ECOCraftingCPU cpu : activeCpus.keySet()) {
-            cpus.add(cpu);
-        }
-        return cpus;
+        return new ArrayList<>(activeCpus.keySet());
+    }
+
+    /** Returns the active CPU map view without pruning or allocating a snapshot list. */
+    public Iterable<ECOCraftingCPU> activeCpusView() {
+        return activeCpus.keySet();
     }
 
     public void pruneInactiveCpus() {

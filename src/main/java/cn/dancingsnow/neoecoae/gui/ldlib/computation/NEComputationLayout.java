@@ -1,7 +1,5 @@
 package cn.dancingsnow.neoecoae.gui.ldlib.computation;
 
-import cn.dancingsnow.neoecoae.blocks.entity.computation.NEComputationUpgradeRules;
-
 /** Pixel geometry matching the LDLib2 computation host while rendering through LDLib1. */
 public final class NEComputationLayout {
     public static final int BASE_UI_WIDTH = 344;
@@ -9,22 +7,28 @@ public final class NEComputationLayout {
 
     public static final int PARALLEL_PANEL_W = 108;
     public static final int PARALLEL_PANEL_GAP = 4;
-    public static final int MAIN_X =
-            NEComputationUpgradeRules.isGregTechAvailable() ? PARALLEL_PANEL_W + PARALLEL_PANEL_GAP : 0;
-    public static final int UI_WIDTH = BASE_UI_WIDTH + MAIN_X;
+    /** The AE2 panel remains centered; the optional controller opens into negative x. */
+    public static final int MAIN_X = 0;
 
-    public static final int PARALLEL_PANEL_X = 0;
-    public static final int PARALLEL_PANEL_Y = 0;
+    public static final int UI_WIDTH = BASE_UI_WIDTH;
+
+    public static final int PARALLEL_PANEL_X = -(PARALLEL_PANEL_W + PARALLEL_PANEL_GAP);
     public static final int PARALLEL_PANEL_H = 48;
+    public static final int PARALLEL_TAB_SIZE = 24;
+    /** The expanded page is anchored to the bottom-left and opens upward. */
+    public static final int PARALLEL_PANEL_Y = UI_HEIGHT - PARALLEL_PANEL_H - 4;
+    /** The collapsed tab stays beside the controller's lower-left corner. */
+    public static final int PARALLEL_COLLAPSED_X = PARALLEL_PANEL_X + PARALLEL_PANEL_W - PARALLEL_TAB_SIZE;
+
+    public static final int PARALLEL_COLLAPSED_Y = UI_HEIGHT - PARALLEL_TAB_SIZE - 4;
     public static final int PARALLEL_TITLE_X = PARALLEL_PANEL_X + 9;
     public static final int PARALLEL_TITLE_Y = PARALLEL_PANEL_Y + 4;
-    /** Matches GTCEu's ConfiguratorPanel tab, which moves to the right edge when expanded. */
-    public static final int PARALLEL_TOGGLE_X = PARALLEL_PANEL_X + PARALLEL_PANEL_W - 20;
+    /** GTCEu's 24px tab moves from the left edge to the right edge when expanded. */
+    public static final int PARALLEL_TOGGLE_X = PARALLEL_COLLAPSED_X;
 
-    public static final int PARALLEL_TOGGLE_Y = PARALLEL_PANEL_Y + 4;
-    public static final int PARALLEL_TOGGLE_W = 16;
-    public static final int PARALLEL_TOGGLE_H = 16;
-    public static final int PARALLEL_TAB_SIZE = 24;
+    public static final int PARALLEL_TOGGLE_Y = PARALLEL_COLLAPSED_Y;
+    public static final int PARALLEL_TOGGLE_W = PARALLEL_TAB_SIZE;
+    public static final int PARALLEL_TOGGLE_H = PARALLEL_TAB_SIZE;
     public static final int PARALLEL_BORDER = 4;
     /** Fallback step used only when the runtime GTCEu number widget is unavailable. */
     public static final int PARALLEL_STEP = 64;

@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEForgeItemTransfer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibAe2StyleRenderer;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
@@ -26,6 +27,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 /** Coordinates computation state, server actions, inventory slots, and focused client-side host panels. */
 public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NEComputationUiState> {
@@ -59,6 +61,16 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         return false;
     }
 
+    /**
+     * Inserting a field generator raises the accelerator limit, and the auto-max that follows is a
+     * direct answer to what the player just did -- letting the 20-tick interval sit on it for up to a
+     * second makes the upgrade look inert.
+     */
+    @Override
+    protected long stateRevision() {
+        return computation.getConfigRevision();
+    }
+
     @Override
     protected boolean shouldDrawBasePanel() {
         return false;
@@ -81,16 +93,16 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                     }
                 });
         addWidget(cpuModeButton);
-        if (hasUpgradeLayout()) {
-            parallelConfigurator = new NEGtceuConfiguratorTabWidget(
-                    PARALLEL_PANEL_X,
-                    PARALLEL_PANEL_Y,
-                    Component.translatable("gui.neoecoae.computation.parallel_control"),
-                    () -> currentState().configuredAccelerators(),
-                    computation::setParallelAccelerators,
-                    () -> currentState().infiniteCapacity());
-            addWidget(parallelConfigurator);
+        parallelConfigurator = new NEGtceuConfiguratorTabWidget(
+                PARALLEL_PANEL_X,
+                PARALLEL_PANEL_Y,
+                Component.translatable("gui.neoecoae.computation.parallel_control"),
+                () -> currentState().configuredAccelerators(),
+                this::setParallelAcceleratorsFromWidget,
+                this::parallelAcceleratorLimit);
+        addWidget(parallelConfigurator);
 
+        if (hasUpgradeLayout()) {
             addWidget(new SlotWidget(
                             new NEForgeItemTransfer(
                                     computation.getComputationUpgradeItemHandler(),
@@ -104,18 +116,10 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         }
         NEPlayerInventoryWidgets.addPlayerInventorySlots(
                 this, playerInventory, mainX(PLAYER_INV_X), PLAYER_INV_Y, PLAYER_HOTBAR_Y);
-        updateParallelControls();
-    }
-
-    @Override
-    public void updateScreen() {
-        super.updateScreen();
-        updateParallelControls();
     }
 
     @Override
     protected void drawMachineBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        updateParallelControls();
         NELDLibAe2StyleRenderer.drawAeMainPanel(graphics, absX(MAIN_X), absY(0), BASE_UI_WIDTH, UI_HEIGHT);
         cpuModeButton.setIcon(cpuModeIcon());
         capacityPanel.drawBackground(graphics, mainScreenX(), this::absY, currentState(), mouseX, mouseY);
@@ -168,11 +172,48 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
             return false;
         }
         List<Component> lines = List.of(
-                Component.translatable("gui.neoecoae.computation.upgrade_slot"),
-                Component.translatable("gui.neoecoae.computation.upgrade_slot.field_generators"),
-                Component.translatable("gui.neoecoae.computation.upgrade_slot.infinite_component"));
+                Component.translatable("gui.neoecoae.computation.upgrade_slot")
+                        .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_BLUE)),
+                upgradeFieldGeneratorLine(),
+                upgradeInfiniteComponentLine());
         graphics.renderTooltip(font(), lines, Optional.empty(), mouseX, mouseY);
         return true;
+    }
+
+    private static Component upgradeFieldGeneratorLine() {
+        Component tiers = Component.empty()
+                .append(coloredTier("IV", NELDLibStyle.DARK_TEXT_BLUE))
+                .append(separator(" / "))
+                .append(coloredTier("LuV", NELDLibStyle.DARK_TEXT_VALUE))
+                .append(separator(" / "))
+                .append(coloredTier("ZPM", NELDLibStyle.DARK_TEXT_ORANGE))
+                .append(separator(" / "))
+                .append(coloredTier("UV", NELDLibStyle.DARK_TEXT_SUCCESS));
+        return Component.translatable(
+                        "gui.neoecoae.computation.upgrade_slot.field_generators",
+                        tiers,
+                        coloredValue(NEComputationUpgradeRules.FIELD_GENERATOR_COUNT))
+                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED));
+    }
+
+    private static Component upgradeInfiniteComponentLine() {
+        return Component.translatable(
+                        "gui.neoecoae.computation.upgrade_slot.infinite_component",
+                        coloredValue(NEComputationUpgradeRules.INFINITE_COMPONENT_COUNT))
+                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED));
+    }
+
+    private static Component coloredTier(String tier, int color) {
+        return Component.literal(tier).withStyle(style -> style.withColor(color));
+    }
+
+    private static Component coloredValue(int value) {
+        return Component.literal(Integer.toString(value))
+                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_WARNING));
+    }
+
+    private static Component separator(String text) {
+        return Component.literal(text).withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED));
     }
 
     private boolean hasUpgradeLayout() {
@@ -188,21 +229,27 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     }
 
     private boolean drawParallelTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (parallelConfigurator != null && parallelConfigurator.isToggleHovered(mouseX, mouseY)) {
-            Component status = currentState().infiniteCapacity()
-                    ? Component.translatable("gui.neoecoae.computation.parallel_control.enabled")
-                    : Component.translatable("gui.neoecoae.computation.parallel_control.requires_infinite");
+        if (parallelConfigurator == null) {
+            return false;
+        }
+        int limit = parallelAcceleratorLimit();
+        if (parallelConfigurator.isToggleHovered(mouseX, mouseY)) {
             graphics.renderComponentTooltip(
                     font(),
-                    List.of(Component.translatable("gui.neoecoae.computation.parallel_control"), status),
+                    List.of(
+                            Component.translatable("gui.neoecoae.computation.parallel_control"),
+                            limit > 0
+                                    ? Component.translatable("gui.neoecoae.computation.parallel_control.enabled")
+                                    : Component.translatable(
+                                            "gui.neoecoae.computation.parallel_control.requires_infinite")),
                     mouseX,
                     mouseY);
             return true;
         }
-        if (parallelConfigurator != null && parallelConfigurator.isInputHovered(mouseX, mouseY)) {
+        if (parallelConfigurator.isInputHovered(mouseX, mouseY)) {
             graphics.renderComponentTooltip(
                     font(),
-                    List.of(Component.translatable("gui.neoecoae.computation.parallel_input.tooltip")),
+                    List.of(Component.translatable("gui.neoecoae.computation.parallel_input.tooltip", limit)),
                     mouseX,
                     mouseY);
             return true;
@@ -210,11 +257,28 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         return false;
     }
 
-    private void updateParallelControls() {
-        boolean available = hasUpgradeLayout() && currentState().infiniteCapacity();
-        if (parallelConfigurator != null) {
-            parallelConfigurator.setEnabled(available);
+    private void setParallelAcceleratorsFromWidget(int value) {
+        Level level = computation.getLevel();
+        if (level == null || level.isClientSide) {
+            // The configured value is owned by the server; the client only mirrors synced state.
+            return;
         }
+        // Sync either way. On success this publishes the value the cluster applied. On rejection --
+        // which happens when the client clamped against an accelerator limit that has since shrunk --
+        // it overwrites the value the input optimistically displays with the one the server holds,
+        // so the field cannot keep showing a number that was never accepted. The snap-back is the
+        // rejection feedback: the text field fires per keystroke, so a message or flash here would
+        // repeat for every character typed.
+        computation.setParallelAccelerators(value);
+        syncStateNow();
+    }
+
+    private int parallelAcceleratorLimit() {
+        return Math.max(
+                0,
+                Math.min(
+                        NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS,
+                        currentState().acceleratorLimit()));
     }
 
     private int mainX(int localX) {

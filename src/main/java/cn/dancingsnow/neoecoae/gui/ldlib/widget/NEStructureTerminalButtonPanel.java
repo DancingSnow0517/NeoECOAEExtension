@@ -27,10 +27,10 @@ final class NEStructureTerminalButtonPanel {
         this.actionSender = actionSender;
     }
 
-    void init(NEMultiblockPatternViewerWidget patternViewer) {
+    void init(NEMultiblockPatternViewer patternViewer) {
         renderedButtons.clear();
         patternWidgets.clear();
-        patternWidgets.add(patternViewer);
+        patternWidgets.add(patternViewer.asWidget());
 
         addLocalButton(
                 NEStructureTerminalLayout.PATTERN_TAB_X,
