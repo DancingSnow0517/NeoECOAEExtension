@@ -1,6 +1,9 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import appeng.api.config.Actionable;
 import appeng.api.ids.AEComponents;
+import appeng.api.networking.security.IActionSource;
+import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
@@ -75,6 +78,15 @@ public final class ECOInfiniteStorageMember {
         if (stack == null || stack.isEmpty()) {
             return;
         }
+        var inventory = ECOStorageCells.getCellInventory(stack, null);
+        if (inventory != null) {
+            var available = inventory.getAvailableStacks();
+            for (var entry : available) {
+                inventory.extract(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, IActionSource.empty());
+            }
+            inventory.persist();
+        }
+        // Standard ECO cells use this component. Removing it is also a safe fallback if no handler was available.
         stack.remove(AEComponents.STORAGE_CELL_INV);
     }
 }

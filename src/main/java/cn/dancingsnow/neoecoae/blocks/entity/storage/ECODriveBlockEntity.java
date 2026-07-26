@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.blocks.entity.storage;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
@@ -56,6 +57,9 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Getter
     @DescSynced
     private boolean online = false;
+    @Getter
+    @DescSynced
+    private CellState cellState = CellState.ABSENT;
 
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
@@ -116,6 +120,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (isServerStopping()) {
             return;
         }
+        updateCellState();
         double power = 256;
         if (cluster instanceof NEStorageCluster storageCluster && storageCluster.getController() != null) {
             IECOTier mainTier = storageCluster.getController().getTier();
@@ -159,11 +164,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 storageMounts.mount(cellInventory, storageCluster.getController().getStoragePriority());
                 mounted = true;
+                updateCellState();
                 setChanged();
                 return;
             }
         }
         mounted = false;
+        updateCellState();
         setChanged();
     }
 
@@ -187,10 +194,19 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+                updateCellState();
                 setChanged();
                 markForUpdate();
             });
         }
+    }
+
+    private void updateCellState() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        IECOStorageCell cellInventory = getCellInventory();
+        cellState = cellInventory == null ? CellState.ABSENT : cellInventory.getStatus();
     }
 
     @Override

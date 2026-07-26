@@ -1,0 +1,55 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ae2lt"
+    }
+  ],
+  "type": "ae2lt:lightning_assembly",
+  "priority": 0,
+  "inputs": [
+    {
+      "ingredient": {
+        "item": "neoecoae:eco_lightning_cell_housing"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "neoecoae:eco_cell_component_64m"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:lightning_cell_component_v"
+      },
+      "count": 16
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:overload_alloy_plate"
+      },
+      "count": 16
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:overload_singularity"
+      },
+      "count": 4
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:lightning_collapse_matrix"
+      },
+      "count": 4
+    }
+  ],
+  "result": {
+    "id": "neoecoae:eco_lightning_cell_64m",
+    "count": 1
+  },
+  "totalEnergy": 32000000,
+  "lightningCost": 256,
+  "lightningTier": "extreme_high_voltage"
+}

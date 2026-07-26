@@ -1,0 +1,37 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ae2lt"
+    }
+  ],
+  "type": "ae2lt:lightning_simulation",
+  "priority": 0,
+  "inputs": [
+    {
+      "ingredient": {
+        "item": "neoecoae:eco_lightning_cell_housing"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "neoecoae:eco_cell_component_16m"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:lightning_cell_component_v"
+      },
+      "count": 4
+    }
+  ],
+  "result": {
+    "id": "neoecoae:eco_lightning_cell_16m",
+    "count": 1
+  },
+  "totalEnergy": 8000000,
+  "lightningCost": 256,
+  "lightningTier": "high_voltage"
+}
