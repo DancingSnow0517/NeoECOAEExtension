@@ -5,8 +5,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.storage.LevelResource;
@@ -17,6 +19,7 @@ public final class ECOInfiniteStorageDomains {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOInfiniteStorageDomains.class);
     private static final long TICK_CHECKPOINT_BUDGET_NANOS = 1_000_000L;
     private static final Map<String, FileBackedInfiniteStorageEngine> ENGINES = new HashMap<>();
+    private static final Set<UUID> LOGGED_FAILURES = new HashSet<>();
 
     private ECOInfiniteStorageDomains() {}
 
@@ -40,30 +43,33 @@ public final class ECOInfiniteStorageDomains {
         if (engine != null) {
             // A controller or a mounted storage wrapper in another dimension may still reference this world-global
             // domain. Keep one engine instance until server shutdown and only force its current state to disk here.
-            engine.flushBudgeted(0L);
+            runIsolated(engine, "checkpoint while detaching controller", () -> engine.flushBudgeted(0L));
         }
     }
 
-    public static synchronized void flushAll() {
+    public static synchronized void flushWalForWorldSave() {
         for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            engine.flushBudgeted(0L);
+            runIsolated(engine, "WAL flush during world save", () -> {
+                engine.submitPendingWal();
+                engine.awaitPendingWal();
+            });
         }
     }
 
     public static synchronized void awaitPreviousTick() {
         // The writer normally finishes while the server is between ticks. Waiting here bounds the durability window
-        // to one tick without putting force(false) on every storage-system block entity tick.
+        // to one tick without forcing the WAL from every storage-system block entity tick.
         for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            engine.submitPendingWal();
+            runIsolated(engine, "WAL submission", engine::submitPendingWal);
         }
         for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            engine.awaitPendingWal();
+            runIsolated(engine, "WAL wait", engine::awaitPendingWal);
         }
     }
 
     public static synchronized void flushTick() {
         for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
-            engine.submitPendingWal();
+            runIsolated(engine, "WAL submission", engine::submitPendingWal);
         }
         long deadline = System.nanoTime() + TICK_CHECKPOINT_BUDGET_NANOS;
         for (FileBackedInfiniteStorageEngine engine : ENGINES.values()) {
@@ -71,31 +77,23 @@ public final class ECOInfiniteStorageDomains {
             if (remaining <= 0L) {
                 break;
             }
-            engine.checkpointBudgeted(remaining);
+            runIsolated(engine, "budgeted checkpoint", () -> engine.checkpointBudgeted(remaining));
         }
     }
 
     public static synchronized void closeAll() {
-        RuntimeException failure = null;
         try {
             for (FileBackedInfiniteStorageEngine engine : new ArrayList<>(ENGINES.values())) {
                 try {
                     engine.closeAndFlush();
                 } catch (RuntimeException e) {
                     LOGGER.error("Unable to close an ECO infinite storage domain", e);
-                    if (failure == null) {
-                        failure = e;
-                    } else {
-                        failure.addSuppressed(e);
-                    }
                 }
             }
         } finally {
             ENGINES.clear();
+            LOGGED_FAILURES.clear();
             ECOInfiniteStorageIoWorker.shutdown();
-        }
-        if (failure != null) {
-            throw failure;
         }
     }
 
@@ -113,10 +111,32 @@ public final class ECOInfiniteStorageDomains {
     }
 
     private static Path storageRoot(ServerLevel level) {
-        return level.getServer()
+        Path worldRoot = level.getServer()
                 .getWorldPath(LevelResource.ROOT)
-                .resolve("data")
-                .resolve("neoecoae_storage");
+                .toAbsolutePath()
+                .normalize();
+        Path storageRoot = worldRoot.resolve("neoecoae_storage");
+        Path legacyStorageRoot = worldRoot.resolve("data").resolve("neoecoae_storage");
+        if (!Files.exists(storageRoot) && Files.isDirectory(legacyStorageRoot)) {
+            try {
+                Files.move(legacyStorageRoot, storageRoot);
+                LOGGER.info("Migrated ECO infinite storage root from {} to {}", legacyStorageRoot, storageRoot);
+            } catch (IOException e) {
+                throw new IllegalStateException("Unable to migrate ECO infinite storage root", e);
+            }
+        }
+        return storageRoot;
+    }
+
+    private static void runIsolated(FileBackedInfiniteStorageEngine engine, String operation, Runnable action) {
+        try {
+            action.run();
+        } catch (RuntimeException e) {
+            if (LOGGED_FAILURES.add(engine.domainId())) {
+                LOGGER.error("ECO infinite storage domain {} failed {}; the domain has been isolated",
+                    engine.domainId(), operation, e);
+            }
+        }
     }
 
     static Path resolveDomainPath(Path storageRoot, UUID domainId) {

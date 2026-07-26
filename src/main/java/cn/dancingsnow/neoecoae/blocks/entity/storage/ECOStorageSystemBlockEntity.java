@@ -974,6 +974,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         engine.flushBudgeted(0L);
+        if (!engine.isHealthy()) {
+            LOGGER.error("Unable to durably checkpoint migration into infinite domain {}; keeping the source cell",
+                domainId);
+            return;
+        }
         if (cell instanceof ECOStorageCell storageCell) {
             storageCell.clearAllStoredStacks();
         }
@@ -1163,6 +1168,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         engine.flushBudgeted(0L);
+        if (!engine.isHealthy()) {
+            LOGGER.error("Unable to durably finish restoring infinite domain {}; keeping it mounted", infiniteDomainId);
+            return;
+        }
         if (!engine.isEmpty()) {
             LOGGER.warn("Unable to fully restore ECO infinite storage domain {}; keeping it mounted to avoid data loss", infiniteDomainId);
             return;
