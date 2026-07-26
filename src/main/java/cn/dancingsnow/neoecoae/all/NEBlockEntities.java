@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOIntegratedWorkingStationBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.ECONetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineCasingBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
@@ -40,6 +41,20 @@ import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 @SuppressWarnings("unused")
 public class NEBlockEntities {
+
+    public static final BlockEntityEntry<ECONetworkSwitchBlockEntity> ECO_NETWORK_SWITCH = REGISTRATE
+        .blockEntity("eco_network_switch", ECONetworkSwitchBlockEntity::new)
+        .validBlock(NEBlocks.ECO_NETWORK_SWITCH)
+        .onRegister(type -> {
+            NEBlocks.ECO_NETWORK_SWITCH.get().setBlockEntity(
+                ECONetworkSwitchBlockEntity.class,
+                type,
+                null,
+                null
+            );
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.ECO_NETWORK_SWITCH.asItem());
+        })
+        .register();
 
     public static final BlockEntityEntry<ECOMachineCasingBlockEntity<NEComputationCluster>> COMPUTATION_CASING = REGISTRATE
         .<ECOMachineCasingBlockEntity<NEComputationCluster>, NEComputationCluster>blockEntityClusterElement(

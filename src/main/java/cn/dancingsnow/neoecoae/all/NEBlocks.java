@@ -24,6 +24,7 @@ import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingVent;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingWorker;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidInputHatchBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOFluidOutputHatchBlock;
+import cn.dancingsnow.neoecoae.blocks.ECONetworkSwitch;
 import cn.dancingsnow.neoecoae.blocks.storage.ECODriveBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOStorageSystemBlock;
@@ -63,10 +64,27 @@ public class NEBlocks {
         REGISTRATE.defaultCreativeTab(NECreativeTabs.ECO);
     }
 
-    public static final BlockEntry<Block> ECO_NETWORK_SWITCH = REGISTRATE
-        .block("eco_network_switch", Block::new)
+    public static final BlockEntry<ECONetworkSwitch> ECO_NETWORK_SWITCH = REGISTRATE
+        .block("eco_network_switch", ECONetworkSwitch::new)
         .initialProperties(() -> Blocks.IRON_BLOCK)
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .recipe((ctx, prov) -> {
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ctx.get())
+                .pattern("ABC")
+                .pattern("DEF")
+                .pattern("GBH")
+                .define('A', AEBlocks.MOLECULAR_ASSEMBLER)
+                .define('B', NEItems.SUPERCONDUCTING_PROCESSOR)
+                .define('C', AEBlocks.CRAFTING_STORAGE_256K)
+                .define('D', AEBlocks.CELL_WORKBENCH)
+                .define('E', NEBlocks.ALUMINUM_ALLOY_CASING)
+                .define('F', AEBlocks.CONDENSER)
+                .define('G', AEBlocks.INSCRIBER)
+                .define('H', AEBlocks.CHARGER)
+                .unlockedBy("has_superconducting_processor", RegistrateRecipeProvider.has(NEItems.SUPERCONDUCTING_PROCESSOR))
+                .unlockedBy("has_aluminum_alloy_casing", RegistrateRecipeProvider.has(NEBlocks.ALUMINUM_ALLOY_CASING))
+                .save(prov);
+        })
         .blockstate((ctx, prov) -> prov.simpleBlock(
             ctx.get(),
             prov.models().getExistingFile(prov.modLoc("block/eco_network_switch"))
