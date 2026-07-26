@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.api.rendering;
 
+import cn.dancingsnow.neoecoae.client.model.NEBakedModelCache;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -8,7 +9,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -16,6 +16,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -26,7 +27,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
 
     default void tessellateModelWithAO(
         BlockAndTintGetter level,
-        ResourceLocation model,
+        @Nullable ResourceLocation model,
         BlockState state,
         BlockPos pos,
         PoseStack poseStack,
@@ -49,7 +50,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
 
     default void tessellateModelWithAO(
         BlockAndTintGetter level,
-        ResourceLocation model,
+        @Nullable ResourceLocation model,
         BlockState state,
         BlockPos pos,
         PoseStack poseStack,
@@ -58,10 +59,12 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
         RandomSource random,
         int packedOverlay
     ) {
+        BakedModel bakedModel = NEBakedModelCache.get(model);
+        if (bakedModel == null) {
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         ModelBlockRenderer modelRenderer = mc.getBlockRenderer().getModelRenderer();
-        BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
         VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
         modelRenderer.tesselateWithAO(
             level,
@@ -80,7 +83,7 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     default void tessellateModel(
         PoseStack poseStack,
         MultiBufferSource bufferSource,
-        ResourceLocation model,
+        @Nullable ResourceLocation model,
         int packedLight,
         int packedOverlay
     ) {
@@ -97,14 +100,17 @@ public interface IFixedBlockEntityRenderer<T extends BlockEntity> {
     default void tessellateModel(
         PoseStack poseStack,
         MultiBufferSource bufferSource,
-        ResourceLocation model,
+        @Nullable ResourceLocation model,
         int packedLight,
         int packedOverlay,
         RenderType renderType
     ) {
-        Minecraft mc = Minecraft.getInstance();
-        BakedModel bakedModel = mc.getModelManager()
-            .getModel(ModelResourceLocation.standalone(model));
+        // Runs on a chunk meshing worker thread; never fall back to the missing model here, or the magenta
+        // cube gets baked into the section mesh and survives until that section happens to be rebuilt.
+        BakedModel bakedModel = NEBakedModelCache.get(model);
+        if (bakedModel == null) {
+            return;
+        }
         for (Direction value : Direction.values()) {
             List<BakedQuad> quads = bakedModel.getQuads(
                 null,
