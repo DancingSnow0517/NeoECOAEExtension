@@ -43,6 +43,16 @@ public class ConfigLangs {
                 "Each page stores 63 encoded patterns."
         );
 
+        provider.add("neoecoae.configuration.debug", "Debug");
+        provider.add("neoecoae.configuration.debug.tooltip", "ECO host debug overdrive options.");
+        provider.add("neoecoae.configuration.debugECOHostOverdrive", "ECO Host Debug Overdrive");
+        provider.add(
+            "neoecoae.configuration.debugECOHostOverdrive.tooltip",
+            "Set computation host CPU storage to 9.2E and multiply computation parallel cores, " +
+                "crafting parallel cores, and crafting-worker batch size by 32768.\n" +
+                "Debug only; not intended for normal gameplay balance."
+        );
+
         provider.add("neoecoae.configuration.fastPath", "Fast Path");
         provider.add(
             "neoecoae.configuration.fastPath.tooltip",

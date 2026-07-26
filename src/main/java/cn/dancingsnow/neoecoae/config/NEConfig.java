@@ -125,6 +125,27 @@ public class NEConfig {
     static {
         BUILDER
             .comment(
+                "ECO 主机调试超频选项。",
+                "ECO host debug overdrive options.")
+            .push("debug");
+    }
+
+    private static final ModConfigSpec.BooleanValue DEBUG_ECO_HOST_OVERDRIVE = BUILDER
+        .comment(
+            "开启后，计算主机总 CPU 存储固定为 9.2E；计算并行核心、合成并行核心和合成工作器单次执行量均为原始值的 2^15 倍（x32768）。",
+            "仅用于调试，不应作为正常游戏平衡配置。",
+            "When enabled, computation hosts use a fixed 9.2E total CPU storage; computation parallel cores,",
+            "crafting parallel cores, and crafting-worker batch size are multiplied by 2^15 (x32768).",
+            "Debug only. This is not intended for normal gameplay balance.")
+        .define("debugECOHostOverdrive", false);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER
+            .comment(
                 "ECO AE2 快速路径缓存与批量合成选项。",
                 "如果整合包遇到配方兼容问题，可以关闭或调低这些值。",
                 "ECO AE2 fast-path cache and batch crafting options.",
@@ -210,9 +231,9 @@ public class NEConfig {
         // Read the locked entries so NeoForge can correct legacy values, but never apply them at runtime.
         CRAFTING_CAPACITY_POWER.get();
         COMPUTATION_PARALLEL_CORE_POWER.get();
-        // Debug settings are intentionally unavailable from the in-game config screen for now.
-        debugECOHostOverdrive = false;
+        debugECOHostOverdrive = DEBUG_ECO_HOST_OVERDRIVE.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
+        // Fast-path debug logging remains intentionally unavailable from the in-game config screen.
         debugEcoFastPath = false;
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
         ecoCpuTickBudgetMicros = ECO_CPU_TICK_BUDGET_MICROS.get();
