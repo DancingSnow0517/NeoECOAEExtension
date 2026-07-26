@@ -93,9 +93,6 @@ public final class ECOFastPathKey {
         private final AEKey key;
         private final long amount;
 
-        @Nullable
-        private String sortId;
-
         private EntrySignature(AEKey key, long amount) {
             this.key = key;
             this.amount = amount;
@@ -103,7 +100,9 @@ public final class ECOFastPathKey {
 
         @Override
         public int compareTo(EntrySignature other) {
-            int keyCompare = sortId().compareTo(other.sortId());
+            // Canonical in-runtime order only; shares the allocation-free key comparison with
+            // the fast-path stack snapshots instead of building sort-id strings.
+            int keyCompare = ECOFastPathStacks.compareKeys(this.key, other.key);
             if (keyCompare != 0) {
                 return keyCompare;
             }
@@ -119,13 +118,6 @@ public final class ECOFastPathKey {
         @Override
         public int hashCode() {
             return 31 * key.hashCode() + Long.hashCode(amount);
-        }
-
-        private String sortId() {
-            if (sortId == null) {
-                sortId = key.getType().getId() + ":" + key.getId() + ":" + key.hashCode();
-            }
-            return sortId;
         }
     }
 }

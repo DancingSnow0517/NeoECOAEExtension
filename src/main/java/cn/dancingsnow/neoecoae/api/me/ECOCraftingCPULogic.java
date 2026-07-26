@@ -329,6 +329,9 @@ public class ECOCraftingCPULogic {
                     continue;
                 }
                 List<ECOCraftingPatternBusBlockEntity> patternBuses = collectPatternBuses(providers);
+                // FastPath 元数据只有 ECO 智能样板总线能够消费；纯第三方提供者不应支付其构建成本。
+                boolean fastPathCandidate = !patternBuses.isEmpty();
+
                 while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
                     if (budget != null && budget.isExhausted()) {
                         // 共享时间预算耗尽；任务保持原样，下一 tick 继续。
@@ -348,7 +351,8 @@ public class ECOCraftingCPULogic {
                     }
 
                     ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(
-                            details, craftingContainer, expectedOutputs, expectedContainerItems, level);
+                            details, craftingContainer, expectedOutputs, expectedContainerItems, level,
+                            fastPathCandidate);
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
                     int batchResult = tryPushVerifiedFastPathBatch(

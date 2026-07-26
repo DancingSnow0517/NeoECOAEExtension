@@ -21,12 +21,21 @@ public final class ECOFastPathStacks {
     private ECOFastPathStacks() {
     }
 
-    public static List<GenericStack> copyCounter(KeyCounter counter) {
-        KeyCounter copy = new KeyCounter();
-        if (counter != null) {
-            copy.addAll(counter);
+    /**
+     * Unsorted, allocation-light snapshot used for plain crafting accounting. Never use this for
+     * fast-path cache comparisons, which require the canonical order of {@link #copySorted}.
+     */
+    public static List<GenericStack> toGenericStacks(@Nullable KeyCounter counter) {
+        if (counter == null) {
+            return List.of();
         }
-        return copySorted(copy);
+        List<GenericStack> stacks = new ArrayList<>();
+        for (Object2LongMap.Entry<AEKey> entry : counter) {
+            if (entry.getLongValue() > 0) {
+                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+            }
+        }
+        return List.copyOf(stacks);
     }
 
     public static List<GenericStack> copyCounters(KeyCounter[] counters) {
@@ -196,22 +205,48 @@ public final class ECOFastPathStacks {
         }
     }
 
-    private static List<GenericStack> copySorted(KeyCounter counter) {
+    /**
+     * Canonical in-runtime ordering for fast-path list equality. The cache is never persisted, so
+     * only self-consistency within one runtime matters; keys are ordered by their identifiers and
+     * cached hash codes without building intermediate sort-id strings.
+     */
+    private static final Comparator<GenericStack> CANONICAL_ORDER = (a, b) -> {
+        int keyOrder = compareKeys(a.what(), b.what());
+        return keyOrder != 0 ? keyOrder : Long.compare(a.amount(), b.amount());
+    };
+
+    public static List<GenericStack> copySorted(@Nullable KeyCounter counter) {
         List<GenericStack> stacks = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : counter) {
-            if (entry.getLongValue() > 0) {
-                stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+        if (counter != null) {
+            for (Object2LongMap.Entry<AEKey> entry : counter) {
+                if (entry.getLongValue() > 0) {
+                    stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+                }
             }
         }
-        stacks.sort(Comparator.comparing((GenericStack stack) -> keySortId(stack.what()))
-            .thenComparingLong(GenericStack::amount));
+        stacks.sort(CANONICAL_ORDER);
         return List.copyOf(stacks);
     }
 
-    private static String keySortId(@Nullable AEKey key) {
-        if (key == null) {
-            return "";
+    static int compareKeys(@Nullable AEKey a, @Nullable AEKey b) {
+        if (a == b) {
+            return 0;
         }
-        return key.getType().getId() + ":" + key.getId() + ":" + key.hashCode();
+        if (a == null) {
+            return -1;
+        }
+        if (b == null) {
+            return 1;
+        }
+        int order = a.getType().getId().compareTo(b.getType().getId());
+        if (order != 0) {
+            return order;
+        }
+        order = a.getId().compareTo(b.getId());
+        if (order != 0) {
+            return order;
+        }
+        // Distinguishes same-id keys with different components; AEKey caches its hash code.
+        return Integer.compare(a.hashCode(), b.hashCode());
     }
 }

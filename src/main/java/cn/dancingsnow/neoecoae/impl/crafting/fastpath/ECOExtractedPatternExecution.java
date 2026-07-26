@@ -46,17 +46,34 @@ public final class ECOExtractedPatternExecution {
         KeyCounter[] craftingContainer,
         KeyCounter expectedOutputs,
         KeyCounter expectedContainerItems,
-        Level level
+        Level level,
+        boolean ecoPatternBusPresent
     ) {
-        List<GenericStack> outputs = ECOFastPathStacks.copyCounter(expectedOutputs);
-        List<GenericStack> containers = ECOFastPathStacks.copyCounter(expectedContainerItems);
+        if (!shouldAttemptFastPathMetadata(
+            ecoPatternBusPresent,
+            NEConfig.ecoAe2FastPathEnabled,
+            NEConfig.postCraftingEvent,
+            AE2PatternIntrospection.isAvailable(),
+            AE2PatternIntrospection.isKnownSafePatternType(details)
+        )) {
+            // Non-FastPath execution keeps only the unsorted output and container-item snapshots
+            // required for normal crafting accounting (waitingFor bookkeeping); no canonical
+            // input snapshot, no ECOFastPathKey, no sorting or key hashing.
+            return new ECOExtractedPatternExecution(
+                details,
+                craftingContainer,
+                ECOFastPathStacks.toGenericStacks(expectedOutputs),
+                ECOFastPathStacks.toGenericStacks(expectedContainerItems),
+                List.of(),
+                null,
+                false
+            );
+        }
+        List<GenericStack> outputs = ECOFastPathStacks.copySorted(expectedOutputs);
+        List<GenericStack> containers = ECOFastPathStacks.copySorted(expectedContainerItems);
         List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
         Optional<ECOFastPathKey> key = AE2PatternIntrospection.buildFastPathKey(details, craftingContainer, level);
         boolean eligible = key.isPresent()
-            && NEConfig.ecoAe2FastPathEnabled
-            && !NEConfig.postCraftingEvent
-            && AE2PatternIntrospection.isAvailable()
-            && AE2PatternIntrospection.isKnownSafePatternType(details)
             && outputs.size() == 1
             && ECOFastPathStacks.isSafeForFastPath(outputs, false)
             && ECOFastPathStacks.isSafeForFastPath(containers, false)
@@ -66,13 +83,35 @@ public final class ECOExtractedPatternExecution {
         );
     }
 
+    /**
+     * Cheap O(1) eligibility gate evaluated before any FastPath metadata (snapshots, canonical
+     * sorting, key construction, hashing) is built. Patterns that can never use the FastPath -
+     * for example third-party dynamic patterns or patterns whose providers contain no ECO
+     * pattern bus - must not pay the metadata construction cost.
+     */
+    static boolean shouldAttemptFastPathMetadata(
+        boolean ecoPatternBusPresent,
+        boolean fastPathEnabled,
+        boolean postCraftingEvent,
+        boolean introspectionAvailable,
+        boolean knownSafePatternType
+    ) {
+        return ecoPatternBusPresent
+            && fastPathEnabled
+            && !postCraftingEvent
+            && introspectionAvailable
+            && knownSafePatternType;
+    }
+
     public static ECOExtractedPatternExecution slow(IPatternDetails details, KeyCounter[] craftingContainer) {
+        // Executions without a FastPath key never read inputItems(): every consumer
+        // (batch offers, cache verification, result matching) is gated on key() != null.
         return new ECOExtractedPatternExecution(
             details,
             craftingContainer,
             List.of(),
             List.of(),
-            ECOFastPathStacks.copyCounters(craftingContainer),
+            List.of(),
             null,
             false
         );
