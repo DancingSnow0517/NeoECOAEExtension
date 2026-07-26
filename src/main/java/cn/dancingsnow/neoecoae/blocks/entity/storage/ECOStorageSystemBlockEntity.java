@@ -331,6 +331,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                         id,
                         () -> getStorageValue(id, StorageValue.USED_TYPES),
                         () -> getStorageValue(id, StorageValue.TOTAL_TYPES),
+                        () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteTypes(),
                         () -> getStorageValue(id, StorageValue.USED_BYTES),
                         () -> getStorageValue(id, StorageValue.TOTAL_BYTES),
                         () -> getStorageUiSnapshot().storageTypeTotals(id).infiniteBytesText(),
@@ -477,7 +478,13 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             if (cellTypeId >= 0) {
                 storageTypes.merge(
                     cellTypeId,
-                    new StorageTypeTotals(usedTypes, totalTypes, usedBytes, totalBytes),
+                    new StorageTypeTotals(
+                        usedTypes,
+                        totalTypes,
+                        usedBytes,
+                        totalBytes,
+                        inv.hasInfiniteTypeCapacity()
+                    ),
                     StorageTypeTotals::add
                 );
             }
@@ -517,7 +524,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     0L,
                     usedBytes.min(BigInteger.valueOf(Long.MAX_VALUE)).longValue(),
                     0L,
-                    usedBytes
+                    usedBytes,
+                    true
                 ),
                 StorageTypeTotals::add
             );
@@ -560,12 +568,27 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long totalTypes,
         long usedBytes,
         long totalBytes,
-        BigInteger displayUsedBytes
+        BigInteger displayUsedBytes,
+        boolean infiniteTypes
     ) {
-        private static final StorageTypeTotals EMPTY = new StorageTypeTotals(0L, 0L, 0L, 0L, BigInteger.ZERO);
+        private static final StorageTypeTotals EMPTY =
+            new StorageTypeTotals(0L, 0L, 0L, 0L, BigInteger.ZERO, false);
 
-        private StorageTypeTotals(long usedTypes, long totalTypes, long usedBytes, long totalBytes) {
-            this(usedTypes, totalTypes, usedBytes, totalBytes, BigInteger.valueOf(Math.max(0L, usedBytes)));
+        private StorageTypeTotals(
+            long usedTypes,
+            long totalTypes,
+            long usedBytes,
+            long totalBytes,
+            boolean infiniteTypes
+        ) {
+            this(
+                usedTypes,
+                totalTypes,
+                usedBytes,
+                totalBytes,
+                BigInteger.valueOf(Math.max(0L, usedBytes)),
+                infiniteTypes
+            );
         }
 
         private String infiniteBytesText() {
@@ -582,7 +605,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 saturatedAdd(totalTypes, other.totalTypes),
                 saturatedAdd(usedBytes, other.usedBytes),
                 saturatedAdd(totalBytes, other.totalBytes),
-                displayUsedBytes.add(other.displayUsedBytes)
+                displayUsedBytes.add(other.displayUsedBytes),
+                infiniteTypes || other.infiniteTypes
             );
         }
     }

@@ -140,6 +140,8 @@ ECO 存储系统是一个可扩展的多方块存储解决方案，为你的ME�
 - <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> - 64MB容量
 - <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256MB容量
 
+AE2 Omni Cells 与 AE2 闪电科技提供的存储矩阵详见[兼容存储矩阵](compat_storage_matrices.md)。
+
 ## 使用方法
 
 结构形成后，存储系统将通过接口自动连接到ME网络。所有存储的物品和流体将可通过任何连接的终端访问。

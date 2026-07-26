@@ -104,6 +104,7 @@ public final class StorageHostPanelUI {
         int registryIndex,
         LongSupplier usedTypes,
         LongSupplier totalTypes,
+        BooleanSupplier infiniteTypes,
         LongSupplier usedBytes,
         LongSupplier totalBytes,
         Supplier<String> infiniteBytesText,
@@ -418,7 +419,7 @@ public final class StorageHostPanelUI {
             ),
             line.usedTypes(),
             line.totalTypes(),
-            infiniteLoad,
+            () -> infiniteLoad.getAsBoolean() || line.infiniteTypes().getAsBoolean(),
             null
         ));
         block.addChild(infiniteAwareUsageRow(

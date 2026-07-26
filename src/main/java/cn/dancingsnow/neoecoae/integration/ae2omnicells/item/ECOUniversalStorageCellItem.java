@@ -2,12 +2,16 @@ package cn.dancingsnow.neoecoae.integration.ae2omnicells.item;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import appeng.core.localization.GuiText;
+import appeng.core.localization.Tooltips;
 import appeng.util.InteractionUtil;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageMember;
 import com.wintercogs.ae2omnicells.common.items.AEUniversalCellItem;
+import com.wintercogs.ae2omnicells.common.me.IAEUniversalCell;
+import com.wintercogs.ae2omnicells.common.me.localization.AEUniversalTooltips;
 import lombok.Getter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -57,6 +61,15 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
         if (ECOInfiniteStorageMember.isMember(stack)) {
             lines.add(Component.translatable("tooltip.neoecoae.storage.infinite_member")
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
+            return;
+        }
+        if (getTotalTypes() < 0) {
+            lines.add(AEUniversalTooltips.bytesUsed(IAEUniversalCell.getUsedBytes(stack), getTotalBytes()));
+            long usedTypes = IAEUniversalCell.getUsedTypes(stack);
+            lines.add(Component.empty()
+                .append(Tooltips.ofUnformattedNumberWithRatioColor(usedTypes, Long.MAX_VALUE, false))
+                .append(Tooltips.of(" "))
+                .append(Tooltips.of(GuiText.Types)));
             return;
         }
         super.appendHoverText(stack, context, lines, tooltipFlag);

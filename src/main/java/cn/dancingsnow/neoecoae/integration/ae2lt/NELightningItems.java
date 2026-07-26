@@ -19,15 +19,15 @@ public final class NELightningItems {
 
     public static final ItemEntry<ECOStorageCellItem> ECO_LIGHTNING_CELL_16M = registerCell(
         "eco_lightning_cell_16m", ECOTier.L4, "16m", Rarity.UNCOMMON,
-        262_144L, 32_768
+        1_048_576L, 32_768
     );
     public static final ItemEntry<ECOStorageCellItem> ECO_LIGHTNING_CELL_64M = registerCell(
         "eco_lightning_cell_64m", ECOTier.L6, "64m", Rarity.RARE,
-        1_048_576L, 131_072
+        4_194_304L, 131_072
     );
     public static final ItemEntry<ECOStorageCellItem> ECO_LIGHTNING_CELL_256M = registerCell(
         "eco_lightning_cell_256m", ECOTier.L9, "256m", Rarity.EPIC,
-        4_194_304L, 524_288
+        16_777_216L, 524_288
     );
 
     private static ItemEntry<ECOStorageCellItem> registerCell(
