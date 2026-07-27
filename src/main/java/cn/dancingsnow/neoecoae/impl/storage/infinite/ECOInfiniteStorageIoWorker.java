@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.storage.infinite;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -10,6 +11,7 @@ final class ECOInfiniteStorageIoWorker {
 
     private static ExecutorService walExecutor;
     private static ExecutorService checkpointExecutor;
+    private static ExecutorService loadExecutor;
 
     private ECOInfiniteStorageIoWorker() {}
 
@@ -25,15 +27,25 @@ final class ECOInfiniteStorageIoWorker {
         }
     }
 
+    static <T> Future<T> submitLoad(Callable<T> task) {
+        synchronized (LOCK) {
+            return loadExecutor().submit(task);
+        }
+    }
+
     static void shutdown() {
         ExecutorService currentWal;
         ExecutorService currentCheckpoint;
+        ExecutorService currentLoad;
         synchronized (LOCK) {
             currentWal = walExecutor;
             currentCheckpoint = checkpointExecutor;
+            currentLoad = loadExecutor;
             walExecutor = null;
             checkpointExecutor = null;
+            loadExecutor = null;
         }
+        shutdown(currentLoad);
         shutdown(currentWal);
         shutdown(currentCheckpoint);
     }
@@ -58,6 +70,17 @@ final class ECOInfiniteStorageIoWorker {
             });
         }
         return checkpointExecutor;
+    }
+
+    private static ExecutorService loadExecutor() {
+        if (loadExecutor == null) {
+            loadExecutor = Executors.newSingleThreadExecutor(task -> {
+                Thread thread = new Thread(task, "NeoECOAE-InfiniteStorage-Load");
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+        return loadExecutor;
     }
 
     private static void shutdown(ExecutorService executor) {

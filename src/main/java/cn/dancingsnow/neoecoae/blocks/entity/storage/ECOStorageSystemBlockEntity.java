@@ -374,7 +374,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null || !canUseHostDomainStorage() || isStorageInterfaceTransferMode()) {
+        if (engine == null || !engine.isLoaded() || !canUseHostDomainStorage() || isStorageInterfaceTransferMode()) {
             return;
         }
         storageMounts.mount(new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()), storagePriority);
@@ -785,6 +785,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         ECOStorageHostMode previous = hostMode;
         UUID previousDomainId = infiniteDomainId;
+        pollInfiniteStorageLoad();
         if (!formed || cluster == null) {
             if (!hostMode.isInfiniteState()) {
                 hostMode = ECOStorageHostMode.UNFORMED;
@@ -814,6 +815,16 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             runInfiniteMigrationStep();
         }
         syncInfiniteModeChanges(previous, previousDomainId);
+        pollInfiniteStorageLoad();
+    }
+
+    private void pollInfiniteStorageLoad() {
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (engine != null && engine.tickLoad()) {
+            // Notify AE2 to call mountInventories() so the terminal shows items immediately.
+            storageUiSnapshotGameTime = Long.MIN_VALUE;
+            refreshDriveStorageProviders();
+        }
     }
 
     private void syncInfiniteModeChanges(ECOStorageHostMode previous, @Nullable UUID previousDomainId) {
@@ -947,7 +958,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         UUID domainId = ensureInfiniteDomainId();
         ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.get(serverLevel, domainId);
-        if (!engine.isHealthy()) {
+        if (!engine.isLoaded() || !engine.isHealthy()) {
             return;
         }
         boolean hasPending = false;
@@ -1039,6 +1050,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine == null) {
             return RestorePlan.blocked("missing infinite storage engine");
+        }
+        if (!engine.isLoaded()) {
+            return RestorePlan.blocked("infinite storage domain is still loading");
         }
         if (!engine.isHealthy()) {
             return RestorePlan.blocked("infinite storage domain is degraded and requires recovery");
@@ -1140,7 +1154,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null || engine.isEmpty()) {
+        if (engine == null || !engine.isLoaded() || engine.isEmpty()) {
             exitInfiniteModeIfSafe();
             return;
         }
@@ -1264,7 +1278,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private void exitInfiniteModeIfSafe() {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null || !engine.isHealthy() || !engine.isEmpty()) {
+        if (engine == null || !engine.isLoaded() || !engine.isHealthy() || !engine.isEmpty()) {
             return;
         }
         UUID domainId = infiniteDomainId;

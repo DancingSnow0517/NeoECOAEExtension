@@ -47,4 +47,22 @@ public interface ECOInfiniteStorageEngine {
     void flushBudgeted(long maxNanos);
 
     void closeAndFlush();
+
+    /**
+     * Returns true when the engine has finished loading its persisted state and is ready for use.
+     * Before this returns true, all read operations return empty results and all write operations are
+     * no-ops or block (insertOnce blocks to preserve migration correctness).
+     */
+    default boolean isLoaded() {
+        return true;
+    }
+
+    /**
+     * Called on the server thread each tick. Advances the async load state and returns true
+     * exactly once — on the tick the load finishes — so callers can react (e.g. re-mount
+     * storage in AE2). The default implementation returns false for always-loaded engines.
+     */
+    default boolean tickLoad() {
+        return false;
+    }
 }

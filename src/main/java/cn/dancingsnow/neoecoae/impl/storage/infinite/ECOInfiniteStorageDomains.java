@@ -25,8 +25,12 @@ public final class ECOInfiniteStorageDomains {
 
     public static synchronized FileBackedInfiniteStorageEngine get(ServerLevel level, UUID domainId) {
         String key = keyFor(level, domainId);
-        return ENGINES.computeIfAbsent(
-                key, ignored -> new FileBackedInfiniteStorageEngine(level.registryAccess(), domainId, domainPath(level, domainId)));
+        return ENGINES.computeIfAbsent(key, ignored -> {
+            FileBackedInfiniteStorageEngine engine = new FileBackedInfiniteStorageEngine(
+                level.registryAccess(), domainId, domainPath(level, domainId));
+            engine.beginAsyncLoad();
+            return engine;
+        });
     }
 
     public static boolean exists(ServerLevel level, UUID domainId) {
