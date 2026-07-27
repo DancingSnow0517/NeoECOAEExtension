@@ -299,8 +299,6 @@
   "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "˙sɔıʇuɐɯǝs ʇuǝʌǝ ǝʌɹǝsǝɹd oʇ pǝןqɐuǝ sı ʇuǝʌƎ buıʇɟɐɹƆ ʇsoԀ uǝɥʍ pǝןqɐsıp ʎןןɐɔıʇɐɯoʇnɐ sı ɥʇɐԀ ʇsɐℲ\n˙ɥʇɐd ʍoןs ǝɥʇ oʇ ʞɔɐq ןןɐɟ oʇ uoıʇdo sıɥʇ ǝןqɐsıp 'ʞɔɐdpoɯ ɐ uı ɹnɔɔo sǝnssı ʎʇıןıqıʇɐdɯoɔ ǝdıɔǝɹ ɟI ˙ʇsoɔ uoıʇnɔǝxǝ uɹǝʇʇɐd pǝʇɐǝdǝɹ ǝɔnpǝɹ ʎןʇɐǝɹb uɐɔ sıɥ⟘\n˙ǝɥɔɐɔ buıʇɟɐɹɔ ɥɔʇɐq ɥʇɐd ʇsɐɟ ᄅƎⱯ OƆƎ ǝןqɐuƎ",
   "neoecoae.configuration.ecoCpuPushTickLimit": "ʇıɯıꞀ ʞɔı⟘ ɥsnԀ ∩ԀƆ",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "˙sɹossǝɔoɹd-oɔ ǝןqɐןıɐʌɐ ʎq pǝddɐɔ ןןıʇs sı ǝnןɐʌ ǝʌıʇɔǝɟɟǝ ǝɥ⟘\n˙ʞɔıʇ ɹǝd ʇdɯǝʇʇɐ ʎɐɯ ∩ԀƆ ɐ sǝɥsnd uɹǝʇʇɐd buıʇɟɐɹɔ ןɐɯɹou ɯnɯıxɐW",
-  "neoecoae.configuration.ecoCpuTickBudgetMicros": "(spuoɔǝsoɹɔıW) ʇǝbpnᗺ ǝɯı⟘ ʞɔı⟘ ∩ԀƆ",
-  "neoecoae.configuration.ecoCpuTickBudgetMicros.tooltip": "˙pɐǝɹɥʇ ɹǝʌɹǝs ǝɥʇ ןןɐʇs ʇouuɐɔ s∩ԀƆ ʎuɐɯ ɹo suɹǝʇʇɐd ʎʇɹɐd-pɹıɥʇ ǝʌısuǝdxǝ os 'ʞɔıʇ ʇxǝu ǝɥʇ uo ǝɯnsǝɹ sǝɥsnd uɹǝʇʇɐd buıuıɐɯǝɹ 'pǝʇsnɐɥxǝ ǝɔuO\n˙ʞɔıʇ ɹǝʌɹǝs ǝuo uıɥʇıʍ s∩ԀƆ buıʇɟɐɹɔ OƆƎ ןןɐ ɹoɟ (spuoɔǝsoɹɔıɯ uı) ʇǝbpnq ǝɯıʇ buıןnpǝɥɔs pǝɹɐɥS",
   "neoecoae.configuration.ecoFastPathCacheSize": "ǝzıS ǝɥɔɐƆ ɥʇɐԀ ʇsɐℲ",
   "neoecoae.configuration.ecoFastPathCacheSize.tooltip": "˙ǝɥɔɐɔ ɥʇɐd ʇsɐɟ OƆƎ ɥɔɐǝ uı ʇdǝʞ sǝıɹʇuǝ ǝdıɔǝɹ ɯnɯıxɐW",
   "neoecoae.configuration.fastPath": "ɥʇɐԀ ʇsɐℲ",

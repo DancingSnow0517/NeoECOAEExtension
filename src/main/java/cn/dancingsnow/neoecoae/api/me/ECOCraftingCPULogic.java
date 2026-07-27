@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.function.IntUnaryOperator;
 
 import com.google.common.base.Preconditions;
 
@@ -173,41 +172,19 @@ public class ECOCraftingCPULogic {
             return;
         }
 
-        // 所有 ECO CPU（跨集群与电网）共享同一 tick 的调度时间预算；预算耗尽时推迟到下一 tick。
-        var budget = ECOCraftingTickBudget.shared();
-        budget.startTick(TickHandler.instance().getCurrentTick());
-        if (budget.isExhausted()) {
-            return;
-        }
-
         var remainingOperations = getOperationLimit();
 
         if (remainingOperations > 0) {
-            budget.beginWork();
-            try {
-                drainOperations(remainingOperations, budget,
-                    operations -> executeCrafting(operations, budget, cc, eg, cpu.getLevel()));
-            } finally {
-                budget.endWork();
-            }
-        }
-    }
+            do {
+                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel());
 
-    /**
-     * 反复执行调度轮次，直到操作数上限或共享时间预算耗尽，或某一轮没有任何推送。
-     *
-     * @return 实际推送的操作总数。
-     */
-    static int drainOperations(int operationLimit, ECOCraftingTickBudget budget, IntUnaryOperator round) {
-        int remaining = operationLimit;
-        while (remaining > 0 && budget.hasTimeRemaining()) {
-            int pushed = round.applyAsInt(remaining);
-            if (pushed <= 0) {
-                break;
-            }
-            remaining -= pushed;
+                if (pushedPatterns > 0) {
+                    remainingOperations -= pushedPatterns;
+                } else {
+                    break;
+                }
+            } while (remainingOperations > 0);
         }
-        return operationLimit - remaining;
     }
 
     private void retryBufferedFinalOutput() {
@@ -289,22 +266,6 @@ public class ECOCraftingCPULogic {
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
-        return executeCrafting(maxPatterns, null, craftingService, energyService, level);
-    }
-
-    /**
-     * 尝试将 pattern 推送到可用接口中，即执行实际的合成操作。
-     *
-     * <p>当共享时间预算耗尽时提前停止调度；预算只在两次操作之间检查，绝不打断所有权转移。
-     *
-     * @return 成功推送的 pattern 数量。
-     */
-    public int executeCrafting(
-            int maxPatterns,
-            @Nullable ECOCraftingTickBudget budget,
-            CraftingService craftingService,
-            IEnergyService energyService,
-            Level level) {
         var job = this.job;
         if (job == null)
             return 0;
@@ -333,10 +294,6 @@ public class ECOCraftingCPULogic {
                 boolean fastPathCandidate = !patternBuses.isEmpty();
 
                 while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
-                    if (budget != null && budget.isExhausted()) {
-                        // 共享时间预算耗尽；任务保持原样，下一 tick 继续。
-                        break taskLoop;
-                    }
                     if (!hasReadyProvider(providers)) {
                         continue taskLoop;
                     }

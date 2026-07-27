@@ -318,8 +318,6 @@
   "neoecoae.configuration.ecoAe2FastPathEnabled.tooltip": "啟用 ECO AE2 快速路徑批量合成快取。\n可大幅減少重複 pattern 執行開銷；如果整合包遇到配方兼容問題，可關閉此選項回退到慢速路徑。\n啟用觸發合成事件時，快速路徑會自動停用以保留事件語意。",
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 推送 Tick 上限",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "每個 CPU 每 tick 最多嘗試推送嘅普通合成 pattern 數量。\n實際值仍會受可用協處理器數量限制。",
-  "neoecoae.configuration.ecoCpuTickBudgetMicros": "CPU Tick 時間預算（微秒）",
-  "neoecoae.configuration.ecoCpuTickBudgetMicros.tooltip": "所有 ECO 合成 CPU 喺同一伺服器 tick 內共享嘅調度時間預算（微秒）。\n預算用晒之後，剩低嘅 pattern 推送會延遲到下一 tick 繼續；昂貴嘅第三方 pattern 或者大量 CPU 冇辦法拖垮伺服器線程。",
   "neoecoae.configuration.ecoFastPathCacheSize": "快速路徑快取大小",
   "neoecoae.configuration.ecoFastPathCacheSize.tooltip": "每個 ECO 快速路徑快取最多保留嘅配方條目數量。",
   "neoecoae.configuration.fastPath": "快速路徑",
