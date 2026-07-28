@@ -125,6 +125,14 @@ public final class NELogicalNetworkManager {
     }
 
     private static void rebuildCrafting(ServerLevel level, LevelState state) {
+        state.crafting.removeIf(cluster -> {
+            var controller = cluster.getController();
+            boolean stale = cluster.isDestroyed() || controller == null || controller.getCluster() != cluster;
+            if (stale) {
+                cluster.setNetworkCluster(null);
+            }
+            return stale;
+        });
         if (state.crafting.isEmpty()) {
             state.craftingNetworks.values().forEach(NECraftingNetworkCluster::clear);
             state.craftingNetworks.clear();
@@ -159,6 +167,14 @@ public final class NELogicalNetworkManager {
     }
 
     private static void rebuildComputation(ServerLevel level, LevelState state) {
+        state.computation.removeIf(cluster -> {
+            var controller = cluster.getController();
+            boolean stale = cluster.isDestroyed() || controller == null || controller.getCluster() != cluster;
+            if (stale) {
+                cluster.setNetworkCluster(null);
+            }
+            return stale;
+        });
         if (state.computation.isEmpty()) {
             state.computationNetworks.values().forEach(NEComputationNetworkCluster::clear);
             state.computationNetworks.clear();

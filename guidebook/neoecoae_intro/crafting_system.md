@@ -31,11 +31,11 @@ Unlike the computation system which handles crafting jobs, the crafting subsyste
 
 There are three tiers of crafting systems available:
 
-| Tier | Controller | Base Batch / Slot | Overclock Bonus / Slot |
-|------|------------|-------------|-------------------------|
-| F4 | <ItemLink id="neoecoae:crafting_system_l4" /> | 24 | 32 |
-| F6 | <ItemLink id="neoecoae:crafting_system_l6" /> | 72 | 96 |
-| F9 | <ItemLink id="neoecoae:crafting_system_l9" /> | 256 | 384 |
+| Tier | Controller | Base Batch / Slot | Overclocked Batch / Slot |
+|------|------------|-------------------|--------------------------|
+| F4 | <ItemLink id="neoecoae:crafting_system_l4" /> | 32 | 128 |
+| F6 | <ItemLink id="neoecoae:crafting_system_l6" /> | 32 | 256 |
+| F9 | <ItemLink id="neoecoae:crafting_system_l9" /> | 32 | 512 |
 
 ## Structure Components
 
@@ -73,7 +73,7 @@ The <ItemLink id="neoecoae:crafting_pattern_bus" /> holds crafting patterns. In 
   <ItemIcon id="neoecoae:crafting_parallel_core_l9" />
 </ItemGrid>
 
-Parallel cores (<ItemLink id="neoecoae:crafting_parallel_core_l4" />, <ItemLink id="neoecoae:crafting_parallel_core_l6" />, or <ItemLink id="neoecoae:crafting_parallel_core_l9" />) determine how many crafts each thread of the corresponding FX Worker handles at once.
+Parallel cores (<ItemLink id="neoecoae:crafting_parallel_core_l4" />, <ItemLink id="neoecoae:crafting_parallel_core_l6" />, or <ItemLink id="neoecoae:crafting_parallel_core_l9" />) provide structural processing capacity. Capacity beyond what the FX Workers can use increases overflow overclock; it does not set the batch size of an FX thread.
 
 ### Interface
 
@@ -122,7 +122,7 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
   <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
 </ItemGrid>
 
-<ItemLink id="neoecoae:crafting_network_switch" /> and <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> link F9 crafting hosts on the same ME network. Replace the central casing immediately to the right of the controller while facing its front. At least two linked F9 hosts are required; a single host remains at **x1**.
+<ItemLink id="neoecoae:crafting_network_switch" /> and <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> link F9 crafting hosts on the same ME network. While facing the controller front, replace the adjacent central casing on the right for a normal structure or on the left for a mirrored structure. At least two linked F9 hosts are required; a single host remains at **x1**.
 
 - Exchange modules multiply crafts handled by each task thread: **x2** for normal and **x8** for high-energy. While exchange is active, each FX Worker has one thread per participating F host; the network sums the threads owned by every physical host.
 - Patterns are the union of every member bus. Incoming work is fairly routed to any member host with a suitable free slot.
@@ -164,8 +164,8 @@ The GUI provides the following settings:
 
 #### Overclocking
 Enable overclocking to increase batch capacity per task slot at the cost of higher energy consumption. It does not add task slots.
-- Normal mode: Base batch capacity
-- Overclocked mode: Base capacity plus the overclock bonus (see tier table)
+- Normal mode: Each FX Worker thread handles a base batch of 32 crafts
+- Overclocked mode: The controller tier multiplies the FX batch by x4, x8, or x16 (see tier table)
 
 #### Active Cooling
 Enable active cooling to further enhance performance and eliminate extra energy costs from overclocking.
@@ -192,6 +192,7 @@ Current default coolant tiers are:
 | Water | 1500 per 100 mB | 2 |
 | Water to Steam | 1500 per 100 mB | 2 |
 | Sodium | 5000 per 100 mB | 6 |
+| Cryotheum Solution | 12000 per 100 mB | 9 |
 
 The controller refills coolant in batches based on the current deficit instead of converting exactly one recipe per tick. This greatly increases refill throughput for large systems.
 
@@ -216,5 +217,5 @@ The interface displays:
 - Upgrade coolant quality if the effective overclock is lower than the theoretical overclock
 - Use the clear coolant button before switching from a lower-tier coolant to a higher-tier coolant
 - Every FX Worker provides 1 thread at x1, or one thread per participating F host while exchange is active
-- Higher-tier parallel cores increase the batch handled by each FX Worker thread
+- Higher-tier parallel cores increase structural processing capacity and can raise overflow overclock
 - Ensure the output hatch has space for used coolant to avoid system shutdown

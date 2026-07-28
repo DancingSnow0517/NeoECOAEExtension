@@ -81,6 +81,10 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
+    public void refreshGridConnections() {
+        onGridConnectableSidesChanged();
+    }
+
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         if (isServerStopping()) {

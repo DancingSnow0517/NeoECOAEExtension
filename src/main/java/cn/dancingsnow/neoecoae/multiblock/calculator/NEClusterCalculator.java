@@ -14,7 +14,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
@@ -28,6 +31,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     @SuppressWarnings("unchecked")
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {
+        Set<C> previousClusters = Collections.newSetFromMap(new IdentityHashMap<>());
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
             BlockEntity rawBlockEntity = level.getBlockEntity(blockPos);
             NEBlockEntity<C, ?> blockEntity = rawBlockEntity instanceof NEBlockEntity<?, ?> neBlockEntity
@@ -41,9 +45,12 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
                 return;
             }
             c.addBlockEntity(blockEntity);
+            C previous = blockEntity.getCluster();
+            if (previous != null && previous != c && !previous.isDestroyed()) {
+                previousClusters.add(previous);
+            }
         }
-        C previous = target.getCluster();
-        if (previous != null && previous != c && !previous.isDestroyed()) {
+        for (C previous : previousClusters) {
             previous.destroy();
         }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
@@ -76,6 +83,21 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     }
 
     protected abstract int maxLength();
+
+    protected static boolean hasNearbyVerticalController(
+        ServerLevel level,
+        BlockPos controllerPos,
+        Class<? extends BlockEntity> controllerType
+    ) {
+        for (Direction direction : List.of(Direction.UP, Direction.DOWN)) {
+            for (int distance = 1; distance <= 2; distance++) {
+                if (controllerType.isInstance(level.getBlockEntity(controllerPos.relative(direction, distance)))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     @FunctionalInterface
     public interface Factory<C extends NECluster<C>> {

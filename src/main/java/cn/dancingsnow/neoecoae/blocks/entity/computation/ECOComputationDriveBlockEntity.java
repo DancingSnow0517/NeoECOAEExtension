@@ -70,7 +70,7 @@ public class ECOComputationDriveBlockEntity
     public void setCellStack(@Nullable ItemStack cellStack) {
         this.cellStack = cellStack;
         if (this.cluster != null) {
-            this.cluster.recalculateRemainingStorage();
+            this.cluster.onDriveContentsChanged();
         }
         setChanged();
     }

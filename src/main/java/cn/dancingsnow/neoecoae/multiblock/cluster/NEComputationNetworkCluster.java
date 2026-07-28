@@ -152,7 +152,8 @@ public final class NEComputationNetworkCluster {
             if (controller == null
                 || controller.getTier().getTier() < ECOTier.L9.getTier()
                 || cluster.getThreadingCores().size() < ULTIMATE_C9_MIN_THREADING_CORES
-                || cluster.getNetworkMultiplier() <= 1) {
+                || cluster.getNetworkMultiplier() < 8
+                || !cluster.hasFullComputationDrives()) {
                 continue;
             }
             if (++eligibleHosts >= ULTIMATE_C9_HOST_COUNT) {
@@ -160,6 +161,11 @@ public final class NEComputationNetworkCluster {
             }
         }
         return false;
+    }
+
+    public void onHostCapacityChanged() {
+        postCpuChange();
+        revision++;
     }
 
     private boolean hasActiveHostOnGrid(@Nullable IGrid grid) {

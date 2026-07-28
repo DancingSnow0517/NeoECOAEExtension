@@ -79,7 +79,7 @@ The <ItemLink id="neoecoae:computation_transmitter" /> handles data transfer bet
   <ItemIcon id="neoecoae:computation_threading_core_l9" />
 </ItemGrid>
 
-Threading cores (<ItemLink id="neoecoae:computation_threading_core_l4" />, <ItemLink id="neoecoae:computation_threading_core_l6" />, or <ItemLink id="neoecoae:computation_threading_core_l9" />) provide crafting threads. Each thread can handle one crafting job simultaneously. The tier must match the controller tier.
+Threading cores (<ItemLink id="neoecoae:computation_threading_core_l4" />, <ItemLink id="neoecoae:computation_threading_core_l6" />, or <ItemLink id="neoecoae:computation_threading_core_l9" />) provide crafting threads. Each thread can handle one crafting job simultaneously. A controller accepts cores at its own tier or lower.
 
 ### Parallel Core
 
@@ -124,13 +124,13 @@ The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the m
   <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
 </ItemGrid>
 
-<ItemLink id="neoecoae:computation_network_switch" /> and <ItemLink id="neoecoae:computation_high_energy_network_switch" /> link C9 computation hosts on the same ME network. Replace the central casing immediately to the right of the controller while facing its front. At least two linked C9 hosts are required; a single host remains at **x1**.
+<ItemLink id="neoecoae:computation_network_switch" /> and <ItemLink id="neoecoae:computation_high_energy_network_switch" /> link C9 computation hosts on the same ME network. While facing the controller front, replace the adjacent central casing on the right for a normal structure or on the left for a mirrored structure. At least two linked C9 hosts are required; a single host remains at **x1**.
 
 - The normal module contributes **x2** threads, accelerators, and CPU storage; the high-energy module contributes **x8**.
 - Linked normal modules use **x4** power and high-energy modules use **x16** power.
 - A normal module requires a valid cooling controller on that host. A high-energy module requires a **C9** cooling controller; otherwise that host contributes at **x1**.
 - AE2 receives the sum of each physical host's effective resources. Every host is evaluated independently before its threads, accelerators, and storage are aggregated.
-- When at least **8 linked C9 hosts** each contain at least **10 Threading Cores**, the aggregate CPU enters ultimate mode: parallel count becomes **INT32_MAX (2,147,483,647)** and CPU storage becomes **INT64_MAX (9,223,372,036,854,775,807 bytes)**. Active job bytes are still deducted from available storage.
+- When at least **8 high-energy C9 hosts** each contain at least **10 Threading Cores** and have **every upper and lower Computation Drive filled with a valid Flash Array**, the aggregate CPU enters ultimate mode: parallel count becomes **INT32_MAX (2,147,483,647)** and CPU storage becomes **INT64_MAX (9,223,372,036,854,775,807 bytes)**. Active job bytes are still deducted from available storage. Normal x2 exchange hosts do not qualify.
 
 ## Building the Structure
 

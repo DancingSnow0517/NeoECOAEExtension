@@ -33,11 +33,11 @@ ECO 合成系统是一个高级多方块样板供应器，可并行处理合成�
 
 共有三个等级的合成系统可用：
 
-| 等级 | 控制器 | 单槽基础批量 | 超频追加批量 |
-|------|--------|--------|------------|
-| F4 | <ItemLink id="neoecoae:crafting_system_l4" /> | 24 | 32 |
-| F6 | <ItemLink id="neoecoae:crafting_system_l6" /> | 72 | 96 |
-| F9 | <ItemLink id="neoecoae:crafting_system_l9" /> | 256 | 384 |
+| 等级 | 控制器 | 单槽基础批量 | 超频后单槽批量 |
+|------|--------|--------------|----------------|
+| F4 | <ItemLink id="neoecoae:crafting_system_l4" /> | 32 | 128 |
+| F6 | <ItemLink id="neoecoae:crafting_system_l6" /> | 32 | 256 |
+| F9 | <ItemLink id="neoecoae:crafting_system_l9" /> | 32 | 512 |
 
 ## 结构组件
 
@@ -75,7 +75,7 @@ ECO 合成系统是一个高级多方块样板供应器，可并行处理合成�
   <ItemIcon id="neoecoae:crafting_parallel_core_l9" />
 </ItemGrid>
 
-并行核心（<ItemLink id="neoecoae:crafting_parallel_core_l4" />、<ItemLink id="neoecoae:crafting_parallel_core_l6" /> 或 <ItemLink id="neoecoae:crafting_parallel_core_l9" />）决定对应 FX 工作核心每条线程一次可处理的合成数量。
+并行核心（<ItemLink id="neoecoae:crafting_parallel_core_l4" />、<ItemLink id="neoecoae:crafting_parallel_core_l6" /> 或 <ItemLink id="neoecoae:crafting_parallel_core_l9" />）提供结构并行处理能力。超过 FX 工作核心可用容量的部分会提高溢出超频，但不会决定 FX 线程的单槽批量。
 
 ### 通讯接口
 
@@ -124,7 +124,7 @@ ECO 合成系统是一个高级多方块样板供应器，可并行处理合成�
   <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
 </ItemGrid>
 
-<ItemLink id="neoecoae:crafting_network_switch" /> 和 <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> 可将多台 F9 合成主机接入同一个逻辑合成网络。面向控制器正面时，用模块替换控制器右侧相邻的中央结构外壳；模块仅支持 F9 主机。
+<ItemLink id="neoecoae:crafting_network_switch" /> 和 <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> 可将多台 F9 合成主机接入同一个逻辑合成网络。面向控制器正面时，普通结构用模块替换控制器右侧相邻的中央结构外壳，镜像结构则替换左侧；模块仅支持 F9 主机。
 
 - 普通网络交换模块使每个任务槽一次可处理 **x2** 的合成数量；高能模块为 **x8**
 - 网络交换生效时，每个 FX 工作核心的线程数等于参与交换的 F 主机数；网络总线程数为所有主机 FX 工作核心线程数之和
@@ -142,7 +142,7 @@ ECO 合成系统是一个高级多方块样板供应器，可并行处理合成�
 ## 搭建结构
 
 1. 放置**主机**，使其朝外
-2. 使用**合成系统结构外壳**在控制器周围搭建结构框架；如需网络交换，在控制器右侧相邻位置安装对应模块
+2. 使用**合成系统结构外壳**在控制器周围搭建结构框架；如需网络交换，普通结构在控制器右侧、镜像结构在左侧相邻位置安装对应模块
 3. 在指定位置（控制器左后方）放置**通讯接口**
 4. 在接口上方添加**流体输入仓**
 5. 在接口下方添加**流体输出仓**
@@ -171,8 +171,8 @@ GUI提供以下设置：
 
 #### 超频
 启用超频可增加每个任务槽的批量，但会消耗更多能量。超频不会增加任务槽数量。
-- 正常模式：核心的单槽基础批量
-- 超频模式：基础批量加上超频追加批量（见等级表）
+- 正常模式：每条 FX 工作核心线程的基础批量为 32
+- 超频模式：主机等级将 FX 批量放大至 x4、x8 或 x16（见等级表）
 
 #### 主动冷却
 启用主动冷却可进一步增强性能并消除超频带来的额外能耗。
@@ -199,6 +199,7 @@ GUI提供以下设置：
 | 水 | 1500 | 2 |
 | 水转蒸汽 | 1500 | 2 |
 | 钠 | 5000 | 6 |
+| 极寒之凛冰溶液 | 12000 | 9 |
 
 控制器会根据当前缺少的冷却值批量补冷，而不是每 tick 只按一份配方转换一次。这使大型合成系统也能维持足够的补冷吞吐。
 

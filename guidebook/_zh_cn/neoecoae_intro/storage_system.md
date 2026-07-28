@@ -68,7 +68,7 @@ ECO 存储系统是一个可扩展的多方块存储解决方案，为你的ME�
   <ItemIcon id="neoecoae:energy_cell_l9" />
 </ItemGrid>
 
-高密度能量元件（<ItemLink id="neoecoae:energy_cell_l4" />、<ItemLink id="neoecoae:energy_cell_l6" /> 或 <ItemLink id="neoecoae:energy_cell_l9" />）为系统提供能量存储。能量元件等级必须与控制器等级匹配。
+高密度能量元件（<ItemLink id="neoecoae:energy_cell_l4" />、<ItemLink id="neoecoae:energy_cell_l6" /> 或 <ItemLink id="neoecoae:energy_cell_l9" />）为系统提供能量存储。主机可使用与自身同级或更低级的能量元件。
 
 ### 通讯接口
 
@@ -141,6 +141,20 @@ ECO 存储系统是一个可扩展的多方块存储解决方案，为你的ME�
 - <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256MB容量
 
 AE2 Omni Cells 与 AE2 闪电科技提供的存储矩阵详见[兼容存储矩阵](compat_storage_matrices.md)。
+
+## 可选无限存储
+
+无限存储默认关闭，需要在服务端配置中启用 `enableInfiniteStorage`，且仅已成型的 L9 存储主机可以进入该模式。
+
+- 在主机的无限组件槽中放入 **64 个无限存储组件**。
+- 在主机驱动器中安装至少 **16 个有效的 L9 存储矩阵**。
+- 主机会将这些矩阵迁移到同一个持久化无限存储域，并在 GUI 中显示迁移进度。
+- 无限成员矩阵绑定所属存储域，不能混入其他无限存储域。
+- 取出无限组件时，主机会尝试将全部内容恢复到普通矩阵；普通容量无法安全容纳数据时会阻止操作。
+- 关闭配置只会阻止新的无限迁移，不会删除已有存储域及其中数据。
+- 拆下并重新放置主机方块时，主机物品会保留存储域身份。
+
+GUI 同时提供存储优先级设置。无限模式下，存储接口可以启用传输模式，将兼容的网络内容迁入无限存储域。
 
 ## 使用方法
 

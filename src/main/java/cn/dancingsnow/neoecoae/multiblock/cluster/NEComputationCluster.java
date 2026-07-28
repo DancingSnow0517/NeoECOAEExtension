@@ -196,6 +196,20 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return availableStorage;
     }
 
+    public boolean hasFullComputationDrives() {
+        return !upperDrives.isEmpty()
+            && !lowerDrives.isEmpty()
+            && upperDrives.stream().allMatch(NEComputationCluster::hasComputationCell)
+            && lowerDrives.stream().allMatch(NEComputationCluster::hasComputationCell);
+    }
+
+    public void onDriveContentsChanged() {
+        recalculateRemainingStorage();
+        if (networkCluster != null) {
+            networkCluster.onHostCapacityChanged();
+        }
+    }
+
     public long getEffectiveAvailableStorage() {
         ensureDebugOverdriveState();
         long effectiveTotal = networkCluster != null && networkCluster.hasUltimateAggregateCapacity()
@@ -387,6 +401,11 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             return 0L;
         }
         return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
+    }
+
+    private static boolean hasComputationCell(ECOComputationDriveBlockEntity drive) {
+        ItemStack stack = drive.getCellStack();
+        return stack != null && !stack.isEmpty() && stack.getItem() instanceof ECOComputationCellItem;
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {

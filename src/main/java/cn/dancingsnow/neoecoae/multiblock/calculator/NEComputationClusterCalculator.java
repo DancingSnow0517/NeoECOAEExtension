@@ -71,20 +71,16 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction down = top.getOpposite();
         Direction left = strategy.getSide(controllerState, RelativeSide.LEFT);
         Direction right = left.getOpposite();
-        BlockPos switchPos = NENetworkSwitchUtil.switchPosition(controllerPos, controllerState);
-        BlockState switchState = level.getBlockState(switchPos);
-        boolean detectedHighEnergyNetworkMode = switchState.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH);
-        boolean detectedNetworkMode = detectedHighEnergyNetworkMode || switchState.is(NEBlocks.COMPUTATION_NETWORK_SWITCH);
+        BlockPos normalSwitchPos = NENetworkSwitchUtil.switchPosition(controllerPos, controllerState, false);
+        BlockPos mirroredSwitchPos = NENetworkSwitchUtil.switchPosition(controllerPos, controllerState, true);
         if (verifyStructure(level, controllerPos, tier, front, back, top, down, right, left, right, false)) {
             controller.setMirrored(false);
-            applyNetworkMode(detectedNetworkMode, detectedHighEnergyNetworkMode);
-            NENetworkSwitchUtil.setFormed(level, switchPos, true);
+            applyNetworkMode(level.getBlockState(normalSwitchPos));
             return true;
         }
-        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right, right, true)) {
+        if (verifyStructure(level, controllerPos, tier, front, back, top, down, left, right, left, true)) {
             controller.setMirrored(true);
-            applyNetworkMode(detectedNetworkMode, detectedHighEnergyNetworkMode);
-            NENetworkSwitchUtil.setFormed(level, switchPos, true);
+            applyNetworkMode(level.getBlockState(mirroredSwitchPos));
             return true;
         }
         networkMode = false;
@@ -93,7 +89,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             target.getCluster().setNetworkMode(false);
             target.getCluster().setHighEnergyNetworkMode(false);
         }
-        NENetworkSwitchUtil.setFormed(level, switchPos, false);
+        NENetworkSwitchUtil.clearFormed(level, controllerPos, controllerState);
         controller.setMirrored(false);
         return false;
     }
@@ -258,7 +254,11 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         for (Direction direction : Direction.values()) {
             if (level.getBlockEntity(switchPos.relative(direction)) instanceof ECOComputationSystemBlockEntity controller
                 && NENetworkSwitchUtil.canUseNetworkSwitch(controller.getTier())
-                && switchPos.equals(NENetworkSwitchUtil.switchPosition(controller.getBlockPos(), controller.getBlockState()))) {
+                && NENetworkSwitchUtil.isSwitchPosition(
+                    switchPos,
+                    controller.getBlockPos(),
+                    controller.getBlockState()
+                )) {
                 return true;
             }
         }
@@ -272,6 +272,14 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             target.getCluster().setNetworkMode(networkMode);
             target.getCluster().setHighEnergyNetworkMode(highEnergyNetworkMode);
         }
+    }
+
+    private void applyNetworkMode(BlockState switchState) {
+        boolean highEnergyNetworkMode = switchState.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH);
+        applyNetworkMode(
+            highEnergyNetworkMode || switchState.is(NEBlocks.COMPUTATION_NETWORK_SWITCH),
+            highEnergyNetworkMode
+        );
     }
 
     private boolean validateCasingOrNetworkSwitch(

@@ -81,7 +81,7 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
   <ItemIcon id="neoecoae:computation_threading_core_l9" />
 </ItemGrid>
 
-线程核心（<ItemLink id="neoecoae:computation_threading_core_l4" />、<ItemLink id="neoecoae:computation_threading_core_l6" /> 或 <ItemLink id="neoecoae:computation_threading_core_l9" />）提供合成线程。每个线程可以同时处理一个合成任务。等级必须与控制器等级匹配。
+线程核心（<ItemLink id="neoecoae:computation_threading_core_l4" />、<ItemLink id="neoecoae:computation_threading_core_l6" /> 或 <ItemLink id="neoecoae:computation_threading_core_l9" />）提供合成线程。每个线程可以同时处理一个合成任务。主机可使用与自身同级或更低级的核心。
 
 ### 并行核心
 
@@ -126,7 +126,7 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
   <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
 </ItemGrid>
 
-<ItemLink id="neoecoae:computation_network_switch" /> 和 <ItemLink id="neoecoae:computation_high_energy_network_switch" /> 可将多台 C9 计算主机接入同一个逻辑计算网络。面向控制器正面时，用模块替换控制器右侧相邻的中央结构外壳；模块仅支持 C9 主机。
+<ItemLink id="neoecoae:computation_network_switch" /> 和 <ItemLink id="neoecoae:computation_high_energy_network_switch" /> 可将多台 C9 计算主机接入同一个逻辑计算网络。面向控制器正面时，普通结构用模块替换控制器右侧相邻的中央结构外壳，镜像结构则替换左侧；模块仅支持 C9 主机。
 
 - 普通网络交换模块使安装它的主机以 **x2** 线程、并行数和存储容量接入网络
 - 高能网络交换模块使安装它的主机以 **x8** 线程、并行数和存储容量接入网络
@@ -136,12 +136,12 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
 - 两种模块可以混用，每台主机按自身安装的模块档位贡献容量
 - 普通模块需要该主机具有有效的冷却系统控制器；高能模块需要 **C9** 冷却系统控制器，否则该主机按 **x1** 贡献
 - AE 网络读取的是所有物理主机的有效资源总和；每台主机先按自身模块和冷却条件计算，再汇总线程、并行数与存储容量
-- 至少 **8 台已并联的 C9 主机**均达到 **10 个线程核心**时，聚合 CPU 进入极限模式：并行数固定为 **INT32 上限（2,147,483,647）**，CPU 存储固定为 **INT64 上限（9,223,372,036,854,775,807 字节）**；正在运行的任务字节仍会从可用存储中扣除
+- 至少 **8 台高能网络 C9 主机**均达到 **10 个线程核心**，并且每台主机的**上下所有晶阵驱动器都装有有效闪存晶阵**时，聚合 CPU 才进入极限模式：并行数固定为 **INT32 上限（2,147,483,647）**，CPU 存储固定为 **INT64 上限（9,223,372,036,854,775,807 字节）**；正在运行的任务字节仍会从可用存储中扣除。普通 x2 网络主机不参与此判定
 
 ## 搭建结构
 
 1. 放置**主机**，使其朝外
-2. 使用**计算系统结构外壳**在控制器周围搭建结构框架；如需网络交换，在控制器右侧相邻位置安装对应模块
+2. 使用**计算系统结构外壳**在控制器周围搭建结构框架；如需网络交换，普通结构在控制器右侧、镜像结构在左侧相邻位置安装对应模块
 3. 在指定位置（控制器左后方）放置**通讯接口**
 4. 从控制器右侧的结构外壳的右侧水平排列添加**传输总线**
 5. 在传输总线后方放置**线程核心**

@@ -6,6 +6,7 @@ import appeng.api.orientation.RelativeSide;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
+import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity;
 import net.minecraft.core.BlockPos;
@@ -27,7 +28,35 @@ public final class NENetworkSwitchUtil {
     }
 
     public static BlockPos switchPosition(BlockPos controllerPos, BlockState controllerState) {
-        return controllerPos.relative(rightOfController(controllerState));
+        return switchPosition(controllerPos, controllerState, false);
+    }
+
+    /** Mirrored structures place the switch to the controller's left. */
+    public static BlockPos switchPosition(BlockPos controllerPos, BlockState controllerState, boolean mirrored) {
+        Direction switchSide = mirrored
+            ? HORIZONTAL.getSide(controllerState, RelativeSide.LEFT)
+            : rightOfController(controllerState);
+        return controllerPos.relative(switchSide);
+    }
+
+    public static boolean isSwitchPosition(BlockPos switchPos, BlockPos controllerPos, BlockState controllerState) {
+        return switchPos.equals(switchPosition(controllerPos, controllerState, false))
+            || switchPos.equals(switchPosition(controllerPos, controllerState, true));
+    }
+
+    public static void clearFormed(ServerLevel level, BlockPos controllerPos, BlockState controllerState) {
+        setFormed(level, switchPosition(controllerPos, controllerState, false), false);
+        setFormed(level, switchPosition(controllerPos, controllerState, true), false);
+    }
+
+    public static void syncFormed(
+        ServerLevel level,
+        BlockPos controllerPos,
+        BlockState controllerState,
+        boolean mirrored
+    ) {
+        setFormed(level, switchPosition(controllerPos, controllerState, false), !mirrored);
+        setFormed(level, switchPosition(controllerPos, controllerState, true), mirrored);
     }
 
     public static boolean canUseNetworkSwitch(IECOTier tier) {
@@ -39,8 +68,8 @@ public final class NENetworkSwitchUtil {
         if (!state.hasProperty(NENetworkSwitchBlock.FORMED)) {
             return;
         }
-        BlockState newState = state.setValue(NENetworkSwitchBlock.FORMED, formed);
-        if (newState != state) {
+        if (state.getValue(NENetworkSwitchBlock.FORMED) != formed) {
+            BlockState newState = state.setValue(NENetworkSwitchBlock.FORMED, formed);
             level.setBlock(switchPos, newState, Block.UPDATE_CLIENTS);
         }
         if (level.getBlockEntity(switchPos) instanceof ECOCraftingNetworkSwitchBlockEntity switchBlockEntity) {
@@ -48,6 +77,11 @@ public final class NENetworkSwitchUtil {
         } else if (level.getBlockEntity(switchPos)
             instanceof ECOComputationNetworkSwitchBlockEntity switchBlockEntity) {
             switchBlockEntity.onFormedStateChanged();
+        }
+        for (Direction direction : Direction.values()) {
+            if (level.getBlockEntity(switchPos.relative(direction)) instanceof NEBlockEntity<?, ?> blockEntity) {
+                blockEntity.refreshGridConnections();
+            }
         }
     }
 }

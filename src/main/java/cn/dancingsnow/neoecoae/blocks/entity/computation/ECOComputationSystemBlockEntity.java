@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -100,6 +101,13 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             return;
         }
         super.updateState(updateExposed);
+        if (level instanceof ServerLevel serverLevel) {
+            if (formed) {
+                NENetworkSwitchUtil.syncFormed(serverLevel, worldPosition, getBlockState(), mirrored);
+            } else {
+                NENetworkSwitchUtil.clearFormed(serverLevel, worldPosition, getBlockState());
+            }
+        }
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOComputationSystem.MIRRORED)

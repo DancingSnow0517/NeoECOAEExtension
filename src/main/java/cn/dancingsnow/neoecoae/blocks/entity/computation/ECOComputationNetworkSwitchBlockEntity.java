@@ -39,6 +39,12 @@ public class ECOComputationNetworkSwitchBlockEntity extends AENetworkedBlockEnti
         return directions;
     }
 
+    @Override
+    public void onReady() {
+        super.onReady();
+        onGridConnectableSidesChanged();
+    }
+
     public void onFormedStateChanged() {
         onGridConnectableSidesChanged();
     }

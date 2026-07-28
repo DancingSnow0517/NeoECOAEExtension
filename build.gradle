@@ -106,10 +106,9 @@ dependencies {
 
     implementation("org.appliedenergistics:appliedenergistics2:19.2.17")
 
-    implementation("com.wintercogs.ae2omnicells:AE2OmniCells:1.1.6")
+    implementation("curse.maven:omni-cells-1359517:8050965")
 
-    implementation("com.moakiee.ae2lt:AE2-Lightning-Tech:1.1.3-fix") { transitive = false }
-    runtimeOnly("com.moakiee.thunderbolt:thunderbolt:2.0.1") { transitive = false }
+    implementation("curse.maven:ae2-lightning-tech-1527395:8422767") { transitive = false }
     runtimeOnly("top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1")
 
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all") { transitive = false }

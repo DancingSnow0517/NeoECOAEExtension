@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
 import cn.dancingsnow.neoecoae.util.ServerTaskUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
@@ -173,6 +174,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         super.updateState(updateExposed);
+        if (level instanceof ServerLevel serverLevel) {
+            if (formed) {
+                NENetworkSwitchUtil.syncFormed(serverLevel, worldPosition, getBlockState(), mirrored);
+            } else {
+                NENetworkSwitchUtil.clearFormed(serverLevel, worldPosition, getBlockState());
+            }
+        }
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOCraftingSystem.MIRRORED)
@@ -585,31 +593,35 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return List.of();
         }
         int multiplier = Math.max(1, cluster.getNetworkMultiplier());
+        int capacity = calculateWorkerBatchCapacity(
+            NEConfig.getCraftingWorkerBaseCrafts(),
+            getTier().getOverclockedCrafterQueueMultiply(),
+            overclocked,
+            multiplier
+        );
         List<Integer> capacities = new ArrayList<>();
-        List<ECOCraftingParallelCoreBlockEntity> parallelCores = cluster.getParallelCores().stream()
-            .sorted(Comparator.comparing(core -> core.getBlockPos().asLong()))
-            .toList();
         cluster.getWorkers().stream()
             .sorted(Comparator.comparing(worker -> worker.getBlockPos().asLong()))
             .forEach(worker -> {
-                long localCapacity = parallelCores.stream()
-                    .filter(core -> core.getBlockPos().getX() == worker.getBlockPos().getX()
-                        && core.getBlockPos().getZ() == worker.getBlockPos().getZ())
-                    .mapToLong(core -> getCoreThreadCountLong(core.getTier(), overclocked))
-                    .max()
-                    .orElseGet(() -> parallelCores.stream()
-                        .mapToLong(core -> getCoreThreadCountLong(core.getTier(), overclocked))
-                        .max()
-                        .orElse(0L));
-                int capacity = (int) Math.min(
-                    Integer.MAX_VALUE,
-                    saturatingMultiply(localCapacity, multiplier)
-                );
                 for (int lane = 0; lane < threadCountPerWorker; lane++) {
                     capacities.add(capacity);
                 }
             });
         return List.copyOf(capacities);
+    }
+
+    static int calculateWorkerBatchCapacity(
+        int baseCrafts,
+        int overclockMultiplier,
+        boolean overclocked,
+        int networkMultiplier
+    ) {
+        long capacity = Math.max(0L, baseCrafts);
+        if (overclocked) {
+            capacity = saturatingMultiply(capacity, Math.max(1, overclockMultiplier));
+        }
+        capacity = saturatingMultiply(capacity, Math.max(1, networkMultiplier));
+        return (int) Math.min(Integer.MAX_VALUE, capacity);
     }
 
     public record CraftingLane(int index, int batchCapacity) {
