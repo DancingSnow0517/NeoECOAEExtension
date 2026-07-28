@@ -11,11 +11,11 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "neoecoae:eco_network_switch"
+          "name": "neoecoae:computation_network_switch"
         }
       ],
       "rolls": 1.0
     }
   ],
-  "random_sequence": "neoecoae:blocks/eco_network_switch"
+  "random_sequence": "neoecoae:blocks/computation_network_switch"
 }
