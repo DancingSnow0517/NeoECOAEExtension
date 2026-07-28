@@ -42,6 +42,10 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             }
             c.addBlockEntity(blockEntity);
         }
+        C previous = target.getCluster();
+        if (previous != null && previous != c && !previous.isDestroyed()) {
+            previous.destroy();
+        }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
         c.updateFormed(true);
         if (c.isNetworkMode()) {

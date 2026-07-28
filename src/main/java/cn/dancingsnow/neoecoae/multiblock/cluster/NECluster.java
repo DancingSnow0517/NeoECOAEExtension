@@ -29,6 +29,14 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     @Setter
     private boolean networkMode;
 
+    @Getter
+    @Setter
+    private boolean highEnergyNetworkMode;
+
+    public int getNetworkMultiplier() {
+        return highEnergyNetworkMode ? 8 : networkMode ? 2 : 1;
+    }
+
     public NECluster(BlockPos boundMin, BlockPos boundMax) {
         this.boundMin = boundMin;
         this.boundMax = boundMax;
@@ -91,7 +99,9 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
                 blockEntity.updateCluster(null);
             }
         } finally {
-            MBCalculator.setModificationInProgress(null);
+            if (ownsModification) {
+                MBCalculator.setModificationInProgress(null);
+            }
             NELogicalNetworkManager.clearAssociation(this);
         }
     }

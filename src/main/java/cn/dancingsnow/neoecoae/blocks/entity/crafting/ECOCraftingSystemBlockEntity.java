@@ -161,8 +161,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         super.updateState(updateExposed);
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
-            if (state.hasProperty(ECOCraftingSystem.MIRRORED)) {
-                BlockState newState = state.setValue(ECOCraftingSystem.MIRRORED, formed && mirrored);
+            if (state.hasProperty(ECOCraftingSystem.MIRRORED)
+                && state.hasProperty(ECOCraftingSystem.NETWORK_SWITCH)
+                && state.hasProperty(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH)) {
+                boolean highEnergyNetworkMode = formed && cluster != null && cluster.isHighEnergyNetworkMode();
+                BlockState newState = state
+                    .setValue(ECOCraftingSystem.MIRRORED, formed && mirrored)
+                    .setValue(ECOCraftingSystem.NETWORK_SWITCH,
+                        formed && cluster != null && cluster.isNetworkMode() && !highEnergyNetworkMode)
+                    .setValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, highEnergyNetworkMode);
                 if (newState != state) {
                     level.setBlock(
                         worldPosition,
@@ -510,7 +517,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getOverflowThreads() {
         if (cluster != null && cluster.getNetworkCluster() != null) {
-            return Math.max(0, cluster.getNetworkCluster().getThreadCount() - cluster.getNetworkCluster().getAvailableThreads());
+            return cluster.getNetworkCluster().getStructuralOverflow(getMainNode().getGrid());
         }
         return getLocalOverflowThreads();
     }
@@ -529,23 +536,30 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getRecipeSlotCount() {
         if (cluster != null && cluster.getNetworkCluster() != null) {
-            return cluster.getNetworkCluster().getRecipeSlotCount(getMainNode().getGrid());
+            return cluster.getNetworkCluster().getCraftingSlotCount(getMainNode().getGrid());
         }
         return getAvailableThreads();
     }
 
     public int getOccupiedRecipeSlots() {
         if (cluster != null && cluster.getNetworkCluster() != null) {
-            return cluster.getNetworkCluster().getOccupiedRecipeSlots(getMainNode().getGrid());
+            return cluster.getNetworkCluster().getOccupiedCraftingSlots(getMainNode().getGrid());
         }
         return Math.min(getAvailableThreads(), Math.max(0, getRunningThreadCount()));
     }
 
-    public int getBatchParallel() {
+    public int getLogicalThreadCount() {
         if (cluster != null && cluster.getNetworkCluster() != null) {
-            return cluster.getNetworkCluster().getEffectiveValue();
+            return cluster.getNetworkCluster().getRecipeSlotCount(getMainNode().getGrid());
         }
-        return Math.max(0, Math.min(getThreadCount(), getAvailableThreads()));
+        return formed ? 1 : 0;
+    }
+
+    public int getOccupiedLogicalThreadCount() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getOccupiedRecipeSlots(getMainNode().getGrid());
+        }
+        return formed && getRunningThreadCount() > 0 ? 1 : 0;
     }
 
     public int getLocalAvailableThreads() {
@@ -748,7 +762,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             () -> setActiveCooling(!isActiveCooling()),
             this::getOccupiedRecipeSlots,
             this::getRecipeSlotCount,
-            this::getBatchParallel,
+            this::getOccupiedLogicalThreadCount,
+            this::getLogicalThreadCount,
             this::getOverflowThreads,
             this::getEffectiveOverclockTimes,
             this::getPerformanceAverageNanos,

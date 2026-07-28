@@ -46,6 +46,7 @@ public class NEBlockEntities {
     public static final BlockEntityEntry<ECOCraftingNetworkSwitchBlockEntity> CRAFTING_NETWORK_SWITCH = REGISTRATE
         .blockEntity("crafting_network_switch", ECOCraftingNetworkSwitchBlockEntity::new)
         .validBlock(NEBlocks.CRAFTING_NETWORK_SWITCH)
+        .validBlock(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH)
         .onRegister(type -> {
             NEBlocks.CRAFTING_NETWORK_SWITCH.get().setBlockEntity(
                 ECOCraftingNetworkSwitchBlockEntity.class,
@@ -53,13 +54,21 @@ public class NEBlockEntities {
                 null,
                 null
             );
+            NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get().setBlockEntity(
+                ECOCraftingNetworkSwitchBlockEntity.class,
+                type,
+                null,
+                null
+            );
             AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.CRAFTING_NETWORK_SWITCH.asItem());
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.asItem());
         })
         .register();
 
     public static final BlockEntityEntry<ECOComputationNetworkSwitchBlockEntity> COMPUTATION_NETWORK_SWITCH = REGISTRATE
         .blockEntity("computation_network_switch", ECOComputationNetworkSwitchBlockEntity::new)
         .validBlock(NEBlocks.COMPUTATION_NETWORK_SWITCH)
+        .validBlock(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH)
         .onRegister(type -> {
             NEBlocks.COMPUTATION_NETWORK_SWITCH.get().setBlockEntity(
                 ECOComputationNetworkSwitchBlockEntity.class,
@@ -67,7 +76,14 @@ public class NEBlockEntities {
                 null,
                 null
             );
+            NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get().setBlockEntity(
+                ECOComputationNetworkSwitchBlockEntity.class,
+                type,
+                null,
+                null
+            );
             AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.COMPUTATION_NETWORK_SWITCH.asItem());
+            AEBaseBlockEntity.registerBlockEntityItem(type, NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.asItem());
         })
         .register();
 

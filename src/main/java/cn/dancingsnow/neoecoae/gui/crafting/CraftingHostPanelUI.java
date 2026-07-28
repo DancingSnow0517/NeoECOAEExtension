@@ -93,9 +93,10 @@ public final class CraftingHostPanelUI {
         Runnable toggleOverclocked,
         BooleanSupplier activeCooling,
         Runnable toggleActiveCooling,
-        IntSupplier occupiedRecipeSlots,
-        IntSupplier maxRecipeSlots,
-        IntSupplier batchParallel,
+        IntSupplier occupiedCraftingSlots,
+        IntSupplier maxCraftingSlots,
+        IntSupplier occupiedLogicalThreads,
+        IntSupplier maxLogicalThreads,
         IntSupplier overflowThreads,
         IntSupplier effectiveOverclockTimes,
         LongSupplier performanceAverageNanos,
@@ -245,18 +246,21 @@ public final class CraftingHostPanelUI {
         panel.addChild(titleRow);
         panel.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.crafting.ui.recipe_slots")
             .append(": ")
-            .append(HostText.typeProgress(config.occupiedRecipeSlots.getAsInt(), config.maxRecipeSlots.getAsInt()).usedText())
+            .append(HostText.typeProgress(config.occupiedCraftingSlots.getAsInt(), config.maxCraftingSlots.getAsInt()).usedText())
             .append(" / ")
-            .append(HostText.typeProgress(config.occupiedRecipeSlots.getAsInt(), config.maxRecipeSlots.getAsInt()).maxText()), PANEL_MUTED));
+            .append(HostText.typeProgress(config.occupiedCraftingSlots.getAsInt(), config.maxCraftingSlots.getAsInt()).maxText()), PANEL_MUTED));
         panel.addChild(new ProgressBar()
             .label(label -> label.setText(""))
             .barContainer(element -> element.layout(layout -> layout.paddingAll(1)))
             .bind(DataBindingBuilder.floatValS2C(() -> HostText.usageRatio(
-                config.occupiedRecipeSlots.getAsInt(), config.maxRecipeSlots.getAsInt())).build())
+                config.occupiedCraftingSlots.getAsInt(), config.maxCraftingSlots.getAsInt())).build())
             .addClass("eco-host-stats-progress")
             .layout(layout -> layout.widthPercent(100).height(9)));
-        panel.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.crafting.ui.batch_parallel")
-            .append(": ").append(Tooltips.ofNumber(config.batchParallel.getAsInt())), PANEL_MUTED));
+        panel.addChild(boundLabel(() -> Component.translatable("gui.neoecoae.crafting.ui.logical_threads")
+            .append(": ")
+            .append(HostText.typeProgress(config.occupiedLogicalThreads.getAsInt(), config.maxLogicalThreads.getAsInt()).usedText())
+            .append(" / ")
+            .append(HostText.typeProgress(config.occupiedLogicalThreads.getAsInt(), config.maxLogicalThreads.getAsInt()).maxText()), PANEL_MUTED));
         UIElement overflowRow = new UIElement().layout(layout -> layout
             .widthPercent(100).height(9).flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4));
         Label overflow = boundLabel(() -> Component.translatable("gui.neoecoae.host.crafting.overflow")

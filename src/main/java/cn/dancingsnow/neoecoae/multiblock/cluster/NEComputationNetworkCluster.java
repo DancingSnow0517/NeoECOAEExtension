@@ -99,25 +99,24 @@ public final class NEComputationNetworkCluster {
         return controllers.size();
     }
 
-    /** The design specifies N times the sum of each host's base value. */
+    /** Each host contributes its local capacity multiplied by its switch tier. */
     public int getMaxThreads() {
-        return saturatingIntMultiply(getMemberCount(), sumLong(NEComputationCluster::getLocalMaxThreads));
+        return saturatingInt(sumMultiplied(NEComputationCluster::getLocalMaxThreads));
     }
 
     public int getCPUAccelerators() {
-        return saturatingIntMultiply(getMemberCount(), sumLong(NEComputationCluster::getLocalCPUAccelerators));
+        return saturatingInt(sumMultiplied(NEComputationCluster::getLocalCPUAccelerators));
     }
 
     public long getTotalStorage() {
-        return saturatingMultiply(getMemberCount(), sumLong(NEComputationCluster::getLocalTotalStorage));
+        return sumMultiplied(NEComputationCluster::getLocalTotalStorage);
     }
 
     public long getAvailableStorage() {
-        return saturatingMultiply(getMemberCount(), sumLong(NEComputationCluster::getLocalAvailableStorage));
+        return sumMultiplied(NEComputationCluster::getLocalAvailableStorage);
     }
 
     public long getAvailableStorageForGrid(@Nullable IGrid grid) {
-        int matchingMembers = 0;
         long matchingStorage = 0L;
         for (NEComputationCluster cluster : physicalClusters) {
             if (!cluster.isLocallyActive()) {
@@ -127,10 +126,12 @@ public final class NEComputationNetworkCluster {
             if (grid != null && (node == null || node.getGrid() != grid)) {
                 continue;
             }
-            matchingMembers++;
-            matchingStorage = saturatingAdd(matchingStorage, cluster.getLocalAvailableStorage());
+            matchingStorage = saturatingAdd(
+                matchingStorage,
+                saturatingMultiply(cluster.getNetworkMultiplier(), cluster.getLocalAvailableStorage())
+            );
         }
-        return saturatingMultiply(matchingMembers, matchingStorage);
+        return matchingStorage;
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {
@@ -277,12 +278,19 @@ public final class NEComputationNetworkCluster {
         return revision;
     }
 
-    private long sumLong(java.util.function.ToLongFunction<NEComputationCluster> getter) {
+    private long sumMultiplied(java.util.function.ToLongFunction<NEComputationCluster> getter) {
         long total = 0L;
         for (NEComputationCluster cluster : physicalClusters) {
-            total = saturatingAdd(total, getter.applyAsLong(cluster));
+            total = saturatingAdd(
+                total,
+                saturatingMultiply(cluster.getNetworkMultiplier(), getter.applyAsLong(cluster))
+            );
         }
         return total;
+    }
+
+    private static int saturatingInt(long value) {
+        return (int)Math.min(Integer.MAX_VALUE, Math.max(0L, value));
     }
 
     private @Nullable NEComputationCluster findUsableCluster(
@@ -349,10 +357,4 @@ public final class NEComputationNetworkCluster {
         return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
-    private static int saturatingIntMultiply(long left, long right) {
-        if (left <= 0L || right <= 0L) {
-            return 0;
-        }
-        return left > Integer.MAX_VALUE / right ? Integer.MAX_VALUE : (int)(left * right);
-    }
 }

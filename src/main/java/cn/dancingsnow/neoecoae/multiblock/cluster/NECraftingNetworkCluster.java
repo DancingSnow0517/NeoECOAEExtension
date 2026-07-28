@@ -145,11 +145,17 @@ public final class NECraftingNetworkCluster {
         return controllers.size();
     }
 
-    /** F-series effective value: the stable sum of each host's local value. */
+    /** Each host's effective value is multiplied by its switch tier. */
     public int getEffectiveValue() {
         long total = 0L;
-        for (ECOCraftingSystemBlockEntity controller : controllers) {
-            total = saturatingAdd(total, controller.getLocalThreadCount());
+        for (NECraftingCluster cluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = cluster.getController();
+            if (controller != null) {
+                total = saturatingAdd(
+                    total,
+                    saturatingMultiply(cluster.getNetworkMultiplier(), controller.getLocalThreadCount())
+                );
+            }
         }
         return (int)Math.min(Integer.MAX_VALUE, total);
     }
@@ -226,6 +232,46 @@ public final class NECraftingNetworkCluster {
 
     public int getOccupiedRecipeSlots(@Nullable IGrid grid) {
         return Math.max(0, getRecipeSlotCount(grid) - getAvailableThreadSlots(grid));
+    }
+
+    /** Physical batch slots exposed to the requested AE grid. */
+    public int getCraftingSlotCount(@Nullable IGrid grid) {
+        long slots = 0L;
+        for (NECraftingCluster physicalCluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+            if (controller == null) {
+                continue;
+            }
+            for (ECOCraftingWorkerBlockEntity worker : physicalCluster.getWorkers()) {
+                if (grid == null || worker.getMainNode().getGrid() == grid) {
+                    slots = saturatingAdd(slots, controller.getThreadCountPerWorker());
+                }
+            }
+        }
+        return (int)Math.min(Integer.MAX_VALUE, slots);
+    }
+
+    /** Physical batch slots currently occupied on the requested AE grid. */
+    public int getOccupiedCraftingSlots(@Nullable IGrid grid) {
+        long occupied = 0L;
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
+            if (grid == null || worker.getMainNode().getGrid() == grid) {
+                occupied = saturatingAdd(occupied, worker.getRunningThreads());
+            }
+        }
+        return (int)Math.min(Integer.MAX_VALUE, occupied);
+    }
+
+    /** Parallel-core capacity that cannot be backed by workers on visible hosts. */
+    public int getStructuralOverflow(@Nullable IGrid grid) {
+        long overflow = 0L;
+        for (NECraftingCluster physicalCluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+            if (controller != null && hasMatchingWorker(physicalCluster, grid)) {
+                overflow = saturatingAdd(overflow, controller.getLocalOverflowThreads());
+            }
+        }
+        return (int)Math.min(Integer.MAX_VALUE, overflow);
     }
 
     private static boolean hasMatchingWorker(NECraftingCluster physicalCluster, @Nullable IGrid grid) {
@@ -307,7 +353,10 @@ public final class NECraftingNetworkCluster {
             }
             NECraftingCluster physical = worker.getCluster();
             ECOCraftingSystemBlockEntity controller = physical == null ? null : physical.getController();
-            if (controller != null && worker.pushPattern(execution, craftingJobId)) {
+            if (controller != null
+                && physical != null
+                && getAvailableLogicalSlots(physical) > 0
+                && worker.pushPattern(execution, craftingJobId)) {
                 nextWorkerIndex = (index + 1) % workers.size();
                 return true;
             }
@@ -452,6 +501,13 @@ public final class NECraftingNetworkCluster {
             return Math.max(0L, left);
         }
         return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     private record PatternSignature(

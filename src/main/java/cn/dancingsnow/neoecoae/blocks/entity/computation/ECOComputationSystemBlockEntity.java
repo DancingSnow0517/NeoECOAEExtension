@@ -91,8 +91,15 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         super.updateState(updateExposed);
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
-            if (state.hasProperty(ECOComputationSystem.MIRRORED)) {
-                BlockState newState = state.setValue(ECOComputationSystem.MIRRORED, formed && mirrored);
+            if (state.hasProperty(ECOComputationSystem.MIRRORED)
+                && state.hasProperty(ECOComputationSystem.NETWORK_SWITCH)
+                && state.hasProperty(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH)) {
+                boolean highEnergyNetworkMode = formed && cluster != null && cluster.isHighEnergyNetworkMode();
+                BlockState newState = state
+                    .setValue(ECOComputationSystem.MIRRORED, formed && mirrored)
+                    .setValue(ECOComputationSystem.NETWORK_SWITCH,
+                        formed && cluster != null && cluster.isNetworkMode() && !highEnergyNetworkMode)
+                    .setValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, highEnergyNetworkMode);
                 if (newState != state) {
                     level.setBlock(
                         worldPosition,
