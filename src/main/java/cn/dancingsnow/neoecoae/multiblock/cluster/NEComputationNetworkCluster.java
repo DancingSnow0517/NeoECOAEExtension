@@ -10,6 +10,7 @@ import appeng.api.networking.security.IActionSource;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.Nullable;
 
@@ -108,9 +109,12 @@ public final class NEComputationNetworkCluster {
 
     public int getCPUAccelerators() {
         if (hasUltimateAggregateCapacity()) {
-            return Integer.MAX_VALUE;
+            return NEConfig.ECO_CPU_PUSH_TICK_LIMIT_MAX;
         }
-        return saturatingInt(sumMultiplied(NEComputationCluster::getLocalCPUAccelerators));
+        return Math.min(
+            NEConfig.ECO_CPU_PUSH_TICK_LIMIT_MAX,
+            saturatingInt(sumMultiplied(NEComputationCluster::getLocalCPUAccelerators))
+        );
     }
 
     public long getTotalStorage() {
