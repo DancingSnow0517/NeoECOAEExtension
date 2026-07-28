@@ -81,15 +81,15 @@ item_ids:
   <ItemIcon id="neoecoae:eco_quantum_omni_cell_256m" />
 </ItemGrid>
 
-量子全能矩阵没有类型数量上限，但存储总量仍受字节容量限制。极高的灵活性也会带来显著的待机耗电。
+量子全能矩阵没有类型数量上限，容量为对应普通矩阵的四倍。极高的灵活性也会带来显著的待机耗电。
 
 | 矩阵 | 容量 | 类型上限 | 待机耗电 |
 |------|------|----------|----------|
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_16m" /> | 16 MB | 无限 | 6,561 AE/t |
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_64m" /> | 64 MB | 无限 | 19,683 AE/t |
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_256m" /> | 256 MB | 无限 | 59,049 AE/t |
+| <ItemLink id="neoecoae:eco_quantum_omni_cell_16m" /> | 64 MB | 无限 | 6,561 AE/t |
+| <ItemLink id="neoecoae:eco_quantum_omni_cell_64m" /> | 256 MB | 无限 | 19,683 AE/t |
+| <ItemLink id="neoecoae:eco_quantum_omni_cell_256m" /> | 1,024 MB | 无限 | 59,049 AE/t |
 
-<ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> 需要多维扩展处理器。
+<ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> 需要多维扩展处理器。量子全能矩阵需要在集成工作站中使用一个外壳和四个对应等级的量子全能存储元件合成。
 
 <RecipeFor id="neoecoae:eco_quantum_omni_cell_housing" />
 

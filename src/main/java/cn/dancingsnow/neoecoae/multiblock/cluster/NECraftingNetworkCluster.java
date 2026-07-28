@@ -150,7 +150,13 @@ public final class NECraftingNetworkCluster {
         return controllers.size();
     }
 
-    /** Independent task slots. The switch multiplier applies to each slot's batch, not to slot count. */
+    public void onCoolingAvailabilityChanged() {
+        for (ECOCraftingSystemBlockEntity controller : controllers) {
+            controller.refreshExchangeThreadCount();
+        }
+    }
+
+    /** Independent FX task threads. Exchange membership sets threads per worker; x2/x8 sets batch per thread. */
     public int getEffectiveValue() {
         long total = 0L;
         for (NECraftingCluster cluster : physicalClusters) {
@@ -236,6 +242,7 @@ public final class NECraftingNetworkCluster {
         for (ECOCraftingSystemBlockEntity controller : controllers) {
             controller.clearLocalCoolant();
         }
+        onCoolingAvailabilityChanged();
     }
 
     public long getMaxEnergyUsage() {

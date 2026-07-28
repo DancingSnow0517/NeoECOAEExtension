@@ -11,6 +11,8 @@ import net.minecraft.world.item.Rarity;
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
 public final class NEOmniItems {
+    private static final long QUANTUM_CAPACITY_MULTIPLIER = 4L;
+
     public static final ItemEntry<MaterialItem> ECO_OMNI_CELL_HOUSING = REGISTRATE
         .item("eco_omni_cell_housing", MaterialItem::new)
         .lang("ECO Omni Storage Matrix Housing")
@@ -88,7 +90,8 @@ public final class NEOmniItems {
         Rarity rarity
     ) {
         return REGISTRATE.item(name, properties -> new ECOUniversalStorageCellItem(
-                properties.rarity(rarity), tier, NEOmniCellTypes.QUANTUM_OMNI, idleDrain, -1
+                properties.rarity(rarity), tier, NEOmniCellTypes.QUANTUM_OMNI, idleDrain, -1,
+                Math.multiplyExact(tier.getStorageTotalBytes(), QUANTUM_CAPACITY_MULTIPLIER)
             ))
             .lang(cellName(name, tier))
             .model(ItemModelUtil.compatCellModel(

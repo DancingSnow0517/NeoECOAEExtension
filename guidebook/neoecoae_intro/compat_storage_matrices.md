@@ -81,15 +81,15 @@ Its <ItemLink id="neoecoae:eco_complex_omni_cell_housing" /> requires Charged En
   <ItemIcon id="neoecoae:eco_quantum_omni_cell_256m" />
 </ItemGrid>
 
-Quantum Omni matrices have no type limit. Their byte capacity still limits the total stored amount, and their exceptional flexibility carries a substantial idle drain.
+Quantum Omni matrices have no type limit and provide four times the capacity of the corresponding standard matrix. Their exceptional flexibility carries a substantial idle drain.
 
 | Matrix | Capacity | Type Limit | Idle Drain |
 |--------|----------|------------|------------|
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_16m" /> | 16 MB | Unlimited | 6,561 AE/t |
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_64m" /> | 64 MB | Unlimited | 19,683 AE/t |
-| <ItemLink id="neoecoae:eco_quantum_omni_cell_256m" /> | 256 MB | Unlimited | 59,049 AE/t |
+| <ItemLink id="neoecoae:eco_quantum_omni_cell_16m" /> | 64 MB | Unlimited | 6,561 AE/t |
+| <ItemLink id="neoecoae:eco_quantum_omni_cell_64m" /> | 256 MB | Unlimited | 19,683 AE/t |
+| <ItemLink id="neoecoae:eco_quantum_omni_cell_256m" /> | 1,024 MB | Unlimited | 59,049 AE/t |
 
-The <ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> requires a Multidimensional Expansion Processor.
+The <ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> requires a Multidimensional Expansion Processor. A Quantum Omni matrix is assembled in the Integrated Working Station from one housing and four matching Quantum Omni Cell Components.
 
 <RecipeFor id="neoecoae:eco_quantum_omni_cell_housing" />
 

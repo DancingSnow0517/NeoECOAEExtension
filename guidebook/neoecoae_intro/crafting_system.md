@@ -55,7 +55,7 @@ The crafting system controller (<ItemLink id="neoecoae:crafting_system_l4" />, <
   <ItemIcon id="neoecoae:crafting_worker" />
 </ItemGrid>
 
-The <ItemLink id="neoecoae:crafting_worker" /> executes task slots supplied by parallel cores. Every parallel core provides **2** independent task slots that may run simultaneously.
+The <ItemLink id="neoecoae:crafting_worker" /> provides independent task threads. Each FX Worker provides **1** thread at x1; while network exchange is active, every FX Worker provides one thread per participating F host.
 
 ### Pattern Bus
 
@@ -73,7 +73,7 @@ The <ItemLink id="neoecoae:crafting_pattern_bus" /> holds crafting patterns. In 
   <ItemIcon id="neoecoae:crafting_parallel_core_l9" />
 </ItemGrid>
 
-Parallel cores (<ItemLink id="neoecoae:crafting_parallel_core_l4" />, <ItemLink id="neoecoae:crafting_parallel_core_l6" />, or <ItemLink id="neoecoae:crafting_parallel_core_l9" />) provide task slots and per-slot batch capacity. Each core provides 2 slots; its tier determines how many crafts each slot handles at once.
+Parallel cores (<ItemLink id="neoecoae:crafting_parallel_core_l4" />, <ItemLink id="neoecoae:crafting_parallel_core_l6" />, or <ItemLink id="neoecoae:crafting_parallel_core_l9" />) determine how many crafts each thread of the corresponding FX Worker handles at once.
 
 ### Interface
 
@@ -124,12 +124,12 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 
 <ItemLink id="neoecoae:crafting_network_switch" /> and <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> link F9 crafting hosts on the same ME network. Replace the central casing immediately to the right of the controller while facing its front. At least two linked F9 hosts are required; a single host remains at **x1**.
 
-- Exchange modules multiply crafts handled by each task slot: **x2** for normal and **x8** for high-energy. They do not add slots; each host owns its slots and the network sums them.
+- Exchange modules multiply crafts handled by each task thread: **x2** for normal and **x8** for high-energy. While exchange is active, each FX Worker has one thread per participating F host; the network sums the threads owned by every physical host.
 - Patterns are the union of every member bus. Incoming work is fairly routed to any member host with a suitable free slot.
-- Linked normal modules use **x4** power and high-energy modules use **x16** power. The shared UI reports the aggregate network energy use.
+- Linked normal modules use **x4** power and high-energy modules use **x16** power. While exchange is active, every host continuously draws its full rated power for all available FX threads; insufficient power pauses affected tasks. The shared UI reports this aggregate network energy use.
 - The shared UI also controls active cooling. Cached coolant from every member forms one pool, and drains rotate fairly across members of sufficient coolant tier regardless of which worker executes the task.
 - Normal exchange requires the active cooling pool to provide coolant. High-energy exchange requires highest-tier coolant, supporting overclock 9. If the relevant pool cannot supply it, the multiplier is **x1**.
-- Only active exchange tasks use tick-based cooling: normal exchange drains **1** coolant and high-energy exchange drains **4** coolant per active task slot per tick. Batch size does not affect this cost.
+- Only active exchange tasks use tick-based cooling: normal exchange drains **4** coolant and high-energy exchange drains **16** coolant per active task thread per tick. Batch size does not affect this cost.
 - An exchange task pauses when the shared pool cannot pay its tick cost and resumes from the same progress after coolant is restored.
 
 ## Building the Structure
@@ -215,6 +215,6 @@ The interface displays:
 - Enable active cooling in combination with overclocking for best efficiency
 - Upgrade coolant quality if the effective overclock is lower than the theoretical overclock
 - Use the clear coolant button before switching from a lower-tier coolant to a higher-tier coolant
-- Every parallel core adds 2 simultaneous task slots
-- Higher-tier parallel cores increase the batch handled by each slot
+- Every FX Worker provides 1 thread at x1, or one thread per participating F host while exchange is active
+- Higher-tier parallel cores increase the batch handled by each FX Worker thread
 - Ensure the output hatch has space for used coolant to avoid system shutdown

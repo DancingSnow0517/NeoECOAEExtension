@@ -72,7 +72,13 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     }
 
     public void setNetworkCluster(@Nullable NECraftingNetworkCluster networkCluster) {
+        if (this.networkCluster == networkCluster) {
+            return;
+        }
         this.networkCluster = networkCluster;
+        if (networkCluster == null && controller != null) {
+            controller.onNetworkStateChanged();
+        }
     }
 
     @Override

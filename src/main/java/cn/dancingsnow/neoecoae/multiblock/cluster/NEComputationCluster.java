@@ -198,7 +198,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public long getEffectiveAvailableStorage() {
         ensureDebugOverdriveState();
-        long effectiveTotal = saturatingMultiply(totalStorage, getNetworkMultiplier());
+        long effectiveTotal = networkCluster != null && networkCluster.hasUltimateAggregateCapacity()
+            ? Long.MAX_VALUE
+            : saturatingMultiply(totalStorage, getNetworkMultiplier());
         return Math.max(0L, effectiveTotal - getActiveJobBytes());
     }
 
@@ -343,7 +345,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         long usedStorage = getActiveJobBytes();
 
         this.availableStorage = Math.max(0L, totalStorage - usedStorage);
-        long effectiveTotalStorage = saturatingMultiply(totalStorage, getNetworkMultiplier());
+        long effectiveTotalStorage = networkCluster != null && networkCluster.hasUltimateAggregateCapacity()
+            ? Long.MAX_VALUE
+            : saturatingMultiply(totalStorage, getNetworkMultiplier());
         if (effectiveTotalStorage >= usedStorage || this.activeCpus.isEmpty()) {
             return;
         }
@@ -362,10 +366,18 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
     }
 
+    long getLocalActiveJobBytes() {
+        return getActiveJobBytes();
+    }
+
     private long getActiveJobBytes() {
         long usedStorage = 0L;
         for (ICraftingPlan plan : List.copyOf(this.activeCpus.keySet())) {
-            usedStorage += plan.bytes();
+            long bytes = Math.max(0L, plan.bytes());
+            if (usedStorage > Long.MAX_VALUE - bytes) {
+                return Long.MAX_VALUE;
+            }
+            usedStorage += bytes;
         }
         return usedStorage;
     }

@@ -100,7 +100,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         this.craftingInv = new TransientCraftingContainer(new AutoCraftingMenu(), 3, 3);
     }
 
-    public TickRateModulation tick(int overlockTimes, int powerMultiply, int ticksSinceLastCall) {
+    public TickRateModulation tick(
+        int overlockTimes,
+        int powerMultiply,
+        int ticksSinceLastCall,
+        boolean fullNetworkPowerMode,
+        boolean networkPowerPrepaid
+    ) {
         if (!isBusy) {
             progress = 0;
             progressRemainder = 0.0D;
@@ -124,6 +130,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return ejectOutputsSafely();
         }
 
+        if (fullNetworkPowerMode && !networkPowerPrepaid) {
+            return TickRateModulation.URGENT;
+        }
+
         if (networkCoolingMultiplier > 1) {
             ECOCraftingSystemBlockEntity controller = worker.getCluster() == null
                 ? null
@@ -135,7 +145,12 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
 
         int bonusValue = calculateProgressPerTick(overlockTimes);
-        progress += userPower(ticksSinceLastCall, bonusValue, powerMultiply, MAX_PROGRESS - progress);
+        if (fullNetworkPowerMode) {
+            progressRemainder = 0.0D;
+            progress += calculateRequestedProgress(ticksSinceLastCall, bonusValue, MAX_PROGRESS - progress);
+        } else {
+            progress += userPower(ticksSinceLastCall, bonusValue, powerMultiply, MAX_PROGRESS - progress);
+        }
 
         if (this.progress >= MAX_PROGRESS) {
             outputsReady = true;

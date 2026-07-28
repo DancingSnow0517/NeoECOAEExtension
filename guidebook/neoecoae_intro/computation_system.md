@@ -130,6 +130,7 @@ The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the m
 - Linked normal modules use **x4** power and high-energy modules use **x16** power.
 - A normal module requires a valid cooling controller on that host. A high-energy module requires a **C9** cooling controller; otherwise that host contributes at **x1**.
 - AE2 receives the sum of each physical host's effective resources. Every host is evaluated independently before its threads, accelerators, and storage are aggregated.
+- When at least **8 linked C9 hosts** each contain at least **10 Threading Cores**, the aggregate CPU enters ultimate mode: parallel count becomes **INT32_MAX (2,147,483,647)** and CPU storage becomes **INT64_MAX (9,223,372,036,854,775,807 bytes)**. Active job bytes are still deducted from available storage.
 
 ## Building the Structure
 

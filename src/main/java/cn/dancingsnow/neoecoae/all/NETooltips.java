@@ -142,11 +142,17 @@ public class NETooltips {
                 tooltip, flags, "tooltip.neoecoae.computation_network_switch", 2,
                 "tooltip.neoecoae.network_switch.computation_cooling"
             );
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.network_switch.computation_ultimate")
+            );
         }
         if (stack.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.asItem())) {
             addNetworkSwitchTooltips(
                 tooltip, flags, "tooltip.neoecoae.computation_network_switch", 8,
                 "tooltip.neoecoae.network_switch.computation_high_energy_cooling"
+            );
+            addTooltips(tooltip, flags,
+                Component.translatable("tooltip.neoecoae.network_switch.computation_ultimate")
             );
         }
         if (stack.is(NEBlocks.COMPUTATION_DRIVE.asItem())) {

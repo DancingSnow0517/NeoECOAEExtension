@@ -27,6 +27,8 @@ import java.util.Map;
  * capacity and routes a job to one physical host on the requesting grid.
  */
 public final class NEComputationNetworkCluster {
+    private static final int ULTIMATE_C9_HOST_COUNT = 8;
+    private static final int ULTIMATE_C9_MIN_THREADING_CORES = 10;
     private static final Comparator<NEComputationCluster> CLUSTER_ORDER = Comparator.comparing(
         cluster -> cluster.getController() == null
             ? Long.MAX_VALUE
@@ -105,18 +107,30 @@ public final class NEComputationNetworkCluster {
     }
 
     public int getCPUAccelerators() {
+        if (hasUltimateAggregateCapacity()) {
+            return Integer.MAX_VALUE;
+        }
         return saturatingInt(sumMultiplied(NEComputationCluster::getLocalCPUAccelerators));
     }
 
     public long getTotalStorage() {
+        if (hasUltimateAggregateCapacity()) {
+            return Long.MAX_VALUE;
+        }
         return sumMultiplied(NEComputationCluster::getLocalTotalStorage);
     }
 
     public long getAvailableStorage() {
+        if (hasUltimateAggregateCapacity()) {
+            return Math.max(0L, Long.MAX_VALUE - getActiveJobBytes());
+        }
         return sum(NEComputationCluster::getEffectiveAvailableStorage);
     }
 
     public long getAvailableStorageForGrid(@Nullable IGrid grid) {
+        if (hasUltimateAggregateCapacity() && hasActiveHostOnGrid(grid)) {
+            return Math.max(0L, Long.MAX_VALUE - getActiveJobBytes());
+        }
         long matchingStorage = 0L;
         for (NEComputationCluster cluster : physicalClusters) {
             if (!cluster.isLocallyActive()) {
@@ -129,6 +143,40 @@ public final class NEComputationNetworkCluster {
             matchingStorage = saturatingAdd(matchingStorage, cluster.getEffectiveAvailableStorage());
         }
         return matchingStorage;
+    }
+
+    public boolean hasUltimateAggregateCapacity() {
+        int eligibleHosts = 0;
+        for (NEComputationCluster cluster : physicalClusters) {
+            ECOComputationSystemBlockEntity controller = cluster.getController();
+            if (controller == null
+                || controller.getTier().getTier() < ECOTier.L9.getTier()
+                || cluster.getThreadingCores().size() < ULTIMATE_C9_MIN_THREADING_CORES
+                || cluster.getNetworkMultiplier() <= 1) {
+                continue;
+            }
+            if (++eligibleHosts >= ULTIMATE_C9_HOST_COUNT) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasActiveHostOnGrid(@Nullable IGrid grid) {
+        for (NEComputationCluster cluster : physicalClusters) {
+            if (!cluster.isLocallyActive()) {
+                continue;
+            }
+            IGridNode node = cluster.getLocalNode();
+            if (grid == null || node != null && node.getGrid() == grid) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private long getActiveJobBytes() {
+        return sum(NEComputationCluster::getLocalActiveJobBytes);
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {

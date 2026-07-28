@@ -1,17 +1,17 @@
 {
   "type": "neoecoae:integrated_working_station",
-  "energy": 8000000,
+  "energy": 16000000,
   "inputItems": [
     {
-      "count": 2,
+      "count": 4,
       "item": "neoecoae:computation_network_switch"
     },
     {
-      "count": 8,
+      "count": 16,
       "item": "ae2:singularity"
     },
     {
-      "count": 32,
+      "count": 64,
       "item": "neoecoae:superconducting_processor"
     },
     {
@@ -19,15 +19,15 @@
       "item": "neoecoae:energized_superconductive_ingot"
     },
     {
-      "count": 16,
+      "count": 32,
       "item": "neoecoae:black_tungsten_alloy_block"
     },
     {
-      "count": 2,
+      "count": 4,
       "item": "neoecoae:eco_cell_component_256m"
     },
     {
-      "count": 4,
+      "count": 8,
       "item": "neoecoae:crystal_matrix"
     },
     {

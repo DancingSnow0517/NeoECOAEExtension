@@ -76,9 +76,18 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     (long)powerMultiply * cluster.getNetworkPowerMultiplier()
                 );
                 int overlockTimes = controller.getEffectiveOverclockTimesForLocalTasks();
+                boolean fullNetworkPowerMode = cluster.getNetworkMultiplier() > 1;
+                boolean networkPowerPrepaid = fullNetworkPowerMode
+                    && controller.tryPayFullNetworkPowerForCurrentTick();
                 TickRateModulation rate = TickRateModulation.IDLE;
                 for (ECOCraftingThread thread : craftingThreads) {
-                    TickRateModulation r = thread.tick(overlockTimes, powerMultiply, ticksSinceLastCall);
+                    TickRateModulation r = thread.tick(
+                        overlockTimes,
+                        powerMultiply,
+                        ticksSinceLastCall,
+                        fullNetworkPowerMode,
+                        networkPowerPrepaid
+                    );
                     if (r.ordinal() > rate.ordinal()) {
                         rate = r;
                     }
