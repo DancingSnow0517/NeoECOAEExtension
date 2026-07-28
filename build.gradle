@@ -270,6 +270,20 @@ tasks.register('copyGuidebook', Copy) {
 
 tasks.named('processResources') {
     dependsOn tasks.named('copyGuidebook')
+    // Data generation can mirror hand-authored assets into src/generated/resources.
+    // Keep identical copies from making the resource task fail.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+afterEvaluate {
+    tasks.named('delombok') {
+        // AppBot is an optional integration and its dependencies are intentionally
+        // absent from the development classpath when the integration is disabled.
+        // Apply this after FreeFair Lombok adds the source-set directories.
+        input.setFrom(sourceSets.main.java.matching {
+            exclude 'cn/dancingsnow/neoecoae/integration/appbot/**'
+        }.files)
+    }
 }
 
 idea {
