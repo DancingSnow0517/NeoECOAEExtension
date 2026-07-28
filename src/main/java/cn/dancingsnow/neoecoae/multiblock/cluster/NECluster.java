@@ -3,7 +3,9 @@ package cn.dancingsnow.neoecoae.multiblock.cluster;
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import lombok.Getter;
+import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 
@@ -18,6 +20,14 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
 
     @Getter
     private boolean destroyed = false;
+
+    /**
+     * This flag is derived by the physical multiblock calculator from the
+     * designated switch position. It is deliberately not persisted.
+     */
+    @Getter
+    @Setter
+    private boolean networkMode;
 
     public NECluster(BlockPos boundMin, BlockPos boundMax) {
         this.boundMin = boundMin;
@@ -61,6 +71,7 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         for (NEBlockEntity<T, ?> be : blockEntities) {
             be.updateState(updateGrid);
         }
+        NELogicalNetworkManager.refresh(this);
     }
 
     @Override
@@ -70,6 +81,7 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
             return;
         }
         this.destroyed = true;
+        NELogicalNetworkManager.detachBeforeDestroy(this);
         boolean ownsModification = !MBCalculator.isModificationInProgress();
         if (ownsModification) {
             MBCalculator.setModificationInProgress(this);
@@ -80,6 +92,7 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
             }
         } finally {
             MBCalculator.setModificationInProgress(null);
+            NELogicalNetworkManager.clearAssociation(this);
         }
     }
 }

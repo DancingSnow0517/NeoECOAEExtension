@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.multiblock.calculator;
 
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.mojang.serialization.DataResult;
 import net.minecraft.core.BlockPos;
@@ -10,6 +11,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
@@ -27,8 +29,14 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
-            NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) level.getBlockEntity(blockPos);
+            BlockEntity rawBlockEntity = level.getBlockEntity(blockPos);
+            NEBlockEntity<C, ?> blockEntity = rawBlockEntity instanceof NEBlockEntity<?, ?> neBlockEntity
+                ? (NEBlockEntity<C, ?>) neBlockEntity
+                : null;
             if (blockEntity == null) {
+                if (rawBlockEntity != null && isAllowedNonEntityBlock(level, blockPos)) {
+                    continue;
+                }
                 this.disconnect();
                 return;
             }
@@ -36,6 +44,18 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
         c.updateFormed(true);
+        if (c.isNetworkMode()) {
+            NELogicalNetworkManager.attach(c);
+        }
+    }
+
+    /**
+     * Network switch marker block entities are only used by AE2 while it
+     * discovers the multiblock bounds. They are deliberately not added to the
+     * physical cluster because the switch is not a subsystem machine.
+     */
+    protected boolean isAllowedNonEntityBlock(ServerLevel level, BlockPos pos) {
+        return false;
     }
 
     @Override

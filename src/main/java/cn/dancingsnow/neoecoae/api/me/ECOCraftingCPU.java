@@ -48,6 +48,13 @@ public class ECOCraftingCPU implements ICraftingCPU {
         this.tier = tier;
     }
 
+    /** Updates the capacity of the stable synthetic CPU exposed to AE2. */
+    public void updateFakeStorage(long fakeStorage) {
+        if (this.plan == null) {
+            this.fakeStorage = Math.max(0L, fakeStorage);
+        }
+    }
+
     @Override
     public boolean isBusy() {
         return logic.hasJob();

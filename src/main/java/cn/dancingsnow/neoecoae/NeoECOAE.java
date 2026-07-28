@@ -132,11 +132,6 @@ public class NeoECOAE {
             (be, unused) -> be
         );
         event.registerBlockEntity(
-            AECapabilities.IN_WORLD_GRID_NODE_HOST,
-            NEBlockEntities.ECO_NETWORK_SWITCH.get(),
-            (be, unused) -> be
-        );
-        event.registerBlockEntity(
             Capabilities.ItemHandler.BLOCK,
             NEBlockEntities.INTEGRATED_WORKING_STATION_BLOCK.get(),
             AEBaseInvBlockEntity::getExposedItemHandler

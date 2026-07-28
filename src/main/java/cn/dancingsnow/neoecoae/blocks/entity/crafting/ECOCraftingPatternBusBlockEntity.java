@@ -130,6 +130,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return false;
         }
         if (cluster != null) {
+            if (cluster.getNetworkCluster() != null) {
+                return cluster.getNetworkCluster().tryPushPattern(this, execution, craftingJobId);
+            }
             List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
             if (workers.isEmpty()) {
                 return false;
@@ -155,6 +158,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().tryPushBatch(this, request, offer);
+        }
         if (offer == null
             || cluster == null
             || !cluster.getWorkers().contains(offer.worker())
@@ -191,6 +197,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     ) {
         if (cluster == null || requestedBatchSize <= 0) {
             return null;
+        }
+        if (cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().findBatchFastPathOffer(
+                this, key, execution, request, requestedBatchSize
+            );
         }
         List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
         if (workers.isEmpty()) {
@@ -234,7 +245,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster == null) {
             return nextWorkerIndex;
         }
-        List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getWorkers()
+            : cluster.getWorkers();
         int index = workers.indexOf(acceptedWorker);
         return index < 0 ? nextWorkerIndex : (index + 1) % Math.max(1, workers.size());
     }
@@ -243,8 +256,11 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster == null) {
             return false;
         }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getWorkers()
+            : cluster.getWorkers();
         boolean recoveredAll = true;
-        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
             if (!worker.recoverJobToNetwork(craftingJobId, storage)) {
                 recoveredAll = false;
             }
@@ -260,6 +276,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public boolean isBusy() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().isBusy(this);
+        }
         if (getAvailableThreadSlots() <= 0) {
             return true;
         }
@@ -275,6 +294,9 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     public int getAvailableThreadSlots() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getAvailableThreadSlots(getGrid());
+        }
         ECOCraftingSystemBlockEntity controller = getCraftingController();
         if (cluster == null || controller == null) {
             return 0;
@@ -345,7 +367,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         if (cluster == null) {
             return containsPattern(pattern);
         }
-        for (ECOCraftingPatternBusBlockEntity patternBus : cluster.getPatternBuses()) {
+        List<ECOCraftingPatternBusBlockEntity> patternBuses = cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getPatternBuses()
+            : cluster.getPatternBuses();
+        for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             if (patternBus.containsPattern(pattern)) {
                 return true;
             }

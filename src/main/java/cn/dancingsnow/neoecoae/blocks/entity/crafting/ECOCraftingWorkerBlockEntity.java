@@ -68,10 +68,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             long startNanos = System.nanoTime();
             try {
                 int powerMultiply = 1;
-                if (controller.isOverclocked() && !controller.isActiveCooling()) {
+                if (controller.isLocalOverclocked() && !controller.isLocalActiveCooling()) {
                     powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
                 }
-                int overlockTimes = controller.getEffectiveOverclockTimes();
+                int overlockTimes = controller.getLocalEffectiveOverclockTimes();
                 TickRateModulation rate = TickRateModulation.IDLE;
                 for (ECOCraftingThread thread : craftingThreads) {
                     TickRateModulation r = thread.tick(overlockTimes, powerMultiply, ticksSinceLastCall);
@@ -221,6 +221,17 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return 0;
     }
 
+    /** Number of logical crafting tasks, independent of batch slot usage. */
+    public int getRunningTaskCount() {
+        int count = 0;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public boolean isControlledBy(ECOCraftingSystemBlockEntity controller) {
         return cluster != null && cluster.getController() == controller;
     }
@@ -236,6 +247,18 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return List.copyOf(snapshots);
     }
 
+    public boolean hasBusyOutput(ItemStack output) {
+        if (output.isEmpty()) {
+            return false;
+        }
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (thread.hasOutput(output)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public ItemStack getActiveCraftOutput() {
         for (ECOCraftingThread thread : craftingThreads) {
             if (!thread.isFree()) {
@@ -249,7 +272,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private int getControllerAvailableThreadSlots(ECOCraftingSystemBlockEntity controller) {
-        return Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
+        return Math.max(0, controller.getLocalThreadCount() - controller.getLocalRunningThreadCount());
     }
 
     public void onThreadWork() {

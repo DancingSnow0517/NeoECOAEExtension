@@ -146,6 +146,35 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return firstOutputItem().copy();
     }
 
+    public boolean hasOutput(ItemStack output) {
+        if (!isBusy || output.isEmpty()) {
+            return false;
+        }
+        for (ItemStack stack : outputItems) {
+            if (ItemStack.isSameItemSameComponents(output, stack)) {
+                return true;
+            }
+        }
+        for (ItemStack stack : remainingItems) {
+            if (ItemStack.isSameItemSameComponents(output, stack)) {
+                return true;
+            }
+        }
+        for (GenericStack stack : batchOutputItems) {
+            if (stack.what() instanceof AEItemKey itemKey
+                && ItemStack.isSameItemSameComponents(output, itemKey.toStack(1))) {
+                return true;
+            }
+        }
+        for (GenericStack stack : batchRemainingItems) {
+            if (stack.what() instanceof AEItemKey itemKey
+                && ItemStack.isSameItemSameComponents(output, itemKey.toStack(1))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public List<ItemStack> getRemainingItems() {
         return copyStacks(remainingItems);
     }
@@ -206,7 +235,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             cache.recordNoThreadReject();
             return false;
         }
-        int controllerAvailableSlots = Math.max(0, controller.getThreadCount() - controller.getRunningThreadCount());
+        int controllerAvailableSlots = Math.max(0, controller.getLocalThreadCount() - controller.getLocalRunningThreadCount());
         if (request.batchSize() > worker.getAvailableThreadSlots()
             || request.batchSize() > controllerAvailableSlots) {
             cache.recordNoThreadReject();
@@ -385,8 +414,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     }
 
     private boolean consumeCraftingCoolant(ECOCraftingSystemBlockEntity controller, int craftCount) {
-        return !controller.isActiveCooling()
-            || controller.tryConsumeCoolant(5 * Math.max(1, craftCount), controller.getEffectiveOverclockTimes());
+        return !controller.isLocalActiveCooling()
+            || controller.tryConsumeCoolant(5 * Math.max(1, craftCount), controller.getLocalEffectiveOverclockTimes());
     }
 
     private void startWork(

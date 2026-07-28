@@ -207,6 +207,13 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public CpuSelectionMode getCpuSelectionMode() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getSelectionMode();
+        }
+        return getLocalSelectionMode();
+    }
+
+    public CpuSelectionMode getLocalSelectionMode() {
         CpuSelectionMode[] values = CpuSelectionMode.values();
         if (cpuSelectionMode < 0 || cpuSelectionMode >= values.length) {
             return CpuSelectionMode.ANY;
@@ -215,7 +222,20 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public void setCpuSelectionMode(CpuSelectionMode mode) {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().setSelectionMode(mode);
+            return;
+        }
+        setLocalSelectionMode(mode);
+    }
+
+    public void setLocalSelectionMode(CpuSelectionMode mode) {
         this.cpuSelectionMode = mode.ordinal();
+        setChanged();
+        markForUpdate();
+    }
+
+    public void onNetworkStateChanged() {
         setChanged();
         markForUpdate();
     }
