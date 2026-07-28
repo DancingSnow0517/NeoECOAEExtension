@@ -148,6 +148,11 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         this.networkCluster = networkCluster;
     }
 
+    @Override
+    protected boolean hasLinkedNetworkPeers() {
+        return networkCluster != null && networkCluster.getMemberCount() > 1;
+    }
+
     public long getTotalStorage() {
         return networkCluster == null ? getLocalTotalStorage() : networkCluster.getTotalStorage();
     }

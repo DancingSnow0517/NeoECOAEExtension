@@ -9,6 +9,7 @@ import appeng.blockentity.grid.AENetworkedBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
@@ -103,7 +104,13 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         if (level != null) {
             for (Direction value : Direction.values()) {
                 BlockPos adjacentPos = this.worldPosition.relative(value);
-                if (level.hasChunkAt(adjacentPos) && level.getBlockEntity(adjacentPos) instanceof NEBlockEntity) {
+                if (!level.hasChunkAt(adjacentPos)) {
+                    continue;
+                }
+                BlockState adjacentState = level.getBlockState(adjacentPos);
+                if (level.getBlockEntity(adjacentPos) instanceof NEBlockEntity
+                    || (adjacentState.getBlock() instanceof NENetworkSwitchBlock<?>
+                        && adjacentState.getValue(NENetworkSwitchBlock.FORMED))) {
                     directions.add(value);
                 }
             }

@@ -234,18 +234,16 @@ public final class NECraftingNetworkCluster {
         return Math.max(0, getRecipeSlotCount(grid) - getAvailableThreadSlots(grid));
     }
 
-    /** Physical batch slots exposed to the requested AE grid. */
+    /** Parallel-core crafting slots exposed to the requested AE grid. */
     public int getCraftingSlotCount(@Nullable IGrid grid) {
         long slots = 0L;
         for (NECraftingCluster physicalCluster : physicalClusters) {
             ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
-            if (controller == null) {
-                continue;
-            }
-            for (ECOCraftingWorkerBlockEntity worker : physicalCluster.getWorkers()) {
-                if (grid == null || worker.getMainNode().getGrid() == grid) {
-                    slots = saturatingAdd(slots, controller.getThreadCountPerWorker());
-                }
+            if (controller != null && hasMatchingWorker(physicalCluster, grid)) {
+                slots = saturatingAdd(
+                    slots,
+                    saturatingMultiply(physicalCluster.getNetworkMultiplier(), controller.getLocalThreadCount())
+                );
             }
         }
         return (int)Math.min(Integer.MAX_VALUE, slots);

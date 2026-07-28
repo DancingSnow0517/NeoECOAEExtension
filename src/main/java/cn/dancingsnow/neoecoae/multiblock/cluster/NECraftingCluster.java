@@ -74,4 +74,9 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     public void setNetworkCluster(@Nullable NECraftingNetworkCluster networkCluster) {
         this.networkCluster = networkCluster;
     }
+
+    @Override
+    protected boolean hasLinkedNetworkPeers() {
+        return networkCluster != null && networkCluster.getMemberCount() > 1;
+    }
 }

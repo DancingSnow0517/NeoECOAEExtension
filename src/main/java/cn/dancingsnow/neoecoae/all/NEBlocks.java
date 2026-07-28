@@ -102,7 +102,7 @@ public class NEBlocks {
                 .require(NEItems.SUPERCONDUCTING_PROCESSOR, 8)
                 .require(NEItems.ENERGIZED_SUPERCONDUCTIVE_INGOT, 16)
                 .require(NEBlocks.COMPUTATION_CASING, 8)
-                .require(AEBlocks.CELL_WORKBENCH, 4)
+                .require(AEBlocks.CRAFTING_UNIT, 4)
                 .require(AEItems.CELL_COMPONENT_256K, 4)
                 .energy(2_000_000)
                 .itemOutput(ctx.get())

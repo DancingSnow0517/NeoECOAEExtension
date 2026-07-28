@@ -77,6 +77,7 @@ public class NELangGenerator {
         provider.add("tooltip.neoecoae.storage.infinite_member_locked", "Infinite storage matrices cannot be removed while the storage host is in infinite mode");
 
         provider.add("tooltip.neoecoae.crafting_system", "The core of the crafting subsystem");
+        provider.add("tooltip.neoecoae.crafting_network_switch", "Links F9 crafting subsystem hosts on the same ME network");
         provider.add("tooltip.neoecoae.crafting_parallels", "Parallel core provides parallel count to the crafting subsystem");
         provider.add("tooltip.neoecoae.max_parallel_count", "Max parallel count +%d");
         provider.add("tooltip.neoecoae.overclocked", "When enabling overclocking:");
@@ -101,6 +102,9 @@ public class NELangGenerator {
         );
 
         provider.add("tooltip.neoecoae.computation_system", "The core of the computation subsystem");
+        provider.add("tooltip.neoecoae.computation_network_switch", "Links C9 computation subsystem hosts on the same ME network");
+        provider.add("tooltip.neoecoae.network_switch.multiplier", "Each linked host contributes x%d capacity");
+        provider.add("tooltip.neoecoae.network_switch.requirement", "Requires at least 2 linked hosts; a single host remains at x1");
         addLangs(provider, "tooltip.neoecoae.computation_system_desc",
             "The computation subsystem introduces virtual Crafting Processors (vCPUs):",
             "The host provides only one vCPU to the ME network at a time, with capacity equal to all currently available bytes in the subsystem",

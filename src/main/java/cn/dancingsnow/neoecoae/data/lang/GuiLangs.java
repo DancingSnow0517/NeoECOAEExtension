@@ -90,6 +90,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.common.types", "types");
         provider.add("gui.neoecoae.host.status.online", "ONLINE");
         provider.add("gui.neoecoae.host.status.running", "RUNNING");
+        provider.add("gui.neoecoae.host.network.mode.local", "LOCAL x1");
+        provider.add("gui.neoecoae.host.network.mode.normal", "NETWORK SWITCH x2");
+        provider.add("gui.neoecoae.host.network.mode.high_energy", "HIGH-ENERGY x8");
+        provider.add("gui.neoecoae.host.network.connected", "NETWORK ONLINE");
+        provider.add("gui.neoecoae.host.network.disconnected", "NETWORK OFFLINE");
         provider.add("gui.neoecoae.host.storage.subtitle", "Storage System Host");
         provider.add("gui.neoecoae.host.computation.subtitle", "Computation System Host");
         provider.add("gui.neoecoae.host.crafting.subtitle", "Crafting System Host");

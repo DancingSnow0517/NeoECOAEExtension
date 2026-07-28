@@ -11,12 +11,14 @@ import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
+import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -34,6 +36,7 @@ import dev.vfyjxf.taffy.style.TaffyPosition;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
+import appeng.api.networking.IGridNodeListener;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -81,6 +84,14 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     ) {
         super(type, pos, blockState);
         this.tier = tier;
+    }
+
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
+        if (cluster != null && cluster.isNetworkMode()) {
+            NELogicalNetworkManager.refresh(cluster);
+        }
     }
 
     @Override
@@ -155,19 +166,28 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
         UIElement root = new UIElement().layout(layout -> layout
             .width(340)
-            .height(232)
+            .height(242)
             .flexDirection(FlexDirection.COLUMN))
             .addClasses("panel_bg", "eco-computation-host");
 
         UIElement header = new UIElement().layout(layout -> layout
             .widthPercent(100)
-            .height(18)
+            .height(28)
             .flexDirection(FlexDirection.ROW)
             .alignItems(AlignItems.CENTER));
-        header.addChild(new TextElement()
+        UIElement titleBlock = new UIElement().layout(layout -> layout
+            .flex(1)
+            .height(24)
+            .flexDirection(FlexDirection.COLUMN)
+            .gapAll(2));
+        titleBlock.addChild(new TextElement()
             .setText(getItemFromBlockEntity().getDescription())
             .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
-            .layout(layout -> layout.flex(1)));
+            .layout(layout -> layout.widthPercent(100).height(10)));
+        titleBlock.addChild(HostNetworkStatusElement.create(
+            () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
+            () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
+        header.addChild(titleBlock);
         header.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig));
         root.addChild(header);
 

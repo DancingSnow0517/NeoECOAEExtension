@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.gui.crafting;
 import appeng.client.gui.Icon;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
+import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
@@ -47,15 +48,14 @@ import java.util.function.Supplier;
 
 public final class CraftingHostPanelUI {
     public static final int UI_WIDTH = 304;
-    public static final int UI_HEIGHT = 196;
+    public static final int UI_HEIGHT = 208;
 
-    private static final int HEADER_HEIGHT = 16;
+    private static final int HEADER_HEIGHT = 28;
     private static final int TOP_PANEL_HEIGHT = 70;
     private static final int BOTTOM_PANEL_HEIGHT = 88;
     private static final int STATUS_WIDTH = 76;
     private static final int STATS_WIDTH = 114;
     private static final int GAUGE_WIDTH = 90;
-    private static final int FORMED_STATUS_WIDTH = 72;
     private static final int PERFORMANCE_WIDTH = 60;
     private static final int INVENTORY_WIDTH = 162;
     private static final int TASK_WIDTH = 122;
@@ -88,7 +88,8 @@ public final class CraftingHostPanelUI {
 
     public record Config(
         Supplier<Component> title,
-        BooleanSupplier formed,
+        IntSupplier networkMultiplier,
+        BooleanSupplier networkConnected,
         BooleanSupplier overclocked,
         Runnable toggleOverclocked,
         BooleanSupplier activeCooling,
@@ -132,15 +133,15 @@ public final class CraftingHostPanelUI {
 
         Label title = boundLabel(config.title, ROOT_TEXT);
         title.addClass("eco-host-title");
-        title.layout(layout -> layout.flex(1).height(10));
-        Label status = boundLabel(() -> Component.translatable("gui.neoecoae.machine.formed")
-            .append(": ")
-            .append(Component.translatable(config.formed.getAsBoolean()
-                ? "gui.neoecoae.common.yes"
-                : "gui.neoecoae.common.no").withColor(config.formed.getAsBoolean() ? HostText.USED : PANEL_WARNING)), ROOT_TEXT);
-        status.addClass("eco-host-formed-status");
-        status.textStyle(style -> style.textAlignHorizontal(Horizontal.RIGHT));
-        status.layout(layout -> layout.width(FORMED_STATUS_WIDTH).height(10));
+        title.layout(layout -> layout.widthPercent(100).height(10));
+        UIElement networkStatus = HostNetworkStatusElement.create(config.networkMultiplier, config.networkConnected);
+
+        UIElement titleBlock = new UIElement().layout(layout -> layout
+            .flex(1)
+            .height(24)
+            .flexDirection(FlexDirection.COLUMN)
+            .gapAll(2));
+        titleBlock.addChildren(title, networkStatus);
 
         UIElement toolbar = new UIElement()
             .addClass("eco-host-toolbar")
@@ -153,8 +154,7 @@ public final class CraftingHostPanelUI {
         );
 
         header.addChildren(
-            title,
-            status,
+            titleBlock,
             toolbar
         );
         return header;

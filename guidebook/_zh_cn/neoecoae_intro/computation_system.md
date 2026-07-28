@@ -23,6 +23,8 @@ item_ids:
   - neoecoae:eco_computation_cell_l4
   - neoecoae:eco_computation_cell_l6
   - neoecoae:eco_computation_cell_l9
+  - neoecoae:computation_network_switch
+  - neoecoae:computation_high_energy_network_switch
 ---
 
 # ECO 计算系统
@@ -117,10 +119,25 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
 
 <ItemLink id="neoecoae:computation_casing" /> 方块构成多方块结构的框架。
 
+### 网络交换模块
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:computation_network_switch" />
+  <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
+</ItemGrid>
+
+<ItemLink id="neoecoae:computation_network_switch" /> 和 <ItemLink id="neoecoae:computation_high_energy_network_switch" /> 可将多台 C9 计算主机接入同一个逻辑计算网络。面向控制器正面时，用模块替换控制器右侧相邻的中央结构外壳；模块仅支持 C9 主机。
+
+- 普通网络交换模块使安装它的主机以 **x2** 线程、并行数和存储容量接入网络
+- 高能网络交换模块使安装它的主机以 **x8** 线程、并行数和存储容量接入网络
+- 同一 ME 网络中必须至少有 **2 台**已安装网络交换模块的 C9 计算主机，倍率才会生效
+- 只有一台主机时，即使安装了模块也保持 **x1**，不会获得数值提升
+- 两种模块可以混用，每台主机按自身安装的模块档位贡献容量
+
 ## 搭建结构
 
 1. 放置**主机**，使其朝外
-2. 使用**计算系统结构外壳**在控制器周围搭建结构框架
+2. 使用**计算系统结构外壳**在控制器周围搭建结构框架；如需网络交换，在控制器右侧相邻位置安装对应模块
 3. 在指定位置（控制器左后方）放置**通讯接口**
 4. 从控制器右侧的结构外壳的右侧水平排列添加**传输总线**
 5. 在传输总线后方放置**线程核心**

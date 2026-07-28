@@ -17,6 +17,8 @@ item_ids:
   - neoecoae:crafting_vent
   - neoecoae:input_hatch
   - neoecoae:output_hatch
+  - neoecoae:crafting_network_switch
+  - neoecoae:crafting_high_energy_network_switch
 ---
 
 # ECO 合成系统
@@ -115,10 +117,25 @@ ECO 合成系统是一个高级多方块样板供应器，可并行处理合成�
 
 <ItemLink id="neoecoae:crafting_casing" /> 方块构成多方块结构的框架。
 
+### 网络交换模块
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:crafting_network_switch" />
+  <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
+</ItemGrid>
+
+<ItemLink id="neoecoae:crafting_network_switch" /> 和 <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> 可将多台 F9 合成主机接入同一个逻辑合成网络。面向控制器正面时，用模块替换控制器右侧相邻的中央结构外壳；模块仅支持 F9 主机。
+
+- 普通网络交换模块使安装它的主机以 **x2** 合成槽位容量接入网络
+- 高能网络交换模块使安装它的主机以 **x8** 合成槽位容量接入网络
+- 同一 ME 网络中必须至少有 **2 台**已安装网络交换模块的 F9 合成主机，倍率才会生效
+- 只有一台主机时，即使安装了模块也保持 **x1**，不会获得容量提升
+- 两种模块可以混用，每台主机按自身安装的模块档位贡献容量
+
 ## 搭建结构
 
 1. 放置**主机**，使其朝外
-2. 使用**合成系统结构外壳**在控制器周围搭建结构框架
+2. 使用**合成系统结构外壳**在控制器周围搭建结构框架；如需网络交换，在控制器右侧相邻位置安装对应模块
 3. 在指定位置（控制器左后方）放置**通讯接口**
 4. 在接口上方添加**流体输入仓**
 5. 在接口下方添加**流体输出仓**

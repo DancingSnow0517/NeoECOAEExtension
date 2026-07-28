@@ -61,6 +61,12 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.craftingSystemMaxLength)
             );
         }
+        if (stack.is(NEBlocks.CRAFTING_NETWORK_SWITCH.asItem())) {
+            addNetworkSwitchTooltips(tooltip, flags, "tooltip.neoecoae.crafting_network_switch", 2);
+        }
+        if (stack.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.asItem())) {
+            addNetworkSwitchTooltips(tooltip, flags, "tooltip.neoecoae.crafting_network_switch", 8);
+        }
         if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOCraftingParallelCore parallelCore) {
             IECOTier tier = parallelCore.getTier();
             addTooltips(tooltip, flags,
@@ -125,6 +131,12 @@ public class NETooltips {
                 Component.translatable("tooltip.neoecoae.computation_system_desc.4")
             );
         }
+        if (stack.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.asItem())) {
+            addNetworkSwitchTooltips(tooltip, flags, "tooltip.neoecoae.computation_network_switch", 2);
+        }
+        if (stack.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.asItem())) {
+            addNetworkSwitchTooltips(tooltip, flags, "tooltip.neoecoae.computation_network_switch", 8);
+        }
         if (stack.is(NEBlocks.COMPUTATION_DRIVE.asItem())) {
             addTooltips(tooltip, flags,
                 Component.translatable("tooltip.neoecoae.computation_drive.0"),
@@ -159,5 +171,18 @@ public class NETooltips {
         } else if (!tooltip.contains(HOLD_SHIFT)) {
             tooltip.add(HOLD_SHIFT);
         }
+    }
+
+    private static void addNetworkSwitchTooltips(
+        List<Component> tooltip,
+        TooltipFlag flags,
+        String descriptionKey,
+        int multiplier
+    ) {
+        addTooltips(tooltip, flags,
+            Component.translatable(descriptionKey),
+            Component.translatable("tooltip.neoecoae.network_switch.multiplier", multiplier),
+            Component.translatable("tooltip.neoecoae.network_switch.requirement")
+        );
     }
 }

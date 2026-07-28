@@ -34,7 +34,14 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     private boolean highEnergyNetworkMode;
 
     public int getNetworkMultiplier() {
+        if (!hasLinkedNetworkPeers()) {
+            return 1;
+        }
         return highEnergyNetworkMode ? 8 : networkMode ? 2 : 1;
+    }
+
+    protected boolean hasLinkedNetworkPeers() {
+        return false;
     }
 
     public NECluster(BlockPos boundMin, BlockPos boundMax) {

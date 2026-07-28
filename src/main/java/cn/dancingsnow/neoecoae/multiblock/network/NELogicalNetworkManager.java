@@ -9,15 +9,19 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 
 /**
  * Server-thread authority for exchange-mode membership. A logical cluster is
- * scoped to one dimension and one subsystem; AE2 grid membership is never
- * merged here.
+ * scoped to one dimension, one subsystem and one AE2 grid. A switch multiplier
+ * only applies after at least two physical hosts join the same logical group.
  */
 public final class NELogicalNetworkManager {
     private static final Map<ServerLevel, LevelState> LEVELS = new WeakHashMap<>();
@@ -51,7 +55,19 @@ public final class NELogicalNetworkManager {
             detach(cluster);
             return;
         }
-        attach(cluster);
+        Level level = getLevel(cluster);
+        if (!(level instanceof ServerLevel serverLevel)) {
+            clearAssociation(cluster);
+            return;
+        }
+        LevelState state = LEVELS.computeIfAbsent(serverLevel, ignored -> new LevelState());
+        if (cluster instanceof NECraftingCluster craftingCluster) {
+            state.crafting.add(craftingCluster);
+            rebuildCrafting(serverLevel, state);
+        } else if (cluster instanceof NEComputationCluster computationCluster) {
+            state.computation.add(computationCluster);
+            rebuildComputation(serverLevel, state);
+        }
     }
 
     public static void detachBeforeDestroy(NECluster<?> cluster) {
@@ -69,12 +85,8 @@ public final class NELogicalNetworkManager {
     public static void clearAll() {
         for (Map.Entry<ServerLevel, LevelState> entry : LEVELS.entrySet()) {
             LevelState state = entry.getValue();
-            if (state.craftingNetwork != null) {
-                state.craftingNetwork.clear();
-            }
-            if (state.computationNetwork != null) {
-                state.computationNetwork.clear();
-            }
+            state.craftingNetworks.values().forEach(NECraftingNetworkCluster::clear);
+            state.computationNetworks.values().forEach(NEComputationNetworkCluster::clear);
             for (NECraftingCluster cluster : state.crafting) {
                 cluster.setNetworkCluster(null);
             }
@@ -113,41 +125,87 @@ public final class NELogicalNetworkManager {
     }
 
     private static void rebuildCrafting(ServerLevel level, LevelState state) {
-        NECraftingNetworkCluster network = state.craftingNetwork;
         if (state.crafting.isEmpty()) {
-            if (network != null) {
-                network.clear();
-            }
-            state.craftingNetwork = null;
+            state.craftingNetworks.values().forEach(NECraftingNetworkCluster::clear);
+            state.craftingNetworks.clear();
             return;
         }
-        if (network == null) {
-            network = new NECraftingNetworkCluster(level);
-            state.craftingNetwork = network;
-        }
+
+        Map<Object, List<NECraftingCluster>> groups = new IdentityHashMap<>();
         for (NECraftingCluster cluster : state.crafting) {
-            cluster.setNetworkCluster(network);
+            cluster.setNetworkCluster(null);
+            groups.computeIfAbsent(craftingNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
         }
-        network.configure(state.crafting);
+
+        Set<Object> activeKeys = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Map.Entry<Object, List<NECraftingCluster>> entry : groups.entrySet()) {
+            activeKeys.add(entry.getKey());
+            NECraftingNetworkCluster network = state.craftingNetworks.computeIfAbsent(
+                entry.getKey(),
+                ignored -> new NECraftingNetworkCluster(level)
+            );
+            for (NECraftingCluster cluster : entry.getValue()) {
+                cluster.setNetworkCluster(network);
+            }
+            network.configure(entry.getValue());
+        }
+        state.craftingNetworks.entrySet().removeIf(entry -> {
+            if (activeKeys.contains(entry.getKey())) {
+                return false;
+            }
+            entry.getValue().clear();
+            return true;
+        });
     }
 
     private static void rebuildComputation(ServerLevel level, LevelState state) {
-        NEComputationNetworkCluster network = state.computationNetwork;
         if (state.computation.isEmpty()) {
-            if (network != null) {
-                network.clear();
-            }
-            state.computationNetwork = null;
+            state.computationNetworks.values().forEach(NEComputationNetworkCluster::clear);
+            state.computationNetworks.clear();
             return;
         }
-        if (network == null) {
-            network = new NEComputationNetworkCluster(level);
-            state.computationNetwork = network;
-        }
+
+        Map<Object, List<NEComputationCluster>> groups = new IdentityHashMap<>();
         for (NEComputationCluster cluster : state.computation) {
-            cluster.setNetworkCluster(network);
+            cluster.setNetworkCluster(null);
+            groups.computeIfAbsent(computationNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
         }
-        network.configure(state.computation);
+
+        Set<Object> activeKeys = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Map.Entry<Object, List<NEComputationCluster>> entry : groups.entrySet()) {
+            activeKeys.add(entry.getKey());
+            NEComputationNetworkCluster network = state.computationNetworks.computeIfAbsent(
+                entry.getKey(),
+                ignored -> new NEComputationNetworkCluster(level)
+            );
+            for (NEComputationCluster cluster : entry.getValue()) {
+                cluster.setNetworkCluster(network);
+            }
+            network.configure(entry.getValue());
+        }
+        state.computationNetworks.entrySet().removeIf(entry -> {
+            if (activeKeys.contains(entry.getKey())) {
+                return false;
+            }
+            entry.getValue().clear();
+            return true;
+        });
+    }
+
+    private static Object craftingNetworkKey(NECraftingCluster cluster) {
+        var controller = cluster.getController();
+        if (controller != null && controller.getMainNode().isOnline() && controller.getMainNode().getGrid() != null) {
+            return controller.getMainNode().getGrid();
+        }
+        return cluster;
+    }
+
+    private static Object computationNetworkKey(NEComputationCluster cluster) {
+        var controller = cluster.getController();
+        if (controller != null && controller.getMainNode().isOnline() && controller.getMainNode().getGrid() != null) {
+            return controller.getMainNode().getGrid();
+        }
+        return cluster;
     }
 
     private static @Nullable Level getLevel(NECluster<?> cluster) {
@@ -163,7 +221,7 @@ public final class NELogicalNetworkManager {
     private static final class LevelState {
         private final Set<NECraftingCluster> crafting = new HashSet<>();
         private final Set<NEComputationCluster> computation = new HashSet<>();
-        private NECraftingNetworkCluster craftingNetwork;
-        private NEComputationNetworkCluster computationNetwork;
+        private final Map<Object, NECraftingNetworkCluster> craftingNetworks = new IdentityHashMap<>();
+        private final Map<Object, NEComputationNetworkCluster> computationNetworks = new IdentityHashMap<>();
     }
 }
