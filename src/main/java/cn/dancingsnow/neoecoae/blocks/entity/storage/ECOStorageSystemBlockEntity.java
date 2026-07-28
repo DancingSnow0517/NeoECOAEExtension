@@ -59,6 +59,7 @@ import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -94,6 +95,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int INFINITE_MEMBER_REQUIRED = 16;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
+    private static volatile Map<AEKeyType, Integer> registeredCellTypesByKeyType;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
     private static final long INFINITE_RESTORE_MARGIN_DENOMINATOR = 100L;
@@ -491,18 +493,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         int idleMatrices = 0;
         double bestLoadRatio = -1.0D;
         Map<Integer, StorageTypeTotals> storageTypes = new HashMap<>();
-        Map<AEKeyType, Integer> cellTypesByKeyType = new HashMap<>();
         for (ECODriveBlockEntity drive : cluster.getDrives()) {
             IECOStorageCell inv = drive.getCellInventory();
             if (inv == null) {
                 continue;
             }
             int cellTypeId = NERegistries.CELL_TYPE.getId(inv.getCellType());
-            if (cellTypeId >= 0 && drive.getCellStack().getItem() instanceof IECOStorageCellItem cellItem) {
-                for (AEKeyType keyType : cellItem.getKeyTypes()) {
-                    cellTypesByKeyType.putIfAbsent(keyType, cellTypeId);
-                }
-            }
             if (isInfiniteMemberCell(drive.getCellStack())) {
                 idleMatrices++;
                 continue;
@@ -539,7 +535,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
         }
         if (isFormedInfiniteMode()) {
-            addInfiniteStorageTypes(storageTypes, cellTypesByKeyType);
+            addInfiniteStorageTypes(storageTypes);
         }
 
         return new StorageUiSnapshot(
@@ -552,14 +548,12 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         );
     }
 
-    private void addInfiniteStorageTypes(
-        Map<Integer, StorageTypeTotals> storageTypes,
-        Map<AEKeyType, Integer> cellTypesByKeyType
-    ) {
+    private void addInfiniteStorageTypes(Map<Integer, StorageTypeTotals> storageTypes) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
         if (engine == null) {
             return;
         }
+        Map<AEKeyType, Integer> cellTypesByKeyType = getRegisteredCellTypesByKeyType();
         for (ECOInfiniteStorageEngine.TypeStats stats : engine.getTypeStats()) {
             int cellTypeId = cellTypesByKeyType.getOrDefault(stats.keyType(), -1);
             if (cellTypeId < 0) {
@@ -578,6 +572,52 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 ),
                 StorageTypeTotals::add
             );
+        }
+    }
+
+    private static Map<AEKeyType, Integer> getRegisteredCellTypesByKeyType() {
+        Map<AEKeyType, Integer> cached = registeredCellTypesByKeyType;
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (ECOStorageSystemBlockEntity.class) {
+            cached = registeredCellTypesByKeyType;
+            if (cached != null) {
+                return cached;
+            }
+
+            Map<AEKeyType, CellTypeCandidate> candidates = new HashMap<>();
+            BuiltInRegistries.ITEM.stream().forEach(item -> {
+                if (!(item instanceof IECOStorageCellItem cellItem)) {
+                    return;
+                }
+                int cellTypeId = NERegistries.CELL_TYPE.getId(cellItem.getCellType());
+                Set<AEKeyType> keyTypes = cellItem.getKeyTypes();
+                if (cellTypeId < 0 || keyTypes.isEmpty()) {
+                    return;
+                }
+                CellTypeCandidate candidate = new CellTypeCandidate(cellTypeId, keyTypes.size());
+                for (AEKeyType keyType : keyTypes) {
+                    candidates.merge(keyType, candidate, CellTypeCandidate::moreSpecific);
+                }
+            });
+
+            Map<AEKeyType, Integer> result = new HashMap<>();
+            candidates.forEach((keyType, candidate) -> result.put(keyType, candidate.cellTypeId()));
+            registeredCellTypesByKeyType = cached = Map.copyOf(result);
+            return cached;
+        }
+    }
+
+    private record CellTypeCandidate(int cellTypeId, int supportedKeyTypes) {
+        private CellTypeCandidate moreSpecific(CellTypeCandidate other) {
+            if (other.supportedKeyTypes < supportedKeyTypes) {
+                return other;
+            }
+            if (other.supportedKeyTypes > supportedKeyTypes) {
+                return this;
+            }
+            return other.cellTypeId < cellTypeId ? other : this;
         }
     }
 

@@ -215,16 +215,12 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
 
     @Override
     public boolean isValidBlockEntity(BlockEntity te) {
-        return (te instanceof ECOCraftingNetworkSwitchBlockEntity networkSwitch
-            && networkSwitch.getLevel() instanceof ServerLevel level
-            && isNetworkSwitchAt(level, networkSwitch.getBlockPos()))
-            || (te instanceof NEBlockEntity<?, ?> neBlockEntity
-                && neBlockEntity.getCalculator() instanceof NECraftingClusterCalculator);
-    }
-
-    @Override
-    protected boolean isAllowedNonEntityBlock(ServerLevel level, BlockPos pos) {
-        return isNetworkSwitchAt(level, pos);
+        if (te instanceof ECOCraftingNetworkSwitchBlockEntity networkSwitch) {
+            return networkSwitch.getLevel() instanceof ServerLevel level
+                && isNetworkSwitchAt(level, networkSwitch.getBlockPos());
+        }
+        return te instanceof NEBlockEntity<?, ?> neBlockEntity
+            && neBlockEntity.getCalculator() instanceof NECraftingClusterCalculator;
     }
 
     private static boolean isNetworkSwitchAt(ServerLevel level, BlockPos switchPos) {

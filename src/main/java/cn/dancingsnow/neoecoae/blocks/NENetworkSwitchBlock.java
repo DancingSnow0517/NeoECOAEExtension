@@ -17,7 +17,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-/** Shared formed-state rendering for the two network switch marker blocks. */
+/** Shared formed-state rendering for the subsystem network connection blocks. */
 public abstract class NENetworkSwitchBlock<T extends AENetworkedBlockEntity> extends AEBaseEntityBlock<T> {
     public static final BooleanProperty FORMED = BooleanProperty.create("formed");
 
@@ -64,7 +64,7 @@ public abstract class NENetworkSwitchBlock<T extends AENetworkedBlockEntity> ext
 
     @Override
     protected boolean skipRendering(BlockState state, BlockState adjacentState, Direction direction) {
-        // The formed controller model extends into this marker block's space.
+        // The formed controller model extends into this connection block's space.
         // It must keep its cull-faced outer quads when this block becomes invisible.
         return false;
     }

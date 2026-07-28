@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationNetworkCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
+import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -68,6 +69,28 @@ public final class NELogicalNetworkManager {
             state.computation.add(computationCluster);
             rebuildComputation(serverLevel, state);
         }
+    }
+
+    public static void refreshAfterGridChange(NECluster<?> cluster) {
+        Level level = getLevel(cluster);
+        if (!(level instanceof ServerLevel serverLevel) || cluster.isDestroyed() || !cluster.isNetworkMode()) {
+            return;
+        }
+        LevelState state = LEVELS.computeIfAbsent(serverLevel, ignored -> new LevelState());
+        if (!state.pendingGridRefresh.add(cluster)) {
+            return;
+        }
+
+        int refreshTick = serverLevel.getServer().getTickCount() + 1;
+        serverLevel.getServer().tell(new TickTask(refreshTick, () -> {
+            LevelState currentState = LEVELS.get(serverLevel);
+            if (currentState != null) {
+                currentState.pendingGridRefresh.remove(cluster);
+            }
+            if (!serverLevel.getServer().isStopped()) {
+                refresh(cluster);
+            }
+        }));
     }
 
     public static void detachBeforeDestroy(NECluster<?> cluster) {
@@ -239,5 +262,6 @@ public final class NELogicalNetworkManager {
         private final Set<NEComputationCluster> computation = new HashSet<>();
         private final Map<Object, NECraftingNetworkCluster> craftingNetworks = new IdentityHashMap<>();
         private final Map<Object, NEComputationNetworkCluster> computationNetworks = new IdentityHashMap<>();
+        private final Set<NECluster<?>> pendingGridRefresh = Collections.newSetFromMap(new IdentityHashMap<>());
     }
 }

@@ -28,7 +28,7 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
             definition,
             recipe.getDisplayWidth(),
             recipe.getDisplayHeight(),
-            recipeState::setExpand
+            recipeState::setPreview
         ).createModularUI());
         this.definition = definition;
         this.recipeState = recipeState;
@@ -36,11 +36,25 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     @Override
     public List<EmiIngredient> getInputs() {
-        var context = MultiBlockContext.dummyDelegated(recipeState.expand, new TrackedDummyWorld());
-        definition.createLevel(context);
+        var previewVariant = definition.getPreviewVariant(recipeState.variant);
+        var context = MultiBlockContext.dummyDelegated(
+            recipeState.expand,
+            new TrackedDummyWorld(),
+            previewVariant.blockOverrides()
+        );
+        definition.createPreviewLevel(context, recipeState.variant);
         return context.getRequiredItems().stream()
             .filter(requiredItem -> !requiredItem.isEmpty())
             .map(requiredItem -> (EmiIngredient) EmiStack.of(requiredItem.stackWithCount()))
+            .toList();
+    }
+
+    @Override
+    public List<EmiIngredient> getCatalysts() {
+        return definition.getPreviewVariants().stream()
+            .flatMap(variant -> variant.blockOverrides().values().stream())
+            .map(state -> (EmiIngredient) EmiStack.of(state.getBlock()))
+            .distinct()
             .toList();
     }
 
@@ -71,9 +85,11 @@ public class MultiblockEmiRecipe extends ModularUIEMIRecipe {
 
     private static final class RecipeState {
         private int expand = 1;
+        private int variant = 0;
 
-        private void setExpand(int expand) {
+        private void setPreview(int expand, int variant) {
             this.expand = expand;
+            this.variant = variant;
         }
     }
 }

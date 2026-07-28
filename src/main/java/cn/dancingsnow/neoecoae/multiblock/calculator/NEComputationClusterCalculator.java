@@ -233,16 +233,12 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
 
     @Override
     public boolean isValidBlockEntity(BlockEntity te) {
-        return (te instanceof ECOComputationNetworkSwitchBlockEntity networkSwitch
-            && networkSwitch.getLevel() instanceof ServerLevel level
-            && isNetworkSwitchAt(level, networkSwitch.getBlockPos()))
-            || (te instanceof NEBlockEntity<?, ?> neBlockEntity
-                && neBlockEntity.getCalculator() instanceof NEComputationClusterCalculator);
-    }
-
-    @Override
-    protected boolean isAllowedNonEntityBlock(ServerLevel level, BlockPos pos) {
-        return isNetworkSwitchAt(level, pos);
+        if (te instanceof ECOComputationNetworkSwitchBlockEntity networkSwitch) {
+            return networkSwitch.getLevel() instanceof ServerLevel level
+                && isNetworkSwitchAt(level, networkSwitch.getBlockPos());
+        }
+        return te instanceof NEBlockEntity<?, ?> neBlockEntity
+            && neBlockEntity.getCalculator() instanceof NEComputationClusterCalculator;
     }
 
     private static boolean isNetworkSwitchAt(ServerLevel level, BlockPos switchPos) {

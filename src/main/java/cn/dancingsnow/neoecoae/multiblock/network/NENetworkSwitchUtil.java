@@ -7,8 +7,6 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationNetworkSwitchBlockEntity;
-import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -71,12 +69,6 @@ public final class NENetworkSwitchUtil {
         if (state.getValue(NENetworkSwitchBlock.FORMED) != formed) {
             BlockState newState = state.setValue(NENetworkSwitchBlock.FORMED, formed);
             level.setBlock(switchPos, newState, Block.UPDATE_CLIENTS);
-        }
-        if (level.getBlockEntity(switchPos) instanceof ECOCraftingNetworkSwitchBlockEntity switchBlockEntity) {
-            switchBlockEntity.onFormedStateChanged();
-        } else if (level.getBlockEntity(switchPos)
-            instanceof ECOComputationNetworkSwitchBlockEntity switchBlockEntity) {
-            switchBlockEntity.onFormedStateChanged();
         }
         for (Direction direction : Direction.values()) {
             if (level.getBlockEntity(switchPos.relative(direction)) instanceof NEBlockEntity<?, ?> blockEntity) {

@@ -1,17 +1,21 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
+import appeng.api.networking.IManagedGridNode;
 import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkedBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
+import appeng.me.helpers.BlockEntityNodeListener;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import com.lowdragmc.lowdraglib2.syncdata.holder.ISyncMangedHolder;
 import lombok.Getter;
 import lombok.Setter;
@@ -35,6 +39,14 @@ import java.util.Set;
 public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEntity<C, E>>
     extends AENetworkedBlockEntity implements IAEMultiBlock<C> {
 
+    private static final IGridNodeListener<NEBlockEntity<?, ?>> NODE_LISTENER =
+        new BlockEntityNodeListener<>() {
+            @Override
+            public void onGridChanged(NEBlockEntity<?, ?> nodeOwner, IGridNode node) {
+                nodeOwner.onMainNodeGridChanged();
+            }
+        };
+
     @Setter
     @Getter
     protected boolean formed = false;
@@ -44,6 +56,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
     protected C cluster;
     @Getter
     protected final NEClusterCalculator<C> calculator;
+
+    @Override
+    protected IManagedGridNode createMainNode() {
+        return GridHelper.createManagedNode(this, NODE_LISTENER);
+    }
 
     public NEBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
         super(type, pos, blockState);
@@ -95,6 +112,12 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
+    private void onMainNodeGridChanged() {
+        if (cluster != null && cluster.isNetworkMode()) {
+            NELogicalNetworkManager.refreshAfterGridChange(cluster);
+        }
+    }
+
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
         if (!formed) {
@@ -131,6 +154,8 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         BlockState newState = state;
         if (state.hasProperty(NEBlock.FORMED)) {
             newState = state.setValue(NEBlock.FORMED, formed);
+        } else if (state.hasProperty(NENetworkSwitchBlock.FORMED)) {
+            newState = state.setValue(NENetworkSwitchBlock.FORMED, formed);
         }
         if (newState != state) {
             level.setBlock(

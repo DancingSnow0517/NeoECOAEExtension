@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -31,6 +32,8 @@ public class MultiBlockDefinition {
     private final int expandMax;
     @Getter
     private final BiConsumer<BlockPos, Level> onFormed;
+    @Getter
+    private final List<PreviewVariant> previewVariants;
 
     public MultiBlockDefinition(
         List<BlockInstruction> builderActions,
@@ -38,7 +41,8 @@ public class MultiBlockDefinition {
         Component name,
         int expandMin,
         int expandMax,
-        BiConsumer<BlockPos, Level> onFormed
+        BiConsumer<BlockPos, Level> onFormed,
+        List<PreviewVariant> previewVariants
     ) {
         this.builderActions = builderActions;
         this.owner = owner;
@@ -46,6 +50,7 @@ public class MultiBlockDefinition {
         this.expandMin = expandMin;
         this.expandMax = expandMax;
         this.onFormed = onFormed;
+        this.previewVariants = previewVariants;
     }
 
     public static Builder builder(Holder<Block> owner) {
@@ -64,6 +69,40 @@ public class MultiBlockDefinition {
         return context.getLevel();
     }
 
+    public Level createPreviewLevel(MultiBlockContext context, int variantIndex) {
+        createLevel(context);
+        getPreviewVariant(variantIndex).applyState(context.getLevel(), context.isFormed());
+        return context.getLevel();
+    }
+
+    public PreviewVariant getPreviewVariant(int variantIndex) {
+        return previewVariants.get(Math.clamp(variantIndex, 0, previewVariants.size() - 1));
+    }
+
+    public record PreviewVariant(
+        Component name,
+        String shortLabel,
+        Map<BlockPos, BlockState> blockOverrides,
+        BiConsumer<Level, Boolean> stateUpdater
+    ) {
+        public PreviewVariant {
+            blockOverrides = Map.copyOf(blockOverrides);
+        }
+
+        public void applyState(Level level, boolean formed) {
+            stateUpdater.accept(level, formed);
+        }
+
+        public static PreviewVariant standard() {
+            return new PreviewVariant(
+                Component.translatable("gui.neoecoae.multiblock.variant.standard"),
+                "-",
+                Map.of(),
+                (level, formed) -> {}
+            );
+        }
+    }
+
     public static class Builder {
         private final ImmutableList.Builder<BlockInstruction> builder = new ImmutableList.Builder<>();
         private final Holder<Block> owner;
@@ -72,10 +111,12 @@ public class MultiBlockDefinition {
         private BiConsumer<BlockPos, Level> onFormed = (a, b) -> {
         };
         private int expandMax = 16;
+        private final ImmutableList.Builder<PreviewVariant> previewVariants = ImmutableList.builder();
 
         public Builder(Holder<Block> owner) {
             this.owner = owner;
             name = owner.value().getName();
+            previewVariants.add(PreviewVariant.standard());
         }
 
         public Builder setBlock(BlockPos pos, BlockState block) {
@@ -159,14 +200,23 @@ public class MultiBlockDefinition {
             return this;
         }
 
+        public Builder previewVariant(PreviewVariant previewVariant) {
+            previewVariants.add(previewVariant);
+            return this;
+        }
+
         public MultiBlockDefinition create() {
-            MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax, onFormed);
+            MultiBlockDefinition def = new MultiBlockDefinition(
+                builder.build(), owner, name, expandMin, expandMax, onFormed, previewVariants.build()
+            );
             NEMultiBlocks.DEFINITIONS.add(def);
             return def;
         }
 
         public MultiBlockDefinition create(Consumer<MultiBlockDefinition> onBuild) {
-            MultiBlockDefinition def = new MultiBlockDefinition(builder.build(), owner, name, expandMin, expandMax, onFormed);
+            MultiBlockDefinition def = new MultiBlockDefinition(
+                builder.build(), owner, name, expandMin, expandMax, onFormed, previewVariants.build()
+            );
             onBuild.accept(def);
             return def;
         }

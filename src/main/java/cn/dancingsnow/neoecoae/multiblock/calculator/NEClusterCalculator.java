@@ -38,9 +38,6 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
                 ? (NEBlockEntity<C, ?>) neBlockEntity
                 : null;
             if (blockEntity == null) {
-                if (rawBlockEntity != null && isAllowedNonEntityBlock(level, blockPos)) {
-                    continue;
-                }
                 this.disconnect();
                 return;
             }
@@ -58,15 +55,6 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
         if (c.isNetworkMode()) {
             NELogicalNetworkManager.attach(c);
         }
-    }
-
-    /**
-     * Network switch marker block entities are only used by AE2 while it
-     * discovers the multiblock bounds. They are deliberately not added to the
-     * physical cluster because the switch is not a subsystem machine.
-     */
-    protected boolean isAllowedNonEntityBlock(ServerLevel level, BlockPos pos) {
-        return false;
     }
 
     @Override

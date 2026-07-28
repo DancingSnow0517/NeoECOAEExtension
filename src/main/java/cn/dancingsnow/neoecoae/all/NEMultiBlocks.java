@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.all;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.ECOMachineCasing;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.blocks.storage.ECOEnergyCellBlock;
@@ -24,6 +25,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class NEMultiBlocks {
     public static final List<MultiBlockDefinition> DEFINITIONS = new ArrayList<>();
@@ -48,44 +50,51 @@ public class NEMultiBlocks {
         NEBlocks.COMPUTATION_SYSTEM_L4,
         NEBlocks.COMPUTATION_THREADING_CORE_L4,
         NEBlocks.COMPUTATION_PARALLEL_CORE_L4,
-        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L4,
+        false
     );
 
     public static final MultiBlockDefinition COMPUTATION_SYSTEM_L6 = createComputationSystem(
         NEBlocks.COMPUTATION_SYSTEM_L6,
         NEBlocks.COMPUTATION_THREADING_CORE_L6,
         NEBlocks.COMPUTATION_PARALLEL_CORE_L6,
-        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L6,
+        false
     );
 
     public static final MultiBlockDefinition COMPUTATION_SYSTEM_L9 = createComputationSystem(
         NEBlocks.COMPUTATION_SYSTEM_L9,
         NEBlocks.COMPUTATION_THREADING_CORE_L9,
         NEBlocks.COMPUTATION_PARALLEL_CORE_L9,
-        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9
+        NEBlocks.COMPUTATION_COOLING_CONTROLLER_L9,
+        true
     );
 
     public static final MultiBlockDefinition CRAFTING_SYSTEM_L4 = createCraftingSystem(
         NEBlocks.CRAFTING_SYSTEM_L4,
-        NEBlocks.CRAFTING_PARALLEL_CORE_L4
+        NEBlocks.CRAFTING_PARALLEL_CORE_L4,
+        false
     );
 
     public static final MultiBlockDefinition CRAFTING_SYSTEM_L6 = createCraftingSystem(
         NEBlocks.CRAFTING_SYSTEM_L6,
-        NEBlocks.CRAFTING_PARALLEL_CORE_L6
+        NEBlocks.CRAFTING_PARALLEL_CORE_L6,
+        false
     );
 
     public static final MultiBlockDefinition CRAFTING_SYSTEM_L9 = createCraftingSystem(
         NEBlocks.CRAFTING_SYSTEM_L9,
-        NEBlocks.CRAFTING_PARALLEL_CORE_L9
+        NEBlocks.CRAFTING_PARALLEL_CORE_L9,
+        true
     );
 
     private static MultiBlockDefinition createCraftingSystem(
         BlockEntry<ECOCraftingSystem> main,
-        BlockEntry<ECOCraftingParallelCore> parallelCore
+        BlockEntry<ECOCraftingParallelCore> parallelCore,
+        boolean networkPreviewVariants
     ) {
         BlockState casing = NEBlocks.CRAFTING_CASING.getDefaultState();
-        return MultiBlockDefinition.builder(main)
+        MultiBlockDefinition.Builder builder = MultiBlockDefinition.builder(main)
             .setBlock(pos(1, 1, 0), main.getDefaultState())
             .setBlock(pos(1, 0, 0), casing)
             .setBlock(pos(2, 0, 0), casing)
@@ -132,18 +141,24 @@ public class NEMultiBlocks {
                 if (newState != state) {
                     level.setBlockAndUpdate(pos, newState);
                 }
-            })
-            .create(DEFINITIONS::add);
+            });
+        if (networkPreviewVariants) {
+            builder
+                .previewVariant(craftingNetworkPreviewVariant(NEBlocks.CRAFTING_NETWORK_SWITCH.getDefaultState(), false))
+                .previewVariant(craftingNetworkPreviewVariant(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.getDefaultState(), true));
+        }
+        return builder.create(DEFINITIONS::add);
     }
 
     private static MultiBlockDefinition createComputationSystem(
         BlockEntry<ECOComputationSystem> main,
         BlockEntry<ECOComputationThreadingCore> threadingCore,
         BlockEntry<ECOComputationParallelCore> parallelCore,
-        BlockEntry<ECOComputationCoolingController> cooler
+        BlockEntry<ECOComputationCoolingController> cooler,
+        boolean networkPreviewVariants
     ) {
         BlockState casing = NEBlocks.COMPUTATION_CASING.getDefaultState();
-        return MultiBlockDefinition.builder(main)
+        MultiBlockDefinition.Builder builder = MultiBlockDefinition.builder(main)
             .setBlock(pos(1, 1, 0), main.getDefaultState())
             .setBlock(pos(1, 0, 0), casing)
             .setBlock(pos(2, 0, 0), casing)
@@ -202,8 +217,67 @@ public class NEMultiBlocks {
                     level.setBlockAndUpdate(pos, newState);
                     if (be != null) level.setBlockEntity(be);
                 }
-            })
-            .create(DEFINITIONS::add);
+            });
+        if (networkPreviewVariants) {
+            builder
+                .previewVariant(computationNetworkPreviewVariant(NEBlocks.COMPUTATION_NETWORK_SWITCH.getDefaultState(), false))
+                .previewVariant(computationNetworkPreviewVariant(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.getDefaultState(), true));
+        }
+        return builder.create(DEFINITIONS::add);
+    }
+
+    private static MultiBlockDefinition.PreviewVariant craftingNetworkPreviewVariant(
+        BlockState switchState,
+        boolean highEnergy
+    ) {
+        return new MultiBlockDefinition.PreviewVariant(
+            switchState.getBlock().getName(),
+            highEnergy ? "x8" : "x2",
+            Map.of(pos(2, 1, 0), switchState),
+            (level, formed) -> {
+                BlockPos switchPos = pos(2, 1, 0);
+                BlockState currentSwitch = level.getBlockState(switchPos);
+                level.setBlockAndUpdate(
+                    switchPos,
+                    currentSwitch.setValue(NENetworkSwitchBlock.FORMED, formed)
+                );
+                BlockPos controllerPos = pos(1, 1, 0);
+                BlockState controller = level.getBlockState(controllerPos);
+                level.setBlockAndUpdate(
+                    controllerPos,
+                    controller
+                        .setValue(ECOCraftingSystem.NETWORK_SWITCH, formed && !highEnergy)
+                        .setValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, formed && highEnergy)
+                );
+            }
+        );
+    }
+
+    private static MultiBlockDefinition.PreviewVariant computationNetworkPreviewVariant(
+        BlockState switchState,
+        boolean highEnergy
+    ) {
+        return new MultiBlockDefinition.PreviewVariant(
+            switchState.getBlock().getName(),
+            highEnergy ? "x8" : "x2",
+            Map.of(pos(2, 1, 0), switchState),
+            (level, formed) -> {
+                BlockPos switchPos = pos(2, 1, 0);
+                BlockState currentSwitch = level.getBlockState(switchPos);
+                level.setBlockAndUpdate(
+                    switchPos,
+                    currentSwitch.setValue(NENetworkSwitchBlock.FORMED, formed)
+                );
+                BlockPos controllerPos = pos(1, 1, 0);
+                BlockState controller = level.getBlockState(controllerPos);
+                level.setBlockAndUpdate(
+                    controllerPos,
+                    controller
+                        .setValue(ECOComputationSystem.NETWORK_SWITCH, formed && !highEnergy)
+                        .setValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, formed && highEnergy)
+                );
+            }
+        );
     }
 
     private static MultiBlockDefinition storageSystem(Holder<Block> owner, BlockState system, BlockState energyCell) {

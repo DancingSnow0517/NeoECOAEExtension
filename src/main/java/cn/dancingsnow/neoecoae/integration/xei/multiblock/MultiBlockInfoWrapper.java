@@ -34,6 +34,7 @@ import org.appliedenergistics.yoga.YogaPositionType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
+import java.util.function.BiConsumer;
 
 public class MultiBlockInfoWrapper {
 
@@ -46,7 +47,7 @@ public class MultiBlockInfoWrapper {
     private static final int GAP = 2;
     private static final int HEADER_HEIGHT = 22;
     private static final int MATERIALS_HEIGHT = 27;
-    private static final int CONTROL_BUTTON_WIDTH = 44;
+    private static final int CONTROL_BUTTON_WIDTH = 33;
     private static final int CONTROL_BUTTON_HEIGHT = 18;
 
     @Getter
@@ -54,17 +55,19 @@ public class MultiBlockInfoWrapper {
     private final TrackedDummyWorld world;
     private final int width;
     private final int height;
-    private final IntConsumer expandChanged;
+    private final BiConsumer<Integer, Integer> previewChanged;
 
     private Scene scene;
     private Button expandButton;
     private Button layerButton;
     private Button formedButton;
+    private Button variantButton;
 
     private int expand = 1;
     private int layer = -1;
     private int layerMax = 0;
     private boolean formed = false;
+    private int variant = 0;
 
     private ItemStack selectedItem = ItemStack.EMPTY;
     private ScrollerView requiredItems;
@@ -83,11 +86,20 @@ public class MultiBlockInfoWrapper {
         int height,
         IntConsumer expandChanged
     ) {
+        this(definition, width, height, (expand, variant) -> expandChanged.accept(expand));
+    }
+
+    public MultiBlockInfoWrapper(
+        MultiBlockDefinition definition,
+        int width,
+        int height,
+        BiConsumer<Integer, Integer> previewChanged
+    ) {
         this.definition = definition;
         this.world = new TrackedDummyWorld();
         this.width = Math.max(width, DEFAULT_WIDTH);
         this.height = Math.max(height, MIN_HEIGHT);
-        this.expandChanged = expandChanged;
+        this.previewChanged = previewChanged;
     }
 
     public ModularUI createModularUI() {
@@ -138,7 +150,7 @@ public class MultiBlockInfoWrapper {
 
         UIElement buttons = new UIElement().layout(layout -> layout
             .positionType(YogaPositionType.ABSOLUTE)
-            .setWidth(CONTROL_BUTTON_WIDTH * 3 + GAP * 2)
+            .setWidth(CONTROL_BUTTON_WIDTH * buttonCount() + GAP * (buttonCount() - 1))
             .setHeight(CONTROL_BUTTON_HEIGHT)
             .flexDirection(YogaFlexDirection.ROW)
             .setGap(YogaGutter.ALL, GAP)
@@ -153,9 +165,15 @@ public class MultiBlockInfoWrapper {
         layerButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
         buttons.addChild(layerButton);
 
-        formedButton = new Button().setText("F: " + formed).setOnClick(event -> cycleFormed());
+        formedButton = new Button().setText(formedButtonText()).setOnClick(event -> cycleFormed());
         formedButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
         buttons.addChild(formedButton);
+
+        if (definition.getPreviewVariants().size() > 1) {
+            variantButton = new Button().setText(variantButtonText()).setOnClick(event -> cycleVariant());
+            variantButton.getLayout().setHeight(CONTROL_BUTTON_HEIGHT).setWidth(CONTROL_BUTTON_WIDTH);
+            buttons.addChild(variantButton);
+        }
 
         sceneContainer.addChild(buttons);
 
@@ -177,7 +195,7 @@ public class MultiBlockInfoWrapper {
         requiredItems.layout(layout -> layout.setWidthPercent(100).setHeight(MATERIALS_HEIGHT));
         root.addChild(requiredItems);
 
-        expandChanged.accept(expand);
+        previewChanged.accept(expand, variant);
         createScene();
         return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))));
     }
@@ -193,7 +211,14 @@ public class MultiBlockInfoWrapper {
 
     private void cycleFormed() {
         formed = !formed;
-        formedButton.setText("F: " + formed);
+        formedButton.setText(formedButtonText());
+        createScene();
+    }
+
+    private void cycleVariant() {
+        variant = (variant + 1) % definition.getPreviewVariants().size();
+        variantButton.setText(variantButtonText());
+        previewChanged.accept(expand, variant);
         createScene();
     }
 
@@ -203,7 +228,7 @@ public class MultiBlockInfoWrapper {
         } else {
             expand++;
         }
-        expandChanged.accept(expand);
+        previewChanged.accept(expand, variant);
         expandButton.setText("E: " + expand);
         if (formed) {
             cycleFormed();
@@ -228,9 +253,14 @@ public class MultiBlockInfoWrapper {
 
     private void createScene() {
         world.clear();
-        MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(expand, world);
+        MultiBlockDefinition.PreviewVariant previewVariant = definition.getPreviewVariant(variant);
+        MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(
+            expand,
+            world,
+            previewVariant.blockOverrides()
+        );
         context.setFormed(formed);
-        definition.createLevel(context);
+        definition.createPreviewLevel(context, variant);
         this.layerMax = context.getYMax();
         layer = Math.clamp(layer, -1, layerMax);
         if (layer == -1) {
@@ -257,6 +287,18 @@ public class MultiBlockInfoWrapper {
 //                .setIngredientIO(IngredientIO.INPUT);
 //            scrollableWidgetGroup.addWidget(widget);
 //        }
+    }
+
+    private int buttonCount() {
+        return definition.getPreviewVariants().size() > 1 ? 4 : 3;
+    }
+
+    private String formedButtonText() {
+        return "F: " + (formed ? "1" : "0");
+    }
+
+    private String variantButtonText() {
+        return "S: " + definition.getPreviewVariant(variant).shortLabel();
     }
 
     private static final class RequiredItemSlot extends ItemSlot {

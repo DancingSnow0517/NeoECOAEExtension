@@ -31,6 +31,11 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
         super.setRecipe(builder, recipe, focuses);
         builder.addInvisibleIngredients(RecipeIngredientRole.OUTPUT)
             .addItemLike(recipe.getDefinition().getOwner().value());
+        recipe.getDefinition().getPreviewVariants().stream()
+            .flatMap(variant -> variant.blockOverrides().values().stream())
+            .map(state -> state.getBlock())
+            .distinct()
+            .forEach(block -> builder.addInvisibleIngredients(RecipeIngredientRole.CATALYST).addItemLike(block));
     }
 
     @Override
@@ -68,5 +73,9 @@ public class MultiBlockInfoCategory extends ModularUIRecipeCategory<MultiBlockIn
     public static void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         NEMultiBlocks.DEFINITIONS.stream().map(it -> it.getOwner().value())
             .forEach(it -> registration.addRecipeCatalyst(it, NeoECOAEJeiPlugin.MULTIBLOCK_TYPE));
+        registration.addRecipeCatalyst(NEBlocks.CRAFTING_NETWORK_SWITCH, NeoECOAEJeiPlugin.MULTIBLOCK_TYPE);
+        registration.addRecipeCatalyst(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH, NeoECOAEJeiPlugin.MULTIBLOCK_TYPE);
+        registration.addRecipeCatalyst(NEBlocks.COMPUTATION_NETWORK_SWITCH, NeoECOAEJeiPlugin.MULTIBLOCK_TYPE);
+        registration.addRecipeCatalyst(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH, NeoECOAEJeiPlugin.MULTIBLOCK_TYPE);
     }
 }

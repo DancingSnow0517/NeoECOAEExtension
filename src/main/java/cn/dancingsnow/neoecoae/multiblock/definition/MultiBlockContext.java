@@ -14,6 +14,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiFunction;
 
 public abstract class MultiBlockContext {
@@ -31,26 +32,37 @@ public abstract class MultiBlockContext {
     public abstract boolean isFormed();
 
     public static MultiBlockContext.DummyDelegated dummyDelegated(int repeats, TrackedDummyWorld world) {
-        return new DummyDelegated(repeats, world);
+        return dummyDelegated(repeats, world, Map.of());
+    }
+
+    public static MultiBlockContext.DummyDelegated dummyDelegated(
+        int repeats,
+        TrackedDummyWorld world,
+        Map<BlockPos, BlockState> blockOverrides
+    ) {
+        return new DummyDelegated(repeats, world, blockOverrides);
     }
 
     public static class DummyDelegated extends MultiBlockContext {
         private final TrackedDummyWorld dummyWorld;
         private final List<RequiredItem> itemStacks = new ArrayList<>(16);
         private final List<BlockPos> posList = new ArrayList<>();
+        private final Map<BlockPos, BlockState> blockOverrides;
         @Getter
         private int yMax = 0;
         @Setter
         @Getter
         private boolean formed = false;
 
-        public DummyDelegated(int repeats, TrackedDummyWorld dummyWorld) {
+        public DummyDelegated(int repeats, TrackedDummyWorld dummyWorld, Map<BlockPos, BlockState> blockOverrides) {
             this.dummyWorld = dummyWorld;
             this.repeats = repeats;
+            this.blockOverrides = Map.copyOf(blockOverrides);
         }
 
         @Override
         public void setBlock(BlockPos pos, BlockState blockState) {
+            blockState = blockOverrides.getOrDefault(pos, blockState);
             ItemStack item = blockState.getBlock().asItem().getDefaultInstance();
             addRequiredItem(item);
             if (pos.getY() < 0) return;

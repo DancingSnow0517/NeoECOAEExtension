@@ -44,6 +44,10 @@ public class NeoECOAEEmiPlugin implements EmiPlugin {
         registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.COMPUTATION_SYSTEM_L4));
         registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.COMPUTATION_SYSTEM_L6));
         registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.COMPUTATION_SYSTEM_L9));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.CRAFTING_NETWORK_SWITCH));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.COMPUTATION_NETWORK_SWITCH));
+        registry.addWorkstation(MULTIBLOCK, EmiStack.of(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH));
 
         for (MultiBlockDefinition definition : NEMultiBlocks.DEFINITIONS) {
             registry.addRecipe(new MultiblockEmiRecipe(definition));

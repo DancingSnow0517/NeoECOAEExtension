@@ -17,6 +17,7 @@ public class NEConfig {
     private static final int CAPACITY_POWER_DEFAULT = 0;
     private static final int DEBUG_OVERDRIVE_CAPACITY_POWER = 15;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
+    public static final int ECO_CPU_PUSH_TICK_LIMIT_MAX = 393_216;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
@@ -169,7 +170,12 @@ public class NEConfig {
             "实际值仍会受可用协处理器数量限制。",
             "Maximum number of regular crafting patterns each CPU attempts to push per tick.",
             "The effective value is still limited by the number of available co-processors.")
-        .defineInRange("ecoCpuPushTickLimit", Integer.MAX_VALUE, 1, Integer.MAX_VALUE);
+        .defineInRange(
+            "ecoCpuPushTickLimit",
+            ECO_CPU_PUSH_TICK_LIMIT_MAX,
+            1,
+            ECO_CPU_PUSH_TICK_LIMIT_MAX
+        );
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment(
@@ -198,7 +204,7 @@ public class NEConfig {
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static boolean debugECOHostOverdrive;
-    public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
+    public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
     public static int ecoFastPathCacheSize = 512;
 
     @SubscribeEvent
