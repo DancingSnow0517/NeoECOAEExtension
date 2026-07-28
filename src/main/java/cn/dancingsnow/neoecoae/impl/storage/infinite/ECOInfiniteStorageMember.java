@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 public final class ECOInfiniteStorageMember {
     private static final String MEMBER_TAG = "neoecoae_infinite_member";
     private static final String DOMAIN_TAG = "neoecoae_infinite_domain";
+    private static final String MATRIX_ID_TAG = "neoecoae_infinite_matrix_id";
 
     private ECOInfiniteStorageMember() {}
 
@@ -39,6 +40,29 @@ public final class ECOInfiniteStorageMember {
 
     public static boolean isMemberOf(@Nullable ItemStack stack, UUID domainId) {
         return getDomainId(stack).map(domainId::equals).orElse(false);
+    }
+
+    public static Optional<UUID> getMatrixId(@Nullable ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return Optional.empty();
+        }
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        return tag.hasUUID(MATRIX_ID_TAG) ? Optional.of(tag.getUUID(MATRIX_ID_TAG)) : Optional.empty();
+    }
+
+    /** Assigns a stable identity before a matrix participates in an idempotent transfer. */
+    public static UUID ensureMatrixId(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            throw new IllegalArgumentException("Cannot identity an empty infinite-storage matrix");
+        }
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        if (tag.hasUUID(MATRIX_ID_TAG)) {
+            return tag.getUUID(MATRIX_ID_TAG);
+        }
+        UUID matrixId = UUID.randomUUID();
+        tag.putUUID(MATRIX_ID_TAG, matrixId);
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        return matrixId;
     }
 
     public static void markMember(@Nullable ItemStack stack, UUID domainId) {

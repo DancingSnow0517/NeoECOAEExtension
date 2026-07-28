@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.gui.storage.StorageHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.storage.StoragePriority;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageCell;
+import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteDomainState;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorage;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageEngine;
@@ -60,6 +61,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -141,6 +143,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private long performanceWindowNanos = 0L;
     private transient Set<UUID> loggedConflictingMemberDomains = Set.of();
     @Nullable private transient UUID loggedMissingMemberDomain;
+    @Nullable private transient ECOInfiniteDomainState lastInfiniteDomainState;
     @Setter
     private boolean mirrored;
 
@@ -210,6 +213,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         long startNanos = System.nanoTime();
         try {
             updateInfiniteStorageMode();
+            if (level instanceof ServerLevel serverLevel && infiniteDomainId != null) {
+                ECOInfiniteStorageDomains.pollPersistence(serverLevel, infiniteDomainId, level.getGameTime());
+            }
             ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
             if (storageInterface != null) {
                 storageInterface.recordStorageInterfaceTransfer(transferStorageInterfaceContents(storageInterface));
@@ -342,7 +348,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 .toList(),
             this::isMigratingToInfinite,
             this::getInfiniteMigrationProgressPercent,
-            NEConfig::isInfiniteStorageEnabled,
+            this::getInfiniteDomainStatus,
+            this::isInfiniteDomainFailed,
+            this::shouldDisplayInfiniteStorageControls,
             this::canExtractInfiniteComponents,
             infiniteComponentItemHandler,
             () -> level.registryAccess(),
@@ -360,6 +368,43 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             .toList();
     }
 
+    private boolean shouldDisplayInfiniteStorageControls() {
+        return NEConfig.isInfiniteStorageEnabled()
+            || hostMode.isInfiniteState()
+            || infiniteDomainId != null
+            || !infiniteComponentInventory.getStackInSlot(0).isEmpty();
+    }
+
+    private Component getInfiniteDomainStatus() {
+        if (infiniteDomainId == null) {
+            return Component.empty();
+        }
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        if (engine == null) {
+            return Component.translatable("gui.neoecoae.storage.status.domain_unavailable");
+        }
+        return switch (engine.getState()) {
+            case LOADING -> Component.translatable("gui.neoecoae.storage.status.domain_loading");
+            case MIGRATING_V1 -> Component.translatable("gui.neoecoae.storage.status.domain_migrating_v1");
+            case QUARANTINED -> Component.translatable("gui.neoecoae.storage.status.domain_quarantined")
+                .append(engine.getFailureReason().map(reason -> ": " + reason).orElse(""));
+            case CLOSED -> Component.translatable("gui.neoecoae.storage.status.domain_closed");
+            case READY -> hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
+                ? Component.translatable("gui.neoecoae.storage.status.domain_migrating_matrices")
+                : Component.empty();
+        };
+    }
+
+    private boolean isInfiniteDomainFailed() {
+        if (infiniteDomainId == null) {
+            return false;
+        }
+        ECOInfiniteStorageEngine engine = getInfiniteEngine();
+        return engine == null
+            || engine.getState() == ECOInfiniteDomainState.QUARANTINED
+            || engine.getState() == ECOInfiniteDomainState.CLOSED;
+    }
+
     @Override
     public void saveChangedInventory(AppEngInternalInventory inv) {
         saveChanges();
@@ -374,7 +419,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     @Override
     public void mountInventories(IStorageMounts storageMounts) {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine == null || !engine.isLoaded() || !canUseHostDomainStorage() || isStorageInterfaceTransferMode()) {
+        if (engine == null
+                || engine.getState() != ECOInfiniteDomainState.READY
+                || !engine.isHealthy()
+                || !canUseHostDomainStorage()
+                || isStorageInterfaceTransferMode()) {
             return;
         }
         storageMounts.mount(new ECOInfiniteStorage(engine, getBlockState().getBlock().getName()), storagePriority);
@@ -711,7 +760,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     public boolean canUseHostDomainStorage() {
-        return formed && hostMode.isInfiniteState() && infiniteDomainId != null;
+        return formed && hostMode == ECOStorageHostMode.FORMED_INFINITE && infiniteDomainId != null;
     }
 
     public boolean isInfiniteMemberCell(@Nullable ItemStack stack) {
@@ -797,19 +846,27 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         if (hostMode == ECOStorageHostMode.UNFORMED) {
             hostMode = ECOStorageHostMode.FORMED_NORMAL;
         }
-        if (hostMode.isInfiniteState() && !NEConfig.isInfiniteStorageEnabled()) {
-            restoreInfiniteDomainToNormalStorage();
-            syncInfiniteModeChanges(previous, previousDomainId);
-            return;
-        }
         if (hostMode.isInfiniteState() && !hasRequiredInfiniteComponents()) {
             restoreInfiniteDomainToNormalStorageIfPossible();
             syncInfiniteModeChanges(previous, previousDomainId);
             return;
         }
         if (hostMode == ECOStorageHostMode.FORMED_NORMAL && canStartInfiniteMigration()) {
-            ensureInfiniteDomainId();
-            hostMode = ECOStorageHostMode.MIGRATING_TO_INFINITE;
+            UUID domainId = ensureInfiniteDomainId();
+            ServerLevel serverLevel = (ServerLevel) level;
+            ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.exists(serverLevel, domainId)
+                ? ECOInfiniteStorageDomains.openExisting(serverLevel, domainId)
+                : ECOInfiniteStorageDomains.create(serverLevel, domainId);
+            if (engine.getState() == ECOInfiniteDomainState.READY && engine.isHealthy()) {
+                hostMode = ECOStorageHostMode.MIGRATING_TO_INFINITE;
+            } else {
+                LOGGER.error(
+                    "Unable to create infinite-storage domain {} at {}: {}",
+                    domainId,
+                    worldPosition,
+                    engine.getFailureReason().orElse(engine.getState().name())
+                );
+            }
         }
         if (hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE) {
             runInfiniteMigrationStep();
@@ -820,11 +877,18 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     private void pollInfiniteStorageLoad() {
         ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (engine != null && engine.tickLoad()) {
+        if (engine == null) {
+            lastInfiniteDomainState = null;
+            return;
+        }
+        boolean completed = engine.tickLoad();
+        ECOInfiniteDomainState currentState = engine.getState();
+        if (completed || currentState != lastInfiniteDomainState) {
             // Notify AE2 to call mountInventories() so the terminal shows items immediately.
             storageUiSnapshotGameTime = Long.MIN_VALUE;
             refreshDriveStorageProviders();
         }
+        lastInfiniteDomainState = currentState;
     }
 
     private void syncInfiniteModeChanges(ECOStorageHostMode previous, @Nullable UUID previousDomainId) {
@@ -957,8 +1021,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             return;
         }
         UUID domainId = ensureInfiniteDomainId();
-        ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.get(serverLevel, domainId);
-        if (!engine.isLoaded() || !engine.isHealthy()) {
+        ECOInfiniteStorageEngine engine = ECOInfiniteStorageDomains.openExisting(serverLevel, domainId);
+        if (engine.getState() != ECOInfiniteDomainState.READY || !engine.isHealthy()) {
             return;
         }
         boolean hasPending = false;
@@ -990,30 +1054,50 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private void migrateDriveToDomain(ECODriveBlockEntity drive, IECOStorageCell cell, ECOInfiniteStorageEngine engine, UUID domainId) {
+        ItemStack sourceStack = drive.getCellStack();
+        if (sourceStack == null || sourceStack.isEmpty()) {
+            return;
+        }
+        // The matrix identity must survive conversion to a member and later retries. A block position is not
+        // unique when a domain is moved between dimensions or a drive is replaced.
+        ECOInfiniteStorageMember.ensureMatrixId(sourceStack);
+        drive.setChanged();
         KeyCounter available = new KeyCounter();
         cell.getAvailableStacks(available);
+        List<ECOInfiniteStorageEngine.HugeStack> pending = new ArrayList<>();
         for (Object2LongMap.Entry<AEKey> entry : available) {
             long amount = entry.getLongValue();
             if (amount > 0L) {
-                UUID transactionId = migrationTransactionId(domainId, drive, entry.getKey(), amount, "to-domain");
-                long inserted = engine.insertOnce(transactionId, entry.getKey(), amount);
-                if (inserted != amount) {
-                    LOGGER.error(
-                        "Unable to migrate ECO storage matrix at {} into infinite domain {}: inserted {} of {}",
-                        drive.getBlockPos(),
-                        domainId,
-                        inserted,
-                        amount
-                    );
-                    engine.flushBudgeted(0L);
-                    return;
+                UUID legacyTransactionId = migrationTransactionId(
+                    domainId,
+                    drive,
+                    entry.getKey(),
+                    amount,
+                    "to-domain"
+                );
+                if (!engine.hasLegacyTransferReceipt(legacyTransactionId)
+                        && !engine.hasTransferReceipt(legacyTransactionId)) {
+                    pending.add(new ECOInfiniteStorageEngine.HugeStack(entry.getKey(), HugeAmount.of(amount)));
                 }
             }
         }
-        engine.flushBudgeted(0L);
-        if (!engine.isHealthy()) {
-            LOGGER.error("Unable to durably checkpoint migration into infinite domain {}; keeping the source cell",
-                domainId);
+        UUID transactionId = matrixMigrationTransactionId(domainId, drive);
+        UUID legacyTransactionId = legacyMatrixMigrationTransactionId(domainId, drive);
+        boolean applied;
+        if (pending.isEmpty()) {
+            applied = true;
+        } else if (engine.hasTransferReceipt(legacyTransactionId)) {
+            // Preserve a batch receipt written by the pre-v3 implementation when its digest matches.
+            applied = engine.applyTransferOnce(legacyTransactionId, pending);
+        } else {
+            applied = engine.applyTransferOnce(transactionId, pending);
+        }
+        if (!applied) {
+            LOGGER.error(
+                "Unable to durably migrate ECO storage matrix at {} into infinite domain {}; keeping the source cell",
+                drive.getBlockPos(),
+                domainId
+            );
             return;
         }
         if (cell instanceof ECOStorageCell storageCell) {
@@ -1075,6 +1159,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         KeyCounter pending = new KeyCounter();
         engine.getAvailableStacks(pending);
         IActionSource source = IActionSource.ofMachine(this);
+        Set<UUID> expectedReceiptIds = new HashSet<>();
         for (Object2LongMap.Entry<AEKey> entry : pending) {
             AEKey key = entry.getKey();
             HugeAmount amount = engine.getAmount(key);
@@ -1085,8 +1170,21 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             for (RestoreTarget target : targets) {
                 UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key,
                     amount.toLongSaturated(), "from-domain");
-                long alreadyRestored = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
-                remaining -= alreadyRestored;
+                expectedReceiptIds.add(transactionId);
+                ECODriveBlockEntity.RestoreReceipt receipt =
+                    target.drive().getRestoreReceiptDetails(transactionId);
+                if (receipt == null && target.drive().hasRestoreReceipt(transactionId)) {
+                    return RestorePlan.blocked("a target matrix contains an unverifiable restore receipt");
+                }
+                if (receipt != null) {
+                    IECOStorageCell actualCell = target.drive().getCellInventory();
+                    if (actualCell == null
+                            || receipt.amount() > remaining
+                            || !restoreReceiptMatches(actualCell, key, receipt)) {
+                        return RestorePlan.blocked("a target matrix no longer matches its restore receipt");
+                    }
+                    remaining -= receipt.amount();
+                }
                 if (remaining <= 0L) {
                     break;
                 }
@@ -1098,6 +1196,11 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
             if (remaining > 0L) {
                 return RestorePlan.blocked("normal storage matrices do not have enough compatible capacity");
+            }
+        }
+        for (RestoreTarget target : targets) {
+            if (target.drive().hasUnexpectedRestoreReceipts(expectedReceiptIds)) {
+                return RestorePlan.blocked("a target matrix has receipts for different source contents");
             }
         }
         if (enforceMargin && !restoreTargetsHaveMargin(targets)) {
@@ -1176,10 +1279,29 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                     continue;
                 }
                 UUID transactionId = migrationTransactionId(infiniteDomainId, target.drive(), key, original, "from-domain");
-                long inserted = Math.min(remaining, target.drive().getRestoreReceipt(transactionId));
-                if (inserted <= 0L) {
+                ECODriveBlockEntity.RestoreReceipt receipt =
+                    target.drive().getRestoreReceiptDetails(transactionId);
+                if (receipt == null && target.drive().hasRestoreReceipt(transactionId)) {
+                    LOGGER.error("Unverifiable restore receipt in matrix {}", target.drive().getBlockPos());
+                    return;
+                }
+                long inserted;
+                if (receipt != null) {
+                    if (receipt.amount() > remaining || !restoreReceiptMatches(cell, key, receipt)) {
+                        LOGGER.error("Restore receipt no longer matches matrix {}", target.drive().getBlockPos());
+                        return;
+                    }
+                    inserted = receipt.amount();
+                } else {
                     inserted = insertForRestore(cell, key, remaining, Actionable.MODULATE, source);
-                    target.drive().putRestoreReceipt(transactionId, inserted);
+                    if (inserted > 0L) {
+                        long postAmount = getCellStoredAmount(cell, key);
+                        if (postAmount < inserted) {
+                            LOGGER.error("Unable to verify restore write in matrix {}", target.drive().getBlockPos());
+                            return;
+                        }
+                        target.drive().putRestoreReceipt(transactionId, inserted, postAmount);
+                    }
                 }
                 remaining -= inserted;
                 if (remaining <= 0L) {
@@ -1188,7 +1310,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             }
             if (remaining > 0L) {
                 LOGGER.warn("ECO infinite storage restore changed during execution; keeping domain {} mounted", infiniteDomainId);
-                engine.flushBudgeted(0L);
+                engine.flushAndAwait();
                 return;
             }
         }
@@ -1198,7 +1320,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 "Unable to verify restored ECO storage contents for domain {}; keeping the domain mounted",
                 infiniteDomainId
             );
-            engine.flushBudgeted(0L);
+            engine.flushAndAwait();
+            return;
+        }
+        if (!verifyRestoreReceipts(plan.targets(), pending)) {
+            LOGGER.error(
+                "Unable to verify restored ECO storage receipts for domain {}; keeping the source domain",
+                infiniteDomainId
+            );
             return;
         }
         for (Object2LongMap.Entry<AEKey> entry : pending) {
@@ -1207,7 +1336,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 engine.extract(entry.getKey(), amount, Actionable.MODULATE);
             }
         }
-        engine.flushBudgeted(0L);
+        engine.flushAndAwait();
         if (!engine.isHealthy()) {
             LOGGER.error("Unable to durably finish restoring infinite domain {}; keeping it mounted", infiniteDomainId);
             return;
@@ -1246,6 +1375,58 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return true;
     }
 
+    private boolean verifyRestoreReceipts(List<RestoreTarget> targets, KeyCounter restored) {
+        for (Object2LongMap.Entry<AEKey> entry : restored) {
+            AEKey key = entry.getKey();
+            long expected = entry.getLongValue();
+            long receipted = 0L;
+            for (RestoreTarget target : targets) {
+                UUID transactionId = migrationTransactionId(
+                    infiniteDomainId,
+                    target.drive(),
+                    key,
+                    expected,
+                    "from-domain"
+                );
+                ECODriveBlockEntity.RestoreReceipt receipt =
+                    target.drive().getRestoreReceiptDetails(transactionId);
+                if (receipt == null) {
+                    if (target.drive().hasRestoreReceipt(transactionId)) {
+                        return false;
+                    }
+                    continue;
+                }
+                IECOStorageCell cell = target.drive().getCellInventory();
+                if (cell == null || !restoreReceiptMatches(cell, key, receipt)) {
+                    return false;
+                }
+                try {
+                    receipted = Math.addExact(receipted, receipt.amount());
+                } catch (ArithmeticException e) {
+                    return false;
+                }
+            }
+            if (receipted != expected) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean restoreReceiptMatches(
+        IECOStorageCell cell,
+        AEKey key,
+        ECODriveBlockEntity.RestoreReceipt receipt
+    ) {
+        return receipt.amount() > 0L && getCellStoredAmount(cell, key) == receipt.postAmount();
+    }
+
+    private long getCellStoredAmount(IECOStorageCell cell, AEKey key) {
+        KeyCounter contents = new KeyCounter();
+        cell.getAvailableStacks(contents);
+        return contents.get(key);
+    }
+
     private KeyCounter collectRestoreTargetContents(List<RestoreTarget> targets) {
         KeyCounter restored = new KeyCounter();
         for (RestoreTarget target : targets) {
@@ -1273,6 +1454,19 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private UUID migrationTransactionId(UUID domainId, ECODriveBlockEntity drive, AEKey key, long amount, String direction) {
         String value = domainId + ":" + direction + ":" + drive.getBlockPos().asLong() + ":"
             + key.toTagGeneric(level.registryAccess()) + ":" + amount;
+        return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private UUID matrixMigrationTransactionId(UUID domainId, ECODriveBlockEntity drive) {
+        UUID matrixId = ECOInfiniteStorageMember.getMatrixId(drive.getCellStack())
+            .orElseThrow(() -> new IllegalStateException("Infinite-storage matrix has no persistent identity"));
+        String dimension = level.dimension().location().toString();
+        String value = domainId + ":to-domain-v3:" + dimension + ":" + matrixId;
+        return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private UUID legacyMatrixMigrationTransactionId(UUID domainId, ECODriveBlockEntity drive) {
+        String value = domainId + ":to-domain-v2:" + drive.getBlockPos().asLong();
         return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
     }
 

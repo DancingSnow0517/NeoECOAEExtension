@@ -43,11 +43,17 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine {
+/**
+ * Frozen V1 format implementation. Runtime domains never instantiate this class; the strict loader is used only on
+ * a disposable working copy by {@link LegacyV1Reader}.
+ */
+@Deprecated
+final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileBackedInfiniteStorageEngine.class);
     private static final int SHARD_COUNT = 256;
     private static final int LEGACY_WAL_VERSION = 1;
@@ -61,6 +67,8 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private static final long WAL_CHECKPOINT_INTERVAL_NANOS = 60_000_000_000L;
     private static final long IDLE_CHECKPOINT_DELAY_NANOS = 5_000_000_000L;
     private static final String DOMAIN_MARKER_VERSION = "1";
+    private static final ResourceLocation AE2_MISSING_CONTENT =
+        ResourceLocation.fromNamespaceAndPath("ae2", "missing_content");
     private static final HugeAmount LONG_MAX_AMOUNT = HugeAmount.of(Long.MAX_VALUE);
 
     private final HolderLookup.Provider registries;
@@ -116,7 +124,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
     private long activeWalRecordCount;
     private long activeWalMaxRevision;
 
-    public FileBackedInfiniteStorageEngine(HolderLookup.Provider registries, UUID domainId, Path domainPath) {
+    private FileBackedInfiniteStorageEngine(HolderLookup.Provider registries, UUID domainId, Path domainPath) {
         this.registries = registries;
         this.domainId = domainId;
         this.domainPath = domainPath.toAbsolutePath().normalize();
@@ -777,7 +785,42 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         Path domainMarkerPath
     ) {
         return new Loader(registries, domainId, domainPath, shardsPath, walDirectory,
-            transactionsPath, transactionLedgerPath, domainMarkerPath).compute();
+            transactionsPath, transactionLedgerPath, domainMarkerPath, false).compute();
+    }
+
+    static LegacyV1Snapshot readMigrationSnapshot(
+        HolderLookup.Provider registries,
+        UUID domainId,
+        Path copiedDomainPath
+    ) {
+        Path transactions = copiedDomainPath.resolve("txn");
+        LoadResult result = new Loader(
+            registries,
+            domainId,
+            copiedDomainPath,
+            copiedDomainPath.resolve("shards"),
+            copiedDomainPath.resolve("wal"),
+            transactions,
+            transactions.resolve("receipts.log"),
+            copiedDomainPath.resolve("domain.meta"),
+            true
+        ).compute();
+        if (result.degraded()) {
+            throw new IllegalStateException(
+                "V1 infinite-storage data could not be read without loss",
+                result.persistenceFailure()
+            );
+        }
+        Set<UUID> receipts = new HashSet<>(result.committedTransactions());
+        receipts.addAll(result.persistedTransactions());
+        return new LegacyV1Snapshot(
+            Map.copyOf(result.amounts()),
+            Set.copyOf(receipts),
+            result.revision()
+        );
+    }
+
+    record LegacyV1Snapshot(Map<AEKey, HugeAmount> amounts, Set<UUID> receipts, long revision) {
     }
 
     /** Immutable snapshot of loaded state; applied to the engine on the server thread. */
@@ -804,6 +847,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         private final Path transactionsPath;
         private final Path transactionLedgerPath;
         private final Path domainMarkerPath;
+        private final boolean strictMigration;
         private final Map<AEKey, HugeAmount> amounts = new HashMap<>();
         private final Map<AEKey, Long> loadedKeyRevisions = new HashMap<>();
         private final Map<AEKey, Integer> loadedKeySourceShards = new HashMap<>();
@@ -811,6 +855,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         private final Set<Integer> dirtyShards = new HashSet<>();
         private final Set<UUID> committedTransactions = new HashSet<>();
         private final Set<UUID> persistedTransactions = new HashSet<>();
+        private final Map<UUID, LegacyTransactionRecord> migrationTransactions = new HashMap<>();
         private final List<SealedWalSegment> sealedWalSegments = new ArrayList<>();
         private long revision = 0L;
         private boolean degraded = false;
@@ -819,7 +864,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
 
         Loader(HolderLookup.Provider registries, UUID domainId, Path domainPath,
                Path shardsPath, Path walDirectory, Path transactionsPath,
-               Path transactionLedgerPath, Path domainMarkerPath) {
+               Path transactionLedgerPath, Path domainMarkerPath, boolean strictMigration) {
             this.registries = registries;
             this.domainId = domainId;
             this.domainPath = domainPath;
@@ -828,6 +873,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             this.transactionsPath = transactionsPath;
             this.transactionLedgerPath = transactionLedgerPath;
             this.domainMarkerPath = domainMarkerPath;
+            this.strictMigration = strictMigration;
         }
         // LOADER_BODY_PLACEHOLDER
 
@@ -927,12 +973,21 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 CompoundTag tag = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
                 if (!domainId.toString().equals(tag.getString("domain"))) throw new IOException("ECO infinite storage shard domain mismatch in " + path);
                 long shardRev = tag.getLong("revision");
+                if (strictMigration && shardRev < 0L) {
+                    throw new IOException("Negative shard revision in " + path);
+                }
                 int hashVer = tag.getInt(ECOStorageKeyHash.SHARD_HASH_VERSION_TAG);
                 ListTag entries = tag.getList("entries", Tag.TAG_COMPOUND);
                 for (int i = 0; i < entries.size(); i++) {
                     CompoundTag e = entries.getCompound(i);
                     AEKey key = AEKey.fromTagGeneric(registries, e.getCompound("key"));
                     HugeAmount amt = HugeAmount.read(e.getCompound("amount"));
+                    if (strictMigration && !isResolvedLegacyKey(key)) {
+                        throw new IOException("Unknown AE key in ECO infinite storage shard " + path);
+                    }
+                    if (strictMigration && amt.isZero()) {
+                        throw new IOException("Zero amount in ECO infinite storage shard " + path);
+                    }
                     if (key != null && !amt.isZero()) {
                         int targetShard = shardFor(key);
                         if (targetShard != shard || hashVer < ECOStorageKeyHash.VERSION) { dirtyShards.add(shard); dirtyShards.add(targetShard); }
@@ -945,7 +1000,11 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                     }
                 }
                 revision = Math.max(revision, shardRev); shardRevisions[shard] = shardRev;
-            } catch (RuntimeException | IOException e) { degraded = true; LOGGER.error("Unable to read ECO infinite storage shard {}", path, e); }
+            } catch (RuntimeException | IOException e) {
+                degraded = true;
+                persistenceFailure = e;
+                LOGGER.error("Unable to read ECO infinite storage shard {}", path, e);
+            }
         }
 
         private int shardFor(AEKey key) { return ECOStorageKeyHash.shardFor(registries, key, SHARD_COUNT); }
@@ -984,7 +1043,7 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                     byte[] payload = new byte[length]; in.readFully(payload); offset += length;
                     CRC32 crc = new CRC32(); crc.update(payload);
                     if ((int) crc.getValue() != expectedCrc) {
-                        if (offset == fileSize) repairOffset = recordStart;
+                        if (!strictMigration && offset == fileSize) repairOffset = recordStart;
                         else { degraded = true; LOGGER.error("CRC mismatch in ECO infinite storage WAL {}", path); }
                         break;
                     }
@@ -994,7 +1053,11 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                         walShardRevisions.merge(r.shard(), r.revision(), Math::max);
                     }
                 }
-            } catch (RuntimeException | IOException e) { degraded = true; LOGGER.error("Unable to replay ECO infinite storage WAL {}", path, e); }
+            } catch (RuntimeException | IOException e) {
+                degraded = true;
+                persistenceFailure = e;
+                LOGGER.error("Unable to replay ECO infinite storage WAL {}", path, e);
+            }
             if (!degraded && repairOffset >= 0L && repairTail) repairWalTail(path, repairOffset);
             else if (!degraded && repairOffset >= 0L) { degraded = true; LOGGER.error("Incomplete sealed ECO infinite storage WAL {}", path); }
             return new WalScanResult(recordCount, maxRevision, walShardRevisions);
@@ -1024,6 +1087,9 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 UUID recordDomain = new UUID(in.readLong(), in.readLong());
                 if (!domainId.equals(recordDomain)) throw new IOException("ECO infinite storage WAL domain mismatch: " + recordDomain);
                 long recordRevision = in.readLong();
+                if (strictMigration && recordRevision < 0L) {
+                    throw new IOException("Negative revision in ECO infinite storage WAL");
+                }
                 UUID txId = in.readBoolean() ? new UUID(in.readLong(), in.readLong()) : null;
                 int keyLen = in.readInt();
                 if (keyLen <= 0 || keyLen > MAX_WAL_RECORD_BYTES || keyLen > in.available()) throw new IOException("Invalid ECO infinite storage WAL key length " + keyLen);
@@ -1034,16 +1100,33 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
                 if (deltaLen <= 0 || deltaLen > MAX_WAL_RECORD_BYTES || deltaLen > in.available()) throw new IOException("Invalid ECO infinite storage WAL delta length " + deltaLen);
                 byte[] deltaBytes = in.readNBytes(deltaLen);
                 if (in.available() != 0) throw new IOException("Trailing bytes in ECO infinite storage WAL record");
-                if (key == null) throw new IOException("Unknown AE key in ECO infinite storage WAL");
-                return new WalRecord(recordRevision, shardFor(key), key, new BigInteger(deltaBytes), txId);
+                if (!isResolvedLegacyKey(key)) throw new IOException("Unknown AE key in ECO infinite storage WAL");
+                BigInteger delta = new BigInteger(deltaBytes);
+                if (strictMigration && delta.signum() == 0) {
+                    throw new IOException("Zero delta in ECO infinite storage WAL");
+                }
+                return new WalRecord(recordRevision, shardFor(key), key, delta, txId);
             } catch (EOFException e) { throw new IOException("Truncated ECO infinite storage binary WAL record", e); }
         }
 
-        @Nullable private WalRecord decodeLegacyWalRecord(CompoundTag tag) {
+        @Nullable private WalRecord decodeLegacyWalRecord(CompoundTag tag) throws IOException {
             AEKey key = AEKey.fromTagGeneric(registries, tag.getCompound("key"));
-            if (key == null) return null;
+            if (!isResolvedLegacyKey(key)) {
+                if (strictMigration) {
+                    throw new IOException("Unknown AE key in legacy ECO infinite storage WAL");
+                }
+                return null;
+            }
             UUID txId = tag.hasUUID("transaction") ? tag.getUUID("transaction") : null;
-            return new WalRecord(tag.getLong("revision"), shardFor(key), key, new BigInteger(tag.getString("delta")), txId);
+            long recordRevision = tag.getLong("revision");
+            if (strictMigration && recordRevision < 0L) {
+                throw new IOException("Negative revision in legacy ECO infinite storage WAL");
+            }
+            BigInteger delta = new BigInteger(tag.getString("delta"));
+            if (strictMigration && delta.signum() == 0) {
+                throw new IOException("Zero delta in legacy ECO infinite storage WAL");
+            }
+            return new WalRecord(recordRevision, shardFor(key), key, delta, txId);
         }
 
         private void validateWalDomain(CompoundTag tag) throws IOException {
@@ -1051,17 +1134,38 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             if (!domainId.toString().equals(d)) throw new IOException("ECO infinite storage WAL domain mismatch: " + d);
         }
 
-        private void replayWalRecord(WalRecord record) {
+        private void replayWalRecord(WalRecord record) throws IOException {
+            if (strictMigration && record.transactionId() != null) {
+                LegacyTransactionRecord current = new LegacyTransactionRecord(record.key(), record.delta());
+                LegacyTransactionRecord previous = migrationTransactions.putIfAbsent(record.transactionId(), current);
+                if (previous != null) {
+                    if (!previous.equals(current)) {
+                        throw new IOException(
+                            "V1 transaction ID has conflicting contents: " + record.transactionId()
+                        );
+                    }
+                    committedTransactions.add(record.transactionId());
+                    revision = Math.max(revision, record.revision());
+                    return;
+                }
+            }
             if (!isWalRecordCovered(record.revision(), shardRevisions[record.shard()], loadedKeyRevisions.getOrDefault(record.key(), 0L)))
                 applyDelta(record.key(), record.delta());
             if (record.transactionId() != null) committedTransactions.add(record.transactionId());
             revision = Math.max(revision, record.revision());
         }
 
-        private void applyDelta(AEKey key, BigInteger delta) {
+        private record LegacyTransactionRecord(AEKey key, BigInteger delta) {
+        }
+
+        private void applyDelta(AEKey key, BigInteger delta) throws IOException {
             if (delta.signum() == 0) return;
             HugeAmount current = amounts.getOrDefault(key, HugeAmount.ZERO);
-            HugeAmount next = HugeAmount.of(current.toBigInteger().add(delta).max(BigInteger.ZERO));
+            BigInteger rawNext = current.toBigInteger().add(delta);
+            if (strictMigration && rawNext.signum() < 0) {
+                throw new IOException("V1 WAL would make an infinite-storage amount negative");
+            }
+            HugeAmount next = HugeAmount.of(rawNext.max(BigInteger.ZERO));
             if (next.isZero()) amounts.remove(key); else amounts.put(key, next);
             if (next.compareTo(current) != 0) dirtyShards.add(shardFor(key));
         }
@@ -1510,6 +1614,10 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
             | (bytes[offset + 1] & 0xff) << 16
             | (bytes[offset + 2] & 0xff) << 8
             | bytes[offset + 3] & 0xff;
+    }
+
+    private static boolean isResolvedLegacyKey(@Nullable AEKey key) {
+        return key != null && !AE2_MISSING_CONTENT.equals(key.getId());
     }
 
     private Path transactionReceipt(UUID transactionId) {

@@ -26,6 +26,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -33,6 +34,7 @@ import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBlockEntity>
@@ -160,6 +162,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             IECOTier mainTier = storageCluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
+                && !storageCluster.getController().isInfiniteMode()
                 && mainTier.compareTo(cellInventory.getTier()) >= 0
                 && !ECOInfiniteStorageMember.isMember(cellStack)) {
                 storageMounts.mount(cellInventory, storageCluster.getController().getStoragePriority());
@@ -235,20 +238,63 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         return true;
     }
 
-    public long getRestoreReceipt(UUID transactionId) {
-        if (cellStack == null || cellStack.isEmpty()) return 0L;
-        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        return custom.getCompound(RESTORE_RECEIPTS_TAG).getLong(transactionId.toString());
-    }
-
-    public void putRestoreReceipt(UUID transactionId, long amount) {
-        if (cellStack == null || cellStack.isEmpty() || amount <= 0L) return;
+    @Nullable
+    public RestoreReceipt getRestoreReceiptDetails(UUID transactionId) {
+        if (cellStack == null || cellStack.isEmpty()) return null;
         CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         CompoundTag receipts = custom.getCompound(RESTORE_RECEIPTS_TAG);
-        receipts.putLong(transactionId.toString(), amount);
+        String receiptKey = transactionId.toString();
+        if (!receipts.contains(receiptKey, Tag.TAG_COMPOUND)) {
+            return null;
+        }
+        CompoundTag receipt = receipts.getCompound(receiptKey);
+        if (receipt.getInt("version") != 2) {
+            return null;
+        }
+        long amount = receipt.getLong("amount");
+        long postAmount = receipt.getLong("post_amount");
+        return amount > 0L && postAmount >= amount ? new RestoreReceipt(amount, postAmount) : null;
+    }
+
+    public long getRestoreReceipt(UUID transactionId) {
+        RestoreReceipt receipt = getRestoreReceiptDetails(transactionId);
+        return receipt == null ? 0L : receipt.amount();
+    }
+
+    public boolean hasRestoreReceipt(UUID transactionId) {
+        if (cellStack == null || cellStack.isEmpty()) return false;
+        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        return custom.getCompound(RESTORE_RECEIPTS_TAG).contains(transactionId.toString());
+    }
+
+    public void putRestoreReceipt(UUID transactionId, long amount, long postAmount) {
+        if (cellStack == null || cellStack.isEmpty() || amount <= 0L || postAmount < amount) return;
+        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag receipts = custom.getCompound(RESTORE_RECEIPTS_TAG);
+        CompoundTag receipt = new CompoundTag();
+        receipt.putInt("version", 2);
+        receipt.putLong("amount", amount);
+        receipt.putLong("post_amount", postAmount);
+        receipts.put(transactionId.toString(), receipt);
         custom.put(RESTORE_RECEIPTS_TAG, receipts);
         cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
         setChanged();
+    }
+
+    public boolean hasUnexpectedRestoreReceipts(Set<UUID> expectedTransactionIds) {
+        if (cellStack == null || cellStack.isEmpty()) return false;
+        CompoundTag custom = cellStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag receipts = custom.getCompound(RESTORE_RECEIPTS_TAG);
+        for (String key : receipts.getAllKeys()) {
+            try {
+                if (!expectedTransactionIds.contains(UUID.fromString(key))) {
+                    return true;
+                }
+            } catch (IllegalArgumentException e) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void clearRestoreReceipts() {
@@ -258,5 +304,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         if (custom.isEmpty()) cellStack.remove(DataComponents.CUSTOM_DATA);
         else cellStack.set(DataComponents.CUSTOM_DATA, CustomData.of(custom));
         setChanged();
+    }
+
+    public record RestoreReceipt(long amount, long postAmount) {
     }
 }

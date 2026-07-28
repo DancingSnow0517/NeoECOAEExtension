@@ -79,6 +79,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.status.high", "%s near capacity");
         provider.add("gui.neoecoae.storage.status.warning", "%s pressure rising");
         provider.add("gui.neoecoae.storage.status.stable", "Stable");
+        provider.add("gui.neoecoae.storage.status.domain_loading", "Loading storage data");
+        provider.add("gui.neoecoae.storage.status.domain_migrating_v1", "Migrating V1 storage");
+        provider.add("gui.neoecoae.storage.status.domain_migrating_matrices", "Migrating matrices");
+        provider.add("gui.neoecoae.storage.status.domain_quarantined", "Storage quarantined");
+        provider.add("gui.neoecoae.storage.status.domain_closed", "Storage offline");
+        provider.add("gui.neoecoae.storage.status.domain_unavailable", "Storage unavailable");
         provider.add("gui.neoecoae.storage.idle_matrices", "Idle Matrices");
         provider.add("gui.neoecoae.storage.infinite_value", "infinite");
         provider.add("gui.neoecoae.common.types", "types");

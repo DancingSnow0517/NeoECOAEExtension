@@ -123,7 +123,9 @@ public final class StorageHostPanelUI {
         List<StorageTypeLine> storageTypes,
         BooleanSupplier migratingToInfinite,
         IntSupplier infiniteMigrationProgress,
-        BooleanSupplier enableInfiniteStorage,
+        Supplier<Component> infiniteDomainStatus,
+        BooleanSupplier infiniteDomainFailed,
+        BooleanSupplier displayInfiniteStorageControls,
         BooleanSupplier canExtractInfiniteComponents,
         IItemHandlerModifiable infiniteComponentInventory,
         Supplier<HolderLookup.Provider> registries,
@@ -142,9 +144,9 @@ public final class StorageHostPanelUI {
         // Both logical sides must construct the exact same sync tree. Build both layouts and
         // synchronize visibility instead of branching on a side-local config value.
         panel.addChild(HostElements.syncedDisplay(
-                () -> !config.enableInfiniteStorage().getAsBoolean())
+                () -> !config.displayInfiniteStorageControls().getAsBoolean())
             .addChild(createLeftStoragePanel(config, PANEL_HEIGHT)));
-        panel.addChild(HostElements.syncedDisplay(config.enableInfiniteStorage())
+        panel.addChild(HostElements.syncedDisplay(config.displayInfiniteStorageControls())
             .addChild(createLeftPanelWithInventory(config)));
         return panel;
     }
@@ -273,7 +275,9 @@ public final class StorageHostPanelUI {
                     () -> Component.translatable("gui.neoecoae.storage.status")
                         .append(": ")
                         .append(storageStatus(config)),
-                    () -> isInfiniteDisplay(config) ? INFINITE_STATUS_COLOR : storageStatusColor(config)
+                    () -> config.infiniteDomainFailed().getAsBoolean()
+                        ? HostText.ERROR
+                        : isInfiniteDisplay(config) ? INFINITE_STATUS_COLOR : storageStatusColor(config)
                 ),
                 RIGHT_DETAIL_X,
                 RIGHT_DETAIL_Y + RIGHT_DETAIL_LINE_HEIGHT * 2,
@@ -324,7 +328,7 @@ public final class StorageHostPanelUI {
             ));
             view.addChild(HostElements.absolute(
                 infiniteComponentSlot(
-                    config.enableInfiniteStorage(),
+                    config.displayInfiniteStorageControls(),
                     config.canExtractInfiniteComponents(),
                     config.infiniteComponentInventory()
                 ),
@@ -577,6 +581,10 @@ public final class StorageHostPanelUI {
     }
 
     private static Component storageStatus(Config config) {
+        Component domainStatus = config.infiniteDomainStatus().get();
+        if (!domainStatus.getString().isEmpty()) {
+            return domainStatus;
+        }
         if (isInfiniteDisplay(config)) {
             return Component.translatable("gui.neoecoae.storage.infinite_value");
         }
