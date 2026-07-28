@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationDriveBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationCoolingControllerBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationParallelCoreBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationThreadingCoreBlockEntity;
@@ -44,6 +45,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private final List<ECOComputationThreadingCoreBlockEntity> threadingCores = new ArrayList<>();
     @Getter
     private final List<ECOComputationParallelCoreBlockEntity> parallelCores = new ArrayList<>();
+    @Getter
+    private ECOComputationCoolingControllerBlockEntity coolingController;
     @Getter
     @Nullable
     private ECOComputationSystemBlockEntity controller;
@@ -91,6 +94,22 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (blockEntity instanceof ECOComputationParallelCoreBlockEntity parallelCore) {
             parallelCores.add(parallelCore);
         }
+        if (blockEntity instanceof ECOComputationCoolingControllerBlockEntity coolingController) {
+            this.coolingController = coolingController;
+        }
+    }
+
+    @Override
+    public int getNetworkMultiplier() {
+        int configuredMultiplier = super.getNetworkMultiplier();
+        if (configuredMultiplier <= 1 || coolingController == null) {
+            return 1;
+        }
+        if (configuredMultiplier >= 8
+            && coolingController.getTier().getTier() < ECOTier.L9.getTier()) {
+            return 1;
+        }
+        return configuredMultiplier;
     }
 
     public void pickup(ICraftingPlan plan, ECOCraftingCPU cpu) {
@@ -175,6 +194,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     public long getLocalAvailableStorage() {
         ensureDebugOverdriveState();
         return availableStorage;
+    }
+
+    public long getEffectiveAvailableStorage() {
+        ensureDebugOverdriveState();
+        long effectiveTotal = saturatingMultiply(totalStorage, getNetworkMultiplier());
+        return Math.max(0L, effectiveTotal - getActiveJobBytes());
     }
 
     public int getMaxThreads() {
@@ -285,7 +310,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         if (!this.isLocallyActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }
-        if (this.getLocalAvailableStorage() < job.bytes()) {
+        if (this.getEffectiveAvailableStorage() < job.bytes()) {
             return CraftingSubmitResult.CPU_TOO_SMALL;
         }
         ECOCraftingCPU cpu = null;
@@ -317,8 +342,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             : collectStorage(upperDrives) + collectStorage(lowerDrives);
         long usedStorage = getActiveJobBytes();
 
-        this.availableStorage = totalStorage - usedStorage;
-        if (this.availableStorage >= 0 || this.activeCpus.isEmpty()) {
+        this.availableStorage = Math.max(0L, totalStorage - usedStorage);
+        long effectiveTotalStorage = saturatingMultiply(totalStorage, getNetworkMultiplier());
+        if (effectiveTotalStorage >= usedStorage || this.activeCpus.isEmpty()) {
             return;
         }
 
@@ -327,7 +353,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             this.killCpu(plan, false, false);
         }
 
-        this.availableStorage = Math.max(0, totalStorage - getActiveJobBytes());
+        this.availableStorage = Math.max(0L, totalStorage - getActiveJobBytes());
     }
 
     private void ensureDebugOverdriveState() {
@@ -342,6 +368,13 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
             usedStorage += plan.bytes();
         }
         return usedStorage;
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {

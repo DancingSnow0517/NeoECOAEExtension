@@ -62,10 +62,16 @@ public class NETooltips {
             );
         }
         if (stack.is(NEBlocks.CRAFTING_NETWORK_SWITCH.asItem())) {
-            addNetworkSwitchTooltips(tooltip, flags, "tooltip.neoecoae.crafting_network_switch", 2);
+            addNetworkSwitchTooltips(
+                tooltip, flags, "tooltip.neoecoae.crafting_network_switch", 2,
+                "tooltip.neoecoae.network_switch.crafting_cooling"
+            );
         }
         if (stack.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.asItem())) {
-            addNetworkSwitchTooltips(tooltip, flags, "tooltip.neoecoae.crafting_network_switch", 8);
+            addNetworkSwitchTooltips(
+                tooltip, flags, "tooltip.neoecoae.crafting_network_switch", 8,
+                "tooltip.neoecoae.network_switch.crafting_high_energy_cooling"
+            );
         }
         if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ECOCraftingParallelCore parallelCore) {
             IECOTier tier = parallelCore.getTier();
@@ -132,10 +138,16 @@ public class NETooltips {
             );
         }
         if (stack.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.asItem())) {
-            addNetworkSwitchTooltips(tooltip, flags, "tooltip.neoecoae.computation_network_switch", 2);
+            addNetworkSwitchTooltips(
+                tooltip, flags, "tooltip.neoecoae.computation_network_switch", 2,
+                "tooltip.neoecoae.network_switch.computation_cooling"
+            );
         }
         if (stack.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.asItem())) {
-            addNetworkSwitchTooltips(tooltip, flags, "tooltip.neoecoae.computation_network_switch", 8);
+            addNetworkSwitchTooltips(
+                tooltip, flags, "tooltip.neoecoae.computation_network_switch", 8,
+                "tooltip.neoecoae.network_switch.computation_high_energy_cooling"
+            );
         }
         if (stack.is(NEBlocks.COMPUTATION_DRIVE.asItem())) {
             addTooltips(tooltip, flags,
@@ -177,12 +189,15 @@ public class NETooltips {
         List<Component> tooltip,
         TooltipFlag flags,
         String descriptionKey,
-        int multiplier
+        int multiplier,
+        String coolingRequirementKey
     ) {
         addTooltips(tooltip, flags,
             Component.translatable(descriptionKey),
             Component.translatable("tooltip.neoecoae.network_switch.multiplier", multiplier),
-            Component.translatable("tooltip.neoecoae.network_switch.requirement")
+            Component.translatable("tooltip.neoecoae.network_switch.power_multiplier", multiplier >= 8 ? 16 : 4),
+            Component.translatable("tooltip.neoecoae.network_switch.requirement"),
+            Component.translatable(coolingRequirementKey)
         );
     }
 }

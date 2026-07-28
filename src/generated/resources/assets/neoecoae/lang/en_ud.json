@@ -463,6 +463,7 @@
   "tooltip.neoecoae.holdshift": "oɟuı ǝɹoɯ ʍoɥs oʇ [ʇɟıɥS] pןoH",
   "tooltip.neoecoae.max_lenth": "%d :ǝɹnʇɔnɹʇs ɟo ɥʇbuǝן ɯnɯıxɐW",
   "tooltip.neoecoae.network_switch.multiplier": "Each linked host contributes x%d capacity",
+  "tooltip.neoecoae.network_switch.power_multiplier": "Power consumption while linked: x%d",
   "tooltip.neoecoae.network_switch.requirement": "Requires at least 2 linked hosts; a single host remains at x1",
   "tooltip.neoecoae.max_parallel_count": "%d+ ʇunoɔ ןǝןןɐɹɐd xɐW",
   "tooltip.neoecoae.max_thread_count": "%d+ ʇunoɔ pɐǝɹɥʇ xɐW",

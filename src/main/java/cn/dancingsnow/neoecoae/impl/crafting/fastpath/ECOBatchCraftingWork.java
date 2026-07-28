@@ -18,8 +18,8 @@ public record ECOBatchCraftingWork(
         if (batchSize <= 0 || batchSize > ECOBatchCraftingHelper.MAX_BATCH_SIZE) {
             throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
         }
-        if (occupiedThreadSlots != batchSize) {
-            throw new IllegalArgumentException("Batch work must occupy one thread slot per craft");
+        if (occupiedThreadSlots <= 0 || occupiedThreadSlots > batchSize) {
+            throw new IllegalArgumentException("occupiedThreadSlots must be positive and not exceed batchSize");
         }
         if (progress < 0) {
             throw new IllegalArgumentException("progress must not be negative");

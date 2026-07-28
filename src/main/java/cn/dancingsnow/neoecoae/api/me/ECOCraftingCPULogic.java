@@ -311,7 +311,8 @@ public class ECOCraftingCPULogic {
                             details, craftingContainer, expectedOutputs, expectedContainerItems, level,
                             fastPathCandidate);
 
-                    var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
+                    var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer)
+                        * cpu.getCluster().getNetworkPowerMultiplier();
                     int batchResult = tryPushVerifiedFastPathBatch(
                             job,
                             details,
@@ -499,7 +500,9 @@ public class ECOCraftingCPULogic {
 
         int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
         batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
-        batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
+        batchSize = controller.getCraftingCoolantCraftLimit(
+            5, controller.getCoolingRequirementForCurrentNetwork(), batchSize
+        );
         if (batchSize <= 1) {
             return 0;
         }

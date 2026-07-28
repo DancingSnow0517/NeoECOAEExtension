@@ -29,13 +29,14 @@ public class ECOCraftingNetworkSwitchBlockEntity extends AENetworkedBlockEntity 
         if (!getBlockState().getValue(NENetworkSwitchBlock.FORMED) || level == null) {
             return EnumSet.noneOf(Direction.class);
         }
+        EnumSet<Direction> directions = EnumSet.noneOf(Direction.class);
         for (Direction direction : Direction.values()) {
             if (level.getBlockEntity(worldPosition.relative(direction))
-                instanceof ECOCraftingSystemBlockEntity) {
-                return EnumSet.of(direction);
+                instanceof AbstractCraftingBlockEntity<?>) {
+                directions.add(direction);
             }
         }
-        return EnumSet.noneOf(Direction.class);
+        return directions;
     }
 
     public void onFormedStateChanged() {

@@ -34,7 +34,7 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
     private static final String NBT_TOTAL = "total";
 
     private static final int MAX_SYNCED_TASKS = 96;
-    private static final int MAX_SYNCED_TASK_BYTES = 24_000;
+    private static final int MAX_SYNCED_TASK_BYTES = 128_000;
 
     private final Supplier<HolderLookup.Provider> registries;
     private final Supplier<List<ComputationTaskEntry>> tasks;

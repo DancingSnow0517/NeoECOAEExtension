@@ -79,4 +79,13 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     protected boolean hasLinkedNetworkPeers() {
         return networkCluster != null && networkCluster.getMemberCount() > 1;
     }
+
+    @Override
+    public int getNetworkMultiplier() {
+        int configuredMultiplier = getConfiguredNetworkMultiplier();
+        if (configuredMultiplier <= 1 || networkCluster == null) {
+            return 1;
+        }
+        return networkCluster.hasCoolingForNetworkMultiplier(configuredMultiplier) ? configuredMultiplier : 1;
+    }
 }

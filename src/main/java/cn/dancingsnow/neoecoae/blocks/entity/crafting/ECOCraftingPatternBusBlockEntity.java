@@ -113,7 +113,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
-        return patternDetails;
+        return cluster != null && cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getMergedPatterns()
+            : getLocalAvailablePatterns();
+    }
+
+    public List<IPatternDetails> getLocalAvailablePatterns() {
+        return List.copyOf(patternDetails);
     }
 
     @Override
@@ -131,7 +137,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         }
         if (cluster != null) {
             if (cluster.getNetworkCluster() != null) {
-                return cluster.getNetworkCluster().tryPushPattern(this, execution, craftingJobId);
+                return cluster.getNetworkCluster().tryPushPattern(getGrid(), execution, craftingJobId);
             }
             List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
             if (workers.isEmpty()) {
@@ -159,14 +165,14 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {
         if (cluster != null && cluster.getNetworkCluster() != null) {
-            return cluster.getNetworkCluster().tryPushBatch(this, request, offer);
+            return cluster.getNetworkCluster().tryPushBatch(getGrid(), request, offer);
         }
         if (offer == null
             || cluster == null
             || !cluster.getWorkers().contains(offer.worker())
             || offer.maxBatchSize() < request.batchSize()
-            || offer.worker().getAvailableThreadSlots() < request.batchSize()
-            || getAvailableThreadSlots() < request.batchSize()
+            || offer.worker().getAvailableThreadSlots() <= 0
+            || getAvailableThreadSlots() <= 0
             || !offer.result().matchesBatchRequest(request)) {
             return false;
         }
@@ -200,17 +206,19 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         }
         if (cluster.getNetworkCluster() != null) {
             return cluster.getNetworkCluster().findBatchFastPathOffer(
-                this, key, execution, request, requestedBatchSize
+                getGrid(), key, execution, request, requestedBatchSize
             );
         }
         List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
         if (workers.isEmpty()) {
             return null;
         }
-        int globalAvailableSlots = getAvailableThreadSlots();
-        if (globalAvailableSlots <= 0) {
+        int hostAvailableSlots = getAvailableThreadSlots();
+        ECOCraftingSystemBlockEntity controller = getCraftingController();
+        if (hostAvailableSlots <= 0 || controller == null) {
             return null;
         }
+        int availableBatchSize = controller.getLargestAvailableCraftingBatchSize();
         int start = Math.floorMod(nextWorkerIndex, workers.size());
         BatchFastPathOffer bestOffer = null;
         for (int offset = 0; offset < workers.size(); offset++) {
@@ -230,7 +238,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 worker.getFastPathCache().recordExpectedMismatch();
                 continue;
             }
-            int maxBatchSize = calculateBatchOfferSize(requestedBatchSize, availableSlots, globalAvailableSlots);
+            int maxBatchSize = Math.max(0, Math.min(requestedBatchSize, availableBatchSize));
             if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
                 bestOffer = new BatchFastPathOffer(worker, result, maxBatchSize);
                 if (maxBatchSize >= requestedBatchSize) {
@@ -277,7 +285,7 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     @Override
     public boolean isBusy() {
         if (cluster != null && cluster.getNetworkCluster() != null) {
-            return cluster.getNetworkCluster().isBusy(this);
+            return cluster.getNetworkCluster().isBusy(getGrid());
         }
         if (getAvailableThreadSlots() <= 0) {
             return true;
@@ -462,7 +470,13 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
                 patternDetails.add(details);
             }
         }
-        ICraftingProvider.requestUpdate(this.getMainNode());
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            for (ECOCraftingPatternBusBlockEntity patternBus : cluster.getNetworkCluster().getPatternBuses()) {
+                ICraftingProvider.requestUpdate(patternBus.getMainNode());
+            }
+        } else {
+            ICraftingProvider.requestUpdate(this.getMainNode());
+        }
     }
 
     private void queuePatternDetailsUpdate() {

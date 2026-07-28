@@ -39,13 +39,8 @@ public final class HostNetworkStatusElement {
         row.addChild(new AnimatedModeLabel(multiplier)
             .layout(layout -> layout.width(MODE_WIDTH).height(12)));
 
-        Supplier<Component> connectionText = () -> Component.translatable(connected.getAsBoolean()
-                ? "gui.neoecoae.host.network.connected"
-                : "gui.neoecoae.host.network.disconnected")
-            .withColor(connected.getAsBoolean() ? CONNECTED_COLOR : DISCONNECTED_COLOR);
         Label connection = new Label();
-        connection.setText(connectionText.get());
-        connection.bind(DataBindingBuilder.componentS2C(connectionText).build());
+        connection.setText(connectionText(connected.getAsBoolean()));
         connection.textStyle(style -> style
             .adaptiveHeight(true)
             .adaptiveWidth(false)
@@ -54,8 +49,20 @@ public final class HostNetworkStatusElement {
             .textWrap(TextWrap.HOVER_ROLL)
             .textShadow(false));
         connection.layout(layout -> layout.width(CONNECTION_WIDTH).height(10));
+        BindableValue<Boolean> syncedConnected = new BindableValue<>(connected.getAsBoolean());
+        syncedConnected.bind(DataBindingBuilder.boolS2C(connected::getAsBoolean).build());
+        syncedConnected.registerValueListener(value -> connection.setText(connectionText(Boolean.TRUE.equals(value))));
+        syncedConnected.setDisplay(false);
+        connection.addChild(syncedConnected);
         row.addChild(connection);
         return row;
+    }
+
+    private static Component connectionText(boolean connected) {
+        return Component.translatable(connected
+                ? "gui.neoecoae.host.network.connected"
+                : "gui.neoecoae.host.network.disconnected")
+            .withColor(connected ? CONNECTED_COLOR : DISCONNECTED_COLOR);
     }
 
     private static final class AnimatedModeLabel extends UIElement {

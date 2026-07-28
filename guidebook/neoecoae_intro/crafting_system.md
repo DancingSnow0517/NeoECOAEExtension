@@ -31,7 +31,7 @@ Unlike the computation system which handles crafting jobs, the crafting subsyste
 
 There are three tiers of crafting systems available:
 
-| Tier | Controller | Parallelism | Overclocked Parallelism |
+| Tier | Controller | Base Batch / Slot | Overclock Bonus / Slot |
 |------|------------|-------------|-------------------------|
 | F4 | <ItemLink id="neoecoae:crafting_system_l4" /> | 24 | 32 |
 | F6 | <ItemLink id="neoecoae:crafting_system_l6" /> | 72 | 96 |
@@ -55,7 +55,7 @@ The crafting system controller (<ItemLink id="neoecoae:crafting_system_l4" />, <
   <ItemIcon id="neoecoae:crafting_worker" />
 </ItemGrid>
 
-The <ItemLink id="neoecoae:crafting_worker" /> is the core processing unit that executes crafting patterns. It handles the actual item transformation based on patterns.
+The <ItemLink id="neoecoae:crafting_worker" /> executes task slots supplied by parallel cores. Every parallel core provides **2** independent task slots that may run simultaneously.
 
 ### Pattern Bus
 
@@ -63,7 +63,7 @@ The <ItemLink id="neoecoae:crafting_worker" /> is the core processing unit that 
   <ItemIcon id="neoecoae:crafting_pattern_bus" />
 </ItemGrid>
 
-The <ItemLink id="neoecoae:crafting_pattern_bus" /> holds crafting patterns. Multiple pattern buses can be added to store more patterns.
+The <ItemLink id="neoecoae:crafting_pattern_bus" /> holds crafting patterns. In an exchange group, every member publishes the union of all member pattern buses to the ME network.
 
 ### Parallel Core
 
@@ -73,7 +73,7 @@ The <ItemLink id="neoecoae:crafting_pattern_bus" /> holds crafting patterns. Mul
   <ItemIcon id="neoecoae:crafting_parallel_core_l9" />
 </ItemGrid>
 
-Parallel cores (<ItemLink id="neoecoae:crafting_parallel_core_l4" />, <ItemLink id="neoecoae:crafting_parallel_core_l6" />, or <ItemLink id="neoecoae:crafting_parallel_core_l9" />) provide additional parallelism for pattern processing. The tier must match the controller tier.
+Parallel cores (<ItemLink id="neoecoae:crafting_parallel_core_l4" />, <ItemLink id="neoecoae:crafting_parallel_core_l6" />, or <ItemLink id="neoecoae:crafting_parallel_core_l9" />) provide task slots and per-slot batch capacity. Each core provides 2 slots; its tier determines how many crafts each slot handles at once.
 
 ### Interface
 
@@ -115,6 +115,23 @@ The <ItemLink id="neoecoae:crafting_vent" /> provides passive thermal management
 
 The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the multiblock structure.
 
+### Network Exchange Modules
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:crafting_network_switch" />
+  <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
+</ItemGrid>
+
+<ItemLink id="neoecoae:crafting_network_switch" /> and <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> link F9 crafting hosts on the same ME network. Replace the central casing immediately to the right of the controller while facing its front. At least two linked F9 hosts are required; a single host remains at **x1**.
+
+- Exchange modules multiply crafts handled by each task slot: **x2** for normal and **x8** for high-energy. They do not add slots; each host owns its slots and the network sums them.
+- Patterns are the union of every member bus. Incoming work is fairly routed to any member host with a suitable free slot.
+- Linked normal modules use **x4** power and high-energy modules use **x16** power. The shared UI reports the aggregate network energy use.
+- The shared UI also controls active cooling. Cached coolant from every member forms one pool, and drains rotate fairly across members of sufficient coolant tier regardless of which worker executes the task.
+- Normal exchange requires the active cooling pool to provide coolant. High-energy exchange requires highest-tier coolant, supporting overclock 9. If the relevant pool cannot supply it, the multiplier is **x1**.
+- Only active exchange tasks use tick-based cooling: normal exchange drains **1** coolant and high-energy exchange drains **4** coolant per active task slot per tick. Batch size does not affect this cost.
+- An exchange task pauses when the shared pool cannot pay its tick cost and resumes from the same progress after coolant is restored.
+
 ## Building the Structure
 
 1. Place the **Controller** facing outward
@@ -146,22 +163,23 @@ Once formed, the crafting system acts as a pattern provider in your ME Network. 
 The GUI provides the following settings:
 
 #### Overclocking
-Enable overclocking to increase parallelism at the cost of higher energy consumption.
-- Normal mode: Base parallelism
-- Overclocked mode: Enhanced parallelism (see tier table)
+Enable overclocking to increase batch capacity per task slot at the cost of higher energy consumption. It does not add task slots.
+- Normal mode: Base batch capacity
+- Overclocked mode: Base capacity plus the overclock bonus (see tier table)
 
 #### Active Cooling
 Enable active cooling to further enhance performance and eliminate extra energy costs from overclocking.
 - Requires coolant fluids in the input hatch
 - Coolant recipes can be viewed in JEI
-- The system stores coolant as a buffer and consumes coolant when a worker starts a pattern
+- The system stores coolant as a buffer. At x1 it is charged per craft when work starts; active x2/x8 exchange tasks are charged per active slot per tick.
 - If the output hatch is full, coolant cannot be converted and the buffer cannot be replenished
 
 ### Cooling and Effective Overclock
 
 The crafting system now separates structural overclock capability from coolant quality.
 
-- The multiblock still determines the theoretical overclock from its structure
+- The structure determines theoretical overflow overclock from parallel-core processing capacity that exceeds FX worker capacity. Every 5% overflow adds one speed level, up to level 9.
+- Overflow overclock shortens task duration only. It neither adds task slots nor participates in the x2/x8 per-slot batch multiplier.
 - Active coolant determines the effective overclock that can actually be used
 - If the coolant tier is lower than the structure's capability, the system does not stop refilling coolant; instead, it runs at the lower effective overclock
 - The GUI shows both the theoretical overclock and the currently effective overclock
@@ -185,8 +203,8 @@ The interface displays:
 - Worker count
 - Pattern bus count
 - Parallel core count
-- Total parallelism
-- Working threads (active/total)
+- Task slots (active/total)
+- Current maximum batch per slot
 - Maximum energy usage
 - Theoretical overclock and effective overclock
 - Maximum overclock supported by the current coolant
@@ -197,6 +215,6 @@ The interface displays:
 - Enable active cooling in combination with overclocking for best efficiency
 - Upgrade coolant quality if the effective overclock is lower than the theoretical overclock
 - Use the clear coolant button before switching from a lower-tier coolant to a higher-tier coolant
-- More workers allow more simultaneous pattern processing
-- More parallel cores increase the number of items processed per operation
+- Every parallel core adds 2 simultaneous task slots
+- Higher-tier parallel cores increase the batch handled by each slot
 - Ensure the output hatch has space for used coolant to avoid system shutdown

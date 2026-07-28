@@ -144,6 +144,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.energy_short", "AE");
         provider.add("gui.neoecoae.crafting.ui.recipe_slots", "Slots");
         provider.add("gui.neoecoae.crafting.ui.logical_threads", "Threads");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread", "Batch / Slot");
         provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Time");
         provider.add("gui.neoecoae.crafting.ui.patterns_short", "PB");
         provider.add("gui.neoecoae.crafting.ui.ft_cores_short", "FT");
@@ -166,7 +167,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.enable_active_cooling", "Enable Active Cooling: ");
         provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
         provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
-        provider.add("gui.neoecoae.crafting.active_cooling.tooltip", "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.");
+        provider.add("gui.neoecoae.crafting.active_cooling.tooltip", "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nAt x1, coolant is charged per craft when work starts. Active x2/x8 exchange tasks drain 1/4 coolant per active slot per tick from the shared pool, independent of batch size.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.");
         provider.add("gui.neoecoae.crafting.clear_coolant", "Clear");
         provider.add("gui.neoecoae.crafting.clear_coolant.tooltip", "Clears the cached coolant so you can switch to a different coolant.");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");

@@ -117,6 +117,20 @@ The <ItemLink id="neoecoae:computation_interface" /> connects the system to your
 
 The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the multiblock structure.
 
+### Network Exchange Modules
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:computation_network_switch" />
+  <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
+</ItemGrid>
+
+<ItemLink id="neoecoae:computation_network_switch" /> and <ItemLink id="neoecoae:computation_high_energy_network_switch" /> link C9 computation hosts on the same ME network. Replace the central casing immediately to the right of the controller while facing its front. At least two linked C9 hosts are required; a single host remains at **x1**.
+
+- The normal module contributes **x2** threads, accelerators, and CPU storage; the high-energy module contributes **x8**.
+- Linked normal modules use **x4** power and high-energy modules use **x16** power.
+- A normal module requires a valid cooling controller on that host. A high-energy module requires a **C9** cooling controller; otherwise that host contributes at **x1**.
+- AE2 receives the sum of each physical host's effective resources. Every host is evaluated independently before its threads, accelerators, and storage are aggregated.
+
 ## Building the Structure
 
 1. Place the **Controller** facing outward

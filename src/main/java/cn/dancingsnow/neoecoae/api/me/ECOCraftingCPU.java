@@ -22,6 +22,7 @@ import org.jetbrains.annotations.Nullable;
 public class ECOCraftingCPU implements ICraftingCPU {
 
     private long fakeStorage = 0;
+    private long allocatedStorage = 0;
     @Getter
     private final NEComputationCluster cluster;
     @Getter
@@ -36,6 +37,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
     public ECOCraftingCPU(NEComputationCluster cluster, ICraftingPlan plan, ECOComputationThreadingCoreBlockEntity owner) {
         this.cluster = cluster;
         this.plan = plan;
+        this.allocatedStorage = cluster.getEffectiveAvailableStorage();
         this.owner = owner;
         this.tier = owner.getTier();
     }
@@ -88,7 +90,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
 
     @Override
     public long getAvailableStorage() {
-        return this.plan != null ? this.plan.bytes() : fakeStorage;
+        return this.plan != null ? Math.max(this.plan.bytes(), allocatedStorage) : fakeStorage;
     }
 
     @Override
@@ -156,6 +158,7 @@ public class ECOCraftingCPU implements ICraftingCPU {
             CompoundTag tag = new CompoundTag();
             writeCraftingPlanToNBT(this.plan, tag, registries);
             data.put("plan", tag);
+            data.putLong("allocatedStorage", allocatedStorage);
         }
     }
 
@@ -164,6 +167,11 @@ public class ECOCraftingCPU implements ICraftingCPU {
         if (data.contains("plan")) {
             CompoundTag tag = data.getCompound("plan");
             this.plan = readCraftingPlanFromNBT(tag, registries);
+            if (data.contains("allocatedStorage")) {
+                this.allocatedStorage = Math.max(this.plan.bytes(), data.getLong("allocatedStorage"));
+            } else {
+                this.allocatedStorage = Math.max(this.plan.bytes(), cluster.getEffectiveAvailableStorage());
+            }
         }
     }
 

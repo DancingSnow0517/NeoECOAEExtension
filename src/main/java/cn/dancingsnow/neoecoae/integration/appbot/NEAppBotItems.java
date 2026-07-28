@@ -37,7 +37,6 @@ public class NEAppBotItems {
             );
             appBotInstalled.accept(ctx.getId().withPrefix("mana_infusion/"), recipe, null);
         })
-        .lang("ECO Storage Matrix Housing (Mana)")
         .register();
 
     public static final ItemEntry<ECOStorageCellItem> ECO_MANA_CELL_16M = REGISTRATE
@@ -58,7 +57,6 @@ public class NEAppBotItems {
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_MANA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_16M.asStack()));
             appBotInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
-        .lang("ECO - LE4 Storage Matrix (Mana)")
         .model(ItemModelUtil.cellModel("mana", "16m"))
         .register();
 
@@ -80,7 +78,6 @@ public class NEAppBotItems {
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_MANA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_64M.asStack()));
             appBotInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
-        .lang("ECO - LE6 Storage Matrix (Mana)")
         .model(ItemModelUtil.cellModel("mana", "64m"))
         .register();
 
@@ -102,7 +99,6 @@ public class NEAppBotItems {
             StorageCellDisassemblyRecipe recipe = new StorageCellDisassemblyRecipe(ctx.get(), List.of(ECO_MANA_CELL_HOUSING.asStack(), NEItems.ECO_CELL_COMPONENT_256M.asStack()));
             appBotInstalled.accept(ctx.getId().withPrefix("disassembly/"), recipe, null);
         })
-        .lang("ECO - LE9 Storage Matrix (Mana)")
         .model(ItemModelUtil.cellModel("mana", "256m"))
         .register();
 

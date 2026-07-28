@@ -52,6 +52,13 @@ public final class HostElements {
         return label;
     }
 
+    public static Label localizedTextSegment(String translationKey, IntSupplier color) {
+        Label label = new Label();
+        label.setText(Component.translatable(translationKey).withColor(color.getAsInt()));
+        label.textStyle(HostElements::lineTextStyle);
+        return label;
+    }
+
     public static UIElement horizontalRow(int height, int gap) {
         return new UIElement().layout(layout -> {
             layout.height(height);

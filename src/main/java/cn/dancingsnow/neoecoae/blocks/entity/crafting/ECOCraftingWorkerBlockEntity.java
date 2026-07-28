@@ -71,7 +71,11 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (controller.isLocalOverclocked() && !controller.isLocalActiveCooling()) {
                     powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
                 }
-                int overlockTimes = controller.getLocalEffectiveOverclockTimes();
+                powerMultiply = (int)Math.min(
+                    Integer.MAX_VALUE,
+                    (long)powerMultiply * cluster.getNetworkPowerMultiplier()
+                );
+                int overlockTimes = controller.getEffectiveOverclockTimesForLocalTasks();
                 TickRateModulation rate = TickRateModulation.IDLE;
                 for (ECOCraftingThread thread : craftingThreads) {
                     TickRateModulation r = thread.tick(overlockTimes, powerMultiply, ticksSinceLastCall);
@@ -108,6 +112,11 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 fastPathCache.recordNoThreadReject();
                 return false;
             }
+            ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(1);
+            if (lane == null) {
+                fastPathCache.recordNoThreadReject();
+                return false;
+            }
 
             int threadCount = craftingThreads.size();
             if (threadCount > 0) {
@@ -118,7 +127,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     if (!thread.isFree()) {
                         continue;
                     }
-                    if (thread.pushPattern(execution, controller, craftingJobId)) {
+                    if (thread.pushPattern(execution, controller, craftingJobId, lane.index())) {
                         nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                         return true;
                     }
@@ -134,7 +143,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
             setChanged();
             markForUpdate();
-            return thread.pushPattern(execution, controller, craftingJobId);
+            return thread.pushPattern(execution, controller, craftingJobId, lane.index());
         } else {
             return false;
         }
@@ -149,8 +158,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        if (request.batchSize() > getAvailableThreadSlots()
-            || request.batchSize() > getControllerAvailableThreadSlots(controller)) {
+        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(request.batchSize());
+        if (lane == null || getAvailableThreadSlots() <= 0 || getControllerAvailableThreadSlots(controller) <= 0) {
             fastPathCache.recordNoThreadReject();
             return false;
         }
@@ -164,7 +173,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (!thread.isFree()) {
                     continue;
                 }
-                if (thread.pushBatch(request, controller, verifiedResult)) {
+                if (thread.pushBatch(request, controller, verifiedResult, lane.index())) {
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                     return true;
                 }
@@ -180,7 +189,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
         setChanged();
         markForUpdate();
-        return thread.pushBatch(request, controller, verifiedResult);
+        return thread.pushBatch(request, controller, verifiedResult, lane.index());
     }
 
     public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
@@ -219,6 +228,30 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
         }
         return 0;
+    }
+
+    public int getBatchOccupiedThreadSlots(int craftCount) {
+        return craftCount > 0 ? 1 : 0;
+    }
+
+    public List<Integer> getAssignedLaneIndices() {
+        List<Integer> indices = new ArrayList<>();
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree() && thread.getAssignedLaneIndex() >= 0) {
+                indices.add(thread.getAssignedLaneIndex());
+            }
+        }
+        return List.copyOf(indices);
+    }
+
+    public int getUnassignedBusyTaskCount() {
+        int count = 0;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree() && thread.getAssignedLaneIndex() < 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /** Number of logical crafting tasks, independent of batch slot usage. */

@@ -113,7 +113,7 @@ public final class NEComputationNetworkCluster {
     }
 
     public long getAvailableStorage() {
-        return sumMultiplied(NEComputationCluster::getLocalAvailableStorage);
+        return sum(NEComputationCluster::getEffectiveAvailableStorage);
     }
 
     public long getAvailableStorageForGrid(@Nullable IGrid grid) {
@@ -126,10 +126,7 @@ public final class NEComputationNetworkCluster {
             if (grid != null && (node == null || node.getGrid() != grid)) {
                 continue;
             }
-            matchingStorage = saturatingAdd(
-                matchingStorage,
-                saturatingMultiply(cluster.getNetworkMultiplier(), cluster.getLocalAvailableStorage())
-            );
+            matchingStorage = saturatingAdd(matchingStorage, cluster.getEffectiveAvailableStorage());
         }
         return matchingStorage;
     }
@@ -210,10 +207,10 @@ public final class NEComputationNetworkCluster {
                 continue;
             }
             IGridNode node = cluster.getLocalNode();
-            if (node == null || node.getGrid() != grid || cluster.getLocalAvailableStorage() < job.bytes()) {
+            if (node == null || node.getGrid() != grid || cluster.getEffectiveAvailableStorage() < job.bytes()) {
                 continue;
             }
-            if (selected == null || cluster.getLocalAvailableStorage() > selected.getLocalAvailableStorage()) {
+            if (selected == null || cluster.getEffectiveAvailableStorage() > selected.getEffectiveAvailableStorage()) {
                 selected = cluster;
             }
         }
@@ -285,6 +282,14 @@ public final class NEComputationNetworkCluster {
                 total,
                 saturatingMultiply(cluster.getNetworkMultiplier(), getter.applyAsLong(cluster))
             );
+        }
+        return total;
+    }
+
+    private long sum(java.util.function.ToLongFunction<NEComputationCluster> getter) {
+        long total = 0L;
+        for (NEComputationCluster cluster : physicalClusters) {
+            total = saturatingAdd(total, getter.applyAsLong(cluster));
         }
         return total;
     }

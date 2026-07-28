@@ -73,29 +73,27 @@ public final class ComputationHostPanelUI {
     public static UIElement createLeftCapacityPanel(Config config) {
         UIElement panel = hostCard(LEFT_PANEL_WIDTH, LEFT_CAPACITY_HEIGHT);
         panel.addClass("eco-computation-capacity");
-        panel.addChild(HostElements.sectionLabel(
-            () -> Component.translatable("gui.neoecoae.host.computation.capacity"),
+        panel.addChild(HostElements.localizedTextSegment(
+            "gui.neoecoae.host.computation.capacity",
             () -> HostText.PRIMARY));
         panel.addChild(usageProgressBlock(
-            () -> Component.translatable("gui.neoecoae.host.computation.cpu_storage"),
+            "gui.neoecoae.host.computation.cpu_storage",
             () -> HostText.byteProgress(config.usedBytes.getAsLong(), config.totalBytes.getAsLong()),
             config.usedBytes,
             config.totalBytes,
-            () -> Component.translatable("gui.neoecoae.host.computation.cpu_storage")
-                .append(": ")
-                .append(HostText.fullByteProgress(config.usedBytes.getAsLong(), config.totalBytes.getAsLong()))));
+            "gui.neoecoae.host.computation.cpu_storage"));
         panel.addChild(usageProgressBlock(
-            () -> Component.translatable("gui.neoecoae.host.computation.thread_usage"),
+            "gui.neoecoae.host.computation.thread_usage",
             () -> HostText.typeProgress(config.usedThreads.getAsInt(), config.totalThreads.getAsInt()),
             () -> config.usedThreads.getAsInt(),
             () -> config.totalThreads.getAsInt(),
             null));
         panel.addChild(valueBlock(
-            () -> Component.translatable("gui.neoecoae.host.computation.parallel_count"),
+            "gui.neoecoae.host.computation.parallel_count",
             () -> Component.literal(Integer.toString(config.parallelCount.getAsInt())),
             () -> HostText.VALUE));
         panel.addChild(valueBlock(
-            () -> Component.translatable("gui.neoecoae.host.computation.free_memory"),
+            "gui.neoecoae.host.computation.free_memory",
             () -> Component.literal(HostText.byteProgress(config.availableBytes.getAsLong(), 0).usedText()),
             () -> HostText.MUTED));
         return panel;
@@ -212,22 +210,22 @@ public final class ComputationHostPanelUI {
     }
 
     private static UIElement usageProgressBlock(
-        Supplier<Component> label,
+        String labelKey,
         Supplier<HostText.UsedTotal> text,
         LongSupplier used,
         LongSupplier max,
-        Supplier<Component> tooltip
+        String tooltipKey
     ) {
         UIElement block = new UIElement().layout(layout -> layout
             .widthPercent(100)
             .height(20)
             .gapAll(1)
             .flexDirection(FlexDirection.COLUMN));
-        block.addChild(HostElements.textSegment(label, () -> HostText.MUTED)
+        block.addChild(HostElements.localizedTextSegment(labelKey, () -> HostText.MUTED)
             .layout(layout -> layout.widthPercent(100).height(9)));
 
         UIElement detail = HostElements.horizontalRow(10, 2);
-        detail.addChild(progressBar(used, max, tooltip));
+        detail.addChild(progressBar(used, max, tooltipKey));
         UIElement value = HostElements.horizontalRow(10, 0);
         value.addChild(HostElements.textSegment(
             () -> Component.literal(text.get().usedText()),
@@ -239,34 +237,40 @@ public final class ComputationHostPanelUI {
         return block;
     }
 
-    private static UIElement progressBar(LongSupplier used, LongSupplier max, Supplier<Component> tooltip) {
+    private static UIElement progressBar(LongSupplier used, LongSupplier max, String tooltipKey) {
         ProgressBar progressBar = new ProgressBar();
         progressBar.label(label -> label.setText(""));
         progressBar.barContainer(element -> element.layout(layout -> layout.paddingAll(1)));
         progressBar.bind(DataBindingBuilder.floatValS2C(() -> HostText.usageRatio(used.getAsLong(), max.getAsLong())).build());
         progressBar.addClass("eco-host-progress");
         progressBar.layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4));
-        if (tooltip != null) {
-            BindableValue<Component> syncedTooltip = new BindableValue<>(tooltip.get());
-            syncedTooltip.bind(DataBindingBuilder.componentS2C(tooltip).build());
-            syncedTooltip.setDisplay(false);
-            progressBar.addChild(syncedTooltip);
+        if (tooltipKey != null) {
+            BindableValue<Long> syncedUsed = new BindableValue<>(used.getAsLong());
+            BindableValue<Long> syncedMax = new BindableValue<>(max.getAsLong());
+            syncedUsed.bind(DataBindingBuilder.longValS2C(used::getAsLong).build());
+            syncedMax.bind(DataBindingBuilder.longValS2C(max::getAsLong).build());
+            syncedUsed.setDisplay(false);
+            syncedMax.setDisplay(false);
+            progressBar.addChildren(syncedUsed, syncedMax);
             progressBar.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(syncedTooltip.getValue()));
+                event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(tooltipKey)
+                    .append(": ")
+                    .append(HostText.fullByteProgress(syncedUsed.getValue(), syncedMax.getValue()))));
         }
         return progressBar;
     }
 
-    private static UIElement valueBlock(Supplier<Component> label, Supplier<Component> value, IntSupplier color) {
+    private static UIElement valueBlock(String labelKey, Supplier<Component> value, IntSupplier color) {
         UIElement block = new UIElement().layout(layout -> layout
             .widthPercent(100)
             .height(20)
             .gapAll(1)
             .flexDirection(FlexDirection.COLUMN));
-        block.addChild(HostElements.textSegment(label, () -> HostText.MUTED)
+        block.addChild(HostElements.localizedTextSegment(labelKey, () -> HostText.MUTED)
             .layout(layout -> layout.widthPercent(100).height(9)));
         block.addChild(HostElements.textSegment(value, color)
             .layout(layout -> layout.widthPercent(100).height(10)));
         return block;
     }
+
 }

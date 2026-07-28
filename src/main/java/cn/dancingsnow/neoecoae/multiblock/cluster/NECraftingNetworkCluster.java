@@ -15,6 +15,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -46,7 +47,9 @@ public final class NECraftingNetworkCluster {
     private List<ECOCraftingWorkerBlockEntity> workers = List.of();
     private List<ECOCraftingPatternBusBlockEntity> patternBuses = List.of();
     private List<cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity> parallelCores = List.of();
-    private int nextWorkerIndex;
+    private int nextPhysicalClusterIndex;
+    private int nextCoolantControllerIndex;
+    private final Map<NECraftingCluster, Integer> nextWorkerIndexByCluster = new LinkedHashMap<>();
     private boolean overclocked;
     private boolean activeCooling;
     private long revision;
@@ -97,7 +100,8 @@ public final class NECraftingNetworkCluster {
                 controller.setLocalActiveCooling(activeCooling);
             }
         }
-        nextWorkerIndex = Math.floorMod(nextWorkerIndex, Math.max(1, workers.size()));
+        nextPhysicalClusterIndex = Math.floorMod(nextPhysicalClusterIndex, Math.max(1, physicalClusters.size()));
+        nextWorkerIndexByCluster.keySet().retainAll(physicalClusters);
         revision++;
         for (ECOCraftingSystemBlockEntity controller : controllers) {
             controller.onNetworkStateChanged();
@@ -113,7 +117,8 @@ public final class NECraftingNetworkCluster {
         workers = List.of();
         patternBuses = List.of();
         parallelCores = List.of();
-        nextWorkerIndex = 0;
+        nextPhysicalClusterIndex = 0;
+        nextWorkerIndexByCluster.clear();
         revision++;
     }
 
@@ -145,30 +150,29 @@ public final class NECraftingNetworkCluster {
         return controllers.size();
     }
 
-    /** Each host's effective value is multiplied by its switch tier. */
+    /** Independent task slots. The switch multiplier applies to each slot's batch, not to slot count. */
     public int getEffectiveValue() {
         long total = 0L;
         for (NECraftingCluster cluster : physicalClusters) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
             if (controller != null) {
-                total = saturatingAdd(
-                    total,
-                    saturatingMultiply(cluster.getNetworkMultiplier(), controller.getLocalThreadCount())
-                );
+                total = saturatingAdd(total, controller.getLocalThreadCount());
             }
         }
         return (int)Math.min(Integer.MAX_VALUE, total);
     }
 
-    /** The design gives each formed host exactly one logical crafting thread. */
     public int getThreadCount() {
-        return getMemberCount();
+        return getEffectiveValue();
     }
 
     public int getRunningThreadCount() {
         long total = 0L;
-        for (ECOCraftingWorkerBlockEntity worker : workers) {
-            total = saturatingAdd(total, worker.getRunningTaskCount());
+        for (NECraftingCluster cluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = cluster.getController();
+            if (controller != null) {
+                total = saturatingAdd(total, controller.getLocalRunningThreadCount());
+            }
         }
         return (int)Math.min(Integer.MAX_VALUE, total);
     }
@@ -187,9 +191,51 @@ public final class NECraftingNetworkCluster {
         }
         int effective = Integer.MAX_VALUE;
         for (ECOCraftingSystemBlockEntity controller : controllers) {
-            effective = Math.min(effective, controller.getLocalEffectiveOverclockTimes());
+            effective = Math.min(effective, controller.getEffectiveOverclockTimesForLocalTasks());
         }
         return effective == Integer.MAX_VALUE ? 0 : effective;
+    }
+
+    public int getCoolingMaxOverclock() {
+        if (!activeCooling) {
+            return -1;
+        }
+        int maximum = -1;
+        for (ECOCraftingSystemBlockEntity controller : controllers) {
+            maximum = Math.max(maximum, controller.getLocalCoolingMaxOverclock());
+        }
+        return maximum;
+    }
+
+    public int getCoolantAmount() {
+        long total = 0L;
+        for (ECOCraftingSystemBlockEntity controller : controllers) {
+            total = saturatingAdd(total, controller.getCoolant());
+        }
+        return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    public int getCoolantCapacity() {
+        return (int) Math.min(
+            Integer.MAX_VALUE,
+            saturatingMultiply(ECOCraftingSystemBlockEntity.MAX_COOLANT, controllers.size())
+        );
+    }
+
+    public FluidStack getDisplayedCoolantFluid() {
+        for (ECOCraftingSystemBlockEntity controller : controllers) {
+            FluidStack fluid = controller.getCurrentCoolantFluid();
+            if (!fluid.isEmpty()) {
+                return fluid.copy();
+            }
+        }
+        return FluidStack.EMPTY;
+    }
+
+    public void clearCoolant() {
+        for (ECOCraftingSystemBlockEntity controller : controllers) {
+            controller.clearLocalCoolant();
+        }
     }
 
     public long getMaxEnergyUsage() {
@@ -200,61 +246,111 @@ public final class NECraftingNetworkCluster {
         return total;
     }
 
+    public boolean hasCoolingForNetworkMultiplier(int multiplier) {
+        if (!activeCooling || multiplier <= 1) {
+            return multiplier <= 1;
+        }
+        for (ECOCraftingSystemBlockEntity controller : controllers) {
+            if (controller.hasLocalCoolingForNetworkMultiplier(multiplier)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public int getCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
+        if (!activeCooling || requestedCrafts <= 0 || coolantPerCraft <= 0) {
+            return Math.max(0, requestedCrafts);
+        }
+        long total = 0L;
+        for (ECOCraftingSystemBlockEntity controller : controllers) {
+            total = saturatingAdd(total, controller.getLocalCraftingCoolantCraftLimit(
+                coolantPerCraft, requiredOverclock, requestedCrafts
+            ));
+            if (total >= requestedCrafts) {
+                return requestedCrafts;
+            }
+        }
+        return (int)Math.min(Integer.MAX_VALUE, total);
+    }
+
+    public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
+        if (!activeCooling || amount <= 0) {
+            return true;
+        }
+        if (getCraftingCoolantCraftLimit(1, requiredOverclock, amount) < amount) {
+            return false;
+        }
+        if (controllers.isEmpty()) {
+            return false;
+        }
+        int remaining = amount;
+        int start = Math.floorMod(nextCoolantControllerIndex, controllers.size());
+        for (int offset = 0; offset < controllers.size() && remaining > 0; offset++) {
+            ECOCraftingSystemBlockEntity controller = controllers.get((start + offset) % controllers.size());
+            int participantsLeft = controllers.size() - offset;
+            int fairShare = (remaining + participantsLeft - 1) / participantsLeft;
+            int available = controller.getLocalCraftingCoolantCraftLimit(1, requiredOverclock, fairShare);
+            int consumed = Math.min(fairShare, available);
+            if (consumed > 0 && !controller.tryConsumeLocalCoolant(consumed, requiredOverclock)) {
+                return false;
+            }
+            remaining -= consumed;
+        }
+        nextCoolantControllerIndex = (start + 1) % controllers.size();
+        return remaining == 0;
+    }
+
     public int getAvailableThreadSlots(@Nullable IGrid grid) {
-        int available = 0;
+        long available = 0L;
         for (NECraftingCluster physicalCluster : physicalClusters) {
             ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
-            if (controller == null) {
+            if (controller == null || !hasMatchingWorker(physicalCluster, grid)) {
                 continue;
             }
-            boolean hasMatchingWorker = hasMatchingWorker(physicalCluster, grid);
-            int runningTasks = 0;
-            for (ECOCraftingWorkerBlockEntity worker : physicalCluster.getWorkers()) {
-                runningTasks += worker.getRunningTaskCount();
-            }
-            if (hasMatchingWorker && runningTasks < 1) {
-                available++;
-            }
+            available = saturatingAdd(available, Math.max(
+                0,
+                controller.getLocalThreadCount() - controller.getLocalRunningThreadCount()
+            ));
         }
-        return available;
+        return (int)Math.min(Integer.MAX_VALUE, available);
     }
 
-    /** Number of physical host slots visible from the requested AE grid. */
+    /** Independent task slots visible from the requested AE grid. */
     public int getRecipeSlotCount(@Nullable IGrid grid) {
-        int slots = 0;
-        for (NECraftingCluster physicalCluster : physicalClusters) {
-            if (physicalCluster.getController() != null && hasMatchingWorker(physicalCluster, grid)) {
-                slots++;
-            }
-        }
-        return slots;
-    }
-
-    public int getOccupiedRecipeSlots(@Nullable IGrid grid) {
-        return Math.max(0, getRecipeSlotCount(grid) - getAvailableThreadSlots(grid));
-    }
-
-    /** Parallel-core crafting slots exposed to the requested AE grid. */
-    public int getCraftingSlotCount(@Nullable IGrid grid) {
         long slots = 0L;
         for (NECraftingCluster physicalCluster : physicalClusters) {
             ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
             if (controller != null && hasMatchingWorker(physicalCluster, grid)) {
-                slots = saturatingAdd(
-                    slots,
-                    saturatingMultiply(physicalCluster.getNetworkMultiplier(), controller.getLocalThreadCount())
-                );
+                slots = saturatingAdd(slots, controller.getLocalThreadCount());
             }
         }
         return (int)Math.min(Integer.MAX_VALUE, slots);
     }
 
-    /** Physical batch slots currently occupied on the requested AE grid. */
+    public int getOccupiedRecipeSlots(@Nullable IGrid grid) {
+        return getOccupiedCraftingSlots(grid);
+    }
+
+    /** Independent crafting task slots exposed to the requested AE grid. */
+    public int getCraftingSlotCount(@Nullable IGrid grid) {
+        long slots = 0L;
+        for (NECraftingCluster physicalCluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+            if (controller != null && hasMatchingWorker(physicalCluster, grid)) {
+                slots = saturatingAdd(slots, controller.getLocalThreadCount());
+            }
+        }
+        return (int)Math.min(Integer.MAX_VALUE, slots);
+    }
+
+    /** Independent task slots currently occupied on the requested AE grid. */
     public int getOccupiedCraftingSlots(@Nullable IGrid grid) {
         long occupied = 0L;
-        for (ECOCraftingWorkerBlockEntity worker : workers) {
-            if (grid == null || worker.getMainNode().getGrid() == grid) {
-                occupied = saturatingAdd(occupied, worker.getRunningThreads());
+        for (NECraftingCluster physicalCluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+            if (controller != null && hasMatchingWorker(physicalCluster, grid)) {
+                occupied = saturatingAdd(occupied, controller.getLocalRunningThreadCount());
             }
         }
         return (int)Math.min(Integer.MAX_VALUE, occupied);
@@ -272,6 +368,17 @@ public final class NECraftingNetworkCluster {
         return (int)Math.min(Integer.MAX_VALUE, overflow);
     }
 
+    public int getMaxBatchPerThread(@Nullable IGrid grid) {
+        int maxBatch = 0;
+        for (NECraftingCluster physicalCluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+            if (controller != null && hasMatchingWorker(physicalCluster, grid)) {
+                maxBatch = Math.max(maxBatch, controller.getLocalMaxBatchPerThread());
+            }
+        }
+        return maxBatch;
+    }
+
     private static boolean hasMatchingWorker(NECraftingCluster physicalCluster, @Nullable IGrid grid) {
         for (ECOCraftingWorkerBlockEntity worker : physicalCluster.getWorkers()) {
             if (grid == null || worker.getMainNode().getGrid() == grid) {
@@ -282,17 +389,13 @@ public final class NECraftingNetworkCluster {
     }
 
     private int getAvailableLogicalSlots(NECraftingCluster physicalCluster) {
-        int runningTasks = 0;
-        for (ECOCraftingWorkerBlockEntity worker : physicalCluster.getWorkers()) {
-            runningTasks += worker.getRunningTaskCount();
-        }
-        return Math.max(0, 1 - runningTasks);
+        ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+        return controller == null ? 0 : Math.max(
+            0,
+            controller.getLocalThreadCount() - controller.getLocalRunningThreadCount()
+        );
     }
 
-    /*
-     * Physical worker slots are still used by local workers for batch work,
-     * but a network task consumes one logical host thread.
-     */
     private int getAvailableLogicalSlots(ECOCraftingWorkerBlockEntity worker) {
         NECraftingCluster physical = worker.getCluster();
         return physical == null ? 0 : getAvailableLogicalSlots(physical);
@@ -323,7 +426,7 @@ public final class NECraftingNetworkCluster {
     public List<IPatternDetails> getMergedPatterns() {
         Map<PatternSignature, IPatternDetails> merged = new LinkedHashMap<>();
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
-            for (IPatternDetails pattern : patternBus.getAvailablePatterns()) {
+            for (IPatternDetails pattern : patternBus.getLocalAvailablePatterns()) {
                 merged.putIfAbsent(PatternSignature.of(pattern), pattern);
             }
         }
@@ -331,46 +434,49 @@ public final class NECraftingNetworkCluster {
     }
 
     public boolean tryPushPattern(
-        ECOCraftingPatternBusBlockEntity source,
+        @Nullable IGrid grid,
         ECOExtractedPatternExecution execution,
         @Nullable UUID craftingJobId
     ) {
-        if (workers.isEmpty() || isOutputBusy(execution)) {
+        if (workers.isEmpty()) {
             return false;
         }
-        IGrid grid = source.getGrid();
         if (getAvailableThreadSlots(grid) <= 0) {
             return false;
         }
-        int start = Math.floorMod(nextWorkerIndex, workers.size());
-        for (int offset = 0; offset < workers.size(); offset++) {
-            int index = (start + offset) % workers.size();
-            ECOCraftingWorkerBlockEntity worker = workers.get(index);
-            if (grid != null && worker.getMainNode().getGrid() != grid) {
+        int clusterStart = Math.floorMod(nextPhysicalClusterIndex, physicalClusters.size());
+        for (int clusterOffset = 0; clusterOffset < physicalClusters.size(); clusterOffset++) {
+            int clusterIndex = (clusterStart + clusterOffset) % physicalClusters.size();
+            NECraftingCluster physical = physicalClusters.get(clusterIndex);
+            List<ECOCraftingWorkerBlockEntity> localWorkers = physical.getWorkers();
+            if (getAvailableLogicalSlots(physical) <= 0 || localWorkers.isEmpty()) {
                 continue;
             }
-            NECraftingCluster physical = worker.getCluster();
-            ECOCraftingSystemBlockEntity controller = physical == null ? null : physical.getController();
-            if (controller != null
-                && physical != null
-                && getAvailableLogicalSlots(physical) > 0
-                && worker.pushPattern(execution, craftingJobId)) {
-                nextWorkerIndex = (index + 1) % workers.size();
-                return true;
+            int workerStart = Math.floorMod(nextWorkerIndexByCluster.getOrDefault(physical, 0), localWorkers.size());
+            for (int workerOffset = 0; workerOffset < localWorkers.size(); workerOffset++) {
+                int workerIndex = (workerStart + workerOffset) % localWorkers.size();
+                ECOCraftingWorkerBlockEntity worker = localWorkers.get(workerIndex);
+                if (grid != null && worker.getMainNode().getGrid() != grid) {
+                    continue;
+                }
+                if (worker.pushPattern(execution, craftingJobId)) {
+                    nextWorkerIndexByCluster.put(physical, (workerIndex + 1) % localWorkers.size());
+                    nextPhysicalClusterIndex = (clusterIndex + 1) % physicalClusters.size();
+                    return true;
+                }
             }
         }
         return false;
     }
 
     public boolean tryPushBatch(
-        ECOCraftingPatternBusBlockEntity source,
+        @Nullable IGrid grid,
         ECOBatchCraftingRequest request,
         @Nullable ECOCraftingPatternBusBlockEntity.BatchFastPathOffer offer
     ) {
-        if (workers.isEmpty() || offer == null || isOutputBusy(request)) {
+        if (workers.isEmpty() || offer == null) {
             return false;
         }
-        IGrid grid = source.getGrid();
         // A batch occupies one logical host thread. Its physical worker slots
         // are checked separately below, so a batch may be larger than the
         // number of logical hosts in the network.
@@ -386,10 +492,9 @@ public final class NECraftingNetworkCluster {
         if (controller != null
             && offer.maxBatchSize() >= request.batchSize()
             && getAvailableLogicalSlots(worker) > 0
-            && worker.getAvailableThreadSlots() >= request.batchSize()
+            && worker.getAvailableThreadSlots() > 0
             && worker.pushBatch(request, offer.result())) {
-            int index = workers.indexOf(worker);
-            nextWorkerIndex = index < 0 ? nextWorkerIndex : (index + 1) % workers.size();
+            updateRoundRobinAfterAccept(physical, worker);
             return true;
         }
         return false;
@@ -397,7 +502,7 @@ public final class NECraftingNetworkCluster {
 
     @Nullable
     public ECOCraftingPatternBusBlockEntity.BatchFastPathOffer findBatchFastPathOffer(
-        ECOCraftingPatternBusBlockEntity source,
+        @Nullable IGrid grid,
         ECOFastPathKey key,
         @Nullable ECOExtractedPatternExecution execution,
         @Nullable ECOBatchCraftingRequest request,
@@ -406,53 +511,65 @@ public final class NECraftingNetworkCluster {
         if (requestedBatchSize <= 0 || workers.isEmpty()) {
             return null;
         }
-        IGrid grid = source.getGrid();
         if (getAvailableThreadSlots(grid) <= 0) {
             return null;
         }
-        int start = Math.floorMod(nextWorkerIndex, workers.size());
-        ECOCraftingPatternBusBlockEntity.BatchFastPathOffer bestOffer = null;
-        for (int offset = 0; offset < workers.size(); offset++) {
-            int index = (start + offset) % workers.size();
-            ECOCraftingWorkerBlockEntity worker = workers.get(index);
-            if (grid != null && worker.getMainNode().getGrid() != grid) {
+        int clusterStart = Math.floorMod(nextPhysicalClusterIndex, physicalClusters.size());
+        for (int clusterOffset = 0; clusterOffset < physicalClusters.size(); clusterOffset++) {
+            NECraftingCluster physical = physicalClusters.get((clusterStart + clusterOffset) % physicalClusters.size());
+            ECOCraftingSystemBlockEntity controller = physical.getController();
+            List<ECOCraftingWorkerBlockEntity> localWorkers = physical.getWorkers();
+            if (controller == null || getAvailableLogicalSlots(physical) <= 0 || localWorkers.isEmpty()) {
                 continue;
             }
-            int availableSlots = worker.getAvailableThreadSlots();
-            if (availableSlots <= 0) {
+            int availableBatchSize = controller.getLargestAvailableCraftingBatchSize();
+            if (availableBatchSize <= 0) {
                 continue;
             }
-            // Logical capacity decides whether this host may accept the
-            // task; the worker's physical capacity decides the batch size.
-            if (getAvailableLogicalSlots(worker) <= 0) {
-                continue;
-            }
-            ECOFastPathResult result = execution == null
-                ? worker.getFastPathCache().peek(key)
-                : worker.getVerifiedFastPathResult(execution);
-            if (result == null || result.isNegative()) {
-                continue;
-            }
-            if (request != null && !result.matchesBatchRequest(request)) {
-                worker.getFastPathCache().recordExpectedMismatch();
-                continue;
-            }
-            int maxBatchSize = Math.max(
-                0,
-                Math.min(requestedBatchSize, availableSlots)
-            );
-            if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
-                bestOffer = new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(worker, result, maxBatchSize);
-                if (maxBatchSize >= requestedBatchSize) {
-                    break;
+            int workerStart = Math.floorMod(nextWorkerIndexByCluster.getOrDefault(physical, 0), localWorkers.size());
+            ECOCraftingPatternBusBlockEntity.BatchFastPathOffer bestOffer = null;
+            for (int workerOffset = 0; workerOffset < localWorkers.size(); workerOffset++) {
+                ECOCraftingWorkerBlockEntity worker = localWorkers.get((workerStart + workerOffset) % localWorkers.size());
+                if ((grid != null && worker.getMainNode().getGrid() != grid) || worker.getAvailableThreadSlots() <= 0) {
+                    continue;
                 }
+                ECOFastPathResult result = execution == null
+                    ? worker.getFastPathCache().peek(key)
+                    : worker.getVerifiedFastPathResult(execution);
+                if (result == null || result.isNegative()) {
+                    continue;
+                }
+                if (request != null && !result.matchesBatchRequest(request)) {
+                    worker.getFastPathCache().recordExpectedMismatch();
+                    continue;
+                }
+                int maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
+                bestOffer = new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(worker, result, maxBatchSize);
+                break;
+            }
+            if (bestOffer != null) {
+                return bestOffer;
             }
         }
-        return bestOffer;
+        return null;
     }
 
-    public boolean isBusy(ECOCraftingPatternBusBlockEntity source) {
-        IGrid grid = source.getGrid();
+    private void updateRoundRobinAfterAccept(
+        NECraftingCluster physical,
+        ECOCraftingWorkerBlockEntity acceptedWorker
+    ) {
+        List<ECOCraftingWorkerBlockEntity> localWorkers = physical.getWorkers();
+        int workerIndex = localWorkers.indexOf(acceptedWorker);
+        if (workerIndex >= 0 && !localWorkers.isEmpty()) {
+            nextWorkerIndexByCluster.put(physical, (workerIndex + 1) % localWorkers.size());
+        }
+        int clusterIndex = physicalClusters.indexOf(physical);
+        if (clusterIndex >= 0 && !physicalClusters.isEmpty()) {
+            nextPhysicalClusterIndex = (clusterIndex + 1) % physicalClusters.size();
+        }
+    }
+
+    public boolean isBusy(@Nullable IGrid grid) {
         if (getAvailableThreadSlots(grid) <= 0) {
             return true;
         }
@@ -465,33 +582,6 @@ public final class NECraftingNetworkCluster {
             }
         }
         return true;
-    }
-
-    private boolean isOutputBusy(ECOExtractedPatternExecution execution) {
-        for (GenericStack output : execution.expectedOutputs()) {
-            if (output.what() instanceof AEItemKey itemKey && isOutputBusy(itemKey.toStack(1))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isOutputBusy(ECOBatchCraftingRequest request) {
-        for (GenericStack output : request.outputsPerCraft()) {
-            if (output.what() instanceof AEItemKey itemKey && isOutputBusy(itemKey.toStack(1))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isOutputBusy(ItemStack output) {
-        for (ECOCraftingWorkerBlockEntity worker : workers) {
-            if (worker.hasBusyOutput(output)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static long saturatingAdd(long left, long right) {

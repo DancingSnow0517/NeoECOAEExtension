@@ -33,11 +33,22 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
     @Setter
     private boolean highEnergyNetworkMode;
 
-    public int getNetworkMultiplier() {
+    public int getConfiguredNetworkMultiplier() {
         if (!hasLinkedNetworkPeers()) {
             return 1;
         }
         return highEnergyNetworkMode ? 8 : networkMode ? 2 : 1;
+    }
+
+    public int getNetworkMultiplier() {
+        return getConfiguredNetworkMultiplier();
+    }
+
+    public int getNetworkPowerMultiplier() {
+        if (!hasLinkedNetworkPeers()) {
+            return 1;
+        }
+        return highEnergyNetworkMode ? 16 : networkMode ? 4 : 1;
     }
 
     protected boolean hasLinkedNetworkPeers() {
