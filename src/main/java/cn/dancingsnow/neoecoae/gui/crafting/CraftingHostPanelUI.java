@@ -91,6 +91,7 @@ public final class CraftingHostPanelUI {
         Supplier<Component> title,
         IntSupplier networkMultiplier,
         BooleanSupplier networkConnected,
+        IntSupplier runStatus,
         BooleanSupplier overclocked,
         Runnable toggleOverclocked,
         BooleanSupplier activeCooling,
@@ -131,17 +132,25 @@ public final class CraftingHostPanelUI {
                 .flexDirection(FlexDirection.ROW)
                 .alignItems(AlignItems.CENTER));
 
-        Label title = localLabel(config.title.get(), ROOT_TEXT);
+        Label title = HostElements.textSegment(config.title, () -> ROOT_TEXT);
         title.addClass("eco-host-title");
+        title.textStyle(CraftingHostPanelUI::compactTextStyle);
         title.layout(layout -> layout.widthPercent(100).height(10));
         UIElement networkStatus = HostNetworkStatusElement.create(config.networkMultiplier, config.networkConnected);
+        UIElement statusRow = new UIElement().layout(layout -> layout
+            .widthPercent(100)
+            .height(12)
+            .flexDirection(FlexDirection.ROW)
+            .alignItems(AlignItems.CENTER)
+            .gapAll(5));
+        statusRow.addChildren(networkStatus, runStatusLabel(config.runStatus));
 
         UIElement titleBlock = new UIElement().layout(layout -> layout
             .flex(1)
             .height(24)
             .flexDirection(FlexDirection.COLUMN)
             .gapAll(2));
-        titleBlock.addChildren(title, networkStatus);
+        titleBlock.addChildren(title, statusRow);
 
         UIElement toolbar = new UIElement()
             .addClass("eco-host-toolbar")
@@ -158,6 +167,38 @@ public final class CraftingHostPanelUI {
             toolbar
         );
         return header;
+    }
+
+    private static Label runStatusLabel(IntSupplier status) {
+        Label label = new Label();
+        label.setText(runStatusText(status.getAsInt()));
+        label.textStyle(style -> style
+            .adaptiveHeight(true)
+            .adaptiveWidth(false)
+            .fontSize(COMPACT_FONT_SIZE)
+            .textAlignHorizontal(Horizontal.LEFT)
+            .textWrap(TextWrap.HOVER_ROLL)
+            .textShadow(false));
+        label.layout(layout -> layout.flex(1).height(10));
+
+        BindableValue<Integer> syncedStatus = new BindableValue<>(status.getAsInt());
+        syncedStatus.bind(DataBindingBuilder.intValS2C(status::getAsInt).build());
+        syncedStatus.registerValueListener(value -> label.setText(runStatusText(value == null ? 0 : value)));
+        syncedStatus.setDisplay(false);
+        label.addChild(syncedStatus);
+        return label;
+    }
+
+    private static Component runStatusText(int status) {
+        String key = switch (status) {
+            case 1 -> "gui.neoecoae.crafting.run_status.missing_coolant";
+            case 2 -> "gui.neoecoae.crafting.run_status.missing_energy";
+            case 3 -> "gui.neoecoae.crafting.run_status.overclock_mismatch";
+            case 4 -> "gui.neoecoae.crafting.run_status.network_coolant_incompatible";
+            default -> "gui.neoecoae.crafting.run_status.normal";
+        };
+        int color = status == 0 ? PANEL_SUCCESS : PANEL_WARNING;
+        return Component.translatable(key).withColor(color);
     }
 
     private static Button toolbarButton(

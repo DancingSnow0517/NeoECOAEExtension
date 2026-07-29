@@ -96,6 +96,7 @@ public class ECOComputationThreadingCoreBlockEntity extends AbstractComputationB
                     CompoundTag tag = new CompoundTag();
                     cpu.writeToNBT(tag, registries);
                     deferredInit[i] = tag;
+                    cpu.getLogic().unregisterJobOutputRoute();
                     previous.deactivate(cpu.getPlan());
                     cpus[i] = null;
                 }

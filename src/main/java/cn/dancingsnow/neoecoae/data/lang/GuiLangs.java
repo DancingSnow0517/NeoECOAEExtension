@@ -149,6 +149,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.patterns_short", "PB");
         provider.add("gui.neoecoae.crafting.ui.ft_cores_short", "FT");
         provider.add("gui.neoecoae.crafting.ui.energy_usage", "Energy Usage");
+        provider.add("gui.neoecoae.crafting.run_status.normal", "RUNNING NORMALLY");
+        provider.add("gui.neoecoae.crafting.run_status.missing_coolant", "MISSING COOLANT");
+        provider.add("gui.neoecoae.crafting.run_status.missing_energy", "MISSING ENERGY");
+        provider.add("gui.neoecoae.crafting.run_status.overclock_mismatch", "COOLANT / OVERCLOCK MISMATCH");
+        provider.add("gui.neoecoae.crafting.run_status.network_coolant_incompatible", "COOLANT / NETWORK MODULE INCOMPATIBLE");
         provider.add("gui.neoecoae.crafting.performance", "Performance");
         provider.add("gui.neoecoae.crafting.performance_short", "Performance");
         provider.add("gui.neoecoae.crafting.task.amount", "Amount: %s");

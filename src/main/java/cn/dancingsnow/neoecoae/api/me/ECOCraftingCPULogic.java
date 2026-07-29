@@ -3,8 +3,10 @@ package cn.dancingsnow.neoecoae.api.me;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import com.google.common.base.Preconditions;
@@ -52,6 +54,7 @@ import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final Map<UUID, ECOCraftingCPULogic> JOB_OUTPUT_ROUTES = new ConcurrentHashMap<>();
 
     final ECOCraftingCPU cpu;
 
@@ -116,6 +119,7 @@ public class ECOCraftingCPULogic {
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cpu);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
+        registerJobOutputRoute();
 
         // 合成监视器暂不支持
         // cpu.updateOutput(plan.finalOutput());
@@ -793,6 +797,7 @@ public class ECOCraftingCPULogic {
      * @param success 任务完成则为 true，取消则为 false。
      */
     private void finishJob(boolean success) {
+        UUID craftingJobId = job.link.getCraftingID();
         preserveBufferedFinalOutput();
         if (success) {
             job.link.markDone();
@@ -816,6 +821,7 @@ public class ECOCraftingCPULogic {
 
         // 结束任务。
         this.job = null;
+        JOB_OUTPUT_ROUTES.remove(craftingJobId, this);
 
         // 存储所有剩余物品。
         this.storeItems();
@@ -1011,8 +1017,41 @@ public class ECOCraftingCPULogic {
             this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
             if (this.job.finalOutput == null) {
                 finishJob(false);
+            } else {
+                registerJobOutputRoute();
             }
         }
+    }
+
+    /**
+     * Delivers worker output to its owning CPU without depending on CraftingService's rebuilt CPU list.
+     */
+    public static JobOutputDelivery deliverJobOutput(UUID craftingJobId, AEKey what, long amount, Actionable type) {
+        ECOCraftingCPULogic logic = JOB_OUTPUT_ROUTES.get(craftingJobId);
+        if (logic == null || logic.job == null || !craftingJobId.equals(logic.job.link.getCraftingID())) {
+            if (logic != null) {
+                JOB_OUTPUT_ROUTES.remove(craftingJobId, logic);
+            }
+            return JobOutputDelivery.UNAVAILABLE;
+        }
+        return new JobOutputDelivery(true, logic.insert(what, amount, type));
+    }
+
+    private void registerJobOutputRoute() {
+        if (job != null) {
+            JOB_OUTPUT_ROUTES.put(job.link.getCraftingID(), this);
+        }
+    }
+
+    /** Removes this CPU from direct worker routing while its serialized state is detached. */
+    public void unregisterJobOutputRoute() {
+        if (job != null) {
+            JOB_OUTPUT_ROUTES.remove(job.link.getCraftingID(), this);
+        }
+    }
+
+    public record JobOutputDelivery(boolean routeAvailable, long inserted) {
+        private static final JobOutputDelivery UNAVAILABLE = new JobOutputDelivery(false, 0L);
     }
 
     public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {

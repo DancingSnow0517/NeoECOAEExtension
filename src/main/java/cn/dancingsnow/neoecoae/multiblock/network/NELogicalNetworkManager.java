@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.WeakHashMap;
  */
 public final class NELogicalNetworkManager {
     private static final Map<ServerLevel, LevelState> LEVELS = new WeakHashMap<>();
+    private static final int CRAFTING_NETWORK_HOST_LIMIT = 8;
 
     private NELogicalNetworkManager() {
     }
@@ -168,17 +170,26 @@ public final class NELogicalNetworkManager {
             groups.computeIfAbsent(craftingNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
         }
 
-        Set<Object> activeKeys = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<CraftingNetworkPartitionKey> activeKeys = new HashSet<>();
         for (Map.Entry<Object, List<NECraftingCluster>> entry : groups.entrySet()) {
-            activeKeys.add(entry.getKey());
-            NECraftingNetworkCluster network = state.craftingNetworks.computeIfAbsent(
-                entry.getKey(),
-                ignored -> new NECraftingNetworkCluster(level)
-            );
-            for (NECraftingCluster cluster : entry.getValue()) {
-                cluster.setNetworkCluster(network);
+            List<NECraftingCluster> clusters = entry.getValue();
+            for (int start = 0; start < clusters.size(); start += CRAFTING_NETWORK_HOST_LIMIT) {
+                int partition = start / CRAFTING_NETWORK_HOST_LIMIT;
+                CraftingNetworkPartitionKey key = new CraftingNetworkPartitionKey(entry.getKey(), partition);
+                activeKeys.add(key);
+                NECraftingNetworkCluster network = state.craftingNetworks.computeIfAbsent(
+                    key,
+                    ignored -> new NECraftingNetworkCluster(level)
+                );
+                List<NECraftingCluster> members = clusters.subList(
+                    start,
+                    Math.min(start + CRAFTING_NETWORK_HOST_LIMIT, clusters.size())
+                );
+                for (NECraftingCluster cluster : members) {
+                    cluster.setNetworkCluster(network);
+                }
+                network.configure(members);
             }
-            network.configure(entry.getValue());
         }
         state.craftingNetworks.entrySet().removeIf(entry -> {
             if (activeKeys.contains(entry.getKey())) {
@@ -257,10 +268,32 @@ public final class NELogicalNetworkManager {
         return null;
     }
 
+    private static final class CraftingNetworkPartitionKey {
+        private final Object grid;
+        private final int partition;
+
+        private CraftingNetworkPartitionKey(Object grid, int partition) {
+            this.grid = grid;
+            this.partition = partition;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof CraftingNetworkPartitionKey key
+                && grid == key.grid
+                && partition == key.partition;
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * System.identityHashCode(grid) + partition;
+        }
+    }
+
     private static final class LevelState {
         private final Set<NECraftingCluster> crafting = new HashSet<>();
         private final Set<NEComputationCluster> computation = new HashSet<>();
-        private final Map<Object, NECraftingNetworkCluster> craftingNetworks = new IdentityHashMap<>();
+        private final Map<CraftingNetworkPartitionKey, NECraftingNetworkCluster> craftingNetworks = new HashMap<>();
         private final Map<Object, NEComputationNetworkCluster> computationNetworks = new IdentityHashMap<>();
         private final Set<NECluster<?>> pendingGridRefresh = Collections.newSetFromMap(new IdentityHashMap<>());
     }

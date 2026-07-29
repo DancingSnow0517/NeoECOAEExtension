@@ -72,6 +72,7 @@ import java.util.UUID;
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    private static final int NETWORK_HOST_LIMIT = 8;
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
@@ -777,6 +778,36 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             : getCurrentCoolingMaxOverclock();
     }
 
+    /**
+     * Runtime status synced to the crafting host panel. Higher-priority compatibility
+     * failures are reported before resource shortages.
+     */
+    public int getRunStatus() {
+        int multiplier = cluster == null ? 1 : cluster.getNetworkMultiplier();
+        if (isActiveCooling()) {
+            int coolantMax = getDisplayedCoolingMaxOverclock();
+            int requiredOverclock = isOverclocked() ? overlockTimes : 0;
+            if (multiplier >= 8 && coolantMax >= 0 && coolantMax < 9) {
+                return 4;
+            }
+            if (requiredOverclock > 0 && coolantMax >= 0 && coolantMax < requiredOverclock) {
+                return 3;
+            }
+            if (getDisplayedCoolantAmount() <= 0) {
+                return 1;
+            }
+        }
+        if (multiplier > 1 && isFullNetworkPowerMissing()) {
+            return 2;
+        }
+        return 0;
+    }
+
+    private boolean isFullNetworkPowerMissing() {
+        long currentTick = TickHandler.instance().getCurrentTick();
+        return lastFullNetworkPowerTick >= currentTick - 1L && !fullNetworkPowerPaid;
+    }
+
     public void clearCoolant() {
         if (cluster != null && cluster.getNetworkCluster() != null) {
             cluster.getNetworkCluster().clearCoolant();
@@ -1079,9 +1110,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private CraftingHostPanelUI.Config createCraftingPanelConfig() {
         return new CraftingHostPanelUI.Config(
-            () -> getItemFromBlockEntity().getDescription(),
+            this::getDisplayTitle,
             () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
+            this::getRunStatus,
             this::isOverclocked,
             () -> setOverclocked(!isOverclocked()),
             this::isActiveCooling,
@@ -1100,6 +1132,16 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries
         );
+    }
+
+    private Component getDisplayTitle() {
+        Component title = getItemFromBlockEntity().getDescription();
+        if (cluster == null || cluster.getNetworkCluster() == null) {
+            return title;
+        }
+        int members = cluster.getNetworkCluster().getMemberCount();
+        return title.copy().append(" (").append(Integer.toString(members)).append("/")
+            .append(Integer.toString(NETWORK_HOST_LIMIT)).append(")");
     }
 
     private void setOverclocked(boolean overclocked) {
