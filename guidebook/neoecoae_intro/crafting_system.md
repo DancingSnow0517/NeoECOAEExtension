@@ -122,15 +122,37 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
   <ItemIcon id="neoecoae:crafting_high_energy_network_switch" />
 </ItemGrid>
 
+#### Normal Network Exchange Structure (Length 1)
+
+<GameScene zoom="4" interactive={true}>
+  <ImportStructure src="../scenes/craft_min.nbt" />
+  <IsometricCamera yaw="45" pitch="30" />
+</GameScene>
+
 <ItemLink id="neoecoae:crafting_network_switch" /> and <ItemLink id="neoecoae:crafting_high_energy_network_switch" /> link F9 crafting hosts on the same ME network. While facing the controller front, replace the adjacent central casing on the right for a normal structure or on the left for a mirrored structure. At least two linked F9 hosts are required; a single host remains at **x1**.
 
-- Exchange modules multiply crafts handled by each task thread: **x2** for normal and **x8** for high-energy. While exchange is active, each FX Worker has one thread per participating F host; the network sums the threads owned by every physical host.
-- Patterns are the union of every member bus. Incoming work is fairly routed to any member host with a suitable free slot.
-- Linked normal modules use **x4** power and high-energy modules use **x16** power. While exchange is active, every host continuously draws its full rated power for all available FX threads; insufficient power pauses affected tasks. The shared UI reports this aggregate network energy use.
-- The shared UI also controls active cooling. Cached coolant from every member forms one pool, and drains rotate fairly across members of sufficient coolant tier regardless of which worker executes the task.
-- Normal exchange requires the active cooling pool to provide coolant. High-energy exchange requires highest-tier coolant, supporting overclock 9. If the relevant pool cannot supply it, the multiplier is **x1**.
-- Only active exchange tasks use tick-based cooling: normal exchange drains **4** coolant and high-energy exchange drains **16** coolant per active task thread per tick. Batch size does not affect this cost.
-- An exchange task pauses when the shared pool cannot pay its tick cost and resumes from the same progress after coolant is restored.
+#### Exchange Multipliers
+
+| Topic | Normal | High-energy |
+|-------|--------|-------------|
+| Crafting multiplier | **x2** crafts per task slot | **x8** crafts per task slot |
+| Worker threads | One thread per participating F host on each FX Worker | One thread per participating F host on each FX Worker |
+| Power draw | **x4** | **x16** |
+| Cooling requirement | The shared pool must provide valid coolant | The shared pool must provide the highest-tier coolant, supporting overclock 9 |
+| Tick cooling | **4** coolant per active task thread per tick | **16** coolant per active task thread per tick |
+
+#### Shared Exchange Rules
+
+| Topic | Behavior |
+|-------|----------|
+| Activation | At least two linked F9 hosts are required. A single host remains at **x1**. |
+| Patterns | All member pattern buses are combined into one pattern set; work is fairly routed to any member host with a suitable free slot. |
+| Power and UI | Each host continuously draws its full rated power for all available FX threads while exchange is active. Insufficient power pauses affected tasks, and the shared UI reports aggregate network energy use. |
+| Shared controls | The network shares one GUI for exchange state, overclocking, active cooling, and aggregate energy use. The shared UI also controls active cooling. |
+| Cooling pool | When active cooling is enabled, cached coolant from every member forms one pool. Drains rotate fairly across members with sufficient coolant tier, regardless of which host executes the task. |
+| Coolant fallback | If the relevant shared pool cannot supply the required coolant, the exchange multiplier falls back to **x1**. |
+| Tick cost basis | Only active exchange tasks use tick-based cooling; batch size does not affect this cost. |
+| Task pause | When the shared pool cannot pay the tick cost, the exchange task pauses and resumes from the same progress after coolant is restored. |
 
 ## Building the Structure
 
@@ -148,11 +170,6 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 The structure is extensible - add more workers, parallel cores, pattern buses, and heat sinks to increase capacity.
 
 If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
-
-<GameScene zoom="4" interactive={true}>
-  <ImportStructure src="../scenes/craft_min.nbt" />
-  <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
 
 ## Usage
 

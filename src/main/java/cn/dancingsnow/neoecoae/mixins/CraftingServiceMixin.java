@@ -17,8 +17,6 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingLink;
-import appeng.crafting.execution.CraftingSubmitResult;
-import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
@@ -274,7 +272,6 @@ public abstract class CraftingServiceMixin {
         boolean prioritizePower,
         IActionSource src,
         CallbackInfoReturnable<ICraftingSubmitResult> cir,
-        @Local(name = "cpuCluster") CraftingCPUCluster cpuCluster,
         @Local(name = "unsuitableCpusResult") MutableObject<UnsuitableCpus> unsuitableCpusResult
     ) {
         if (target instanceof ECOCraftingCPU ecoCpu) {
@@ -284,14 +281,6 @@ public abstract class CraftingServiceMixin {
             if (cluster != null) {
                 updateList = true;
                 cir.setReturnValue(cluster.submitJob(this.grid, job, src, requestingMachine));
-            } else if (cpuCluster == null) {
-                // If no CPUs were unsuitable, but we couldn't find one, that means there aren't any
-                UnsuitableCpus unsuitableCpus = unsuitableCpusResult.getValue();
-                if (unsuitableCpus == null) {
-                    cir.setReturnValue(CraftingSubmitResult.NO_CPU_FOUND);
-                } else {
-                    cir.setReturnValue(CraftingSubmitResult.noSuitableCpu(unsuitableCpus));
-                }
             }
         }
     }
