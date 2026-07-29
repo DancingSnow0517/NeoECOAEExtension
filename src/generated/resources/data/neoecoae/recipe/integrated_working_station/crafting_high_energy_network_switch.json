@@ -1,6 +1,10 @@
 {
   "type": "neoecoae:integrated_working_station",
   "energy": 16000000,
+  "inputFluid": {
+    "amount": 16000,
+    "fluid": "neoecoae:cryotheum_solution"
+  },
   "inputItems": [
     {
       "count": 4,
@@ -25,10 +29,6 @@
     {
       "count": 4,
       "item": "neoecoae:eco_cell_component_256m"
-    },
-    {
-      "count": 8,
-      "item": "neoecoae:crystal_matrix"
     },
     {
       "count": 64,

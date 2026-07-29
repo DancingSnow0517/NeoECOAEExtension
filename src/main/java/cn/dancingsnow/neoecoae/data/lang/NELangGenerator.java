@@ -87,6 +87,7 @@ public class NELangGenerator {
         provider.add("cell_type.neoecoae.omni", "Omni");
         provider.add("cell_type.neoecoae.complex_omni", "Complex Omni");
         provider.add("cell_type.neoecoae.quantum_omni", "Quantum Omni");
+        provider.add("cell_type.neoecoae.other", "Other");
         provider.add("item.neoecoae.eco_mana_cell_housing", "ECO Storage Matrix Housing (Mana)");
         provider.add("item.neoecoae.eco_mana_storage_cell_16m", "ECO - LE4 Storage Matrix (Mana)");
         provider.add("item.neoecoae.eco_mana_storage_cell_64m", "ECO - LE6 Storage Matrix (Mana)");

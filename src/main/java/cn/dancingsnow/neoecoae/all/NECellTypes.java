@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.all;
 
 import appeng.api.stacks.AEKeyType;
 import cn.dancingsnow.neoecoae.registration.NECellTypeEntry;
+import net.minecraft.network.chat.Component;
 
 import static cn.dancingsnow.neoecoae.NeoECOAE.REGISTRATE;
 
@@ -15,6 +16,11 @@ public class NECellTypes {
     public static final NECellTypeEntry FLUID = REGISTRATE.cellType("fluids")
         .desc(AEKeyType.fluids().getDescription().copy().withColor(0x9bc9fe))
         .typeCount(25)
+        .register();
+
+    public static final NECellTypeEntry OTHER = REGISTRATE.cellType("other")
+        .desc(Component.translatable("cell_type.neoecoae.other").withColor(0xAAAAAA))
+        .typeCount(0)
         .register();
 
     public static void register() {

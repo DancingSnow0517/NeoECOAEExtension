@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.blocks.entity.storage;
 
 import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
+import cn.dancingsnow.neoecoae.all.NECellTypes;
 import cn.dancingsnow.neoecoae.all.NERegistries;
 import cn.dancingsnow.neoecoae.all.NETags;
 import cn.dancingsnow.neoecoae.api.ECOTier;
@@ -555,10 +556,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         Map<AEKeyType, Integer> cellTypesByKeyType = getRegisteredCellTypesByKeyType();
         for (ECOInfiniteStorageEngine.TypeStats stats : engine.getTypeStats()) {
-            int cellTypeId = cellTypesByKeyType.getOrDefault(stats.keyType(), -1);
-            if (cellTypeId < 0) {
-                continue;
-            }
+            int cellTypeId = cellTypesByKeyType.getOrDefault(
+                stats.keyType(),
+                NERegistries.CELL_TYPE.getId(NECellTypes.OTHER.get())
+            );
             BigInteger usedBytes = infiniteUsedBytes(stats);
             storageTypes.merge(
                 cellTypeId,
@@ -593,7 +594,8 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 }
                 int cellTypeId = NERegistries.CELL_TYPE.getId(cellItem.getCellType());
                 Set<AEKeyType> keyTypes = cellItem.getKeyTypes();
-                if (cellTypeId < 0 || keyTypes.isEmpty()) {
+                // Universal/omni cells are a fallback for storage, not a specific UI category.
+                if (cellTypeId < 0 || keyTypes.size() != 1) {
                     return;
                 }
                 CellTypeCandidate candidate = new CellTypeCandidate(cellTypeId, keyTypes.size());

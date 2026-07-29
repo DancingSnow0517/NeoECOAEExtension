@@ -7,6 +7,7 @@ import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.impl.storage.ECOStorageKeyHash;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +32,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -86,6 +88,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     private boolean hugeStacksSnapshotDirty = true;
     private long lastPersistenceProbeTick = Long.MIN_VALUE;
     private long lastVerifiedRevision;
+    @Nullable private CompoundTag lastSerializedSnapshot;
 
     private SavedDataInfiniteStorageEngine(
         HolderLookup.Provider registries,
@@ -142,6 +145,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         engine.revision = parsed.revision();
         engine.lastVerifiedRevision = parsed.revision();
         engine.legacyFingerprint = parsed.legacyFingerprint();
+        engine.lastSerializedSnapshot = tag.copy();
         engine.rebuildIndexes();
         return engine;
     }
@@ -404,11 +408,35 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             Files.createDirectories(dataFile.getParent());
             dataStorage.save();
             IOUtilities.waitUntilIOWorkerComplete();
-            verifyDiskSnapshot();
+            try {
+                verifyDiskSnapshot();
+            } catch (IllegalStateException mismatch) {
+                // DimensionDataStorage delegates writes to a shared async queue. If an older queued
+                // write wins the race, synchronously publish this engine's exact snapshot once before
+                // quarantining the domain.
+                LOGGER.warn(
+                    "Infinite-storage snapshot mismatch for domain {}; retrying with synchronous snapshot write: {}",
+                    domainId,
+                    mismatch.getMessage()
+                );
+                writeSnapshotSynchronously();
+                verifyDiskSnapshot();
+            }
             lastVerifiedRevision = revision;
         } catch (Exception e) {
             quarantine("Unable to persist and verify infinite-storage domain", e);
         }
+    }
+
+    private void writeSnapshotSynchronously() throws IOException {
+        if (lastSerializedSnapshot == null) {
+            throw new IllegalStateException("No serialized snapshot is available for recovery");
+        }
+        CompoundTag root = new CompoundTag();
+        root.put("data", lastSerializedSnapshot.copy());
+        NbtUtils.addCurrentDataVersion(root);
+        IOUtilities.writeNbtCompressed(root, dataFile);
+        setDirty(false);
     }
 
     synchronized void pollPersistence(long gameTime) {
@@ -482,6 +510,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             receipts.add(receipt);
         });
         tag.put(TAG_RECEIPTS, receipts);
+        lastSerializedSnapshot = tag.copy();
         return tag;
     }
 
@@ -700,7 +729,55 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         try (InputStream input = Files.newInputStream(dataFile)) {
             root = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
         }
-        ParsedData persisted = parse(root.getCompound("data"), registries, domainId);
+        CompoundTag persistedTag = root.getCompound("data");
+        ParsedData persisted = parse(persistedTag, registries, domainId);
+        if (lastSerializedSnapshot != null) {
+            ParsedData expected = parse(lastSerializedSnapshot, registries, domainId);
+            boolean revisionMatches = persisted.revision() == expected.revision() && expected.revision() == revision;
+            boolean amountsMatch = canonicalAmounts(persisted).equals(canonicalAmounts(expected));
+            boolean encodedKeysMatch = canonicalKeys(persisted).equals(canonicalKeys(expected));
+            boolean legacyReceiptsMatch = persisted.legacyTransferReceipts().equals(expected.legacyTransferReceipts());
+            boolean transferReceiptsMatch = persisted.transferReceipts().equals(expected.transferReceipts());
+            boolean legacyFingerprintMatches = Objects.equals(
+                persisted.legacyFingerprint(), expected.legacyFingerprint()
+            );
+            if (!(revisionMatches && amountsMatch && encodedKeysMatch && legacyReceiptsMatch
+                    && transferReceiptsMatch && legacyFingerprintMatches)) {
+                LOGGER.error(
+                    "Infinite-storage snapshot details domain={} file={} bytes={} revision={} amounts={} encodedKeys={} "
+                        + "legacyReceipts={} transferReceipts={} legacyFingerprint={} (expected revision={} amounts={} "
+                        + "encodedKeys={} legacyReceipts={} transferReceipts={} legacyFingerprint={})",
+                    domainId,
+                    dataFile,
+                    Files.size(dataFile),
+                    persisted.revision(),
+                    persisted.amounts().size(),
+                    persisted.encodedKeys().size(),
+                    persisted.legacyTransferReceipts().size(),
+                    persisted.transferReceipts().size(),
+                    persisted.legacyFingerprint() != null,
+                    expected.revision(),
+                    expected.amounts().size(),
+                    expected.encodedKeys().size(),
+                    expected.legacyTransferReceipts().size(),
+                    expected.transferReceipts().size(),
+                    expected.legacyFingerprint() != null
+                );
+                if (!amountsMatch || !encodedKeysMatch) {
+                    LOGGER.error(
+                        "Infinite-storage key details domain={} persisted={} expected={} amountDifferences={}",
+                        domainId,
+                        describeKeys(persisted),
+                        describeKeys(expected),
+                        describeAmountDifferences(persisted, expected)
+                    );
+                }
+                throw new IllegalStateException("SavedData read-back did not match the serialized snapshot");
+            }
+            return;
+        }
+
+        // A freshly loaded clean domain has no in-process serialized snapshot yet.
         Map<AEKey, HugeAmount> expectedAmounts = new HashMap<>();
         amounts.forEach(expectedAmounts::put);
         if (persisted.revision() != revision
@@ -846,6 +923,49 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             throw new IllegalArgumentException("Infinite-storage SavedData contains an invalid " + key + " list");
         }
         return list;
+    }
+
+    private static String describeKeys(ParsedData data) {
+        List<String> keys = new ArrayList<>();
+        data.encodedKeys().forEach((key, encoded) -> keys.add(
+            key.getId() + "=" + ECOStorageKeyHash.stableFingerprint(encoded)
+        ));
+        keys.sort(String::compareTo);
+        return keys.toString();
+    }
+
+    private static String describeAmountDifferences(ParsedData persisted, ParsedData expected) {
+        Map<String, HugeAmount> actual = canonicalAmounts(persisted);
+        Map<String, HugeAmount> wanted = canonicalAmounts(expected);
+        Set<String> keys = new HashSet<>(actual.keySet());
+        keys.addAll(wanted.keySet());
+        List<String> differences = new ArrayList<>();
+        for (String key : keys) {
+            HugeAmount actualAmount = actual.get(key);
+            HugeAmount wantedAmount = wanted.get(key);
+            if (!Objects.equals(actualAmount, wantedAmount)) {
+                differences.add(key + "=" + actualAmount + "/" + wantedAmount);
+            }
+        }
+        differences.sort(String::compareTo);
+        return differences.toString();
+    }
+
+    private static Map<String, HugeAmount> canonicalAmounts(ParsedData data) {
+        Map<String, HugeAmount> result = new HashMap<>();
+        data.amounts().forEach((key, amount) -> {
+            CompoundTag encoded = data.encodedKeys().get(key);
+            if (encoded != null) {
+                result.put(ECOStorageKeyHash.stableFingerprint(encoded), amount);
+            }
+        });
+        return result;
+    }
+
+    private static Set<String> canonicalKeys(ParsedData data) {
+        Set<String> result = new HashSet<>();
+        data.encodedKeys().values().forEach(encoded -> result.add(ECOStorageKeyHash.stableFingerprint(encoded)));
+        return result;
     }
 
     private static boolean isResolved(@Nullable AEKey key) {

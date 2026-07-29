@@ -73,6 +73,7 @@
   "cell_type.neoecoae.complex_omni": "复合全能",
   "cell_type.neoecoae.omni": "全能",
   "cell_type.neoecoae.quantum_omni": "量子全能",
+  "cell_type.neoecoae.other": "其他",
   "config.jade.plugin_neoecoae.eco_crafting_system": "ECO 合成系统",
   "config.jade.plugin_neoecoae.eco_crafting_worker": "ECO 工作核心",
   "config.jade.plugin_neoecoae.eco_drive": "ECO - 驱动器",
