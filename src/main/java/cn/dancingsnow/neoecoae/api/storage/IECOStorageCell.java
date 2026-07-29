@@ -14,6 +14,10 @@ public interface IECOStorageCell extends StorageCell {
 
     long getTotalItemTypes();
 
+    default boolean hasInfiniteTypeCapacity() {
+        return false;
+    }
+
     long getUsedBytes();
 
     long getTotalBytes();

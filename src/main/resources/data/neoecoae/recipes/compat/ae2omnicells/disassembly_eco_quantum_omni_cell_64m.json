@@ -1,0 +1,20 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2omnicells"
+    }
+  ],
+  "type": "neoecoae:storage_cell_disassembly",
+  "cell": "neoecoae:eco_quantum_omni_cell_64m",
+  "cell_disassembly_items": [
+    {
+      "count": 1,
+      "id": "neoecoae:eco_quantum_omni_cell_housing"
+    },
+    {
+      "count": 4,
+      "id": "ae2omnicells:quantum_omni_cell_component_64m"
+    }
+  ]
+}

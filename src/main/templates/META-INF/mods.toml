@@ -53,6 +53,13 @@ config="${mod_id}.mixins.json"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
+    modId="ae2omnicells"
+    mandatory=false
+    versionRange="[1.1.6,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
     modId="gtceu"
     mandatory=false
     versionRange="[0,)"

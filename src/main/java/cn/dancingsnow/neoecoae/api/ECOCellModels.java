@@ -7,6 +7,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import lombok.Getter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -17,6 +19,8 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 public class ECOCellModels {
     @Getter
     private static final Map<Item, ResourceLocation> registry = new IdentityHashMap<>();
+
+    private static final Map<Supplier<? extends Item>, ResourceLocation> deferredRegistry = new ConcurrentHashMap<>();
 
     public static final ResourceLocation STORAGE_CELL_L4_ITEM = NeoECOAE.id("block/cell/storage_cell_l4_item");
     public static final ResourceLocation STORAGE_CELL_L6_ITEM = NeoECOAE.id("block/cell/storage_cell_l6_item");
@@ -69,8 +73,17 @@ public class ECOCellModels {
         registry.put(item, model);
     }
 
+    /**
+     * Registers a model before item registry entries are resolved. Optional integrations use this during mod
+     * construction so the model is included in {@link ModelEvent.RegisterAdditional}.
+     */
+    public static void register(Supplier<? extends Item> item, ResourceLocation model) {
+        deferredRegistry.put(item, model);
+    }
+
     @SubscribeEvent
     public static void on(FMLClientSetupEvent e) {
+        deferredRegistry.forEach((item, model) -> register(item.get(), model));
         register(NEItems.ECO_ITEM_CELL_16M.get(), STORAGE_CELL_L4_ITEM);
         register(NEItems.ECO_ITEM_CELL_64M.get(), STORAGE_CELL_L6_ITEM);
         register(NEItems.ECO_ITEM_CELL_256M.get(), STORAGE_CELL_L9_ITEM);
@@ -83,6 +96,7 @@ public class ECOCellModels {
     @SubscribeEvent
     public static void on(ModelEvent.RegisterAdditional e) {
         Set<ResourceLocation> models = new LinkedHashSet<>(BUILTIN_MODELS);
+        models.addAll(deferredRegistry.values());
         models.addAll(registry.values());
         models.forEach(e::register);
     }

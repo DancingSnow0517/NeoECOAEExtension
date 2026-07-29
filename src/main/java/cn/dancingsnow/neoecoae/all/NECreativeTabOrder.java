@@ -96,6 +96,7 @@ public final class NECreativeTabOrder {
         acceptFeCells(output);
         acceptManaCells(output);
         acceptSourceCells(output);
+        acceptOmniCells(output);
     }
 
     private static void acceptComputationCells(CreativeModeTab.Output output) {
@@ -239,6 +240,24 @@ public final class NECreativeTabOrder {
         acceptById(output, "eco_source_storage_cell_16m");
         acceptById(output, "eco_source_storage_cell_64m");
         acceptById(output, "eco_source_storage_cell_256m");
+    }
+
+    private static void acceptOmniCells(CreativeModeTab.Output output) {
+        if (!ModList.get().isLoaded("ae2omnicells")) {
+            return;
+        }
+        acceptById(output, "eco_omni_cell_housing");
+        acceptById(output, "eco_omni_cell_16m");
+        acceptById(output, "eco_omni_cell_64m");
+        acceptById(output, "eco_omni_cell_256m");
+        acceptById(output, "eco_complex_omni_cell_housing");
+        acceptById(output, "eco_complex_omni_cell_16m");
+        acceptById(output, "eco_complex_omni_cell_64m");
+        acceptById(output, "eco_complex_omni_cell_256m");
+        acceptById(output, "eco_quantum_omni_cell_housing");
+        acceptById(output, "eco_quantum_omni_cell_16m");
+        acceptById(output, "eco_quantum_omni_cell_64m");
+        acceptById(output, "eco_quantum_omni_cell_256m");
     }
 
     private static void accept(CreativeModeTab.Output output, Supplier<? extends ItemLike> supplier) {

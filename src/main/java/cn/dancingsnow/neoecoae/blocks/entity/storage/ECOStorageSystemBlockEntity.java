@@ -27,6 +27,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
+import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
 import cn.dancingsnow.neoecoae.blocks.entity.ECOMachineInterfaceBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
@@ -311,24 +312,24 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 if (isInfiniteMemberCell(drive.getCellStack())) continue;
 
                 long st = inv.getStoredItemTypes();
-                long tt = inv.getTotalItemTypes();
+                long tt = inv.hasInfiniteTypeCapacity() ? Long.MAX_VALUE : inv.getTotalItemTypes();
                 long ub = inv.getUsedBytes();
                 long tb = inv.getTotalBytes();
 
-                aggUsedTypes += st;
-                aggTotalTypes += tt;
-                aggUsedBytes += ub;
-                aggTotalBytes += tb;
+                aggUsedTypes = saturatedAdd(aggUsedTypes, st);
+                aggTotalTypes = saturatedAdd(aggTotalTypes, tt);
+                aggUsedBytes = saturatedAdd(aggUsedBytes, ub);
+                aggTotalBytes = saturatedAdd(aggTotalBytes, tb);
 
                 // Per-cell-type arrays - best-effort, may skip if id lookup fails
                 ECOCellType cellType = inv.getCellType();
                 var reg = NERegistries.cellTypeRegistry();
                 int id = reg != null ? reg.getId(cellType) : -1;
                 if (id >= 0 && id < typeCount) {
-                    usedTypes[id] += st;
-                    totalTypes[id] += tt;
-                    usedBytes[id] += ub;
-                    totalBytes[id] += tb;
+                    usedTypes[id] = saturatedAdd(usedTypes[id], st);
+                    totalTypes[id] = saturatedAdd(totalTypes[id], tt);
+                    usedBytes[id] = saturatedAdd(usedBytes[id], ub);
+                    totalBytes[id] = saturatedAdd(totalBytes[id], tb);
                 }
             }
 
@@ -1015,9 +1016,10 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 ECOCellType cellType = inv.getCellType();
                 ResourceLocation typeId = getCellTypeKey(cellType);
                 String displayName = cellType.desc().getString();
-                if (inv instanceof ECOStorageCell ecoCell) {
-                    keyTypePresentations.putIfAbsent(
-                            ecoCell.getKeyType(), new CellTypePresentation(typeId, displayName));
+                if (cellStack.getItem() instanceof IECOStorageCellItem cellItem) {
+                    for (AEKeyType keyType : cellItem.getKeyTypes()) {
+                        keyTypePresentations.putIfAbsent(keyType, new CellTypePresentation(typeId, displayName));
+                    }
                 }
                 boolean infiniteMember = isInfiniteMemberCell(cellStack);
                 if (infiniteMember) {
@@ -1036,7 +1038,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
                 }
 
                 long st = inv.getStoredItemTypes();
-                long tt = inv.getTotalItemTypes();
+                long tt = inv.hasInfiniteTypeCapacity() ? Long.MAX_VALUE : inv.getTotalItemTypes();
                 long ub = inv.getUsedBytes();
                 long tb = inv.getTotalBytes();
                 int matrixTier = Math.max(0, Math.min(3, inv.getTier().getTier()));

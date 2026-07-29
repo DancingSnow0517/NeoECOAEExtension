@@ -1,0 +1,24 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2omnicells"
+    }
+  ],
+  "type": "neoecoae:integrated_working_station",
+  "energy": 1000,
+  "inputItems": [
+    {
+      "count": 1,
+      "item": "neoecoae:eco_quantum_omni_cell_housing"
+    },
+    {
+      "count": 4,
+      "item": "ae2omnicells:quantum_omni_cell_component_256m"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:eco_quantum_omni_cell_256m"
+  }
+}

@@ -4,9 +4,10 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import cn.dancingsnow.neoecoae.api.IECOTier;
+import java.util.Set;
 import net.minecraft.world.item.ItemStack;
 
-public interface IBasicECOCellItem extends ICellWorkbenchItem {
+public interface IBasicECOCellItem extends ICellWorkbenchItem, IECOStorageCellItem {
     IECOTier getTier();
 
     AEKeyType getKeyType();
@@ -21,7 +22,13 @@ public interface IBasicECOCellItem extends ICellWorkbenchItem {
 
     int getTotalTypes();
 
+    @Override
     ECOCellType getCellType();
+
+    @Override
+    default Set<AEKeyType> getKeyTypes() {
+        return Set.of(getKeyType());
+    }
 
     default boolean isBlackListed(ItemStack cellStack, AEKey what) {
         return false;

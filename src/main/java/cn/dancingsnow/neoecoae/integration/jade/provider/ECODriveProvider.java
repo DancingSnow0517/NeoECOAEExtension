@@ -1,5 +1,6 @@
 package cn.dancingsnow.neoecoae.integration.jade.provider;
 
+import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCell;
@@ -55,7 +56,19 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
             tooltip.add(Tooltips.bytesUsed(data.getLong("usedBytes"), data.getLong("totalBytes")));
         }
         if (data.contains("storedItemTypes") && data.contains("totalItemTypes")) {
-            tooltip.add(Tooltips.typesUsed(data.getLong("storedItemTypes"), data.getLong("totalItemTypes")));
+            long storedItemTypes = data.getLong("storedItemTypes");
+            if (data.getBoolean("infiniteTypeCapacity")) {
+                tooltip.add(Tooltips.of(
+                        Tooltips.ofUnformattedNumberWithRatioColor(storedItemTypes, 0, false),
+                        Tooltips.of(" "),
+                        Tooltips.of(GuiText.Of),
+                        Tooltips.of(" "),
+                        Component.literal("∞").withStyle(Tooltips.NUMBER_TEXT),
+                        Tooltips.of(" "),
+                        Tooltips.of(GuiText.Types)));
+            } else {
+                tooltip.add(Tooltips.typesUsed(storedItemTypes, data.getLong("totalItemTypes")));
+            }
         }
     }
 
@@ -72,6 +85,7 @@ public enum ECODriveProvider implements IBlockComponentProvider, IServerDataProv
                 tag.putLong("totalBytes", cellInventory.getTotalBytes());
                 tag.putLong("storedItemTypes", cellInventory.getStoredItemTypes());
                 tag.putLong("totalItemTypes", cellInventory.getTotalItemTypes());
+                tag.putBoolean("infiniteTypeCapacity", cellInventory.hasInfiniteTypeCapacity());
             }
         }
     }

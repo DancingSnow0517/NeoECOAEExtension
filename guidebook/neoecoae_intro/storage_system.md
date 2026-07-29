@@ -140,6 +140,8 @@ The following ECO storage cells can be used in the drives:
 - <ItemLink id="neoecoae:eco_fluid_storage_cell_64m" /> - 64MB capacity
 - <ItemLink id="neoecoae:eco_fluid_storage_cell_256m" /> - 256MB capacity
 
+Storage matrices provided by AE2 Omni Cells are documented in [Compatibility Storage Matrices](compat_storage_matrices.md).
+
 ## Usage
 
 Once formed, the storage system will automatically connect to the ME Network through the interface. All stored items and fluids will be accessible from any connected terminal.

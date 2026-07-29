@@ -1,0 +1,33 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2omnicells"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "neoecoae:crystal_matrix"
+    },
+    "B": {
+      "tag": "forge:dusts/ender_pearl"
+    },
+    "C": {
+      "item": "ae2omnicells:charged_ender_ingot"
+    },
+    "D": {
+      "item": "ae2omnicells:multidimensional_expansion_processor"
+    }
+  },
+  "pattern": [
+    "ABA",
+    "B B",
+    "CDC"
+  ],
+  "result": {
+    "count": 1,
+    "item": "neoecoae:eco_quantum_omni_cell_housing"
+  }
+}

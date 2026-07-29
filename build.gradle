@@ -193,6 +193,9 @@ dependencies {
     }
     implementation fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
 
+    compileOnly fg.deobf("curse.maven:omni-cells-1359517:8050975")
+    runtimeOnly fg.deobf("curse.maven:omni-cells-1359517:8050975")
+
     compileOnly("org.appliedenergistics:guideme:${guideme_version}:api")
     runtimeOnly fg.deobf("org.appliedenergistics:guideme:${guideme_version}")
 
@@ -282,6 +285,18 @@ def handwrittenResourceOverrides = [
         'assets/neoecoae/models/item/eco_fe_storage_cell_16m.json',
         'assets/neoecoae/models/item/eco_fe_storage_cell_256m.json',
         'assets/neoecoae/models/item/eco_fe_storage_cell_64m.json',
+        'assets/neoecoae/models/item/eco_omni_cell_housing.json',
+        'assets/neoecoae/models/item/eco_omni_cell_16m.json',
+        'assets/neoecoae/models/item/eco_omni_cell_64m.json',
+        'assets/neoecoae/models/item/eco_omni_cell_256m.json',
+        'assets/neoecoae/models/item/eco_complex_omni_cell_housing.json',
+        'assets/neoecoae/models/item/eco_complex_omni_cell_16m.json',
+        'assets/neoecoae/models/item/eco_complex_omni_cell_64m.json',
+        'assets/neoecoae/models/item/eco_complex_omni_cell_256m.json',
+        'assets/neoecoae/models/item/eco_quantum_omni_cell_housing.json',
+        'assets/neoecoae/models/item/eco_quantum_omni_cell_16m.json',
+        'assets/neoecoae/models/item/eco_quantum_omni_cell_64m.json',
+        'assets/neoecoae/models/item/eco_quantum_omni_cell_256m.json',
         'assets/neoecoae/models/item/eco_mana_cell_housing.json',
         'assets/neoecoae/models/item/eco_mana_storage_cell_16m.json',
         'assets/neoecoae/models/item/eco_mana_storage_cell_256m.json',

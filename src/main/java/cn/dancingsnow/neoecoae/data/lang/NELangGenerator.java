@@ -54,8 +54,11 @@ public class NELangGenerator {
 
         provider.add("cell_type.neoecoae.chemical", "Chemical");
         provider.add("cell_type.neoecoae.chemicals", "Chemical");
+        provider.add("cell_type.neoecoae.complex_omni", "Complex Omni");
         provider.add("cell_type.neoecoae.flux", "FE");
         provider.add("cell_type.neoecoae.mana", "Mana");
+        provider.add("cell_type.neoecoae.omni", "Omni");
+        provider.add("cell_type.neoecoae.quantum_omni", "Quantum Omni");
         provider.add("cell_type.neoecoae.source", "Source");
 
         provider.add("category.neoecoae.cooling", "Cooling");
