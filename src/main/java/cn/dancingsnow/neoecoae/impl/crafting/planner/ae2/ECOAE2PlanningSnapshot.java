@@ -1,17 +1,16 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
-import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.Map;
 import java.util.Objects;
 
 public record ECOAE2PlanningSnapshot(
-    ECOPlanningProblem<AEKey, IPatternDetails> problem,
+    ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
     AEKey requestedKey,
     long requestedAmount,
     boolean multiplePaths,
-    Map<IPatternDetails, Integer> inputSlotCounts
+    Map<ECOAE2PatternVariant, Integer> inputSlotCounts
 ) {
     public ECOAE2PlanningSnapshot {
         Objects.requireNonNull(problem, "problem");

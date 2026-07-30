@@ -10,8 +10,10 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerInputPolicy;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningDiagnostics;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,6 +31,7 @@ public final class ECOAE2SnapshotFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int MAX_MATERIALS = 16_384;
     private static final int MAX_OPERATIONS = 65_536;
+    private static final int MAX_VARIANTS_PER_PATTERN = 1_024;
     private static final long NO_GENERATION = Long.MIN_VALUE;
     private static final Map<ICraftingService, CachedGraphs> GRAPH_CACHE = new WeakHashMap<>();
 
@@ -53,9 +56,11 @@ public final class ECOAE2SnapshotFactory {
         CalculationStrategy strategy,
         long craftableGeneration
     ) {
+        ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SNAPSHOT_STARTED);
         if (requestedAmount <= 0
             || (strategy != CalculationStrategy.REPORT_MISSING_ITEMS
                 && strategy != CalculationStrategy.CRAFT_LESS)) {
+            ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.UNSUPPORTED_REQUEST);
             return Optional.empty();
         }
         try {
@@ -64,14 +69,19 @@ public final class ECOAE2SnapshotFactory {
             var craftingService = grid.getCraftingService();
             Optional<PatternGraph> graph = graphFor(craftingService, requestedKey, craftableGeneration);
             if (graph.isEmpty()) {
+                ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SNAPSHOT_REJECTED);
                 return Optional.empty();
             }
 
-            List<ECOPlanningOperation<AEKey, IPatternDetails>> operations = materialize(
+            List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations = materialize(
                 graph.get(),
                 inventory,
                 craftingService
             );
+            Map<ECOAE2PatternVariant, Integer> inputSlotCounts = new LinkedHashMap<>();
+            for (var operation : operations) {
+                inputSlotCounts.put(operation.reference(), operation.reference().selectedInputs().size());
+            }
 
             // Stored copies of the requested output must not short-circuit a normal
             // request, but they are valid seed material for self-increasing patterns.
@@ -91,9 +101,10 @@ public final class ECOAE2SnapshotFactory {
                 requestedKey,
                 requestedAmount,
                 graph.get().multiplePaths(),
-                graph.get().inputSlotCounts()
+                inputSlotCounts
             ));
         } catch (RuntimeException | LinkageError failure) {
+            ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SNAPSHOT_REJECTED);
             LOGGER.debug("ECO AE2 snapshot capture failed; the caller will use AE2 crafting calculation", failure);
             return Optional.empty();
         }
@@ -208,17 +219,129 @@ public final class ECOAE2SnapshotFactory {
         return false;
     }
 
-    private static List<ECOPlanningOperation<AEKey, IPatternDetails>> materialize(
+    private static List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> materialize(
         PatternGraph graph,
         Map<AEKey, Long> inventory,
         ICraftingService craftingService
     ) {
-        List<ECOPlanningOperation<AEKey, IPatternDetails>> operations = new ArrayList<>(graph.patterns().size());
+        List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations = new ArrayList<>();
         for (IPatternDetails details : graph.patterns()) {
-            var operation = convert(details, inventory, craftingService).orElseThrow();
-            operations.add(operation);
+            List<List<GenericStack>> choices = orderedChoices(details, inventory, craftingService);
+            long variantCount = 1L;
+            for (List<GenericStack> slot : choices) {
+                variantCount = Math.multiplyExact(variantCount, slot.size());
+                if (variantCount > MAX_VARIANTS_PER_PATTERN
+                    || operations.size() + variantCount > MAX_OPERATIONS) {
+                    ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.VARIANT_LIMIT_REJECTED);
+                    throw new IllegalArgumentException("Pattern input alternatives exceed ECO planning limits");
+                }
+            }
+            expandVariants(details, choices, 0, new ArrayList<>(), operations);
         }
         return List.copyOf(operations);
+    }
+
+    private static List<List<GenericStack>> orderedChoices(
+        IPatternDetails details,
+        Map<AEKey, Long> inventory,
+        ICraftingService craftingService
+    ) {
+        List<List<GenericStack>> result = new ArrayList<>();
+        IPatternDetails.IInput[] inputs = details.getInputs();
+        for (int slot = 0; slot < inputs.length; slot++) {
+            IPatternDetails.IInput input = inputs[slot];
+            List<GenericStack> choices = choicesForSlot(details, slot, input, inventory);
+            if (choices.isEmpty()) {
+                throw new IllegalArgumentException("Pattern input has no usable alternatives");
+            }
+            choices.sort((left, right) -> Integer.compare(
+                inputRank(right, input, inventory, craftingService),
+                inputRank(left, input, inventory, craftingService)
+            ));
+            result.add(List.copyOf(choices));
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<GenericStack> choicesForSlot(
+        IPatternDetails details,
+        int slot,
+        IPatternDetails.IInput input,
+        Map<AEKey, Long> inventory
+    ) {
+        Map<AEKey, Long> choices = new LinkedHashMap<>();
+        for (GenericStack candidate : input.getPossibleInputs()) {
+            if (candidate != null && candidate.amount() > 0) {
+                choices.putIfAbsent(candidate.what(), candidate.amount());
+            }
+        }
+        IECOPlannerInputPolicy.MatchMode mode = details instanceof IECOPlannerInputPolicy policy
+            ? policy.getPlannerInputMatchMode(slot, input)
+            : IECOPlannerInputPolicy.MatchMode.STRICT;
+        if (mode == IECOPlannerInputPolicy.MatchMode.ITEM_ONLY) {
+            addItemOnlyInventoryVariants(choices, inventory);
+        }
+        List<GenericStack> result = new ArrayList<>(choices.size());
+        choices.forEach((key, amount) -> result.add(new GenericStack(key, amount)));
+        return result;
+    }
+
+    private static void addItemOnlyInventoryVariants(Map<AEKey, Long> choices, Map<AEKey, Long> inventory) {
+        Map<net.minecraft.world.item.Item, Long> allowedItems = new LinkedHashMap<>();
+        choices.forEach((key, amount) -> {
+            if (key instanceof AEItemKey itemKey) {
+                allowedItems.putIfAbsent(itemKey.getItem(), amount);
+            }
+        });
+        if (allowedItems.isEmpty()) {
+            return;
+        }
+        for (AEKey key : inventory.keySet()) {
+            if (key instanceof AEItemKey itemKey) {
+                Long amount = allowedItems.get(itemKey.getItem());
+                if (amount != null) {
+                    choices.putIfAbsent(key, amount);
+                }
+            }
+        }
+    }
+
+    private static int inputRank(
+        GenericStack candidate,
+        IPatternDetails.IInput input,
+        Map<AEKey, Long> inventory,
+        ICraftingService craftingService
+    ) {
+        long multiplier = Math.max(1L, input.getMultiplier());
+        long required;
+        try {
+            required = Math.multiplyExact(candidate.amount(), multiplier);
+        } catch (ArithmeticException ignored) {
+            required = Long.MAX_VALUE;
+        }
+        long available = inventory.getOrDefault(candidate.what(), 0L);
+        if (available >= required) return 2;
+        return craftingService.getCraftingFor(candidate.what()).isEmpty() ? 0 : 1;
+    }
+
+    private static void expandVariants(
+        IPatternDetails details,
+        List<List<GenericStack>> choices,
+        int slot,
+        List<GenericStack> selected,
+        List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> target
+    ) {
+        if (slot == choices.size()) {
+            int ordinal = target.size();
+            ECOAE2PatternVariant variant = new ECOAE2PatternVariant(details, ordinal, selected);
+            target.add(convert(variant).orElseThrow());
+            return;
+        }
+        for (GenericStack choice : choices.get(slot)) {
+            selected.add(choice);
+            expandVariants(details, choices, slot + 1, selected, target);
+            selected.removeLast();
+        }
     }
 
     private static Map<AEKey, Long> copyInventory(IGrid grid, ICraftingSimulationRequester requester) {
@@ -238,23 +361,22 @@ public final class ECOAE2SnapshotFactory {
         return inventory;
     }
 
-    private static Optional<ECOPlanningOperation<AEKey, IPatternDetails>> convert(
-        IPatternDetails details,
-        Map<AEKey, Long> inventory,
-        ICraftingService craftingService
+    private static Optional<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> convert(
+        ECOAE2PatternVariant variant
     ) {
+        IPatternDetails details = variant.pattern();
         GenericStack primaryOutput = details.getPrimaryOutput();
         if (primaryOutput == null) {
             return Optional.empty();
         }
         Map<AEKey, Long> inputs = new LinkedHashMap<>();
-        List<GenericStack> selectedInputs = new ArrayList<>();
-        for (IPatternDetails.IInput input : details.getInputs()) {
-            GenericStack selected = selectInput(input, inventory, craftingService);
+        List<GenericStack> selectedInputs = variant.selectedInputs();
+        for (int i = 0; i < details.getInputs().length; i++) {
+            IPatternDetails.IInput input = details.getInputs()[i];
+            GenericStack selected = selectedInputs.get(i);
             if (selected == null || selected.amount() <= 0 || input.getMultiplier() <= 0) {
                 return Optional.empty();
             }
-            selectedInputs.add(selected);
             long multiplier = input.getMultiplier();
             long amount = Math.multiplyExact(selected.amount(), multiplier);
             inputs.merge(selected.what(), amount, Math::addExact);
@@ -283,43 +405,7 @@ public final class ECOAE2SnapshotFactory {
         }
         // A processing pattern may expose useful secondary outputs. Keep all of
         // them selectable so a dependency can be satisfied by the same execution.
-        return Optional.of(new ECOPlanningOperation<>(details, inputs, outputs));
-    }
-
-    private static GenericStack selectInput(
-        IPatternDetails.IInput input,
-        Map<AEKey, Long> inventory,
-        ICraftingService craftingService
-    ) {
-        GenericStack selected = null;
-        long selectedInventory = Long.MIN_VALUE;
-        boolean selectedCraftable = false;
-        int selectedRank = Integer.MIN_VALUE;
-        long multiplier = Math.max(1L, input.getMultiplier());
-        for (GenericStack candidate : input.getPossibleInputs()) {
-            if (candidate == null || candidate.amount() <= 0) {
-                continue;
-            }
-            long available = inventory.getOrDefault(candidate.what(), 0L);
-            boolean craftable = !craftingService.getCraftingFor(candidate.what()).isEmpty();
-            long required;
-            try {
-                required = Math.multiplyExact(candidate.amount(), multiplier);
-            } catch (ArithmeticException ignored) {
-                required = Long.MAX_VALUE;
-            }
-            int rank = available >= required ? 2 : craftable ? 1 : 0;
-            if (selected == null
-                || rank > selectedRank
-                || (rank == selectedRank && available > selectedInventory)
-                || (rank == selectedRank && available == selectedInventory && craftable && !selectedCraftable)) {
-                selected = candidate;
-                selectedInventory = available;
-                selectedCraftable = craftable;
-                selectedRank = rank;
-            }
-        }
-        return selected;
+        return Optional.of(new ECOPlanningOperation<>(variant, inputs, outputs));
     }
 
     private record PatternGraph(

@@ -140,6 +140,12 @@ public class NEConfig {
             "Debug only. This is not intended for normal gameplay balance.")
         .define("debugECOHostOverdrive", false);
 
+    private static final ModConfigSpec.BooleanValue ECO_PLANNER_DIFFERENTIAL_VERIFICATION = BUILDER
+        .comment(
+            "Run AE2's planner alongside ECO's planner and use AE2 if their observable plans differ.",
+            "Debug only: this approximately doubles planning cost for supported requests.")
+        .define("ecoPlannerDifferentialVerification", false);
+
     static {
         BUILDER.pop();
     }
@@ -204,6 +210,7 @@ public class NEConfig {
     public static boolean ecoAe2FastPathEnabled = true;
     public static boolean debugEcoFastPath;
     public static boolean debugECOHostOverdrive;
+    public static boolean ecoPlannerDifferentialVerification;
     public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
     public static int ecoFastPathCacheSize = 512;
 
@@ -228,6 +235,7 @@ public class NEConfig {
         CRAFTING_CAPACITY_POWER.get();
         COMPUTATION_PARALLEL_CORE_POWER.get();
         debugECOHostOverdrive = DEBUG_ECO_HOST_OVERDRIVE.get();
+        ecoPlannerDifferentialVerification = ECO_PLANNER_DIFFERENTIAL_VERIFICATION.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         // Fast-path debug logging remains intentionally unavailable from the in-game config screen.
         debugEcoFastPath = false;

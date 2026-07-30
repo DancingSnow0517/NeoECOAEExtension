@@ -1,17 +1,21 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.service;
 
-import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.NeoECOAE;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanAssembler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanningSnapshot;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PatternVariant;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOPlanningSolver;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
@@ -57,8 +61,18 @@ public final class ECOPlanningService {
                     throw new CancellationException("ECO crafting planning was cancelled");
                 }
                 if (ecoPlan.isPresent()) {
+                    if (NEConfig.ecoPlannerDifferentialVerification) {
+                        ICraftingPlan ae2Plan = ae2Fallback.get();
+                        if (!plansEquivalent(ecoPlan.get(), ae2Plan)) {
+                            ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.DIFFERENTIAL_MISMATCH);
+                            LOGGER.warn("ECO planning differential verification disagreed with AE2; using AE2 result");
+                            return ae2Plan;
+                        }
+                    }
+                    ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.ECO_ACCEPTED);
                     return ecoPlan.get();
                 }
+                ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.AE2_FALLBACK);
                 LOGGER.debug("ECO planning produced no executable plan; using AE2 crafting calculation");
                 return ae2Fallback.get();
             } finally {
@@ -74,7 +88,16 @@ public final class ECOPlanningService {
     ) {
         try {
             var result = ECOPlanningSolver.solve(snapshot.problem(), lease.budget(), deadlineNanos);
-            return ECOAE2PlanAssembler.assemble(snapshot, result);
+            if (result.status() == cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult.Status.NO_ROUTE
+                || result.status() == cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult.Status.BUDGET_EXHAUSTED) {
+                ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SOLVER_REJECTED);
+                return Optional.empty();
+            }
+            Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result);
+            if (plan.isEmpty()) {
+                ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.ASSEMBLY_REJECTED);
+            }
+            return plan;
         } catch (CancellationException cancelled) {
             throw cancelled;
         } catch (RuntimeException | LinkageError failure) {
@@ -88,7 +111,7 @@ public final class ECOPlanningService {
         ECOPlanningHostLease lease,
         long deadlineNanos
     ) {
-        ECOPlanningGraph<AEKey, IPatternDetails> graph = ECOGraphPruner.targetReachable(
+        ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph = ECOGraphPruner.targetReachable(
             new ECOPlanningGraph<>(snapshot.problem().operations()),
             snapshot.problem().requested().keySet()
         );
@@ -113,12 +136,16 @@ public final class ECOPlanningService {
 
     private static Optional<CraftingPlan> calculate(
         ECOAE2PlanningSnapshot snapshot,
-        ECOPlanningGraph<AEKey, IPatternDetails> graph,
+        ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph,
         ECOPlanningHostLease lease,
         long deadlineNanos
     ) {
         try {
             var result = ECOPlanningSolver.solve(snapshot.problem(), graph, lease.budget(), deadlineNanos);
+            if (result.status() == cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult.Status.NO_ROUTE
+                || result.status() == cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult.Status.BUDGET_EXHAUSTED) {
+                return Optional.empty();
+            }
             return ECOAE2PlanAssembler.assemble(snapshot, result);
         } catch (CancellationException cancelled) {
             throw cancelled;
@@ -126,5 +153,24 @@ public final class ECOPlanningService {
             LOGGER.debug("ECO CRAFT_LESS candidate calculation failed", failure);
             return Optional.empty();
         }
+    }
+
+    private static boolean plansEquivalent(ICraftingPlan eco, ICraftingPlan ae2) {
+        return eco.simulation() == ae2.simulation()
+            && eco.finalOutput().equals(ae2.finalOutput())
+            && counterContents(eco.usedItems()).equals(counterContents(ae2.usedItems()))
+            && counterContents(eco.emittedItems()).equals(counterContents(ae2.emittedItems()))
+            && counterContents(eco.missingItems()).equals(counterContents(ae2.missingItems()))
+            && eco.patternTimes().equals(ae2.patternTimes());
+    }
+
+    private static Map<AEKey, Long> counterContents(KeyCounter counter) {
+        Map<AEKey, Long> result = new LinkedHashMap<>();
+        for (var entry : counter) {
+            if (entry.getLongValue() > 0L) {
+                result.put(entry.getKey(), entry.getLongValue());
+            }
+        }
+        return Map.copyOf(result);
     }
 }

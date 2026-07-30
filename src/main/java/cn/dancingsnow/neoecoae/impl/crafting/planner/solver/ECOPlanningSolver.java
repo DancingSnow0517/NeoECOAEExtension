@@ -48,12 +48,26 @@ public final class ECOPlanningSolver {
         if (ECOSolveBudget.shouldStop(deadlineNanos)) {
             return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
         }
-        var component = ECOComponentDemandSolver.trySolve(problem, graph, deadlineNanos);
-        if (component.isPresent()
-            && !ECOSolveBudget.shouldStop(deadlineNanos)
-            && component.get().status() != ECOHyperflowResult.Status.NO_ROUTE) {
-            return component.get();
+        if (!hasAlternativePositiveProducers(graph)) {
+            var component = ECOComponentDemandSolver.trySolve(problem, graph, deadlineNanos);
+            if (component.isPresent()
+                && !ECOSolveBudget.shouldStop(deadlineNanos)
+                && component.get().status() != ECOHyperflowResult.Status.NO_ROUTE) {
+                return component.get();
+            }
         }
         return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
+    }
+
+    private static <K, R> boolean hasAlternativePositiveProducers(ECOPlanningGraph<K, R> graph) {
+        for (K material : graph.materials()) {
+            int producers = 0;
+            for (var operation : graph.producersOf(material)) {
+                if (ECOPlannerMath.positiveNet(operation, material) > 0 && ++producers > 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

@@ -22,7 +22,7 @@ public final class ECOAE2PlanAssembler {
 
     public static Optional<CraftingPlan> assemble(
         ECOAE2PlanningSnapshot snapshot,
-        ECOHyperflowResult<IPatternDetails> result
+        ECOHyperflowResult<ECOAE2PatternVariant> result
     ) {
         if (result.status() != ECOHyperflowResult.Status.COMPLETE
             && result.status() != ECOHyperflowResult.Status.MISSING_SOURCES) {
@@ -51,7 +51,7 @@ public final class ECOAE2PlanAssembler {
         KeyCounter missingItems = toCounter(missing);
         KeyCounter emittedItems = new KeyCounter();
         long bytes = estimateBytes(snapshot, candidate);
-        return Optional.of(new CraftingPlan(
+        CraftingPlan plan = new CraftingPlan(
             new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
             bytes,
             !missing.isEmpty(),
@@ -59,13 +59,15 @@ public final class ECOAE2PlanAssembler {
             usedItems.get(),
             emittedItems,
             missingItems,
-            candidate.executions()
-        ));
+            aggregatePatternExecutions(candidate)
+        );
+        ECOPlannedInputs.register(plan, schedule.steps());
+        return Optional.of(plan);
     }
 
     private static Map<AEKey, Long> findMissingSources(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        ECOPlanCandidate<IPatternDetails> candidate
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
     ) {
         Map<AEKey, Long> balances = new LinkedHashMap<>(problem.inventory());
         Map<AEKey, Boolean> craftable = new HashMap<>();
@@ -87,12 +89,12 @@ public final class ECOAE2PlanAssembler {
     }
 
     private static Optional<KeyCounter> calculateUsedItems(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        ECOPlanCandidate<IPatternDetails> candidate,
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate,
         Map<AEKey, Long> missing,
-        java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<IPatternDetails>> steps
+        java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<ECOAE2PatternVariant>> steps
     ) {
-        Map<IPatternDetails, ECOPlanningOperation<AEKey, IPatternDetails>> byReference = new HashMap<>();
+        Map<ECOAE2PatternVariant, ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> byReference = new HashMap<>();
         problem.operations().forEach(operation -> byReference.put(operation.reference(), operation));
         Map<AEKey, Long> current = new LinkedHashMap<>(problem.inventory());
         Map<AEKey, Long> syntheticRemaining = new LinkedHashMap<>(missing);
@@ -138,7 +140,7 @@ public final class ECOAE2PlanAssembler {
 
     private static long estimateBytes(
         ECOAE2PlanningSnapshot snapshot,
-        ECOPlanCandidate<IPatternDetails> candidate
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
     ) {
         double bytes = 8.0 * snapshot.requestedAmount()
             / snapshot.requestedKey().getType().getAmountPerByte();
@@ -160,6 +162,15 @@ public final class ECOAE2PlanAssembler {
             return Long.MAX_VALUE;
         }
         return Math.max(1L, (long) Math.ceil(bytes));
+    }
+
+    private static Map<IPatternDetails, Long> aggregatePatternExecutions(
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
+    ) {
+        Map<IPatternDetails, Long> result = new LinkedHashMap<>();
+        candidate.executions().forEach((variant, count) -> result.merge(
+            variant.pattern(), count, Math::addExact));
+        return Map.copyOf(result);
     }
 
     private static KeyCounter toCounter(Map<AEKey, Long> amounts) {

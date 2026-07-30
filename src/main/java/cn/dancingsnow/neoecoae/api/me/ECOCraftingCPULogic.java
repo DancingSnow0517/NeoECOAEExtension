@@ -45,6 +45,7 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
@@ -288,6 +289,10 @@ public class ECOCraftingCPULogic {
                 }
 
                 var details = task.getKey();
+                @Nullable List<GenericStack> plannedInputs = job.peekPlannedInputs(details);
+                IPatternDetails extractionDetails = plannedInputs == null
+                    ? details
+                    : new ECOSelectedInputPatternDetails(details, plannedInputs);
                 // 同一调度轮次内按任务收集一次提供者列表，避免每次推送都重建列表并重复查询。
                 List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
                 if (providers.isEmpty()) {
@@ -306,7 +311,7 @@ public class ECOCraftingCPULogic {
                     var expectedContainerItems = new KeyCounter();
                     @Nullable
                     var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                            details, inventory, level, expectedOutputs, expectedContainerItems);
+                            extractionDetails, inventory, level, expectedOutputs, expectedContainerItems);
                     if (craftingContainer == null) {
                         continue taskLoop;
                     }
@@ -317,15 +322,17 @@ public class ECOCraftingCPULogic {
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer)
                         * cpu.getCluster().getNetworkPowerMultiplier();
-                    int batchResult = tryPushVerifiedFastPathBatch(
+                    int batchResult = plannedInputs == null
+                        ? tryPushVerifiedFastPathBatch(
                             job,
                             details,
                             execution,
                             craftingContainer,
-                             patternBuses,
-                             energyService,
-                             patternPower,
-                             task.getValue().value);
+                            patternBuses,
+                            energyService,
+                            patternPower,
+                            task.getValue().value)
+                        : 0;
                     if (batchResult > 0) {
                         // One provider dispatch consumes one CPU scheduling operation regardless of how many
                         // crafts the F-series host accepted in that batch.
@@ -380,6 +387,7 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
                         recordPushedPattern(job, execution, 1);
+                        job.consumePlannedInputs(details);
 
                         task.getValue().value--;
                         postPatternOutputsChange(details);

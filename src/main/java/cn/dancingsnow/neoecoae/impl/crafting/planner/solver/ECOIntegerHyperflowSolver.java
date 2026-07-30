@@ -160,6 +160,12 @@ public final class ECOIntegerHyperflowSolver {
                 }
                 long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficiency.amount;
                 long minimum = ECOPlannerMath.ceilDiv(demand, net);
+                long immediatelyExecutable = immediatelyExecutable(producer, evaluation.balances);
+                if (immediatelyExecutable > 0L && immediatelyExecutable < minimum) {
+                    // Split a shortage across variants when one can consume the remaining
+                    // stock now. The recursive residual search then considers other variants.
+                    minimum = immediatelyExecutable;
+                }
                 int index = operationIndices.get(producer);
                 for (int extra = 0; extra <= budget.extraBatchChoices(); extra++) {
                     if (shouldStop()) {
@@ -281,6 +287,15 @@ public final class ECOIntegerHyperflowSolver {
 
         private boolean hasPositiveProducer(K material) {
             return expandableMaterials.contains(material);
+        }
+
+        private long immediatelyExecutable(ECOPlanningOperation<K, R> operation, Map<K, Long> balances) {
+            long result = Long.MAX_VALUE;
+            for (var input : operation.inputs().entrySet()) {
+                long available = Math.max(0L, balances.getOrDefault(input.getKey(), 0L));
+                result = Math.min(result, available / input.getValue());
+            }
+            return result == Long.MAX_VALUE ? 0L : result;
         }
 
         private static <R> int compare(ECOPlanCandidate<R> left, ECOPlanCandidate<R> right) {
