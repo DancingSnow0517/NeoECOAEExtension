@@ -3,9 +3,13 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Selects the linear/component path before falling back to bounded integer search. */
 public final class ECOPlanningSolver {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOPlanningSolver.class);
+
     private ECOPlanningSolver() {
     }
 
@@ -41,6 +45,15 @@ public final class ECOPlanningSolver {
         ECOSolveBudget budget,
         long deadlineNanos
     ) {
+        // A forced dependency closure is linear and remains useful even when a
+        // busy server has consumed the bounded-search wall-clock budget.
+        var forced = ECOForcedDemandSolver.trySolve(problem, graph);
+        if (forced.result().isPresent()) {
+            return forced.result().get();
+        }
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("ECO forced dependency propagation declined: {}", forced.rejection());
+        }
         var dag = ECODagDemandSolver.trySolve(problem, graph);
         if (dag.isPresent() && !ECOSolveBudget.shouldStop(deadlineNanos)) {
             return dag.get();
@@ -48,12 +61,17 @@ public final class ECOPlanningSolver {
         if (ECOSolveBudget.shouldStop(deadlineNanos)) {
             return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
         }
-        if (!hasAlternativePositiveProducers(graph)) {
-            var component = ECOComponentDemandSolver.trySolve(problem, graph, deadlineNanos);
-            if (component.isPresent()
-                && !ECOSolveBudget.shouldStop(deadlineNanos)
-                && component.get().status() != ECOHyperflowResult.Status.NO_ROUTE) {
-                return component.get();
+        boolean hasAlternatives = hasAlternativePositiveProducers(graph);
+        var component = ECOComponentDemandSolver.trySolve(problem, graph, deadlineNanos);
+        if (component.isPresent() && !ECOSolveBudget.shouldStop(deadlineNanos)) {
+            ECOHyperflowResult<R> result = component.get();
+            // Alternative input variants are common in real AE2 graphs. They do
+            // not make a component plan unsafe when it closes every dependency;
+            // they only mean a partial greedy result must be left to the exact
+            // integer search below.
+            if (result.status() == ECOHyperflowResult.Status.COMPLETE
+                || (!hasAlternatives && result.status() != ECOHyperflowResult.Status.NO_ROUTE)) {
+                return result;
             }
         }
         return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);

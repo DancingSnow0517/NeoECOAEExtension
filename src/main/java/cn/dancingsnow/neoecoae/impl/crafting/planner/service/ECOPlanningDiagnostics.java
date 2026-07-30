@@ -35,6 +35,8 @@ public final class ECOPlanningDiagnostics {
         UNSUPPORTED_REQUEST,
         SNAPSHOT_REJECTED,
         VARIANT_LIMIT_REJECTED,
+        FAST_PATH_ESCALATED,
+        PRECISE_PATH_ACCEPTED,
         SOLVER_REJECTED,
         ASSEMBLY_REJECTED,
         ECO_ACCEPTED,

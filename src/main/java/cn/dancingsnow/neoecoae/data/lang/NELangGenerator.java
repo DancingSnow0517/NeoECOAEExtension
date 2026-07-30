@@ -7,6 +7,19 @@ public class NELangGenerator {
         GuiLangs.accept(provider);
         ConfigLangs.accept(provider);
 
+        provider.add("gui.neoecoae.planning.ae2_fallback_title", "Crafting Plan - Using AE2 (%s)");
+        provider.add("chat.neoecoae.planning.ae2_fallback", "ECO fast planning was not used; calculating with AE2: %s");
+        provider.add("gui.neoecoae.planning.reason.no_eco_host", "No available ECO computation host");
+        provider.add("gui.neoecoae.planning.reason.snapshot_rejected", "The recipe graph could not be captured");
+        provider.add("gui.neoecoae.planning.reason.fallback_setup_failed", "The AE2 fallback could not be initialized");
+        provider.add("gui.neoecoae.planning.reason.solver_no_route", "No executable crafting route was found");
+        provider.add("gui.neoecoae.planning.reason.solver_budget_exhausted", "The planning budget was exhausted");
+        provider.add("gui.neoecoae.planning.reason.assembly_rejected", "The result could not be scheduled as a crafting plan");
+        provider.add("gui.neoecoae.planning.reason.craft_less_no_craftable", "No amount can currently be crafted");
+        provider.add("gui.neoecoae.planning.reason.precise_path_failed", "Exact input-alternative planning failed");
+        provider.add("gui.neoecoae.planning.reason.differential_mismatch", "The ECO result differed from AE2 verification");
+        provider.add("gui.neoecoae.planning.reason.planning_failure", "The ECO planner encountered an unexpected failure");
+
         // jade
         provider.add("config.jade.plugin_neoecoae.eco_drive", "ECO Drive");
         provider.add("config.jade.plugin_neoecoae.eco_crafting_worker", "ECO Crafting Worker");

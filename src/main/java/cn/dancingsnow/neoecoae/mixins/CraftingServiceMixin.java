@@ -24,6 +24,8 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.expression.Definition;
@@ -96,8 +98,10 @@ public abstract class CraftingServiceMixin {
         if (level == null || simRequester == null) {
             return;
         }
+        var noticeTarget = ECOPlannerNoticeDispatcher.targetFor(simRequester);
         var lease = ECOPlanningHostLease.tryAcquire(this.neoecoae$computationClusters);
         if (lease.isEmpty()) {
+            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.NO_ECO_HOST);
             return;
         }
         var snapshot = ECOAE2SnapshotFactory.capture(
@@ -106,10 +110,12 @@ public abstract class CraftingServiceMixin {
             what,
             amount,
             strategy,
-            this.lastProcessedCraftableChangeTick
+            this.lastProcessedCraftableChangeTick,
+            level
         );
         if (snapshot.isEmpty()) {
             lease.get().close();
+            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
             return;
         }
 
@@ -127,6 +133,7 @@ public abstract class CraftingServiceMixin {
             );
         } catch (RuntimeException | LinkageError failure) {
             lease.get().close();
+            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FALLBACK_SETUP_FAILED);
             return;
         }
         cir.setReturnValue(ECOPlanningService.submit(

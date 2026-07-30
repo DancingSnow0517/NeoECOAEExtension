@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
 import java.util.Map;
 import java.util.Objects;
 
@@ -10,7 +11,8 @@ public record ECOAE2PlanningSnapshot(
     AEKey requestedKey,
     long requestedAmount,
     boolean multiplePaths,
-    Map<ECOAE2PatternVariant, Integer> inputSlotCounts
+    Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+    ECOPlannerNoticeDispatcher.Target noticeTarget
 ) {
     public ECOAE2PlanningSnapshot {
         Objects.requireNonNull(problem, "problem");
@@ -34,7 +36,8 @@ public record ECOAE2PlanningSnapshot(
             requestedKey,
             amount,
             multiplePaths,
-            inputSlotCounts
+            inputSlotCounts,
+            noticeTarget
         );
     }
 }

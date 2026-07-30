@@ -7,6 +7,7 @@ import appeng.client.gui.widgets.InfoBar;
 import appeng.core.localization.Tooltips;
 import appeng.menu.me.crafting.CraftingStatusMenu;
 import cn.dancingsnow.neoecoae.api.IOverlayTextureHolder;
+import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -61,8 +62,7 @@ public class CPUSelectionListMixin {
     private void onFormatStorage(CraftingStatusMenu.CraftingCpuListEntry cpu, CallbackInfoReturnable<String> cir) {
         long storage = cpu.storage();
         if (storage >= 1024 * 1024 * 1024) {
-            Tooltips.Amount amount = Tooltips.getByteAmount(storage);
-            cir.setReturnValue(amount.digit() + amount.unit());
+            cir.setReturnValue(ByteAmountFormatter.format(storage));
         }
     }
 

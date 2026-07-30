@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerInputPolicy;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
+import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +47,7 @@ public final class ECOAE2SnapshotFactory {
         long requestedAmount,
         CalculationStrategy strategy
     ) {
-        return capture(grid, requester, requestedKey, requestedAmount, strategy, NO_GENERATION);
+        return capture(grid, requester, requestedKey, requestedAmount, strategy, NO_GENERATION, null);
     }
 
     public static Optional<ECOAE2PlanningSnapshot> capture(
@@ -56,6 +58,18 @@ public final class ECOAE2SnapshotFactory {
         CalculationStrategy strategy,
         long craftableGeneration
     ) {
+        return capture(grid, requester, requestedKey, requestedAmount, strategy, craftableGeneration, null);
+    }
+
+    public static Optional<ECOAE2PlanningSnapshot> capture(
+        IGrid grid,
+        ICraftingSimulationRequester requester,
+        AEKey requestedKey,
+        long requestedAmount,
+        CalculationStrategy strategy,
+        long craftableGeneration,
+        Level level
+    ) {
         ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SNAPSHOT_STARTED);
         if (requestedAmount <= 0
             || (strategy != CalculationStrategy.REPORT_MISSING_ITEMS
@@ -64,6 +78,7 @@ public final class ECOAE2SnapshotFactory {
             return Optional.empty();
         }
         try {
+            ECOPlannerNoticeDispatcher.Target noticeTarget = ECOPlannerNoticeDispatcher.targetFor(requester);
             Map<AEKey, Long> inventory = copyInventory(grid, requester);
 
             var craftingService = grid.getCraftingService();
@@ -76,7 +91,8 @@ public final class ECOAE2SnapshotFactory {
             List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations = materialize(
                 graph.get(),
                 inventory,
-                craftingService
+                craftingService,
+                level
             );
             Map<ECOAE2PatternVariant, Integer> inputSlotCounts = new LinkedHashMap<>();
             for (var operation : operations) {
@@ -101,7 +117,8 @@ public final class ECOAE2SnapshotFactory {
                 requestedKey,
                 requestedAmount,
                 graph.get().multiplePaths(),
-                inputSlotCounts
+                inputSlotCounts,
+                noticeTarget
             ));
         } catch (RuntimeException | LinkageError failure) {
             ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SNAPSHOT_REJECTED);
@@ -222,11 +239,12 @@ public final class ECOAE2SnapshotFactory {
     private static List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> materialize(
         PatternGraph graph,
         Map<AEKey, Long> inventory,
-        ICraftingService craftingService
+        ICraftingService craftingService,
+        Level level
     ) {
         List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations = new ArrayList<>();
         for (IPatternDetails details : graph.patterns()) {
-            List<List<GenericStack>> choices = orderedChoices(details, inventory, craftingService);
+            List<List<GenericStack>> choices = orderedChoices(details, inventory, craftingService, level);
             long variantCount = 1L;
             for (List<GenericStack> slot : choices) {
                 variantCount = Math.multiplyExact(variantCount, slot.size());
@@ -244,30 +262,52 @@ public final class ECOAE2SnapshotFactory {
     private static List<List<GenericStack>> orderedChoices(
         IPatternDetails details,
         Map<AEKey, Long> inventory,
-        ICraftingService craftingService
+        ICraftingService craftingService,
+        Level level
     ) {
         List<List<GenericStack>> result = new ArrayList<>();
         IPatternDetails.IInput[] inputs = details.getInputs();
-        for (int slot = 0; slot < inputs.length; slot++) {
-            IPatternDetails.IInput input = inputs[slot];
-            List<GenericStack> choices = choicesForSlot(details, slot, input, inventory);
-            if (choices.isEmpty()) {
-                throw new IllegalArgumentException("Pattern input has no usable alternatives");
+        try (ECOAE2NbtTearCompatibility.Scope nbtTear = ECOAE2NbtTearCompatibility.open(details, craftingService)) {
+            for (int slot = 0; slot < inputs.length; slot++) {
+                IPatternDetails.IInput input = inputs[slot];
+                List<GenericStack> choices = choicesForSlot(details, slot, input, inventory, level, nbtTear);
+                if (choices.isEmpty()) {
+                    throw new IllegalArgumentException("Pattern input has no usable alternatives");
+                }
+                choices.sort((left, right) -> compareInputChoices(left, right, input, inventory, craftingService));
+                result.add(List.copyOf(choices));
             }
-            choices.sort((left, right) -> Integer.compare(
-                inputRank(right, input, inventory, craftingService),
-                inputRank(left, input, inventory, craftingService)
-            ));
-            result.add(List.copyOf(choices));
         }
         return List.copyOf(result);
+    }
+
+    private static int compareInputChoices(
+        GenericStack left,
+        GenericStack right,
+        IPatternDetails.IInput input,
+        Map<AEKey, Long> inventory,
+        ICraftingService craftingService
+    ) {
+        int rank = Integer.compare(
+            inputRank(right, input, inventory, craftingService),
+            inputRank(left, input, inventory, craftingService)
+        );
+        if (rank != 0) {
+            return rank;
+        }
+        return Long.compare(
+            inventory.getOrDefault(right.what(), 0L),
+            inventory.getOrDefault(left.what(), 0L)
+        );
     }
 
     private static List<GenericStack> choicesForSlot(
         IPatternDetails details,
         int slot,
         IPatternDetails.IInput input,
-        Map<AEKey, Long> inventory
+        Map<AEKey, Long> inventory,
+        Level level,
+        ECOAE2NbtTearCompatibility.Scope nbtTear
     ) {
         Map<AEKey, Long> choices = new LinkedHashMap<>();
         for (GenericStack candidate : input.getPossibleInputs()) {
@@ -281,6 +321,7 @@ public final class ECOAE2SnapshotFactory {
         if (mode == IECOPlannerInputPolicy.MatchMode.ITEM_ONLY) {
             addItemOnlyInventoryVariants(choices, inventory);
         }
+        ECOAE2NbtTearCompatibility.addInventoryVariants(input, choices, inventory, level, nbtTear);
         List<GenericStack> result = new ArrayList<>(choices.size());
         choices.forEach((key, amount) -> result.add(new GenericStack(key, amount)));
         return result;
@@ -334,7 +375,7 @@ public final class ECOAE2SnapshotFactory {
         if (slot == choices.size()) {
             int ordinal = target.size();
             ECOAE2PatternVariant variant = new ECOAE2PatternVariant(details, ordinal, selected);
-            target.add(convert(variant).orElseThrow());
+            target.add(operationFor(variant).orElseThrow());
             return;
         }
         for (GenericStack choice : choices.get(slot)) {
@@ -361,7 +402,7 @@ public final class ECOAE2SnapshotFactory {
         return inventory;
     }
 
-    private static Optional<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> convert(
+    private static Optional<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operationFor(
         ECOAE2PatternVariant variant
     ) {
         IPatternDetails details = variant.pattern();

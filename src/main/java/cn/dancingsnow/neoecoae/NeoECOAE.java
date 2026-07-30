@@ -27,6 +27,7 @@ import cn.dancingsnow.neoecoae.data.NEDataGen;
 import cn.dancingsnow.neoecoae.event.ECOStorageLifecycleEvents;
 import cn.dancingsnow.neoecoae.event.ECOStorageCommands;
 import cn.dancingsnow.neoecoae.items.ECOStorageCellItem;
+import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
 import cn.dancingsnow.neoecoae.registration.NERegistrate;
 import com.tterrag.registrate.util.entry.ItemEntry;
 import lombok.Getter;
@@ -86,6 +87,7 @@ public class NeoECOAE {
         modContainer.registerConfig(ModConfig.Type.SERVER, NEConfig.SPEC);
 
         modBus.addListener(NeoECOAE::registerCapabilities);
+        modBus.addListener(ECOPlannerNoticePayload::register);
         modBus.addListener(NeoECOAE::initUpgrades);
         modBus.addListener(NeoECOAE::initStorageCells);
         modBus.addListener(NeoECOAE::newRegistry);
