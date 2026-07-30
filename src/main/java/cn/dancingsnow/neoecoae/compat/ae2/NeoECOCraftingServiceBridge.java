@@ -116,9 +116,16 @@ public final class NeoECOCraftingServiceBridge {
     }
 
     public static long insertIntoCpus(IGrid grid, AEKey what, long amount, Actionable type, long inserted) {
+        if (inserted >= amount) {
+            return inserted;
+        }
+
         for (NEComputationCluster cluster : getComputationClusters(grid)) {
             for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
                 inserted += cpu.getLogic().insert(what, amount - inserted, type);
+                if (inserted >= amount) {
+                    return inserted;
+                }
             }
         }
         return inserted;
@@ -150,11 +157,7 @@ public final class NeoECOCraftingServiceBridge {
     public static List<NEComputationCluster> getComputationClusters(IGrid grid) {
         Set<NEComputationCluster> clusters = Collections.newSetFromMap(new IdentityHashMap<>());
 
-        for (var node : grid.getNodes()) {
-            Object owner = node.getOwner();
-            if (!(owner instanceof IECOComputationHost host)) {
-                continue;
-            }
+        for (IECOComputationHost host : grid.getMachines(IECOComputationHost.class)) {
             ECOComputationSystemBlockEntity blockEntity = host.getComputationHost();
             NEComputationCluster cluster = blockEntity.getCluster();
             if (cluster != null && blockEntity.isFormed()) {
