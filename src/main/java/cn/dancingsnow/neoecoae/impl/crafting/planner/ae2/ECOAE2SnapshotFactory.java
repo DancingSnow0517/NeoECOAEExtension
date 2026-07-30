@@ -118,6 +118,7 @@ public final class ECOAE2SnapshotFactory {
                 requestedAmount,
                 graph.get().multiplePaths(),
                 inputSlotCounts,
+                graph.get().emittableKeys(),
                 noticeTarget
             ));
         } catch (RuntimeException | LinkageError failure) {
@@ -158,6 +159,7 @@ public final class ECOAE2SnapshotFactory {
         Map<AEItemKey, IPatternDetails> canonicalPatterns = new LinkedHashMap<>();
         List<IPatternDetails> patterns = new ArrayList<>();
         Map<IPatternDetails, Integer> inputSlotCounts = new LinkedHashMap<>();
+        Set<AEKey> emittableKeys = new HashSet<>();
         boolean multiplePaths = false;
         pending.add(requestedKey);
 
@@ -168,6 +170,12 @@ public final class ECOAE2SnapshotFactory {
             }
             if (visitedMaterials.size() > MAX_MATERIALS) {
                 return Optional.empty();
+            }
+            // AE2 emits these keys directly into the crafting CPU and never expands
+            // their patterns. Preserve that priority in the immutable fast-path graph.
+            if (craftingService.canEmitFor(material)) {
+                emittableKeys.add(material);
+                continue;
             }
             var producers = List.copyOf(craftingService.getCraftingFor(material));
             Set<AEItemKey> logicalProducerIdentities = new HashSet<>();
@@ -193,7 +201,7 @@ public final class ECOAE2SnapshotFactory {
             }
             multiplePaths |= logicalProducerIdentities.size() > 1;
         }
-        return Optional.of(new PatternGraph(patterns, inputSlotCounts, multiplePaths));
+        return Optional.of(new PatternGraph(patterns, inputSlotCounts, emittableKeys, multiplePaths));
     }
 
     private static boolean inspect(IPatternDetails details, ArrayDeque<AEKey> pending) {
@@ -452,11 +460,13 @@ public final class ECOAE2SnapshotFactory {
     private record PatternGraph(
         List<IPatternDetails> patterns,
         Map<IPatternDetails, Integer> inputSlotCounts,
+        Set<AEKey> emittableKeys,
         boolean multiplePaths
     ) {
         private PatternGraph {
             patterns = List.copyOf(patterns);
             inputSlotCounts = Map.copyOf(inputSlotCounts);
+            emittableKeys = Set.copyOf(emittableKeys);
         }
     }
 

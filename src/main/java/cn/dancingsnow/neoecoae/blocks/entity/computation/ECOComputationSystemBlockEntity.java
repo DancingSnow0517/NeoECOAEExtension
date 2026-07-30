@@ -12,12 +12,14 @@ import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.computation.ComputationHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
+import cn.dancingsnow.neoecoae.gui.common.NetworkFrequencyButton;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
@@ -70,6 +72,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Persisted
     @DescSynced
     private int cpuSelectionMode = CpuSelectionMode.ANY.ordinal();
+    @Persisted
+    @DescSynced
+    private int networkFrequency = NEFrequencyAllocator.UNASSIGNED;
     @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
@@ -196,6 +201,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
         header.addChild(titleBlock);
+        header.addChild(NetworkFrequencyButton.create(
+            panelConfig.networkFrequency(),
+            panelConfig.cycleNetworkFrequency()
+        ));
         header.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig));
         root.addChild(header);
 
@@ -236,9 +245,46 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             this::getParallelCount,
             this::getCpuSelectionMode,
             this::cycleCpuSelectionMode,
+            this::getNetworkFrequency,
+            this::cycleNetworkFrequency,
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries
         );
+    }
+
+    public boolean hasNetworkFrequency() {
+        return networkFrequency >= 0 && networkFrequency < NEFrequencyAllocator.FREQUENCY_COUNT;
+    }
+
+    public int getNetworkFrequency() {
+        return hasNetworkFrequency() ? networkFrequency : 0;
+    }
+
+    /** Called by the logical network manager only for a previously unassigned host. */
+    public void assignNetworkFrequency(int frequency) {
+        if (hasNetworkFrequency()) {
+            return;
+        }
+        networkFrequency = NEFrequencyAllocator.normalize(frequency);
+        setChanged();
+        markForUpdate();
+    }
+
+    public void cycleNetworkFrequency() {
+        setNetworkFrequency(hasNetworkFrequency() ? getNetworkFrequency() + 1 : 0);
+    }
+
+    public void setNetworkFrequency(int frequency) {
+        int next = NEFrequencyAllocator.normalize(frequency);
+        if (networkFrequency == next) {
+            return;
+        }
+        networkFrequency = next;
+        setChanged();
+        markForUpdate();
+        if (cluster != null && cluster.isNetworkMode()) {
+            NELogicalNetworkManager.refresh(cluster);
+        }
     }
 
     public CpuSelectionMode getCpuSelectionMode() {

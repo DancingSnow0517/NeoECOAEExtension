@@ -49,10 +49,16 @@ public final class ECOPlanningSolver {
         // busy server has consumed the bounded-search wall-clock budget.
         var forced = ECOForcedDemandSolver.trySolve(problem, graph);
         if (forced.result().isPresent()) {
-            return forced.result().get();
+            ECOHyperflowResult<R> result = forced.result().get();
+            if (result.status() == ECOHyperflowResult.Status.COMPLETE) {
+                return result;
+            }
         }
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("ECO forced dependency propagation declined: {}", forced.rejection());
+            LOGGER.debug(
+                "ECO forced dependency propagation declined: {}",
+                forced.result().map(result -> "partial result " + result.status()).orElse(forced.rejection())
+            );
         }
         var dag = ECODagDemandSolver.trySolve(problem, graph);
         if (dag.isPresent() && !ECOSolveBudget.shouldStop(deadlineNanos)) {

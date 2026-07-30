@@ -13,6 +13,8 @@ import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlo
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -21,6 +23,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 
 /**
  * Logical C-series exchange cluster. Physical clusters still own their AE2
@@ -30,6 +33,7 @@ import java.util.Map;
 public final class NEComputationNetworkCluster {
     private static final int ULTIMATE_C9_HOST_COUNT = 8;
     private static final int ULTIMATE_C9_MIN_THREADING_CORES = 10;
+    private static final Logger LOGGER = LoggerFactory.getLogger(NEComputationNetworkCluster.class);
     private static final Comparator<NEComputationCluster> CLUSTER_ORDER = Comparator.comparing(
         cluster -> cluster.getController() == null
             ? Long.MAX_VALUE
@@ -128,7 +132,7 @@ public final class NEComputationNetworkCluster {
         if (hasUltimateAggregateCapacity()) {
             return Math.max(0L, Long.MAX_VALUE - getActiveJobBytes());
         }
-        return sum(NEComputationCluster::getEffectiveAvailableStorage);
+        return Math.max(0L, getTotalStorage() - getActiveJobBytes());
     }
 
     public long getAvailableStorageForGrid(@Nullable IGrid grid) {
@@ -136,6 +140,7 @@ public final class NEComputationNetworkCluster {
             return Math.max(0L, Long.MAX_VALUE - getActiveJobBytes());
         }
         long matchingStorage = 0L;
+        long matchingActiveJobBytes = 0L;
         for (NEComputationCluster cluster : physicalClusters) {
             if (!cluster.isLocallyActive()) {
                 continue;
@@ -144,9 +149,13 @@ public final class NEComputationNetworkCluster {
             if (grid != null && (node == null || node.getGrid() != grid)) {
                 continue;
             }
-            matchingStorage = saturatingAdd(matchingStorage, cluster.getEffectiveAvailableStorage());
+            matchingStorage = saturatingAdd(
+                matchingStorage,
+                saturatingMultiply(cluster.getNetworkMultiplier(), cluster.getLocalTotalStorage())
+            );
+            matchingActiveJobBytes = saturatingAdd(matchingActiveJobBytes, cluster.getLocalActiveJobBytes());
         }
-        return matchingStorage;
+        return Math.max(0L, matchingStorage - matchingActiveJobBytes);
     }
 
     public boolean hasUltimateAggregateCapacity() {
@@ -259,23 +268,100 @@ public final class NEComputationNetworkCluster {
         IActionSource source,
         ICraftingRequester requestingMachine
     ) {
+        long aggregateAvailableBytes = getAvailableStorageForGrid(grid);
+        boolean aggregateCapacitySufficient = aggregateAvailableBytes >= job.bytes();
         NEComputationCluster selected = null;
         for (NEComputationCluster cluster : physicalClusters) {
             if (!cluster.isLocallyActive() || !cluster.canBeAutoSelectedFor(source)) {
                 continue;
             }
             IGridNode node = cluster.getLocalNode();
-            if (node == null || node.getGrid() != grid || cluster.getEffectiveAvailableStorage() < job.bytes()) {
+            if (node == null
+                || node.getGrid() != grid
+                || cluster.getLocalActiveCPUs().size() >= cluster.getLocalMaxThreads()) {
                 continue;
             }
-            if (selected == null || cluster.getEffectiveAvailableStorage() > selected.getEffectiveAvailableStorage()) {
+            if (selected == null
+                || cluster.getLocalActiveCPUs().size() < selected.getLocalActiveCPUs().size()
+                || cluster.getLocalActiveCPUs().size() == selected.getLocalActiveCPUs().size()
+                    && cluster.getLocalTotalStorage() > selected.getLocalTotalStorage()) {
                 selected = cluster;
             }
         }
-        if (selected == null) {
+        if (!aggregateCapacitySufficient || selected == null) {
+            LOGGER.warn(
+                "ECO crafting submission rejected: requiredBytes={} publishedAvailableBytes={} grid={} source={} "
+                    + "selectionMode={} candidates={}",
+                job.bytes(),
+                aggregateAvailableBytes,
+                Integer.toHexString(System.identityHashCode(grid)),
+                source,
+                selectionMode,
+                describeSubmitCandidates(grid, source, aggregateCapacitySufficient)
+            );
             return appeng.crafting.execution.CraftingSubmitResult.NO_CPU_FOUND;
         }
-        return selected.submitJobLocal(grid, job, source, requestingMachine);
+        ICraftingSubmitResult result = selected.submitJobLocal(grid, job, source, requestingMachine, true);
+        if (!result.successful()) {
+            LOGGER.warn(
+                "ECO crafting submission failed after selecting host: requiredBytes={} host={} effectiveAvailableBytes={} "
+                    + "threadSlots={}/{} result={}",
+                job.bytes(),
+                describeHost(selected),
+                selected.getEffectiveAvailableStorage(),
+                selected.getLocalActiveCPUs().size(),
+                selected.getLocalMaxThreads(),
+                result
+            );
+        }
+        return result;
+    }
+
+    private String describeSubmitCandidates(
+        IGrid grid,
+        IActionSource source,
+        boolean aggregateCapacitySufficient
+    ) {
+        StringJoiner candidates = new StringJoiner(", ", "[", "]");
+        for (NEComputationCluster cluster : physicalClusters) {
+            boolean active = cluster.isLocallyActive();
+            boolean selectionAllowed = cluster.canBeAutoSelectedFor(source);
+            IGridNode node = cluster.getLocalNode();
+            boolean gridMatches = node != null && node.getGrid() == grid;
+            long localCapacityBytes = saturatingMultiply(cluster.getNetworkMultiplier(), cluster.getLocalTotalStorage());
+            int activeThreadSlots = cluster.getLocalActiveCPUs().size();
+            int maxThreadSlots = cluster.getLocalMaxThreads();
+            String rejectReason = !active
+                ? "offline"
+                : !selectionAllowed
+                    ? "selection-mode"
+                    : !gridMatches
+                        ? "grid-mismatch"
+                        : !aggregateCapacitySufficient
+                            ? "insufficient-aggregate-capacity"
+                            : activeThreadSlots >= maxThreadSlots
+                                ? "no-free-thread-slot"
+                                : "eligible";
+            candidates.add(String.format(
+                java.util.Locale.ROOT,
+                "{host=%s, active=%s, gridMatches=%s, selectionAllowed=%s, localCapacityBytes=%d, "
+                    + "threadSlots=%d/%d, reason=%s}",
+                describeHost(cluster),
+                active,
+                gridMatches,
+                selectionAllowed,
+                localCapacityBytes,
+                activeThreadSlots,
+                maxThreadSlots,
+                rejectReason
+            ));
+        }
+        return candidates.toString();
+    }
+
+    private static String describeHost(NEComputationCluster cluster) {
+        ECOComputationSystemBlockEntity controller = cluster.getController();
+        return controller == null ? "<missing-controller>" : controller.getBlockPos().toShortString();
     }
 
     public @Nullable ECOCraftingCPU getFakeCPU() {

@@ -323,10 +323,24 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         IActionSource src,
         ICraftingRequester requestingMachine
     ) {
+        return submitJobLocal(grid, job, src, requestingMachine, false);
+    }
+
+    /**
+     * A linked computation network owns byte capacity collectively, while one local threading core
+     * owns the actual CPU instance that executes the job.
+     */
+    public ICraftingSubmitResult submitJobLocal(
+        IGrid grid,
+        ICraftingPlan job,
+        IActionSource src,
+        ICraftingRequester requestingMachine,
+        boolean useAggregateNetworkCapacity
+    ) {
         if (!this.isLocallyActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }
-        if (this.getEffectiveAvailableStorage() < job.bytes()) {
+        if (!useAggregateNetworkCapacity && this.getEffectiveAvailableStorage() < job.bytes()) {
             return CraftingSubmitResult.CPU_TOO_SMALL;
         }
         ECOCraftingCPU cpu = null;
@@ -359,9 +373,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         long usedStorage = getActiveJobBytes();
 
         this.availableStorage = Math.max(0L, totalStorage - usedStorage);
-        long effectiveTotalStorage = networkCluster != null && networkCluster.hasUltimateAggregateCapacity()
-            ? Long.MAX_VALUE
-            : saturatingMultiply(totalStorage, getNetworkMultiplier());
+        if (networkCluster != null) {
+            return;
+        }
+        long effectiveTotalStorage = saturatingMultiply(totalStorage, getNetworkMultiplier());
         if (effectiveTotalStorage >= usedStorage || this.activeCpus.isEmpty()) {
             return;
         }

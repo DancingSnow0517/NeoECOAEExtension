@@ -25,6 +25,7 @@ import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
+import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import cn.dancingsnow.neoecoae.recipe.CoolingRecipe;
@@ -72,7 +73,7 @@ import java.util.UUID;
 public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<ECOCraftingSystemBlockEntity>
     implements ISyncPersistRPCBlockEntity, IGridTickable {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
-    private static final int NETWORK_HOST_LIMIT = 8;
+    private static final int NETWORK_HOST_LIMIT = NEFrequencyAllocator.HOST_LIMIT;
 
     public static final int MAX_COOLANT = 1_000_000;
     private static final int COOLANT_PER_CRAFT = 5;
@@ -133,6 +134,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     @Persisted
     @DescSynced
     private boolean mirrorBuild;
+    @Persisted
+    @DescSynced
+    private int networkFrequency = NEFrequencyAllocator.UNASSIGNED;
     @DescSynced
     private boolean buildInProgress;
     private transient MultiBlockBuildSession buildSession;
@@ -260,6 +264,41 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         wakeControllerTicking();
     }
 
+    public boolean hasNetworkFrequency() {
+        return networkFrequency >= 0 && networkFrequency < NEFrequencyAllocator.FREQUENCY_COUNT;
+    }
+
+    public int getNetworkFrequency() {
+        return hasNetworkFrequency() ? networkFrequency : 0;
+    }
+
+    /** Called by the logical network manager only for a previously unassigned host. */
+    public void assignNetworkFrequency(int frequency) {
+        if (hasNetworkFrequency()) {
+            return;
+        }
+        networkFrequency = NEFrequencyAllocator.normalize(frequency);
+        setChanged();
+        markForUpdate();
+    }
+
+    public void cycleNetworkFrequency() {
+        setNetworkFrequency(hasNetworkFrequency() ? getNetworkFrequency() + 1 : 0);
+    }
+
+    public void setNetworkFrequency(int frequency) {
+        int next = NEFrequencyAllocator.normalize(frequency);
+        if (networkFrequency == next) {
+            return;
+        }
+        networkFrequency = next;
+        setChanged();
+        markForUpdate();
+        if (cluster != null && cluster.isNetworkMode()) {
+            NELogicalNetworkManager.refresh(cluster);
+        }
+    }
+
     public void refreshExchangeThreadCount() {
         int nextThreadCountPerWorker = cluster == null || cluster.getParallelCores().isEmpty()
             || cluster.getWorkers().isEmpty() ? 0 : getExchangeHostCount();
@@ -381,7 +420,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateThreadCount() {
         if (cluster != null && !cluster.getParallelCores().isEmpty() && !cluster.getWorkers().isEmpty()) {
-            threadCountPerWorker = getExchangeHostCount();
+            // A standalone FX worker keeps its normal 32-task queue. Network exchange has a
+            // separate slot model, where each worker contributes one slot per participating host.
+            threadCountPerWorker = cluster.getNetworkCluster() == null
+                ? NEConfig.getCraftingWorkerBaseCrafts()
+                : getExchangeHostCount();
             exactThreadCount = saturatingMultiply(getWorkerCount(), threadCountPerWorker);
             exactAvailableThreadCount = exactThreadCount;
             long perWorkerCapacity = overclocked
@@ -1113,6 +1156,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             this::getDisplayTitle,
             () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
             () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
+            this::getNetworkFrequency,
+            this::cycleNetworkFrequency,
             this::getRunStatus,
             this::isOverclocked,
             () -> setOverclocked(!isOverclocked()),

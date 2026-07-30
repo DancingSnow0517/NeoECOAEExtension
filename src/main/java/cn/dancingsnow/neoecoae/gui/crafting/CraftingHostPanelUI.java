@@ -5,6 +5,7 @@ import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.gui.common.NetworkFrequencyButton;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.task.HostTaskListElement;
@@ -91,6 +92,8 @@ public final class CraftingHostPanelUI {
         Supplier<Component> title,
         IntSupplier networkMultiplier,
         BooleanSupplier networkConnected,
+        IntSupplier networkFrequency,
+        Runnable cycleNetworkFrequency,
         IntSupplier runStatus,
         BooleanSupplier overclocked,
         Runnable toggleOverclocked,
@@ -156,6 +159,7 @@ public final class CraftingHostPanelUI {
             .addClass("eco-host-toolbar")
             .layout(layout -> layout.height(TOOLBAR_BUTTON_SIZE).flexDirection(FlexDirection.ROW));
         toolbar.addChildren(
+            NetworkFrequencyButton.create(config.networkFrequency, config.cycleNetworkFrequency),
             toolbarButton(config.toggleOverclocked, Icon.POWER_UNIT_AE, config.overclocked,
                 "gui.neoecoae.crafting.overclock.on", "gui.neoecoae.crafting.overclock.off"),
             toolbarButton(config.toggleActiveCooling, Icon.TYPE_FILTER_ALL, config.activeCooling,

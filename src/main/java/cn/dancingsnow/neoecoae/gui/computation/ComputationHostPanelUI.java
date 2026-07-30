@@ -65,6 +65,8 @@ public final class ComputationHostPanelUI {
         IntSupplier parallelCount,
         Supplier<CpuSelectionMode> cpuSelectionMode,
         Runnable cycleCpuSelectionMode,
+        IntSupplier networkFrequency,
+        Runnable cycleNetworkFrequency,
         Supplier<HolderLookup.Provider> registries,
         Supplier<List<ComputationTaskEntry>> tasks
     ) {

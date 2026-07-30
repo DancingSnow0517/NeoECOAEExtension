@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** Converts a validated ECO result into the complete plan contract consumed by AE2 CPUs. */
 public final class ECOAE2PlanAssembler {
@@ -31,9 +32,10 @@ public final class ECOAE2PlanAssembler {
 
         var problem = snapshot.problem();
         var candidate = result.candidate();
-        Map<AEKey, Long> missing = findMissingSources(problem, candidate);
+        Map<AEKey, Long> sourceDeficits = findMissingSources(problem, candidate);
+        SourceRequirements requirements = splitSourceRequirements(sourceDeficits, snapshot.emittableKeys());
         Map<AEKey, Long> schedulableInventory = new LinkedHashMap<>(problem.inventory());
-        missing.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
+        sourceDeficits.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
         var schedulableProblem = new ECOPlanningProblem<>(
             problem.operations(),
             schedulableInventory,
@@ -44,17 +46,17 @@ public final class ECOAE2PlanAssembler {
             return Optional.empty();
         }
 
-        Optional<KeyCounter> usedItems = calculateUsedItems(problem, candidate, missing, schedule.steps());
+        Optional<KeyCounter> usedItems = calculateUsedItems(problem, candidate, sourceDeficits, schedule.steps());
         if (usedItems.isEmpty()) {
             return Optional.empty();
         }
-        KeyCounter missingItems = toCounter(missing);
-        KeyCounter emittedItems = new KeyCounter();
+        KeyCounter missingItems = toCounter(requirements.missing());
+        KeyCounter emittedItems = toCounter(requirements.emitted());
         long bytes = estimateBytes(snapshot, candidate);
         CraftingPlan plan = new CraftingPlan(
             new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
             bytes,
-            !missing.isEmpty(),
+            !requirements.missing().isEmpty(),
             snapshot.multiplePaths(),
             usedItems.get(),
             emittedItems,
@@ -63,6 +65,26 @@ public final class ECOAE2PlanAssembler {
         );
         ECOPlannedInputs.register(plan, schedule.steps());
         return Optional.of(plan);
+    }
+
+    /** Splits uncraftable source deficits by AE2's direct-emitter semantics. */
+    private static SourceRequirements splitSourceRequirements(
+        Map<AEKey, Long> sourceDeficits,
+        Set<AEKey> emittableKeys
+    ) {
+        Map<AEKey, Long> emitted = new LinkedHashMap<>();
+        Map<AEKey, Long> missing = new LinkedHashMap<>();
+        sourceDeficits.forEach((key, amount) -> {
+            if (emittableKeys.contains(key)) {
+                emitted.put(key, amount);
+            } else {
+                missing.put(key, amount);
+            }
+        });
+        return new SourceRequirements(Map.copyOf(emitted), Map.copyOf(missing));
+    }
+
+    private record SourceRequirements(Map<AEKey, Long> emitted, Map<AEKey, Long> missing) {
     }
 
     private static Map<AEKey, Long> findMissingSources(
@@ -91,13 +113,13 @@ public final class ECOAE2PlanAssembler {
     private static Optional<KeyCounter> calculateUsedItems(
         ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
         ECOPlanCandidate<ECOAE2PatternVariant> candidate,
-        Map<AEKey, Long> missing,
+        Map<AEKey, Long> sourceDeficits,
         java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<ECOAE2PatternVariant>> steps
     ) {
         Map<ECOAE2PatternVariant, ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> byReference = new HashMap<>();
         problem.operations().forEach(operation -> byReference.put(operation.reference(), operation));
         Map<AEKey, Long> current = new LinkedHashMap<>(problem.inventory());
-        Map<AEKey, Long> syntheticRemaining = new LinkedHashMap<>(missing);
+        Map<AEKey, Long> syntheticRemaining = new LinkedHashMap<>(sourceDeficits);
         KeyCounter requiredExtract = new KeyCounter();
 
         try {

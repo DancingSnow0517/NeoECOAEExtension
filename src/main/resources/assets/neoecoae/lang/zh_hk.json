@@ -168,6 +168,8 @@
   "gui.neoecoae.host.metric.types": "類型",
   "gui.neoecoae.host.network.connected": "已連接網絡",
   "gui.neoecoae.host.network.disconnected": "未連接網絡",
+  "gui.neoecoae.host.network.frequency": "網絡頻率：%d",
+  "gui.neoecoae.host.network.frequency.tooltip": "頻率相同嘅主機會加入同一個邏輯集群。點擊切換。",
   "gui.neoecoae.host.network.mode.high_energy": "高能網絡交換 x8",
   "gui.neoecoae.host.network.mode.local": "本地 x1",
   "gui.neoecoae.host.network.mode.normal": "網絡交換 x2",
