@@ -27,17 +27,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Persistence for a single ECO storage cell.
+ * Retired file-backed persistence for a single ECO storage cell.
  *
  * <p>A cell lives in exactly one file, {@code <uuid>/cell.dat}. The type caps this mod hands out (315 item types at
  * the very top, 25 for fluids, 1 for mana/FE/source - see {@code ECOAETypeCounts}) mean the whole inventory is a few
  * tens of kilobytes, so a checkpoint is one small atomic write rather than a scatter across shard files.
  *
- * <p>Durability comes from the shared WAL owned by {@link ECOCellStorageManager}: mutations are appended there every
- * tick and fsynced once for all cells together, while {@code cell.dat} is rewritten lazily in the background. This
- * class therefore exposes its pending records and its checkpoint state to the manager instead of scheduling its own
- * writes.
+ * <p>Ordinary storage now uses {@link SavedDataECOStorageBackend}. This class remains source-compatible for legacy
+ * diagnostics only; {@link ECOCellStorageManager} never constructs it for a mounted cell.
  */
+@Deprecated
 public final class FileBackedECOStorageBackend implements ECOStorageBackend {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileBackedECOStorageBackend.class);
     private static final int CELL_VERSION = 3;

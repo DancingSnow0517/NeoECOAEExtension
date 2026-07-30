@@ -23,7 +23,49 @@ public record NEStorageUiState(
         int infiniteMigrationProgress,
         int infiniteComponentCount,
         boolean canTakeInfiniteComponent,
-        boolean infiniteDomainEmpty) {
+        boolean infiniteDomainEmpty,
+        String infiniteDomainState) {
+    public NEStorageUiState(
+            BlockPos pos,
+            List<NEStorageUiTypeState> typeStates,
+            List<NEStorageUiMatrixState> matrixStates,
+            List<NEStorageHugeStackState> hugeStacks,
+            int hugeStackPage,
+            int hugeStackPageCount,
+            int hugeStackTotalCount,
+            long storedEnergy,
+            long maxEnergy,
+            long performanceAverageNanos,
+            boolean formed,
+            boolean infiniteSlotVisible,
+            boolean infiniteMode,
+            boolean migratingToInfinite,
+            int infiniteMigrationProgress,
+            int infiniteComponentCount,
+            boolean canTakeInfiniteComponent,
+            boolean infiniteDomainEmpty) {
+        this(
+                pos,
+                typeStates,
+                matrixStates,
+                hugeStacks,
+                hugeStackPage,
+                hugeStackPageCount,
+                hugeStackTotalCount,
+                storedEnergy,
+                maxEnergy,
+                performanceAverageNanos,
+                formed,
+                infiniteSlotVisible,
+                infiniteMode,
+                migratingToInfinite,
+                infiniteMigrationProgress,
+                infiniteComponentCount,
+                canTakeInfiniteComponent,
+                infiniteDomainEmpty,
+                "READY");
+    }
+
     public static NEStorageUiState empty(BlockPos pos) {
         return empty(pos, false);
     }
@@ -47,7 +89,8 @@ public record NEStorageUiState(
                 0,
                 0,
                 true,
-                true);
+                true,
+                "READY");
     }
 
     public long totalUsedTypes() {

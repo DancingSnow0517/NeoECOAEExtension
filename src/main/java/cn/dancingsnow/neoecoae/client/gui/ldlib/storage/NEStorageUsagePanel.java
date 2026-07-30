@@ -111,6 +111,8 @@ public final class NEStorageUsagePanel {
                 state.infiniteMode() ? INFINITE_ACCENT_COLOR : NELDLibStyle.DARK_TEXT_WARNING);
         y += USAGE_DETAIL_LINE_H;
         Metric highestType = state.infiniteMode() ? null : highestPressureMetric(metrics);
+        Component domainStatus = infiniteDomainStatus(state);
+        boolean hasDomainStatus = !domainStatus.getString().isEmpty();
         drawDetailLine(
                 g,
                 font,
@@ -119,11 +121,13 @@ public final class NEStorageUsagePanel {
                 Component.translatable("gui.neoecoae.storage.status")
                         .append(": ")
                         .append(
-                                state.infiniteMode()
-                                        ? Component.translatable("gui.neoecoae.storage.infinite_value")
-                                        : storageStatus(highestType)),
+                                hasDomainStatus
+                                        ? domainStatus
+                                        : state.infiniteMode()
+                                                ? Component.translatable("gui.neoecoae.storage.infinite_value")
+                                                : storageStatus(highestType)),
                 y,
-                state.infiniteMode() ? INFINITE_ACCENT_COLOR : statusColor(highestType));
+                state.infiniteMode() && !hasDomainStatus ? INFINITE_ACCENT_COLOR : statusColor(highestType));
         y += USAGE_DETAIL_LINE_H;
         drawDetailLine(
                 g,
@@ -157,6 +161,20 @@ public final class NEStorageUsagePanel {
                 0.9F);
         hugeStackList.draw(g, font, screenX, screenY, state);
         drawInfiniteSlotOverlay(g, screenX, screenY, state);
+    }
+
+    private static Component infiniteDomainStatus(NEStorageUiState state) {
+        if (!state.infiniteMode() && !state.migratingToInfinite()) {
+            return Component.empty();
+        }
+        return switch (state.infiniteDomainState()) {
+            case "LOADING" -> Component.translatable("gui.neoecoae.storage.status.domain_loading");
+            case "MIGRATING_V1" -> Component.translatable("gui.neoecoae.storage.status.domain_migrating_v1");
+            case "QUARANTINED" -> Component.translatable("gui.neoecoae.storage.status.domain_quarantined");
+            case "CLOSED" -> Component.translatable("gui.neoecoae.storage.status.domain_closed");
+            case "UNAVAILABLE" -> Component.translatable("gui.neoecoae.storage.status.domain_unavailable");
+            default -> Component.empty();
+        };
     }
 
     public boolean drawTooltip(

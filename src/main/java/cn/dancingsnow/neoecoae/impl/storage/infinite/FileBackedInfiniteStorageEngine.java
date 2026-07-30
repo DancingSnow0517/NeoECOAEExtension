@@ -91,6 +91,42 @@ public final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorage
         load();
     }
 
+    /**
+     * Reads an isolated copy of a V1 domain for one-way SavedData migration. This deliberately
+     * reuses the battle-tested V1 loader but never writes or opens the original directory.
+     */
+    static LegacyV1Snapshot readMigrationSnapshot(UUID domainId, Path copiedDomainPath) {
+        FileBackedInfiniteStorageEngine engine = new FileBackedInfiniteStorageEngine(domainId, copiedDomainPath);
+        if (!engine.isHealthy()) {
+            throw new IllegalStateException(
+                    "V1 infinite-storage data could not be read without loss", engine.persistenceFailure);
+        }
+        Set<UUID> receipts = new HashSet<>(engine.committedTransactions);
+        receipts.addAll(readLegacyTransactionReceipts(copiedDomainPath.resolve("transactions")));
+        return new LegacyV1Snapshot(Map.copyOf(engine.amounts), Set.copyOf(receipts), engine.revision);
+    }
+
+    record LegacyV1Snapshot(Map<AEKey, HugeAmount> amounts, Set<UUID> receipts, long revision) {}
+
+    private static Set<UUID> readLegacyTransactionReceipts(Path receiptsDirectory) {
+        if (!Files.isDirectory(receiptsDirectory)) {
+            return Set.of();
+        }
+        Set<UUID> receipts = new HashSet<>();
+        try (var paths = Files.list(receiptsDirectory)) {
+            for (Path path : paths.toList()) {
+                String name = path.getFileName().toString();
+                if (!Files.isRegularFile(path) || !name.endsWith(".done") || name.length() <= ".done".length()) {
+                    throw new IllegalStateException("Invalid V1 transaction receipt: " + path);
+                }
+                receipts.add(UUID.fromString(name.substring(0, name.length() - ".done".length())));
+            }
+        } catch (IOException | IllegalArgumentException e) {
+            throw new IllegalStateException("Unable to read V1 transaction receipts", e);
+        }
+        return receipts;
+    }
+
     @Override
     public synchronized long insert(AEKey key, long amount, Actionable mode) {
         if (key == null || amount <= 0L) {

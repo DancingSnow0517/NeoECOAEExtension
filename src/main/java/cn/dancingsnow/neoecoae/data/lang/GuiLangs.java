@@ -208,6 +208,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.storage.status", "Status");
         provider.add("gui.neoecoae.storage.status.ok", "Normal");
         provider.add("gui.neoecoae.storage.status.capacity_full", "%s capacity full");
+        provider.add("gui.neoecoae.storage.status.domain_loading", "Domain loading");
+        provider.add("gui.neoecoae.storage.status.domain_migrating_v1", "Migrating V1 domain");
+        provider.add("gui.neoecoae.storage.status.domain_quarantined", "Domain quarantined");
+        provider.add("gui.neoecoae.storage.status.domain_closed", "Domain closed");
+        provider.add("gui.neoecoae.storage.status.domain_unavailable", "Domain unavailable");
         provider.add("gui.neoecoae.storage.idle_matrices", "Idle");
         provider.add("gui.neoecoae.storage.matrices", "Storage Matrices");
         provider.add("gui.neoecoae.storage.matrix", "Storage Matrix");

@@ -3,30 +3,19 @@ package cn.dancingsnow.neoecoae.impl.storage;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.ISaveProvider;
 import cn.dancingsnow.neoecoae.api.storage.IBasicECOCellItem;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.DimensionDataStorage;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
@@ -34,40 +23,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Owns every live ECO storage cell and the write-ahead log that keeps them crash-safe.
+ * Owns live ordinary ECO cells backed by Minecraft {@code SavedData}.
  *
- * <p>All cells share one log. A tick's mutations - however many cells they touched - are drained into a single frame
- * and fsynced once, so durability costs one disk flush per tick instead of one per dirty cell. The {@code cell.dat}
- * snapshots are rewritten lazily in the background under a time budget; the log is what closes the gap in between, and
- * it is truncated as soon as every snapshot it protects has landed.
- *
- * <p>Locking: this class' monitor is always taken before a backend's. {@link #markDirty} is the one call that runs
- * with a backend monitor already held, so it only touches {@link #DIRTY_LOCK}, which is a leaf.
+ * <p>Each cell UUID is one independent SavedData record. This removes the shared file/WAL fault domain: a bad cell
+ * locks only that cell, while normal world saves own durability for every other cell. The former file layout is only
+ * opened through {@link LegacyECOCellReader} during a verified, one-way migration.
  */
 public final class ECOCellStorageManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(ECOCellStorageManager.class);
-    private static final long LOAD_BUDGET_NANOS = 750_000L;
-    private static final long CHECKPOINT_BUDGET_NANOS = 500_000L;
-    private static final int MAX_WAL_RECORD_BYTES = 16 * 1024 * 1024;
-    private static final int WAL_BUFFER_BYTES = 64 * 1024;
-    private static final int MAX_RECORDS_PER_FRAME = 2048;
-    private static final long WAL_TRUNCATE_THRESHOLD_BYTES = 32L * 1024L * 1024L;
-    private static final int WAL_VERSION = 1;
-    private static final String WAL_FILE = "wal_000.log";
+    private static final long PERSISTENCE_PROBE_INTERVAL_TICKS = 200L;
+    private static final String SAVED_DATA_DIRECTORY = "neoecoae_cells";
+    private static final String LEGACY_DIRECTORY = "neoecoae";
+    private static final String LEGACY_ARCHIVE_DIRECTORY = "neoecoae_cell_storage_v1_archive";
+    private static final String MIGRATION_DIRECTORY = "neoecoae_cell_migration";
 
-    private static final Map<UUID, FileBackedECOStorageBackend> CELLS = new LinkedHashMap<>();
+    private static final Map<UUID, SavedDataECOStorageBackend> CELLS = new HashMap<>();
     private static final Map<UUID, ISaveProvider> OWNERS = new HashMap<>();
     private static final Map<ISaveProvider, UUID> OWNER_IDS = new IdentityHashMap<>();
-    private static final Set<FileBackedECOStorageBackend> CHECKPOINT_QUEUE = new LinkedHashSet<>();
-    private static final Object DIRTY_LOCK = new Object();
-    private static final Set<FileBackedECOStorageBackend> WAL_DIRTY = new LinkedHashSet<>();
-
-    @Nullable private static ECOStorageWal wal;
-
-    @Nullable private static Future<?> pendingWalSync;
-
-    private static volatile boolean walDisabled;
-    private static int loadRotation;
+    private static long lastPersistenceProbeTick = Long.MIN_VALUE;
 
     private ECOCellStorageManager() {}
 
@@ -76,7 +49,6 @@ public final class ECOCellStorageManager {
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         boolean hasLegacyContents = ECOCellHandle.hasLegacyContents(stack);
         boolean hadId = ECOCellHandle.getId(stack).isPresent();
-
         if (server == null) {
             if (hasLegacyContents) {
                 ECOCellHandle.updateSummaryFromLegacy(stack, 0L);
@@ -92,10 +64,9 @@ public final class ECOCellStorageManager {
             id = forkIfClaimedByAnotherOwner(server, stack, id, owner);
         }
 
-        Path path = cellPath(server, id);
         if (hadId
                 && !CELLS.containsKey(id)
-                && !FileBackedECOStorageBackend.hasPersistentData(path)
+                && !hasAnyStorageData(server, id)
                 && ECOCellHandle.getVersion(stack) >= ECOCellHandle.VERSION
                 && ECOCellHandle.hasNonEmptySummary(stack)
                 && !hasLegacyContents) {
@@ -106,39 +77,42 @@ public final class ECOCellStorageManager {
         if (owner != null) {
             claim(id, owner);
         }
-
         ECOCellHandle.clearProblemState(stack);
-        UUID backendId = id;
-        Path backendPath = path;
-        FileBackedECOStorageBackend backend = CELLS.computeIfAbsent(
-                backendId,
-                ignored -> new FileBackedECOStorageBackend(
-                        backendId,
-                        backendPath,
-                        ECOCellHandle.getStoredTypesSummary(stack),
-                        ECOCellHandle.getStoredAmountSummary(stack)));
 
+        SavedDataECOStorageBackend backend = CELLS.get(id);
+        boolean openedNow = backend == null;
+        if (backend == null) {
+            backend = openOrCreate(
+                    server,
+                    id,
+                    ECOCellHandle.getStoredTypesSummary(stack),
+                    ECOCellHandle.getStoredAmountSummary(stack));
+            CELLS.put(id, backend);
+        }
         if (backend.isDegraded()) {
             ECOCellHandle.markLocked(stack);
             return backend;
         }
 
         if (hasLegacyContents) {
-            if (!backend.hasPersistentData()) {
-                List<GenericStack> legacyStacks = ECOCellHandle.readLegacyStacks(stack);
-                backend.importLegacyNow(legacyStacks);
-            } else {
-                backend.requestLoad();
-                backend.loadBudgeted(0L);
-            }
-            if (backend.isDegraded()) {
+            try {
+                if (openedNow && backend.isFreshEmpty()) {
+                    List<GenericStack> legacyStacks = ECOCellHandle.readLegacyStacks(stack);
+                    backend.importItemStackLegacy(legacyStacks);
+                    backend.flushAndAwait();
+                }
+                if (backend.isDegraded()) {
+                    ECOCellHandle.markLocked(stack);
+                    return backend;
+                }
+                ECOCellHandle.updateSummary(stack, backend, estimateUsedBytes(cellItem, backend));
+                ECOCellHandle.clearLegacyContents(stack);
+            } catch (RuntimeException e) {
+                LOGGER.error("Unable to migrate item-stack contents into ECO storage cell {}", id, e);
+                backend.quarantine("Unable to migrate item-stack ECO storage contents", e);
                 ECOCellHandle.markLocked(stack);
-                return backend;
             }
-            ECOCellHandle.updateSummary(stack, backend, estimateUsedBytes(cellItem, backend));
-            ECOCellHandle.clearLegacyContents(stack);
         }
-
         return backend;
     }
 
@@ -147,12 +121,10 @@ public final class ECOCellStorageManager {
         if (server == null || stack == null || stack.isEmpty()) {
             return;
         }
-
         UUID id = ECOCellHandle.getId(stack).orElse(null);
         if (id == null) {
             return;
         }
-
         for (ItemStack mountedStack : mountedStacks) {
             if (mountedStack == null || mountedStack.isEmpty() || mountedStack == stack) {
                 continue;
@@ -169,110 +141,52 @@ public final class ECOCellStorageManager {
     }
 
     // ---------------------------------------------------------------------------------------------------------
-    // Server lifecycle
+    // SavedData lifecycle
     // ---------------------------------------------------------------------------------------------------------
 
-    /**
-     * Replays whatever the previous run left in the log. A non-empty log means the process died without a clean
-     * shutdown, so the affected cells are loaded, brought forward and re-checkpointed before anything can touch them.
-     */
+    /** SavedData is recovered by Minecraft before cells are mounted; there is no ordinary-cell WAL to replay. */
     public static synchronized void onServerStarted(MinecraftServer server) {
-        walDisabled = false;
-        Path walPath = storageRoot(server).resolve(WAL_FILE);
-        ECOStorageWal recovered = new ECOStorageWal(walPath, MAX_WAL_RECORD_BYTES, WAL_BUFFER_BYTES);
-
-        Map<UUID, List<ECOCellWalRecord>> byCell = new LinkedHashMap<>();
-        ECOStorageWal.Status status = recovered.replay(payload -> readFrame(payload, byCell));
-
-        if (status == ECOStorageWal.Status.TAIL_REPAIRED) {
-            LOGGER.warn("The ECO cell storage WAL ended mid-write; the incomplete tail was discarded");
-        } else if (status == ECOStorageWal.Status.CORRUPT) {
-            LOGGER.error(
-                    "The ECO cell storage WAL is damaged before its end. Everything readable up to the damage will be"
-                            + " recovered, but mutations logged after it are lost");
-        }
-
-        if (!byCell.isEmpty()) {
-            LOGGER.warn("Recovering {} ECO cell(s) from the storage WAL after an unclean shutdown", byCell.size());
-            for (Map.Entry<UUID, List<ECOCellWalRecord>> entry : byCell.entrySet()) {
-                recoverCell(server, entry.getKey(), entry.getValue());
-            }
-        }
-
-        if (status == ECOStorageWal.Status.CORRUPT) {
-            // Keep the evidence: everything past the damage is unreadable here but may still be salvageable by hand.
-            recovered.close();
-            quarantineWal(walPath);
-            recovered = new ECOStorageWal(walPath, MAX_WAL_RECORD_BYTES, WAL_BUFFER_BYTES);
-        } else {
-            try {
-                recovered.truncate();
-            } catch (IOException e) {
-                LOGGER.error("Unable to reset the ECO cell storage WAL {}", walPath, e);
-            }
-        }
-        wal = recovered;
+        CELLS.clear();
+        OWNERS.clear();
+        OWNER_IDS.clear();
+        lastPersistenceProbeTick = Long.MIN_VALUE;
     }
 
-    /** Blocks until the previous tick's log frame is on the platter. Runs at the start of every server tick. */
-    public static synchronized void awaitPreviousTick() {
-        Future<?> pending = pendingWalSync;
-        if (pending == null) {
+    /** Compatibility hook retained for the shared lifecycle event. */
+    public static synchronized void awaitPreviousTick() {}
+
+    /** Periodically persists and read-back verifies dirty open cells between normal world saves. */
+    public static synchronized void tick() {
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) {
             return;
         }
-        pendingWalSync = null;
-        try {
-            pending.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while writing the ECO cell storage WAL", e);
-        } catch (ExecutionException e) {
-            LOGGER.error("Unable to write the ECO cell storage WAL", e.getCause());
+        long gameTime = server.overworld().getGameTime();
+        if (lastPersistenceProbeTick != Long.MIN_VALUE
+                && gameTime - lastPersistenceProbeTick < PERSISTENCE_PROBE_INTERVAL_TICKS) {
+            return;
+        }
+        lastPersistenceProbeTick = gameTime;
+        for (SavedDataECOStorageBackend backend : new ArrayList<>(CELLS.values())) {
+            backend.flushBudgeted(0L);
         }
     }
 
-    public static synchronized void tick() {
-        runBudgetedLoads();
-        submitPendingWal();
-        if (walDisabled) {
-            // Without a log the snapshots are the only durable copy, so they can no longer be paced.
-            checkpointAllNow();
-        } else {
-            processCheckpoints(CHECKPOINT_BUDGET_NANOS);
-            maybeTruncateWal();
-        }
-    }
-
+    /** Flushes the open ordinary-cell SavedData records. The old time budget is not needed by SavedData. */
     public static synchronized void flushBudgeted(long maxNanos) {
-        flushWalNow();
-        if (maxNanos <= 0L) {
-            checkpointAllNow();
-            maybeTruncateWal();
-        } else {
-            processCheckpoints(maxNanos);
+        for (SavedDataECOStorageBackend backend : new ArrayList<>(CELLS.values())) {
+            backend.flushAndAwait();
         }
     }
 
     public static synchronized void closeAll() {
-        flushWalNow();
-        checkpointAllNow();
-        ECOStorageWal target = wal;
-        if (target != null) {
-            try {
-                // A clean shutdown leaves nothing to replay.
-                target.truncate();
-            } catch (IOException e) {
-                LOGGER.error("Unable to reset the ECO cell storage WAL {}", target.path(), e);
-            }
-            target.close();
-        }
-        wal = null;
-        CELLS.clear();
-        OWNERS.clear();
-        OWNER_IDS.clear();
-        CHECKPOINT_QUEUE.clear();
-        synchronized (DIRTY_LOCK) {
-            WAL_DIRTY.clear();
+        try {
+            flushBudgeted(0L);
+        } finally {
+            CELLS.clear();
+            OWNERS.clear();
+            OWNER_IDS.clear();
+            lastPersistenceProbeTick = Long.MIN_VALUE;
         }
     }
 
@@ -299,314 +213,182 @@ public final class ECOCellStorageManager {
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------
-    // Backend callbacks
-    // ---------------------------------------------------------------------------------------------------------
+    // These three bridges keep the retired FileBackedECOStorageBackend source-compatible while it remains available
+    // as historical tooling. Normal storage never constructs that backend anymore.
+    @Deprecated
+    static void markDirty(FileBackedECOStorageBackend backend) {}
 
-    /**
-     * Records that a cell has mutations waiting for the log. Called with the cell's own monitor held, so it must not
-     * reach for anything but {@link #DIRTY_LOCK}.
-     */
-    static void markDirty(FileBackedECOStorageBackend backend) {
-        synchronized (DIRTY_LOCK) {
-            WAL_DIRTY.add(backend);
-        }
-    }
-
+    @Deprecated
     static synchronized boolean flushCell(FileBackedECOStorageBackend backend, long maxNanos) {
         if (backend == null) {
             return false;
         }
-        boolean work = flushWalNow();
-        if (maxNanos <= 0L) {
-            work |= backend.isCheckpointDirty() || backend.hasPendingCheckpointWrite();
-            backend.checkpointNow();
-            CHECKPOINT_QUEUE.remove(backend);
-        } else {
-            work |= processCheckpoints(maxNanos);
-        }
-        return work;
+        boolean pending = backend.isCheckpointDirty() || backend.hasPendingCheckpointWrite();
+        backend.checkpointNow();
+        return pending;
     }
 
+    @Deprecated
     static synchronized void closeCell(FileBackedECOStorageBackend backend) {
-        if (backend == null) {
-            return;
-        }
-        flushWalNow();
-        backend.checkpointNow();
-        CHECKPOINT_QUEUE.remove(backend);
-    }
-
-    // ---------------------------------------------------------------------------------------------------------
-    // Loading
-    // ---------------------------------------------------------------------------------------------------------
-
-    private static void runBudgetedLoads() {
-        if (CELLS.isEmpty()) {
-            return;
-        }
-        List<FileBackedECOStorageBackend> pending = null;
-        for (FileBackedECOStorageBackend backend : CELLS.values()) {
-            if (!backend.isLoaded()) {
-                if (pending == null) {
-                    pending = new ArrayList<>();
-                }
-                pending.add(backend);
-            }
-        }
-        if (pending == null) {
-            return;
-        }
-        // Rotate the starting point so a slow cell at the head cannot hold the budget forever.
-        int size = pending.size();
-        int start = Math.floorMod(loadRotation++, size);
-        long deadline = System.nanoTime() + LOAD_BUDGET_NANOS;
-        for (int i = 0; i < size; i++) {
-            pending.get((start + i) % size).loadBudgeted(Math.max(1L, deadline - System.nanoTime()));
-            if (System.nanoTime() >= deadline) {
-                break;
-            }
-        }
-    }
-
-    // ---------------------------------------------------------------------------------------------------------
-    // Write-ahead log
-    // ---------------------------------------------------------------------------------------------------------
-
-    /** Drains every dirty cell into log frames and hands them to the log thread. */
-    private static boolean submitPendingWal() {
-        List<ECOCellWalRecord> records = drainDirtyCells();
-        if (records.isEmpty()) {
-            return false;
-        }
-        ECOStorageWal target = wal();
-        if (target == null) {
-            // No log available; the records are redundant with the snapshots those cells are already queued for.
-            return false;
-        }
-        List<byte[]> frames = new ArrayList<>();
-        for (int from = 0; from < records.size(); from += MAX_RECORDS_PER_FRAME) {
-            int to = Math.min(records.size(), from + MAX_RECORDS_PER_FRAME);
-            try {
-                frames.add(encodeFrame(records.subList(from, to)));
-            } catch (IOException | RuntimeException e) {
-                disableWal("unable to encode a log frame", e);
-                return false;
-            }
-        }
-        pendingWalSync = ECOStorageIoWorker.submit(() -> {
-            try {
-                for (byte[] frame : frames) {
-                    target.append(frame);
-                }
-                target.sync();
-            } catch (IOException | RuntimeException e) {
-                disableWal("unable to append to " + target.path(), e);
-            }
-        });
-        return true;
-    }
-
-    /** Appends and fsyncs everything outstanding before returning. */
-    private static boolean flushWalNow() {
-        awaitPreviousTick();
-        boolean submitted = submitPendingWal();
-        awaitPreviousTick();
-        return submitted;
-    }
-
-    private static List<ECOCellWalRecord> drainDirtyCells() {
-        List<FileBackedECOStorageBackend> dirty;
-        synchronized (DIRTY_LOCK) {
-            if (WAL_DIRTY.isEmpty()) {
-                return List.of();
-            }
-            dirty = new ArrayList<>(WAL_DIRTY);
-            WAL_DIRTY.clear();
-        }
-        List<ECOCellWalRecord> records = new ArrayList<>();
-        for (FileBackedECOStorageBackend backend : dirty) {
-            records.addAll(backend.drainPendingWalRecords());
-            CHECKPOINT_QUEUE.add(backend);
-        }
-        return records;
-    }
-
-    private static byte[] encodeFrame(List<ECOCellWalRecord> records) throws IOException {
-        CompoundTag tag = new CompoundTag();
-        tag.putInt("version", WAL_VERSION);
-        ListTag list = new ListTag();
-        for (ECOCellWalRecord record : records) {
-            list.add(record.write());
-        }
-        tag.put("records", list);
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        NbtIo.writeCompressed(tag, out);
-        return out.toByteArray();
-    }
-
-    private static void readFrame(byte[] payload, Map<UUID, List<ECOCellWalRecord>> byCell) {
-        CompoundTag tag;
-        try (InputStream input = new ByteArrayInputStream(payload)) {
-            tag = NbtIo.readCompressed(input);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to decode an ECO cell storage WAL frame", e);
-        }
-        ListTag list = tag.getList("records", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            ECOCellWalRecord record = ECOCellWalRecord.read(list.getCompound(i));
-            if (record != null) {
-                byCell.computeIfAbsent(record.cell(), ignored -> new ArrayList<>())
-                        .add(record);
-            }
-        }
-    }
-
-    private static void maybeTruncateWal() {
-        ECOStorageWal target = wal;
-        if (target == null || walDisabled || target.sizeBytes() <= 0L) {
-            return;
-        }
-        if (target.sizeBytes() >= WAL_TRUNCATE_THRESHOLD_BYTES) {
-            // The log has outgrown the snapshots it protects. Cell snapshots are small, so sweeping them all and
-            // starting over is cheaper than carrying - and one day replaying - a log this size.
-            LOGGER.info("Checkpointing every ECO cell to retire a {} byte storage WAL", target.sizeBytes());
-            awaitPreviousTick();
-            checkpointAllNow();
-        } else if (!CHECKPOINT_QUEUE.isEmpty()) {
-            // Some snapshot is still behind its log records; they have to stay until it lands.
-            return;
-        }
-        synchronized (DIRTY_LOCK) {
-            if (!WAL_DIRTY.isEmpty()) {
-                return;
-            }
-        }
-        awaitPreviousTick();
-        ECOStorageWal current = wal;
-        if (current == null || current.sizeBytes() <= 0L) {
-            return;
-        }
-        pendingWalSync = ECOStorageIoWorker.submit(() -> {
-            try {
-                current.truncate();
-            } catch (IOException | RuntimeException e) {
-                disableWal("unable to truncate " + current.path(), e);
-            }
-        });
-    }
-
-    private static void disableWal(String what, Throwable cause) {
-        if (walDisabled) {
-            return;
-        }
-        walDisabled = true;
-        LOGGER.error(
-                "Disabling the ECO cell storage WAL ({}). Cells will be written out in full every tick instead, which"
-                        + " is slower but keeps their contents safe",
-                what,
-                cause);
-    }
-
-    private static void quarantineWal(Path walPath) {
-        for (int i = 0; i < 1000; i++) {
-            Path target = walPath.resolveSibling(walPath.getFileName() + (i == 0 ? ".corrupt" : ".corrupt." + i));
-            if (Files.exists(target)) {
-                continue;
-            }
-            try {
-                Files.move(walPath, target);
-                LOGGER.error("Preserved the damaged ECO cell storage WAL as {}", target);
-            } catch (IOException e) {
-                LOGGER.error("Unable to preserve the damaged ECO cell storage WAL {}", walPath, e);
-            }
-            return;
-        }
-    }
-
-    @Nullable private static ECOStorageWal wal() {
-        if (wal == null && !walDisabled) {
-            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-            if (server != null) {
-                wal = new ECOStorageWal(storageRoot(server).resolve(WAL_FILE), MAX_WAL_RECORD_BYTES, WAL_BUFFER_BYTES);
-            }
-        }
-        return wal;
-    }
-
-    // ---------------------------------------------------------------------------------------------------------
-    // Checkpoints
-    // ---------------------------------------------------------------------------------------------------------
-
-    /** Works the checkpoint queue round-robin: the head is always retried at the tail, so nothing starves. */
-    private static boolean processCheckpoints(long maxNanos) {
-        if (CHECKPOINT_QUEUE.isEmpty()) {
-            return false;
-        }
-        long deadline = maxNanos <= 0L ? Long.MAX_VALUE : System.nanoTime() + maxNanos;
-        boolean work = false;
-        for (int remaining = CHECKPOINT_QUEUE.size(); remaining > 0; remaining--) {
-            Iterator<FileBackedECOStorageBackend> iterator = CHECKPOINT_QUEUE.iterator();
-            FileBackedECOStorageBackend backend = iterator.next();
-            iterator.remove();
-            boolean settled = backend.completeCheckpointWrite(false);
-            if (settled && backend.isCheckpointDirty()) {
-                backend.scheduleCheckpoint();
-                settled = false;
-                work = true;
-            }
-            if (!settled || backend.isCheckpointDirty() || backend.hasPendingCheckpointWrite()) {
-                CHECKPOINT_QUEUE.add(backend);
-            }
-            if (System.nanoTime() >= deadline) {
-                break;
-            }
-        }
-        return work;
-    }
-
-    private static void checkpointAllNow() {
-        for (FileBackedECOStorageBackend backend : CELLS.values()) {
+        if (backend != null) {
             backend.checkpointNow();
         }
-        CHECKPOINT_QUEUE.clear();
     }
 
-    private static void recoverCell(MinecraftServer server, UUID id, List<ECOCellWalRecord> records) {
-        FileBackedECOStorageBackend backend = new FileBackedECOStorageBackend(id, cellPath(server, id), 0, 0L);
-        backend.requestLoad();
-        backend.loadBudgeted(0L);
-        if (backend.isDegraded()) {
-            LOGGER.error("Unable to recover ECO cell storage {}: its file could not be read", id);
-            return;
-        }
-        int applied = 0;
-        for (ECOCellWalRecord record : records) {
-            if (backend.applyRecoveredRecord(record.key(), record.delta(), record.revision())) {
-                applied++;
+    // ---------------------------------------------------------------------------------------------------------
+    // SavedData discovery and legacy migration
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static SavedDataECOStorageBackend openOrCreate(
+            MinecraftServer server, UUID id, int summaryTypes, long summaryAmount) {
+        Path worldRoot = worldRoot(server);
+        Path dataFile = savedDataFile(worldRoot, id);
+        Path legacySource = legacyCellDirectory(worldRoot, id);
+        Path archive = archiveRoot(worldRoot).resolve(id.toString());
+        DimensionDataStorage dataStorage = server.overworld().getDataStorage();
+        try {
+            boolean hasV2Path = Files.exists(dataFile, LinkOption.NOFOLLOW_LINKS);
+            boolean hasV2 = Files.isRegularFile(dataFile, LinkOption.NOFOLLOW_LINKS);
+            boolean hasLegacyPath = Files.exists(legacySource, LinkOption.NOFOLLOW_LINKS);
+            boolean hasLegacy = LegacyECOCellReader.isPresent(legacySource);
+            boolean hasArchivePath = Files.exists(archive, LinkOption.NOFOLLOW_LINKS);
+            boolean hasArchive = Files.isDirectory(archive, LinkOption.NOFOLLOW_LINKS);
+
+            if (hasV2Path && !hasV2) {
+                return quarantined(
+                        id,
+                        dataStorage,
+                        dataFile,
+                        summaryTypes,
+                        summaryAmount,
+                        "ECO storage SavedData path is not a normal file");
             }
+            if (hasLegacyPath && !Files.isDirectory(legacySource, LinkOption.NOFOLLOW_LINKS)) {
+                return quarantined(
+                        id,
+                        dataStorage,
+                        dataFile,
+                        summaryTypes,
+                        summaryAmount,
+                        "Legacy ECO storage path is not a normal directory");
+            }
+            if (hasArchivePath && !hasArchive) {
+                return quarantined(
+                        id,
+                        dataStorage,
+                        dataFile,
+                        summaryTypes,
+                        summaryAmount,
+                        "Legacy ECO storage archive is not a normal directory");
+            }
+            if (hasV2) {
+                SavedDataECOStorageBackend backend = dataStorage.get(
+                        tag -> SavedDataECOStorageBackend.load(tag, id, dataStorage, dataFile), savedDataName(id));
+                if (backend == null) {
+                    return quarantined(
+                            id,
+                            dataStorage,
+                            dataFile,
+                            summaryTypes,
+                            summaryAmount,
+                            "Existing ECO storage SavedData failed strict loading");
+                }
+                finishInterruptedMigration(id, backend, legacySource, hasLegacy, archive, hasArchive);
+                return backend;
+            }
+            if (hasLegacy && hasArchive) {
+                return quarantined(
+                        id,
+                        dataStorage,
+                        dataFile,
+                        summaryTypes,
+                        summaryAmount,
+                        "Multiple legacy ECO storage authorities exist");
+            }
+            if (hasLegacy) {
+                LegacyECOCellReader.Snapshot snapshot =
+                        LegacyECOCellReader.copyAndRead(id, legacySource, migrationRoot(worldRoot));
+                SavedDataECOStorageBackend backend = SavedDataECOStorageBackend.createNew(id, dataStorage, dataFile);
+                dataStorage.set(savedDataName(id), backend);
+                backend.importLegacyFile(snapshot);
+                backend.flushAndAwait();
+                if (backend.isDegraded()) {
+                    return backend;
+                }
+                LegacyECOCellReader.archive(legacySource, archive, snapshot.sourceFingerprint());
+                LOGGER.info("Migrated ECO storage cell {} from file storage to SavedData", id);
+                return backend;
+            }
+            if (hasArchive) {
+                return quarantined(
+                        id,
+                        dataStorage,
+                        dataFile,
+                        summaryTypes,
+                        summaryAmount,
+                        "ECO storage SavedData is missing while a legacy archive exists");
+            }
+            SavedDataECOStorageBackend backend = SavedDataECOStorageBackend.createNew(id, dataStorage, dataFile);
+            dataStorage.set(savedDataName(id), backend);
+            backend.setDirty();
+            backend.flushAndAwait();
+            return backend;
+        } catch (Exception e) {
+            LOGGER.error("Unable to open ECO storage SavedData cell {}", id, e);
+            return quarantined(
+                    id,
+                    dataStorage,
+                    dataFile,
+                    summaryTypes,
+                    summaryAmount,
+                    "Unable to discover or migrate ECO storage data: " + e.getMessage());
         }
-        if (applied <= 0) {
-            // Every logged mutation was already in the snapshot.
-            return;
-        }
-        backend.checkpointNow();
-        if (backend.isDegraded()) {
-            LOGGER.error("Unable to write the recovered contents of ECO cell storage {}", id);
-            return;
-        }
-        LOGGER.info("Recovered {} of {} logged mutations for ECO cell storage {}", applied, records.size(), id);
     }
 
+    private static void finishInterruptedMigration(
+            UUID id,
+            SavedDataECOStorageBackend backend,
+            Path legacySource,
+            boolean hasLegacy,
+            Path archive,
+            boolean hasArchive)
+            throws IOException {
+        if (!hasLegacy) {
+            if (hasArchive && backend.legacyFingerprint() == null) {
+                throw new IOException("A legacy ECO storage archive conflicts with a non-migrated SavedData cell");
+            }
+            return;
+        }
+        if (hasArchive) {
+            throw new IOException("A legacy ECO storage source and archive both exist");
+        }
+        String fingerprint = backend.legacyFingerprint();
+        if (fingerprint == null) {
+            throw new IOException("SavedData does not prove ownership of the remaining legacy ECO storage source");
+        }
+        LegacyECOCellReader.archive(legacySource, archive, fingerprint);
+        LOGGER.info("Completed interrupted legacy archive cutover for ECO storage cell {}", id);
+    }
+
+    private static SavedDataECOStorageBackend quarantined(
+            UUID id,
+            DimensionDataStorage dataStorage,
+            Path dataFile,
+            int summaryTypes,
+            long summaryAmount,
+            String reason) {
+        LOGGER.error("Quarantining ECO storage cell {}: {}", id, reason);
+        return SavedDataECOStorageBackend.quarantined(id, dataStorage, dataFile, summaryTypes, summaryAmount, reason);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Ownership and copying
     // ---------------------------------------------------------------------------------------------------------
 
     private static void closeBackend(UUID id) {
-        FileBackedECOStorageBackend backend = CELLS.remove(id);
+        SavedDataECOStorageBackend backend = CELLS.remove(id);
         if (backend != null) {
             backend.closeAndFlush();
-            synchronized (DIRTY_LOCK) {
-                WAL_DIRTY.remove(backend);
-            }
         }
     }
 
@@ -629,84 +411,42 @@ public final class ECOCellStorageManager {
     }
 
     private static UUID forkStorageId(MinecraftServer server, ItemStack stack, UUID oldId, String reason) {
-        FileBackedECOStorageBackend sourceBackend = CELLS.get(oldId);
-        if (sourceBackend != null) {
-            // The copy is taken from the file, so everything still sitting in the log has to reach it first.
-            flushWalNow();
-            sourceBackend.checkpointNow();
-            CHECKPOINT_QUEUE.remove(sourceBackend);
+        SavedDataECOStorageBackend source = CELLS.get(oldId);
+        if (source == null) {
+            source = openOrCreate(
+                    server,
+                    oldId,
+                    ECOCellHandle.getStoredTypesSummary(stack),
+                    ECOCellHandle.getStoredAmountSummary(stack));
+            CELLS.put(oldId, source);
+        }
+        source.flushAndAwait();
+        if (source.isDegraded()) {
+            throw new IllegalStateException(
+                    "Cannot fork quarantined ECO storage cell " + oldId + ": " + source.failureReason());
         }
 
         UUID newId;
-        Path newPath;
         do {
             newId = UUID.randomUUID();
-            newPath = cellPath(server, newId);
-        } while (CELLS.containsKey(newId) || Files.exists(newPath));
+        } while (CELLS.containsKey(newId) || hasAnyStorageData(server, newId));
 
-        copyCellFile(cellPath(server, oldId), newPath, newId, stack);
-
+        Path worldRoot = worldRoot(server);
+        Path newDataFile = savedDataFile(worldRoot, newId);
+        DimensionDataStorage dataStorage = server.overworld().getDataStorage();
+        SavedDataECOStorageBackend copy = SavedDataECOStorageBackend.createNew(newId, dataStorage, newDataFile);
+        dataStorage.set(savedDataName(newId), copy);
+        copy.importFork(source.copyContents(), source.copyRevision());
+        copy.flushAndAwait();
+        if (copy.isDegraded()) {
+            throw new IllegalStateException(
+                    "Unable to persist forked ECO storage cell " + newId + ": " + copy.failureReason());
+        }
+        CELLS.put(newId, copy);
         ECOCellHandle.setId(stack, newId);
         ECOCellHandle.clearProblemState(stack);
         LOGGER.warn("Forked duplicated ECO storage matrix UUID {} -> {} ({})", oldId, newId, reason);
         return newId;
-    }
-
-    private static void copyCellFile(Path sourcePath, Path targetPath, UUID newId, ItemStack stack) {
-        Path source = FileBackedECOStorageBackend.cellFile(sourcePath);
-        Path target = FileBackedECOStorageBackend.cellFile(targetPath);
-        byte[] payload = null;
-        if (Files.isRegularFile(source)) {
-            try {
-                payload = Files.readAllBytes(source);
-            } catch (IOException e) {
-                throw new IllegalStateException("Unable to fork ECO cell storage " + source, e);
-            }
-        }
-
-        byte[] rewritten = payload == null ? null : rewriteCellId(payload, newId);
-        if (rewritten == null && payload != null) {
-            LOGGER.warn("Copying ECO cell storage {} verbatim; its header could not be rewritten", source);
-        }
-        if (rewritten == null && payload == null) {
-            rewritten = emptyCellPayload(newId, stack);
-        }
-
-        try {
-            ECOStorageFiles.writeAtomically(target, rewritten == null ? payload : rewritten);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to fork ECO cell storage " + source + " -> " + target, e);
-        }
-    }
-
-    @Nullable private static byte[] rewriteCellId(byte[] payload, UUID newId) {
-        try (InputStream input = new ByteArrayInputStream(payload)) {
-            CompoundTag tag = NbtIo.readCompressed(input);
-            tag.putUUID("id", newId);
-            ByteArrayOutputStream out = new ByteArrayOutputStream(payload.length);
-            NbtIo.writeCompressed(tag, out);
-            return out.toByteArray();
-        } catch (IOException | RuntimeException e) {
-            return null;
-        }
-    }
-
-    private static byte[] emptyCellPayload(UUID newId, ItemStack stack) {
-        CompoundTag tag = new CompoundTag();
-        tag.putInt("version", 3);
-        tag.putString("kind", "cell");
-        tag.putUUID("id", newId);
-        tag.putLong("revision", 0L);
-        tag.putInt("storedTypes", ECOCellHandle.getStoredTypesSummary(stack));
-        tag.putString("storedAmount", Long.toString(ECOCellHandle.getStoredAmountSummary(stack)));
-        tag.put("entries", new ListTag());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            NbtIo.writeCompressed(tag, out);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to create the forked ECO cell storage file", e);
-        }
-        return out.toByteArray();
     }
 
     private static long estimateUsedBytes(IBasicECOCellItem cellItem, ECOStorageBackend backend) {
@@ -716,14 +456,43 @@ public final class ECOCellStorageManager {
         return Math.max(0L, typeBytes + amountBytes);
     }
 
-    private static Path storageRoot(MinecraftServer server) {
-        return server.getWorldPath(LevelResource.ROOT)
-                .resolve("data")
-                .resolve("neoecoae")
-                .resolve("storage_v2");
+    // ---------------------------------------------------------------------------------------------------------
+    // Paths
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static boolean hasAnyStorageData(MinecraftServer server, UUID id) {
+        Path root = worldRoot(server);
+        return Files.exists(savedDataFile(root, id), LinkOption.NOFOLLOW_LINKS)
+                || Files.exists(legacyCellDirectory(root, id), LinkOption.NOFOLLOW_LINKS)
+                || Files.exists(archiveRoot(root).resolve(id.toString()), LinkOption.NOFOLLOW_LINKS);
     }
 
-    private static Path cellPath(MinecraftServer server, UUID id) {
-        return storageRoot(server).resolve("cells").resolve(id.toString());
+    private static Path worldRoot(MinecraftServer server) {
+        return server.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
+    }
+
+    private static String savedDataName(UUID id) {
+        return SAVED_DATA_DIRECTORY + "/" + id;
+    }
+
+    private static Path savedDataFile(Path worldRoot, UUID id) {
+        return worldRoot.resolve("data").resolve(SAVED_DATA_DIRECTORY).resolve(id + ".dat");
+    }
+
+    private static Path legacyCellDirectory(Path worldRoot, UUID id) {
+        return worldRoot
+                .resolve("data")
+                .resolve(LEGACY_DIRECTORY)
+                .resolve("storage_v2")
+                .resolve("cells")
+                .resolve(id.toString());
+    }
+
+    private static Path archiveRoot(Path worldRoot) {
+        return worldRoot.resolve(LEGACY_ARCHIVE_DIRECTORY);
+    }
+
+    private static Path migrationRoot(Path worldRoot) {
+        return worldRoot.resolve("data").resolve(MIGRATION_DIRECTORY);
     }
 }

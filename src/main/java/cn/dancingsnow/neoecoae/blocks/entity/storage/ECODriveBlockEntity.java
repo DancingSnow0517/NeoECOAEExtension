@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
@@ -57,7 +58,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Nullable private CellState lastSyncedCellState = null;
 
-    private final Map<UUID, Long> restoreReceipts = new HashMap<>();
+    private final Map<UUID, RestoreReceipt> restoreReceipts = new HashMap<>();
+    private final Set<UUID> unverifiableRestoreReceipts = new java.util.HashSet<>();
 
     public ECODriveBlockEntity(BlockEntityType<ECODriveBlockEntity> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -69,6 +71,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         flushPendingCellContent();
         releaseCellBackend();
         this.cellStack = normalizeCellStack(cellStack);
+        restoreReceipts.clear();
+        unverifiableRestoreReceipts.clear();
         forkDuplicateCellInCurrentHost();
         invalidateCellInventoryCache();
         if (getLevel() != null && getBlockState().hasProperty(ECODriveBlock.HAS_CELL)) {
@@ -122,6 +126,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
+                    && !cluster.getController().isInfiniteMode()
                     && !ECOInfiniteStorageMember.isMember(cellStack)
                     && !cluster.getController().isStorageInterfaceTransferMode()
                     && mainTier.compareTo(cellInventory.getTier()) >= 0) {
@@ -183,6 +188,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             IECOTier mainTier = cluster.getController().getTier();
             IECOStorageCell cellInventory = getCellInventory();
             if (cellInventory != null
+                    && !cluster.getController().isInfiniteMode()
                     && !ECOInfiniteStorageMember.isMember(cellStack)
                     && !cluster.getController().isStorageInterfaceTransferMode()
                     && mainTier.compareTo(cellInventory.getTier()) >= 0) {
@@ -258,14 +264,37 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     public long getRestoreReceipt(UUID transactionId) {
-        return restoreReceipts.getOrDefault(transactionId, 0L);
+        RestoreReceipt receipt = getRestoreReceiptDetails(transactionId);
+        return receipt == null ? 0L : receipt.amount();
     }
 
-    public void putRestoreReceipt(UUID transactionId, long amount) {
-        if (transactionId == null || amount <= 0L) {
+    @Nullable public RestoreReceipt getRestoreReceiptDetails(UUID transactionId) {
+        return transactionId == null ? null : restoreReceipts.get(transactionId);
+    }
+
+    public boolean hasRestoreReceipt(UUID transactionId) {
+        return transactionId != null
+                && (restoreReceipts.containsKey(transactionId) || unverifiableRestoreReceipts.contains(transactionId));
+    }
+
+    public boolean hasUnexpectedRestoreReceipts(Set<UUID> expectedTransactionIds) {
+        if (!unverifiableRestoreReceipts.isEmpty()) {
+            return true;
+        }
+        for (UUID transactionId : restoreReceipts.keySet()) {
+            if (!expectedTransactionIds.contains(transactionId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void putRestoreReceipt(UUID transactionId, long amount, long postAmount) {
+        if (transactionId == null || amount <= 0L || postAmount < amount) {
             return;
         }
-        restoreReceipts.merge(transactionId, amount, ECODriveBlockEntity::saturatedAdd);
+        restoreReceipts.put(transactionId, new RestoreReceipt(amount, postAmount));
+        unverifiableRestoreReceipts.remove(transactionId);
         setChanged();
     }
 
@@ -274,13 +303,19 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         super.loadTag(data);
         loadDriveVisualState(data);
         restoreReceipts.clear();
+        unverifiableRestoreReceipts.clear();
         var receipts = data.getList("ecoRestoreReceipts", Tag.TAG_COMPOUND);
         for (int i = 0; i < receipts.size(); i++) {
             CompoundTag receipt = receipts.getCompound(i);
             if (receipt.hasUUID("id")) {
+                UUID transactionId = receipt.getUUID("id");
                 long amount = receipt.getLong("amount");
-                if (amount > 0L) {
-                    restoreReceipts.put(receipt.getUUID("id"), amount);
+                long postAmount = receipt.getLong("post_amount");
+                if (receipt.getInt("version") == 2 && amount > 0L && postAmount >= amount) {
+                    restoreReceipts.put(transactionId, new RestoreReceipt(amount, postAmount));
+                } else {
+                    // Retain V1 receipts as a safety barrier: they cannot prove the current cell contents.
+                    unverifiableRestoreReceipts.add(transactionId);
                 }
             }
         }
@@ -298,7 +333,15 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
         for (var entry : restoreReceipts.entrySet()) {
             CompoundTag receipt = new CompoundTag();
             receipt.putUUID("id", entry.getKey());
-            receipt.putLong("amount", entry.getValue());
+            receipt.putInt("version", 2);
+            receipt.putLong("amount", entry.getValue().amount());
+            receipt.putLong("post_amount", entry.getValue().postAmount());
+            receipts.add(receipt);
+        }
+        for (UUID transactionId : unverifiableRestoreReceipts) {
+            CompoundTag receipt = new CompoundTag();
+            receipt.putUUID("id", transactionId);
+            receipt.putInt("version", 1);
             receipts.add(receipt);
         }
         data.put("ecoRestoreReceipts", receipts);
@@ -416,6 +459,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             }
         }
     }
+
+    public record RestoreReceipt(long amount, long postAmount) {}
 
     /**
      * Notifies the storage controller (if formed) that storage stats should be
@@ -544,6 +589,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     }
 
     private void releaseCellBackend() {
+        ECOStorageCells.releaseCellInventory(cellStack, cellSaveProvider);
         ECOCellStorageManager.release(cellStack, cellSaveProvider);
     }
 

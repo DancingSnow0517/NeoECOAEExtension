@@ -33,6 +33,7 @@ public final class NEStorageUiStateCodec {
         buf.writeVarInt(Math.max(0, state.infiniteComponentCount()));
         buf.writeBoolean(state.canTakeInfiniteComponent());
         buf.writeBoolean(state.infiniteDomainEmpty());
+        writeBoundedUtf(buf, state.infiniteDomainState());
         buf.writeVarInt(Math.max(0, state.hugeStackPage()));
         buf.writeVarInt(Math.max(1, state.hugeStackPageCount()));
         buf.writeVarInt(Math.max(0, state.hugeStackTotalCount()));
@@ -90,6 +91,7 @@ public final class NEStorageUiStateCodec {
         int infiniteComponentCount = buf.readVarInt();
         boolean canTakeInfiniteComponent = buf.readBoolean();
         boolean infiniteDomainEmpty = buf.readBoolean();
+        String infiniteDomainState = buf.readUtf(MAX_TEXT_LENGTH);
         int hugeStackPage = buf.readVarInt();
         int hugeStackPageCount = buf.readVarInt();
         int hugeStackTotalCount = buf.readVarInt();
@@ -146,7 +148,8 @@ public final class NEStorageUiStateCodec {
                 infiniteMigrationProgress,
                 infiniteComponentCount,
                 canTakeInfiniteComponent,
-                infiniteDomainEmpty);
+                infiniteDomainEmpty,
+                infiniteDomainState);
     }
 
     private static int readCount(FriendlyByteBuf buf, int max, String name) {
