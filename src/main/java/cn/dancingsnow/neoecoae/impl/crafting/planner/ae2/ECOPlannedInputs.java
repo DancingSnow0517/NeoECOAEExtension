@@ -67,11 +67,15 @@ public final class ECOPlannedInputs {
             return remaining;
         }
 
-        public void consumeOne() {
-            if (remaining <= 0L) {
-                throw new IllegalStateException("Planned input batch is exhausted");
+        public void consume(long crafts) {
+            if (crafts <= 0L || crafts > remaining) {
+                throw new IllegalArgumentException("Invalid planned input consumption: " + crafts);
             }
-            remaining--;
+            remaining -= crafts;
+        }
+
+        public void consumeOne() {
+            consume(1L);
         }
 
         private void add(long crafts) {

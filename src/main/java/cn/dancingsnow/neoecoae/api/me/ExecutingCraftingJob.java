@@ -182,15 +182,33 @@ public class ExecutingCraftingJob {
         return batch == null ? null : batch.selectedInputs();
     }
 
+    long peekPlannedInputCount(IPatternDetails details) {
+        ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches = plannedInputs.get(details);
+        ECOPlannedInputs.PlannedInputBatch batch = batches == null ? null : batches.peekFirst();
+        return batch == null ? 0L : batch.remaining();
+    }
+
     void consumePlannedInputs(IPatternDetails details) {
+        consumePlannedInputs(details, 1L);
+    }
+
+    void consumePlannedInputs(IPatternDetails details, long crafts) {
+        if (crafts <= 0L) {
+            return;
+        }
         ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches = plannedInputs.get(details);
         if (batches == null || batches.isEmpty()) {
             return;
         }
-        ECOPlannedInputs.PlannedInputBatch batch = batches.getFirst();
-        batch.consumeOne();
-        if (batch.remaining() == 0L) {
-            batches.removeFirst();
+
+        while (crafts > 0L && !batches.isEmpty()) {
+            ECOPlannedInputs.PlannedInputBatch batch = batches.getFirst();
+            long consumed = Math.min(crafts, batch.remaining());
+            batch.consume(consumed);
+            crafts -= consumed;
+            if (batch.remaining() == 0L) {
+                batches.removeFirst();
+            }
         }
         if (batches.isEmpty()) {
             plannedInputs.remove(details);

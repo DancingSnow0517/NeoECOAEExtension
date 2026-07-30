@@ -289,10 +289,6 @@ public class ECOCraftingCPULogic {
                 }
 
                 var details = task.getKey();
-                @Nullable List<GenericStack> plannedInputs = job.peekPlannedInputs(details);
-                IPatternDetails extractionDetails = plannedInputs == null
-                    ? details
-                    : new ECOSelectedInputPatternDetails(details, plannedInputs);
                 // 同一调度轮次内按任务收集一次提供者列表，避免每次推送都重建列表并重复查询。
                 List<ICraftingProvider> providers = collectAvailableProviders(craftingService, details);
                 if (providers.isEmpty()) {
@@ -307,6 +303,13 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
+                    @Nullable List<GenericStack> plannedInputs = job.peekPlannedInputs(details);
+                    IPatternDetails extractionDetails = plannedInputs == null
+                        ? details
+                        : new ECOSelectedInputPatternDetails(details, plannedInputs);
+                    long batchTaskRemaining = plannedInputs == null
+                        ? task.getValue().value
+                        : Math.min(task.getValue().value, job.peekPlannedInputCount(details));
                     var expectedOutputs = new KeyCounter();
                     var expectedContainerItems = new KeyCounter();
                     @Nullable
@@ -322,17 +325,15 @@ public class ECOCraftingCPULogic {
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer)
                         * cpu.getCluster().getNetworkPowerMultiplier();
-                    int batchResult = plannedInputs == null
-                        ? tryPushVerifiedFastPathBatch(
-                            job,
-                            details,
-                            execution,
-                            craftingContainer,
-                            patternBuses,
-                            energyService,
-                            patternPower,
-                            task.getValue().value)
-                        : 0;
+                    int batchResult = tryPushVerifiedFastPathBatch(
+                        job,
+                        details,
+                        execution,
+                        craftingContainer,
+                        patternBuses,
+                        energyService,
+                        patternPower,
+                        batchTaskRemaining);
                     if (batchResult > 0) {
                         // One provider dispatch consumes one CPU scheduling operation regardless of how many
                         // crafts the F-series host accepted in that batch.
@@ -341,6 +342,7 @@ public class ECOCraftingCPULogic {
                             break taskLoop;
                         }
                         task.getValue().value -= batchResult;
+                        job.consumePlannedInputs(details, batchResult);
                         postPatternOutputsChange(details);
                         if (task.getValue().value <= 0) {
                             it.remove();
