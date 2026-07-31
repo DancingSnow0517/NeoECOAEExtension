@@ -46,6 +46,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
+import cn.dancingsnow.neoecoae.integration.ae2lt.AE2LTBatchCraftingBridge;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
@@ -58,6 +59,7 @@ public class ECOCraftingCPULogic {
     private static final Map<UUID, ECOCraftingCPULogic> JOB_OUTPUT_ROUTES = new ConcurrentHashMap<>();
 
     final ECOCraftingCPU cpu;
+    private final AE2LTBatchCraftingBridge ae2ltBatchBridge = new AE2LTBatchCraftingBridge();
 
     /**
      * 当前合成任务。
@@ -275,6 +277,7 @@ public class ECOCraftingCPULogic {
         if (job == null)
             return 0;
 
+        ae2ltBatchBridge.beginTick(TickHandler.instance().getCurrentTick());
         var pushedPatterns = 0;
 
         beginStatusChangeBatch();
@@ -299,7 +302,7 @@ public class ECOCraftingCPULogic {
                 boolean fastPathCandidate = !patternBuses.isEmpty();
 
                 while (task.getValue().value > 0 && pushedPatterns < maxPatterns) {
-                    if (!hasReadyProvider(providers)) {
+                    if (!hasReadyProvider(providers, details)) {
                         continue taskLoop;
                     }
 
@@ -356,9 +359,49 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
+                    int ae2ltBatchResult = ae2ltBatchBridge.tryPushBatch(
+                        providers,
+                        details,
+                        craftingContainer,
+                        inventory,
+                        energyService,
+                        patternPower,
+                        batchTaskRemaining
+                    );
+                    if (ae2ltBatchResult > 0) {
+                        chargeAcceptedPatternEnergy(
+                            energyService, patternPower * ae2ltBatchResult
+                        );
+                        pushedPatterns++;
+                        if (this.job != job) {
+                            break taskLoop;
+                        }
+                        try {
+                            recordPushedPattern(job, execution, ae2ltBatchResult);
+                        } catch (RuntimeException e) {
+                            // The AE2LT provider already owns these inputs. Continue task accounting so
+                            // the same physical crafts cannot be scheduled a second time.
+                            LOGGER.error(
+                                "AE2LT batch was accepted, but its CPU output accounting update failed",
+                                e
+                            );
+                        }
+                        task.getValue().value -= ae2ltBatchResult;
+                        job.consumePlannedInputs(details, ae2ltBatchResult);
+                        postPatternOutputsChange(details);
+                        if (task.getValue().value <= 0) {
+                            it.remove();
+                            continue taskLoop;
+                        }
+                        if (pushedPatterns == maxPatterns) {
+                            break taskLoop;
+                        }
+                        continue;
+                    }
+
                     boolean pushed = false;
                     for (ICraftingProvider provider : providers) {
-                        if (provider.isBusy()) {
+                        if (provider.isBusy() || ae2ltBatchBridge.shouldSkip(provider, details)) {
                             continue;
                         }
 
@@ -380,6 +423,7 @@ public class ECOCraftingCPULogic {
                         }
 
                         if (!pushed) {
+                            ae2ltBatchBridge.recordFailedSinglePush(provider, details);
                             continue;
                         }
 
@@ -440,7 +484,7 @@ public class ECOCraftingCPULogic {
             IPatternDetails details) {
         List<ICraftingProvider> providers = new ArrayList<>();
         for (ICraftingProvider provider : craftingService.getProviders(details)) {
-            if (!provider.isBusy()) {
+            if (!provider.isBusy() && !ae2ltBatchBridge.shouldSkip(provider, details)) {
                 providers.add(provider);
             }
         }
@@ -460,9 +504,9 @@ public class ECOCraftingCPULogic {
         return patternBuses == null ? List.of() : patternBuses;
     }
 
-    private static boolean hasReadyProvider(List<ICraftingProvider> providers) {
+    private boolean hasReadyProvider(List<ICraftingProvider> providers, IPatternDetails details) {
         for (ICraftingProvider provider : providers) {
-            if (!provider.isBusy()) {
+            if (!provider.isBusy() && !ae2ltBatchBridge.shouldSkip(provider, details)) {
                 return true;
             }
         }
