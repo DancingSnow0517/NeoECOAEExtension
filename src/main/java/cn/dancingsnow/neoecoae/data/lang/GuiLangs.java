@@ -98,7 +98,7 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.host.network.disconnected", "NETWORK OFFLINE");
                 provider.add("gui.neoecoae.host.network.frequency", "Network Frequency: %d");
                 provider.add("gui.neoecoae.host.network.frequency.tooltip",
-                                "Hosts with the same frequency join the same logical cluster. Click to change.");
+                                "Hosts with the same frequency join the same logical cluster. Left-click: +1; right-click: -1.");
                 provider.add("gui.neoecoae.host.storage.subtitle", "Storage System Host");
                 provider.add("gui.neoecoae.host.computation.subtitle", "Computation System Host");
                 provider.add("gui.neoecoae.host.crafting.subtitle", "Crafting System Host");

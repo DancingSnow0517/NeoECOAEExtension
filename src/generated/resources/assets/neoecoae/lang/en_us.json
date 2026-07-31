@@ -174,7 +174,7 @@
   "gui.neoecoae.host.network.connected": "NETWORK ONLINE",
   "gui.neoecoae.host.network.disconnected": "NETWORK OFFLINE",
   "gui.neoecoae.host.network.frequency": "Network Frequency: %d",
-  "gui.neoecoae.host.network.frequency.tooltip": "Hosts with the same frequency join the same logical cluster. Click to change.",
+  "gui.neoecoae.host.network.frequency.tooltip": "Hosts with the same frequency join the same logical cluster. Left-click: +1; right-click: -1.",
   "gui.neoecoae.host.network.mode.high_energy": "HIGH-ENERGY x8",
   "gui.neoecoae.host.network.mode.local": "LOCAL x1",
   "gui.neoecoae.host.network.mode.normal": "NETWORK SWITCH x2",

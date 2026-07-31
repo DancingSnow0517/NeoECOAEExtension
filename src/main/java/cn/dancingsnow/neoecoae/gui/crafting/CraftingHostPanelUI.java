@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
+import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.IntFunction;
 import java.util.function.LongSupplier;
@@ -96,7 +97,7 @@ public final class CraftingHostPanelUI {
             IntSupplier networkMultiplier,
             BooleanSupplier networkConnected,
             IntSupplier networkFrequency,
-            Runnable cycleNetworkFrequency,
+            IntConsumer adjustNetworkFrequency,
             IntSupplier runStatus,
             BooleanSupplier overclocked,
             Runnable toggleOverclocked,
@@ -162,7 +163,7 @@ public final class CraftingHostPanelUI {
                 .addClass("eco-host-toolbar")
                 .layout(layout -> layout.height(TOOLBAR_BUTTON_SIZE).flexDirection(FlexDirection.ROW));
         toolbar.addChildren(
-                NetworkFrequencyButton.create(config.networkFrequency, config.cycleNetworkFrequency),
+                NetworkFrequencyButton.create(config.networkFrequency, config.adjustNetworkFrequency),
                 toolbarButton(config.toggleOverclocked, Icon.POWER_UNIT_AE, config.overclocked,
                         "gui.neoecoae.crafting.overclock.on", "gui.neoecoae.crafting.overclock.off"),
                 toolbarButton(config.toggleActiveCooling, Icon.TYPE_FILTER_ALL, config.activeCooling,

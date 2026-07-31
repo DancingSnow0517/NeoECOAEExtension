@@ -187,7 +187,7 @@
   "gui.neoecoae.host.network.connected": "已连接网络",
   "gui.neoecoae.host.network.disconnected": "未连接网络",
   "gui.neoecoae.host.network.frequency": "网络频率：%d",
-  "gui.neoecoae.host.network.frequency.tooltip": "频率相同的主机会加入同一个逻辑集群。点击切换。",
+  "gui.neoecoae.host.network.frequency.tooltip": "频率相同的主机会加入同一个逻辑集群。左键 +1，右键 -1。",
   "gui.neoecoae.host.network.mode.high_energy": "高能网络交换 x8",
   "gui.neoecoae.host.network.mode.local": "本地 x1",
   "gui.neoecoae.host.network.mode.normal": "网络交换 x2",

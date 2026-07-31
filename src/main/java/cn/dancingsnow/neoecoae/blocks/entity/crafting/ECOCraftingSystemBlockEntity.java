@@ -284,7 +284,12 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public void cycleNetworkFrequency() {
-        setNetworkFrequency(hasNetworkFrequency() ? getNetworkFrequency() + 1 : 0);
+        adjustNetworkFrequency(1);
+    }
+
+    public void adjustNetworkFrequency(int delta) {
+        int current = hasNetworkFrequency() ? getNetworkFrequency() : 0;
+        setNetworkFrequency(current + delta);
     }
 
     public void setNetworkFrequency(int frequency) {
@@ -1173,7 +1178,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
                 () -> getMainNode().isOnline() && getMainNode().getGrid() != null,
                 this::getNetworkFrequency,
-                this::cycleNetworkFrequency,
+                this::adjustNetworkFrequency,
                 this::getRunStatus,
                 this::isOverclocked,
                 () -> setOverclocked(!isOverclocked()),

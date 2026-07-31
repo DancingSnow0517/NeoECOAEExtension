@@ -30,6 +30,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
+import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -66,7 +67,7 @@ public final class ComputationHostPanelUI {
         Supplier<CpuSelectionMode> cpuSelectionMode,
         Runnable cycleCpuSelectionMode,
         IntSupplier networkFrequency,
-        Runnable cycleNetworkFrequency,
+        IntConsumer adjustNetworkFrequency,
         Supplier<HolderLookup.Provider> registries,
         Supplier<List<ComputationTaskEntry>> tasks
     ) {

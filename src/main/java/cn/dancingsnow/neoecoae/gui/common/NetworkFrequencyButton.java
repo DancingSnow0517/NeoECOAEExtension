@@ -11,6 +11,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
+import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
 /** Compact host control for the persisted logical-network frequency. */
@@ -21,10 +22,16 @@ public final class NetworkFrequencyButton {
     private NetworkFrequencyButton() {
     }
 
-    public static Button create(IntSupplier frequency, Runnable cycle) {
+    public static Button create(IntSupplier frequency, IntConsumer adjust) {
         Button button = new Button()
             .noText()
-            .setOnServerClick(event -> cycle.run());
+            .setOnServerClick(event -> {
+                if (event.button == 0) {
+                    adjust.accept(1);
+                } else if (event.button == 1) {
+                    adjust.accept(-1);
+                }
+            });
         button.buttonStyle(style -> style
             .baseTexture(Sprites.RECT_RD)
             .hoverTexture(Sprites.RECT_RD_LIGHT)

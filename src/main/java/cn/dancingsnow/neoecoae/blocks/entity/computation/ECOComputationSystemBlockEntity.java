@@ -203,7 +203,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         header.addChild(titleBlock);
         header.addChild(NetworkFrequencyButton.create(
             panelConfig.networkFrequency(),
-            panelConfig.cycleNetworkFrequency()
+            panelConfig.adjustNetworkFrequency()
         ));
         header.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig));
         root.addChild(header);
@@ -246,7 +246,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             this::getCpuSelectionMode,
             this::cycleCpuSelectionMode,
             this::getNetworkFrequency,
-            this::cycleNetworkFrequency,
+            this::adjustNetworkFrequency,
             this::getRegistryAccessForUi,
             this::getActiveTaskEntries
         );
@@ -271,7 +271,12 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public void cycleNetworkFrequency() {
-        setNetworkFrequency(hasNetworkFrequency() ? getNetworkFrequency() + 1 : 0);
+        adjustNetworkFrequency(1);
+    }
+
+    public void adjustNetworkFrequency(int delta) {
+        int current = hasNetworkFrequency() ? getNetworkFrequency() : 0;
+        setNetworkFrequency(current + delta);
     }
 
     public void setNetworkFrequency(int frequency) {
