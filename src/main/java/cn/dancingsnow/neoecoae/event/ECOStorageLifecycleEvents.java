@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.event;
 import cn.dancingsnow.neoecoae.api.storage.ECOStorageCells;
 import cn.dancingsnow.neoecoae.impl.storage.ECOCellStorageManager;
 import cn.dancingsnow.neoecoae.impl.storage.infinite.ECOInfiniteStorageDomains;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
@@ -28,6 +29,7 @@ public final class ECOStorageLifecycleEvents {
 
     public static void onServerStopping(ServerStoppingEvent event) {
         try {
+            NELogicalNetworkManager.clearAll();
             ECOCellStorageManager.closeAll();
         } finally {
             try {

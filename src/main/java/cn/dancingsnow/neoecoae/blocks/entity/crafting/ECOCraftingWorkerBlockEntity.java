@@ -81,10 +81,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private TickRateModulation doTickingRequest(ECOCraftingSystemBlockEntity controller, int ticksSinceLastCall) {
         if (controller != null) {
-            int powerMultiply = 1;
-            if (controller.isOverclocked() && !controller.isActiveCooling()) {
-                powerMultiply = controller.getTier().getOverclockedCrafterPowerMultiply();
-            }
+            int powerMultiply = controller.getCraftingPowerMultiplier();
             int overlockTimes = controller.getEffectiveOverclockTimes();
             int bonusValue = Math.min(10 + overlockTimes * 10, 100);
 
@@ -245,7 +242,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return 0;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        return Math.max(0, controller.getThreadCountPerWorker() - getRunningThreads());
+        long capacity = (long) controller.getThreadCountPerWorker() * controller.getNetworkMultiplier();
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, capacity - getRunningThreads()));
     }
 
     public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {

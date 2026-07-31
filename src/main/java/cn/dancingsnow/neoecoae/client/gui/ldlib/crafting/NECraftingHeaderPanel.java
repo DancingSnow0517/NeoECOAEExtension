@@ -22,10 +22,16 @@ public final class NECraftingHeaderPanel {
                 .append(Component.translatable("gui.neoecoae.machine.active"))
                 .append(": ");
         Component activeValue = boolText(state.active());
+        Component networkLabel = Component.literal("  ")
+                .append(Component.translatable("gui.neoecoae.host.network"))
+                .append(": ");
+        Component networkValue = networkText(state);
         int textWidth = context.scaledWidth(formedLabel)
                 + context.scaledWidth(formedValue)
                 + context.scaledWidth(activeLabel)
-                + context.scaledWidth(activeValue);
+                + context.scaledWidth(activeValue)
+                + context.scaledWidth(networkLabel)
+                + context.scaledWidth(networkValue);
         int titleRight = 8 + context.scaledWidth(title) + 10;
         int rightLimit = TOOLBAR_X - 8;
         int cursor = context.x(Math.min(titleRight, Math.max(8, rightLimit - textWidth)));
@@ -33,10 +39,32 @@ public final class NECraftingHeaderPanel {
         cursor += context.drawAbsolute(formedLabel, cursor, y, LABEL_COLOR);
         cursor += context.drawAbsolute(formedValue, cursor, y, state.formed() ? SUCCESS_COLOR : ERROR_COLOR);
         cursor += context.drawAbsolute(activeLabel, cursor, y, LABEL_COLOR);
-        context.drawAbsolute(activeValue, cursor, y, state.active() ? SUCCESS_COLOR : MUTED_COLOR);
+        cursor += context.drawAbsolute(activeValue, cursor, y, state.active() ? SUCCESS_COLOR : MUTED_COLOR);
+        cursor += context.drawAbsolute(networkLabel, cursor, y, LABEL_COLOR);
+        context.drawAbsolute(networkValue, cursor, y, networkColor(state));
     }
 
     private static Component boolText(boolean value) {
         return Component.translatable(value ? "gui.neoecoae.common.yes" : "gui.neoecoae.common.no");
+    }
+
+    private static Component networkText(NECraftingUiState state) {
+        if (state.networkMemberCount() <= 1) {
+            return Component.translatable("gui.neoecoae.host.network.mode.local");
+        }
+        if (!state.networkConnected()) {
+            return Component.translatable("gui.neoecoae.host.network.disconnected");
+        }
+        String key = state.networkMultiplier() >= 8
+                ? "gui.neoecoae.host.network.mode.high_energy"
+                : "gui.neoecoae.host.network.mode.normal";
+        return Component.translatable(key);
+    }
+
+    private static int networkColor(NECraftingUiState state) {
+        if (state.networkMemberCount() <= 1) {
+            return MUTED_COLOR;
+        }
+        return state.networkConnected() ? SUCCESS_COLOR : ERROR_COLOR;
     }
 }

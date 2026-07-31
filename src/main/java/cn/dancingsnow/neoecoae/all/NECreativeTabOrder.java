@@ -32,10 +32,14 @@ public final class NECreativeTabOrder {
         accept(output, NEBlocks.CRAFTING_SYSTEM_L4);
         accept(output, NEBlocks.CRAFTING_SYSTEM_L6);
         accept(output, NEBlocks.CRAFTING_SYSTEM_L9);
+        accept(output, NEBlocks.CRAFTING_NETWORK_SWITCH);
+        accept(output, NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH);
 
         accept(output, NEBlocks.COMPUTATION_SYSTEM_L4);
         accept(output, NEBlocks.COMPUTATION_SYSTEM_L6);
         accept(output, NEBlocks.COMPUTATION_SYSTEM_L9);
+        accept(output, NEBlocks.COMPUTATION_NETWORK_SWITCH);
+        accept(output, NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH);
     }
 
     private static void acceptMultiblockParts(CreativeModeTab.Output output) {

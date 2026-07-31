@@ -45,6 +45,10 @@ public final class NELDLibStateCodecs {
         buf.writeBlockPos(state.pos());
         buf.writeBoolean(state.formed());
         buf.writeBoolean(state.active());
+        buf.writeVarInt(state.networkMemberCount());
+        buf.writeVarInt(state.networkMultiplier());
+        buf.writeBoolean(state.networkConnected());
+        buf.writeVarInt(state.networkFrequency());
         buf.writeInt(state.usedThreads());
         buf.writeInt(state.maxThreads());
         buf.writeLong(state.availableStorage());
@@ -81,6 +85,10 @@ public final class NELDLibStateCodecs {
         BlockPos pos = buf.readBlockPos();
         boolean formed = buf.readBoolean();
         boolean active = buf.readBoolean();
+        int networkMemberCount = buf.readVarInt();
+        int networkMultiplier = buf.readVarInt();
+        boolean networkConnected = buf.readBoolean();
+        int networkFrequency = buf.readVarInt();
         int usedThreads = buf.readInt();
         int maxThreads = buf.readInt();
         long availableStorage = buf.readLong();
@@ -115,6 +123,10 @@ public final class NELDLibStateCodecs {
                 pos,
                 formed,
                 active,
+                networkMemberCount,
+                networkMultiplier,
+                networkConnected,
+                networkFrequency,
                 usedThreads,
                 maxThreads,
                 availableStorage,
@@ -132,6 +144,10 @@ public final class NELDLibStateCodecs {
         buf.writeBlockPos(state.pos());
         buf.writeBoolean(state.formed());
         buf.writeBoolean(state.active());
+        buf.writeVarInt(state.networkMemberCount());
+        buf.writeVarInt(state.networkMultiplier());
+        buf.writeBoolean(state.networkConnected());
+        buf.writeVarInt(state.networkFrequency());
         buf.writeInt(state.workerCount());
         buf.writeInt(state.parallelCount());
         buf.writeInt(state.patternBusCount());
@@ -216,6 +232,10 @@ public final class NELDLibStateCodecs {
         BlockPos pos = buf.readBlockPos();
         boolean formed = buf.readBoolean();
         boolean active = buf.readBoolean();
+        int networkMemberCount = buf.readVarInt();
+        int networkMultiplier = buf.readVarInt();
+        boolean networkConnected = buf.readBoolean();
+        int networkFrequency = buf.readVarInt();
         int workerCount = buf.readInt();
         int parallelCount = buf.readInt();
         int patternBusCount = buf.readInt();
@@ -297,6 +317,10 @@ public final class NELDLibStateCodecs {
                 pos,
                 formed,
                 active,
+                networkMemberCount,
+                networkMultiplier,
+                networkConnected,
+                networkFrequency,
                 workerCount,
                 parallelCount,
                 patternBusCount,

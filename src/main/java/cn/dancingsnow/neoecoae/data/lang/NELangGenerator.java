@@ -140,6 +140,28 @@ public class NELangGenerator {
                 "§7§oParallelism increases the number of tasks each thread core can process per tick");
         provider.add("tooltip.neoecoae.computation_cell", "§7§oProvides %s bytes to computation subsystem");
 
+        provider.add(
+                "tooltip.neoecoae.crafting_network_switch", "Links F9 crafting subsystem hosts on the same ME network");
+        provider.add(
+                "tooltip.neoecoae.computation_network_switch",
+                "Links C9 computation subsystem hosts on the same ME network");
+        provider.add("tooltip.neoecoae.network_switch.multiplier", "Each linked host contributes x%d capacity");
+        provider.add("tooltip.neoecoae.network_switch.power_multiplier", "Power consumption while linked: x%d");
+        provider.add(
+                "tooltip.neoecoae.network_switch.requirement",
+                "Requires at least 2 linked hosts; a single host remains at x1");
+        provider.add(
+                "tooltip.neoecoae.network_switch.computation_cooling", "Requires a cooling controller on this host");
+        provider.add(
+                "tooltip.neoecoae.network_switch.computation_high_energy_cooling",
+                "Requires a C9 cooling controller on this host");
+        provider.add(
+                "tooltip.neoecoae.network_switch.crafting_cooling",
+                "Shared pool: 4 coolant per active task thread per tick; active exchange continuously draws full rated power");
+        provider.add(
+                "tooltip.neoecoae.network_switch.crafting_high_energy_cooling",
+                "Highest-tier shared pool: 16 coolant per active task thread per tick; active exchange continuously draws full rated power");
+
         provider.add("neoecoae.classic_pack", "Neo ECO AE Extension Classic Textures");
 
         provider.add(

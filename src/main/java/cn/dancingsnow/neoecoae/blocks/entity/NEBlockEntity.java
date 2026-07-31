@@ -1,16 +1,21 @@
 package cn.dancingsnow.neoecoae.blocks.entity;
 
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
+import appeng.api.networking.IManagedGridNode;
 import appeng.api.orientation.BlockOrientation;
 import appeng.blockentity.grid.AENetworkBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
+import appeng.me.helpers.BlockEntityNodeListener;
 import appeng.util.iterators.ChainedIterator;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
+import cn.dancingsnow.neoecoae.blocks.NENetworkSwitchBlock;
 import cn.dancingsnow.neoecoae.multiblock.calculator.NEClusterCalculator;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -36,6 +41,12 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         implements IAEMultiBlock<C> {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final boolean DEBUG_MIRROR_BUILD = Boolean.getBoolean("neoecoae.debugMultiblockMirror");
+    private static final IGridNodeListener<NEBlockEntity<?, ?>> NODE_LISTENER = new BlockEntityNodeListener<>() {
+        @Override
+        public void onGridChanged(NEBlockEntity<?, ?> nodeOwner, IGridNode node) {
+            nodeOwner.onMainNodeGridChanged();
+        }
+    };
 
     @Setter
     @Getter
@@ -46,6 +57,11 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
 
     @Getter
     protected final NEClusterCalculator<C> calculator;
+
+    @Override
+    protected IManagedGridNode createMainNode() {
+        return GridHelper.createManagedNode(this, NODE_LISTENER);
+    }
 
     public NEBlockEntity(
             BlockEntityType<?> type, BlockPos pos, BlockState blockState, NEClusterCalculator.Factory<C> calculator) {
@@ -84,10 +100,30 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         }
     }
 
+    /** Re-evaluates the exposed AE2 sides after a neighboring switch changes state. */
+    public void refreshGridConnections() {
+        onGridConnectableSidesChanged();
+    }
+
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.updateState(false);
+        }
+        if (cluster != null && cluster.isNetworkMode()) {
+            NELogicalNetworkManager.refresh(cluster);
+        }
+    }
+
+    /**
+     * AE2 1.20.1 does not route a late grid join through
+     * {@link #onMainNodeStateChanged(IGridNodeListener.State)}. Defer the
+     * rebuild by one server task so all nodes in the newly joined grid have
+     * finished their own topology update before logical hosts are grouped.
+     */
+    private void onMainNodeGridChanged() {
+        if (cluster != null && cluster.isNetworkMode()) {
+            NELogicalNetworkManager.refreshAfterGridChange(cluster);
         }
     }
 
@@ -142,6 +178,8 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
         BlockState newState = oldState;
         if (newState.hasProperty(NEBlock.FORMED)) {
             newState = newState.setValue(NEBlock.FORMED, formed);
+        } else if (newState.hasProperty(NENetworkSwitchBlock.FORMED)) {
+            newState = newState.setValue(NENetworkSwitchBlock.FORMED, formed);
         }
         if (newState.hasProperty(NEBlock.MIRRORED)) {
             newState = newState.setValue(NEBlock.MIRRORED, cluster != null && cluster.isMirrored());
@@ -158,7 +196,8 @@ public abstract class NEBlockEntity<C extends NECluster<C>, E extends NEBlockEnt
                     newState);
         }
         if (!oldState.equals(newState)) {
-            level.setBlock(worldPosition, newState, Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS);
+            // Formed and mirrored are derived render state; placement/removal handles topology changes.
+            level.setBlock(worldPosition, newState, Block.UPDATE_CLIENTS);
         }
         if (updateExposed) {
             onGridConnectableSidesChanged();

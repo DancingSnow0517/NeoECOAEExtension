@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.client.gui.ldlib.crafting.NECraftingStatusPanel;
 import cn.dancingsnow.neoecoae.client.gui.ldlib.crafting.NECraftingTaskPanel;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStateCodecs;
+import cn.dancingsnow.neoecoae.gui.ldlib.support.NELDLibStyle;
 import cn.dancingsnow.neoecoae.gui.ldlib.support.NEPlayerInventoryWidgets;
 import com.lowdragmc.lowdraglib.gui.util.ClickData;
 import java.util.List;
@@ -33,6 +34,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     private final NECraftingStatsPanel statsPanel = new NECraftingStatsPanel();
     private final NECraftingGaugePanel gaugePanel = new NECraftingGaugePanel();
     private final NECraftingTaskPanel taskPanel = new NECraftingTaskPanel();
+    private NEAe2TextButtonWidget networkFrequencyButton;
     private final NEAe2IconButtonWidget[] toolbarButtons = new NEAe2IconButtonWidget[3];
 
     public NECraftingControllerWidget(ECOCraftingSystemBlockEntity crafting, Player player) {
@@ -56,6 +58,25 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     @Override
     protected void initLdWidgets() {
+        networkFrequencyButton = new NEAe2TextButtonWidget(
+                TOOLBAR_X,
+                TOOLBAR_Y,
+                TOOLBAR_BUTTON_SIZE,
+                TOOLBAR_BUTTON_SIZE,
+                () -> Component.literal(Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
+                click -> {
+                    if (!click.isRemote) {
+                        crafting.cycleNetworkFrequency();
+                        syncStateNow();
+                    }
+                },
+                () -> currentState().networkMemberCount() > 1,
+                NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
+        networkFrequencyButton.setTextColors(
+                NELDLibStyle.DARK_TEXT_PRIMARY,
+                NELDLibStyle.DARK_TEXT_SUCCESS,
+                NELDLibStyle.DARK_TEXT_MUTED);
+        addWidget(networkFrequencyButton);
         addToolbarButton(0, click -> {
             if (!click.isRemote) {
                 crafting.toggleOverclocked();
@@ -111,6 +132,9 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
         if (drawToolbarTooltip(graphics, state, mouseX, mouseY)) {
             return;
         }
+        if (drawNetworkFrequencyTooltip(graphics, state, mouseX, mouseY)) {
+            return;
+        }
         if (gaugePanel.drawTooltip(context, state, mouseX, mouseY)) {
             return;
         }
@@ -130,7 +154,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private void addToolbarButton(int index, Consumer<ClickData> action) {
         toolbarButtons[index] = new NEAe2IconButtonWidget(
-                TOOLBAR_X + index * TOOLBAR_BUTTON_STRIDE,
+                TOOLBAR_X + TOOLBAR_BUTTON_STRIDE + index * TOOLBAR_BUTTON_STRIDE,
                 TOOLBAR_Y,
                 TOOLBAR_BUTTON_SIZE,
                 TOOLBAR_BUTTON_SIZE,
@@ -149,7 +173,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private boolean drawToolbarTooltip(GuiGraphics graphics, NECraftingUiState state, int mouseX, int mouseY) {
         for (int index = 0; index < toolbarButtons.length; index++) {
-            int x = TOOLBAR_X + index * TOOLBAR_BUTTON_STRIDE;
+            int x = TOOLBAR_X + TOOLBAR_BUTTON_STRIDE + index * TOOLBAR_BUTTON_STRIDE;
             if (!isMouseIn(x, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
                 continue;
             }
@@ -158,6 +182,22 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
             return true;
         }
         return false;
+    }
+
+    private boolean drawNetworkFrequencyTooltip(
+            GuiGraphics graphics, NECraftingUiState state, int mouseX, int mouseY) {
+        if (!isMouseIn(TOOLBAR_X, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
+            return false;
+        }
+        int frequency = Math.max(0, state.networkFrequency()) + 1;
+        graphics.renderComponentTooltip(
+                font(),
+                List.of(
+                        Component.translatable("gui.neoecoae.host.network.frequency", frequency),
+                        Component.translatable("gui.neoecoae.host.network.frequency.tooltip")),
+                mouseX,
+                mouseY);
+        return true;
     }
 
     private NECraftingRenderContext context(GuiGraphics graphics) {

@@ -1,5 +1,9 @@
 {
   "values": [
+    "neoecoae:crafting_network_switch",
+    "neoecoae:computation_network_switch",
+    "neoecoae:crafting_high_energy_network_switch",
+    "neoecoae:computation_high_energy_network_switch",
     "neoecoae:energized_crystal_block",
     "neoecoae:energized_superconductive_block",
     "neoecoae:flawless_budding_energized_crystal",

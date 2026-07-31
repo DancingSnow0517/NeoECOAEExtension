@@ -77,7 +77,11 @@ public final class NEComputationLayout {
     public static final int CPU_BUTTON_H = 18;
     public static final int CPU_BUTTON_X = BASE_UI_WIDTH - 6 - CPU_BUTTON_W;
     public static final int CPU_BUTTON_Y = 2;
-    public static final int HEADER_STATUS_RIGHT = CPU_BUTTON_X - 6;
+    public static final int NETWORK_FREQUENCY_BUTTON_W = 22;
+    public static final int NETWORK_FREQUENCY_BUTTON_H = 18;
+    public static final int NETWORK_FREQUENCY_BUTTON_X = CPU_BUTTON_X - 6 - NETWORK_FREQUENCY_BUTTON_W;
+    public static final int NETWORK_FREQUENCY_BUTTON_Y = CPU_BUTTON_Y;
+    public static final int HEADER_STATUS_RIGHT = NETWORK_FREQUENCY_BUTTON_X - 6;
 
     /** Optional GregTech upgrade slot, inset 7px from the capacity card's bottom-right corner. */
     public static final int COMPUTATION_UPGRADE_SLOT_X = CAPACITY_PANEL_X + CAPACITY_PANEL_W - 18 - 7;

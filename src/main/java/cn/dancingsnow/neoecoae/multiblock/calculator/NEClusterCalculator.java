@@ -6,11 +6,15 @@ import appeng.api.orientation.RelativeSide;
 import appeng.me.cluster.MBCalculator;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
 import cn.dancingsnow.neoecoae.util.MultiBlockUtil;
 import com.mojang.serialization.DataResult;
 import com.tterrag.registrate.util.entry.BlockEntry;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
@@ -40,6 +44,7 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
     @Override
     public void updateBlockEntities(C c, ServerLevel level, BlockPos min, BlockPos max) {
         c.setMirrored(mirroredStructure);
+        Set<C> previousClusters = Collections.newSetFromMap(new IdentityHashMap<>());
         for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
             BlockEntity rawBlockEntity = level.getBlockEntity(blockPos);
             if (!isValidBlockEntity(rawBlockEntity)) {
@@ -49,10 +54,20 @@ public abstract class NEClusterCalculator<C extends NECluster<C>> extends MBCalc
             @SuppressWarnings("unchecked")
             NEBlockEntity<C, ?> blockEntity = (NEBlockEntity<C, ?>) rawBlockEntity;
             c.addBlockEntity(blockEntity);
+            C previous = blockEntity.getCluster();
+            if (previous != null && previous != c && !previous.isDestroyed()) {
+                previousClusters.add(previous);
+            }
+        }
+        for (C previous : previousClusters) {
+            previous.destroy();
         }
         c.getBlockEntities().forEachRemaining(it -> it.updateCluster(c));
         c.updateFormed(true);
         c.updateStatus(true);
+        if (c.isNetworkMode()) {
+            NELogicalNetworkManager.attach(c);
+        }
     }
 
     @Override

@@ -1,0 +1,42 @@
+{
+  "type": "neoecoae:integrated_working_station",
+  "energy": 16000000,
+  "inputFluid": {
+    "amount": 16000,
+    "fluid": "neoecoae:cryotheum_solution"
+  },
+  "inputItems": [
+    {
+      "count": 4,
+      "item": "neoecoae:computation_network_switch"
+    },
+    {
+      "count": 16,
+      "item": "ae2:singularity"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:superconducting_processor"
+    },
+    {
+      "count": 64,
+      "item": "neoecoae:energized_superconductive_ingot"
+    },
+    {
+      "count": 32,
+      "item": "neoecoae:black_tungsten_alloy_block"
+    },
+    {
+      "count": 4,
+      "item": "neoecoae:eco_cell_component_256m"
+    },
+    {
+      "count": 64,
+      "item": "ae2:cell_component_256k"
+    }
+  ],
+  "itemOutput": {
+    "count": 1,
+    "item": "neoecoae:computation_high_energy_network_switch"
+  }
+}

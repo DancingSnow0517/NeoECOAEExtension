@@ -14,6 +14,7 @@ import java.util.List;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 public class NECraftingCluster extends NECluster<NECraftingCluster> {
     @Getter
@@ -36,6 +37,8 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
 
     @Getter
     private ECOFluidOutputHatchBlockEntity outputHatch = null;
+
+    @Nullable private NECraftingNetworkCluster networkCluster;
 
     public NECraftingCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
@@ -83,5 +86,35 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
         if (controller != null) {
             controller.markStructureStatsDirty();
         }
+    }
+
+    public void setNetworkCluster(@Nullable NECraftingNetworkCluster networkCluster) {
+        if (this.networkCluster == networkCluster) {
+            return;
+        }
+        this.networkCluster = networkCluster;
+        if (controller != null) {
+            controller.markStructureStatsDirty();
+        }
+    }
+
+    @Nullable public NECraftingNetworkCluster getNetworkCluster() {
+        return networkCluster;
+    }
+
+    @Override
+    public int getNetworkMultiplier() {
+        if (networkCluster == null || networkCluster.getMemberCount() <= 1) {
+            return 1;
+        }
+        return isHighEnergyNetworkMode() ? 8 : isNetworkMode() ? 2 : 1;
+    }
+
+    /** Network batch capacity scales linearly; energy and coolant have a higher operating cost. */
+    public int getNetworkPowerMultiplier() {
+        if (networkCluster == null || networkCluster.getMemberCount() <= 1) {
+            return 1;
+        }
+        return isHighEnergyNetworkMode() ? 16 : isNetworkMode() ? 4 : 1;
     }
 }

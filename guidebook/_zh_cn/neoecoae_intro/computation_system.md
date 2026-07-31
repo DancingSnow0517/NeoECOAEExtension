@@ -23,6 +23,8 @@ item_ids:
   - neoecoae:eco_computation_cell_l4
   - neoecoae:eco_computation_cell_l6
   - neoecoae:eco_computation_cell_l9
+  - neoecoae:computation_network_switch
+  - neoecoae:computation_high_energy_network_switch
 ---
 
 # ECO 计算系统
@@ -79,7 +81,7 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
   <ItemIcon id="neoecoae:computation_threading_core_l9" />
 </ItemGrid>
 
-线程核心（<ItemLink id="neoecoae:computation_threading_core_l4" />、<ItemLink id="neoecoae:computation_threading_core_l6" /> 或 <ItemLink id="neoecoae:computation_threading_core_l9" />）提供合成线程。每个线程可以同时处理一个合成任务。等级必须与控制器等级匹配。
+线程核心（<ItemLink id="neoecoae:computation_threading_core_l4" />、<ItemLink id="neoecoae:computation_threading_core_l6" /> 或 <ItemLink id="neoecoae:computation_threading_core_l9" />）提供合成线程。每个线程可以同时处理一个合成任务。主机可使用与自身同级或更低级的核心。
 
 ### 并行核心
 
@@ -117,10 +119,48 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
 
 <ItemLink id="neoecoae:computation_casing" /> 方块构成多方块结构的框架。
 
+### 网络交换模块
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:computation_network_switch" />
+  <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
+</ItemGrid>
+
+#### 普通网络交换模块结构（长度 1）
+
+<GameScene zoom="4" interactive={true}>
+  <ImportStructure src="../scenes/comp_min.nbt" />
+  <IsometricCamera yaw="45" pitch="30" />
+</GameScene>
+
+<ItemLink id="neoecoae:computation_network_switch" /> 和 <ItemLink id="neoecoae:computation_high_energy_network_switch" /> 可将多台 C9 计算主机接入同一个逻辑计算网络。面向控制器正面时，普通结构用模块替换控制器右侧相邻的中央结构外壳，镜像结构则替换左侧；模块仅支持 C9 主机。
+
+#### 交换倍率
+
+| 项目 | 普通网络交换 | 高能网络交换 |
+|------|--------------|--------------|
+| 资源倍率 | 线程、并行数和 CPU 存储 **x2** | 线程、并行数和 CPU 存储 **x8** |
+| 耗电倍率 | **x4** | **x16** |
+| 冷却系统控制器 | 该主机需要有效的冷却系统控制器 | 该主机需要 **C9** 冷却系统控制器，否则按 **x1** 贡献 |
+
+#### 共享规则
+
+| 项目 | 规则 |
+|------|------|
+| 生效条件 | 同一 ME 网络中至少有 **2 台**已安装模块的 C9 计算主机；只有一台主机时保持 **x1**。 |
+| 资源聚合 | 每台物理主机先独立计算模块和冷却条件下的有效资源，再将线程、并行数和存储容量汇总到 ME 网络。 |
+| 模块混用 | 两种模块可以混用，每台主机按自身模块档位贡献资源。 |
+
+#### 极限模式
+
+| 条件 | 结果 |
+|------|------|
+| 至少 **8 台高能网络 C9 主机**，每台至少有 **10 个线程核心**，且每台主机上下所有晶阵驱动器都装有有效闪存晶阵 | 聚合 CPU 的并行数固定为 **INT32 上限（2,147,483,647）**，CPU 存储固定为 **INT64 上限（9,223,372,036,854,775,807 字节）**。正在运行的任务字节仍会从可用存储中扣除；普通 x2 网络主机不参与判定。 |
+
 ## 搭建结构
 
 1. 放置**主机**，使其朝外
-2. 使用**计算系统结构外壳**在控制器周围搭建结构框架
+2. 使用**计算系统结构外壳**在控制器周围搭建结构框架；如需网络交换，普通结构在控制器右侧、镜像结构在左侧相邻位置安装对应模块
 3. 在指定位置（控制器左后方）放置**通讯接口**
 4. 从控制器右侧的结构外壳的右侧水平排列添加**传输总线**
 5. 在传输总线后方放置**线程核心**
@@ -132,11 +172,6 @@ ECO 计算系统是一个强大的多方块合成CPU集群，为你的ME网络�
 结构可扩展——添加更多线程核心、并行核心、驱动器和传输总线以增加容量。
 
 若希望快速完成结构搭建，可参考 [多方块自动搭建](multiblock_builder.md) 中的自动预览与建造功能。
-
-<GameScene zoom="4" interactive={true}>
-  <ImportStructure src="../scenes/comp_min.nbt" />
-  <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
 
 ## 计算单元
 

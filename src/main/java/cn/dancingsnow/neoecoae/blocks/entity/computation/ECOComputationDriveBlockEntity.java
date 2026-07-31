@@ -243,7 +243,7 @@ public class ECOComputationDriveBlockEntity extends AbstractComputationBlockEnti
         boolean oldFormed = getBlockState().getValue(ECOComputationDrive.FORMED);
         BlockState newState = getBlockState().setValue(ECOComputationDrive.FORMED, newFormed);
         if (oldFormed != newFormed) {
-            level.setBlock(getBlockPos(), newState, Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS);
+            level.setBlock(getBlockPos(), newState, Block.UPDATE_CLIENTS);
         }
     }
 

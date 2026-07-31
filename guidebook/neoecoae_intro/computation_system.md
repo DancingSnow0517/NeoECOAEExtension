@@ -79,7 +79,7 @@ The <ItemLink id="neoecoae:computation_transmitter" /> handles data transfer bet
   <ItemIcon id="neoecoae:computation_threading_core_l9" />
 </ItemGrid>
 
-Threading cores (<ItemLink id="neoecoae:computation_threading_core_l4" />, <ItemLink id="neoecoae:computation_threading_core_l6" />, or <ItemLink id="neoecoae:computation_threading_core_l9" />) provide crafting threads. Each thread can handle one crafting job simultaneously. The tier must match the controller tier.
+Threading cores (<ItemLink id="neoecoae:computation_threading_core_l4" />, <ItemLink id="neoecoae:computation_threading_core_l6" />, or <ItemLink id="neoecoae:computation_threading_core_l9" />) provide crafting threads. Each thread can handle one crafting job simultaneously. A controller accepts cores at its own tier or lower.
 
 ### Parallel Core
 
@@ -117,6 +117,39 @@ The <ItemLink id="neoecoae:computation_interface" /> connects the system to your
 
 The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the multiblock structure.
 
+### Network Exchange Modules
+
+<ItemGrid>
+  <ItemIcon id="neoecoae:computation_network_switch" />
+  <ItemIcon id="neoecoae:computation_high_energy_network_switch" />
+</ItemGrid>
+
+#### Normal Network Exchange Structure (Length 1)
+
+<GameScene zoom="4" interactive={true}>
+  <ImportStructure src="../scenes/comp_min.nbt" />
+  <IsometricCamera yaw="45" pitch="30" />
+</GameScene>
+
+<ItemLink id="neoecoae:computation_network_switch" /> and <ItemLink id="neoecoae:computation_high_energy_network_switch" /> link C9 computation hosts on the same ME network. While facing the controller front, replace the adjacent central casing on the right for a normal structure or on the left for a mirrored structure. At least two linked C9 hosts are required; a single host remains at **x1**.
+
+#### Exchange Multipliers
+
+| Topic | Normal | High-energy |
+|-------|--------|-------------|
+| Resource multiplier | **x2** threads, accelerators, and CPU storage | **x8** threads, accelerators, and CPU storage |
+| Power draw | **x4** | **x16** |
+| Cooling controller | A valid cooling controller on the host | A **C9** cooling controller on the host; otherwise the host contributes at **x1** |
+
+#### Shared Exchange Rules
+
+| Topic | Behavior |
+|-------|----------|
+| Activation | At least two linked C9 hosts are required. A single host remains at **x1**. |
+| Resource aggregation | Each physical host is evaluated independently, then its effective threads, accelerators, and storage are added to the ME network. |
+| Module mixing | Normal and high-energy modules can be mixed; each host contributes resources according to its installed module tier. |
+| Ultimate mode | At least **8 high-energy C9 hosts** must each have at least **10 Threading Cores** and every upper and lower Computation Drive filled with a valid Flash Array. The aggregate CPU then uses **INT32_MAX (2,147,483,647)** parallelism and **INT64_MAX (9,223,372,036,854,775,807 bytes)** storage. Active job bytes are still deducted from available storage; normal x2 hosts do not qualify. |
+
 ## Building the Structure
 
 1. Place the **Controller** facing outward
@@ -132,11 +165,6 @@ The <ItemLink id="neoecoae:computation_casing" /> blocks form the frame of the m
 The structure is extensible - add more threading cores, parallel cores, drives, and transmitters to increase capacity.
 
 If you want to assemble the structure more quickly, see [Multiblock Auto Builder](multiblock_builder.md) for automatic preview and building tools.
-
-<GameScene zoom="4" interactive={true}>
-  <ImportStructure src="../scenes/comp_min.nbt" />
-  <IsometricCamera yaw="45" pitch="30" />
-</GameScene>
 
 ## Computation Cells
 

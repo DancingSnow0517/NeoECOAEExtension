@@ -10,7 +10,7 @@ public final class NECraftingLayout {
 
     public static final int TOOLBAR_BUTTON_SIZE = 16;
     public static final int TOOLBAR_BUTTON_STRIDE = TOOLBAR_BUTTON_SIZE + 4;
-    public static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 3 - 8;
+    public static final int TOOLBAR_X = UI_WIDTH - PANEL_MARGIN - TOOLBAR_BUTTON_SIZE * 4 - 8;
     public static final int TOOLBAR_Y = 4;
 
     public static final int STATUS_AREA_X = PANEL_MARGIN;

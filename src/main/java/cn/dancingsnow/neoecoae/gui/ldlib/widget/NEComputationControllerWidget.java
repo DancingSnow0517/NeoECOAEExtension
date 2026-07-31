@@ -39,6 +39,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private final NEComputationHeaderPanel headerPanel = new NEComputationHeaderPanel();
     private final NEComputationCapacityPanel capacityPanel = new NEComputationCapacityPanel();
     private final NEComputationTaskPanel taskPanel = new NEComputationTaskPanel();
+    private NEAe2TextButtonWidget networkFrequencyButton;
     private NEAe2IconButtonWidget cpuModeButton;
     private NEGtceuConfiguratorTabWidget parallelConfigurator;
 
@@ -78,6 +79,25 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     @Override
     protected void initLdWidgets() {
+        networkFrequencyButton = new NEAe2TextButtonWidget(
+                NETWORK_FREQUENCY_BUTTON_X,
+                NETWORK_FREQUENCY_BUTTON_Y,
+                NETWORK_FREQUENCY_BUTTON_W,
+                NETWORK_FREQUENCY_BUTTON_H,
+                () -> Component.literal(Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
+                click -> {
+                    if (!click.isRemote) {
+                        computation.cycleNetworkFrequency();
+                        syncStateNow();
+                    }
+                },
+                () -> currentState().networkMemberCount() > 1,
+                NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
+        networkFrequencyButton.setTextColors(
+                NELDLibStyle.DARK_TEXT_PRIMARY,
+                NELDLibStyle.DARK_TEXT_SUCCESS,
+                NELDLibStyle.DARK_TEXT_MUTED);
+        addWidget(networkFrequencyButton);
         cpuModeButton = new NEAe2IconButtonWidget(
                 mainX(CPU_BUTTON_X), CPU_BUTTON_Y, CPU_BUTTON_W, CPU_BUTTON_H, cpuModeIcon(), click -> {
                     if (!click.isRemote) {
@@ -147,6 +167,9 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
 
     @Override
     protected void drawMachineTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (drawNetworkFrequencyTooltip(graphics, mouseX, mouseY)) {
+            return;
+        }
         if (drawParallelTooltip(graphics, mouseX, mouseY)) {
             return;
         }
@@ -160,6 +183,27 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
             return;
         }
         capacityPanel.drawTooltip(graphics, font(), mainScreenX(), this::absY, currentState(), mouseX, mouseY);
+    }
+
+    private boolean drawNetworkFrequencyTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!isMouseIn(
+                NETWORK_FREQUENCY_BUTTON_X,
+                NETWORK_FREQUENCY_BUTTON_Y,
+                NETWORK_FREQUENCY_BUTTON_W,
+                NETWORK_FREQUENCY_BUTTON_H,
+                mouseX,
+                mouseY)) {
+            return false;
+        }
+        int frequency = Math.max(0, currentState().networkFrequency()) + 1;
+        graphics.renderComponentTooltip(
+                font(),
+                List.of(
+                        Component.translatable("gui.neoecoae.host.network.frequency", frequency),
+                        Component.translatable("gui.neoecoae.host.network.frequency.tooltip")),
+                mouseX,
+                mouseY);
+        return true;
     }
 
     private boolean drawUpgradeTooltip(GuiGraphics graphics, int mouseX, int mouseY) {

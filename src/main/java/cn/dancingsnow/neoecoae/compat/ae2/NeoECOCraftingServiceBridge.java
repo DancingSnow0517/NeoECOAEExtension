@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.integration.advancedae.AdvancedAECraftingCompat;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationNetworkCluster;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,7 +44,7 @@ public final class NeoECOCraftingServiceBridge {
 
     public static void addRestoredLinks(CraftingService service, IGrid grid) {
         for (NEComputationCluster cluster : getComputationClusters(grid)) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+            for (ECOCraftingCPU cpu : cluster.getActiveCPUs(grid)) {
                 var maybeLink = cpu.getLogic().getLastLink();
                 if (maybeLink instanceof CraftingLink link) {
                     service.addLink(link);
@@ -56,7 +57,7 @@ public final class NeoECOCraftingServiceBridge {
             CraftingService service, IGrid grid, IEnergyService energyGrid, Set<AEKey> currentlyCrafting) {
         boolean changed = false;
         for (NEComputationCluster cluster : getComputationClusters(grid)) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+            for (ECOCraftingCPU cpu : cluster.getActiveCPUs(grid)) {
                 boolean wasBusy = cpu.isBusy();
                 boolean hadRemainingItems = cpu.hasRemainingItems();
 
@@ -81,8 +82,8 @@ public final class NeoECOCraftingServiceBridge {
         }
 
         for (NEComputationCluster cluster : getComputationClusters(grid)) {
-            cpus.addAll(cluster.getActiveCPUs());
-            if (cluster.isActive() && cluster.hasFreeThread()) {
+            cpus.addAll(cluster.getActiveCPUs(grid));
+            if (cluster.isActive() && cluster.hasFreeThread() && isClusterOnGrid(cluster, grid)) {
                 cpus.add(cluster.getFakeCPU());
             }
         }
@@ -121,7 +122,7 @@ public final class NeoECOCraftingServiceBridge {
         }
 
         for (NEComputationCluster cluster : getComputationClusters(grid)) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+            for (ECOCraftingCPU cpu : cluster.getActiveCPUs(grid)) {
                 inserted += cpu.getLogic().insert(what, amount - inserted, type);
                 if (inserted >= amount) {
                     return inserted;
@@ -133,7 +134,7 @@ public final class NeoECOCraftingServiceBridge {
 
     public static long getRequestedAmount(IGrid grid, AEKey what, long requested) {
         for (NEComputationCluster cluster : getComputationClusters(grid)) {
-            for (ECOCraftingCPU cpu : cluster.getActiveCPUs()) {
+            for (ECOCraftingCPU cpu : cluster.getActiveCPUs(grid)) {
                 requested += cpu.getLogic().getWaitingFor(what);
             }
         }
@@ -142,10 +143,10 @@ public final class NeoECOCraftingServiceBridge {
 
     public static boolean hasCpu(IGrid grid, ICraftingCPU cpu) {
         for (NEComputationCluster cluster : getComputationClusters(grid)) {
-            if (cluster.hasFreeThread() && cluster.getFakeCPU() == cpu) {
+            if (cluster.hasFreeThread() && isClusterOnGrid(cluster, grid) && cluster.getFakeCPU() == cpu) {
                 return true;
             }
-            for (ECOCraftingCPU activeCpu : cluster.getActiveCPUs()) {
+            for (ECOCraftingCPU activeCpu : cluster.getActiveCPUs(grid)) {
                 if (activeCpu == cpu) {
                     return true;
                 }
@@ -154,17 +155,74 @@ public final class NeoECOCraftingServiceBridge {
         return false;
     }
 
-    public static List<NEComputationCluster> getComputationClusters(IGrid grid) {
-        Set<NEComputationCluster> clusters = Collections.newSetFromMap(new IdentityHashMap<>());
+    private static boolean isClusterOnGrid(NEComputationCluster cluster, IGrid grid) {
+        NEComputationNetworkCluster network = cluster.getNetworkCluster();
+        if (network != null) {
+            return network.hasActiveHostOnGrid(grid);
+        }
+        IGridNode node = cluster.getNode();
+        if (node == null) {
+            return false;
+        }
+        try {
+            return node.isOnline() && node.getGrid() == grid;
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
 
+    public static List<NEComputationCluster> getComputationClusters(IGrid grid) {
+        Set<NEComputationCluster> discovered = Collections.newSetFromMap(new IdentityHashMap<>());
+
+        // Query the concrete controller owner first. AE2 1.20.1 indexes grid
+        // machines by their concrete owner class, so asking for the parent
+        // service interface alone can return an empty set even though the
+        // controller is present on the grid. This is also the lookup used by
+        // the 1.21.1 integration and keeps CPUs visible after a late grid join.
+        for (ECOComputationSystemBlockEntity blockEntity : grid.getMachines(ECOComputationSystemBlockEntity.class)) {
+            addComputationCluster(grid, discovered, blockEntity);
+        }
+
+        // Keep the interface lookup as a compatibility fallback for grids
+        // populated by older AE2/compatibility providers.
         for (IECOComputationHost host : grid.getMachines(IECOComputationHost.class)) {
-            ECOComputationSystemBlockEntity blockEntity = host.getComputationHost();
-            NEComputationCluster cluster = blockEntity.getCluster();
-            if (cluster != null && blockEntity.isFormed()) {
-                clusters.add(cluster);
+            if (host != null) {
+                addComputationCluster(grid, discovered, host.getComputationHost());
             }
         }
-        return new ArrayList<>(clusters);
+
+        // A linked host exposes the aggregate CPU list through every physical
+        // member. Keep one representative per logical network so AE2 does not
+        // tick the same CPU multiple times or display duplicate allocation
+        // proxies. Standalone hosts remain one entry each.
+        Set<NEComputationNetworkCluster> seenNetworks =
+                Collections.newSetFromMap(new IdentityHashMap<>());
+        List<NEComputationCluster> result = new ArrayList<>(discovered.size());
+        for (NEComputationCluster cluster : discovered) {
+            NEComputationNetworkCluster network = cluster.getNetworkCluster();
+            if (network == null || seenNetworks.add(network)) {
+                result.add(cluster);
+            }
+        }
+        return result;
+    }
+
+    private static void addComputationCluster(
+            IGrid grid, Set<NEComputationCluster> clusters, @Nullable ECOComputationSystemBlockEntity blockEntity) {
+        if (blockEntity == null || !blockEntity.isFormed()) {
+            return;
+        }
+        try {
+            if (!blockEntity.getMainNode().isOnline() || blockEntity.getMainNode().getGrid() != grid) {
+                return;
+            }
+        } catch (RuntimeException ignored) {
+            return;
+        }
+        NEComputationCluster cluster = blockEntity.getCluster();
+        if (cluster != null && !cluster.isDestroyed()) {
+            clusters.add(cluster);
+        }
     }
 
     @Nullable private static NEComputationCluster findSuitableComputationCluster(

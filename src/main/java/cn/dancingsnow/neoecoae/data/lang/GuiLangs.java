@@ -324,6 +324,18 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
         provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
+        provider.add("gui.neoecoae.host.network", "Network");
+        provider.add("gui.neoecoae.host.network.local", "Local");
+        provider.add("gui.neoecoae.host.network.offline", "Offline");
+        provider.add("gui.neoecoae.host.network.normal", "Normal x2 (%s hosts)");
+        provider.add("gui.neoecoae.host.network.high_energy", "High-Energy x8 (%s hosts)");
+        provider.add("gui.neoecoae.host.network.mode.local", "Local x1");
+        provider.add("gui.neoecoae.host.network.mode.normal", "Network Exchange x2");
+        provider.add("gui.neoecoae.host.network.mode.high_energy", "High-Energy Exchange x8");
+        provider.add("gui.neoecoae.host.network.connected", "Connected");
+        provider.add("gui.neoecoae.host.network.disconnected", "Disconnected");
+        provider.add("gui.neoecoae.host.network.frequency", "Network Frequency: %s");
+        provider.add("gui.neoecoae.host.network.frequency.tooltip", "Click to cycle the logical network");
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %s (%s%%)");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy: §b%s AE");
         provider.add(

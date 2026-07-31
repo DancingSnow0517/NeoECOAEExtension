@@ -24,6 +24,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,7 +70,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
-        return patternDetails;
+        NECraftingNetworkCluster network = getNetworkCluster();
+        return network == null ? getLocalAvailablePatterns() : network.getMergedPatterns();
+    }
+
+    public List<IPatternDetails> getLocalAvailablePatterns() {
+        return List.copyOf(patternDetails);
     }
 
     @Override
@@ -86,6 +92,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return false;
         }
         if (cluster != null) {
+            NECraftingNetworkCluster network = cluster.getNetworkCluster();
+            if (network != null) {
+                return network.tryPushPattern(getGrid(), execution, craftingJobId);
+            }
             List<ECOCraftingWorkerBlockEntity> workers = cluster.getWorkers();
             if (workers.isEmpty()) {
                 return false;
@@ -104,11 +114,19 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     public boolean pushBatch(ECOBatchCraftingRequest request) {
+        NECraftingNetworkCluster network = getNetworkCluster();
+        if (network != null) {
+            return network.tryPushBatch(getGrid(), request);
+        }
         BatchFastPathOffer offer = findBatchFastPathOffer(request.key(), null, request, request.batchSize());
         return pushBatch(request, offer);
     }
 
     public boolean pushBatch(ECOBatchCraftingRequest request, @Nullable BatchFastPathOffer offer) {
+        NECraftingNetworkCluster network = getNetworkCluster();
+        if (network != null) {
+            return network.tryPushBatch(getGrid(), request);
+        }
         if (offer == null
                 || cluster == null
                 || !cluster.getWorkers().contains(offer.worker())
@@ -197,7 +215,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return false;
         }
         boolean recoveredAll = true;
-        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+        List<ECOCraftingWorkerBlockEntity> workers = getNetworkCluster() == null
+                ? cluster.getWorkers()
+                : getNetworkCluster().getWorkers();
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
             if (!worker.recoverJobToNetwork(craftingJobId, storage)) {
                 recoveredAll = false;
             }
@@ -210,7 +231,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return false;
         }
         boolean recoveredAll = true;
-        for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+        List<ECOCraftingWorkerBlockEntity> workers = getNetworkCluster() == null
+                ? cluster.getWorkers()
+                : getNetworkCluster().getWorkers();
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
             if (!worker.recoverUnfinishedJobInputsToNetwork(craftingJobId, storage)) {
                 recoveredAll = false;
             }
@@ -240,6 +264,10 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
             return cluster.getController();
         }
         return null;
+    }
+
+    @Nullable private NECraftingNetworkCluster getNetworkCluster() {
+        return cluster == null ? null : cluster.getNetworkCluster();
     }
 
     @Override

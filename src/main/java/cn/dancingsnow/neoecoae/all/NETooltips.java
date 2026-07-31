@@ -61,6 +61,22 @@ public class NETooltips {
                     Component.translatable("tooltip.neoecoae.crafting_system"),
                     Component.translatable("tooltip.neoecoae.max_lenth", NEConfig.craftingSystemMaxLength));
         }
+        if (stack.is(NEBlocks.CRAFTING_NETWORK_SWITCH.asItem())) {
+            addNetworkSwitchTooltips(
+                    tooltip,
+                    showDetails,
+                    "tooltip.neoecoae.crafting_network_switch",
+                    2,
+                    "tooltip.neoecoae.network_switch.crafting_cooling");
+        }
+        if (stack.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.asItem())) {
+            addNetworkSwitchTooltips(
+                    tooltip,
+                    showDetails,
+                    "tooltip.neoecoae.crafting_network_switch",
+                    8,
+                    "tooltip.neoecoae.network_switch.crafting_high_energy_cooling");
+        }
         if (stack.getItem() instanceof BlockItem blockItem
                 && blockItem.getBlock() instanceof ECOCraftingParallelCore parallelCore) {
             IECOTier tier = parallelCore.getTier();
@@ -134,6 +150,22 @@ public class NETooltips {
                     Component.translatable("tooltip.neoecoae.computation_system_desc.3"),
                     Component.translatable("tooltip.neoecoae.computation_system_desc.4"));
         }
+        if (stack.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.asItem())) {
+            addNetworkSwitchTooltips(
+                    tooltip,
+                    showDetails,
+                    "tooltip.neoecoae.computation_network_switch",
+                    2,
+                    "tooltip.neoecoae.network_switch.computation_cooling");
+        }
+        if (stack.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.asItem())) {
+            addNetworkSwitchTooltips(
+                    tooltip,
+                    showDetails,
+                    "tooltip.neoecoae.computation_network_switch",
+                    8,
+                    "tooltip.neoecoae.network_switch.computation_high_energy_cooling");
+        }
         if (stack.is(NEBlocks.COMPUTATION_DRIVE.asItem())) {
             addTooltips(
                     tooltip,
@@ -177,5 +209,20 @@ public class NETooltips {
         } else {
             tooltip.add(HOLD_SHIFT);
         }
+    }
+
+    private static void addNetworkSwitchTooltips(
+            List<Component> tooltip, boolean showDetails, String descriptionKey, int multiplier, String coolingKey) {
+        addTooltips(
+                tooltip,
+                showDetails,
+                Component.translatable(descriptionKey).withStyle(ChatFormatting.GRAY),
+                Component.translatable("tooltip.neoecoae.network_switch.multiplier", multiplier)
+                        .withStyle(ChatFormatting.AQUA),
+                Component.translatable("tooltip.neoecoae.network_switch.power_multiplier", multiplier >= 8 ? 16 : 4)
+                        .withStyle(ChatFormatting.RED),
+                Component.translatable("tooltip.neoecoae.network_switch.requirement")
+                        .withStyle(ChatFormatting.YELLOW),
+                Component.translatable(coolingKey).withStyle(ChatFormatting.BLUE));
     }
 }

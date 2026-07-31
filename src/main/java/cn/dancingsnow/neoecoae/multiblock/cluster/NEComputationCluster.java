@@ -92,6 +92,8 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     private final Map<ECOCraftingCPU, ICraftingPlan> activeCpus = new IdentityHashMap<>();
     private ECOCraftingCPU fakeCpu;
 
+    @Nullable private NEComputationNetworkCluster networkCluster;
+
     public NEComputationCluster(BlockPos boundMin, BlockPos boundMax) {
         super(boundMin, boundMax);
     }
@@ -433,6 +435,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public int getCPUAccelerators() {
+        return networkCluster == null ? getLocalCPUAccelerators() : networkCluster.getCPUAccelerators();
+    }
+
+    public int getLocalCPUAccelerators() {
         return effectiveAccelerators;
     }
 
@@ -440,11 +446,43 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return acceleratorLimit;
     }
 
+    public int getMaxThreads() {
+        return networkCluster == null ? getLocalMaxThreads() : networkCluster.getMaxThreads();
+    }
+
+    public int getLocalMaxThreads() {
+        return maxThreads;
+    }
+
+    public long getAvailableStorage() {
+        return networkCluster == null ? getLocalAvailableStorage() : networkCluster.getAvailableStorage();
+    }
+
+    public long getLocalAvailableStorage() {
+        return availableStorage;
+    }
+
+    public long getTotalStorageBytes() {
+        return networkCluster == null ? getLocalTotalStorageBytes() : networkCluster.getTotalStorageBytes();
+    }
+
+    public long getLocalTotalStorageBytes() {
+        return totalStorageBytes;
+    }
+
+    /** Bytes reserved by jobs owned by this physical host, before network aggregation. */
+    public long getLocalActiveJobBytes() {
+        return activeJobBytes;
+    }
+
     public int getConfiguredAccelerators() {
         return configuredAccelerators;
     }
 
     public boolean canBeAutoSelectedFor(IActionSource actionSource) {
+        if (networkCluster != null) {
+            return networkCluster.canBeAutoSelectedFor(actionSource);
+        }
         return switch (selectionMode) {
             case ANY -> true;
             case PLAYER_ONLY -> actionSource.player().isPresent();
@@ -453,6 +491,22 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public void setSelectionMode(CpuSelectionMode mode) {
+        if (networkCluster != null) {
+            networkCluster.setSelectionMode(mode);
+            return;
+        }
+        setLocalSelectionMode(mode);
+    }
+
+    public CpuSelectionMode getLocalSelectionMode() {
+        return selectionMode;
+    }
+
+    public CpuSelectionMode getSelectionMode() {
+        return networkCluster == null ? selectionMode : networkCluster.getSelectionMode();
+    }
+
+    public void setLocalSelectionMode(CpuSelectionMode mode) {
         if (this.selectionMode != mode) {
             this.selectionMode = mode;
             // Persist to controller NBT so the mode survives world reload
@@ -478,16 +532,27 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public boolean isActive() {
+        return networkCluster == null ? isLocallyActive() : networkCluster.isActive();
+    }
+
+    public boolean isLocallyActive() {
         IGridNode node = this.getNode();
         return node != null && node.isActive();
     }
 
     public ICraftingSubmitResult submitJob(
             IGrid grid, ICraftingPlan job, IActionSource src, ICraftingRequester requestingMachine) {
-        if (!this.isActive()) {
+        return networkCluster == null
+                ? submitLocalJob(grid, job, src, requestingMachine)
+                : networkCluster.submitJob(grid, job, src, requestingMachine);
+    }
+
+    public ICraftingSubmitResult submitLocalJob(
+            IGrid grid, ICraftingPlan job, IActionSource src, ICraftingRequester requestingMachine) {
+        if (!this.isLocallyActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }
-        if (!this.hasFreeThread()) {
+        if (!this.hasLocalFreeThread()) {
             return CraftingSubmitResult.CPU_BUSY;
         }
         if (this.availableStorage < job.bytes()) {
@@ -603,11 +668,41 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public List<ECOCraftingCPU> getActiveCPUs() {
+        return networkCluster == null ? getLocalActiveCPUs() : networkCluster.getActiveCPUs();
+    }
+
+    public List<ECOCraftingCPU> getActiveCPUs(@Nullable IGrid grid) {
+        if (grid == null) {
+            return List.of();
+        }
+        if (networkCluster != null) {
+            return networkCluster.getActiveCPUs(grid);
+        }
+        if (!isLocallyActive()) {
+            return List.of();
+        }
+        List<ECOCraftingCPU> result = new ArrayList<>();
+        for (ECOCraftingCPU cpu : getLocalActiveCPUs()) {
+            try {
+                if (cpu.getGrid() == grid) {
+                    result.add(cpu);
+                }
+            } catch (RuntimeException ignored) {
+                // A CPU can lose its controller node while the grid is splitting.
+            }
+        }
+        return result;
+    }
+
+    public List<ECOCraftingCPU> getLocalActiveCPUs() {
         return new ArrayList<>(activeCpus.keySet());
     }
 
     /** Returns the active CPU map view without pruning or allocating a snapshot list. */
     public Iterable<ECOCraftingCPU> activeCpusView() {
+        if (networkCluster != null) {
+            return networkCluster.getActiveCPUs();
+        }
         return activeCpus.keySet();
     }
 
@@ -628,6 +723,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public int getActiveCpuCountCached() {
+        return networkCluster == null ? activeCpuCount : networkCluster.getActiveCpuCount();
+    }
+
+    public int getLocalActiveCpuCount() {
         return activeCpuCount;
     }
 
@@ -646,6 +745,10 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public boolean hasFreeThread() {
+        return networkCluster == null ? hasLocalFreeThread() : networkCluster.hasFreeThread();
+    }
+
+    public boolean hasLocalFreeThread() {
         if (activeCpuCount >= maxThreads) {
             return false;
         }
@@ -658,9 +761,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public ECOCraftingCPU getFakeCPU() {
-        if (this.fakeCpu == null || this.fakeCpu.getAvailableStorage() != this.availableStorage) {
-            this.fakeCpu = new ECOCraftingCPU(
-                    this, this.availableStorage, controller != null ? controller.getTier() : ECOTier.L4);
+        long available = getAvailableStorage();
+        if (this.fakeCpu == null || this.fakeCpu.getAvailableStorage() != available) {
+            this.fakeCpu = new ECOCraftingCPU(this, available, controller != null ? controller.getTier() : ECOTier.L4);
         }
         return fakeCpu;
     }
@@ -708,8 +811,38 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
     }
 
     public void updateGridForChangedCpu(NEComputationCluster cluster) {
+        if (networkCluster != null) {
+            networkCluster.onHostCapacityChanged();
+            return;
+        }
+        notifyLocalGridChange();
+    }
+
+    public void notifyLocalGridChange() {
         postGridCpuChange();
         syncControllerStats();
+    }
+
+    public void setNetworkCluster(@Nullable NEComputationNetworkCluster networkCluster) {
+        if (this.networkCluster == networkCluster) {
+            return;
+        }
+        this.networkCluster = networkCluster;
+        if (controller != null) {
+            controller.markComputationStatsDirty();
+        }
+    }
+
+    @Nullable public NEComputationNetworkCluster getNetworkCluster() {
+        return networkCluster;
+    }
+
+    @Override
+    public int getNetworkMultiplier() {
+        if (networkCluster == null || networkCluster.getMemberCount() <= 1) {
+            return 1;
+        }
+        return isHighEnergyNetworkMode() ? 8 : isNetworkMode() ? 2 : 1;
     }
 
     private void postGridCpuChange() {
@@ -717,9 +850,17 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
         for (var r : this.blockEntities) {
             IGridNode n = r.getActionableNode();
-            if (n != null && n.getGrid() != null && !posted) {
-                n.getGrid().postEvent(new GridCraftingCpuChange(n));
-                posted = true;
+            if (n == null || posted) {
+                continue;
+            }
+            try {
+                if (n.isOnline() && n.getGrid() != null) {
+                    n.getGrid().postEvent(new GridCraftingCpuChange(n));
+                    posted = true;
+                }
+            } catch (RuntimeException ignored) {
+                // A node can leave its grid between the online check and the
+                // event post while a network is splitting.
             }
         }
     }

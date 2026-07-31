@@ -34,7 +34,7 @@ public class ECOMachineCasingBlockEntity<C extends NECluster<C>>
             }
         }
         if (!oldState.equals(newState)) {
-            level.setBlock(worldPosition, newState, Block.UPDATE_CLIENTS | Block.UPDATE_NEIGHBORS);
+            level.setBlock(worldPosition, newState, Block.UPDATE_CLIENTS);
         }
     }
 }

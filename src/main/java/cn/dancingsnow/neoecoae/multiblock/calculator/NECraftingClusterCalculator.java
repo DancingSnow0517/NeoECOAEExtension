@@ -4,9 +4,11 @@ import cn.dancingsnow.neoecoae.all.NEBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingParallelCore;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
+import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingNetworkSwitchBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import com.mojang.serialization.DataResult;
 import java.util.List;
 import java.util.function.BiPredicate;
@@ -20,6 +22,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingCluster> {
+    private boolean networkMode;
+    private boolean highEnergyNetworkMode;
+
     public NECraftingClusterCalculator(NEBlockEntity<NECraftingCluster, ?> t) {
         super(t);
     }
@@ -31,11 +36,16 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
 
     @Override
     public NECraftingCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
-        return new NECraftingCluster(min, max);
+        NECraftingCluster cluster = new NECraftingCluster(min, max);
+        cluster.setNetworkMode(networkMode);
+        cluster.setHighEnergyNetworkMode(highEnergyNetworkMode);
+        return cluster;
     }
 
     @Override
     public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
+        networkMode = false;
+        highEnergyNetworkMode = false;
         return verifyMirroredStructure(level, min, max, this::verifyInternalStructure);
     }
 
@@ -57,7 +67,7 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         if (!validateCasing(level, controllerPos, top, down, left)) {
             return false;
         }
-        if (!validateCasing(level, controllerPos, top, down, right)) {
+        if (!validateCasingOrNetworkSwitch(level, controllerPos, tier, top, down, right)) {
             return false;
         }
         if (!validateCasing(level, controllerPos, top, down, back)) {
@@ -138,13 +148,60 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
                 return false;
             }
         }
+        applyNetworkMode(level.getBlockState(controllerPos.relative(right)));
         return true;
     }
 
     @Override
     public boolean isValidBlockEntity(BlockEntity te) {
+        if (te instanceof ECOCraftingNetworkSwitchBlockEntity networkSwitch) {
+            return networkSwitch.getLevel() instanceof ServerLevel level
+                    && isNetworkSwitchAt(level, networkSwitch.getBlockPos());
+        }
         return (te instanceof NEBlockEntity<?, ?> neBlockEntity
                 && neBlockEntity.getCalculator() instanceof NECraftingClusterCalculator);
+    }
+
+    private static boolean isNetworkSwitchAt(ServerLevel level, BlockPos switchPos) {
+        BlockState state = level.getBlockState(switchPos);
+        if (!state.is(NEBlocks.CRAFTING_NETWORK_SWITCH.get())
+                && !state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get())) {
+            return false;
+        }
+        for (Direction direction : Direction.values()) {
+            if (level.getBlockEntity(switchPos.relative(direction)) instanceof ECOCraftingSystemBlockEntity controller
+                    && NENetworkSwitchUtil.canUseNetworkSwitch(controller.getTier())
+                    && NENetworkSwitchUtil.isSwitchPosition(
+                            switchPos, controller.getBlockPos(), controller.getBlockState())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void applyNetworkMode(BlockState switchState) {
+        highEnergyNetworkMode = switchState.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get());
+        networkMode = highEnergyNetworkMode || switchState.is(NEBlocks.CRAFTING_NETWORK_SWITCH.get());
+    }
+
+    private boolean validateCasingOrNetworkSwitch(
+            ServerLevel level,
+            BlockPos controllerPos,
+            IECOTier tier,
+            Direction top,
+            Direction down,
+            Direction direction) {
+        BlockPos center = controllerPos.relative(direction);
+        BlockState state = level.getBlockState(center);
+        boolean switchBlock = state.is(NEBlocks.CRAFTING_NETWORK_SWITCH.get())
+                || state.is(NEBlocks.CRAFTING_HIGH_ENERGY_NETWORK_SWITCH.get());
+        if (!state.is(NEBlocks.CRAFTING_CASING.get()) && !switchBlock) {
+            return false;
+        }
+        if (switchBlock && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) {
+            return false;
+        }
+        return validateCasing(level, center, top, down);
     }
 
     private boolean validateHatchAndInterface(

@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
+import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
@@ -16,6 +17,9 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
+import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
+import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
+import cn.dancingsnow.neoecoae.multiblock.network.NENetworkSwitchUtil;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,9 +27,11 @@ import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.items.IItemHandler;
@@ -50,6 +56,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     /** CPU auto-selection mode, persisted in the controller's NBT. */
     private CpuSelectionMode cpuSelectionMode = CpuSelectionMode.ANY;
+
+    /** Persisted logical-network channel; unassigned hosts receive one on first grid join. */
+    private int networkFrequency = NEFrequencyAllocator.UNASSIGNED;
 
     /** Configured parallel accelerators, persisted independently from the upgrade slot. */
     private int parallelAccelerators = NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS;
@@ -106,6 +115,27 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     @Override
     public void updateState(boolean updateExposed) {
         super.updateState(updateExposed);
+        if (level != null) {
+            BlockState state = level.getBlockState(worldPosition);
+            if (state.hasProperty(ECOComputationSystem.NETWORK_SWITCH)
+                    && state.hasProperty(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH)) {
+                boolean highEnergy = formed && cluster != null && cluster.isHighEnergyNetworkMode();
+                BlockState updated = state.setValue(
+                                ECOComputationSystem.NETWORK_SWITCH,
+                                formed && cluster != null && cluster.isNetworkMode() && !highEnergy)
+                        .setValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, highEnergy);
+                if (!state.equals(updated)) {
+                    level.setBlock(worldPosition, updated, Block.UPDATE_CLIENTS);
+                }
+            }
+            if (level instanceof ServerLevel serverLevel) {
+                if (formed && cluster != null && cluster.isNetworkMode()) {
+                    NENetworkSwitchUtil.syncFormed(serverLevel, worldPosition, getBlockState(), cluster.isMirrored());
+                } else {
+                    NENetworkSwitchUtil.clearFormed(serverLevel, worldPosition, getBlockState());
+                }
+            }
+        }
         if (updateExposed) {
             markComputationStatsDirty();
             updateInfos();
@@ -242,6 +272,43 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         markConfigDirty();
     }
 
+    public boolean hasNetworkFrequency() {
+        return networkFrequency >= 0 && networkFrequency < NEFrequencyAllocator.FREQUENCY_COUNT;
+    }
+
+    public int getNetworkFrequency() {
+        return hasNetworkFrequency() ? networkFrequency : 0;
+    }
+
+    /** Called by the logical network manager only for a previously unassigned host. */
+    public void assignNetworkFrequency(int frequency) {
+        if (hasNetworkFrequency()) {
+            return;
+        }
+        networkFrequency = NEFrequencyAllocator.normalize(frequency);
+        setChanged();
+        markConfigDirty();
+        markForUpdate();
+    }
+
+    public void cycleNetworkFrequency() {
+        setNetworkFrequency(hasNetworkFrequency() ? getNetworkFrequency() + 1 : 0);
+    }
+
+    public void setNetworkFrequency(int frequency) {
+        int next = NEFrequencyAllocator.normalize(frequency);
+        if (networkFrequency == next) {
+            return;
+        }
+        networkFrequency = next;
+        setChanged();
+        markConfigDirty();
+        markForUpdate();
+        if (cluster != null && cluster.isNetworkMode()) {
+            NELogicalNetworkManager.refresh(cluster);
+        }
+    }
+
     public int getParallelAccelerators() {
         return Math.min(parallelAccelerators, getParallelAcceleratorLimit());
     }
@@ -372,10 +439,18 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     public NEComputationUiState createComputationUiState() {
         ensureStatsCurrent();
         CpuSelectionMode mode = cluster != null ? cluster.getSelectionMode() : cpuSelectionMode;
+        var network = cluster == null ? null : cluster.getNetworkCluster();
+        int networkMemberCount = network == null ? (formed ? 1 : 0) : network.getMemberCount();
+        int networkMultiplier = cluster == null ? 1 : cluster.getNetworkMultiplier();
+        boolean networkConnected = isMainNodeConnected();
         return new NEComputationUiState(
                 worldPosition,
                 formed,
                 cluster != null && cluster.isActive(),
+                networkMemberCount,
+                networkMultiplier,
+                networkConnected,
+                getNetworkFrequency(),
                 usedThread,
                 totalThread,
                 availableBytes,
@@ -387,6 +462,14 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
                 hasInfiniteCapacityUpgrade(),
                 mode,
                 collectComputationRecipeEntries());
+    }
+
+    private boolean isMainNodeConnected() {
+        try {
+            return getMainNode().isOnline() && getMainNode().getGrid() != null;
+        } catch (RuntimeException ignored) {
+            return false;
+        }
     }
 
     private List<NECraftingRecipeUiEntry> collectComputationRecipeEntries() {
@@ -516,6 +599,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         super.saveAdditional(tag);
         tag.putInt("selectedBuildLength", getSelectedBuildLength());
         tag.putInt("cpuSelectionMode", cpuSelectionMode.ordinal());
+        tag.putInt("networkFrequency", networkFrequency);
         tag.putInt("parallelAccelerators", parallelAccelerators);
         tag.put("computationUpgradeSlot", computationUpgradeHandler.serializeNBT());
     }
@@ -530,6 +614,12 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             if (ordinal >= 0 && ordinal < values.length) {
                 cpuSelectionMode = values[ordinal];
             }
+        }
+        if (tag.contains("networkFrequency")) {
+            int savedFrequency = tag.getInt("networkFrequency");
+            networkFrequency = savedFrequency >= 0 && savedFrequency < NEFrequencyAllocator.FREQUENCY_COUNT
+                    ? savedFrequency
+                    : NEFrequencyAllocator.UNASSIGNED;
         }
         if (tag.contains("parallelAccelerators")) {
             int saved = tag.getInt("parallelAccelerators");
