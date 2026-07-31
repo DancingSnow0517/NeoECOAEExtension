@@ -574,11 +574,22 @@ public final class CraftingHostPanelUI {
         detail.setDisplay(false);
         label.addChild(detail);
         label.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
-            List<Component> lines = hostBatchLines(detail.getValue());
+            List<HostBatchData> hosts = parseHostBatchData(detail.getValue());
             HoverTooltips tooltips = HoverTooltips.empty().append(
                     Component.translatable("gui.neoecoae.crafting.ui.batch_per_thread.detail").withColor(PANEL_MUTED));
-            if (!lines.isEmpty()) {
-                tooltips = tooltips.append(lines.toArray(Component[]::new));
+            if (!hosts.isEmpty()) {
+                tooltips = tooltips.append(hosts.stream()
+                        .map(host -> hostBatchLine(host.highEnergy(), host.threads(), host.batch()))
+                        .toArray(Component[]::new));
+                long totalPerTick = 0L;
+                for (HostBatchData host : hosts) {
+                    totalPerTick = Math.min(Long.MAX_VALUE,
+                            totalPerTick + (long) host.threads() * host.batch());
+                }
+                tooltips = tooltips.append(Component.translatable(
+                        "gui.neoecoae.crafting.ui.batch_per_thread.total",
+                        Tooltips.ofNumber(totalPerTick).copy().withColor(PANEL_VALUE))
+                        .withColor(PANEL_MUTED));
             }
             event.hoverTooltips = tooltips;
         });
@@ -608,13 +619,15 @@ public final class CraftingHostPanelUI {
         return Component.literal(encoded.toString());
     }
 
-    /**
-     * Decodes the synced per-host data into one compact localized line per host.
-     */
-    private static List<Component> hostBatchLines(Component encoded) {
-        List<Component> lines = new ArrayList<>();
+    /** Parsed per-host runtime data decoded from the synced component. */
+    private record HostBatchData(boolean highEnergy, int threads, int batch) {
+    }
+
+    /** Decodes the synced per-host data into structured host values. */
+    private static List<HostBatchData> parseHostBatchData(Component encoded) {
+        List<HostBatchData> hosts = new ArrayList<>();
         if (encoded == null) {
-            return lines;
+            return hosts;
         }
         for (String line : encoded.getString().split("\n", -1)) {
             if (line.isEmpty()) {
@@ -628,12 +641,12 @@ public final class CraftingHostPanelUI {
                 boolean highEnergy = parts[0].length() == 1 && parts[0].charAt(0) == '1';
                 int threads = Integer.parseInt(parts[1]);
                 int batch = Integer.parseInt(parts[2]);
-                lines.add(hostBatchLine(highEnergy, threads, batch));
+                hosts.add(new HostBatchData(highEnergy, threads, batch));
             } catch (NumberFormatException ignored) {
                 // skip malformed lines
             }
         }
-        return lines;
+        return hosts;
     }
 
     private static Component hostBatchLine(boolean highEnergy, int threadCount, int maxBatch) {

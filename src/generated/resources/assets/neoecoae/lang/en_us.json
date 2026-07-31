@@ -125,6 +125,7 @@
   "gui.neoecoae.crafting.total_parallelism.overflow": "Overflow: %d (%d%%)",
   "gui.neoecoae.crafting.ui.batch_per_thread": "Batch / Slot",
   "gui.neoecoae.crafting.ui.batch_per_thread.detail": "Per-Host Batch Details",
+  "gui.neoecoae.crafting.ui.batch_per_thread.total": "Max Crafts per Tick: %s",
   "gui.neoecoae.crafting.ui.cooling_short": "Cool",
   "gui.neoecoae.crafting.ui.energy_cooling": "Energy / Cooling",
   "gui.neoecoae.crafting.ui.energy_short": "AE",

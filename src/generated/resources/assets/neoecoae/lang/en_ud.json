@@ -120,6 +120,7 @@
   "gui.neoecoae.crafting.total_parallelism.overflow": "(%d%%) %d :ʍoןɟɹǝʌO",
   "gui.neoecoae.crafting.ui.batch_per_thread": "ʇoןS \\ ɥɔʇɐᗺ",
   "gui.neoecoae.crafting.ui.batch_per_thread.detail": "sןıɐʇǝᗡ ɥɔʇɐᗺ ʇsoH-ɹǝԀ",
+  "gui.neoecoae.crafting.ui.batch_per_thread.total": "%s :ʞɔı⊥ ɹǝd sɟʇɐɹƆ xɐW",
   "gui.neoecoae.crafting.ui.cooling_short": "ןooƆ",
   "gui.neoecoae.crafting.ui.energy_cooling": "buıןooƆ \\ ʎbɹǝuƎ",
   "gui.neoecoae.crafting.ui.energy_short": "ƎⱯ",

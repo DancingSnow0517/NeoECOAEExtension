@@ -125,6 +125,7 @@
   "gui.neoecoae.crafting.ui.batch_parallel": "批",
   "gui.neoecoae.crafting.ui.batch_per_thread": "槽批",
   "gui.neoecoae.crafting.ui.batch_per_thread.detail": "各機槽批之詳",
+  "gui.neoecoae.crafting.ui.batch_per_thread.total": "極冶之效率: %s",
   "gui.neoecoae.crafting.ui.cooling_short": "涼卻",
   "gui.neoecoae.crafting.ui.energy_cooling": "能/涼",
   "gui.neoecoae.crafting.ui.energy_short": "能耗",
