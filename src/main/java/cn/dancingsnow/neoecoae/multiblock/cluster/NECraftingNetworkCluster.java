@@ -36,17 +36,17 @@ import java.util.UUID;
  */
 public final class NECraftingNetworkCluster {
     private static final Comparator<NECraftingCluster> CLUSTER_ORDER = Comparator.comparing(
-        cluster -> cluster.getController() == null
-            ? Long.MAX_VALUE
-            : cluster.getController().getBlockPos().asLong()
-    );
+            cluster -> cluster.getController() == null
+                    ? Long.MAX_VALUE
+                    : cluster.getController().getBlockPos().asLong());
 
     private final ServerLevel level;
     private List<NECraftingCluster> physicalClusters = List.of();
     private List<ECOCraftingSystemBlockEntity> controllers = List.of();
     private List<ECOCraftingWorkerBlockEntity> workers = List.of();
     private List<ECOCraftingPatternBusBlockEntity> patternBuses = List.of();
-    private List<cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity> parallelCores = List.of();
+    private List<cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingParallelCoreBlockEntity> parallelCores = List
+            .of();
     private int nextPhysicalClusterIndex;
     private int nextCoolantControllerIndex;
     private final Map<NECraftingCluster, Integer> nextWorkerIndexByCluster = new LinkedHashMap<>();
@@ -64,9 +64,9 @@ public final class NECraftingNetworkCluster {
 
     public void configure(Collection<NECraftingCluster> source) {
         List<NECraftingCluster> clusters = source.stream()
-            .filter(cluster -> cluster != null && !cluster.isDestroyed() && cluster.getController() != null)
-            .sorted(CLUSTER_ORDER)
-            .toList();
+                .filter(cluster -> cluster != null && !cluster.isDestroyed() && cluster.getController() != null)
+                .sorted(CLUSTER_ORDER)
+                .toList();
         this.physicalClusters = List.copyOf(clusters);
 
         List<ECOCraftingSystemBlockEntity> nextControllers = new ArrayList<>();
@@ -81,14 +81,14 @@ public final class NECraftingNetworkCluster {
         }
         this.controllers = List.copyOf(nextControllers);
         this.workers = nextWorkers.stream()
-            .sorted(Comparator.comparing(worker -> worker.getBlockPos().asLong()))
-            .toList();
+                .sorted(Comparator.comparing(worker -> worker.getBlockPos().asLong()))
+                .toList();
         this.patternBuses = nextPatternBuses.stream()
-            .sorted(Comparator.comparing(bus -> bus.getBlockPos().asLong()))
-            .toList();
+                .sorted(Comparator.comparing(bus -> bus.getBlockPos().asLong()))
+                .toList();
         this.parallelCores = nextParallelCores.stream()
-            .sorted(Comparator.comparing(core -> core.getBlockPos().asLong()))
-            .toList();
+                .sorted(Comparator.comparing(core -> core.getBlockPos().asLong()))
+                .toList();
         if (controllers.isEmpty()) {
             overclocked = false;
             activeCooling = false;
@@ -156,7 +156,10 @@ public final class NECraftingNetworkCluster {
         }
     }
 
-    /** Independent FX task threads. Exchange membership sets threads per worker; x2/x8 sets batch per thread. */
+    /**
+     * Independent FX task threads. Exchange membership sets threads per worker;
+     * x2/x8 sets batch per thread.
+     */
     public int getEffectiveValue() {
         long total = 0L;
         for (NECraftingCluster cluster : physicalClusters) {
@@ -165,7 +168,7 @@ public final class NECraftingNetworkCluster {
                 total = saturatingAdd(total, controller.getLocalThreadCount());
             }
         }
-        return (int)Math.min(Integer.MAX_VALUE, total);
+        return (int) Math.min(Integer.MAX_VALUE, total);
     }
 
     public int getThreadCount() {
@@ -180,7 +183,7 @@ public final class NECraftingNetworkCluster {
                 total = saturatingAdd(total, controller.getLocalRunningThreadCount());
             }
         }
-        return (int)Math.min(Integer.MAX_VALUE, total);
+        return (int) Math.min(Integer.MAX_VALUE, total);
     }
 
     public int getAvailableThreads() {
@@ -223,9 +226,8 @@ public final class NECraftingNetworkCluster {
 
     public int getCoolantCapacity() {
         return (int) Math.min(
-            Integer.MAX_VALUE,
-            saturatingMultiply(ECOCraftingSystemBlockEntity.MAX_COOLANT, controllers.size())
-        );
+                Integer.MAX_VALUE,
+                saturatingMultiply(ECOCraftingSystemBlockEntity.MAX_COOLANT, controllers.size()));
     }
 
     public FluidStack getDisplayedCoolantFluid() {
@@ -272,13 +274,12 @@ public final class NECraftingNetworkCluster {
         long total = 0L;
         for (ECOCraftingSystemBlockEntity controller : controllers) {
             total = saturatingAdd(total, controller.getLocalCraftingCoolantCraftLimit(
-                coolantPerCraft, requiredOverclock, requestedCrafts
-            ));
+                    coolantPerCraft, requiredOverclock, requestedCrafts));
             if (total >= requestedCrafts) {
                 return requestedCrafts;
             }
         }
-        return (int)Math.min(Integer.MAX_VALUE, total);
+        return (int) Math.min(Integer.MAX_VALUE, total);
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
@@ -316,11 +317,10 @@ public final class NECraftingNetworkCluster {
                 continue;
             }
             available = saturatingAdd(available, Math.max(
-                0,
-                controller.getLocalThreadCount() - controller.getLocalRunningThreadCount()
-            ));
+                    0,
+                    controller.getLocalThreadCount() - controller.getLocalRunningThreadCount()));
         }
-        return (int)Math.min(Integer.MAX_VALUE, available);
+        return (int) Math.min(Integer.MAX_VALUE, available);
     }
 
     /** Independent task slots visible from the requested AE grid. */
@@ -332,7 +332,7 @@ public final class NECraftingNetworkCluster {
                 slots = saturatingAdd(slots, controller.getLocalThreadCount());
             }
         }
-        return (int)Math.min(Integer.MAX_VALUE, slots);
+        return (int) Math.min(Integer.MAX_VALUE, slots);
     }
 
     public int getOccupiedRecipeSlots(@Nullable IGrid grid) {
@@ -348,7 +348,7 @@ public final class NECraftingNetworkCluster {
                 slots = saturatingAdd(slots, controller.getLocalThreadCount());
             }
         }
-        return (int)Math.min(Integer.MAX_VALUE, slots);
+        return (int) Math.min(Integer.MAX_VALUE, slots);
     }
 
     /** Independent task slots currently occupied on the requested AE grid. */
@@ -360,7 +360,7 @@ public final class NECraftingNetworkCluster {
                 occupied = saturatingAdd(occupied, controller.getLocalRunningThreadCount());
             }
         }
-        return (int)Math.min(Integer.MAX_VALUE, occupied);
+        return (int) Math.min(Integer.MAX_VALUE, occupied);
     }
 
     /** Parallel-core capacity that cannot be backed by workers on visible hosts. */
@@ -372,7 +372,7 @@ public final class NECraftingNetworkCluster {
                 overflow = saturatingAdd(overflow, controller.getLocalOverflowThreads());
             }
         }
-        return (int)Math.min(Integer.MAX_VALUE, overflow);
+        return (int) Math.min(Integer.MAX_VALUE, overflow);
     }
 
     public int getMaxBatchPerThread(@Nullable IGrid grid) {
@@ -387,8 +387,10 @@ public final class NECraftingNetworkCluster {
     }
 
     /**
-     * Runtime per-host batch data for the whole logical cluster. Each host contributes
-     * its actual thread count and actual per-slot batch size so the UI can show what
+     * Runtime per-host batch data for the whole logical cluster. Each host
+     * contributes
+     * its actual thread count and actual per-slot batch size so the UI can show
+     * what
      * every host really provides instead of only the cluster maximum.
      */
     public List<HostBatchInfo> getHostBatchInfos() {
@@ -397,10 +399,9 @@ public final class NECraftingNetworkCluster {
             ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
             if (controller != null) {
                 result.add(new HostBatchInfo(
-                    physicalCluster.isHighEnergyNetworkMode(),
-                    controller.getLocalThreadCount(),
-                    controller.getLocalMaxBatchPerThread()
-                ));
+                        physicalCluster.isHighEnergyNetworkMode(),
+                        controller.getLocalThreadCount(),
+                        controller.getLocalMaxBatchPerThread()));
             }
         }
         return List.copyOf(result);
@@ -421,10 +422,10 @@ public final class NECraftingNetworkCluster {
 
     private int getAvailableLogicalSlots(NECraftingCluster physicalCluster) {
         ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
-        return controller == null ? 0 : Math.max(
-            0,
-            controller.getLocalThreadCount() - controller.getLocalRunningThreadCount()
-        );
+        return controller == null ? 0
+                : Math.max(
+                        0,
+                        controller.getLocalThreadCount() - controller.getLocalRunningThreadCount());
     }
 
     private int getAvailableLogicalSlots(ECOCraftingWorkerBlockEntity worker) {
@@ -465,10 +466,9 @@ public final class NECraftingNetworkCluster {
     }
 
     public boolean tryPushPattern(
-        @Nullable IGrid grid,
-        ECOExtractedPatternExecution execution,
-        @Nullable UUID craftingJobId
-    ) {
+            @Nullable IGrid grid,
+            ECOExtractedPatternExecution execution,
+            @Nullable UUID craftingJobId) {
         if (workers.isEmpty()) {
             return false;
         }
@@ -501,10 +501,9 @@ public final class NECraftingNetworkCluster {
     }
 
     public boolean tryPushBatch(
-        @Nullable IGrid grid,
-        ECOBatchCraftingRequest request,
-        @Nullable ECOCraftingPatternBusBlockEntity.BatchFastPathOffer offer
-    ) {
+            @Nullable IGrid grid,
+            ECOBatchCraftingRequest request,
+            @Nullable ECOCraftingPatternBusBlockEntity.BatchFastPathOffer offer) {
         if (workers.isEmpty() || offer == null) {
             return false;
         }
@@ -521,10 +520,10 @@ public final class NECraftingNetworkCluster {
         NECraftingCluster physical = worker.getCluster();
         ECOCraftingSystemBlockEntity controller = physical == null ? null : physical.getController();
         if (controller != null
-            && offer.maxBatchSize() >= request.batchSize()
-            && getAvailableLogicalSlots(worker) > 0
-            && worker.getAvailableThreadSlots() > 0
-            && worker.pushBatch(request, offer.result())) {
+                && offer.maxBatchSize() >= request.batchSize()
+                && getAvailableLogicalSlots(worker) > 0
+                && worker.getAvailableThreadSlots() > 0
+                && worker.pushBatch(request, offer.result())) {
             updateRoundRobinAfterAccept(physical, worker);
             return true;
         }
@@ -533,12 +532,11 @@ public final class NECraftingNetworkCluster {
 
     @Nullable
     public ECOCraftingPatternBusBlockEntity.BatchFastPathOffer findBatchFastPathOffer(
-        @Nullable IGrid grid,
-        ECOFastPathKey key,
-        @Nullable ECOExtractedPatternExecution execution,
-        @Nullable ECOBatchCraftingRequest request,
-        int requestedBatchSize
-    ) {
+            @Nullable IGrid grid,
+            ECOFastPathKey key,
+            @Nullable ECOExtractedPatternExecution execution,
+            @Nullable ECOBatchCraftingRequest request,
+            int requestedBatchSize) {
         if (requestedBatchSize <= 0 || workers.isEmpty()) {
             return null;
         }
@@ -560,13 +558,14 @@ public final class NECraftingNetworkCluster {
             int workerStart = Math.floorMod(nextWorkerIndexByCluster.getOrDefault(physical, 0), localWorkers.size());
             ECOCraftingPatternBusBlockEntity.BatchFastPathOffer bestOffer = null;
             for (int workerOffset = 0; workerOffset < localWorkers.size(); workerOffset++) {
-                ECOCraftingWorkerBlockEntity worker = localWorkers.get((workerStart + workerOffset) % localWorkers.size());
+                ECOCraftingWorkerBlockEntity worker = localWorkers
+                        .get((workerStart + workerOffset) % localWorkers.size());
                 if ((grid != null && worker.getMainNode().getGrid() != grid) || worker.getAvailableThreadSlots() <= 0) {
                     continue;
                 }
                 ECOFastPathResult result = execution == null
-                    ? worker.getFastPathCache().peek(key)
-                    : worker.getVerifiedFastPathResult(execution);
+                        ? worker.getFastPathCache().peek(key)
+                        : worker.getVerifiedFastPathResult(execution);
                 if (result == null || result.isNegative()) {
                     continue;
                 }
@@ -586,9 +585,8 @@ public final class NECraftingNetworkCluster {
     }
 
     private void updateRoundRobinAfterAccept(
-        NECraftingCluster physical,
-        ECOCraftingWorkerBlockEntity acceptedWorker
-    ) {
+            NECraftingCluster physical,
+            ECOCraftingWorkerBlockEntity acceptedWorker) {
         List<ECOCraftingWorkerBlockEntity> localWorkers = physical.getWorkers();
         int workerIndex = localWorkers.indexOf(acceptedWorker);
         if (workerIndex >= 0 && !localWorkers.isEmpty()) {
@@ -630,40 +628,36 @@ public final class NECraftingNetworkCluster {
     }
 
     private record PatternSignature(
-        @Nullable AEItemKey definition,
-        Class<?> patternType,
-        List<InputSignature> inputs,
-        List<GenericStack> outputs,
-        boolean supportsExternalPush,
-        @Nullable IPatternDetails fallbackIdentity
-    ) {
+            @Nullable AEItemKey definition,
+            Class<?> patternType,
+            List<InputSignature> inputs,
+            List<GenericStack> outputs,
+            boolean supportsExternalPush,
+            @Nullable IPatternDetails fallbackIdentity) {
         private static PatternSignature of(IPatternDetails pattern) {
             try {
                 List<InputSignature> inputs = Arrays.stream(pattern.getInputs())
-                    .map(input -> new InputSignature(
-                        List.copyOf(Arrays.asList(input.getPossibleInputs())),
-                        input.getMultiplier()
-                    ))
-                    .toList();
+                        .map(input -> new InputSignature(
+                                List.copyOf(Arrays.asList(input.getPossibleInputs())),
+                                input.getMultiplier()))
+                        .toList();
                 return new PatternSignature(
-                    pattern.getDefinition(),
-                    pattern.getClass(),
-                    inputs,
-                    List.copyOf(pattern.getOutputs()),
-                    pattern.supportsPushInputsToExternalInventory(),
-                    null
-                );
+                        pattern.getDefinition(),
+                        pattern.getClass(),
+                        inputs,
+                        List.copyOf(pattern.getOutputs()),
+                        pattern.supportsPushInputsToExternalInventory(),
+                        null);
             } catch (RuntimeException failure) {
                 // Dynamic third-party patterns may not expose a stable shape.
                 // Keep each such instance distinct instead of dropping it.
                 return new PatternSignature(
-                    null,
-                    pattern.getClass(),
-                    List.of(),
-                    List.of(),
-                    false,
-                    pattern
-                );
+                        null,
+                        pattern.getClass(),
+                        List.of(),
+                        List.of(),
+                        false,
+                        pattern);
             }
         }
     }

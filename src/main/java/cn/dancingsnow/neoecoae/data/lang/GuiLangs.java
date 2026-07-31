@@ -97,7 +97,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.network.connected", "NETWORK ONLINE");
         provider.add("gui.neoecoae.host.network.disconnected", "NETWORK OFFLINE");
         provider.add("gui.neoecoae.host.network.frequency", "Network Frequency: %d");
-        provider.add("gui.neoecoae.host.network.frequency.tooltip", "Hosts with the same frequency join the same logical cluster. Click to change.");
+        provider.add("gui.neoecoae.host.network.frequency.tooltip",
+                "Hosts with the same frequency join the same logical cluster. Click to change.");
         provider.add("gui.neoecoae.host.storage.subtitle", "Storage System Host");
         provider.add("gui.neoecoae.host.computation.subtitle", "Computation System Host");
         provider.add("gui.neoecoae.host.crafting.subtitle", "Crafting System Host");
@@ -105,12 +106,15 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.storage.storage_usage", "Storage Usage");
         provider.add("gui.neoecoae.host.storage.energy_buffer", "Energy Buffer");
         provider.add("gui.neoecoae.host.storage.channels", "Storage Channels");
-        provider.add("gui.neoecoae.host.storage.footer", "Dynamic by ECOCellType registry; storage channels scroll when expanded.");
+        provider.add("gui.neoecoae.host.storage.footer",
+                "Dynamic by ECOCellType registry; storage channels scroll when expanded.");
         provider.add("gui.neoecoae.storage_priority.title", "Priority");
         provider.add("gui.neoecoae.storage_priority.open", "Open priority panel");
         provider.add("gui.neoecoae.storage_priority.close", "Close priority panel");
-        provider.add("gui.neoecoae.storage_priority.insert_hint", "When inserting: higher-priority storage is preferred.");
-        provider.add("gui.neoecoae.storage_priority.extract_hint", "When extracting: lower-priority storage is preferred.");
+        provider.add("gui.neoecoae.storage_priority.insert_hint",
+                "When inserting: higher-priority storage is preferred.");
+        provider.add("gui.neoecoae.storage_priority.extract_hint",
+                "When extracting: lower-priority storage is preferred.");
         provider.add("gui.neoecoae.host.metric.types", "Types");
         provider.add("gui.neoecoae.host.metric.bytes", "Bytes");
 
@@ -127,7 +131,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.computation.accelerators", "Accelerators");
         provider.add("gui.neoecoae.host.computation.free_memory", "Free CPU Memory");
         provider.add("gui.neoecoae.host.computation.cpu_pool", "Crafting CPU Pool");
-        provider.add("gui.neoecoae.host.computation.cpu_pool_hint", "Threads expose virtual crafting CPUs to the AE network.");
+        provider.add("gui.neoecoae.host.computation.cpu_pool_hint",
+                "Threads expose virtual crafting CPUs to the AE network.");
         provider.add("gui.neoecoae.host.computation.footer", "Single-screen computation status.");
 
         // crafting
@@ -157,7 +162,8 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.run_status.missing_coolant", "MISSING COOLANT");
         provider.add("gui.neoecoae.crafting.run_status.missing_energy", "MISSING ENERGY");
         provider.add("gui.neoecoae.crafting.run_status.overclock_mismatch", "COOLANT / OVERCLOCK MISMATCH");
-        provider.add("gui.neoecoae.crafting.run_status.network_coolant_incompatible", "COOLANT / NETWORK MODULE INCOMPATIBLE");
+        provider.add("gui.neoecoae.crafting.run_status.network_coolant_incompatible",
+                "COOLANT / NETWORK MODULE INCOMPATIBLE");
         provider.add("gui.neoecoae.crafting.performance", "Performance");
         provider.add("gui.neoecoae.crafting.performance_short", "Performance");
         provider.add("gui.neoecoae.crafting.task.amount", "Amount: %s");
@@ -168,17 +174,21 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy Usage: §b%s AE");
         provider.add("gui.neoecoae.crafting.overclock_status", "Theoretical Overclock: %d, Effective Overclock: %d");
-        provider.add("gui.neoecoae.crafting.overclock_status.disabled", "Theoretical Overclock: 0, Effective Overclock: 0");
+        provider.add("gui.neoecoae.crafting.overclock_status.disabled",
+                "Theoretical Overclock: 0, Effective Overclock: 0");
         provider.add("gui.neoecoae.crafting.enable_overlock", "Enable Overlock: ");
         provider.add("gui.neoecoae.crafting.overclock.on", "Disable Overclock");
         provider.add("gui.neoecoae.crafting.overclock.off", "Enable Overclock");
-        provider.add("gui.neoecoae.crafting.overclocked.tooltip", "Boosting performance within a limited range while consuming more §cEnergy§f.");
+        provider.add("gui.neoecoae.crafting.overclocked.tooltip",
+                "Boosting performance within a limited range while consuming more §cEnergy§f.");
         provider.add("gui.neoecoae.crafting.enable_active_cooling", "Enable Active Cooling: ");
         provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
         provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
-        provider.add("gui.neoecoae.crafting.active_cooling.tooltip", "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nAt x1, coolant is charged per craft when work starts. Active x2/x8 exchange tasks drain 4/16 coolant per active task thread per tick from the shared pool, independent of batch size. Active exchange continuously draws its full rated power; insufficient power pauses all affected work.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.");
+        provider.add("gui.neoecoae.crafting.active_cooling.tooltip",
+                "Consumes coolant from the fluid input hatch to enhance performance and eliminate the additional energy cost of overclocking.\nAt x1, coolant is charged per craft when work starts. Active x2/x8 exchange tasks drain 4/16 coolant per active task thread per tick from the shared pool, independent of batch size. Active exchange continuously draws its full rated power; insufficient power pauses all affected work.\nUsable coolants can be looked up in JEI.\nIf the machine's coolant level is insufficient during operation, it will stop running.\nIf the fluid output hatch is full, coolant cannot be consumed from the fluid input hatch, preventing the machine from replenishing its coolant supply.");
         provider.add("gui.neoecoae.crafting.clear_coolant", "Clear");
-        provider.add("gui.neoecoae.crafting.clear_coolant.tooltip", "Clears the cached coolant so you can switch to a different coolant.");
+        provider.add("gui.neoecoae.crafting.clear_coolant.tooltip",
+                "Clears the cached coolant so you can switch to a different coolant.");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock", "Current Coolant Max Overclock: %d");
         provider.add("gui.neoecoae.crafting.coolant_max_overclock.none", "Current Coolant Max Overclock: None");
         provider.add("gui.neoecoae.host.crafting.working_threads", "Working Threads");
