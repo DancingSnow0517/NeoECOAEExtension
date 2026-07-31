@@ -45,6 +45,7 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import cn.dancingsnow.neoecoae.integration.ae2lt.AE2LTBatchCraftingBridge;
 import cn.dancingsnow.neoecoae.NeoECOAE;
@@ -306,10 +307,11 @@ public class ECOCraftingCPULogic {
                         continue taskLoop;
                     }
 
-                    @Nullable List<GenericStack> plannedInputs = job.peekPlannedInputs(details);
-                    IPatternDetails extractionDetails = plannedInputs == null
-                        ? details
+                    @Nullable List<ECOAE2InputSelection> plannedInputs = job.peekPlannedInputs(details);
+                    @Nullable ECOSelectedInputPatternDetails selectedDetails = plannedInputs == null
+                        ? null
                         : new ECOSelectedInputPatternDetails(details, plannedInputs);
+                    IPatternDetails extractionDetails = selectedDetails == null ? details : selectedDetails;
                     long batchTaskRemaining = plannedInputs == null
                         ? task.getValue().value
                         : Math.min(task.getValue().value, job.peekPlannedInputCount(details));
@@ -320,6 +322,9 @@ public class ECOCraftingCPULogic {
                             extractionDetails, inventory, level, expectedOutputs, expectedContainerItems);
                     if (craftingContainer == null) {
                         continue taskLoop;
+                    }
+                    if (selectedDetails != null) {
+                        craftingContainer = selectedDetails.collapseInputHolder(craftingContainer);
                     }
 
                     ECOExtractedPatternExecution execution = ECOExtractedPatternExecution.create(

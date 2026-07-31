@@ -6,6 +6,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import net.minecraft.world.item.TooltipFlag;
@@ -15,18 +16,62 @@ import net.minecraft.world.level.Level;
 public final class ECOSelectedInputPatternDetails implements IPatternDetails {
     private final IPatternDetails delegate;
     private final IInput[] inputs;
+    private final int[] originalSlots;
+    private final int originalInputCount;
 
-    public ECOSelectedInputPatternDetails(IPatternDetails delegate, List<GenericStack> selectedInputs) {
+    public ECOSelectedInputPatternDetails(
+        IPatternDetails delegate,
+        List<ECOAE2InputSelection> selectedInputs
+    ) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
-        List<GenericStack> selected = List.copyOf(Objects.requireNonNull(selectedInputs, "selectedInputs"));
+        List<ECOAE2InputSelection> selected = List.copyOf(
+            Objects.requireNonNull(selectedInputs, "selectedInputs")
+        );
         IInput[] sourceInputs = delegate.getInputs();
         if (sourceInputs.length != selected.size()) {
             throw new IllegalArgumentException("Selected input count does not match pattern input count");
         }
-        this.inputs = new IInput[sourceInputs.length];
+        this.originalInputCount = sourceInputs.length;
+
+        List<IInput> expandedInputs = new ArrayList<>();
+        List<Integer> expandedSlots = new ArrayList<>();
         for (int i = 0; i < sourceInputs.length; i++) {
-            this.inputs[i] = new SelectedInput(sourceInputs[i], selected.get(i));
+            ECOAE2InputSelection selection = selected.get(i);
+            if (selection.totalMultiplier() != sourceInputs[i].getMultiplier()) {
+                throw new IllegalArgumentException("Selected input multiplier does not match pattern input");
+            }
+            for (ECOAE2InputSelection.Alternative alternative : selection.alternatives()) {
+                expandedInputs.add(new SelectedInput(
+                    sourceInputs[i], alternative.template(), alternative.multiplier()
+                ));
+                expandedSlots.add(i);
+            }
         }
+        this.inputs = expandedInputs.toArray(IInput[]::new);
+        this.originalSlots = new int[expandedSlots.size()];
+        for (int i = 0; i < expandedSlots.size(); i++) {
+            this.originalSlots[i] = expandedSlots.get(i);
+        }
+    }
+
+    /** Restores the delegate's input-array shape after exact per-alternative extraction. */
+    public KeyCounter[] collapseInputHolder(KeyCounter[] expanded) {
+        Objects.requireNonNull(expanded, "expanded");
+        if (expanded.length != originalSlots.length) {
+            throw new IllegalArgumentException("Expanded input holder does not match selected inputs");
+        }
+        KeyCounter[] collapsed = new KeyCounter[originalInputCount];
+        for (int i = 0; i < collapsed.length; i++) {
+            collapsed[i] = new KeyCounter();
+        }
+        for (int i = 0; i < expanded.length; i++) {
+            KeyCounter source = Objects.requireNonNull(expanded[i], "expanded input");
+            KeyCounter target = collapsed[originalSlots[i]];
+            for (var entry : source) {
+                target.add(entry.getKey(), entry.getLongValue());
+            }
+        }
+        return collapsed;
     }
 
     @Override
@@ -56,7 +101,7 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
 
     @Override
     public void pushInputsToExternalInventory(KeyCounter[] inputHolder, PatternInputSink inputSink) {
-        delegate.pushInputsToExternalInventory(inputHolder, inputSink);
+        delegate.pushInputsToExternalInventory(collapseInputHolder(inputHolder), inputSink);
     }
 
     @Override
@@ -64,10 +109,17 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
         return delegate.getTooltip(level, flags);
     }
 
-    private record SelectedInput(IPatternDetails.IInput delegate, GenericStack selected) implements IInput {
+    private record SelectedInput(
+        IPatternDetails.IInput delegate,
+        GenericStack selected,
+        long multiplier
+    ) implements IInput {
         private SelectedInput {
             Objects.requireNonNull(delegate, "delegate");
             Objects.requireNonNull(selected, "selected");
+            if (multiplier <= 0L) {
+                throw new IllegalArgumentException("Selected input multiplier must be positive");
+            }
         }
 
         @Override
@@ -77,7 +129,7 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
 
         @Override
         public long getMultiplier() {
-            return delegate.getMultiplier();
+            return multiplier;
         }
 
         @Override

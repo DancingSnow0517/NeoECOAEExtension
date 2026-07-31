@@ -51,7 +51,8 @@ public final class ECOPlanningSolver {
         var forced = ECOForcedDemandSolver.trySolve(problem, graph, deadlineNanos);
         if (forced.result().isPresent()) {
             ECOHyperflowResult<R> result = forced.result().get();
-            if (result.status() == ECOHyperflowResult.Status.COMPLETE) {
+            if (result.status() == ECOHyperflowResult.Status.COMPLETE
+                || result.status() == ECOHyperflowResult.Status.MISSING_SOURCES) {
                 ScheduleValidation validation = validateSchedule(problem, result, budget, deadlineNanos);
                 if (validation == ScheduleValidation.EXECUTABLE
                     || validation == ScheduleValidation.EXECUTABLE_WITH_SYNTHETIC_SOURCES) {
@@ -69,6 +70,12 @@ public final class ECOPlanningSolver {
             );
         }
         var dag = ECODagDemandSolver.trySolve(problem, graph, deadlineNanos);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(
+                "ECO DAG dependency propagation {}",
+                dag.map(result -> "produced " + result.status()).orElse("declined")
+            );
+        }
         if (dag.isPresent() && !ECOSolveBudget.shouldStop(deadlineNanos)) {
             ScheduleValidation validation = validateSchedule(problem, dag.get(), budget, deadlineNanos);
             if (validation == ScheduleValidation.EXECUTABLE
@@ -84,6 +91,13 @@ public final class ECOPlanningSolver {
         }
         boolean hasAlternatives = hasAlternativePositiveProducers(graph);
         var component = ECOComponentDemandSolver.trySolve(problem, graph, deadlineNanos);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(
+                "ECO component dependency propagation {} (alternativeProducers={})",
+                component.map(result -> "produced " + result.status()).orElse("declined"),
+                hasAlternatives
+            );
+        }
         if (component.isPresent() && !ECOSolveBudget.shouldStop(deadlineNanos)) {
             ECOHyperflowResult<R> result = component.get();
             // Alternative input variants are common in real AE2 graphs. They do

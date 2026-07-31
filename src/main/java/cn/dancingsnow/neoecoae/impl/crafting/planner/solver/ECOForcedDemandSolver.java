@@ -113,14 +113,22 @@ public final class ECOForcedDemandSolver {
         Map<K, Long> bootstrapSupply
     ) {
         List<ECOPlanningOperation<K, R>> eligible = new ArrayList<>();
+        boolean blockedPositiveProducer = false;
         for (var operation : producers) {
-            if (ECOPlannerMath.positiveNet(operation, material) > 0L
-                && ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply)) {
+            if (ECOPlannerMath.positiveNet(operation, material) <= 0L) {
+                continue;
+            }
+            if (ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply)) {
                 eligible.add(operation);
+            } else {
+                blockedPositiveProducer = true;
             }
         }
         if (eligible.isEmpty()) {
             return ProducerChoice.rejected("no startable positive producer");
+        }
+        if (blockedPositiveProducer) {
+            return ProducerChoice.rejected("a positive producer still requires cycle bootstrap");
         }
         ECOPlanningOperation<K, R> selected = eligible.getFirst();
         boolean equivalent = true;

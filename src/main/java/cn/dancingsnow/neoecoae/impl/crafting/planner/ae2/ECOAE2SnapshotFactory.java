@@ -18,6 +18,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningDiagnostics;
+import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -208,7 +209,7 @@ public final class ECOAE2SnapshotFactory {
                 if (details == null) {
                     throw reject(ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE, "null pattern details");
                 }
-                AEItemKey definition;
+                AEItemKey definition = null;
                 CapturedPattern captured;
                 try {
                     definition = details.getDefinition();
@@ -220,11 +221,18 @@ public final class ECOAE2SnapshotFactory {
                     }
                     captured = capturePattern(details, craftingService, inventory, level);
                 } catch (SnapshotRejection rejection) {
-                    throw rejection;
+                    throw reject(
+                        rejection.reason(),
+                        "patternClass=" + details.getClass().getName()
+                            + ", definition=" + definition + ", producerFor=" + material
+                            + ": " + rejection.getMessage()
+                    );
                 } catch (RuntimeException | LinkageError failure) {
                     throw reject(
                         ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                        details.getClass().getName() + " metadata failed: "
+                        "patternClass=" + details.getClass().getName()
+                            + ", definition=" + definition + ", producerFor=" + material
+                            + " metadata failed: "
                             + failure.getClass().getSimpleName()
                     );
                 }
@@ -241,7 +249,7 @@ public final class ECOAE2SnapshotFactory {
                     continue;
                 }
 
-                long variants = variantCount(captured.choices());
+                long variants = variantCount(captured.selections());
                 if (variants > MAX_VARIANTS_PER_PATTERN
                     || operationCount > MAX_OPERATIONS - variants) {
                     ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.VARIANT_LIMIT_REJECTED);
@@ -250,14 +258,7 @@ public final class ECOAE2SnapshotFactory {
                         "input alternatives exceed ECO's immutable variant limit for " + definition
                     );
                 }
-                long termsPerVariant = (long) captured.shape().inputs().size() * 2L
-                    + captured.shape().outputs().size();
-                long addedTerms;
-                try {
-                    addedTerms = Math.multiplyExact(variants, termsPerVariant);
-                } catch (ArithmeticException overflow) {
-                    addedTerms = Long.MAX_VALUE;
-                }
+                long addedTerms = operationTermCount(captured, variants);
                 if (addedTerms > MAX_OPERATION_TERMS - operationTermCount) {
                     throw reject(
                         ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED,
@@ -269,8 +270,8 @@ public final class ECOAE2SnapshotFactory {
                 canonicalPatterns.put(definition, captured);
                 patterns.add(captured);
                 multiplePaths |= variants > 1L;
-                for (List<GenericStack> slot : captured.choices()) {
-                    for (GenericStack choice : slot) {
+                for (InputShape slot : captured.shape().inputs()) {
+                    for (GenericStack choice : slot.choices()) {
                         pending.addLast(choice.what());
                     }
                 }
@@ -320,7 +321,7 @@ public final class ECOAE2SnapshotFactory {
         if (!assessment.compatible()) {
             throw reject(
                 ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                details.getClass().getName() + ": " + assessment.rejection()
+                assessment.rejection()
             );
         }
         List<List<GenericStack>> choices = orderedChoices(
@@ -333,12 +334,18 @@ public final class ECOAE2SnapshotFactory {
             craftingService,
             level
         );
-        PatternShape shape = patternShape(details.getClass(), primaryOutput, outputs, patternInputs, choices);
-        return new CapturedPattern(details, choices, shape);
+        List<List<ECOAE2InputSelection>> selections = inputSelections(
+            details, patternInputs, choices, assessment.inputSemantics()
+        );
+        PatternShape shape = patternShape(
+            details.getClass(), assessment.inputSemantics(), primaryOutput, outputs, patternInputs, choices
+        );
+        return new CapturedPattern(details, selections, shape);
     }
 
     private static PatternShape patternShape(
         Class<?> implementation,
+        IECOPlannerCompatiblePattern.InputSemantics inputSemantics,
         GenericStack primaryOutput,
         List<GenericStack> outputs,
         IPatternDetails.IInput[] patternInputs,
@@ -353,12 +360,12 @@ public final class ECOAE2SnapshotFactory {
             }
             inputs.add(new InputShape(input.getMultiplier(), choices.get(slot), remaining));
         }
-        return new PatternShape(implementation, primaryOutput, outputs, inputs);
+        return new PatternShape(implementation, inputSemantics, primaryOutput, outputs, inputs);
     }
 
-    private static long variantCount(List<List<GenericStack>> choices) {
+    private static long variantCount(List<List<ECOAE2InputSelection>> choices) {
         long count = 1L;
-        for (List<GenericStack> slot : choices) {
+        for (List<ECOAE2InputSelection> slot : choices) {
             try {
                 count = Math.multiplyExact(count, slot.size());
             } catch (ArithmeticException overflow) {
@@ -369,6 +376,130 @@ public final class ECOAE2SnapshotFactory {
             }
         }
         return count;
+    }
+
+    private static long operationTermCount(CapturedPattern captured, long variants) {
+        try {
+            long total = Math.multiplyExact(variants, captured.shape().outputs().size());
+            for (List<ECOAE2InputSelection> slot : captured.selections()) {
+                long alternatives = 0L;
+                for (ECOAE2InputSelection selection : slot) {
+                    alternatives = Math.addExact(alternatives, selection.alternatives().size());
+                }
+                long appearances = Math.multiplyExact(variants / slot.size(), alternatives);
+                // One input term plus at most one remaining-item term per selected alternative.
+                total = Math.addExact(total, Math.multiplyExact(appearances, 2L));
+            }
+            return total;
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    static List<List<ECOAE2InputSelection>> inputSelections(
+        IPatternDetails details,
+        IPatternDetails.IInput[] inputs,
+        List<List<GenericStack>> choices,
+        IECOPlannerCompatiblePattern.InputSemantics semantics
+    ) {
+        List<List<ECOAE2InputSelection>> result = new ArrayList<>(inputs.length);
+        long totalVariants = 1L;
+        for (int slot = 0; slot < inputs.length; slot++) {
+            long multiplier = inputs[slot].getMultiplier();
+            List<GenericStack> slotChoices = choices.get(slot);
+            long slotVariants = semantics == IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
+                ? compositionCount(multiplier, slotChoices.size())
+                : slotChoices.size();
+            if (slotVariants > MAX_VARIANTS_PER_PATTERN
+                || totalVariants > MAX_VARIANTS_PER_PATTERN / slotVariants) {
+                ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.VARIANT_LIMIT_REJECTED);
+                throw reject(
+                    ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED,
+                    "input selections exceed ECO's variant limit for "
+                        + details.getDefinition() + " at slot " + slot
+                        + " (multiplier=" + multiplier + ", alternatives=" + slotChoices.size() + ")"
+                        + ", semantics=" + semantics
+                );
+            }
+            totalVariants *= slotVariants;
+            result.add(semantics == IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
+                ? mixedSelections(slotChoices, multiplier)
+                : homogeneousSelections(slotChoices, multiplier));
+        }
+        return List.copyOf(result);
+    }
+
+    private static long compositionCount(long multiplier, int alternatives) {
+        if (alternatives <= 1) {
+            return 1L;
+        }
+        long selected = Math.min(multiplier, alternatives - 1L);
+        if (selected > MAX_VARIANTS_PER_PATTERN) {
+            return MAX_VARIANTS_PER_PATTERN + 1L;
+        }
+        BigInteger n = BigInteger.valueOf(multiplier).add(BigInteger.valueOf(alternatives - 1L));
+        BigInteger result = BigInteger.ONE;
+        for (long index = 1L; index <= selected; index++) {
+            result = result.multiply(n.subtract(BigInteger.valueOf(selected - index)))
+                .divide(BigInteger.valueOf(index));
+            if (result.compareTo(BigInteger.valueOf(MAX_VARIANTS_PER_PATTERN)) > 0) {
+                return MAX_VARIANTS_PER_PATTERN + 1L;
+            }
+        }
+        return result.longValueExact();
+    }
+
+    private static List<ECOAE2InputSelection> homogeneousSelections(
+        List<GenericStack> choices,
+        long multiplier
+    ) {
+        return choices.stream()
+            .map(choice -> ECOAE2InputSelection.single(choice, multiplier))
+            .toList();
+    }
+
+    private static List<ECOAE2InputSelection> mixedSelections(
+        List<GenericStack> choices,
+        long multiplier
+    ) {
+        if (choices.size() == 1) {
+            return List.of(ECOAE2InputSelection.single(choices.getFirst(), multiplier));
+        }
+        List<ECOAE2InputSelection> result = new ArrayList<>();
+        enumerateMixedSelections(choices, 0, multiplier, new ArrayList<>(), result);
+        return List.copyOf(result);
+    }
+
+    private static void enumerateMixedSelections(
+        List<GenericStack> choices,
+        int choiceIndex,
+        long remaining,
+        List<ECOAE2InputSelection.Alternative> selected,
+        List<ECOAE2InputSelection> result
+    ) {
+        if (choiceIndex == choices.size() - 1) {
+            if (remaining > 0L) {
+                selected.add(new ECOAE2InputSelection.Alternative(choices.get(choiceIndex), remaining));
+            }
+            result.add(new ECOAE2InputSelection(selected));
+            if (remaining > 0L) {
+                selected.removeLast();
+            }
+            return;
+        }
+
+        for (long units = remaining; ; units--) {
+            if (units > 0L) {
+                selected.add(new ECOAE2InputSelection.Alternative(choices.get(choiceIndex), units));
+            }
+            enumerateMixedSelections(choices, choiceIndex + 1, remaining - units, selected, result);
+            if (units > 0L) {
+                selected.removeLast();
+            }
+            if (units == 0L) {
+                break;
+            }
+        }
     }
 
     private static List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> materialize(PatternGraph graph) {
@@ -408,7 +539,9 @@ public final class ECOAE2SnapshotFactory {
                 && choices.size() > 1) {
                 throw reject(
                     ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
-                    "AE2 may mix alternative inputs inside one multiplied slot"
+                    "undeclared mixed alternatives for " + details.getDefinition()
+                        + " at slot " + slot + " (multiplier=" + input.getMultiplier()
+                        + ", alternatives=" + choices.size() + ")"
                 );
             }
             choices.sort((left, right) -> compareInputChoices(left, right, input, inventory, craftingService));
@@ -605,16 +738,16 @@ public final class ECOAE2SnapshotFactory {
     private static void expandVariants(
         CapturedPattern captured,
         int slot,
-        List<GenericStack> selected,
+        List<ECOAE2InputSelection> selected,
         List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> target
     ) {
-        List<List<GenericStack>> choices = captured.choices();
+        List<List<ECOAE2InputSelection>> choices = captured.selections();
         if (slot == choices.size()) {
             ECOAE2PatternVariant variant = new ECOAE2PatternVariant(captured.details(), target.size(), selected);
             target.add(operationFor(variant, captured.shape()));
             return;
         }
-        for (GenericStack choice : choices.get(slot)) {
+        for (ECOAE2InputSelection choice : choices.get(slot)) {
             selected.add(choice);
             expandVariants(captured, slot + 1, selected, target);
             selected.removeLast();
@@ -626,15 +759,17 @@ public final class ECOAE2SnapshotFactory {
         PatternShape shape
     ) {
         Map<AEKey, Long> inputs = new LinkedHashMap<>();
-        List<GenericStack> selectedInputs = variant.selectedInputs();
+        List<ECOAE2InputSelection> selectedInputs = variant.selectedInputs();
         if (shape.inputs().size() != selectedInputs.size()) {
             throw reject(ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE, "pattern input shape changed during capture");
         }
         for (int slot = 0; slot < shape.inputs().size(); slot++) {
-            InputShape input = shape.inputs().get(slot);
-            GenericStack selected = selectedInputs.get(slot);
-            long amount = Math.multiplyExact(selected.amount(), input.multiplier());
-            inputs.merge(selected.what(), amount, Math::addExact);
+            for (ECOAE2InputSelection.Alternative alternative : selectedInputs.get(slot).alternatives()) {
+                long amount = Math.multiplyExact(
+                    alternative.template().amount(), alternative.multiplier()
+                );
+                inputs.merge(alternative.template().what(), amount, Math::addExact);
+            }
         }
 
         Map<AEKey, Long> outputs = new LinkedHashMap<>();
@@ -643,12 +778,18 @@ public final class ECOAE2SnapshotFactory {
         }
         for (int slot = 0; slot < shape.inputs().size(); slot++) {
             InputShape input = shape.inputs().get(slot);
-            int choice = input.choices().indexOf(selectedInputs.get(slot));
-            if (choice < 0) {
-                throw reject(ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE, "captured input choice was lost");
+            for (ECOAE2InputSelection.Alternative alternative : selectedInputs.get(slot).alternatives()) {
+                int choice = input.choices().indexOf(alternative.template());
+                if (choice < 0) {
+                    throw reject(
+                        ECOPlannerFallbackReason.PATTERN_INCOMPATIBLE,
+                        "captured input choice was lost"
+                    );
+                }
+                input.remainingKeys().get(choice).ifPresent(remainingKey -> outputs.merge(
+                    remainingKey, alternative.multiplier(), Math::addExact
+                ));
             }
-            input.remainingKeys().get(choice).ifPresent(remainingKey ->
-                outputs.merge(remainingKey, input.multiplier(), Math::addExact));
         }
         return new ECOPlanningOperation<>(variant, inputs, outputs, Set.of(shape.primaryOutput().what()));
     }
@@ -690,16 +831,17 @@ public final class ECOAE2SnapshotFactory {
 
     private record CapturedPattern(
         IPatternDetails details,
-        List<List<GenericStack>> choices,
+        List<List<ECOAE2InputSelection>> selections,
         PatternShape shape
     ) {
         private CapturedPattern {
-            choices = choices.stream().map(List::copyOf).toList();
+            selections = selections.stream().map(List::copyOf).toList();
         }
     }
 
     private record PatternShape(
         Class<?> implementation,
+        IECOPlannerCompatiblePattern.InputSemantics inputSemantics,
         GenericStack primaryOutput,
         List<GenericStack> outputs,
         List<InputShape> inputs

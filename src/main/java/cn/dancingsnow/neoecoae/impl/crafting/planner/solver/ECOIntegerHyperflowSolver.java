@@ -212,6 +212,29 @@ public final class ECOIntegerHyperflowSolver {
             long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
                 deficiency.material(), producers, bootstrapSupply
             );
+            boolean severalProducers = producers.size() > 1;
+            if (severalProducers) {
+                boundedBranching = true;
+                // First try a complete route through every producer. This reaches the common
+                // "one usable recipe among several" case before exploring mixture splits.
+                for (ECOPlanningOperation<K, R> producer : producers) {
+                    if (solution != null) {
+                        return;
+                    }
+                    if (shouldStop()) {
+                        exhausted = true;
+                        return;
+                    }
+                    if (!ECOCycleBootstrap.canPotentiallyStart(producer, bootstrapSupply)) {
+                        continue;
+                    }
+                    exploreBranch(
+                        producer,
+                        minimumIncrement(deficiency, producer, bootstrapDeficit),
+                        depth
+                    );
+                }
+            }
             for (ECOPlanningOperation<K, R> producer : producers) {
                 if (solution != null) {
                     return;
@@ -223,22 +246,47 @@ public final class ECOIntegerHyperflowSolver {
                 if (!ECOCycleBootstrap.canPotentiallyStart(producer, bootstrapSupply)) {
                     continue;
                 }
-                boundedBranching = true;
-                long net = ECOPlannerMath.positiveNet(producer, deficiency.material());
-                long demand = bootstrapDeficit > 0L
-                    ? Math.min(deficiency.amount(), bootstrapDeficit)
-                    : deficiency.amount();
-                long minimum = ECOPlannerMath.ceilDiv(demand, net);
+                long minimum = minimumIncrement(deficiency, producer, bootstrapDeficit);
+                if (!severalProducers) {
+                    // With one positive producer, the minimum batch count is forced. Splitting or
+                    // overproducing it only recreates the same count vector through deeper states.
+                    exploreBranch(producer, minimum, depth);
+                    continue;
+                }
                 for (long increment : branchIncrements(producer, minimum, producers.size())) {
-                    Integer operationIndex = operationIndices.get(producer);
-                    if (operationIndex == null || !apply(operationIndex, producer, increment)) {
-                        exhausted = true;
+                    if (increment == minimum) {
                         continue;
                     }
-                    explore(depth + 1);
-                    undo(operationIndex, producer, increment);
+                    exploreBranch(producer, increment, depth);
                 }
             }
+        }
+
+        private long minimumIncrement(
+            Deficiency<K> deficiency,
+            ECOPlanningOperation<K, R> producer,
+            long bootstrapDeficit
+        ) {
+            long demand = bootstrapDeficit > 0L
+                ? Math.min(deficiency.amount(), bootstrapDeficit)
+                : deficiency.amount();
+            return ECOPlannerMath.ceilDiv(
+                demand, ECOPlannerMath.positiveNet(producer, deficiency.material())
+            );
+        }
+
+        private void exploreBranch(
+            ECOPlanningOperation<K, R> producer,
+            long increment,
+            int depth
+        ) {
+            Integer operationIndex = operationIndices.get(producer);
+            if (operationIndex == null || !apply(operationIndex, producer, increment)) {
+                exhausted = true;
+                return;
+            }
+            explore(depth + 1);
+            undo(operationIndex, producer, increment);
         }
 
         private List<Long> branchIncrements(
@@ -247,6 +295,8 @@ public final class ECOIntegerHyperflowSolver {
             int producerCount
         ) {
             Set<Long> increments = new LinkedHashSet<>();
+            // Try the complete route through this producer before bounded mixture splits.
+            increments.add(minimum);
             long supported = supportedBatches(producer, minimum, new HashSet<>(), 0);
             if (supported > 0L) {
                 increments.add(Math.min(minimum, supported));
@@ -258,8 +308,6 @@ public final class ECOIntegerHyperflowSolver {
             if (producerCount > 1) {
                 increments.add(ECOPlannerMath.ceilDiv(minimum, producerCount));
             }
-            increments.add(minimum);
-
             int splits = Math.max(2, Math.min(8, Math.max(producerCount, budget.extraBatchChoices() + 1)));
             for (int divisor = 2; divisor <= splits; divisor++) {
                 increments.add(ECOPlannerMath.ceilDiv(minimum, divisor));

@@ -1,7 +1,6 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.stacks.GenericStack;
 import java.util.List;
 import java.util.Objects;
 
@@ -9,7 +8,7 @@ import java.util.Objects;
 public record ECOAE2PatternVariant(
     IPatternDetails pattern,
     int ordinal,
-    List<GenericStack> selectedInputs
+    List<ECOAE2InputSelection> selectedInputs
 ) {
     public ECOAE2PatternVariant {
         Objects.requireNonNull(pattern, "pattern");

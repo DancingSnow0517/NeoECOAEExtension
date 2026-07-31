@@ -92,10 +92,10 @@ final class ECOAE2PatternCompatibility {
         }
         return Assessment.accepted(
             hasSubstitutes
-                ? IECOPlannerCompatiblePattern.InputSemantics.UNIFORM_ALTERNATIVES
+                ? IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
                 : IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
             hasSubstitutes,
-            true
+            false
         );
     }
 

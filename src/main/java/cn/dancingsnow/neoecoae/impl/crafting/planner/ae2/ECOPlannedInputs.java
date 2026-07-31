@@ -2,7 +2,6 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
-import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep;
 import java.lang.ref.ReferenceQueue;
@@ -92,10 +91,10 @@ public final class ECOPlannedInputs {
     }
 
     public static final class PlannedInputBatch {
-        private final List<GenericStack> selectedInputs;
+        private final List<ECOAE2InputSelection> selectedInputs;
         private long remaining;
 
-        public PlannedInputBatch(List<GenericStack> selectedInputs, long remaining) {
+        public PlannedInputBatch(List<ECOAE2InputSelection> selectedInputs, long remaining) {
             this.selectedInputs = List.copyOf(selectedInputs);
             if (remaining <= 0L) {
                 throw new IllegalArgumentException("Planned input batch must contain at least one craft");
@@ -103,7 +102,7 @@ public final class ECOPlannedInputs {
             this.remaining = remaining;
         }
 
-        public List<GenericStack> selectedInputs() {
+        public List<ECOAE2InputSelection> selectedInputs() {
             return selectedInputs;
         }
 

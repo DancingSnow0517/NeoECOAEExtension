@@ -42,6 +42,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOPlannedInputs;
 
 public class ExecutingCraftingJob {
@@ -57,6 +58,11 @@ public class ExecutingCraftingJob {
     private static final String NBT_BUFFERED_FINAL_OUTPUT = "bufferedFinalOutput";
     private static final String NBT_PLANNED_INPUTS = "plannedInputs";
     private static final String NBT_PLANNED_INPUT_COUNT = "count";
+    private static final String NBT_PLANNED_INPUT_SLOTS = "slots";
+    private static final String NBT_PLANNED_INPUT_ALTERNATIVES = "alternatives";
+    private static final String NBT_PLANNED_INPUT_STACK = "stack";
+    private static final String NBT_PLANNED_INPUT_MULTIPLIER = "multiplier";
+    // Legacy homogeneous-selection format written before mixed inputs were supported.
     private static final String NBT_PLANNED_INPUT_STACKS = "stacks";
 
     final CraftingLink link;
@@ -128,7 +134,7 @@ public class ExecutingCraftingJob {
                 tp.value = item.getLong(NBT_CRAFTING_PROGRESS);
                 this.tasks.put(details, tp);
                 ArrayDeque<ECOPlannedInputs.PlannedInputBatch> selections = readPlannedInputs(
-                    item, registries, details.getInputs().length);
+                    item, registries, details.getInputs());
                 if (selections == null) {
                     invalidPlannedInputs = true;
                 } else if (!selections.isEmpty()) {
@@ -176,7 +182,7 @@ public class ExecutingCraftingJob {
     }
 
     @Nullable
-    List<GenericStack> peekPlannedInputs(IPatternDetails details) {
+    List<ECOAE2InputSelection> peekPlannedInputs(IPatternDetails details) {
         ArrayDeque<ECOPlannedInputs.PlannedInputBatch> batches = plannedInputs.get(details);
         ECOPlannedInputs.PlannedInputBatch batch = batches == null ? null : batches.peekFirst();
         return batch == null ? null : batch.selectedInputs();
@@ -227,11 +233,25 @@ public class ExecutingCraftingJob {
         for (ECOPlannedInputs.PlannedInputBatch batch : batches) {
             CompoundTag serializedBatch = new CompoundTag();
             serializedBatch.putLong(NBT_PLANNED_INPUT_COUNT, batch.remaining());
-            ListTag stacks = new ListTag();
-            for (GenericStack stack : batch.selectedInputs()) {
-                stacks.add(GenericStack.writeTag(registries, stack));
+            ListTag slots = new ListTag();
+            for (ECOAE2InputSelection selection : batch.selectedInputs()) {
+                CompoundTag serializedSlot = new CompoundTag();
+                ListTag alternatives = new ListTag();
+                for (ECOAE2InputSelection.Alternative alternative : selection.alternatives()) {
+                    CompoundTag serializedAlternative = new CompoundTag();
+                    serializedAlternative.put(
+                        NBT_PLANNED_INPUT_STACK,
+                        GenericStack.writeTag(registries, alternative.template())
+                    );
+                    serializedAlternative.putLong(
+                        NBT_PLANNED_INPUT_MULTIPLIER, alternative.multiplier()
+                    );
+                    alternatives.add(serializedAlternative);
+                }
+                serializedSlot.put(NBT_PLANNED_INPUT_ALTERNATIVES, alternatives);
+                slots.add(serializedSlot);
             }
-            serializedBatch.put(NBT_PLANNED_INPUT_STACKS, stacks);
+            serializedBatch.put(NBT_PLANNED_INPUT_SLOTS, slots);
             serializedBatches.add(serializedBatch);
         }
         taskTag.put(NBT_PLANNED_INPUTS, serializedBatches);
@@ -240,7 +260,7 @@ public class ExecutingCraftingJob {
     private static @Nullable ArrayDeque<ECOPlannedInputs.PlannedInputBatch> readPlannedInputs(
         CompoundTag taskTag,
         HolderLookup.Provider registries,
-        int expectedInputs
+        IPatternDetails.IInput[] expectedInputs
     ) {
         ArrayDeque<ECOPlannedInputs.PlannedInputBatch> result = new ArrayDeque<>();
         if (!taskTag.contains(NBT_PLANNED_INPUTS, Tag.TAG_LIST)) {
@@ -250,19 +270,66 @@ public class ExecutingCraftingJob {
         for (int i = 0; i < serializedBatches.size(); i++) {
             CompoundTag serializedBatch = serializedBatches.getCompound(i);
             long count = serializedBatch.getLong(NBT_PLANNED_INPUT_COUNT);
-            ListTag serializedStacks = serializedBatch.getList(NBT_PLANNED_INPUT_STACKS, Tag.TAG_COMPOUND);
-            if (count <= 0L || serializedStacks.size() != expectedInputs) {
+            if (count <= 0L) {
                 return null;
             }
-            List<GenericStack> stacks = new ArrayList<>(serializedStacks.size());
+            if (serializedBatch.contains(NBT_PLANNED_INPUT_SLOTS, Tag.TAG_LIST)) {
+                ListTag serializedSlots = serializedBatch.getList(
+                    NBT_PLANNED_INPUT_SLOTS, Tag.TAG_COMPOUND
+                );
+                if (serializedSlots.size() != expectedInputs.length) {
+                    return null;
+                }
+                List<ECOAE2InputSelection> selections = new ArrayList<>(serializedSlots.size());
+                for (int slot = 0; slot < serializedSlots.size(); slot++) {
+                    ListTag serializedAlternatives = serializedSlots.getCompound(slot).getList(
+                        NBT_PLANNED_INPUT_ALTERNATIVES, Tag.TAG_COMPOUND
+                    );
+                    if (serializedAlternatives.isEmpty()) {
+                        return null;
+                    }
+                    List<ECOAE2InputSelection.Alternative> alternatives = new ArrayList<>(
+                        serializedAlternatives.size()
+                    );
+                    for (int alternative = 0; alternative < serializedAlternatives.size(); alternative++) {
+                        CompoundTag serializedAlternative = serializedAlternatives.getCompound(alternative);
+                        GenericStack stack = GenericStack.readTag(
+                            registries,
+                            serializedAlternative.getCompound(NBT_PLANNED_INPUT_STACK)
+                        );
+                        long multiplier = serializedAlternative.getLong(NBT_PLANNED_INPUT_MULTIPLIER);
+                        if (stack == null || stack.amount() <= 0L || multiplier <= 0L) {
+                            return null;
+                        }
+                        alternatives.add(new ECOAE2InputSelection.Alternative(stack, multiplier));
+                    }
+                    ECOAE2InputSelection selection = new ECOAE2InputSelection(alternatives);
+                    try {
+                        if (selection.totalMultiplier() != expectedInputs[slot].getMultiplier()) {
+                            return null;
+                        }
+                    } catch (ArithmeticException overflow) {
+                        return null;
+                    }
+                    selections.add(selection);
+                }
+                result.addLast(new ECOPlannedInputs.PlannedInputBatch(selections, count));
+                continue;
+            }
+
+            ListTag serializedStacks = serializedBatch.getList(NBT_PLANNED_INPUT_STACKS, Tag.TAG_COMPOUND);
+            if (serializedStacks.size() != expectedInputs.length) {
+                return null;
+            }
+            List<ECOAE2InputSelection> selections = new ArrayList<>(serializedStacks.size());
             for (int j = 0; j < serializedStacks.size(); j++) {
                 GenericStack stack = GenericStack.readTag(registries, serializedStacks.getCompound(j));
                 if (stack == null || stack.amount() <= 0L) {
                     return null;
                 }
-                stacks.add(stack);
+                selections.add(ECOAE2InputSelection.single(stack, expectedInputs[j].getMultiplier()));
             }
-            result.addLast(new ECOPlannedInputs.PlannedInputBatch(stacks, count));
+            result.addLast(new ECOPlannedInputs.PlannedInputBatch(selections, count));
         }
         return result;
     }
