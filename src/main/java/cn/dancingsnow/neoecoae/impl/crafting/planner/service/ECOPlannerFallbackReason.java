@@ -7,6 +7,8 @@ public enum ECOPlannerFallbackReason {
     FAST_PATH("fast_path"),
     NO_ECO_HOST("no_eco_host"),
     SNAPSHOT_REJECTED("snapshot_rejected"),
+    PATTERN_INCOMPATIBLE("pattern_incompatible"),
+    SNAPSHOT_LIMIT_EXCEEDED("snapshot_limit_exceeded"),
     FALLBACK_SETUP_FAILED("fallback_setup_failed"),
     SOLVER_NO_ROUTE("solver_no_route"),
     SOLVER_BUDGET_EXHAUSTED("solver_budget_exhausted"),

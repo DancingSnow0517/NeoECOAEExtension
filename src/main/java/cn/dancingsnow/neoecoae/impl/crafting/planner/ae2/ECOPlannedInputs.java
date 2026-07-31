@@ -5,16 +5,19 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 
 /** Transfers exact planner input selections from a freshly assembled plan to its executing CPU. */
 public final class ECOPlannedInputs {
-    private static final Map<ICraftingPlan, Map<IPatternDetails, ArrayDeque<PlannedInputBatch>>> PENDING =
-        new WeakHashMap<>();
+    private static final ReferenceQueue<ICraftingPlan> STALE_PLANS = new ReferenceQueue<>();
+    private static final Map<IdentityWeakReference, Map<IPatternDetails, ArrayDeque<PlannedInputBatch>>> PENDING =
+        new HashMap<>();
 
     private ECOPlannedInputs() {
     }
@@ -36,14 +39,55 @@ public final class ECOPlannedInputs {
             }
         }
         synchronized (PENDING) {
-            PENDING.put(plan, selections);
+            removeStalePlans();
+            PENDING.put(new IdentityWeakReference(plan, STALE_PLANS), selections);
         }
     }
 
     public static Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> take(ICraftingPlan plan) {
         synchronized (PENDING) {
-            Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> selections = PENDING.remove(plan);
+            removeStalePlans();
+            Map<IPatternDetails, ArrayDeque<PlannedInputBatch>> selections = PENDING.remove(
+                new IdentityWeakReference(plan)
+            );
             return selections == null ? Map.of() : selections;
+        }
+    }
+
+    private static void removeStalePlans() {
+        IdentityWeakReference reference;
+        while ((reference = (IdentityWeakReference) STALE_PLANS.poll()) != null) {
+            PENDING.remove(reference);
+        }
+    }
+
+    private static final class IdentityWeakReference extends WeakReference<ICraftingPlan> {
+        private final int identityHash;
+
+        private IdentityWeakReference(ICraftingPlan plan, ReferenceQueue<ICraftingPlan> queue) {
+            super(plan, queue);
+            this.identityHash = System.identityHashCode(plan);
+        }
+
+        private IdentityWeakReference(ICraftingPlan plan) {
+            super(plan);
+            this.identityHash = System.identityHashCode(plan);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            ICraftingPlan plan = get();
+            return other instanceof IdentityWeakReference reference
+                && plan != null
+                && plan == reference.get();
+        }
+
+        @Override
+        public int hashCode() {
+            return identityHash;
         }
     }
 

@@ -11,6 +11,8 @@ public class NELangGenerator {
         provider.add("chat.neoecoae.planning.ae2_fallback", "ECO fast planning was not used; calculating with AE2: %s");
         provider.add("gui.neoecoae.planning.reason.no_eco_host", "No available ECO computation host");
         provider.add("gui.neoecoae.planning.reason.snapshot_rejected", "The recipe graph could not be captured");
+        provider.add("gui.neoecoae.planning.reason.pattern_incompatible", "The pattern requires AE2-specific planning semantics");
+        provider.add("gui.neoecoae.planning.reason.snapshot_limit_exceeded", "The recipe graph exceeds ECO planning limits");
         provider.add("gui.neoecoae.planning.reason.fallback_setup_failed", "The AE2 fallback could not be initialized");
         provider.add("gui.neoecoae.planning.reason.solver_no_route", "No executable crafting route was found");
         provider.add("gui.neoecoae.planning.reason.solver_budget_exhausted", "The planning budget was exhausted");

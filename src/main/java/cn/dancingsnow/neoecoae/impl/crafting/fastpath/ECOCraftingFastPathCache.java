@@ -87,7 +87,7 @@ public final class ECOCraftingFastPathCache {
         return entries.get(key);
     }
 
-    public void putPositive(
+    public boolean putPositive(
         ECOFastPathKey key,
         List<GenericStack> outputs,
         List<GenericStack> remaining,
@@ -101,10 +101,11 @@ public final class ECOCraftingFastPathCache {
             || !ECOFastPathStacks.isSafeForFastPath(remaining, false)
             || !ECOFastPathStacks.isSafeForFastPath(inputs, true)) {
             putNegative(key, tick);
-            return;
+            return false;
         }
         entries.put(key, ECOFastPathResult.positive(outputs, remaining, inputs, tick));
         verifySuccessCount++;
+        return true;
     }
 
     public void putNegative(ECOFastPathKey key, long tick) {

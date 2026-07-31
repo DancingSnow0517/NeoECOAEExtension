@@ -100,6 +100,7 @@ public final class ECOPlanningService {
         ECOPlanningHostLease lease,
         long deadlineNanos
     ) {
+        long startedNanos = System.nanoTime();
         try {
             var result = ECOPlanningSolver.solve(snapshot.problem(), lease.budget(), deadlineNanos);
             if (result.status() == cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult.Status.NO_ROUTE
@@ -107,16 +108,23 @@ public final class ECOPlanningService {
                 ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SOLVER_REJECTED);
                 markSolverFailure(result.status());
                 LOGGER.debug(
-                    "ECO planning solver rejected {} x{} with status {} after {} states; "
-                        + "requested={}, dependencies={}, sources={}, operations={}",
+                    "ECO planning solver rejected {} x{} with status {} after {} states and {} ms; "
+                        + "requested={}, dependencies={}, sources={}, operations={}, inventoryKeys={}, "
+                        + "maxStates={}, maxDepth={}, extraBatches={}, deadlineReached={}",
                     snapshot.requestedKey(),
                     snapshot.requestedAmount(),
                     result.status(),
                     result.expandedStates(),
+                    elapsedMillis(startedNanos),
                     result.candidate().requestedShortfall(),
                     result.candidate().dependencyShortfall(),
                     result.candidate().sourceShortfall(),
-                    snapshot.problem().operations().size()
+                    snapshot.problem().operations().size(),
+                    snapshot.problem().inventory().size(),
+                    lease.budget().maxExpandedStates(),
+                    lease.budget().maxDepth(),
+                    lease.budget().extraBatchChoices(),
+                    ECOSolveBudget.shouldStop(deadlineNanos)
                 );
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(
@@ -127,11 +135,38 @@ public final class ECOPlanningService {
                 }
                 return Optional.empty();
             }
-            Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result);
+            Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result, deadlineNanos);
             if (plan.isEmpty()) {
-                ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.ASSEMBLY_REJECTED);
-                markFailure(ECOPlannerFallbackReason.ASSEMBLY_REJECTED);
-                LOGGER.debug("ECO planning solver result could not be converted into an executable AE2 plan");
+                if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+                    ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SOLVER_REJECTED);
+                    markFailure(ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED);
+                } else {
+                    ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.ASSEMBLY_REJECTED);
+                    markFailure(ECOPlannerFallbackReason.ASSEMBLY_REJECTED);
+                }
+                LOGGER.debug(
+                    "ECO planning result for {} x{} could not be assembled after {} ms: status={}, states={}, "
+                        + "requested={}, dependencies={}, sources={}",
+                    snapshot.requestedKey(),
+                    snapshot.requestedAmount(),
+                    elapsedMillis(startedNanos),
+                    result.status(),
+                    result.expandedStates(),
+                    result.candidate().requestedShortfall(),
+                    result.candidate().dependencyShortfall(),
+                    result.candidate().sourceShortfall()
+                );
+            } else {
+                LOGGER.debug(
+                    "ECO planning accepted {} x{} in {} ms after {} states: status={}, patterns={}, bytes={}",
+                    snapshot.requestedKey(),
+                    snapshot.requestedAmount(),
+                    elapsedMillis(startedNanos),
+                    result.expandedStates(),
+                    result.status(),
+                    plan.get().patternTimes().size(),
+                    plan.get().bytes()
+                );
             }
             return plan;
         } catch (CancellationException cancelled) {
@@ -162,7 +197,10 @@ public final class ECOPlanningService {
             }
             long middle = low + ((high - low + 1L) / 2L);
             Optional<CraftingPlan> candidate = calculate(snapshot.forAmount(middle), graph, lease, deadlineNanos);
-            if (candidate.isPresent() && !candidate.get().simulation()) {
+            if (candidate.isEmpty()) {
+                return Optional.empty();
+            }
+            if (!candidate.get().simulation()) {
                 low = middle;
                 best = candidate.get();
             } else {
@@ -188,7 +226,17 @@ public final class ECOPlanningService {
                 markSolverFailure(result.status());
                 return Optional.empty();
             }
-            return ECOAE2PlanAssembler.assemble(snapshot, result);
+            Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result, deadlineNanos);
+            if (plan.isEmpty()) {
+                if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+                    ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.SOLVER_REJECTED);
+                    markFailure(ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED);
+                } else {
+                    ECOPlanningDiagnostics.record(ECOPlanningDiagnostics.Outcome.ASSEMBLY_REJECTED);
+                    markFailure(ECOPlannerFallbackReason.ASSEMBLY_REJECTED);
+                }
+            }
+            return plan;
         } catch (CancellationException cancelled) {
             throw cancelled;
         } catch (RuntimeException | LinkageError failure) {
@@ -208,6 +256,10 @@ public final class ECOPlanningService {
 
     private static void markFailure(ECOPlannerFallbackReason reason) {
         FAILURE_REASON.set(reason);
+    }
+
+    private static long elapsedMillis(long startedNanos) {
+        return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
     }
 
     private static boolean plansEquivalent(ICraftingPlan eco, ICraftingPlan ae2) {

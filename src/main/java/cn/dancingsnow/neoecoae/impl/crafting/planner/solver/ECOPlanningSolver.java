@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventoryScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,11 +48,18 @@ public final class ECOPlanningSolver {
     ) {
         // A forced dependency closure is linear and remains useful even when a
         // busy server has consumed the bounded-search wall-clock budget.
-        var forced = ECOForcedDemandSolver.trySolve(problem, graph);
+        var forced = ECOForcedDemandSolver.trySolve(problem, graph, deadlineNanos);
         if (forced.result().isPresent()) {
             ECOHyperflowResult<R> result = forced.result().get();
             if (result.status() == ECOHyperflowResult.Status.COMPLETE) {
-                return result;
+                ScheduleValidation validation = validateSchedule(problem, result, budget, deadlineNanos);
+                if (validation == ScheduleValidation.EXECUTABLE
+                    || validation == ScheduleValidation.EXECUTABLE_WITH_SYNTHETIC_SOURCES) {
+                    return result;
+                }
+                if (validation == ScheduleValidation.BUDGET_EXHAUSTED) {
+                    return withStatus(result, ECOHyperflowResult.Status.BUDGET_EXHAUSTED);
+                }
             }
         }
         if (LOGGER.isDebugEnabled()) {
@@ -60,9 +68,16 @@ public final class ECOPlanningSolver {
                 forced.result().map(result -> "partial result " + result.status()).orElse(forced.rejection())
             );
         }
-        var dag = ECODagDemandSolver.trySolve(problem, graph);
+        var dag = ECODagDemandSolver.trySolve(problem, graph, deadlineNanos);
         if (dag.isPresent() && !ECOSolveBudget.shouldStop(deadlineNanos)) {
-            return dag.get();
+            ScheduleValidation validation = validateSchedule(problem, dag.get(), budget, deadlineNanos);
+            if (validation == ScheduleValidation.EXECUTABLE
+                || validation == ScheduleValidation.EXECUTABLE_WITH_SYNTHETIC_SOURCES) {
+                return dag.get();
+            }
+            if (validation == ScheduleValidation.BUDGET_EXHAUSTED) {
+                return withStatus(dag.get(), ECOHyperflowResult.Status.BUDGET_EXHAUSTED);
+            }
         }
         if (ECOSolveBudget.shouldStop(deadlineNanos)) {
             return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
@@ -77,7 +92,15 @@ public final class ECOPlanningSolver {
             // integer search below.
             if (result.status() == ECOHyperflowResult.Status.COMPLETE
                 || (!hasAlternatives && result.status() != ECOHyperflowResult.Status.NO_ROUTE)) {
-                return result;
+                ScheduleValidation validation = validateSchedule(problem, result, budget, deadlineNanos);
+                if (validation == ScheduleValidation.EXECUTABLE
+                    || (!hasAlternatives
+                        && validation == ScheduleValidation.EXECUTABLE_WITH_SYNTHETIC_SOURCES)) {
+                    return result;
+                }
+                if (validation == ScheduleValidation.BUDGET_EXHAUSTED) {
+                    return withStatus(result, ECOHyperflowResult.Status.BUDGET_EXHAUSTED);
+                }
             }
         }
         return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
@@ -93,5 +116,58 @@ public final class ECOPlanningSolver {
             }
         }
         return false;
+    }
+
+    private static <K, R> ScheduleValidation validateSchedule(
+        ECOPlanningProblem<K, R> problem,
+        ECOHyperflowResult<R> result,
+        ECOSolveBudget budget,
+        long deadlineNanos
+    ) {
+        if (result.status() != ECOHyperflowResult.Status.COMPLETE
+            && result.status() != ECOHyperflowResult.Status.MISSING_SOURCES) {
+            return ScheduleValidation.BLOCKED;
+        }
+        try {
+            var schedule = ECOInventoryScheduler.scheduleWithSyntheticSources(
+                problem,
+                result.candidate(),
+                deadlineNanos,
+                Math.max(1_024L, Math.min(50_000L, budget.maxExpandedStates()))
+            );
+            if (schedule.executable()) {
+                return schedule.syntheticSources().isEmpty()
+                    ? ScheduleValidation.EXECUTABLE
+                    : ScheduleValidation.EXECUTABLE_WITH_SYNTHETIC_SOURCES;
+            }
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(
+                    "ECO candidate scheduling declined after {} states: exhausted={}, blockedBy={}",
+                    schedule.expandedStates(),
+                    schedule.budgetExhausted(),
+                    schedule.blockedBy()
+                );
+            }
+            return schedule.budgetExhausted()
+                ? ScheduleValidation.BUDGET_EXHAUSTED
+                : ScheduleValidation.BLOCKED;
+        } catch (ArithmeticException | IllegalArgumentException failure) {
+            LOGGER.debug("ECO candidate scheduling rejected an invalid count vector", failure);
+            return ScheduleValidation.BLOCKED;
+        }
+    }
+
+    private static <R> ECOHyperflowResult<R> withStatus(
+        ECOHyperflowResult<R> result,
+        ECOHyperflowResult.Status status
+    ) {
+        return new ECOHyperflowResult<>(status, result.candidate(), result.expandedStates());
+    }
+
+    private enum ScheduleValidation {
+        EXECUTABLE,
+        EXECUTABLE_WITH_SYNTHETIC_SOURCES,
+        BLOCKED,
+        BUDGET_EXHAUSTED
     }
 }

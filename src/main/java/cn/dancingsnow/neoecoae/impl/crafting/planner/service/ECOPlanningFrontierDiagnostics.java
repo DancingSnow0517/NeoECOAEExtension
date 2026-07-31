@@ -9,9 +9,11 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOCycleBootstrap;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 
 /** Formats the unresolved solver frontier without changing planning behavior. */
@@ -29,6 +31,7 @@ final class ECOPlanningFrontierDiagnostics {
     ) {
         try {
             Map<AEKey, Long> balances = balancesAfterCandidate(problem, candidate);
+            Map<AEKey, Long> bootstrapSupply = bootstrapSupplyAfterCandidate(problem, candidate);
             ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph = new ECOPlanningGraph<>(problem.operations());
             List<Map.Entry<AEKey, Long>> unresolved = new ArrayList<>();
             for (var entry : balances.entrySet()) {
@@ -43,7 +46,8 @@ final class ECOPlanningFrontierDiagnostics {
             StringJoiner materials = new StringJoiner("; ");
             for (int i = 0; i < Math.min(MAX_MATERIALS, unresolved.size()); i++) {
                 var entry = unresolved.get(i);
-                materials.add(describeMaterial(entry.getKey(), -entry.getValue(), graph, balances, problem.requested()));
+                long missing = entry.getValue() == Long.MIN_VALUE ? Long.MAX_VALUE : -entry.getValue();
+                materials.add(describeMaterial(entry.getKey(), missing, graph, bootstrapSupply));
             }
             return materials.length() == 0 ? "no craftable unresolved materials" : materials.toString();
         } catch (RuntimeException failure) {
@@ -55,20 +59,19 @@ final class ECOPlanningFrontierDiagnostics {
         AEKey material,
         long missing,
         ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph,
-        Map<AEKey, Long> balances,
-        Map<AEKey, Long> requested
+        Map<AEKey, Long> bootstrapSupply
     ) {
         List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> producers = graph.producersOf(material);
         int startable = 0;
         StringJoiner details = new StringJoiner(", ");
         for (int i = 0; i < producers.size(); i++) {
             var producer = producers.get(i);
-            boolean canStart = ECOCycleBootstrap.canPotentiallyStart(producer, balances, requested);
+            boolean canStart = ECOCycleBootstrap.canPotentiallyStart(producer, bootstrapSupply);
             if (canStart) {
                 startable++;
             }
             if (i < MAX_PRODUCERS) {
-                details.add(describeProducer(material, producer, canStart, balances, requested));
+                details.add(describeProducer(material, producer, canStart, bootstrapSupply));
             }
         }
         return material + " missing=" + missing
@@ -80,8 +83,7 @@ final class ECOPlanningFrontierDiagnostics {
         AEKey material,
         ECOPlanningOperation<AEKey, ECOAE2PatternVariant> producer,
         boolean canStart,
-        Map<AEKey, Long> balances,
-        Map<AEKey, Long> requested
+        Map<AEKey, Long> bootstrapSupply
     ) {
         long net;
         try {
@@ -89,8 +91,11 @@ final class ECOPlanningFrontierDiagnostics {
         } catch (ArithmeticException ignored) {
             net = Long.MAX_VALUE;
         }
-        String seedShortage = describeSeedShortage(producer, balances, requested);
-        return "variant=" + producer.reference().ordinal()
+        String seedShortage = describeSeedShortage(producer, bootstrapSupply);
+        ECOAE2PatternVariant reference = producer.reference();
+        return "pattern=" + reference.pattern().getDefinition()
+            + " class=" + reference.pattern().getClass().getName()
+            + " variant=" + reference.ordinal()
             + " net=" + net
             + " startable=" + canStart
             + (seedShortage.isEmpty() ? "" : " seed=" + seedShortage)
@@ -100,15 +105,14 @@ final class ECOPlanningFrontierDiagnostics {
 
     private static String describeSeedShortage(
         ECOPlanningOperation<AEKey, ECOAE2PatternVariant> operation,
-        Map<AEKey, Long> balances,
-        Map<AEKey, Long> requested
+        Map<AEKey, Long> bootstrapSupply
     ) {
         StringJoiner shortages = new StringJoiner("+");
         for (var input : operation.inputs().entrySet()) {
             if (!operation.outputs().containsKey(input.getKey())) {
                 continue;
             }
-            long available = ECOCycleBootstrap.availableBeforeRequest(input.getKey(), balances, requested);
+            long available = ECOCycleBootstrap.available(input.getKey(), bootstrapSupply);
             if (available < input.getValue()) {
                 shortages.add(input.getKey() + " x" + (input.getValue() - available));
             }
@@ -144,6 +148,34 @@ final class ECOPlanningFrontierDiagnostics {
         }
         problem.requested().forEach((key, amount) -> mergeScaled(balances, key, amount, -1L));
         return balances;
+    }
+
+    private static Map<AEKey, Long> bootstrapSupplyAfterCandidate(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
+    ) {
+        Map<AEKey, Long> bootstrapSupply = new LinkedHashMap<>(problem.inventory());
+        Set<ECOAE2PatternVariant> applied = new HashSet<>();
+        boolean progressed;
+        do {
+            progressed = false;
+            for (var operation : problem.operations()) {
+                long batches = candidate.executions().getOrDefault(operation.reference(), 0L);
+                if (batches <= 0L
+                    || applied.contains(operation.reference())
+                    || !ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply)) {
+                    continue;
+                }
+                try {
+                    ECOCycleBootstrap.addPlannedProduction(operation, batches, bootstrapSupply);
+                } catch (ArithmeticException overflow) {
+                    operation.outputs().keySet().forEach(key -> bootstrapSupply.put(key, Long.MAX_VALUE));
+                }
+                applied.add(operation.reference());
+                progressed = true;
+            }
+        } while (progressed);
+        return bootstrapSupply;
     }
 
     private static void mergeScaled(Map<AEKey, Long> balances, AEKey key, long amount, long batches) {

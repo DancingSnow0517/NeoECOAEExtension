@@ -30,7 +30,7 @@ final class ECOPlannerMath {
         try {
             return Math.multiplyExact(left, right);
         } catch (ArithmeticException ignored) {
-            return Long.MAX_VALUE;
+            return (left < 0L) ^ (right < 0L) ? Long.MIN_VALUE : Long.MAX_VALUE;
         }
     }
 
@@ -77,12 +77,12 @@ final class ECOPlannerMath {
             long balance = entry.getValue();
             if (balance < 0) {
                 long missing = balance == Long.MIN_VALUE ? Long.MAX_VALUE : -balance;
-                if (requested.containsKey(entry.getKey())) {
-                    requestedShortfall = saturatedAdd(requestedShortfall, missing);
-                } else if (expandableMaterials.contains(entry.getKey())) {
-                    dependencyShortfall = saturatedAdd(dependencyShortfall, missing);
-                } else {
+                if (!expandableMaterials.contains(entry.getKey())) {
                     sourceShortfall = saturatedAdd(sourceShortfall, missing);
+                } else if (requested.containsKey(entry.getKey())) {
+                    requestedShortfall = saturatedAdd(requestedShortfall, missing);
+                } else {
+                    dependencyShortfall = saturatedAdd(dependencyShortfall, missing);
                 }
             } else {
                 surplus = saturatedAdd(surplus, balance);

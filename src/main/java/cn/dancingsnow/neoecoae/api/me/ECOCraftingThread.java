@@ -20,6 +20,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingWork;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
@@ -346,6 +348,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOFastPathKey key = execution.key();
         if (!canUseFastPath(execution, key)) {
             cache.recordDisabled();
+            logSlowPath(execution, fastPathRejectionReason(execution, key), tick);
             return calcPatternSlow(execution, controller, craftingJobId, false, tick, laneIndex);
         }
 
@@ -353,12 +356,20 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (cached != null) {
             if (cached.isNegative()) {
                 cache.recordFallbackSlowPath();
+                logSlowPath(execution, ECOFastPathFallbackReason.NEGATIVE_CACHE, tick);
                 return calcPatternSlow(execution, controller, craftingJobId, false, tick, laneIndex);
             }
-            FastPathWork fastPathWork = createFastPathWork(cached, execution);
+            if (!cached.matchesExecution(execution)) {
+                cache.putNegative(key, tick);
+                cache.recordFallbackSlowPath();
+                logSlowPath(execution, ECOFastPathFallbackReason.CACHE_ENTRY_MISMATCH, tick);
+                return calcPatternSlow(execution, controller, craftingJobId, false, tick, laneIndex);
+            }
+            FastPathWork fastPathWork = createFastPathWork(cached);
             if (fastPathWork == null) {
                 cache.putNegative(key, tick);
                 cache.recordFallbackSlowPath();
+                logSlowPath(execution, ECOFastPathFallbackReason.RUNTIME_STACK_CONVERSION_FAILED, tick);
                 return calcPatternSlow(execution, controller, craftingJobId, false, tick, laneIndex);
             }
             int coolingMultiplier = prepareCraftingCooling(controller, 1);
@@ -385,11 +396,35 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             && !NEConfig.postCraftingEvent;
     }
 
-    @Nullable
-    private FastPathWork createFastPathWork(ECOFastPathResult cached, ECOExtractedPatternExecution execution) {
-        if (!cached.matchesExecution(execution)) {
-            return null;
+    private ECOFastPathFallbackReason fastPathRejectionReason(
+        ECOExtractedPatternExecution execution,
+        @Nullable ECOFastPathKey key
+    ) {
+        if (!NEConfig.ecoAe2FastPathEnabled) {
+            return ECOFastPathFallbackReason.FAST_PATH_DISABLED;
         }
+        if (NEConfig.postCraftingEvent) {
+            return ECOFastPathFallbackReason.POST_CRAFTING_EVENT;
+        }
+        ECOFastPathFallbackReason reason = execution.fallbackReason();
+        if (reason != null) {
+            return reason;
+        }
+        return key == null
+            ? ECOFastPathFallbackReason.KEY_BUILD_FAILED
+            : ECOFastPathFallbackReason.LEGACY_SLOW_EXECUTION;
+    }
+
+    private void logSlowPath(
+        ECOExtractedPatternExecution execution,
+        ECOFastPathFallbackReason reason,
+        long tick
+    ) {
+        ECOFastPathDiagnostics.logSlowPath(execution, reason, worker.getBlockPos(), tick);
+    }
+
+    @Nullable
+    private FastPathWork createFastPathWork(ECOFastPathResult cached) {
         var output = ECOFastPathStacks.toSingleItemStack(cached.outputEntries());
         var inputs = ECOFastPathStacks.toItemStacks(cached.inputEntries());
         var remaining = ECOFastPathStacks.toItemStacks(cached.remainingEntries());
@@ -434,7 +469,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
         List<ItemStack> inputs = snapshotCraftingInputs();
         if (verifyFastPath) {
-            verifyAndCacheFastPath(execution, outputItem, inputs, list, tick);
+            if (verifyAndCacheFastPath(execution, outputItem, inputs, list, tick)) {
+                logSlowPath(execution, ECOFastPathFallbackReason.CACHE_MISS_VERIFYING, tick);
+            }
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         cache.recordSlowPathAccepted();
@@ -443,7 +480,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         return true;
     }
 
-    private void verifyAndCacheFastPath(
+    private boolean verifyAndCacheFastPath(
         ECOExtractedPatternExecution execution,
         ItemStack outputItem,
         List<ItemStack> inputs,
@@ -452,7 +489,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
     ) {
         ECOFastPathKey key = execution.key();
         if (key == null) {
-            return;
+            return false;
         }
         ECOCraftingFastPathCache cache = worker.getFastPathCache();
         var outputEntries = ECOFastPathStacks.fromItemStack(outputItem);
@@ -460,15 +497,29 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         var remainingEntries = ECOFastPathStacks.fromItemStacks(remaining);
         if (outputEntries.isEmpty() || inputEntries.isEmpty() || remainingEntries.isEmpty()) {
             cache.putNegative(key, tick);
-            return;
+            logSlowPath(execution, ECOFastPathFallbackReason.RUNTIME_STACK_CONVERSION_FAILED, tick);
+            return false;
         }
-        if (!outputEntries.get().equals(execution.expectedOutputs())
-            || !remainingEntries.get().equals(execution.expectedContainerItems())
-            || !inputEntries.get().equals(execution.inputItems())) {
+        if (!outputEntries.get().equals(execution.expectedOutputs())) {
             cache.putNegative(key, tick);
-            return;
+            logSlowPath(execution, ECOFastPathFallbackReason.OUTPUT_MISMATCH, tick);
+            return false;
         }
-        cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick);
+        if (!remainingEntries.get().equals(execution.expectedContainerItems())) {
+            cache.putNegative(key, tick);
+            logSlowPath(execution, ECOFastPathFallbackReason.CONTAINER_MISMATCH, tick);
+            return false;
+        }
+        if (!inputEntries.get().equals(execution.inputItems())) {
+            cache.putNegative(key, tick);
+            logSlowPath(execution, ECOFastPathFallbackReason.INPUT_MISMATCH, tick);
+            return false;
+        }
+        if (!cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick)) {
+            logSlowPath(execution, ECOFastPathFallbackReason.CACHE_VALIDATION_REJECTED, tick);
+            return false;
+        }
+        return true;
     }
 
     private int prepareCraftingCooling(ECOCraftingSystemBlockEntity controller, int craftCount) {

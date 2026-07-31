@@ -1,11 +1,14 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.crafting.PatternDetailsTooltip;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import java.util.List;
 import java.util.Objects;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /** Restricts an AE2 pattern's input slots to a planner-verified concrete selection. */
@@ -37,8 +40,28 @@ public final class ECOSelectedInputPatternDetails implements IPatternDetails {
     }
 
     @Override
+    public GenericStack getPrimaryOutput() {
+        return delegate.getPrimaryOutput();
+    }
+
+    @Override
     public List<GenericStack> getOutputs() {
         return delegate.getOutputs();
+    }
+
+    @Override
+    public boolean supportsPushInputsToExternalInventory() {
+        return delegate.supportsPushInputsToExternalInventory();
+    }
+
+    @Override
+    public void pushInputsToExternalInventory(KeyCounter[] inputHolder, PatternInputSink inputSink) {
+        delegate.pushInputsToExternalInventory(inputHolder, inputSink);
+    }
+
+    @Override
+    public PatternDetailsTooltip getTooltip(Level level, TooltipFlag flags) {
+        return delegate.getTooltip(level, flags);
     }
 
     private record SelectedInput(IPatternDetails.IInput delegate, GenericStack selected) implements IInput {

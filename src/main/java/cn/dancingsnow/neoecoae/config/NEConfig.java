@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.config;
 
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -170,6 +171,14 @@ public class NEConfig {
             "FastPath is automatically disabled when postCraftingEvent is enabled to preserve event semantics.")
         .define("ecoAe2FastPathEnabled", true);
 
+    private static final ModConfigSpec.BooleanValue DEBUG_ECO_FAST_PATH = BUILDER
+        .comment(
+            "记录未使用 ECO FastPath 的样板及具体原因，并定期输出缓存统计。",
+            "日志会按样板和原因去重并限制每 tick 的输出数量；仅建议在排查问题时临时开启。",
+            "Log patterns that do not use ECO FastPath, including the precise reason, and periodically log cache statistics.",
+            "Messages are deduplicated by pattern and reason and rate-limited per tick; enable only while diagnosing issues.")
+        .define("debugEcoFastPath", false);
+
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
             "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
@@ -237,8 +246,11 @@ public class NEConfig {
         debugECOHostOverdrive = DEBUG_ECO_HOST_OVERDRIVE.get();
         ecoPlannerDifferentialVerification = ECO_PLANNER_DIFFERENTIAL_VERIFICATION.get();
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
-        // Fast-path debug logging remains intentionally unavailable from the in-game config screen.
-        debugEcoFastPath = false;
+        boolean wasDebugEcoFastPath = debugEcoFastPath;
+        debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();
+        if (debugEcoFastPath && !wasDebugEcoFastPath) {
+            ECOFastPathDiagnostics.clear();
+        }
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
     }

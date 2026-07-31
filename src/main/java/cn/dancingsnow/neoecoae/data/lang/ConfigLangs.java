@@ -69,7 +69,8 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.debugEcoFastPath", "Debug ECO Fast Path");
         provider.add(
             "neoecoae.configuration.debugEcoFastPath.tooltip",
-            "Periodically log ECO fast path cache statistics."
+            "Log each pattern that does not use ECO FastPath, including the reason, and periodically log cache statistics.\n" +
+                "Messages are deduplicated and rate-limited. Enable only while diagnosing issues."
         );
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(

@@ -5,25 +5,39 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
+import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventoryScheduler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Converts a validated ECO result into the complete plan contract consumed by AE2 CPUs. */
 public final class ECOAE2PlanAssembler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+
     private ECOAE2PlanAssembler() {
     }
 
     public static Optional<CraftingPlan> assemble(
         ECOAE2PlanningSnapshot snapshot,
         ECOHyperflowResult<ECOAE2PatternVariant> result
+    ) {
+        return assemble(snapshot, result, Long.MAX_VALUE);
+    }
+
+    public static Optional<CraftingPlan> assemble(
+        ECOAE2PlanningSnapshot snapshot,
+        ECOHyperflowResult<ECOAE2PatternVariant> result,
+        long deadlineNanos
     ) {
         if (result.status() != ECOHyperflowResult.Status.COMPLETE
             && result.status() != ECOHyperflowResult.Status.MISSING_SOURCES) {
@@ -32,27 +46,36 @@ public final class ECOAE2PlanAssembler {
 
         var problem = snapshot.problem();
         var candidate = result.candidate();
-        Map<AEKey, Long> sourceDeficits = findMissingSources(problem, candidate);
-        SourceRequirements requirements = splitSourceRequirements(sourceDeficits, snapshot.emittableKeys());
-        Map<AEKey, Long> schedulableInventory = new LinkedHashMap<>(problem.inventory());
-        sourceDeficits.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
-        var schedulableProblem = new ECOPlanningProblem<>(
-            problem.operations(),
-            schedulableInventory,
-            problem.requested()
+        var schedule = ECOInventoryScheduler.scheduleWithSyntheticSources(
+            problem, candidate, deadlineNanos, 50_000L
         );
-        var schedule = ECOInventoryScheduler.schedule(schedulableProblem, candidate);
         if (!schedule.executable()) {
+            LOGGER.debug(
+                "ECO assembly scheduling rejected {} x{} after {} states: exhausted={}, blockedBy={}",
+                snapshot.requestedKey(),
+                snapshot.requestedAmount(),
+                schedule.expandedStates(),
+                schedule.budgetExhausted(),
+                schedule.blockedBy()
+            );
             return Optional.empty();
         }
+        Map<AEKey, Long> sourceDeficits = schedule.syntheticSources();
+        SourceRequirements requirements = splitSourceRequirements(sourceDeficits, snapshot.emittableKeys());
 
-        Optional<KeyCounter> usedItems = calculateUsedItems(problem, candidate, sourceDeficits, schedule.steps());
+        Optional<KeyCounter> usedItems = calculateUsedItems(
+            problem, candidate, sourceDeficits, schedule.steps(), deadlineNanos
+        );
         if (usedItems.isEmpty()) {
             return Optional.empty();
         }
         KeyCounter missingItems = toCounter(requirements.missing());
         KeyCounter emittedItems = toCounter(requirements.emitted());
         long bytes = estimateBytes(snapshot, candidate);
+        Map<IPatternDetails, Long> patternExecutions = aggregatePatternExecutions(candidate);
+        if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+            return Optional.empty();
+        }
         CraftingPlan plan = new CraftingPlan(
             new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
             bytes,
@@ -61,7 +84,7 @@ public final class ECOAE2PlanAssembler {
             usedItems.get(),
             emittedItems,
             missingItems,
-            aggregatePatternExecutions(candidate)
+            patternExecutions
         );
         ECOPlannedInputs.register(plan, schedule.steps());
         return Optional.of(plan);
@@ -87,34 +110,12 @@ public final class ECOAE2PlanAssembler {
     private record SourceRequirements(Map<AEKey, Long> emitted, Map<AEKey, Long> missing) {
     }
 
-    private static Map<AEKey, Long> findMissingSources(
-        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
-        ECOPlanCandidate<ECOAE2PatternVariant> candidate
-    ) {
-        Map<AEKey, Long> balances = new LinkedHashMap<>(problem.inventory());
-        Map<AEKey, Boolean> craftable = new HashMap<>();
-        for (var operation : problem.operations()) {
-            operation.selectableOutputs().forEach(key -> craftable.put(key, true));
-            long count = candidate.executions().getOrDefault(operation.reference(), 0L);
-            operation.inputs().forEach((key, amount) -> mergeScaled(balances, key, amount, -count));
-            operation.outputs().forEach((key, amount) -> mergeScaled(balances, key, amount, count));
-        }
-        problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
-
-        Map<AEKey, Long> missing = new LinkedHashMap<>();
-        for (var balance : balances.entrySet()) {
-            if (balance.getValue() < 0 && !craftable.containsKey(balance.getKey())) {
-                missing.put(balance.getKey(), Math.negateExact(balance.getValue()));
-            }
-        }
-        return missing;
-    }
-
     private static Optional<KeyCounter> calculateUsedItems(
         ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
         ECOPlanCandidate<ECOAE2PatternVariant> candidate,
         Map<AEKey, Long> sourceDeficits,
-        java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<ECOAE2PatternVariant>> steps
+        java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<ECOAE2PatternVariant>> steps,
+        long deadlineNanos
     ) {
         Map<ECOAE2PatternVariant, ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> byReference = new HashMap<>();
         problem.operations().forEach(operation -> byReference.put(operation.reference(), operation));
@@ -124,12 +125,21 @@ public final class ECOAE2PlanAssembler {
 
         try {
             for (var step : steps) {
+                if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+                    return Optional.empty();
+                }
                 var operation = byReference.get(step.operation());
                 if (operation == null || step.batches() > candidate.executions().getOrDefault(step.operation(), 0L)) {
                     return Optional.empty();
                 }
+                Set<AEKey> touched = new java.util.LinkedHashSet<>(operation.inputs().keySet());
+                touched.addAll(operation.outputs().keySet());
                 for (var input : operation.inputs().entrySet()) {
-                    long needed = Math.multiplyExact(input.getValue(), step.batches());
+                    long needed = minimumInventory(
+                        input.getValue(),
+                        operation.outputs().getOrDefault(input.getKey(), 0L),
+                        step.batches()
+                    );
                     long available = current.getOrDefault(input.getKey(), 0L);
                     if (available < needed) {
                         long supplied = Math.min(needed - available, syntheticRemaining.getOrDefault(input.getKey(), 0L));
@@ -142,16 +152,19 @@ public final class ECOAE2PlanAssembler {
                     if (available < needed) {
                         return Optional.empty();
                     }
-                    current.merge(input.getKey(), -needed, Math::addExact);
                     long baseline = problem.inventory().getOrDefault(input.getKey(), 0L);
-                    long extracted = Math.min(baseline, Math.max(0, baseline - current.get(input.getKey())));
+                    long lowPoint = available - needed;
+                    long extracted = Math.min(baseline, Math.max(0L, baseline - lowPoint));
                     if (extracted > requiredExtract.get(input.getKey())) {
                         requiredExtract.set(input.getKey(), extracted);
                     }
                 }
-                for (var output : operation.outputs().entrySet()) {
-                    long produced = Math.multiplyExact(output.getValue(), step.batches());
-                    current.merge(output.getKey(), produced, Math::addExact);
+                for (AEKey key : touched) {
+                    long net = Math.subtractExact(
+                        operation.outputs().getOrDefault(key, 0L),
+                        operation.inputs().getOrDefault(key, 0L)
+                    );
+                    current.merge(key, Math.multiplyExact(net, step.batches()), Math::addExact);
                 }
             }
             return Optional.of(requiredExtract);
@@ -201,7 +214,11 @@ public final class ECOAE2PlanAssembler {
         return result;
     }
 
-    private static void mergeScaled(Map<AEKey, Long> balances, AEKey key, long amount, long count) {
-        balances.merge(key, Math.multiplyExact(amount, count), Math::addExact);
+    private static long minimumInventory(long input, long output, long batches) {
+        if (output >= input) {
+            return input;
+        }
+        return Math.addExact(input, Math.multiplyExact(batches - 1L, input - output));
     }
+
 }

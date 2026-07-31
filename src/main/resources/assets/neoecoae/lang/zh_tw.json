@@ -3,6 +3,8 @@
   "chat.neoecoae.planning.ae2_fallback": "ECO 快速計算未使用，已改由 AE2 計算：%s",
   "gui.neoecoae.planning.reason.no_eco_host": "沒有可用的 ECO 運算主機",
   "gui.neoecoae.planning.reason.snapshot_rejected": "無法讀取該請求的配方圖",
+  "gui.neoecoae.planning.reason.pattern_incompatible": "該樣板需要 AE2 原生規劃語義",
+  "gui.neoecoae.planning.reason.snapshot_limit_exceeded": "配方圖超出 ECO 規劃限制",
   "gui.neoecoae.planning.reason.fallback_setup_failed": "無法初始化 AE2 回退計算",
   "gui.neoecoae.planning.reason.solver_no_route": "未找到可執行的合成路徑",
   "gui.neoecoae.planning.reason.solver_budget_exhausted": "計算預算已耗盡",

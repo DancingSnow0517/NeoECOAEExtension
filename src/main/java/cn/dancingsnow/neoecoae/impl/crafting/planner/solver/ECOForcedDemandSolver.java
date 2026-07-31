@@ -29,7 +29,16 @@ public final class ECOForcedDemandSolver {
         ECOPlanningProblem<K, R> problem,
         ECOPlanningGraph<K, R> graph
     ) {
+        return trySolve(problem, graph, Long.MAX_VALUE);
+    }
+
+    public static <K, R> Attempt<R> trySolve(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph,
+        long deadlineNanos
+    ) {
         Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
+        Map<K, Long> bootstrapSupply = new LinkedHashMap<>(problem.inventory());
         Map<R, Long> executions = new LinkedHashMap<>();
         Set<K> expandableMaterials = findExpandableMaterials(graph);
         ArrayDeque<K> queue = new ArrayDeque<>();
@@ -45,6 +54,9 @@ public final class ECOForcedDemandSolver {
                 enqueueIfDeficient(key, balances, graph, queue, queued);
             });
             while (!queue.isEmpty()) {
+                if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+                    return Attempt.rejected("planning deadline reached");
+                }
                 if (++expansions > maxExpansions) {
                     return Attempt.rejected("linear expansion limit reached");
                 }
@@ -58,7 +70,7 @@ public final class ECOForcedDemandSolver {
                     continue;
                 }
                 ProducerChoice<K, R> choice = forcedProducer(
-                    material, graph.producersOf(material), balances, problem.requested(), expandableMaterials
+                    material, graph.producersOf(material), bootstrapSupply
                 );
                 if (choice.operation() == null) {
                     return Attempt.rejected("at " + material + ": " + choice.rejection());
@@ -80,6 +92,7 @@ public final class ECOForcedDemandSolver {
                     balances.merge(key, Math.multiplyExact(amount, batches), Math::addExact);
                     enqueueIfDeficient(key, balances, graph, queue, queued);
                 });
+                ECOCycleBootstrap.addPlannedProduction(producer, batches, bootstrapSupply);
             }
         } catch (ArithmeticException overflow) {
             return Attempt.rejected("integer overflow while expanding the dependency closure");
@@ -97,14 +110,12 @@ public final class ECOForcedDemandSolver {
     private static <K, R> ProducerChoice<K, R> forcedProducer(
         K material,
         List<ECOPlanningOperation<K, R>> producers,
-        Map<K, Long> balances,
-        Map<K, Long> requested,
-        Set<K> expandableMaterials
+        Map<K, Long> bootstrapSupply
     ) {
         List<ECOPlanningOperation<K, R>> eligible = new ArrayList<>();
         for (var operation : producers) {
             if (ECOPlannerMath.positiveNet(operation, material) > 0L
-                && ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)) {
+                && ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply)) {
                 eligible.add(operation);
             }
         }
@@ -123,66 +134,7 @@ public final class ECOForcedDemandSolver {
         if (equivalent) {
             return ProducerChoice.accepted(selected);
         }
-
-        long deficit = ECOPlannerMath.saturatedNegate(balances.getOrDefault(material, 0L));
-        long bestScore = Long.MAX_VALUE;
-        ECOPlanningOperation<K, R> best = null;
-        for (var operation : eligible) {
-            long score = alternativeScore(operation, material, deficit, balances, requested, expandableMaterials);
-            if (score < bestScore) {
-                bestScore = score;
-                best = operation;
-            }
-        }
-        // The producer list originates from the target graph and has stable
-        // pattern order. Equal local scores are not a dependency ambiguity;
-        // use that order, then retain the normal closure/cycle validation.
-        return ProducerChoice.accepted(best);
-    }
-
-    /**
-     * A strict local winner is safe to propagate: if its complete closure is
-     * not executable, this solver returns to the bounded alternatives instead
-     * of publishing a partial plan.
-     */
-    private static <K, R> long alternativeScore(
-        ECOPlanningOperation<K, R> operation,
-        K material,
-        long deficit,
-        Map<K, Long> balances,
-        Map<K, Long> requested,
-        Set<K> expandableMaterials
-    ) {
-        long net = ECOPlannerMath.positiveNet(operation, material);
-        long batches = ECOPlannerMath.ceilDiv(deficit, net);
-        long score = 0L;
-        for (var input : operation.inputs().entrySet()) {
-            long available = Math.max(0L, balances.getOrDefault(input.getKey(), 0L));
-            long required = ECOPlannerMath.saturatedMultiply(input.getValue(), batches);
-            long missing = required <= available ? 0L : ECOPlannerMath.saturatedAdd(required, -available);
-            if (operation.outputs().containsKey(input.getKey())) {
-                long bootstrapMissing = ECOCycleBootstrap.missingBootstrapAmount(
-                    operation, input.getKey(), missing, balances, requested
-                );
-                if (bootstrapMissing > 0L) {
-                    score = ECOPlannerMath.saturatedAdd(score, ECOCycleBootstrap.bootstrapPenalty());
-                    missing = bootstrapMissing;
-                } else {
-                    missing = 0L;
-                }
-            }
-            if (missing > 0L) {
-                score = ECOPlannerMath.saturatedAdd(
-                    score,
-                    expandableMaterials.contains(input.getKey())
-                        ? ECOPlannerMath.saturatedMultiply(missing, 4L)
-                        : 1_000_000L
-                );
-            }
-        }
-        score = ECOPlannerMath.saturatedAdd(score, operation.inputs().size() * 16L);
-        score = ECOPlannerMath.saturatedAdd(score, Math.max(0L, 1_000L / Math.min(net, 1_000L)));
-        return ECOPlannerMath.saturatedAdd(score, Math.max(0L, batches - 1L));
+        return ProducerChoice.rejected("several non-equivalent producers require bounded search");
     }
 
     private static <K, R> K cycleInput(
@@ -191,24 +143,26 @@ public final class ECOForcedDemandSolver {
         Map<K, Set<K>> dependencyEdges
     ) {
         for (K input : producer.inputs().keySet()) {
-            if (input.equals(material) || reaches(input, material, dependencyEdges, new HashSet<>())) {
+            if (input.equals(material) || reaches(input, material, dependencyEdges)) {
                 return input;
             }
         }
         return null;
     }
 
-    private static <K> boolean reaches(K current, K target, Map<K, Set<K>> edges, Set<K> visited) {
-        if (!visited.add(current)) {
-            return false;
-        }
-        if (current.equals(target)) {
-            return true;
-        }
-        for (K next : edges.getOrDefault(current, Set.of())) {
-            if (reaches(next, target, edges, visited)) {
+    private static <K> boolean reaches(K current, K target, Map<K, Set<K>> edges) {
+        ArrayDeque<K> pending = new ArrayDeque<>();
+        Set<K> visited = new HashSet<>();
+        pending.addLast(current);
+        while (!pending.isEmpty()) {
+            K next = pending.removeFirst();
+            if (!visited.add(next)) {
+                continue;
+            }
+            if (next.equals(target)) {
                 return true;
             }
+            pending.addAll(edges.getOrDefault(next, Set.of()));
         }
         return false;
     }

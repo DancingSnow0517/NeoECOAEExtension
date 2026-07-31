@@ -104,7 +104,7 @@ public abstract class CraftingServiceMixin {
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.NO_ECO_HOST);
             return;
         }
-        var snapshot = ECOAE2SnapshotFactory.capture(
+        var capture = ECOAE2SnapshotFactory.captureDetailed(
             this.grid,
             simRequester,
             what,
@@ -113,9 +113,9 @@ public abstract class CraftingServiceMixin {
             this.lastProcessedCraftableChangeTick,
             level
         );
-        if (snapshot.isEmpty()) {
+        if (capture.snapshot().isEmpty()) {
             lease.get().close();
-            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
+            ECOPlannerNoticeDispatcher.send(noticeTarget, capture.fallbackReason());
             return;
         }
 
@@ -137,7 +137,7 @@ public abstract class CraftingServiceMixin {
             return;
         }
         cir.setReturnValue(ECOPlanningService.submit(
-            snapshot.get(),
+            capture.snapshot().orElseThrow(),
             strategy,
             lease.get(),
             fallback::run

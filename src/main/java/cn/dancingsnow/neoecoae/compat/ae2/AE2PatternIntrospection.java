@@ -7,6 +7,7 @@ import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.pattern.AECraftingPattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
 import java.util.Optional;
@@ -73,6 +74,7 @@ public final class AE2PatternIntrospection {
     public static void onRecipeReloadOrServerReload() {
         reloadGeneration++;
         ECOCraftingFastPathCache.clearAllCaches();
+        ECOFastPathDiagnostics.clear();
     }
 
     public static long getReloadGeneration() {

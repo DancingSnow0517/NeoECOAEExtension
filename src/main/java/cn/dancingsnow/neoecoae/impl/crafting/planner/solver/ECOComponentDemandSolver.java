@@ -48,6 +48,7 @@ public final class ECOComponentDemandSolver {
             return Optional.empty();
         }
         Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
+        Map<K, Long> bootstrapSupply = new LinkedHashMap<>(problem.inventory());
         problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
         Map<R, Long> executions = new LinkedHashMap<>();
         Set<K> expandableMaterials = findExpandableMaterials(graph);
@@ -75,7 +76,7 @@ public final class ECOComponentDemandSolver {
                     deficit,
                     producers,
                     balances,
-                    problem.requested(),
+                    bootstrapSupply,
                     expandableMaterials,
                     deadlineNanos
                 );
@@ -90,9 +91,9 @@ public final class ECOComponentDemandSolver {
                     continue;
                 }
                 long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
-                    material, producers, balances, problem.requested()
+                    material, producers, bootstrapSupply
                 );
-                long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
+                long demand = bootstrapDeficit > 0L ? Math.min(deficit, bootstrapDeficit) : deficit;
                 long batches = ECOPlannerMath.ceilDiv(demand, net);
                 executions.merge(producer.reference(), batches, Math::addExact);
                 producer.inputs().forEach((key, amount) -> {
@@ -103,6 +104,7 @@ public final class ECOComponentDemandSolver {
                     balances.merge(key, Math.multiplyExact(amount, batches), Math::addExact);
                     enqueueIfDeficient(key, balances, graph, queue, queued);
                 });
+                ECOCycleBootstrap.addPlannedProduction(producer, batches, bootstrapSupply);
             }
         } catch (ArithmeticException overflow) {
             return Optional.empty();
@@ -120,26 +122,26 @@ public final class ECOComponentDemandSolver {
         long deficit,
         List<ECOPlanningOperation<K, R>> producers,
         Map<K, Long> balances,
-        Map<K, Long> requested,
+        Map<K, Long> bootstrapSupply,
         Set<K> expandableMaterials,
         long deadlineNanos
     ) {
         // bootstrapDeficit does not depend on the current producer — compute once outside the loop.
-        long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(material, producers, balances, requested);
+        long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(material, producers, bootstrapSupply);
         ECOPlanningOperation<K, R> best = null;
         long bestScore = Long.MAX_VALUE;
         for (var operation : producers) {
             if (ECOSolveBudget.shouldStop(deadlineNanos)) {
                 return null;
             }
-            if (!ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)) {
+            if (!ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply)) {
                 continue;
             }
             long net = ECOPlannerMath.positiveNet(operation, material);
             if (net <= 0) {
                 continue;
             }
-            long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
+            long demand = bootstrapDeficit > 0L ? Math.min(deficit, bootstrapDeficit) : deficit;
             long batches = ECOPlannerMath.ceilDiv(demand, net);
             long score = 0;
             for (var input : operation.inputs().entrySet()) {
@@ -153,7 +155,7 @@ public final class ECOComponentDemandSolver {
                 long missing = required <= available ? 0L : required - available;
                 if (operation.outputs().containsKey(input.getKey())) {
                     long bootstrapMissing = ECOCycleBootstrap.missingBootstrapAmount(
-                        operation, input.getKey(), missing, balances, requested
+                        operation, input.getKey(), missing, bootstrapSupply
                     );
                     if (bootstrapMissing > 0L) {
                         score = ECOPlannerMath.saturatedAdd(score, ECOCycleBootstrap.bootstrapPenalty());
