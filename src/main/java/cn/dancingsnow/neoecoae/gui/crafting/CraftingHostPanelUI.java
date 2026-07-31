@@ -6,6 +6,7 @@ import cn.dancingsnow.neoecoae.gui.common.HostElements;
 import cn.dancingsnow.neoecoae.gui.common.HostNetworkStatusElement;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
 import cn.dancingsnow.neoecoae.gui.common.NetworkFrequencyButton;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.task.HostTaskListElement;
@@ -82,6 +83,8 @@ public final class CraftingHostPanelUI {
     private static final int PANEL_TIME_VALUE = 0xFF55A7FF;
     private static final int PANEL_SUCCESS = 0xFF55FF8A;
     private static final int PANEL_WARNING = 0xFFFF6A75;
+    private static final int PANEL_HOST_NORMAL = 0xFF8FE3A0;
+    private static final int PANEL_HOST_HIGH_ENERGY = 0xFFFFB469;
     private static final ThreadLocal<DecimalFormat> PERFORMANCE_MS_FORMAT = ThreadLocal.withInitial(() ->
         new DecimalFormat("0.###", DecimalFormatSymbols.getInstance(Locale.US)));
 
@@ -102,6 +105,7 @@ public final class CraftingHostPanelUI {
         IntSupplier occupiedCraftingSlots,
         IntSupplier maxCraftingSlots,
         IntSupplier maxBatchPerThread,
+        Supplier<List<NECraftingNetworkCluster.HostBatchInfo>> hostBatchInfos,
         IntSupplier overflowThreads,
         IntSupplier effectiveOverclockTimes,
         LongSupplier performanceAverageNanos,
@@ -309,6 +313,7 @@ public final class CraftingHostPanelUI {
             value -> Tooltips.ofNumber(value).copy().withColor(PANEL_VALUE),
             PANEL_MUTED);
         batchPerThread.textStyle(CraftingHostPanelUI::inlineStatsTextStyle);
+        addBatchPerThreadTooltip(batchPerThread, config);
         panel.addChild(batchPerThread);
         UIElement overflowRow = new UIElement().layout(layout -> layout
             .widthPercent(100).height(9).flexDirection(FlexDirection.ROW).alignItems(AlignItems.CENTER).gapAll(4));
@@ -555,6 +560,88 @@ public final class CraftingHostPanelUI {
         BindableValue<Component> value = new BindableValue<>(supplier.get());
         value.bind(DataBindingBuilder.componentS2C(supplier).build());
         return value;
+    }
+
+    /**
+     * Adds a tooltip to the "max batch per slot" label showing the actual runtime
+     * batch size of every host in the network cluster, refreshed through the regular
+     * S2C component binding.
+     */
+    private static void addBatchPerThreadTooltip(Label label, Config config) {
+        BindableValue<Component> detail = syncedComponent(() -> buildHostBatchTooltip(config.hostBatchInfos.get()));
+        detail.setDisplay(false);
+        label.addChild(detail);
+        label.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+            List<Component> lines = hostBatchLines(detail.getValue());
+            HoverTooltips tooltips = HoverTooltips.empty().append(
+                Component.translatable("gui.neoecoae.crafting.ui.batch_per_thread.detail").withColor(PANEL_MUTED));
+            if (!lines.isEmpty()) {
+                tooltips = tooltips.append(lines.toArray(Component[]::new));
+            }
+            event.hoverTooltips = tooltips;
+        });
+    }
+
+    /**
+     * Encodes the per-host runtime data into a compact plain-text component
+     * (one host per line: {@code type|threads|batch}) so it can travel through the
+     * existing S2C component binding and be decoded into localized tooltip lines.
+     */
+    static Component buildHostBatchTooltip(List<NECraftingNetworkCluster.HostBatchInfo> infos) {
+        if (infos == null || infos.isEmpty()) {
+            return Component.empty();
+        }
+        StringBuilder encoded = new StringBuilder();
+        for (int i = 0; i < infos.size(); i++) {
+            NECraftingNetworkCluster.HostBatchInfo info = infos.get(i);
+            if (i > 0) {
+                encoded.append('\n');
+            }
+            encoded.append(info.highEnergy() ? '1' : '0')
+                .append('|')
+                .append(info.threadCount())
+                .append('|')
+                .append(info.maxBatchPerThread());
+        }
+        return Component.literal(encoded.toString());
+    }
+
+    /** Decodes the synced per-host data into one compact localized line per host. */
+    private static List<Component> hostBatchLines(Component encoded) {
+        List<Component> lines = new ArrayList<>();
+        if (encoded == null) {
+            return lines;
+        }
+        for (String line : encoded.getString().split("\n", -1)) {
+            if (line.isEmpty()) {
+                continue;
+            }
+            String[] parts = line.split("\\|", -1);
+            if (parts.length != 3) {
+                continue;
+            }
+            try {
+                boolean highEnergy = parts[0].length() == 1 && parts[0].charAt(0) == '1';
+                int threads = Integer.parseInt(parts[1]);
+                int batch = Integer.parseInt(parts[2]);
+                lines.add(hostBatchLine(highEnergy, threads, batch));
+            } catch (NumberFormatException ignored) {
+                // skip malformed lines
+            }
+        }
+        return lines;
+    }
+
+    private static Component hostBatchLine(boolean highEnergy, int threadCount, int maxBatch) {
+        int color = highEnergy ? PANEL_HOST_HIGH_ENERGY : PANEL_HOST_NORMAL;
+        return Component.translatable(
+            "gui.neoecoae.host.crafting.host_line",
+            Component.translatable(highEnergy
+                ? "gui.neoecoae.host.crafting.host_type.high_energy"
+                : "gui.neoecoae.host.crafting.host_type.normal").withColor(color),
+            threadCount,
+            maxBatch
+        ).withColor(color);
     }
 
     private static void compactTextStyle(TextElement.TextStyle style) {

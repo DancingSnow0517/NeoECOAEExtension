@@ -148,6 +148,7 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ui.recipe_slots", "Slots");
         provider.add("gui.neoecoae.crafting.ui.logical_threads", "Threads");
         provider.add("gui.neoecoae.crafting.ui.batch_per_thread", "Batch / Slot");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Per-Host Batch Details");
         provider.add("gui.neoecoae.crafting.ui.recipe_time_ratio", "Time");
         provider.add("gui.neoecoae.crafting.ui.patterns_short", "PB");
         provider.add("gui.neoecoae.crafting.ui.ft_cores_short", "FT");
@@ -193,6 +194,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.crafting.coolant", "Coolant");
         provider.add("gui.neoecoae.host.crafting.energy", "Energy");
         provider.add("gui.neoecoae.host.crafting.footer", "Single-screen crafting status and controls.");
+        provider.add("gui.neoecoae.host.crafting.host_line", "%s · Threads %d · Batch %d");
+        provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-Energy");
+        provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
         provider.add("gui.neoecoae.storage_interface.title", "Storage Interface");
         provider.add("gui.neoecoae.storage_interface.mode.storage", "Storage");
         provider.add("gui.neoecoae.storage_interface.mode.input", "Input");

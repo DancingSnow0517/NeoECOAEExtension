@@ -386,6 +386,30 @@ public final class NECraftingNetworkCluster {
         return maxBatch;
     }
 
+    /**
+     * Runtime per-host batch data for the whole logical cluster. Each host contributes
+     * its actual thread count and actual per-slot batch size so the UI can show what
+     * every host really provides instead of only the cluster maximum.
+     */
+    public List<HostBatchInfo> getHostBatchInfos() {
+        List<HostBatchInfo> result = new ArrayList<>(controllers.size());
+        for (NECraftingCluster physicalCluster : physicalClusters) {
+            ECOCraftingSystemBlockEntity controller = physicalCluster.getController();
+            if (controller != null) {
+                result.add(new HostBatchInfo(
+                    physicalCluster.isHighEnergyNetworkMode(),
+                    controller.getLocalThreadCount(),
+                    controller.getLocalMaxBatchPerThread()
+                ));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    /** Per-host runtime values shown in the host UI tooltip. */
+    public record HostBatchInfo(boolean highEnergy, int threadCount, int maxBatchPerThread) {
+    }
+
     private static boolean hasMatchingWorker(NECraftingCluster physicalCluster, @Nullable IGrid grid) {
         for (ECOCraftingWorkerBlockEntity worker : physicalCluster.getWorkers()) {
             if (grid == null || worker.getMainNode().getGrid() == grid) {

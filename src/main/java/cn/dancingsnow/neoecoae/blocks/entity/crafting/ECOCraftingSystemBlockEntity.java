@@ -22,6 +22,7 @@ import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockBuildSession;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
@@ -947,6 +948,24 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return getLocalMaxBatchPerThread();
     }
 
+    /**
+     * Runtime per-host batch data for the network cluster tooltip. When the host is part
+     * of a logical cluster every member is reported; a standalone host reports only itself.
+     */
+    public List<NECraftingNetworkCluster.HostBatchInfo> getHostBatchInfos() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getHostBatchInfos();
+        }
+        if (formed) {
+            return List.of(new NECraftingNetworkCluster.HostBatchInfo(
+                cluster != null && cluster.isHighEnergyNetworkMode(),
+                getLocalThreadCount(),
+                getLocalMaxBatchPerThread()
+            ));
+        }
+        return List.of();
+    }
+
     public int getOccupiedLogicalThreadCount() {
         if (cluster != null && cluster.getNetworkCluster() != null) {
             return cluster.getNetworkCluster().getOccupiedRecipeSlots(getMainNode().getGrid());
@@ -1166,6 +1185,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             this::getOccupiedRecipeSlots,
             this::getRecipeSlotCount,
             this::getMaxBatchPerThread,
+            this::getHostBatchInfos,
             this::getOverflowThreads,
             this::getEffectiveOverclockTimes,
             this::getPerformanceAverageNanos,
