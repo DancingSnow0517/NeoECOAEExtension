@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -82,6 +83,71 @@ public final class ECOInfiniteStorageDomains {
         } catch (RuntimeException e) {
             LOGGER.error("Unable to inspect existing infinite-storage domain {}; treating it as present", domainId, e);
             return true;
+        }
+    }
+
+    /** Returns every storage UUID discoverable from the current world's persisted layouts. */
+    public static synchronized Collection<UUID> findExistingDomainIds(ServerLevel level) {
+        return discoverDomainIds(worldRoot(level));
+    }
+
+    static Collection<UUID> discoverDomainIds(Path worldRoot) {
+        Set<UUID> result = new TreeSet<>();
+        collectV2DomainIds(worldRoot.resolve("data").resolve(SAVED_DATA_DIRECTORY), result);
+        collectDomainDirectoryIds(archiveRoot(worldRoot), result);
+        collectLegacyDomainIds(worldRoot.resolve("neoecoae_storage"), result);
+        collectLegacyDomainIds(worldRoot.resolve("data").resolve("neoecoae_storage"), result);
+        return List.copyOf(result);
+    }
+
+    private static void collectV2DomainIds(Path root, Set<UUID> result) {
+        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        try (var paths = Files.list(root)) {
+            paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                .map(path -> path.getFileName().toString())
+                .filter(name -> name.startsWith("domain_") && name.endsWith(".dat"))
+                .forEach(name -> parseDomainId(name.substring("domain_".length(), name.length() - ".dat".length()))
+                    .ifPresent(result::add));
+        } catch (IOException e) {
+            LOGGER.warn("Unable to discover V2 infinite-storage domains in {}", root, e);
+        }
+    }
+
+    private static void collectDomainDirectoryIds(Path root, Set<UUID> result) {
+        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        try (var paths = Files.list(root)) {
+            paths.filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+                .map(path -> path.getFileName().toString())
+                .filter(name -> name.startsWith("domain_"))
+                .forEach(name -> parseDomainId(name.substring("domain_".length())).ifPresent(result::add));
+        } catch (IOException e) {
+            LOGGER.warn("Unable to discover archived infinite-storage domains in {}", root, e);
+        }
+    }
+
+    private static void collectLegacyDomainIds(Path root, Set<UUID> result) {
+        collectDomainDirectoryIds(root, result);
+        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        try (var paths = Files.list(root)) {
+            paths.filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+                .filter(path -> path.getFileName().toString().startsWith("dim_"))
+                .forEach(path -> collectDomainDirectoryIds(path, result));
+        } catch (IOException e) {
+            LOGGER.warn("Unable to discover legacy infinite-storage domains in {}", root, e);
+        }
+    }
+
+    private static Optional<UUID> parseDomainId(String value) {
+        try {
+            return Optional.of(UUID.fromString(value));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
         }
     }
 
@@ -397,6 +463,7 @@ public final class ECOInfiniteStorageDomains {
                 dataStorage.set(savedDataName, engine);
                 engine.importLegacy(
                     snapshot.amounts(),
+                    snapshot.orphanedEntries(),
                     snapshot.receipts(),
                     snapshot.sourceFingerprint(),
                     snapshot.revision()
@@ -545,6 +612,24 @@ public final class ECOInfiniteStorageDomains {
         public Collection<HugeStack> getHugeStacks() {
             SavedDataInfiniteStorageEngine engine = current();
             return engine == null ? List.of() : engine.getHugeStacks();
+        }
+
+        @Override
+        public Collection<OrphanedStack> getOrphanedStacks() {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine == null ? List.of() : engine.getOrphanedStacks();
+        }
+
+        @Override
+        public int getOrphanedTypes() {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine == null ? 0 : engine.getOrphanedTypes();
+        }
+
+        @Override
+        public HugeAmount getOrphanedAmount() {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine == null ? HugeAmount.ZERO : engine.getOrphanedAmount();
         }
 
         @Override

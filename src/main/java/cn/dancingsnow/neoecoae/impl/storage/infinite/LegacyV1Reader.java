@@ -58,6 +58,7 @@ final class LegacyV1Reader {
         requireUnchanged(before, fingerprint(source), "while parsing V1 data");
         return new Snapshot(
             imported.amounts(),
+            imported.orphanedEntries(),
             imported.receipts(),
             imported.revision(),
             before.digest()
@@ -339,6 +340,7 @@ final class LegacyV1Reader {
 
     record Snapshot(
         Map<AEKey, HugeAmount> amounts,
+        Map<String, ECOInfiniteStorageEngine.OrphanedStack> orphanedEntries,
         Set<UUID> receipts,
         long revision,
         String sourceFingerprint

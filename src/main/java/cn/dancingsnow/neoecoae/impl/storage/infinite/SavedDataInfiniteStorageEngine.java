@@ -68,6 +68,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     private final Path dataFile;
     private final HybridAmountStore<AEKey> amounts = new HybridAmountStore<>();
     private final Object2ObjectOpenHashMap<AEKey, CompoundTag> encodedKeys = new Object2ObjectOpenHashMap<>();
+    private final Map<String, OrphanedStack> orphanedEntries = new HashMap<>();
     private final Object2ObjectOpenHashMap<AEKeyType, MutableTypeStats> typeStats =
         new Object2ObjectOpenHashMap<>();
     private final ObjectOpenHashSet<AEKey> hugeKeys = new ObjectOpenHashSet<>();
@@ -77,6 +78,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
 
     private final WideAmount storedAmount = WideAmount.of(0L);
     private HugeAmount storedAmountSnapshot = HugeAmount.ZERO;
+    private HugeAmount orphanedAmountSnapshot = HugeAmount.ZERO;
     private long revision;
     @Nullable private String legacyFingerprint;
     private ECOInfiniteDomainState state = ECOInfiniteDomainState.READY;
@@ -140,6 +142,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         engine.amounts.clear();
         parsed.amounts().forEach(engine.amounts::set);
         engine.encodedKeys.putAll(parsed.encodedKeys());
+        engine.orphanedEntries.putAll(parsed.orphanedEntries());
         engine.legacyTransferReceipts.addAll(parsed.legacyTransferReceipts());
         engine.transferReceipts.putAll(parsed.transferReceipts());
         engine.revision = parsed.revision();
@@ -156,17 +159,30 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         String sourceFingerprint,
         long importedRevision
     ) {
+        importLegacy(importedAmounts, Map.of(), importedReceipts, sourceFingerprint, importedRevision);
+    }
+
+    synchronized void importLegacy(
+        Map<AEKey, HugeAmount> importedAmounts,
+        Map<String, OrphanedStack> importedOrphanedEntries,
+        Collection<UUID> importedReceipts,
+        String sourceFingerprint,
+        long importedRevision
+    ) {
         requireReady();
-        if (!amounts.isEmpty() || !legacyTransferReceipts.isEmpty() || !transferReceipts.isEmpty()) {
+        if (!amounts.isEmpty() || !orphanedEntries.isEmpty()
+                || !legacyTransferReceipts.isEmpty() || !transferReceipts.isEmpty()) {
             throw new IllegalStateException("Cannot import V1 data into a non-empty V2 domain");
         }
         Objects.requireNonNull(importedAmounts, "importedAmounts");
+        Objects.requireNonNull(importedOrphanedEntries, "importedOrphanedEntries");
         Objects.requireNonNull(importedReceipts, "importedReceipts");
         Objects.requireNonNull(sourceFingerprint, "sourceFingerprint");
         if (!isSha256(sourceFingerprint)) {
             throw new IllegalArgumentException("Invalid V1 migration fingerprint");
         }
 
+        Set<String> importedFingerprints = new HashSet<>();
         for (Map.Entry<AEKey, HugeAmount> entry : importedAmounts.entrySet()) {
             AEKey key = Objects.requireNonNull(entry.getKey(), "legacy key");
             HugeAmount amount = Objects.requireNonNull(entry.getValue(), "legacy amount");
@@ -176,6 +192,21 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             if (!ensureEncodedKey(key)) {
                 throw new IllegalArgumentException("V1 import contains an AEKey that cannot be encoded");
             }
+            if (!importedFingerprints.add(ECOStorageKeyHash.stableFingerprint(encodedKeys.get(key)))) {
+                throw new IllegalArgumentException("V1 import contains duplicate encoded keys");
+            }
+        }
+        for (Map.Entry<String, OrphanedStack> entry : importedOrphanedEntries.entrySet()) {
+            String fingerprint = Objects.requireNonNull(entry.getKey(), "orphaned key fingerprint");
+            OrphanedStack orphaned = Objects.requireNonNull(entry.getValue(), "orphaned entry");
+            if (!isSha256(fingerprint)
+                    || orphaned.encodedKey() == null
+                    || orphaned.amount() == null
+                    || orphaned.amount().isZero()
+                    || !fingerprint.equals(ECOStorageKeyHash.stableFingerprint(orphaned.encodedKey()))
+                    || !importedFingerprints.add(fingerprint)) {
+                throw new IllegalArgumentException("V1 import contains an invalid orphaned entry");
+            }
         }
         for (UUID transactionId : importedReceipts) {
             Objects.requireNonNull(transactionId, "legacy receipt");
@@ -183,6 +214,9 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         for (Map.Entry<AEKey, HugeAmount> entry : importedAmounts.entrySet()) {
             amounts.set(entry.getKey(), entry.getValue());
         }
+        importedOrphanedEntries.forEach((fingerprint, orphaned) ->
+            orphanedEntries.put(fingerprint, new OrphanedStack(orphaned.encodedKey().copy(), orphaned.amount()))
+        );
         legacyTransferReceipts.addAll(importedReceipts);
         legacyFingerprint = sourceFingerprint;
         revision = Math.max(0L, importedRevision);
@@ -346,7 +380,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
 
     @Override
     public synchronized boolean isEmpty() {
-        return state == ECOInfiniteDomainState.READY && amounts.isEmpty();
+        return state == ECOInfiniteDomainState.READY && amounts.isEmpty() && orphanedEntries.isEmpty();
     }
 
     @Override
@@ -358,7 +392,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             storedAmountSnapshot = snapshot(storedAmount);
             storedAmountSnapshotDirty = false;
         }
-        return storedAmountSnapshot;
+        return storedAmountSnapshot.add(getOrphanedAmount());
     }
 
     @Override
@@ -397,6 +431,24 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             hugeStacksSnapshotDirty = false;
         }
         return hugeStacksSnapshot;
+    }
+
+    @Override
+    public synchronized Collection<OrphanedStack> getOrphanedStacks() {
+        if (state != ECOInfiniteDomainState.READY) {
+            return List.of();
+        }
+        return List.copyOf(orphanedEntries.values());
+    }
+
+    @Override
+    public synchronized int getOrphanedTypes() {
+        return state == ECOInfiniteDomainState.READY ? orphanedEntries.size() : 0;
+    }
+
+    @Override
+    public synchronized HugeAmount getOrphanedAmount() {
+        return state == ECOInfiniteDomainState.READY ? orphanedAmountSnapshot : HugeAmount.ZERO;
     }
 
     @Override
@@ -495,6 +547,16 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             }
             entries.add(entry);
         });
+        for (OrphanedStack orphaned : orphanedEntries.values()) {
+            CompoundTag entry = new CompoundTag();
+            entry.put(TAG_KEY, orphaned.encodedKey().copy());
+            if (orphaned.amount().isBig()) {
+                entry.putByteArray(TAG_AMOUNT_WIDE, orphaned.amount().toBigInteger().toByteArray());
+            } else {
+                entry.putLong(TAG_AMOUNT_LONG, orphaned.amount().toLongSaturated());
+            }
+            entries.add(entry);
+        }
         tag.put(TAG_ENTRIES, entries);
 
         ListTag receipts = new ListTag();
@@ -681,6 +743,11 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
             }
         });
         storedAmountSnapshot = HugeAmount.ZERO;
+        WideAmount orphanedAmount = WideAmount.of(0L);
+        for (OrphanedStack orphaned : orphanedEntries.values()) {
+            addAmount(orphanedAmount, orphaned.amount());
+        }
+        orphanedAmountSnapshot = snapshot(orphanedAmount);
         typeStatsSnapshot = List.of();
         hugeStacksSnapshot = List.of();
         storedAmountSnapshotDirty = true;
@@ -780,8 +847,10 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         // A freshly loaded clean domain has no in-process serialized snapshot yet.
         Map<AEKey, HugeAmount> expectedAmounts = new HashMap<>();
         amounts.forEach(expectedAmounts::put);
+        Map<String, OrphanedStack> expectedOrphanedEntries = new HashMap<>(orphanedEntries);
         if (persisted.revision() != revision
                 || !persisted.amounts().equals(expectedAmounts)
+                || !persisted.orphanedEntries().equals(expectedOrphanedEntries)
                 || !persisted.legacyTransferReceipts().equals(legacyTransferReceipts)
                 || !persisted.transferReceipts().equals(transferReceipts)
                 || !Objects.equals(persisted.legacyFingerprint(), legacyFingerprint)) {
@@ -831,15 +900,24 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         ListTag receiptTags = requireCompoundList(tag, TAG_RECEIPTS);
         Map<AEKey, HugeAmount> parsedAmounts = new HashMap<>();
         Map<AEKey, CompoundTag> parsedKeys = new HashMap<>();
+        Map<String, OrphanedStack> parsedOrphanedEntries = new HashMap<>();
+        Set<String> parsedFingerprints = new HashSet<>();
         for (int i = 0; i < entries.size(); i++) {
             CompoundTag entry = entries.getCompound(i);
             if (!entry.contains(TAG_KEY, Tag.TAG_COMPOUND)) {
                 throw new IllegalArgumentException("Infinite-storage entry is missing its AEKey");
             }
             CompoundTag encodedKey = entry.getCompound(TAG_KEY);
-            AEKey key = AEKey.fromTagGeneric(registries, encodedKey);
-            if (!isResolved(key)) {
-                throw new IllegalArgumentException("Infinite-storage entry contains an unknown AEKey");
+            String keyFingerprint = ECOStorageKeyHash.stableFingerprint(encodedKey);
+            if (!parsedFingerprints.add(keyFingerprint)) {
+                throw new IllegalArgumentException("Duplicate AEKey in infinite-storage SavedData");
+            }
+
+            AEKey key;
+            try {
+                key = AEKey.fromTagGeneric(registries, encodedKey);
+            } catch (RuntimeException e) {
+                throw new IllegalArgumentException("Infinite-storage entry contains an invalid AEKey", e);
             }
             boolean hasLong = entry.contains(TAG_AMOUNT_LONG, Tag.TAG_LONG);
             boolean hasWide = entry.contains(TAG_AMOUNT_WIDE, Tag.TAG_BYTE_ARRAY);
@@ -866,10 +944,20 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
                 }
                 amount = HugeAmount.of(value);
             }
-            if (parsedAmounts.putIfAbsent(key, amount) != null) {
-                throw new IllegalArgumentException("Duplicate AEKey in infinite-storage SavedData");
+            if (key == null) {
+                throw new IllegalArgumentException("Infinite-storage entry contains an undecodable AEKey");
             }
-            parsedKeys.put(key, encodedKey.copy());
+            if (!isResolved(key)) {
+                parsedOrphanedEntries.put(
+                    keyFingerprint,
+                    new OrphanedStack(encodedKey.copy(), amount)
+                );
+            } else {
+                if (parsedAmounts.putIfAbsent(key, amount) != null) {
+                    throw new IllegalArgumentException("Duplicate AEKey in infinite-storage SavedData");
+                }
+                parsedKeys.put(key, encodedKey.copy());
+            }
         }
 
         Set<UUID> receiptIds = new HashSet<>();
@@ -909,6 +997,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         return new ParsedData(
             Map.copyOf(parsedAmounts),
             Map.copyOf(parsedKeys),
+            Map.copyOf(parsedOrphanedEntries),
             Set.copyOf(legacyReceipts),
             Map.copyOf(verifiedReceipts),
             tag.getLong(TAG_REVISION),
@@ -930,6 +1019,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
         data.encodedKeys().forEach((key, encoded) -> keys.add(
             key.getId() + "=" + ECOStorageKeyHash.stableFingerprint(encoded)
         ));
+        data.orphanedEntries().forEach((fingerprint, ignored) -> keys.add("orphaned=" + fingerprint));
         keys.sort(String::compareTo);
         return keys.toString();
     }
@@ -959,12 +1049,14 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
                 result.put(ECOStorageKeyHash.stableFingerprint(encoded), amount);
             }
         });
+        data.orphanedEntries().forEach((fingerprint, entry) -> result.put(fingerprint, entry.amount()));
         return result;
     }
 
     private static Set<String> canonicalKeys(ParsedData data) {
         Set<String> result = new HashSet<>();
         data.encodedKeys().values().forEach(encoded -> result.add(ECOStorageKeyHash.stableFingerprint(encoded)));
+        result.addAll(data.orphanedEntries().keySet());
         return result;
     }
 
@@ -975,6 +1067,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
     private record ParsedData(
         Map<AEKey, HugeAmount> amounts,
         Map<AEKey, CompoundTag> encodedKeys,
+        Map<String, OrphanedStack> orphanedEntries,
         Set<UUID> legacyTransferReceipts,
         Map<UUID, String> transferReceipts,
         long revision,

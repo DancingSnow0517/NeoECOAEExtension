@@ -249,6 +249,7 @@
   "gui.neoecoae.storage.status.domain_loading": "Loading storage data",
   "gui.neoecoae.storage.status.domain_migrating_matrices": "Migrating matrices",
   "gui.neoecoae.storage.status.domain_migrating_v1": "Migrating V1 storage",
+  "gui.neoecoae.storage.status.domain_orphaned": "%d entries waiting for missing mods",
   "gui.neoecoae.storage.status.domain_quarantined": "Storage quarantined",
   "gui.neoecoae.storage.status.domain_unavailable": "Storage unavailable",
   "gui.neoecoae.storage.status.full": "%s capacity full",

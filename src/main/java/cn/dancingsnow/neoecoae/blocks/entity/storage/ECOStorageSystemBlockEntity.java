@@ -392,9 +392,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             case QUARANTINED -> Component.translatable("gui.neoecoae.storage.status.domain_quarantined")
                 .append(engine.getFailureReason().map(reason -> ": " + reason).orElse(""));
             case CLOSED -> Component.translatable("gui.neoecoae.storage.status.domain_closed");
-            case READY -> hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
-                ? Component.translatable("gui.neoecoae.storage.status.domain_migrating_matrices")
-                : Component.empty();
+            case READY -> engine.hasOrphanedEntries()
+                ? Component.translatable(
+                    "gui.neoecoae.storage.status.domain_orphaned",
+                    engine.getOrphanedTypes()
+                )
+                : hostMode == ECOStorageHostMode.MIGRATING_TO_INFINITE
+                    ? Component.translatable("gui.neoecoae.storage.status.domain_migrating_matrices")
+                    : Component.empty();
         };
     }
 
@@ -1182,6 +1187,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         }
         if (!engine.isHealthy()) {
             return RestorePlan.blocked("infinite storage domain is degraded and requires recovery");
+        }
+        if (engine.hasOrphanedEntries()) {
+            return RestorePlan.blocked("infinite storage contains entries from missing mods");
         }
         if (engine.isEmpty()) {
             return RestorePlan.allowed(List.of());

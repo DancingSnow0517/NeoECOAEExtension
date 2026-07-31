@@ -80,6 +80,7 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
     private final Path transactionLedgerPath;
     private final Path domainMarkerPath;
     private final Map<AEKey, HugeAmount> amounts = new HashMap<>();
+    private final Map<String, OrphanedStack> orphanedEntries = new HashMap<>();
     private final Map<AEKey, Integer> keyShards = new HashMap<>();
     private final List<Set<AEKey>> keysByShard = createShardKeySets();
     private final KeyCounter visibleStacks = new KeyCounter();
@@ -195,6 +196,8 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
     private void applyLoadResult(LoadResult result) {
         amounts.clear();
         amounts.putAll(result.amounts());
+        orphanedEntries.clear();
+        orphanedEntries.putAll(copyOrphanedEntries(result.orphanedEntries()));
         revision = result.revision();
         System.arraycopy(result.shardRevisions(), 0, shardRevisions, 0, SHARD_COUNT);
         dirtyShards.clear();
@@ -381,7 +384,7 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
 
     @Override
     public synchronized boolean isEmpty() {
-        return !loaded || amounts.isEmpty();
+        return !loaded || amounts.isEmpty() && orphanedEntries.isEmpty();
     }
 
     @Override
@@ -391,7 +394,7 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
 
     @Override
     public synchronized HugeAmount getStoredAmount() {
-        return loaded ? storedAmount : HugeAmount.ZERO;
+        return loaded ? storedAmount.add(getOrphanedAmount()) : HugeAmount.ZERO;
     }
 
     @Override
@@ -431,6 +434,28 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
         hugeStacksSnapshot = List.copyOf(snapshot);
         hugeStacksSnapshotDirty = false;
         return hugeStacksSnapshot;
+    }
+
+    @Override
+    public synchronized Collection<OrphanedStack> getOrphanedStacks() {
+        return loaded ? List.copyOf(orphanedEntries.values()) : List.of();
+    }
+
+    @Override
+    public synchronized int getOrphanedTypes() {
+        return loaded ? orphanedEntries.size() : 0;
+    }
+
+    @Override
+    public synchronized HugeAmount getOrphanedAmount() {
+        if (!loaded) {
+            return HugeAmount.ZERO;
+        }
+        HugeAmount total = HugeAmount.ZERO;
+        for (OrphanedStack entry : orphanedEntries.values()) {
+            total = total.add(entry.amount());
+        }
+        return total;
     }
 
     @Override
@@ -815,17 +840,24 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
         receipts.addAll(result.persistedTransactions());
         return new LegacyV1Snapshot(
             Map.copyOf(result.amounts()),
+            copyOrphanedEntries(result.orphanedEntries()),
             Set.copyOf(receipts),
             result.revision()
         );
     }
 
-    record LegacyV1Snapshot(Map<AEKey, HugeAmount> amounts, Set<UUID> receipts, long revision) {
+    record LegacyV1Snapshot(
+        Map<AEKey, HugeAmount> amounts,
+        Map<String, OrphanedStack> orphanedEntries,
+        Set<UUID> receipts,
+        long revision
+    ) {
     }
 
     /** Immutable snapshot of loaded state; applied to the engine on the server thread. */
     private record LoadResult(
         Map<AEKey, HugeAmount> amounts,
+        Map<String, OrphanedStack> orphanedEntries,
         long revision,
         long[] shardRevisions,
         Set<Integer> dirtyShards,
@@ -849,8 +881,11 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
         private final Path domainMarkerPath;
         private final boolean strictMigration;
         private final Map<AEKey, HugeAmount> amounts = new HashMap<>();
+        private final Map<String, OrphanedStack> orphanedEntries = new HashMap<>();
         private final Map<AEKey, Long> loadedKeyRevisions = new HashMap<>();
         private final Map<AEKey, Integer> loadedKeySourceShards = new HashMap<>();
+        private final Map<String, Long> loadedOrphanedKeyRevisions = new HashMap<>();
+        private final Map<String, Integer> loadedOrphanedKeySourceShards = new HashMap<>();
         private final long[] shardRevisions = new long[SHARD_COUNT];
         private final Set<Integer> dirtyShards = new HashSet<>();
         private final Set<UUID> committedTransactions = new HashSet<>();
@@ -894,9 +929,11 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
                 return toLoadResult();
             }
             Map<AEKey, HugeAmount> checkpointAmounts = new HashMap<>(amounts);
+            Map<String, OrphanedStack> checkpointOrphanedEntries = copyOrphanedEntries(orphanedEntries);
             replayWal();
             if (degraded) {
                 amounts.clear(); amounts.putAll(checkpointAmounts); dirtyShards.clear();
+                orphanedEntries.clear(); orphanedEntries.putAll(checkpointOrphanedEntries);
                 return toLoadResult();
             }
             Set<Integer> recoveredDirtyShards = new HashSet<>(dirtyShards);
@@ -910,7 +947,7 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
         }
 
         private LoadResult toLoadResult() {
-            return new LoadResult(new HashMap<>(amounts), revision, shardRevisions.clone(),
+            return new LoadResult(new HashMap<>(amounts), copyOrphanedEntries(orphanedEntries), revision, shardRevisions.clone(),
                 new HashSet<>(dirtyShards), new HashSet<>(committedTransactions),
                 new HashSet<>(persistedTransactions), new ArrayList<>(sealedWalSegments),
                 nextWalSegmentId, degraded, persistenceFailure);
@@ -980,15 +1017,25 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
                 ListTag entries = tag.getList("entries", Tag.TAG_COMPOUND);
                 for (int i = 0; i < entries.size(); i++) {
                     CompoundTag e = entries.getCompound(i);
-                    AEKey key = AEKey.fromTagGeneric(registries, e.getCompound("key"));
+                    CompoundTag encodedKey = e.getCompound("key");
+                    AEKey key = AEKey.fromTagGeneric(registries, encodedKey);
                     HugeAmount amt = HugeAmount.read(e.getCompound("amount"));
-                    if (strictMigration && !isResolvedLegacyKey(key)) {
-                        throw new IOException("Unknown AE key in ECO infinite storage shard " + path);
-                    }
                     if (strictMigration && amt.isZero()) {
                         throw new IOException("Zero amount in ECO infinite storage shard " + path);
                     }
-                    if (key != null && !amt.isZero()) {
+                    if (key == null) {
+                        if (strictMigration) {
+                            throw new IOException("Undecodable AE key in ECO infinite storage shard " + path);
+                        }
+                        continue;
+                    }
+                    if (!isResolvedLegacyKey(key)) {
+                        if (!amt.isZero()) {
+                            putOrphanedEntry(encodedKey, amt, shardRev, shard, hashVer);
+                        }
+                        continue;
+                    }
+                    if (!amt.isZero()) {
                         int targetShard = shardFor(key);
                         if (targetShard != shard || hashVer < ECOStorageKeyHash.VERSION) { dirtyShards.add(shard); dirtyShards.add(targetShard); }
                         Long prevRev = loadedKeyRevisions.get(key);
@@ -1008,6 +1055,32 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
         }
 
         private int shardFor(AEKey key) { return ECOStorageKeyHash.shardFor(registries, key, SHARD_COUNT); }
+
+        private void putOrphanedEntry(
+            CompoundTag encodedKey,
+            HugeAmount amount,
+            long shardRevision,
+            int sourceShard,
+            int hashVersion
+        ) throws IOException {
+            String fingerprint = ECOStorageKeyHash.stableFingerprint(encodedKey);
+            int targetShard = ECOStorageKeyHash.shardForEncodedKey(encodedKey, SHARD_COUNT);
+            if (targetShard != sourceShard || hashVersion < ECOStorageKeyHash.VERSION) {
+                dirtyShards.add(sourceShard);
+                dirtyShards.add(targetShard);
+            }
+            Long previousRevision = loadedOrphanedKeyRevisions.get(fingerprint);
+            int previousSource = loadedOrphanedKeySourceShards.getOrDefault(fingerprint, -1);
+            boolean currentIsTarget = targetShard == sourceShard;
+            boolean previousIsTarget = targetShard == previousSource;
+            if (previousRevision == null
+                    || currentIsTarget && !previousIsTarget
+                    || currentIsTarget == previousIsTarget && shardRevision > previousRevision) {
+                orphanedEntries.put(fingerprint, new OrphanedStack(encodedKey.copy(), amount));
+                loadedOrphanedKeyRevisions.put(fingerprint, shardRevision);
+                loadedOrphanedKeySourceShards.put(fingerprint, sourceShard);
+            }
+        }
         // LOADER_WAL_PLACEHOLDER
 
         private void replayWal() {
@@ -1096,24 +1169,30 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
                 byte[] keyBytes = in.readNBytes(keyLen);
                 CompoundTag keyTag; try (var ki = new DataInputStream(new ByteArrayInputStream(keyBytes))) { keyTag = NbtIo.read(ki, NbtAccounter.unlimitedHeap()); }
                 AEKey key = AEKey.fromTagGeneric(registries, keyTag);
+                if (key == null) {
+                    throw new IOException("Undecodable AE key in ECO infinite storage WAL");
+                }
                 int deltaLen = in.readInt();
                 if (deltaLen <= 0 || deltaLen > MAX_WAL_RECORD_BYTES || deltaLen > in.available()) throw new IOException("Invalid ECO infinite storage WAL delta length " + deltaLen);
                 byte[] deltaBytes = in.readNBytes(deltaLen);
                 if (in.available() != 0) throw new IOException("Trailing bytes in ECO infinite storage WAL record");
-                if (!isResolvedLegacyKey(key)) throw new IOException("Unknown AE key in ECO infinite storage WAL");
                 BigInteger delta = new BigInteger(deltaBytes);
                 if (strictMigration && delta.signum() == 0) {
                     throw new IOException("Zero delta in ECO infinite storage WAL");
                 }
-                return new WalRecord(recordRevision, shardFor(key), key, delta, txId);
+                int shard = isResolvedLegacyKey(key)
+                    ? shardFor(key)
+                    : ECOStorageKeyHash.shardForEncodedKey(keyTag, SHARD_COUNT);
+                return new WalRecord(recordRevision, shard, key, keyTag.copy(), delta, txId);
             } catch (EOFException e) { throw new IOException("Truncated ECO infinite storage binary WAL record", e); }
         }
 
         @Nullable private WalRecord decodeLegacyWalRecord(CompoundTag tag) throws IOException {
-            AEKey key = AEKey.fromTagGeneric(registries, tag.getCompound("key"));
-            if (!isResolvedLegacyKey(key)) {
+            CompoundTag encodedKey = tag.getCompound("key");
+            AEKey key = AEKey.fromTagGeneric(registries, encodedKey);
+            if (key == null) {
                 if (strictMigration) {
-                    throw new IOException("Unknown AE key in legacy ECO infinite storage WAL");
+                    throw new IOException("Undecodable AE key in legacy ECO infinite storage WAL");
                 }
                 return null;
             }
@@ -1126,7 +1205,10 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
             if (strictMigration && delta.signum() == 0) {
                 throw new IOException("Zero delta in legacy ECO infinite storage WAL");
             }
-            return new WalRecord(recordRevision, shardFor(key), key, delta, txId);
+            int shard = isResolvedLegacyKey(key)
+                ? shardFor(key)
+                : ECOStorageKeyHash.shardForEncodedKey(encodedKey, SHARD_COUNT);
+            return new WalRecord(recordRevision, shard, key, encodedKey.copy(), delta, txId);
         }
 
         private void validateWalDomain(CompoundTag tag) throws IOException {
@@ -1136,7 +1218,10 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
 
         private void replayWalRecord(WalRecord record) throws IOException {
             if (strictMigration && record.transactionId() != null) {
-                LegacyTransactionRecord current = new LegacyTransactionRecord(record.key(), record.delta());
+                LegacyTransactionRecord current = new LegacyTransactionRecord(
+                    ECOStorageKeyHash.stableFingerprint(record.encodedKey()),
+                    record.delta()
+                );
                 LegacyTransactionRecord previous = migrationTransactions.putIfAbsent(record.transactionId(), current);
                 if (previous != null) {
                     if (!previous.equals(current)) {
@@ -1149,16 +1234,31 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
                     return;
                 }
             }
-            if (!isWalRecordCovered(record.revision(), shardRevisions[record.shard()], loadedKeyRevisions.getOrDefault(record.key(), 0L)))
-                applyDelta(record.key(), record.delta());
+            long loadedKeyRevision = isResolvedLegacyKey(record.key())
+                ? loadedKeyRevisions.getOrDefault(record.key(), 0L)
+                : loadedOrphanedKeyRevisions.getOrDefault(
+                    ECOStorageKeyHash.stableFingerprint(record.encodedKey()),
+                    0L
+                );
+            if (!isWalRecordCovered(record.revision(), shardRevisions[record.shard()], loadedKeyRevision)) {
+                applyDelta(record);
+            }
             if (record.transactionId() != null) committedTransactions.add(record.transactionId());
             revision = Math.max(revision, record.revision());
         }
 
-        private record LegacyTransactionRecord(AEKey key, BigInteger delta) {
+        private record LegacyTransactionRecord(String keyFingerprint, BigInteger delta) {
         }
 
-        private void applyDelta(AEKey key, BigInteger delta) throws IOException {
+        private void applyDelta(WalRecord record) throws IOException {
+            if (!isResolvedLegacyKey(record.key())) {
+                applyOrphanedDelta(record.encodedKey(), record.delta(), record.shard());
+                return;
+            }
+            applyResolvedDelta(record.key(), record.delta());
+        }
+
+        private void applyResolvedDelta(AEKey key, BigInteger delta) throws IOException {
             if (delta.signum() == 0) return;
             HugeAmount current = amounts.getOrDefault(key, HugeAmount.ZERO);
             BigInteger rawNext = current.toBigInteger().add(delta);
@@ -1168,6 +1268,29 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
             HugeAmount next = HugeAmount.of(rawNext.max(BigInteger.ZERO));
             if (next.isZero()) amounts.remove(key); else amounts.put(key, next);
             if (next.compareTo(current) != 0) dirtyShards.add(shardFor(key));
+        }
+
+        private void applyOrphanedDelta(CompoundTag encodedKey, BigInteger delta, int shard) throws IOException {
+            if (delta.signum() == 0) {
+                return;
+            }
+            String fingerprint = ECOStorageKeyHash.stableFingerprint(encodedKey);
+            HugeAmount current = orphanedEntries.containsKey(fingerprint)
+                ? orphanedEntries.get(fingerprint).amount()
+                : HugeAmount.ZERO;
+            BigInteger rawNext = current.toBigInteger().add(delta);
+            if (strictMigration && rawNext.signum() < 0) {
+                throw new IOException("V1 WAL would make an orphaned infinite-storage amount negative");
+            }
+            HugeAmount next = HugeAmount.of(rawNext.max(BigInteger.ZERO));
+            if (next.isZero()) {
+                orphanedEntries.remove(fingerprint);
+            } else {
+                orphanedEntries.put(fingerprint, new OrphanedStack(encodedKey.copy(), next));
+            }
+            if (next.compareTo(current) != 0) {
+                dirtyShards.add(shard);
+            }
         }
 
         private void repairWalTail(Path path, long validLength) {
@@ -1194,6 +1317,14 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
                 }
             }
         }
+    }
+
+    private static Map<String, OrphanedStack> copyOrphanedEntries(Map<String, OrphanedStack> source) {
+        Map<String, OrphanedStack> copy = new HashMap<>();
+        source.forEach((fingerprint, entry) ->
+            copy.put(fingerprint, new OrphanedStack(entry.encodedKey().copy(), entry.amount()))
+        );
+        return copy;
     }
 
 
@@ -1441,7 +1572,8 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
         @Nullable UUID transactionId,
         long recordRevision
     ) {
-        return new WalRecord(recordRevision, shardFor(key), key, delta, transactionId);
+        CompoundTag encodedKey = key.toTagGeneric(registries);
+        return new WalRecord(recordRevision, shardFor(key), key, encodedKey, delta, transactionId);
     }
 
     private void writeWalRecords(List<WalRecord> records) {
@@ -1849,6 +1981,7 @@ final class FileBackedInfiniteStorageEngine implements ECOInfiniteStorageEngine 
         long revision,
         int shard,
         AEKey key,
+        CompoundTag encodedKey,
         BigInteger delta,
         @Nullable UUID transactionId
     ) {}

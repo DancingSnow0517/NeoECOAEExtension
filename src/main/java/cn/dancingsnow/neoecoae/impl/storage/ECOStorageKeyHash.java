@@ -20,7 +20,12 @@ public final class ECOStorageKeyHash {
     private ECOStorageKeyHash() {}
 
     public static int shardFor(HolderLookup.Provider registries, AEKey key, int shardCount) {
-        return Math.floorMod(stableHash(registries, key), shardCount);
+        return shardForEncodedKey(key.toTagGeneric(registries), shardCount);
+    }
+
+    /** Uses the same hash as {@link #shardFor(HolderLookup.Provider, AEKey, int)} for an unresolved raw key. */
+    public static int shardForEncodedKey(Tag encodedKey, int shardCount) {
+        return Math.floorMod(stableHash(encodedKey), shardCount);
     }
 
     /** Returns a canonical fingerprint whose result does not depend on compound-tag insertion order. */
@@ -42,6 +47,12 @@ public final class ECOStorageKeyHash {
     private static int stableHash(HolderLookup.Provider registries, AEKey key) {
         CRC32 crc = new CRC32();
         updateTag(crc, key.toTagGeneric(registries));
+        return (int) crc.getValue();
+    }
+
+    private static int stableHash(Tag tag) {
+        CRC32 crc = new CRC32();
+        updateTag(crc, tag);
         return (int) crc.getValue();
     }
 
