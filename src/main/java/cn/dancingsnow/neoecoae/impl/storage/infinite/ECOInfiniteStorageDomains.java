@@ -633,6 +633,18 @@ public final class ECOInfiniteStorageDomains {
         }
 
         @Override
+        public boolean hasUnacknowledgedOrphanedEntries() {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine != null && engine.hasUnacknowledgedOrphanedEntries();
+        }
+
+        @Override
+        public boolean acknowledgeOrphanedEntries() {
+            SavedDataInfiniteStorageEngine engine = current();
+            return engine != null && engine.acknowledgeOrphanedEntries();
+        }
+
+        @Override
         public void flushAndAwait() {
             SavedDataInfiniteStorageEngine engine = current();
             if (engine != null) {

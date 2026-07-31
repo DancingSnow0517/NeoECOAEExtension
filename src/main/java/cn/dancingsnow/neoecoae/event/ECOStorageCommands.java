@@ -31,6 +31,12 @@ public final class ECOStorageCommands {
                         .then(Commands.argument("uuid", UuidArgument.uuid())
                             .suggests(ECOStorageCommands::suggestDomainIds)
                             .executes(context -> migrate(context.getSource(),
+                                UuidArgument.getUuid(context, "uuid")))))
+                    .then(Commands.literal("ignore-missing")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("uuid", UuidArgument.uuid())
+                            .suggests(ECOStorageCommands::suggestDomainIds)
+                            .executes(context -> ignoreMissing(context.getSource(),
                                 UuidArgument.getUuid(context, "uuid"))))))
         );
     }
@@ -46,6 +52,28 @@ public final class ECOStorageCommands {
             "V1 archive migration failed: " + engine.getFailureReason().orElse(engine.getState().name())
         ));
         return 0;
+    }
+
+    private static int ignoreMissing(CommandSourceStack source, UUID domainId) {
+        var engine = ECOInfiniteStorageDomains.openExisting(source.getLevel(), domainId);
+        if (engine.getState() != ECOInfiniteDomainState.READY) {
+            source.sendFailure(Component.literal(
+                "Infinite storage is not ready: " + engine.getFailureReason().orElse(engine.getState().name())
+            ));
+            return 0;
+        }
+        if (!engine.hasOrphanedEntries()) {
+            source.sendFailure(Component.literal("No missing-mod storage entries exist for domain " + domainId));
+            return 0;
+        }
+        if (!engine.acknowledgeOrphanedEntries()) {
+            source.sendFailure(Component.literal("Unable to acknowledge missing-mod entries for domain " + domainId));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(
+            "Missing-mod entries are now ignored for domain " + domainId + "; data remains preserved"
+        ), true);
+        return 1;
     }
 
     private static CompletableFuture<Suggestions> suggestDomainIds(

@@ -392,7 +392,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             case QUARANTINED -> Component.translatable("gui.neoecoae.storage.status.domain_quarantined")
                 .append(engine.getFailureReason().map(reason -> ": " + reason).orElse(""));
             case CLOSED -> Component.translatable("gui.neoecoae.storage.status.domain_closed");
-            case READY -> engine.hasOrphanedEntries()
+            case READY -> engine.hasUnacknowledgedOrphanedEntries()
                 ? Component.translatable(
                     "gui.neoecoae.storage.status.domain_orphaned",
                     engine.getOrphanedTypes()
