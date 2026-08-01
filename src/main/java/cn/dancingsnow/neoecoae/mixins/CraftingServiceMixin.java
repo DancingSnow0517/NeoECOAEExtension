@@ -27,6 +27,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
+import cn.dancingsnow.neoecoae.integration.ae2vm.AE2VMPlanningBridge;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.expression.Definition;
@@ -87,7 +88,8 @@ public abstract class CraftingServiceMixin {
     @Unique
     private final Set<NEComputationCluster> neoecoae$computationClusters = new HashSet<>();
 
-    @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, order = 500)
+    // Run before AE2-VM's order=100 injection so ECO owns routing for its computation hosts.
+    @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, order = 50)
     private void neoecoae$beginPlanningOnECOHost(
         Level level,
         ICraftingSimulationRequester simRequester,
@@ -113,31 +115,9 @@ public abstract class CraftingServiceMixin {
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.NO_ECO_HOST);
             return;
         }
-        var snapshot = ECOAE2SnapshotFactory.capture(
-            this.grid,
-            simRequester,
-            what,
-            amount,
-            strategy,
-            this.lastProcessedCraftableChangeTick
-        );
-        if (snapshot.isEmpty()) {
-            lease.get().close();
-            ECOPlanningFailureDiagnostics.logFailure(
-                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
-                ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
-                what,
-                amount,
-                strategy,
-                "snapshot_factory_returned_empty"
-            );
-            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
-            return;
-        }
-
         // AE2 constructs its calculation on the server thread because the constructor
         // snapshots mutable network state. Keep that object ready before dispatching
-        // ECO's independent planning worker.
+        // either optional planner worker.
         CraftingCalculation fallback;
         try {
             fallback = new CraftingCalculation(
@@ -161,13 +141,44 @@ public abstract class CraftingServiceMixin {
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FALLBACK_SETUP_FAILED);
             return;
         }
-        cir.setReturnValue(ECOPlanningService.submit(
-            snapshot.get(),
+        var snapshot = ECOAE2SnapshotFactory.capture(
+            this.grid,
+            simRequester,
+            what,
+            amount,
             strategy,
-            lease.get(),
-            noticeTarget,
-            fallback::run
-        ));
+            this.lastProcessedCraftableChangeTick
+        );
+        if (snapshot.isEmpty()) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                what,
+                amount,
+                strategy,
+                "snapshot_factory_returned_empty"
+            );
+            if (!AE2VMPlanningBridge.isEnabled()) {
+                lease.get().close();
+                ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
+                return;
+            }
+            var nativePlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () ->
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return fallback.run();
+                    } finally {
+                        lease.get().close();
+                    }
+                });
+            cir.setReturnValue(AE2VMPlanningBridge.planOrFallback(
+                this.grid, simRequester, what, amount, strategy, lease.get(), nativePlanning));
+            return;
+        }
+        var ecoPlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () -> ECOPlanningService.submit(
+            snapshot.get(), strategy, lease.get(), noticeTarget, fallback::run);
+        cir.setReturnValue(AE2VMPlanningBridge.planOrFallback(
+            this.grid, simRequester, what, amount, strategy, lease.get(), ecoPlanning));
     }
 
     @Inject(

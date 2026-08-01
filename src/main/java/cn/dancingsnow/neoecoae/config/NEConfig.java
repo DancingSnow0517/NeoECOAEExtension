@@ -149,6 +149,14 @@ public class NEConfig {
             "Debug only: this approximately doubles planning cost for supported requests.")
         .define("ecoPlannerDifferentialVerification", false);
 
+    private static final ModConfigSpec.BooleanValue USE_AE2_VM_PLANNING = BUILDER
+        .comment(
+            "安装 AE2-VM 时，优先使用其虚拟机任务规划器为 ECO 合成主机生成计划。",
+            "关闭后始终使用 ECO 自己的任务规划器；未安装 AE2-VM 时此选项不生效。",
+            "Prefer AE2-VM's virtual-machine planner for ECO crafting hosts when AE2-VM is installed.",
+            "When disabled, ECO always uses its own planner. This option has no effect without AE2-VM.")
+        .define("useAE2VMPlanning", true);
+
     private static final ModConfigSpec.BooleanValue DEBUG_ECO_PLANNER = BUILDER
         .comment(
             "记录 ECO 任务规划失败的阶段、具体原因、请求物品、求解器状态和回退信息。",
@@ -245,6 +253,7 @@ public class NEConfig {
     public static boolean debugEcoFastPath;
     public static boolean debugECOHostOverdrive;
     public static boolean ecoPlannerDifferentialVerification;
+    public static boolean useAE2VMPlanning = true;
     public static boolean debugECOPlanner;
     public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
     public static int ecoCpuSlowPathPushTickLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT;
@@ -272,6 +281,7 @@ public class NEConfig {
         COMPUTATION_PARALLEL_CORE_POWER.get();
         debugECOHostOverdrive = DEBUG_ECO_HOST_OVERDRIVE.get();
         ecoPlannerDifferentialVerification = ECO_PLANNER_DIFFERENTIAL_VERIFICATION.get();
+        useAE2VMPlanning = USE_AE2_VM_PLANNING.get();
         boolean wasDebugECOPlanner = debugECOPlanner;
         debugECOPlanner = DEBUG_ECO_PLANNER.get();
         if (debugECOPlanner && !wasDebugECOPlanner) {

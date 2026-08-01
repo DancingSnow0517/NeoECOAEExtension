@@ -78,6 +78,12 @@ public class ConfigLangs {
             "Log the exact ECO planning failure stage, reason, request, solver result and fallback context.\n" +
                 "Messages are deduplicated and rate-limited. Enable only while diagnosing planning issues."
         );
+        provider.add("neoecoae.configuration.useAE2VMPlanning", "Use AE2-VM Planning");
+        provider.add(
+            "neoecoae.configuration.useAE2VMPlanning.tooltip",
+            "Prefer AE2-VM's task planner for ECO crafting hosts when AE2-VM is installed.\n" +
+                "Disable this option to always use ECO's own planner."
+        );
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
