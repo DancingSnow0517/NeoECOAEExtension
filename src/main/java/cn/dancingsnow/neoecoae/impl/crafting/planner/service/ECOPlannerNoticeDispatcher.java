@@ -7,7 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
-/** Delivers a planning-path status to the requester without broadcasting it to unrelated players. */
+/** Delivers planner status only to the player viewing the affected crafting menu. */
 public final class ECOPlannerNoticeDispatcher {
     private ECOPlannerNoticeDispatcher() {
     }

@@ -28,11 +28,7 @@ public record ECOPlanCandidate<R>(
     public long totalExecutions() {
         long total = 0;
         for (long count : executions.values()) {
-            try {
-                total = Math.addExact(total, count);
-            } catch (ArithmeticException ignored) {
-                return Long.MAX_VALUE;
-            }
+            total = Math.addExact(total, count);
         }
         return total;
     }

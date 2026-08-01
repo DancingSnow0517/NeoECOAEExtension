@@ -130,6 +130,9 @@ public class GuiLangs {
                 provider.add("gui.neoecoae.host.computation.max_vcpu", "Max vCPU");
                 provider.add("gui.neoecoae.host.computation.accelerators", "Accelerators");
                 provider.add("gui.neoecoae.host.computation.free_memory", "Free CPU Memory");
+                provider.add("gui.neoecoae.host.computation.fast_planning", "ECO Fast Planning");
+                provider.add("gui.neoecoae.host.computation.fast_planning.enabled", "Enabled");
+                provider.add("gui.neoecoae.host.computation.fast_planning.disabled", "Disabled");
                 provider.add("gui.neoecoae.host.computation.cpu_pool", "Crafting CPU Pool");
                 provider.add("gui.neoecoae.host.computation.cpu_pool_hint",
                                 "Threads expose virtual crafting CPUs to the AE network.");

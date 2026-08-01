@@ -72,6 +72,12 @@ public class ConfigLangs {
             "Log each pattern that does not use ECO FastPath, including the reason, and periodically log cache statistics.\n" +
                 "Messages are deduplicated and rate-limited. Enable only while diagnosing issues."
         );
+        provider.add("neoecoae.configuration.debugECOPlanner", "Debug ECO Planner");
+        provider.add(
+            "neoecoae.configuration.debugECOPlanner.tooltip",
+            "Log the exact ECO planning failure stage, reason, request, solver result and fallback context.\n" +
+                "Messages are deduplicated and rate-limited. Enable only while diagnosing planning issues."
+        );
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",

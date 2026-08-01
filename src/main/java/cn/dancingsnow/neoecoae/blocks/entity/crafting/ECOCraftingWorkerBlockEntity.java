@@ -12,6 +12,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -161,15 +164,28 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public boolean pushBatch(ECOBatchCraftingRequest request, ECOFastPathResult verifiedResult) {
         if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
             fastPathCache.recordDisabled();
+            ECOFastPathDiagnostics.logBatchFailure(request,
+                NEConfig.postCraftingEvent ? ECOFastPathFallbackReason.POST_CRAFTING_EVENT
+                    : ECOFastPathFallbackReason.FAST_PATH_DISABLED,
+                ECOFastPathStage.ELIGIBILITY, getBlockPos(), currentTick(),
+                "worker_gate enabled=" + NEConfig.ecoAe2FastPathEnabled
+                    + " postCraftingEvent=" + NEConfig.postCraftingEvent);
             return false;
         }
         if (cluster == null || cluster.getController() == null) {
+            ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.WORKER_REJECTED,
+                ECOFastPathStage.WORKER_ACCEPT, getBlockPos(), currentTick(),
+                "worker_has_no_active_cluster_or_controller");
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
         ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(request.batchSize());
         if (lane == null || getAvailableThreadSlots() <= 0 || getControllerAvailableThreadSlots(controller) <= 0) {
             fastPathCache.recordNoThreadReject();
+            ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.NO_THREAD_SLOT,
+                ECOFastPathStage.WORKER_ACCEPT, getBlockPos(), currentTick(),
+                "laneAvailable=" + (lane != null) + " workerSlots=" + getAvailableThreadSlots()
+                    + " controllerSlots=" + getControllerAvailableThreadSlots(controller));
             return false;
         }
 
@@ -190,6 +206,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
 
         if (craftingThreads.size() >= controller.getThreadCountPerWorker()) {
+            ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.NO_THREAD_SLOT,
+                ECOFastPathStage.WORKER_ACCEPT, getBlockPos(), currentTick(),
+                "all_existing_threads_rejected_and_thread_count_reached_limit="
+                    + controller.getThreadCountPerWorker());
             return false;
         }
 
@@ -198,13 +218,21 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
         setChanged();
         markForUpdate();
-        return thread.pushBatch(request, controller, verifiedResult, lane.index());
+        boolean accepted = thread.pushBatch(request, controller, verifiedResult, lane.index());
+        if (!accepted) {
+            ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.WORKER_REJECTED,
+                ECOFastPathStage.WORKER_ACCEPT, getBlockPos(), currentTick(),
+                "new_thread_rejected_batch lane=" + lane.index());
+        }
+        return accepted;
     }
 
     public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
         var key = execution.key();
         if (key == null) {
             fastPathCache.recordKeyBuildFailed();
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.KEY_BUILD_FAILED,
+                ECOFastPathStage.CACHE_LOOKUP, getBlockPos(), currentTick(), "execution_key_is_null");
             return null;
         }
         long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
@@ -214,10 +242,15 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         }
         if (result.isNegative()) {
             fastPathCache.recordFallbackSlowPath();
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.NEGATIVE_CACHE,
+                ECOFastPathStage.CACHE_LOOKUP, getBlockPos(), tick, "negative_cache_result");
             return null;
         }
         if (!result.matchesExecution(execution)) {
             fastPathCache.recordExpectedMismatch();
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.CACHE_ENTRY_MISMATCH,
+                ECOFastPathStage.CACHE_VERIFY, getBlockPos(), tick,
+                "cached_result_does_not_match_execution");
             return null;
         }
         return result;
@@ -225,6 +258,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public ECOCraftingFastPathCache getFastPathCache() {
         return fastPathCache;
+    }
+
+    private static long currentTick() {
+        return appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
     }
 
     public boolean isBusy() {

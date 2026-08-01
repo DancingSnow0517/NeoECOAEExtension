@@ -16,37 +16,34 @@ import java.util.function.IntSupplier;
 
 /** Compact host control for the persisted logical-network frequency. */
 public final class NetworkFrequencyButton {
-    private static final int BUTTON_WIDTH = 22;
-    private static final int BUTTON_HEIGHT = 16;
-
     private NetworkFrequencyButton() {
     }
 
-    public static Button create(IntSupplier frequency, IntConsumer adjust) {
+    public static Button create(IntSupplier frequency, IntConsumer adjust, int width, int height) {
         Button button = new Button()
-            .noText()
-            .setOnServerClick(event -> {
-                if (event.button == 0) {
-                    adjust.accept(1);
-                } else if (event.button == 1) {
-                    adjust.accept(-1);
-                }
-            });
+                .noText()
+                .setOnServerClick(event -> {
+                    if (event.button == 0) {
+                        adjust.accept(1);
+                    } else if (event.button == 1) {
+                        adjust.accept(-1);
+                    }
+                });
         button.buttonStyle(style -> style
-            .baseTexture(Sprites.RECT_RD)
-            .hoverTexture(Sprites.RECT_RD_LIGHT)
-            .pressedTexture(Sprites.RECT_RD_DARK));
+                .baseTexture(Sprites.RECT_RD)
+                .hoverTexture(Sprites.RECT_RD_LIGHT)
+                .pressedTexture(Sprites.RECT_RD_DARK));
         button.addClass("eco-host-frequency-button");
-        button.layout(layout -> layout.width(BUTTON_WIDTH).height(BUTTON_HEIGHT));
+        button.layout(layout -> layout.width(width).height(height));
 
         Label label = new Label();
         label.setText(frequencyText(frequency.getAsInt()));
         label.textStyle(style -> style
-            .adaptiveHeight(true)
-            .adaptiveWidth(true)
-            .textAlignHorizontal(Horizontal.CENTER)
-            .textShadow(false));
-        label.layout(layout -> layout.width(BUTTON_WIDTH).height(BUTTON_HEIGHT));
+                .adaptiveHeight(true)
+                .adaptiveWidth(true)
+                .textAlignHorizontal(Horizontal.CENTER)
+                .textShadow(false));
+        label.layout(layout -> layout.width(width).height(height));
         button.addChild(label);
 
         BindableValue<Integer> syncedFrequency = new BindableValue<>(frequency.getAsInt());
@@ -57,9 +54,8 @@ public final class NetworkFrequencyButton {
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             int selected = syncedFrequency.getValue() == null ? 0 : syncedFrequency.getValue();
             event.hoverTooltips = new HoverTooltips(List.of(
-                Component.translatable("gui.neoecoae.host.network.frequency", selected + 1),
-                Component.translatable("gui.neoecoae.host.network.frequency.tooltip")
-            ), null, null, null);
+                    Component.translatable("gui.neoecoae.host.network.frequency", selected + 1),
+                    Component.translatable("gui.neoecoae.host.network.frequency.tooltip")), null, null, null);
         });
         return button;
     }

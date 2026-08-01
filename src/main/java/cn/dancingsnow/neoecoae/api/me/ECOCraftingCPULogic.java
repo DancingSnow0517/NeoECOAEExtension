@@ -45,6 +45,9 @@ import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import cn.dancingsnow.neoecoae.integration.ae2lt.AE2LTBatchCraftingBridge;
@@ -526,8 +529,28 @@ public class ECOCraftingCPULogic {
             List<ECOCraftingPatternBusBlockEntity> patternBuses,
             IEnergyService energyService,
             double patternPower,
-            long taskRemaining) {
-        if (patternBuses.isEmpty() || !canAttemptBatchFastPath(execution) || taskRemaining <= 1) {
+        long taskRemaining) {
+        if (patternBuses.isEmpty()) {
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.NO_ECO_PATTERN_BUS,
+                ECOFastPathStage.ELIGIBILITY, cpu.getOwner().getBlockPos(),
+                TickHandler.instance().getCurrentTick(), "batch_attempt_has_no_eco_pattern_bus");
+            return 0;
+        }
+        if (!canAttemptBatchFastPath(execution)) {
+            ECOFastPathFallbackReason reason = execution.fallbackReason() != null
+                ? execution.fallbackReason()
+                : !NEConfig.ecoAe2FastPathEnabled
+                    ? ECOFastPathFallbackReason.FAST_PATH_DISABLED
+                    : NEConfig.postCraftingEvent
+                        ? ECOFastPathFallbackReason.POST_CRAFTING_EVENT
+                        : ECOFastPathFallbackReason.KEY_BUILD_FAILED;
+            ECOFastPathDiagnostics.logFailure(execution, reason, ECOFastPathStage.ELIGIBILITY,
+                cpu.getOwner().getBlockPos(), TickHandler.instance().getCurrentTick(),
+                "batch_gate_rejected eligible=" + execution.fastPathEligible()
+                    + " keyPresent=" + (execution.key() != null));
+            return 0;
+        }
+        if (taskRemaining <= 1) {
             return 0;
         }
 
@@ -553,6 +576,11 @@ public class ECOCraftingCPULogic {
             }
         }
         if (selectedPatternBus == null || selectedOffer == null) {
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.NO_BATCH_OFFER,
+                ECOFastPathStage.CACHE_LOOKUP, cpu.getOwner().getBlockPos(),
+                TickHandler.instance().getCurrentTick(),
+                "requested=" + requested + " patternBuses=" + patternBuses.size()
+                    + " no_worker_exposed_a_matching_verified_result");
             return 0;
         }
 
@@ -561,11 +589,30 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
-        batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
-        batchSize = controller.getCraftingCoolantCraftLimit(
-            5, controller.getCoolingRequirementForCurrentNetwork(), batchSize
+        int offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
+        int energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, offeredBatchSize);
+        if (energyBatchSize <= 1) {
+            selectedOffer.worker().getFastPathCache().recordCoolantReject();
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
+                ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
+                TickHandler.instance().getCurrentTick(),
+                "requested=" + requested + " offered=" + offeredBatchSize
+                    + " affordable=" + energyBatchSize + " patternPower=" + patternPower);
+            return 0;
+        }
+        int coolantBatchSize = controller.getCraftingCoolantCraftLimit(
+            5, controller.getCoolingRequirementForCurrentNetwork(), energyBatchSize
         );
+        int batchSize = Math.min(energyBatchSize, coolantBatchSize);
+        if (coolantBatchSize <= 1) {
+            selectedOffer.worker().getFastPathCache().recordCoolantReject();
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.COOLANT_LIMIT,
+                ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
+                TickHandler.instance().getCurrentTick(),
+                "requested=" + requested + " offered=" + offeredBatchSize
+                    + " energyLimit=" + energyBatchSize + " coolantLimit=" + coolantBatchSize);
+            return 0;
+        }
         if (batchSize <= 1) {
             return 0;
         }
@@ -575,6 +622,11 @@ public class ECOCraftingCPULogic {
                 extraCrafts);
         batchSize = Math.min(batchSize, availableExtraCrafts + 1);
         if (batchSize <= 1) {
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.INVENTORY_LIMIT,
+                ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
+                TickHandler.instance().getCurrentTick(),
+                "requested=" + requested + " resourceBatch=" + (extraCrafts + 1)
+                    + " availableExtraCrafts=" + availableExtraCrafts);
             return 0;
         }
 
@@ -584,9 +636,21 @@ public class ECOCraftingCPULogic {
         try {
             double requiredPower = patternPower * batchSize;
             if (!Double.isFinite(requiredPower)) {
+                ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
+                    ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "requiredPowerNotFinite=" + requiredPower + " batch=" + batchSize);
                 return 0;
             }
-            ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+            try {
+                ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
+            } catch (RuntimeException e) {
+                ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.INPUT_RESERVATION_FAILED,
+                    ECOFastPathStage.INPUT_RESERVATION, selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "batch=" + batchSize + " extraInputs=" + extraInputs + " error=" + e.getMessage());
+                throw e;
+            }
             extraInputsExtracted = true;
             var request = new ECOBatchCraftingRequest(
                     details,
@@ -597,6 +661,11 @@ public class ECOCraftingCPULogic {
                     execution.expectedContainerItems(),
                     job.link.getCraftingID());
             if (!selectedPatternBus.pushBatch(request, selectedOffer)) {
+                ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.PROVIDER_REJECTED,
+                    ECOFastPathStage.PROVIDER_DISPATCH, selectedPatternBus.getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "pattern_bus_or_network_cluster_returned_false worker="
+                        + selectedOffer.worker().getBlockPos().toShortString());
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
                 return -1;
             }
@@ -608,6 +677,10 @@ public class ECOCraftingCPULogic {
                 );
                 if (Double.isNaN(chargedPower) || chargedPower < requiredPower - 0.01D) {
                     selectedOffer.worker().getFastPathCache().recordException();
+                    ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ENERGY_LIMIT,
+                        ECOFastPathStage.ENERGY_CHARGE, selectedOffer.worker().getBlockPos(),
+                        TickHandler.instance().getCurrentTick(),
+                        "charged=" + chargedPower + " required=" + requiredPower);
                     LOGGER.error(
                         "ECO batch was accepted, but only {} of {} crafting energy was charged",
                         chargedPower,
@@ -616,6 +689,9 @@ public class ECOCraftingCPULogic {
                 }
             } catch (RuntimeException e) {
                 selectedOffer.worker().getFastPathCache().recordException();
+                ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ACCOUNTING_FAILED,
+                    ECOFastPathStage.ENERGY_CHARGE, selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(), "energy_service_exception=" + e.getMessage());
                 LOGGER.error("ECO batch was accepted, but its crafting energy could not be charged", e);
             }
             try {
@@ -624,11 +700,21 @@ public class ECOCraftingCPULogic {
                 }
             } catch (RuntimeException e) {
                 selectedOffer.worker().getFastPathCache().recordException();
+                ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ACCOUNTING_FAILED,
+                    ECOFastPathStage.ACCOUNTING, selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(), "record_pushed_pattern_exception=" + e.getMessage());
                 LOGGER.error("ECO batch was accepted, but its CPU accounting update failed", e);
             }
             return batchSize;
         } catch (RuntimeException e) {
             selectedOffer.worker().getFastPathCache().recordException();
+            ECOFastPathDiagnostics.logFailure(execution,
+                ownershipTransferred ? ECOFastPathFallbackReason.ACCOUNTING_FAILED
+                    : ECOFastPathFallbackReason.PROVIDER_REJECTED,
+                ownershipTransferred ? ECOFastPathStage.ACCOUNTING : ECOFastPathStage.PROVIDER_DISPATCH,
+                selectedOffer.worker().getBlockPos(), TickHandler.instance().getCurrentTick(),
+                "batch=" + batchSize + " ownershipTransferred=" + ownershipTransferred
+                    + " error=" + e.getMessage());
             if (ownershipTransferred) {
                 LOGGER.error("ECO batch failed after ownership transfer; accounting it as accepted", e);
                 return batchSize;

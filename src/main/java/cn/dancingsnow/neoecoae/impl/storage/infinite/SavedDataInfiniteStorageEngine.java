@@ -993,10 +993,7 @@ final class SavedDataInfiniteStorageEngine extends SavedData implements ECOInfin
                 }
                 amount = HugeAmount.of(value);
             }
-            if (key == null) {
-                throw new IllegalArgumentException("Infinite-storage entry contains an undecodable AEKey");
-            }
-            if (!isResolved(key)) {
+            if (key == null || !isResolved(key)) {
                 parsedOrphanedEntries.put(
                     keyFingerprint,
                     new OrphanedStack(encodedKey.copy(), amount)

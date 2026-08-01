@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.config;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -147,6 +148,14 @@ public class NEConfig {
             "Debug only: this approximately doubles planning cost for supported requests.")
         .define("ecoPlannerDifferentialVerification", false);
 
+    private static final ModConfigSpec.BooleanValue DEBUG_ECO_PLANNER = BUILDER
+        .comment(
+            "记录 ECO 任务规划失败的阶段、具体原因、请求物品、求解器状态和回退信息。",
+            "日志会去重并限频；仅建议在排查规划问题时临时开启。",
+            "Log the stage, reason, request, solver state and fallback details for ECO planning failures.",
+            "Messages are deduplicated and rate-limited; enable only while diagnosing planning issues.")
+        .define("debugECOPlanner", false);
+
     static {
         BUILDER.pop();
     }
@@ -220,6 +229,7 @@ public class NEConfig {
     public static boolean debugEcoFastPath;
     public static boolean debugECOHostOverdrive;
     public static boolean ecoPlannerDifferentialVerification;
+    public static boolean debugECOPlanner;
     public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
     public static int ecoFastPathCacheSize = 512;
 
@@ -245,6 +255,11 @@ public class NEConfig {
         COMPUTATION_PARALLEL_CORE_POWER.get();
         debugECOHostOverdrive = DEBUG_ECO_HOST_OVERDRIVE.get();
         ecoPlannerDifferentialVerification = ECO_PLANNER_DIFFERENTIAL_VERIFICATION.get();
+        boolean wasDebugECOPlanner = debugECOPlanner;
+        debugECOPlanner = DEBUG_ECO_PLANNER.get();
+        if (debugECOPlanner && !wasDebugECOPlanner) {
+            ECOPlanningFailureDiagnostics.clear();
+        }
         ecoAe2FastPathEnabled = ECO_AE2_FAST_PATH_ENABLED.get();
         boolean wasDebugEcoFastPath = debugEcoFastPath;
         debugEcoFastPath = DEBUG_ECO_FAST_PATH.get();

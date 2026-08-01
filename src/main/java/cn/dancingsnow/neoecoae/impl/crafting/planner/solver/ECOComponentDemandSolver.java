@@ -4,6 +4,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -45,10 +47,17 @@ public final class ECOComponentDemandSolver {
         long deadlineNanos
     ) {
         if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                problem.requested().keySet().stream().findFirst().orElse(null),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "component",
+                "deadline_before_start"
+            );
             return Optional.empty();
         }
         Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
-        Map<K, Long> bootstrapSupply = new LinkedHashMap<>(problem.inventory());
         problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
         Map<R, Long> executions = new LinkedHashMap<>();
         Set<K> expandableMaterials = findExpandableMaterials(graph);
@@ -61,7 +70,30 @@ public final class ECOComponentDemandSolver {
             Math.max(64L, (long) graph.materials().size() * 8L + graph.operations().size() * 4L));
         try {
             while (!queue.isEmpty()) {
-                if (ECOSolveBudget.shouldStop(deadlineNanos) || ++expansions > maxExpansions) {
+                if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+                    ECOPlanningFailureDiagnostics.logFailure(
+                        ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                        ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                        materialKey(problem),
+                        0L,
+                        "component",
+                        "termination=" + (Thread.currentThread().isInterrupted() ? "interrupted" : "deadline")
+                            + " expansions=" + expansions + " maxExpansions=" + maxExpansions
+                            + " queueSize=" + queue.size()
+                    );
+                    return Optional.empty();
+                }
+                if (++expansions > maxExpansions) {
+                    ECOPlanningFailureDiagnostics.logFailure(
+                        ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                        ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                        materialKey(problem),
+                        0L,
+                        "component",
+                        "termination=component_limit expansions=" + expansions
+                            + " maxExpansions=" + maxExpansions
+                            + " queueSize=" + queue.size()
+                    );
                     return Optional.empty();
                 }
                 K material = queue.removeFirst();
@@ -76,7 +108,7 @@ public final class ECOComponentDemandSolver {
                     deficit,
                     producers,
                     balances,
-                    bootstrapSupply,
+                    problem.requested(),
                     expandableMaterials,
                     deadlineNanos
                 );
@@ -84,16 +116,33 @@ public final class ECOComponentDemandSolver {
                     return Optional.empty();
                 }
                 if (producer == null) {
+                    ECOPlanningFailureDiagnostics.logFailure(
+                        ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                        ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
+                        material,
+                        deficit,
+                        "component",
+                        "no_startable_producer producerCount=" + producers.size()
+                            + " expansions=" + expansions
+                    );
                     continue;
                 }
                 long net = producer.netOutput(material);
                 if (net <= 0) {
+                    ECOPlanningFailureDiagnostics.logFailure(
+                        ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                        ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
+                        material,
+                        deficit,
+                        "component",
+                        "non_positive_net_output operation=" + producer.reference()
+                    );
                     continue;
                 }
                 long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
-                    material, producers, bootstrapSupply
+                    material, producers, balances, problem.requested()
                 );
-                long demand = bootstrapDeficit > 0L ? Math.min(deficit, bootstrapDeficit) : deficit;
+                long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
                 long batches = ECOPlannerMath.ceilDiv(demand, net);
                 executions.merge(producer.reference(), batches, Math::addExact);
                 producer.inputs().forEach((key, amount) -> {
@@ -104,13 +153,29 @@ public final class ECOComponentDemandSolver {
                     balances.merge(key, Math.multiplyExact(amount, batches), Math::addExact);
                     enqueueIfDeficient(key, balances, graph, queue, queued);
                 });
-                ECOCycleBootstrap.addPlannedProduction(producer, batches, bootstrapSupply);
             }
         } catch (ArithmeticException overflow) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                ECOPlannerFallbackReason.PLANNING_FAILURE,
+                materialKey(problem),
+                0L,
+                "component",
+                "arithmetic_overflow expansions=" + expansions,
+                overflow
+            );
             return Optional.empty();
         }
 
         if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED,
+                materialKey(problem),
+                0L,
+                "component",
+                "deadline_after_propagation expansions=" + expansions
+            );
             return Optional.empty();
         }
 
@@ -122,26 +187,26 @@ public final class ECOComponentDemandSolver {
         long deficit,
         List<ECOPlanningOperation<K, R>> producers,
         Map<K, Long> balances,
-        Map<K, Long> bootstrapSupply,
+        Map<K, Long> requested,
         Set<K> expandableMaterials,
         long deadlineNanos
     ) {
         // bootstrapDeficit does not depend on the current producer — compute once outside the loop.
-        long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(material, producers, bootstrapSupply);
+        long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(material, producers, balances, requested);
         ECOPlanningOperation<K, R> best = null;
         long bestScore = Long.MAX_VALUE;
         for (var operation : producers) {
             if (ECOSolveBudget.shouldStop(deadlineNanos)) {
                 return null;
             }
-            if (!ECOCycleBootstrap.canPotentiallyStart(operation, bootstrapSupply)) {
+            if (!ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)) {
                 continue;
             }
             long net = ECOPlannerMath.positiveNet(operation, material);
             if (net <= 0) {
                 continue;
             }
-            long demand = bootstrapDeficit > 0L ? Math.min(deficit, bootstrapDeficit) : deficit;
+            long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
             long batches = ECOPlannerMath.ceilDiv(demand, net);
             long score = 0;
             for (var input : operation.inputs().entrySet()) {
@@ -155,7 +220,7 @@ public final class ECOComponentDemandSolver {
                 long missing = required <= available ? 0L : required - available;
                 if (operation.outputs().containsKey(input.getKey())) {
                     long bootstrapMissing = ECOCycleBootstrap.missingBootstrapAmount(
-                        operation, input.getKey(), missing, bootstrapSupply
+                        operation, input.getKey(), missing, balances, requested
                     );
                     if (bootstrapMissing > 0L) {
                         score = ECOPlannerMath.saturatedAdd(score, ECOCycleBootstrap.bootstrapPenalty());
@@ -209,5 +274,9 @@ public final class ECOComponentDemandSolver {
             }
         }
         return expandable;
+    }
+
+    private static <K, R> K materialKey(ECOPlanningProblem<K, R> problem) {
+        return problem.requested().keySet().stream().findFirst().orElse(null);
     }
 }

@@ -19,6 +19,16 @@ public enum ECOFastPathFallbackReason {
     CONTAINER_MISMATCH("container_mismatch"),
     INPUT_MISMATCH("input_mismatch"),
     CACHE_VALIDATION_REJECTED("cache_validation_rejected"),
+    NO_BATCH_OFFER("no_batch_offer"),
+    NO_THREAD_SLOT("no_thread_slot"),
+    ENERGY_LIMIT("energy_limit"),
+    COOLANT_LIMIT("coolant_limit"),
+    INVENTORY_LIMIT("inventory_limit"),
+    INPUT_RESERVATION_FAILED("input_reservation_failed"),
+    PROVIDER_REJECTED("provider_rejected"),
+    WORKER_REJECTED("worker_rejected"),
+    INVALID_BATCH_REQUEST("invalid_batch_request"),
+    ACCOUNTING_FAILED("accounting_failed"),
     LEGACY_SLOW_EXECUTION("legacy_slow_execution");
 
     private final String code;

@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.gui.task.ComputationTaskCards;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.task.HostTaskListElement;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
+import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -25,11 +26,13 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
@@ -58,56 +61,57 @@ public final class ComputationHostPanelUI {
     }
 
     public record Config(
-        LongSupplier usedBytes,
-        LongSupplier totalBytes,
-        LongSupplier availableBytes,
-        IntSupplier usedThreads,
-        IntSupplier totalThreads,
-        IntSupplier parallelCount,
-        Supplier<CpuSelectionMode> cpuSelectionMode,
-        Runnable cycleCpuSelectionMode,
-        IntSupplier networkFrequency,
-        IntConsumer adjustNetworkFrequency,
-        Supplier<HolderLookup.Provider> registries,
-        Supplier<List<ComputationTaskEntry>> tasks
-    ) {
+            LongSupplier usedBytes,
+            LongSupplier totalBytes,
+            LongSupplier availableBytes,
+            IntSupplier usedThreads,
+            IntSupplier totalThreads,
+            IntSupplier parallelCount,
+            Supplier<CpuSelectionMode> cpuSelectionMode,
+            Runnable cycleCpuSelectionMode,
+            BooleanSupplier fastPlanningEnabled,
+            Runnable toggleFastPlanning,
+            IntSupplier networkFrequency,
+            IntConsumer adjustNetworkFrequency,
+            Supplier<HolderLookup.Provider> registries,
+            Supplier<List<ComputationTaskEntry>> tasks) {
     }
 
     public static UIElement createLeftCapacityPanel(Config config) {
         UIElement panel = hostCard(LEFT_PANEL_WIDTH, LEFT_CAPACITY_HEIGHT);
         panel.addClass("eco-computation-capacity");
         panel.addChild(HostElements.localizedTextSegment(
-            "gui.neoecoae.host.computation.capacity",
-            () -> HostText.PRIMARY));
+                "gui.neoecoae.host.computation.capacity",
+                () -> HostText.PRIMARY));
         panel.addChild(usageProgressBlock(
-            "gui.neoecoae.host.computation.cpu_storage",
-            () -> HostText.byteProgress(config.usedBytes.getAsLong(), config.totalBytes.getAsLong()),
-            config.usedBytes,
-            config.totalBytes,
-            "gui.neoecoae.host.computation.cpu_storage"));
+                "gui.neoecoae.host.computation.cpu_storage",
+                () -> HostText.byteProgress(config.usedBytes.getAsLong(), config.totalBytes.getAsLong()),
+                config.usedBytes,
+                config.totalBytes,
+                "gui.neoecoae.host.computation.cpu_storage"));
         panel.addChild(usageProgressBlock(
-            "gui.neoecoae.host.computation.thread_usage",
-            () -> HostText.typeProgress(config.usedThreads.getAsInt(), config.totalThreads.getAsInt()),
-            () -> config.usedThreads.getAsInt(),
-            () -> config.totalThreads.getAsInt(),
-            null));
+                "gui.neoecoae.host.computation.thread_usage",
+                () -> HostText.typeProgress(config.usedThreads.getAsInt(), config.totalThreads.getAsInt()),
+                () -> config.usedThreads.getAsInt(),
+                () -> config.totalThreads.getAsInt(),
+                null));
         panel.addChild(valueBlock(
-            "gui.neoecoae.host.computation.parallel_count",
-            () -> Component.literal(Integer.toString(config.parallelCount.getAsInt())),
-            () -> HostText.VALUE));
+                "gui.neoecoae.host.computation.parallel_count",
+                () -> Component.literal(Integer.toString(config.parallelCount.getAsInt())),
+                () -> HostText.VALUE));
         panel.addChild(valueBlock(
-            "gui.neoecoae.host.computation.free_memory",
-            () -> Component.literal(HostText.byteProgress(config.availableBytes.getAsLong(), 0).usedText()),
-            () -> HostText.MUTED));
+                "gui.neoecoae.host.computation.free_memory",
+                () -> Component.literal(HostText.byteProgress(config.availableBytes.getAsLong(), 0).usedText()),
+                () -> HostText.MUTED));
         return panel;
     }
 
     public static Button createCpuSelectionButton(Config config) {
         Button button = new Button().noText();
         button.buttonStyle(style -> style
-            .baseTexture(Sprites.RECT_RD)
-            .hoverTexture(Sprites.RECT_RD_LIGHT)
-            .pressedTexture(Sprites.RECT_RD_DARK));
+                .baseTexture(Sprites.RECT_RD)
+                .hoverTexture(Sprites.RECT_RD_LIGHT)
+                .pressedTexture(Sprites.RECT_RD_DARK));
         button.addClass("eco-host-cpu-mode-button");
         button.layout(layout -> layout.width(CPU_MODE_BUTTON_SIZE).height(CPU_MODE_BUTTON_SIZE));
 
@@ -117,23 +121,67 @@ public final class ComputationHostPanelUI {
 
         BindableValue<Integer> syncedMode = new BindableValue<>(config.cpuSelectionMode.get().ordinal());
         syncedMode.bind(DataBindingBuilder.intValS2C(() -> config.cpuSelectionMode.get().ordinal()).build());
-        syncedMode.registerValueListener(value -> icon.style(style ->
-            style.backgroundTexture(cpuSelectionModeIcon(cpuSelectionModeFromOrdinal(value)))));
+        syncedMode.registerValueListener(value -> icon
+                .style(style -> style.backgroundTexture(cpuSelectionModeIcon(cpuSelectionModeFromOrdinal(value)))));
         syncedMode.setDisplay(false);
         button.addChild(syncedMode);
         button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
             CpuSelectionMode mode = cpuSelectionModeFromOrdinal(syncedMode.getValue());
             event.hoverTooltips = new HoverTooltips(List.of(
-                ButtonToolTips.CpuSelectionMode.text(),
-                cpuSelectionModeTooltip(mode)), null, null, null);
+                    ButtonToolTips.CpuSelectionMode.text(),
+                    cpuSelectionModeTooltip(mode)), null, null, null);
         });
         return button;
     }
 
+    public static Button createFastPlanningButton(Config config) {
+        Button button = new Button()
+                .noText()
+                .setOnServerClick(event -> config.toggleFastPlanning.run());
+        button.layout(layout -> layout.width(18).height(20));
+        UIElement icon = new UIElement()
+                .layout(layout -> layout.width(12).height(12))
+                .style(style -> style.backgroundTexture(fastPlanningIcon(config.fastPlanningEnabled.getAsBoolean())));
+        button.addChild(icon);
+
+        BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.fastPlanningEnabled.getAsBoolean());
+        syncedEnabled.bind(DataBindingBuilder.boolS2C(config.fastPlanningEnabled::getAsBoolean).build());
+        syncedEnabled.registerValueListener(
+                value -> icon.style(style -> style.backgroundTexture(fastPlanningIcon(Boolean.TRUE.equals(value)))));
+        syncedEnabled.setDisplay(false);
+        button.addChild(syncedEnabled);
+        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+            boolean enabled = Boolean.TRUE.equals(syncedEnabled.getValue());
+            event.hoverTooltips = new HoverTooltips(List.of(
+                    Component.translatable("gui.neoecoae.host.computation.fast_planning"),
+                    Component.translatable(enabled
+                            ? "gui.neoecoae.host.computation.fast_planning.enabled"
+                            : "gui.neoecoae.host.computation.fast_planning.disabled")),
+                    null, null, null);
+        });
+        return button;
+    }
+
+    public static UIElement createFastPlanningOpenButton(Config config) {
+        UIElement buttonPanel = new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(-22);
+            layout.top(26);
+            layout.paddingAll(2);
+            layout.paddingBottom(4);
+        }).style(style -> style.background(NETextures.BACKGROUND));
+        buttonPanel.addChild(createFastPlanningButton(config));
+        return buttonPanel;
+    }
+
+    private static IGuiTexture fastPlanningIcon(boolean enabled) {
+        return AETextures.icon(enabled ? Icon.S_MACHINE : Icon.CLEAR);
+    }
+
     private static UIElement cpuSelectionIcon(CpuSelectionMode mode) {
         return new UIElement()
-            .layout(layout -> layout.width(12).height(12))
-            .style(style -> style.backgroundTexture(cpuSelectionModeIcon(mode)));
+                .layout(layout -> layout.width(12).height(12))
+                .style(style -> style.backgroundTexture(cpuSelectionModeIcon(mode)));
     }
 
     private static IGuiTexture cpuSelectionModeIcon(CpuSelectionMode mode) {
@@ -160,47 +208,49 @@ public final class ComputationHostPanelUI {
 
     public static UIElement createInventoryPanel() {
         UIElement panel = new UIElement()
-            .addClass("eco-host-inventory")
-            .layout(layout -> layout
-                .width(LEFT_PANEL_WIDTH)
-                .height(LEFT_INVENTORY_HEIGHT)
-                .flexDirection(FlexDirection.COLUMN));
+                .addClass("eco-host-inventory")
+                .layout(layout -> layout
+                        .width(LEFT_PANEL_WIDTH)
+                        .height(LEFT_INVENTORY_HEIGHT)
+                        .flexDirection(FlexDirection.COLUMN));
         panel.addChild(new TextElement()
-            .setText("container.inventory", true)
-            .textStyle(ComputationHostPanelUI::inventoryTitleTextStyle));
+                .setText("container.inventory", true)
+                .textStyle(ComputationHostPanelUI::inventoryTitleTextStyle));
         panel.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
         return panel;
     }
 
     private static void inventoryTitleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52)
+                .textShadow(false);
     }
 
     public static UIElement createRightPanel(Config config) {
         UIElement panel = new UIElement()
-            .addClasses("eco-host-card", "eco-computation-task-panel")
-            .layout(layout -> layout.width(RIGHT_PANEL_WIDTH).height(PANEL_HEIGHT));
+                .addClasses("eco-host-card", "eco-computation-task-panel")
+                .layout(layout -> layout.width(RIGHT_PANEL_WIDTH).height(PANEL_HEIGHT));
         panel.addChild(new HostTaskListElement(
-            config.registries,
-            config.tasks,
-            RIGHT_TASK_PANEL_WIDTH,
-            RIGHT_TASK_PANEL_HEIGHT,
-            TASK_CARD_X,
-            TASK_CARD_Y,
-            TASK_CARD_WIDTH,
-            TASK_CARD_HEIGHT,
-            TASK_CARD_STRIDE,
-            TASK_LIST_BOTTOM_Y,
-            TASK_SCROLLBAR_WIDTH
-        ) {
+                config.registries,
+                config.tasks,
+                RIGHT_TASK_PANEL_WIDTH,
+                RIGHT_TASK_PANEL_HEIGHT,
+                TASK_CARD_X,
+                TASK_CARD_Y,
+                TASK_CARD_WIDTH,
+                TASK_CARD_HEIGHT,
+                TASK_CARD_STRIDE,
+                TASK_LIST_BOTTOM_Y,
+                TASK_SCROLLBAR_WIDTH) {
             @Override
             protected List<Component> tooltipLines(ComputationTaskEntry entry) {
                 return ComputationTaskCards.tooltipLines(entry);
             }
 
             @Override
-            protected void drawTaskCard(GUIContext guiContext, Font font, ComputationTaskEntry entry, float x, float y) {
-                ComputationTaskCards.drawCard(guiContext, font, entry, Math.round(x), Math.round(y), TASK_CARD_WIDTH, TASK_CARD_HEIGHT);
+            protected void drawTaskCard(GUIContext guiContext, Font font, ComputationTaskEntry entry, float x,
+                    float y) {
+                ComputationTaskCards.drawCard(guiContext, font, entry, Math.round(x), Math.round(y), TASK_CARD_WIDTH,
+                        TASK_CARD_HEIGHT);
             }
         }.layout(layout -> layout.width(RIGHT_TASK_PANEL_WIDTH).height(RIGHT_TASK_PANEL_HEIGHT)));
         return panel;
@@ -208,31 +258,30 @@ public final class ComputationHostPanelUI {
 
     private static UIElement hostCard(int width, int height) {
         return new UIElement()
-            .addClass("eco-host-card")
-            .layout(layout -> layout.width(width).height(height).flexDirection(FlexDirection.COLUMN));
+                .addClass("eco-host-card")
+                .layout(layout -> layout.width(width).height(height).flexDirection(FlexDirection.COLUMN));
     }
 
     private static UIElement usageProgressBlock(
-        String labelKey,
-        Supplier<HostText.UsedTotal> text,
-        LongSupplier used,
-        LongSupplier max,
-        String tooltipKey
-    ) {
+            String labelKey,
+            Supplier<HostText.UsedTotal> text,
+            LongSupplier used,
+            LongSupplier max,
+            String tooltipKey) {
         UIElement block = new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(20)
-            .gapAll(1)
-            .flexDirection(FlexDirection.COLUMN));
+                .widthPercent(100)
+                .height(20)
+                .gapAll(1)
+                .flexDirection(FlexDirection.COLUMN));
         block.addChild(HostElements.localizedTextSegment(labelKey, () -> HostText.MUTED)
-            .layout(layout -> layout.widthPercent(100).height(9)));
+                .layout(layout -> layout.widthPercent(100).height(9)));
 
         UIElement detail = HostElements.horizontalRow(10, 2);
         detail.addChild(progressBar(used, max, tooltipKey));
         UIElement value = HostElements.horizontalRow(10, 0);
         value.addChild(HostElements.textSegment(
-            () -> Component.literal(text.get().usedText()),
-            () -> HostText.usedValueColor(used.getAsLong(), max.getAsLong())));
+                () -> Component.literal(text.get().usedText()),
+                () -> HostText.usedValueColor(used.getAsLong(), max.getAsLong())));
         value.addChild(HostElements.textSegment(() -> Component.literal(" / "), () -> HostText.MUTED));
         value.addChild(HostElements.textSegment(() -> Component.literal(text.get().maxText()), () -> HostText.VALUE));
         detail.addChild(value);
@@ -244,7 +293,8 @@ public final class ComputationHostPanelUI {
         ProgressBar progressBar = new ProgressBar();
         progressBar.label(label -> label.setText(""));
         progressBar.barContainer(element -> element.layout(layout -> layout.paddingAll(1)));
-        progressBar.bind(DataBindingBuilder.floatValS2C(() -> HostText.usageRatio(used.getAsLong(), max.getAsLong())).build());
+        progressBar.bind(
+                DataBindingBuilder.floatValS2C(() -> HostText.usageRatio(used.getAsLong(), max.getAsLong())).build());
         progressBar.addClass("eco-host-progress");
         progressBar.layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4));
         if (tooltipKey != null) {
@@ -255,24 +305,24 @@ public final class ComputationHostPanelUI {
             syncedUsed.setDisplay(false);
             syncedMax.setDisplay(false);
             progressBar.addChildren(syncedUsed, syncedMax);
-            progressBar.addEventListener(UIEvents.HOVER_TOOLTIPS, event ->
-                event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(tooltipKey)
-                    .append(": ")
-                    .append(HostText.fullByteProgress(syncedUsed.getValue(), syncedMax.getValue()))));
+            progressBar.addEventListener(UIEvents.HOVER_TOOLTIPS,
+                    event -> event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(tooltipKey)
+                            .append(": ")
+                            .append(HostText.fullByteProgress(syncedUsed.getValue(), syncedMax.getValue()))));
         }
         return progressBar;
     }
 
     private static UIElement valueBlock(String labelKey, Supplier<Component> value, IntSupplier color) {
         UIElement block = new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(20)
-            .gapAll(1)
-            .flexDirection(FlexDirection.COLUMN));
+                .widthPercent(100)
+                .height(20)
+                .gapAll(1)
+                .flexDirection(FlexDirection.COLUMN));
         block.addChild(HostElements.localizedTextSegment(labelKey, () -> HostText.MUTED)
-            .layout(layout -> layout.widthPercent(100).height(9)));
+                .layout(layout -> layout.widthPercent(100).height(9)));
         block.addChild(HostElements.textSegment(value, color)
-            .layout(layout -> layout.widthPercent(100).height(10)));
+                .layout(layout -> layout.widthPercent(100).height(10)));
         return block;
     }
 

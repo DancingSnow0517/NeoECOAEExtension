@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLeas
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningService;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerNoticeDispatcher;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import com.google.common.collect.ImmutableSet;
 import com.llamalad7.mixinextras.expression.Definition;
@@ -101,21 +102,36 @@ public abstract class CraftingServiceMixin {
         var noticeTarget = ECOPlannerNoticeDispatcher.targetFor(simRequester);
         var lease = ECOPlanningHostLease.tryAcquire(this.neoecoae$computationClusters);
         if (lease.isEmpty()) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.HOST_SELECTION,
+                ECOPlannerFallbackReason.NO_ECO_HOST,
+                what,
+                amount,
+                strategy,
+                "no_available_eco_host"
+            );
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.NO_ECO_HOST);
             return;
         }
-        var capture = ECOAE2SnapshotFactory.captureDetailed(
+        var snapshot = ECOAE2SnapshotFactory.capture(
             this.grid,
             simRequester,
             what,
             amount,
             strategy,
-            this.lastProcessedCraftableChangeTick,
-            level
+            this.lastProcessedCraftableChangeTick
         );
-        if (capture.snapshot().isEmpty()) {
+        if (snapshot.isEmpty()) {
             lease.get().close();
-            ECOPlannerNoticeDispatcher.send(noticeTarget, capture.fallbackReason());
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                ECOPlannerFallbackReason.SNAPSHOT_REJECTED,
+                what,
+                amount,
+                strategy,
+                "snapshot_factory_returned_empty"
+            );
+            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
             return;
         }
 
@@ -133,13 +149,23 @@ public abstract class CraftingServiceMixin {
             );
         } catch (RuntimeException | LinkageError failure) {
             lease.get().close();
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.FALLBACK,
+                ECOPlannerFallbackReason.FALLBACK_SETUP_FAILED,
+                what,
+                amount,
+                strategy,
+                "ae2_fallback_constructor_failed",
+                failure
+            );
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FALLBACK_SETUP_FAILED);
             return;
         }
         cir.setReturnValue(ECOPlanningService.submit(
-            capture.snapshot().orElseThrow(),
+            snapshot.get(),
             strategy,
             lease.get(),
+            noticeTarget,
             fallback::run
         ));
     }

@@ -24,6 +24,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
@@ -356,25 +357,34 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (cached != null) {
             if (cached.isNegative()) {
                 cache.recordFallbackSlowPath();
-                logSlowPath(execution, ECOFastPathFallbackReason.NEGATIVE_CACHE, tick);
+                ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.NEGATIVE_CACHE,
+                    ECOFastPathStage.CACHE_LOOKUP, worker.getBlockPos(), tick, "negative_cache_entry");
                 return calcPatternSlow(execution, controller, craftingJobId, false, tick, laneIndex);
             }
             if (!cached.matchesExecution(execution)) {
                 cache.putNegative(key, tick);
                 cache.recordFallbackSlowPath();
-                logSlowPath(execution, ECOFastPathFallbackReason.CACHE_ENTRY_MISMATCH, tick);
+                ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.CACHE_ENTRY_MISMATCH,
+                    ECOFastPathStage.CACHE_VERIFY, worker.getBlockPos(), tick,
+                    "cached_result_does_not_match_extracted_execution");
                 return calcPatternSlow(execution, controller, craftingJobId, false, tick, laneIndex);
             }
             FastPathWork fastPathWork = createFastPathWork(cached);
             if (fastPathWork == null) {
                 cache.putNegative(key, tick);
                 cache.recordFallbackSlowPath();
-                logSlowPath(execution, ECOFastPathFallbackReason.RUNTIME_STACK_CONVERSION_FAILED, tick);
+                ECOFastPathDiagnostics.logFailure(execution,
+                    ECOFastPathFallbackReason.RUNTIME_STACK_CONVERSION_FAILED,
+                    ECOFastPathStage.CACHE_VERIFY, worker.getBlockPos(), tick,
+                    "cached_generic_stacks_cannot_be_converted_to_item_stacks");
                 return calcPatternSlow(execution, controller, craftingJobId, false, tick, laneIndex);
             }
             int coolingMultiplier = prepareCraftingCooling(controller, 1);
             if (coolingMultiplier < 0) {
                 cache.recordCoolantReject();
+                ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.COOLANT_LIMIT,
+                    ECOFastPathStage.RESOURCE_LIMIT, worker.getBlockPos(), tick,
+                    "single_craft_cooling_limit_rejected");
                 return false;
             }
             cache.recordFastPathAccepted();
@@ -497,26 +507,37 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         var remainingEntries = ECOFastPathStacks.fromItemStacks(remaining);
         if (outputEntries.isEmpty() || inputEntries.isEmpty() || remainingEntries.isEmpty()) {
             cache.putNegative(key, tick);
-            logSlowPath(execution, ECOFastPathFallbackReason.RUNTIME_STACK_CONVERSION_FAILED, tick);
+            ECOFastPathDiagnostics.logFailure(execution,
+                ECOFastPathFallbackReason.RUNTIME_STACK_CONVERSION_FAILED,
+                ECOFastPathStage.CACHE_VERIFY, worker.getBlockPos(), tick,
+                "assembled_output_or_input_or_container_conversion_failed");
             return false;
         }
         if (!outputEntries.get().equals(execution.expectedOutputs())) {
             cache.putNegative(key, tick);
-            logSlowPath(execution, ECOFastPathFallbackReason.OUTPUT_MISMATCH, tick);
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.OUTPUT_MISMATCH,
+                ECOFastPathStage.CACHE_VERIFY, worker.getBlockPos(), tick,
+                "expected=" + execution.expectedOutputs() + " actual=" + outputEntries.get());
             return false;
         }
         if (!remainingEntries.get().equals(execution.expectedContainerItems())) {
             cache.putNegative(key, tick);
-            logSlowPath(execution, ECOFastPathFallbackReason.CONTAINER_MISMATCH, tick);
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.CONTAINER_MISMATCH,
+                ECOFastPathStage.CACHE_VERIFY, worker.getBlockPos(), tick,
+                "expected=" + execution.expectedContainerItems() + " actual=" + remainingEntries.get());
             return false;
         }
         if (!inputEntries.get().equals(execution.inputItems())) {
             cache.putNegative(key, tick);
-            logSlowPath(execution, ECOFastPathFallbackReason.INPUT_MISMATCH, tick);
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.INPUT_MISMATCH,
+                ECOFastPathStage.CACHE_VERIFY, worker.getBlockPos(), tick,
+                "expected=" + execution.inputItems() + " actual=" + inputEntries.get());
             return false;
         }
         if (!cache.putPositive(key, outputEntries.get(), remainingEntries.get(), inputEntries.get(), tick)) {
-            logSlowPath(execution, ECOFastPathFallbackReason.CACHE_VALIDATION_REJECTED, tick);
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.CACHE_VALIDATION_REJECTED,
+                ECOFastPathStage.CACHE_VERIFY, worker.getBlockPos(), tick,
+                "cache_entry_failed_item_stack_safety_validation");
             return false;
         }
         return true;

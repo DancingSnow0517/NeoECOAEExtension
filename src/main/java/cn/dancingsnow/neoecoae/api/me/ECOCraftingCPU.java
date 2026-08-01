@@ -18,8 +18,12 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ECOCraftingCPU implements ICraftingCPU {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ECOCraftingCPU.class);
 
     private long fakeStorage = 0;
     private long allocatedStorage = 0;
@@ -144,8 +148,13 @@ public class ECOCraftingCPU implements ICraftingCPU {
         tag.putBoolean("multiplePaths", plan.multiplePaths());
     }
 
+    @Nullable
     private CraftingPlan readCraftingPlanFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
         GenericStack output = GenericStack.readTag(registries, tag.getCompound("output"));
+        if (output == null || output.amount() <= 0L) {
+            LOGGER.warn("Discarding persisted ECO CPU plan with an unavailable final output");
+            return null;
+        }
         long bytes = tag.getLong("bytes");
         boolean simulation = tag.getBoolean("simulation");
         boolean multiplePaths = tag.getBoolean("multiplePaths");
@@ -166,11 +175,14 @@ public class ECOCraftingCPU implements ICraftingCPU {
         logic.readFromNBT(data, registries);
         if (data.contains("plan")) {
             CompoundTag tag = data.getCompound("plan");
-            this.plan = readCraftingPlanFromNBT(tag, registries);
-            if (data.contains("allocatedStorage")) {
-                this.allocatedStorage = Math.max(this.plan.bytes(), data.getLong("allocatedStorage"));
-            } else {
-                this.allocatedStorage = Math.max(this.plan.bytes(), cluster.getEffectiveAvailableStorage());
+            ICraftingPlan restoredPlan = readCraftingPlanFromNBT(tag, registries);
+            if (restoredPlan != null) {
+                this.plan = restoredPlan;
+                if (data.contains("allocatedStorage")) {
+                    this.allocatedStorage = Math.max(this.plan.bytes(), data.getLong("allocatedStorage"));
+                } else {
+                    this.allocatedStorage = Math.max(this.plan.bytes(), cluster.getEffectiveAvailableStorage());
+                }
             }
         }
     }

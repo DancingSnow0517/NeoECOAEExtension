@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tracks stock that can exist before downstream demand consumes it. Net solver balances cannot
- * answer this question because they already include future consumers.
+ * Guards positive-net operations that also consume the material they produce.
+ * Such an operation can grow an inventory only after its first batch has been
+ * activated by an existing stack. A separate producer is planned first when
+ * one is needed to create that initial stack.
  */
 public final class ECOCycleBootstrap {
     private static final long BOOTSTRAP_PENALTY = 1_000_000L;
@@ -16,14 +18,15 @@ public final class ECOCycleBootstrap {
 
     public static <K, R> boolean canPotentiallyStart(
         ECOPlanningOperation<K, R> operation,
-        Map<K, Long> bootstrapSupply
+        Map<K, Long> balances,
+        Map<K, Long> requested
     ) {
         for (var input : operation.inputs().entrySet()) {
             K material = input.getKey();
             if (!operation.outputs().containsKey(material)) {
                 continue;
             }
-            long available = available(material, bootstrapSupply);
+            long available = availableBeforeRequest(material, balances, requested);
             if (available >= input.getValue()) {
                 continue;
             }
@@ -37,12 +40,13 @@ public final class ECOCycleBootstrap {
         ECOPlanningOperation<K, R> operation,
         K material,
         long required,
-        Map<K, Long> bootstrapSupply
+        Map<K, Long> balances,
+        Map<K, Long> requested
     ) {
         if (!operation.outputs().containsKey(material)) {
             return required;
         }
-        long available = available(material, bootstrapSupply);
+        long available = availableBeforeRequest(material, balances, requested);
         if (available >= operation.inputAmount(material)) {
             return 0L;
         }
@@ -57,9 +61,27 @@ public final class ECOCycleBootstrap {
     public static <K, R> long bootstrapDeficit(
         K material,
         List<ECOPlanningOperation<K, R>> producers,
-        Map<K, Long> bootstrapSupply
+        Map<K, Long> balances,
+        Map<K, Long> requested
     ) {
-        long available = available(material, bootstrapSupply);
+        long available = availableBeforeRequest(material, balances, requested);
+        long required = 0L;
+        for (var producer : producers) {
+            long input = producer.inputAmount(material);
+            long output = producer.outputAmount(material);
+            if (input > 0L && output > input && available < input) {
+                required = Math.max(required, input - available);
+            }
+        }
+        return required;
+    }
+
+    public static <K, R> long bootstrapDeficit(
+        K material,
+        List<ECOPlanningOperation<K, R>> producers,
+        Map<K, Long> balances
+    ) {
+        long available = Math.max(0L, balances.getOrDefault(material, 0L));
         long required = Long.MAX_VALUE;
         for (var producer : producers) {
             long input = producer.inputAmount(material);
@@ -71,52 +93,17 @@ public final class ECOCycleBootstrap {
         return required == Long.MAX_VALUE ? 0L : required;
     }
 
-    /**
-     * Adds production that can exist before unrelated consumers run. The operation must already
-     * be potentially startable. A self-growing output contributes only its net growth; an output
-     * that is not also an input contributes its full amount.
-     */
-    public static <K, R> void addPlannedProduction(
-        ECOPlanningOperation<K, R> operation,
-        long batches,
-        Map<K, Long> bootstrapSupply
+    public static <K> long availableBeforeRequest(
+        K material,
+        Map<K, Long> balances,
+        Map<K, Long> requested
     ) {
-        mergePlannedProduction(operation, batches, bootstrapSupply, false);
-    }
-
-    /** Reverses {@link #addPlannedProduction(ECOPlanningOperation, long, Map)}. */
-    public static <K, R> void removePlannedProduction(
-        ECOPlanningOperation<K, R> operation,
-        long batches,
-        Map<K, Long> bootstrapSupply
-    ) {
-        mergePlannedProduction(operation, batches, bootstrapSupply, true);
-    }
-
-    public static <K> long available(K material, Map<K, Long> bootstrapSupply) {
-        return Math.max(0L, bootstrapSupply.getOrDefault(material, 0L));
-    }
-
-    private static <K, R> void mergePlannedProduction(
-        ECOPlanningOperation<K, R> operation,
-        long batches,
-        Map<K, Long> bootstrapSupply,
-        boolean remove
-    ) {
-        if (batches <= 0L) {
-            throw new IllegalArgumentException("batches must be positive");
-        }
-        for (var output : operation.outputs().entrySet()) {
-            long input = operation.inputAmount(output.getKey());
-            long perBatch = input == 0L ? output.getValue() : Math.max(0L, output.getValue() - input);
-            if (perBatch == 0L) {
-                continue;
-            }
-            long delta = Math.multiplyExact(perBatch, batches);
-            if (remove) {
-                delta = -delta;
-            }
-            bootstrapSupply.merge(output.getKey(), delta, Math::addExact);
+        long balance = balances.getOrDefault(material, 0L);
+        long requestedAmount = requested.getOrDefault(material, 0L);
+        try {
+            return Math.max(0L, Math.addExact(balance, requestedAmount));
+        } catch (ArithmeticException ignored) {
+            return balance < 0L ? 0L : Long.MAX_VALUE;
         }
     }
 

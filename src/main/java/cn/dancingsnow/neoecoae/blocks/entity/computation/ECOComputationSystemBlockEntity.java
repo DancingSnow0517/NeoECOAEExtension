@@ -56,7 +56,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity> implements ISyncPersistRPCBlockEntity {
+public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity>
+        implements ISyncPersistRPCBlockEntity {
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -74,6 +75,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private int cpuSelectionMode = CpuSelectionMode.ANY.ordinal();
     @Persisted
     @DescSynced
+    private boolean fastPlanningEnabled = true;
+    @Persisted
+    @DescSynced
     private int networkFrequency = NEFrequencyAllocator.UNASSIGNED;
     @DescSynced
     private boolean buildInProgress;
@@ -83,11 +87,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     private boolean mirrored;
 
     public ECOComputationSystemBlockEntity(
-        BlockEntityType<?> type,
-        BlockPos pos,
-        BlockState blockState,
-        IECOTier tier
-    ) {
+            BlockEntityType<?> type,
+            BlockPos pos,
+            BlockState blockState,
+            IECOTier tier) {
         super(type, pos, blockState);
         this.tier = tier;
     }
@@ -116,20 +119,19 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         if (level != null) {
             BlockState state = level.getBlockState(worldPosition);
             if (state.hasProperty(ECOComputationSystem.MIRRORED)
-                && state.hasProperty(ECOComputationSystem.NETWORK_SWITCH)
-                && state.hasProperty(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH)) {
+                    && state.hasProperty(ECOComputationSystem.NETWORK_SWITCH)
+                    && state.hasProperty(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH)) {
                 boolean highEnergyNetworkMode = formed && cluster != null && cluster.isHighEnergyNetworkMode();
                 BlockState newState = state
-                    .setValue(ECOComputationSystem.MIRRORED, formed && mirrored)
-                    .setValue(ECOComputationSystem.NETWORK_SWITCH,
-                        formed && cluster != null && cluster.isNetworkMode() && !highEnergyNetworkMode)
-                    .setValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, highEnergyNetworkMode);
+                        .setValue(ECOComputationSystem.MIRRORED, formed && mirrored)
+                        .setValue(ECOComputationSystem.NETWORK_SWITCH,
+                                formed && cluster != null && cluster.isNetworkMode() && !highEnergyNetworkMode)
+                        .setValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, highEnergyNetworkMode);
                 if (newState != state) {
                     level.setBlock(
-                        worldPosition,
-                        newState,
-                        Block.UPDATE_CLIENTS
-                    );
+                            worldPosition,
+                            newState,
+                            Block.UPDATE_CLIENTS);
                 }
             }
         }
@@ -140,7 +142,8 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             return;
         }
 
-        ServerPlayer buildPlayer = buildPlayerId == null ? null : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
+        ServerPlayer buildPlayer = buildPlayerId == null ? null
+                : serverLevel.getServer().getPlayerList().getPlayer(buildPlayerId);
         if (buildPlayer == null) {
             buildSession = null;
             buildPlayerId = null;
@@ -178,42 +181,44 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         ComputationHostPanelUI.Config panelConfig = createComputationPanelConfig();
 
         UIElement root = new UIElement().layout(layout -> layout
-            .width(340)
-            .height(242)
-            .flexDirection(FlexDirection.COLUMN))
-            .addClasses("panel_bg", "eco-computation-host");
+                .width(340)
+                .height(232)
+                .flexDirection(FlexDirection.COLUMN))
+                .addClasses("panel_bg", "eco-computation-host");
 
         UIElement header = new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(28)
-            .flexDirection(FlexDirection.ROW)
-            .alignItems(AlignItems.CENTER));
+                .widthPercent(100)
+                .height(28)
+                .flexDirection(FlexDirection.ROW)
+                .alignItems(AlignItems.CENTER)
+                .gapAll(4));
         UIElement titleBlock = new UIElement().layout(layout -> layout
-            .flex(1)
-            .height(24)
-            .flexDirection(FlexDirection.COLUMN)
-            .gapAll(2));
+                .flex(1)
+                .height(24)
+                .flexDirection(FlexDirection.COLUMN)
+                .gapAll(2));
         titleBlock.addChild(new TextElement()
-            .setText(getItemFromBlockEntity().getDescription())
-            .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
-            .layout(layout -> layout.widthPercent(100).height(10)));
+                .setText(getItemFromBlockEntity().getDescription())
+                .textStyle(ECOComputationSystemBlockEntity::titleTextStyle)
+                .layout(layout -> layout.widthPercent(100).height(10)));
         titleBlock.addChild(HostNetworkStatusElement.create(
-            () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
-            () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
+                () -> cluster == null ? 1 : cluster.getNetworkMultiplier(),
+                () -> getMainNode().isOnline() && getMainNode().getGrid() != null));
         header.addChild(titleBlock);
         header.addChild(NetworkFrequencyButton.create(
-            panelConfig.networkFrequency(),
-            panelConfig.adjustNetworkFrequency()
-        ));
+                panelConfig.networkFrequency(),
+                panelConfig.adjustNetworkFrequency(),
+                18,
+                18));
         header.addChild(ComputationHostPanelUI.createCpuSelectionButton(panelConfig));
         root.addChild(header);
 
         UIElement panels = new UIElement().layout(layout -> layout
-            .widthPercent(100)
-            .height(ComputationHostPanelUI.PANEL_HEIGHT)
-            .flexDirection(FlexDirection.ROW)
-            .alignItems(AlignItems.STRETCH)
-            .gapAll(10));
+                .widthPercent(100)
+                .height(ComputationHostPanelUI.PANEL_HEIGHT)
+                .flexDirection(FlexDirection.ROW)
+                .alignItems(AlignItems.STRETCH)
+                .gapAll(10));
         UIElement leftColumn = new UIElement().layout(layout -> {
             layout.width(ComputationHostPanelUI.LEFT_PANEL_WIDTH);
             layout.height(ComputationHostPanelUI.PANEL_HEIGHT);
@@ -227,29 +232,33 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
         root.addChild(panels);
         root.addChild(MultiblockBuilderUI.createOpenButton(buildWindow));
+        root.addChild(ComputationHostPanelUI.createFastPlanningOpenButton(panelConfig));
         root.addChild(buildWindow);
-        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))), holder.player);
+        return new ModularUI(UI.of(root, List.of(StylesheetManager.INSTANCE.getStylesheetSafe(NEStyleSheets.ECO))),
+                holder.player);
     }
 
     private static void titleTextStyle(TextElement.TextStyle style) {
-        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52).textShadow(false);
+        style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x3f3d52)
+                .textShadow(false);
     }
 
     private ComputationHostPanelUI.Config createComputationPanelConfig() {
         return new ComputationHostPanelUI.Config(
-            this::getUsedComputationBytes,
-            this::getTotalBytes,
-            this::getAvailableBytes,
-            this::getUsedThread,
-            this::getTotalThread,
-            this::getParallelCount,
-            this::getCpuSelectionMode,
-            this::cycleCpuSelectionMode,
-            this::getNetworkFrequency,
-            this::adjustNetworkFrequency,
-            this::getRegistryAccessForUi,
-            this::getActiveTaskEntries
-        );
+                this::getUsedComputationBytes,
+                this::getTotalBytes,
+                this::getAvailableBytes,
+                this::getUsedThread,
+                this::getTotalThread,
+                this::getParallelCount,
+                this::getCpuSelectionMode,
+                this::cycleCpuSelectionMode,
+                this::isFastPlanningEnabled,
+                this::toggleFastPlanning,
+                this::getNetworkFrequency,
+                this::adjustNetworkFrequency,
+                this::getRegistryAccessForUi,
+                this::getActiveTaskEntries);
     }
 
     public boolean hasNetworkFrequency() {
@@ -260,7 +269,9 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         return hasNetworkFrequency() ? networkFrequency : 0;
     }
 
-    /** Called by the logical network manager only for a previously unassigned host. */
+    /**
+     * Called by the logical network manager only for a previously unassigned host.
+     */
     public void assignNetworkFrequency(int frequency) {
         if (hasNetworkFrequency()) {
             return;
@@ -334,6 +345,16 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
     }
 
+    public boolean isFastPlanningEnabled() {
+        return fastPlanningEnabled;
+    }
+
+    public void toggleFastPlanning() {
+        fastPlanningEnabled = !fastPlanningEnabled;
+        setChanged();
+        markForUpdate();
+    }
+
     private static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {
         return switch (mode) {
             case ANY -> CpuSelectionMode.PLAYER_ONLY;
@@ -347,10 +368,10 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             return level.registryAccess();
         }
         return net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer()
-            .getServerResources()
-            .managers()
-            .fullRegistries()
-            .get();
+                .getServerResources()
+                .managers()
+                .fullRegistries()
+                .get();
     }
 
     private List<ComputationTaskEntry> getActiveTaskEntries() {
@@ -394,24 +415,23 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         long total = Math.max(1L, tracker.getSyntheticStartItemCount());
         long remaining = Math.max(0L, Math.min(total, tracker.getSyntheticRemainingItemCount()));
         ComputationTaskEntry.Status status = !logic.hasJob() || logic.isCantStoreItems() || logic.isJobSuspended()
-            ? ComputationTaskEntry.Status.WAITING_OUTPUT
-            : ComputationTaskEntry.Status.RUNNING;
+                ? ComputationTaskEntry.Status.WAITING_OUTPUT
+                : ComputationTaskEntry.Status.RUNNING;
         return new ComputationTaskEntry(
-            computationTaskId(cpu, finalOutput, index),
-            output,
-            requestedAmount,
-            1L,
-            total,
-            remaining,
-            status,
-            index + 1,
-            cpu.getName(),
-            cpu.getAvailableStorage(),
-            cpu.getCoProcessors(),
-            cpu.getSelectionMode(),
-            Math.clamp(tracker.getProgress(), 0.0F, 1.0F),
-            tracker.getElapsedTime()
-        );
+                computationTaskId(cpu, finalOutput, index),
+                output,
+                requestedAmount,
+                1L,
+                total,
+                remaining,
+                status,
+                index + 1,
+                cpu.getName(),
+                cpu.getAvailableStorage(),
+                cpu.getCoProcessors(),
+                cpu.getSelectionMode(),
+                Math.clamp(tracker.getProgress(), 0.0F, 1.0F),
+                tracker.getElapsedTime());
     }
 
     private static String computationTaskId(ECOCraftingCPU cpu, GenericStack output, int index) {
@@ -446,17 +466,16 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
     private UIElement buildPanel(BlockUIMenuType.BlockUIHolder holder) {
         return MultiblockBuilderUI.createFloatingPanel(new MultiblockBuilderUI.Config(
-            holder.player,
-            () -> selectedBuildLength,
-            () -> mirrorBuild,
-            mirror -> setMirrorBuild(holder.player, mirror),
-            () -> decreaseBuildLength(holder.player),
-            () -> increaseBuildLength(holder.player),
-            () -> autoBuild(holder.player),
-            () -> formed,
-            () -> buildInProgress,
-            this::createLocalPreviewPlan
-        ));
+                holder.player,
+                () -> selectedBuildLength,
+                () -> mirrorBuild,
+                mirror -> setMirrorBuild(holder.player, mirror),
+                () -> decreaseBuildLength(holder.player),
+                () -> increaseBuildLength(holder.player),
+                () -> autoBuild(holder.player),
+                () -> formed,
+                () -> buildInProgress,
+                this::createLocalPreviewPlan));
     }
 
     private void increaseBuildLength(Player player) {
@@ -493,17 +512,17 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         }
         selectedBuildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
         MultiBlockPlacementPlan plan = MultiBlockPlacementService.preview(
-            serverLevel,
-            worldPosition,
-            getBlockState(),
-            definition,
-            selectedBuildLength,
-            mirrorBuild
-        );
+                serverLevel,
+                worldPosition,
+                getBlockState(),
+                definition,
+                selectedBuildLength,
+                mirrorBuild);
         if (!plan.getConflictPositions().isEmpty()) {
             return;
         }
-        if (!serverPlayer.isCreative() && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
+        if (!serverPlayer.isCreative()
+                && !MultiBlockPlacementService.hasRequiredItems(serverPlayer, plan.getRequiredItems())) {
             return;
         }
         if (plan.getMissingBlocks().isEmpty()) {
@@ -559,6 +578,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             return null;
         }
         int buildLength = Math.clamp(selectedBuildLength, definition.getExpandMin(), definition.getExpandMax());
-        return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength, mirrorBuild);
+        return MultiBlockPlacementService.preview(level, worldPosition, getBlockState(), definition, buildLength,
+                mirrorBuild);
     }
 }

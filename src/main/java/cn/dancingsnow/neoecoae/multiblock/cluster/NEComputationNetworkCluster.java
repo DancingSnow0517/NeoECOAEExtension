@@ -106,6 +106,11 @@ public final class NEComputationNetworkCluster {
         return controllers.size();
     }
 
+    public boolean isFastPlanningEnabled() {
+        return !controllers.isEmpty() && controllers.stream()
+            .allMatch(ECOComputationSystemBlockEntity::isFastPlanningEnabled);
+    }
+
     /** Each host contributes its local capacity multiplied by its switch tier. */
     public int getMaxThreads() {
         return saturatingInt(sumMultiplied(NEComputationCluster::getLocalMaxThreads));

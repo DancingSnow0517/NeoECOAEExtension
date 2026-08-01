@@ -38,6 +38,7 @@ public final class ECOPlanningHostLease implements AutoCloseable {
             for (NEComputationCluster candidate : ordered) {
                 if (candidate == null
                     || !candidate.isActive()
+                    || !candidate.isFastPlanningEnabled()
                     || candidate.getMaxThreads() <= 0
                     || candidate.getAvailableStorage() <= 0) {
                     continue;

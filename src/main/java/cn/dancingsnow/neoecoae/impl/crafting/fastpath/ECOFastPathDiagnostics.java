@@ -31,17 +31,56 @@ public final class ECOFastPathDiagnostics {
         BlockPos workerPos,
         long tick
     ) {
+        logFailure(execution, reason, stageFor(reason), workerPos, tick, "fallback_to_ae2");
+    }
+
+    public static void logFailure(
+        ECOExtractedPatternExecution execution,
+        ECOFastPathFallbackReason reason,
+        ECOFastPathStage stage,
+        BlockPos ownerPos,
+        long tick,
+        String context
+    ) {
         if (!NEConfig.debugEcoFastPath) {
             return;
         }
 
-        PatternDescription pattern = describe(execution.details());
+        logFailure(execution.details(), reason, stage, ownerPos, tick, context);
+    }
+
+    public static void logBatchFailure(
+        ECOBatchCraftingRequest request,
+        ECOFastPathFallbackReason reason,
+        ECOFastPathStage stage,
+        BlockPos ownerPos,
+        long tick,
+        String context
+    ) {
+        if (!NEConfig.debugEcoFastPath) {
+            return;
+        }
+        logFailure(request.details(), reason, stage, ownerPos, tick,
+            "batch=" + request.batchSize() + " " + context);
+    }
+
+    private static void logFailure(
+        IPatternDetails details,
+        ECOFastPathFallbackReason reason,
+        ECOFastPathStage stage,
+        BlockPos ownerPos,
+        long tick,
+        String context
+    ) {
+        PatternDescription pattern = describe(details);
         DiagnosticKey key = new DiagnosticKey(
             reason,
+            stage,
             pattern.definition(),
             pattern.identityHash(),
             pattern.primaryOutput(),
-            pattern.implementation()
+            pattern.implementation(),
+            context
         );
         synchronized (LOGGED) {
             if (budgetTick != tick) {
@@ -57,14 +96,16 @@ public final class ECOFastPathDiagnostics {
         }
 
         LOGGER.info(
-            "ECO FastPath not used for pattern: reason={} definition={} definitionHash={} primaryOutput={} implementation={} worker={} tick={}",
+            "ECO FastPath failure: stage={} reason={} definition={} definitionHash={} primaryOutput={} implementation={} owner={} tick={} context={}",
+            stage,
             reason.code(),
             pattern.definition(),
             Integer.toUnsignedString(pattern.identityHash(), 16),
             pattern.primaryOutput(),
             pattern.implementation(),
-            workerPos.toShortString(),
-            tick
+            ownerPos.toShortString(),
+            tick,
+            context
         );
     }
 
@@ -118,6 +159,24 @@ public final class ECOFastPathDiagnostics {
         }
     }
 
+    private static ECOFastPathStage stageFor(ECOFastPathFallbackReason reason) {
+        return switch (reason) {
+            case FAST_PATH_DISABLED, POST_CRAFTING_EVENT, NO_ECO_PATTERN_BUS,
+                    INTROSPECTION_UNAVAILABLE, UNSUPPORTED_PATTERN_TYPE, KEY_BUILD_FAILED,
+                    OUTPUT_COUNT_NOT_ONE, UNSAFE_EXPECTED_OUTPUT, UNSAFE_CONTAINER_ITEM,
+                    UNSAFE_INPUT -> ECOFastPathStage.ELIGIBILITY;
+            case CACHE_MISS_VERIFYING, NEGATIVE_CACHE, CACHE_ENTRY_MISMATCH -> ECOFastPathStage.CACHE_LOOKUP;
+            case RUNTIME_STACK_CONVERSION_FAILED, OUTPUT_MISMATCH, CONTAINER_MISMATCH,
+                    INPUT_MISMATCH, CACHE_VALIDATION_REJECTED -> ECOFastPathStage.CACHE_VERIFY;
+            case NO_BATCH_OFFER -> ECOFastPathStage.CACHE_LOOKUP;
+            case NO_THREAD_SLOT, ENERGY_LIMIT, COOLANT_LIMIT, INVENTORY_LIMIT -> ECOFastPathStage.RESOURCE_LIMIT;
+            case INPUT_RESERVATION_FAILED -> ECOFastPathStage.INPUT_RESERVATION;
+            case PROVIDER_REJECTED, WORKER_REJECTED, INVALID_BATCH_REQUEST -> ECOFastPathStage.PROVIDER_DISPATCH;
+            case ACCOUNTING_FAILED -> ECOFastPathStage.ACCOUNTING;
+            case LEGACY_SLOW_EXECUTION -> ECOFastPathStage.SLOW_EXECUTION;
+        };
+    }
+
     private static void trimRetainedEntries() {
         if (LOGGED.size() <= MAX_RETAINED_ENTRIES) {
             return;
@@ -137,10 +196,12 @@ public final class ECOFastPathDiagnostics {
 
     private record DiagnosticKey(
         ECOFastPathFallbackReason reason,
+        ECOFastPathStage stage,
         String definition,
         int identityHash,
         String primaryOutput,
-        String implementation
+        String implementation,
+        String context
     ) {
     }
 }

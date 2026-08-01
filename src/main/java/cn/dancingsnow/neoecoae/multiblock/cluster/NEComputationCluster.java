@@ -305,6 +305,12 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return networkCluster == null ? isLocallyActive() : networkCluster.isActive();
     }
 
+    public boolean isFastPlanningEnabled() {
+        return networkCluster == null
+            ? controller != null && controller.isFastPlanningEnabled()
+            : networkCluster.isFastPlanningEnabled();
+    }
+
     public ICraftingSubmitResult submitJob(
         IGrid grid,
         ICraftingPlan job,

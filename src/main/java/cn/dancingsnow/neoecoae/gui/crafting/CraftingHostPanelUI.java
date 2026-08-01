@@ -163,7 +163,7 @@ public final class CraftingHostPanelUI {
                 .addClass("eco-host-toolbar")
                 .layout(layout -> layout.height(TOOLBAR_BUTTON_SIZE).flexDirection(FlexDirection.ROW));
         toolbar.addChildren(
-                NetworkFrequencyButton.create(config.networkFrequency, config.adjustNetworkFrequency),
+                NetworkFrequencyButton.create(config.networkFrequency, config.adjustNetworkFrequency, 16, 16),
                 toolbarButton(config.toggleOverclocked, Icon.POWER_UNIT_AE, config.overclocked,
                         "gui.neoecoae.crafting.overclock.on", "gui.neoecoae.crafting.overclock.off"),
                 toolbarButton(config.toggleActiveCooling, Icon.TYPE_FILTER_ALL, config.activeCooling,
