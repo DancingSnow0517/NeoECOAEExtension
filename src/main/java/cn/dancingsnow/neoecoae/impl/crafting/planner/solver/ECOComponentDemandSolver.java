@@ -57,8 +57,7 @@ public final class ECOComponentDemandSolver {
             );
             return Optional.empty();
         }
-        Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
-        problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
+        Map<K, Long> balances = ECOPlannerMath.initialBalances(problem);
         Map<R, Long> executions = new LinkedHashMap<>();
         Set<K> expandableMaterials = findExpandableMaterials(graph);
         ArrayDeque<K> queue = new ArrayDeque<>();

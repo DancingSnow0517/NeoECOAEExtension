@@ -44,9 +44,9 @@ public final class ECOCondensedCycleSolver {
             return Optional.empty();
         }
 
-        Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
+        Map<K, Long> balances;
         try {
-            problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
+            balances = ECOPlannerMath.initialBalances(problem);
         } catch (ArithmeticException overflow) {
             return Optional.empty();
         }

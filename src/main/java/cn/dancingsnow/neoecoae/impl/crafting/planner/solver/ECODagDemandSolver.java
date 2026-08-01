@@ -42,8 +42,7 @@ public final class ECODagDemandSolver {
             return Optional.empty();
         }
 
-        Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
-        problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
+        Map<K, Long> balances = ECOPlannerMath.initialBalances(problem);
         Map<R, Long> executions = new LinkedHashMap<>();
         ArrayDeque<K> deficientMaterials = new ArrayDeque<>();
         Set<K> queued = new HashSet<>();

@@ -45,7 +45,7 @@ public final class ECOAE2PlanAssembler {
 
         var problem = snapshot.problem();
         var candidate = result.candidate();
-        Map<AEKey, Long> missing = findMissingSources(problem, candidate);
+        Map<AEKey, Long> missing = findMissingSources(problem, result);
         addMissingCycleSeed(problem, result, missing);
         Map<AEKey, Long> schedulableInventory = new LinkedHashMap<>(problem.inventory());
         missing.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
@@ -80,6 +80,17 @@ public final class ECOAE2PlanAssembler {
             );
             return Optional.empty();
         }
+        if (candidate.executions().isEmpty() && usedItems.get().isEmpty()) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+                ECOPlannerFallbackReason.ASSEMBLY_REJECTED,
+                snapshot.requestedKey(),
+                snapshot.requestedAmount(),
+                "assembler",
+                "empty_plan_no_patterns_or_inputs"
+            );
+            return Optional.empty();
+        }
         KeyCounter missingItems = toCounter(missing);
         KeyCounter emittedItems = new KeyCounter();
         long bytes = estimateBytes(snapshot, candidate);
@@ -97,8 +108,9 @@ public final class ECOAE2PlanAssembler {
 
     private static Map<AEKey, Long> findMissingSources(
         ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        ECOPlanCandidate<IPatternDetails> candidate
+        ECOHyperflowResult<IPatternDetails> result
     ) {
+        ECOPlanCandidate<IPatternDetails> candidate = result.candidate();
         Map<AEKey, Long> balances = new LinkedHashMap<>(problem.inventory());
         Map<AEKey, Boolean> craftable = new HashMap<>();
         for (var operation : problem.operations()) {
@@ -111,7 +123,11 @@ public final class ECOAE2PlanAssembler {
 
         Map<AEKey, Long> missing = new LinkedHashMap<>();
         for (var balance : balances.entrySet()) {
-            if (balance.getValue() < 0 && !craftable.containsKey(balance.getKey())) {
+            boolean solverClassifiedAsSource = result.status() == ECOHyperflowResult.Status.MISSING_SOURCES
+                && candidate.requestedShortfall() == 0L
+                && candidate.dependencyShortfall() == 0L;
+            if (balance.getValue() < 0
+                && (solverClassifiedAsSource || !craftable.containsKey(balance.getKey()))) {
                 missing.put(balance.getKey(), Math.negateExact(balance.getValue()));
             }
         }

@@ -2,7 +2,9 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 
 /** Shared arithmetic utilities for ECO planning solvers. */
@@ -55,6 +57,14 @@ final class ECOPlannerMath {
             total = saturatedAdd(total, value);
         }
         return total;
+    }
+
+    /** Initial balances for a crafting request; existing requested outputs are not a crafted result. */
+    static <K, R> Map<K, Long> initialBalances(ECOPlanningProblem<K, R> problem) {
+        Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
+        problem.requested().keySet().forEach(key -> balances.remove(key));
+        problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
+        return balances;
     }
 
     /**
