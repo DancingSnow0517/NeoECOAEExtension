@@ -3,6 +3,8 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.schedule;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayDeque;
@@ -25,6 +27,7 @@ public final class ECOInventoryScheduler {
         Map<K, Long> inventory = new LinkedHashMap<>(problem.inventory());
         Map<R, Long> remaining = new LinkedHashMap<>(candidate.executions());
         List<ECOScheduledStep<R>> steps = new ArrayList<>();
+        Set<R> cycleOperations = cycleOperations(problem);
 
         Map<K, List<ECOPlanningOperation<K, R>>> consumers = new LinkedHashMap<>();
         for (var operation : problem.operations()) {
@@ -38,6 +41,12 @@ public final class ECOInventoryScheduler {
         ArrayDeque<ECOPlanningOperation<K, R>> pendingOperations = new ArrayDeque<>();
         Set<R> queued = new HashSet<>();
         for (var operation : problem.operations()) {
+            if (!cycleOperations.contains(operation.reference())) continue;
+            pendingOperations.addLast(operation);
+            queued.add(operation.reference());
+        }
+        for (var operation : problem.operations()) {
+            if (cycleOperations.contains(operation.reference())) continue;
             pendingOperations.addLast(operation);
             queued.add(operation.reference());
         }
@@ -59,12 +68,12 @@ public final class ECOInventoryScheduler {
             steps.add(new ECOScheduledStep<>(operation.reference(), executable));
 
             if (left > 0) {
-                enqueue(operation, pendingOperations, queued);
+                enqueue(operation, pendingOperations, queued, cycleOperations);
             }
             for (K output : operation.outputs().keySet()) {
                 for (var consumer : consumers.getOrDefault(output, List.of())) {
                     if (remaining.getOrDefault(consumer.reference(), 0L) > 0) {
-                        enqueue(consumer, pendingOperations, queued);
+                        enqueue(consumer, pendingOperations, queued, cycleOperations);
                     }
                 }
             }
@@ -140,11 +149,35 @@ public final class ECOInventoryScheduler {
     private static <K, R> void enqueue(
         ECOPlanningOperation<K, R> operation,
         ArrayDeque<ECOPlanningOperation<K, R>> pendingOperations,
-        Set<R> queued
+        Set<R> queued,
+        Set<R> cycleOperations
     ) {
         if (queued.add(operation.reference())) {
-            pendingOperations.addLast(operation);
+            if (cycleOperations.contains(operation.reference())) {
+                pendingOperations.addFirst(operation);
+            } else {
+                pendingOperations.addLast(operation);
+            }
         }
+    }
+
+    private static <K, R> Set<R> cycleOperations(ECOPlanningProblem<K, R> problem) {
+        ECOPlanningGraph<K, R> graph = new ECOPlanningGraph<>(problem.operations());
+        Set<K> cycleMaterials = new HashSet<>();
+        for (Set<K> component : ECOStrongComponents.find(graph)) {
+            if (component.size() > 1 || graph.operations().stream().anyMatch(operation ->
+                component.stream().anyMatch(material -> operation.inputs().containsKey(material)
+                    && operation.outputs().containsKey(material)))) {
+                cycleMaterials.addAll(component);
+            }
+        }
+        Set<R> result = new HashSet<>();
+        for (var operation : problem.operations()) {
+            if (operation.selectableOutputs().stream().anyMatch(cycleMaterials::contains)) {
+                result.add(operation.reference());
+            }
+        }
+        return result;
     }
 
     private static <K, R> long maxExecutable(

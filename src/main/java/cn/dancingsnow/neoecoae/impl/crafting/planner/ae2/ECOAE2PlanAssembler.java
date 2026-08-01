@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** Converts a validated ECO result into the complete plan contract consumed by AE2 CPUs. */
 public final class ECOAE2PlanAssembler {
@@ -45,6 +46,7 @@ public final class ECOAE2PlanAssembler {
         var problem = snapshot.problem();
         var candidate = result.candidate();
         Map<AEKey, Long> missing = findMissingSources(problem, candidate);
+        addMissingCycleSeed(problem, result, missing);
         Map<AEKey, Long> schedulableInventory = new LinkedHashMap<>(problem.inventory());
         missing.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
         var schedulableProblem = new ECOPlanningProblem<>(
@@ -114,6 +116,27 @@ public final class ECOAE2PlanAssembler {
             }
         }
         return missing;
+    }
+
+    private static void addMissingCycleSeed(
+        ECOPlanningProblem<AEKey, IPatternDetails> problem,
+        ECOHyperflowResult<IPatternDetails> result,
+        Map<AEKey, Long> missing
+    ) {
+        Set<IPatternDetails> starters = result.cycleTrace()
+            .map(trace -> trace.missingSeedStarters())
+            .orElse(Set.of());
+        if (starters.isEmpty()) {
+            return;
+        }
+        problem.operations().stream()
+            .filter(operation -> starters.contains(operation.reference()))
+            .forEach(operation -> operation.inputs().forEach((key, amount) -> {
+                long deficit = Math.max(0L, amount - problem.inventory().getOrDefault(key, 0L));
+                if (deficit > 0L) {
+                    missing.merge(key, deficit, Math::max);
+                }
+            }));
     }
 
     private static Optional<KeyCounter> calculateUsedItems(

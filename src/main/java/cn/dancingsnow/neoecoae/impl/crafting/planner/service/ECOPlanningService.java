@@ -8,6 +8,7 @@ import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanAssembler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanningSnapshot;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
@@ -52,6 +53,7 @@ public final class ECOPlanningService {
                 throw new CancellationException("ECO crafting planning was cancelled before execution");
             }
             FAILURE_REASON.set(ECOPlannerFallbackReason.PLANNING_FAILURE);
+            ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, ECOCyclePlanningDiagnostics.EMPTY);
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.ENTRY,
                 ECOPlannerFallbackReason.PLANNING_FAILURE,
@@ -67,8 +69,8 @@ public final class ECOPlanningService {
                 Optional<CraftingPlan> ecoPlan = Optional.empty();
                 try {
                     ecoPlan = strategy == CalculationStrategy.CRAFT_LESS
-                        ? solveCraftLess(snapshot, lease, deadlineNanos)
-                        : solve(snapshot, lease, deadlineNanos);
+                        ? solveCraftLess(snapshot, lease, deadlineNanos, noticeTarget)
+                        : solve(snapshot, lease, deadlineNanos, noticeTarget);
                 } catch (CancellationException cancelled) {
                     throw cancelled;
                 } catch (RuntimeException | LinkageError failure) {
@@ -125,10 +127,12 @@ public final class ECOPlanningService {
     private static Optional<CraftingPlan> solve(
         ECOAE2PlanningSnapshot snapshot,
         ECOPlanningHostLease lease,
-        long deadlineNanos
+        long deadlineNanos,
+        ECOPlannerNoticeDispatcher.Target noticeTarget
     ) {
         try {
             var result = ECOPlanningSolver.solve(snapshot.problem(), lease.budget(), deadlineNanos);
+            ECOCyclePlanningDiagnostics cycleDiagnostics = ECOCyclePlanningDiagnostics.from(snapshot, result);
             ECOPlanningFailureDiagnostics.logSolverResult(
                 ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
                 snapshot.problem(),
@@ -141,6 +145,9 @@ public final class ECOPlanningService {
                 markFailure(ECOPlannerFallbackReason.SOLVER_BUDGET_EXHAUSTED);
             }
             Optional<CraftingPlan> plan = ECOAE2PlanAssembler.assemble(snapshot, result);
+            if (!cycleDiagnostics.missingSeeds().isEmpty() || plan.isPresent()) {
+                ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, cycleDiagnostics);
+            }
             if (plan.isEmpty()) {
                 ECOPlanningFailureDiagnostics.logFailure(
                     ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
@@ -179,7 +186,8 @@ public final class ECOPlanningService {
     private static Optional<CraftingPlan> solveCraftLess(
         ECOAE2PlanningSnapshot snapshot,
         ECOPlanningHostLease lease,
-        long deadlineNanos
+        long deadlineNanos,
+        ECOPlannerNoticeDispatcher.Target noticeTarget
     ) {
         ECOPlanningGraph<AEKey, IPatternDetails> graph = ECOGraphPruner.targetReachable(
             new ECOPlanningGraph<>(snapshot.problem().operations()),
@@ -213,6 +221,7 @@ public final class ECOPlanningService {
         if (best == null) {
             markFailure(ECOPlannerFallbackReason.CRAFT_LESS_NO_CRAFTABLE);
         }
+        ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, ECOCyclePlanningDiagnostics.EMPTY);
         return Optional.ofNullable(best);
     }
 

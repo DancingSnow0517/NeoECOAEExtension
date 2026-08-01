@@ -105,7 +105,7 @@ public final class ECODagDemandSolver {
                     dependencyShortfall = Math.addExact(dependencyShortfall, missing);
                 }
             } else {
-                surplus = Math.addExact(surplus, entry.getValue());
+                surplus = ECOPlannerMath.saturatedAdd(surplus, entry.getValue());
             }
         }
         ECOPlanCandidate<R> candidate = new ECOPlanCandidate<>(

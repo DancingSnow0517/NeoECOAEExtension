@@ -21,6 +21,7 @@
   ],
   "client": [
     "client.CraftConfirmScreenMixin",
+    "client.CraftConfirmTableRendererMixin",
     "ModelBakeryMixin",
     "PatternEncodingTermScreenMixin"
   ],

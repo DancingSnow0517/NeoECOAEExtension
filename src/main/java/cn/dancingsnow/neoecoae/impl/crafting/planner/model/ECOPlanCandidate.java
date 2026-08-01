@@ -28,7 +28,10 @@ public record ECOPlanCandidate<R>(
     public long totalExecutions() {
         long total = 0;
         for (long count : executions.values()) {
-            total = Math.addExact(total, count);
+            if (Long.MAX_VALUE - total < count) {
+                return Long.MAX_VALUE;
+            }
+            total += count;
         }
         return total;
     }

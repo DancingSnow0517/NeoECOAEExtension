@@ -1,6 +1,12 @@
 {
   "gui.neoecoae.planning.ae2_fallback_title": "合成計劃 - 正在使用 AE2（%s）",
   "chat.neoecoae.planning.ae2_fallback": "ECO 快速計算未使用，已改由 AE2 計算：%s",
+  "gui.neoecoae.planning.cycle_missing_seed": "缺少循環啟動種子：%s",
+  "gui.neoecoae.planning.cycle_tooltip.header": "ECO 環計算",
+  "gui.neoecoae.planning.cycle_tooltip.initial": "初始：%s",
+  "gui.neoecoae.planning.cycle_tooltip.consumed": "環內消耗：%s",
+  "gui.neoecoae.planning.cycle_tooltip.produced": "環內產出：%s",
+  "gui.neoecoae.planning.cycle_tooltip.remaining": "計劃後數量：%s",
   "gui.neoecoae.planning.reason.no_eco_host": "沒有可用的 ECO 運算主機",
   "gui.neoecoae.planning.reason.snapshot_rejected": "無法讀取該請求的配方圖",
   "gui.neoecoae.planning.reason.pattern_incompatible": "該樣板需要 AE2 原生規劃語義",

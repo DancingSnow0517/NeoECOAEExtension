@@ -8,6 +8,9 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureD
 
 /** Selects the linear/component path before falling back to bounded integer search. */
 public final class ECOPlanningSolver {
+    private static final long CYCLE_PHASE_NANOS = 2_000_000_000L;
+    private static final long COMPONENT_PHASE_NANOS = 500_000_000L;
+
     private ECOPlanningSolver() {
     }
 
@@ -66,13 +69,15 @@ public final class ECOPlanningSolver {
             );
             return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
         }
-        var cycle = ECOOjAlgoCycleSolver.trySolve(problem, graph, deadlineNanos);
+        long cycleDeadline = ECOSolveBudget.phaseDeadline(deadlineNanos, CYCLE_PHASE_NANOS);
+        var cycle = ECOCondensedCycleSolver.trySolve(problem, graph, cycleDeadline);
         if (cycle.isPresent()) {
             return cycle.get();
         }
-        var component = ECOComponentDemandSolver.trySolve(problem, graph, deadlineNanos);
+        long componentDeadline = ECOSolveBudget.phaseDeadline(deadlineNanos, COMPONENT_PHASE_NANOS);
+        var component = ECOComponentDemandSolver.trySolve(problem, graph, componentDeadline);
         if (component.isPresent()
-            && !ECOSolveBudget.shouldStop(deadlineNanos)
+            && !ECOSolveBudget.shouldStop(componentDeadline)
             && component.get().status() != ECOHyperflowResult.Status.NO_ROUTE) {
             return component.get();
         }

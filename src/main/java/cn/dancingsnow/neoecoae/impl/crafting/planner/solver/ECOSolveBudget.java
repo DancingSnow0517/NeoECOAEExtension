@@ -6,7 +6,7 @@ public record ECOSolveBudget(
     int extraBatchChoices,
     long maxDurationNanos
 ) {
-    private static final long DEFAULT_MAX_DURATION_NANOS = 1_000_000_000L;
+    private static final long DEFAULT_MAX_DURATION_NANOS = 4_000_000_000L;
     public static final ECOSolveBudget DEFAULT = new ECOSolveBudget(50_000, 256, 2);
 
     public ECOSolveBudget(long maxExpandedStates, int maxDepth, int extraBatchChoices) {
@@ -28,5 +28,17 @@ public record ECOSolveBudget(
     public static boolean shouldStop(long deadlineNanos) {
         return Thread.currentThread().isInterrupted()
             || (deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0L);
+    }
+
+    static long phaseDeadline(long overallDeadlineNanos, long phaseDurationNanos) {
+        if (overallDeadlineNanos == Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+        long now = System.nanoTime();
+        long phaseDeadline = now + phaseDurationNanos;
+        if (phaseDeadline < now) {
+            phaseDeadline = Long.MAX_VALUE;
+        }
+        return Math.min(overallDeadlineNanos, phaseDeadline);
     }
 }

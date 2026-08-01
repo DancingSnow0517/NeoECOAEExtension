@@ -2,6 +2,8 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.service;
 
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
+import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -38,6 +40,29 @@ public final class ECOPlannerNoticeDispatcher {
                 return;
             }
             PacketDistributor.sendToPlayer(player, new ECOPlannerNoticePayload(target.containerId(), reason.id()));
+        });
+    }
+
+    public static void sendCycleDiagnostics(
+        @Nullable Target target,
+        ECOCyclePlanningDiagnostics diagnostics
+    ) {
+        if (target == null) {
+            return;
+        }
+        MinecraftServer server = target.player().getServer();
+        if (server == null) {
+            return;
+        }
+        server.execute(() -> {
+            ServerPlayer player = target.player();
+            if (player.getServer() != server || player.containerMenu.containerId != target.containerId()) {
+                return;
+            }
+            PacketDistributor.sendToPlayer(
+                player,
+                new ECOCycleDiagnosticsPayload(target.containerId(), diagnostics)
+            );
         });
     }
 
