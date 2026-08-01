@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanningSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOPlanningSolver;
@@ -102,6 +103,19 @@ public final class ECOPlanningService {
                     strategy,
                     "no_executable_eco_plan_ae2_fallback"
                 );
+                if (hasReachableCycle(snapshot)) {
+                    ECOPlanningFailureDiagnostics.logFailure(
+                        ECOPlanningFailureDiagnostics.Stage.FALLBACK,
+                        ECOPlannerFallbackReason.ASSEMBLY_REJECTED,
+                        snapshot.requestedKey(),
+                        snapshot.requestedAmount(),
+                        strategy,
+                        "cycle_detected_ae2_fallback_suppressed"
+                    );
+                    throw new IllegalStateException(
+                        "ECO plan for a cyclic recipe graph was not executable; AE2 fallback suppressed"
+                    );
+                }
                 LOGGER.debug("ECO planning produced no executable plan; using AE2 crafting calculation");
                 if (cancellationRequested.get() || Thread.currentThread().isInterrupted()) {
                     throw new CancellationException("ECO crafting planning was cancelled before AE2 fallback");
@@ -256,5 +270,13 @@ public final class ECOPlanningService {
 
     private static void markFailure(ECOPlannerFallbackReason reason) {
         FAILURE_REASON.set(reason);
+    }
+
+    private static boolean hasReachableCycle(ECOAE2PlanningSnapshot snapshot) {
+        ECOPlanningGraph<AEKey, IPatternDetails> graph = ECOGraphPruner.targetReachable(snapshot.problem());
+        return ECOStrongComponents.find(graph).stream().anyMatch(component ->
+            component.size() > 1 || graph.operations().stream().anyMatch(operation ->
+                component.stream().anyMatch(material -> operation.inputs().containsKey(material)
+                    && operation.outputs().containsKey(material))));
     }
 }

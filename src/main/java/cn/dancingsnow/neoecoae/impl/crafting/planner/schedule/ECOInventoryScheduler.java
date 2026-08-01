@@ -36,48 +36,46 @@ public final class ECOInventoryScheduler {
             }
         }
 
-        // Outputs wake only the operations that consume them. This keeps a long, reverse-ordered
-        // dependency chain linear instead of rescanning every operation once per dependency level.
-        ArrayDeque<ECOPlanningOperation<K, R>> pendingOperations = new ArrayDeque<>();
-        Set<R> queued = new HashSet<>();
-        for (var operation : problem.operations()) {
-            if (!cycleOperations.contains(operation.reference())) continue;
-            pendingOperations.addLast(operation);
-            queued.add(operation.reference());
-        }
-        for (var operation : problem.operations()) {
-            if (cycleOperations.contains(operation.reference())) continue;
-            pendingOperations.addLast(operation);
-            queued.add(operation.reference());
-        }
-        while (!pendingOperations.isEmpty()) {
-            ECOPlanningOperation<K, R> operation = pendingOperations.removeFirst();
-            queued.remove(operation.reference());
-            long pending = remaining.getOrDefault(operation.reference(), 0L);
-            if (pending <= 0) {
-                continue;
+        boolean progress;
+        do {
+            progress = false;
+            ArrayDeque<ECOPlanningOperation<K, R>> pendingOperations = new ArrayDeque<>();
+            Set<R> queued = new HashSet<>();
+            for (var operation : problem.operations()) {
+                if (cycleOperations.contains(operation.reference())) {
+                    pendingOperations.addLast(operation);
+                    queued.add(operation.reference());
+                }
             }
-            long executable = maxExecutable(operation, inventory, pending);
-            if (executable <= 0) {
-                continue;
+            for (var operation : problem.operations()) {
+                if (!cycleOperations.contains(operation.reference())) {
+                    pendingOperations.addLast(operation);
+                    queued.add(operation.reference());
+                }
             }
-            apply(operation.inputs(), inventory, executable, false);
-            apply(operation.outputs(), inventory, executable, true);
-            long left = pending - executable;
-            remaining.put(operation.reference(), left);
-            steps.add(new ECOScheduledStep<>(operation.reference(), executable));
-
-            if (left > 0) {
-                enqueue(operation, pendingOperations, queued, cycleOperations);
-            }
-            for (K output : operation.outputs().keySet()) {
-                for (var consumer : consumers.getOrDefault(output, List.of())) {
-                    if (remaining.getOrDefault(consumer.reference(), 0L) > 0) {
-                        enqueue(consumer, pendingOperations, queued, cycleOperations);
+            while (!pendingOperations.isEmpty()) {
+                ECOPlanningOperation<K, R> operation = pendingOperations.removeFirst();
+                queued.remove(operation.reference());
+                long pending = remaining.getOrDefault(operation.reference(), 0L);
+                if (pending <= 0L) continue;
+                long executable = maxExecutable(operation, inventory, pending);
+                if (executable <= 0L) continue;
+                apply(operation.inputs(), inventory, executable, false);
+                apply(operation.outputs(), inventory, executable, true);
+                long left = pending - executable;
+                remaining.put(operation.reference(), left);
+                steps.add(new ECOScheduledStep<>(operation.reference(), executable));
+                progress = true;
+                if (left > 0L) enqueue(operation, pendingOperations, queued, cycleOperations);
+                for (K output : operation.outputs().keySet()) {
+                    for (var consumer : consumers.getOrDefault(output, List.of())) {
+                        if (remaining.getOrDefault(consumer.reference(), 0L) > 0L) {
+                            enqueue(consumer, pendingOperations, queued, cycleOperations);
+                        }
                     }
                 }
             }
-        }
+        } while (progress && remaining.values().stream().anyMatch(value -> value > 0L));
 
         Map<K, Long> blockedBy = new LinkedHashMap<>();
         for (ECOPlanningOperation<K, R> operation : problem.operations()) {
