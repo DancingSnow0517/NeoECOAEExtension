@@ -66,6 +66,10 @@ public final class ECOPlanningSolver {
             );
             return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
         }
+        var cycle = ECOOjAlgoCycleSolver.trySolve(problem, graph, deadlineNanos);
+        if (cycle.isPresent()) {
+            return cycle.get();
+        }
         var component = ECOComponentDemandSolver.trySolve(problem, graph, deadlineNanos);
         if (component.isPresent()
             && !ECOSolveBudget.shouldStop(deadlineNanos)

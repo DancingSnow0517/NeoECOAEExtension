@@ -98,6 +98,9 @@ repositories {
 dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 
+    implementation("org.ojalgo:ojalgo:57.1.0")
+    jarJar("org.ojalgo:ojalgo:57.1.0")
+
     api("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
     jarJar("com.tterrag.registrate:Registrate:MC1.21.1-1.4.8")
 
