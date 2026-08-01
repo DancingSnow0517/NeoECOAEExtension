@@ -178,7 +178,14 @@ public final class ECOComponentDemandSolver {
             return Optional.empty();
         }
 
-        return Optional.of(ECOPlannerMath.buildResult(balances, executions, problem.requested(), expandableMaterials, expansions));
+        return Optional.of(ECOPlannerMath.buildResult(
+            balances,
+            executions,
+            problem.requested(),
+            expandableMaterials,
+            graph.materials(),
+            expansions
+        ));
     }
 
     private static <K, R> ECOPlanningOperation<K, R> chooseProducer(

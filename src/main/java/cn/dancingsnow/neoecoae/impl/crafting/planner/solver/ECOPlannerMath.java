@@ -76,6 +76,7 @@ final class ECOPlannerMath {
         Map<R, Long> executions,
         Map<K, Long> requested,
         Set<K> expandableMaterials,
+        Set<K> relevantMaterials,
         long expansions
     ) {
         long requestedShortfall = 0;
@@ -84,6 +85,9 @@ final class ECOPlannerMath {
         long surplus = 0;
 
         for (var entry : balances.entrySet()) {
+            if (!requested.containsKey(entry.getKey()) && !relevantMaterials.contains(entry.getKey())) {
+                continue;
+            }
             long balance = entry.getValue();
             if (balance < 0) {
                 long missing = balance == Long.MIN_VALUE ? Long.MAX_VALUE : -balance;

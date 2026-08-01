@@ -95,8 +95,12 @@ public final class ECOCondensedCycleSolver {
                     return Optional.empty();
                 }
 
-                LocalSolution<K, R> local = solveComponent(
-                    component, localOperations, material, balances, problem.inventory(), deadlineNanos);
+                LocalSolution<K, R> local = solveProductiveSelfCycle(
+                    component, localOperations, material, balances, problem.inventory());
+                if (local == null) {
+                    local = solveComponent(
+                        component, localOperations, material, balances, problem.inventory(), deadlineNanos);
+                }
                 if (local == null) {
                     logFailure(problem, "local_milp_no_result materials=" + component.size()
                         + " operations=" + localOperations.size()
@@ -130,7 +134,7 @@ public final class ECOCondensedCycleSolver {
         graph.operations().forEach(operation -> expandable.addAll(operation.selectableOutputs()));
         expandable.removeAll(terminalBoundaryDeficits);
         ECOHyperflowResult<R> built = ECOPlannerMath.buildResult(
-            balances, executions, problem.requested(), expandable, expansions);
+            balances, executions, problem.requested(), expandable, graph.materials(), expansions);
         ECOPlanCandidate<R> candidate = built.candidate();
         var originalSchedule = ECOInventoryScheduler.schedule(problem, candidate);
         Set<R> effectiveMissingSeedStarters = originalSchedule.executable()
@@ -335,6 +339,47 @@ public final class ECOCondensedCycleSolver {
         }
         return new LocalSolution<>(executions, Set.copyOf(references), starter,
             Map.copyOf(missingSeedAmounts), Map.copyOf(usedBoundaryDeficits));
+    }
+
+    /** Handles A + external inputs -> nA without paying the MILP setup cost. */
+    private static <K, R> LocalSolution<K, R> solveProductiveSelfCycle(
+        Set<K> component,
+        List<ECOPlanningOperation<K, R>> operations,
+        K deficientMaterial,
+        Map<K, Long> balances,
+        Map<K, Long> initialInventory
+    ) {
+        if (component.size() != 1) {
+            return null;
+        }
+        List<ECOPlanningOperation<K, R>> producers = operations.stream()
+            .filter(operation -> operation.inputAmount(deficientMaterial) > 0L)
+            .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L)
+            .toList();
+        if (producers.size() != 1) {
+            return null;
+        }
+
+        ECOPlanningOperation<K, R> operation = producers.getFirst();
+        long deficit = ECOPlannerMath.saturatedNegate(balances.getOrDefault(deficientMaterial, 0L));
+        long net = ECOPlannerMath.positiveNet(operation, deficientMaterial);
+        if (deficit <= 0L || net <= 0L) {
+            return null;
+        }
+        long batches = ECOPlannerMath.ceilDiv(deficit, net);
+        Map<K, Long> missingSeedAmounts = new LinkedHashMap<>();
+        long seedMissing = Math.max(0L,
+            operation.inputAmount(deficientMaterial) - initialInventory.getOrDefault(deficientMaterial, 0L));
+        if (seedMissing > 0L) {
+            missingSeedAmounts.put(deficientMaterial, seedMissing);
+        }
+        return new LocalSolution<>(
+            Map.of(operation.reference(), batches),
+            Set.of(operation.reference()),
+            seedMissing > 0L ? operation : null,
+            Map.copyOf(missingSeedAmounts),
+            Map.of()
+        );
     }
 
     private static <K, R> ECOPlanningOperation<K, R> preferredStarter(

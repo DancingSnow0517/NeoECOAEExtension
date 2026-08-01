@@ -11,7 +11,8 @@ public record ECOAE2PlanningSnapshot(
     AEKey requestedKey,
     long requestedAmount,
     boolean multiplePaths,
-    Map<IPatternDetails, Integer> inputSlotCounts
+    Map<IPatternDetails, Integer> inputSlotCounts,
+    Map<IPatternDetails, java.util.List<ECOAE2InputSelection>> selectedInputs
 ) {
     public ECOAE2PlanningSnapshot {
         Objects.requireNonNull(problem, "problem");
@@ -20,6 +21,7 @@ public record ECOAE2PlanningSnapshot(
             throw new IllegalArgumentException("requestedAmount must be positive");
         }
         inputSlotCounts = Map.copyOf(Objects.requireNonNull(inputSlotCounts, "inputSlotCounts"));
+        selectedInputs = Map.copyOf(Objects.requireNonNull(selectedInputs, "selectedInputs"));
     }
 
     public ECOAE2PlanningSnapshot forAmount(long amount) {
@@ -35,7 +37,8 @@ public record ECOAE2PlanningSnapshot(
             requestedKey,
             amount,
             multiplePaths,
-            inputSlotCounts
+            inputSlotCounts,
+            selectedInputs
         );
     }
 }

@@ -4,6 +4,8 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingPlan;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanAssembler;
@@ -11,7 +13,6 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanningSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOPlanningSolver;
@@ -74,6 +75,17 @@ public final class ECOPlanningService {
                         : solve(snapshot, lease, deadlineNanos, noticeTarget);
                 } catch (CancellationException cancelled) {
                     throw cancelled;
+                } catch (StackOverflowError overflow) {
+                    markFailure(ECOPlannerFallbackReason.PLANNING_FAILURE);
+                    ECOPlanningFailureDiagnostics.logFailure(
+                        ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+                        ECOPlannerFallbackReason.PLANNING_FAILURE,
+                        snapshot.requestedKey(),
+                        snapshot.requestedAmount(),
+                        strategy,
+                        "solver_stack_overflow_ae2_fallback",
+                        overflow
+                    );
                 } catch (RuntimeException | LinkageError failure) {
                     markFailure(ECOPlannerFallbackReason.PLANNING_FAILURE);
                     ECOPlanningFailureDiagnostics.logFailure(
@@ -103,24 +115,24 @@ public final class ECOPlanningService {
                     strategy,
                     "no_executable_eco_plan_ae2_fallback"
                 );
-                if (hasReachableCycle(snapshot)) {
-                    ECOPlanningFailureDiagnostics.logFailure(
-                        ECOPlanningFailureDiagnostics.Stage.FALLBACK,
-                        ECOPlannerFallbackReason.ASSEMBLY_REJECTED,
-                        snapshot.requestedKey(),
-                        snapshot.requestedAmount(),
-                        strategy,
-                        "cycle_detected_ae2_fallback_suppressed"
-                    );
-                    throw new IllegalStateException(
-                        "ECO plan for a cyclic recipe graph was not executable; AE2 fallback suppressed"
-                    );
-                }
                 LOGGER.debug("ECO planning produced no executable plan; using AE2 crafting calculation");
                 if (cancellationRequested.get() || Thread.currentThread().isInterrupted()) {
                     throw new CancellationException("ECO crafting planning was cancelled before AE2 fallback");
                 }
-                return ae2Fallback.get();
+                try {
+                    return ae2Fallback.get();
+                } catch (StackOverflowError overflow) {
+                    ECOPlanningFailureDiagnostics.logFailure(
+                        ECOPlanningFailureDiagnostics.Stage.FALLBACK,
+                        ECOPlannerFallbackReason.PLANNING_FAILURE,
+                        snapshot.requestedKey(),
+                        snapshot.requestedAmount(),
+                        strategy,
+                        "ae2_fallback_stack_overflow_returning_missing_plan",
+                        overflow
+                    );
+                    return missingTargetPlan(snapshot);
+                }
             } finally {
                 lease.close();
                 FAILURE_REASON.remove();
@@ -272,11 +284,18 @@ public final class ECOPlanningService {
         FAILURE_REASON.set(reason);
     }
 
-    private static boolean hasReachableCycle(ECOAE2PlanningSnapshot snapshot) {
-        ECOPlanningGraph<AEKey, IPatternDetails> graph = ECOGraphPruner.targetReachable(snapshot.problem());
-        return ECOStrongComponents.find(graph).stream().anyMatch(component ->
-            component.size() > 1 || graph.operations().stream().anyMatch(operation ->
-                component.stream().anyMatch(material -> operation.inputs().containsKey(material)
-                    && operation.outputs().containsKey(material))));
+    private static CraftingPlan missingTargetPlan(ECOAE2PlanningSnapshot snapshot) {
+        KeyCounter missing = new KeyCounter();
+        missing.add(snapshot.requestedKey(), snapshot.requestedAmount());
+        return new CraftingPlan(
+            new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
+            1L,
+            true,
+            snapshot.multiplePaths(),
+            new KeyCounter(),
+            new KeyCounter(),
+            missing,
+            java.util.Map.of()
+        );
     }
 }

@@ -58,6 +58,7 @@ import java.util.UUID;
 
 public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEntity<ECOComputationSystemBlockEntity>
         implements ISyncPersistRPCBlockEntity {
+    private static final int HOST_UI_HEIGHT = 248;
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
 
@@ -182,7 +183,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
 
         UIElement root = new UIElement().layout(layout -> layout
                 .width(340)
-                .height(232)
+                .height(HOST_UI_HEIGHT)
                 .flexDirection(FlexDirection.COLUMN))
                 .addClasses("panel_bg", "eco-computation-host");
 

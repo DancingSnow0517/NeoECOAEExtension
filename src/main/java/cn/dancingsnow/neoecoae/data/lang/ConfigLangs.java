@@ -81,8 +81,15 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.ecoCpuPushTickLimit", "CPU Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuPushTickLimit.tooltip",
-            "Maximum normal crafting pattern pushes a CPU may attempt per tick.\n" +
-                "The effective value is still capped by available co-processors."
+            "Maximum crafting operations a CPU may schedule per tick.\n" +
+                "A safety cap for both batch fast paths and regular paths; the effective value is still capped by available co-processors."
+        );
+        provider.add("neoecoae.configuration.ecoCpuSlowPathPushTickLimit", "CPU Slow-Path Push Tick Limit");
+        provider.add(
+            "neoecoae.configuration.ecoCpuSlowPathPushTickLimit.tooltip",
+            "Maximum patterns each CPU dispatches per tick to providers without a batch push path.\n" +
+                "Only final single provider.pushPattern calls count; ECO and AE2LT batch fast paths do not.\n" +
+                "Limits synchronous external-inventory insertion to avoid repeatedly scanning large third-party inventories in one tick."
         );
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(

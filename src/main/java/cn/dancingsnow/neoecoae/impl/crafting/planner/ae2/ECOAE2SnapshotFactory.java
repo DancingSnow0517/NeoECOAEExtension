@@ -86,11 +86,12 @@ public final class ECOAE2SnapshotFactory {
                 return Optional.empty();
             }
 
-            List<ECOPlanningOperation<AEKey, IPatternDetails>> operations = materialize(
+            MaterializedOperations materialized = materialize(
                 graph.get(),
                 inventory,
                 craftingService
             );
+            List<ECOPlanningOperation<AEKey, IPatternDetails>> operations = materialized.operations();
 
             // Stored copies of the requested output must not short-circuit a normal
             // request, but they are valid seed material for self-increasing patterns.
@@ -110,7 +111,8 @@ public final class ECOAE2SnapshotFactory {
                 requestedKey,
                 requestedAmount,
                 graph.get().multiplePaths(),
-                graph.get().inputSlotCounts()
+                graph.get().inputSlotCounts(),
+                materialized.selectedInputs()
             ));
         } catch (RuntimeException | LinkageError failure) {
             ECOPlanningFailureDiagnostics.logFailure(
@@ -308,14 +310,15 @@ public final class ECOAE2SnapshotFactory {
         return false;
     }
 
-    private static List<ECOPlanningOperation<AEKey, IPatternDetails>> materialize(
+    private static MaterializedOperations materialize(
         PatternGraph graph,
         Map<AEKey, Long> inventory,
         ICraftingService craftingService
     ) {
         List<ECOPlanningOperation<AEKey, IPatternDetails>> operations = new ArrayList<>(graph.patterns().size());
+        Map<IPatternDetails, List<ECOAE2InputSelection>> selectedInputs = new LinkedHashMap<>();
         for (IPatternDetails details : graph.patterns()) {
-            var operation = convert(details, inventory, craftingService).orElse(null);
+            var operation = convert(details, inventory, craftingService, selectedInputs).orElse(null);
             if (operation == null) {
                 ECOPlanningFailureDiagnostics.logFailure(
                     ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION,
@@ -329,7 +332,7 @@ public final class ECOAE2SnapshotFactory {
             }
             operations.add(operation);
         }
-        return List.copyOf(operations);
+        return new MaterializedOperations(List.copyOf(operations), Map.copyOf(selectedInputs));
     }
 
     /** Compatibility helper retained for the input-selection execution tests. */
@@ -412,7 +415,8 @@ public final class ECOAE2SnapshotFactory {
     private static Optional<ECOPlanningOperation<AEKey, IPatternDetails>> convert(
         IPatternDetails details,
         Map<AEKey, Long> inventory,
-        ICraftingService craftingService
+        ICraftingService craftingService,
+        Map<IPatternDetails, List<ECOAE2InputSelection>> selectionsByPattern
     ) {
         GenericStack primaryOutput = details.getPrimaryOutput();
         if (primaryOutput == null) {
@@ -452,6 +456,12 @@ public final class ECOAE2SnapshotFactory {
         if (outputs.isEmpty()) {
             return Optional.empty();
         }
+        List<ECOAE2InputSelection> exactSelections = new ArrayList<>(selectedInputs.size());
+        for (int i = 0; i < selectedInputs.size(); i++) {
+            exactSelections.add(ECOAE2InputSelection.single(
+                selectedInputs.get(i), details.getInputs()[i].getMultiplier()));
+        }
+        selectionsByPattern.put(details, List.copyOf(exactSelections));
         // A processing pattern may expose useful secondary outputs. Keep all of
         // them selectable so a dependency can be satisfied by the same execution.
         return Optional.of(new ECOPlanningOperation<>(details, inputs, outputs));
@@ -502,6 +512,12 @@ public final class ECOAE2SnapshotFactory {
             patterns = List.copyOf(patterns);
             inputSlotCounts = Map.copyOf(inputSlotCounts);
         }
+    }
+
+    private record MaterializedOperations(
+        List<ECOPlanningOperation<AEKey, IPatternDetails>> operations,
+        Map<IPatternDetails, List<ECOAE2InputSelection>> selectedInputs
+    ) {
     }
 
     private record CachedGraphs(

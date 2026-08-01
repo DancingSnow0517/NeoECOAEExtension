@@ -5,6 +5,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
+import java.util.Optional;
 
 /** Selects the linear/component path before falling back to bounded integer search. */
 public final class ECOPlanningSolver {
@@ -70,7 +71,21 @@ public final class ECOPlanningSolver {
             return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
         }
         long cycleDeadline = ECOSolveBudget.phaseDeadline(deadlineNanos, CYCLE_PHASE_NANOS);
-        var cycle = ECOCondensedCycleSolver.trySolve(problem, graph, cycleDeadline);
+        Optional<ECOHyperflowResult<R>> cycle;
+        try {
+            cycle = ECOCondensedCycleSolver.trySolve(problem, graph, cycleDeadline);
+        } catch (StackOverflowError overflow) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                ECOPlannerFallbackReason.PLANNING_FAILURE,
+                problem.requested().keySet().stream().findFirst().orElse(null),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "scc_ojalgo",
+                "stack_overflow_switch_to_component",
+                overflow
+            );
+            cycle = Optional.empty();
+        }
         if (cycle.isPresent()) {
             return cycle.get();
         }

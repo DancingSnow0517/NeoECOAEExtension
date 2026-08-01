@@ -20,6 +20,7 @@ public class NEConfig {
     private static final int DEBUG_OVERDRIVE_CAPACITY_POWER = 15;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
     public static final int ECO_CPU_PUSH_TICK_LIMIT_MAX = 393_216;
+    public static final int ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT = 650;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
@@ -190,13 +191,28 @@ public class NEConfig {
 
     private static final ModConfigSpec.IntValue ECO_CPU_PUSH_TICK_LIMIT = BUILDER
         .comment(
-            "每个 CPU 每 tick 最多尝试推送的普通合成 pattern 数量。",
-            "实际值仍会受可用协处理器数量限制。",
-            "Maximum number of regular crafting patterns each CPU attempts to push per tick.",
-            "The effective value is still limited by the number of available co-processors.")
+            "每个 CPU 每 tick 最多调度的合成操作数量。",
+            "批量快路径和普通路径都受此总安全上限保护；实际值仍会受可用协处理器数量限制。",
+            "Maximum crafting operations a CPU schedules per tick.",
+            "This is a safety cap for both batch fast paths and regular paths; the effective value is still limited by available co-processors.")
         .defineInRange(
             "ecoCpuPushTickLimit",
             ECO_CPU_PUSH_TICK_LIMIT_MAX,
+            1,
+            ECO_CPU_PUSH_TICK_LIMIT_MAX
+        );
+
+    private static final ModConfigSpec.IntValue ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT = BUILDER
+        .comment(
+            "每个 CPU 每 tick 最多向不支持批量推送的样板提供器发配的 pattern 数量。",
+            "仅在最终回退到单次 provider.pushPattern 时计数；ECO 与 AE2LT 的批量快路径不受此限制。",
+            "限制同步外部库存插入，避免大型第三方库存处理器在单个 tick 内被重复扫描。",
+            "Maximum patterns each CPU dispatches per tick to providers without a batch push path.",
+            "Only final single provider.pushPattern calls count; ECO and AE2LT batch fast paths do not.",
+            "Limits synchronous external-inventory insertion to avoid repeatedly scanning large third-party inventories in one tick.")
+        .defineInRange(
+            "ecoCpuSlowPathPushTickLimit",
+            ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT,
             1,
             ECO_CPU_PUSH_TICK_LIMIT_MAX
         );
@@ -231,6 +247,7 @@ public class NEConfig {
     public static boolean ecoPlannerDifferentialVerification;
     public static boolean debugECOPlanner;
     public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
+    public static int ecoCpuSlowPathPushTickLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT;
     public static int ecoFastPathCacheSize = 512;
 
     @SubscribeEvent
@@ -267,6 +284,7 @@ public class NEConfig {
             ECOFastPathDiagnostics.clear();
         }
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
+        ecoCpuSlowPathPushTickLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
     }
 

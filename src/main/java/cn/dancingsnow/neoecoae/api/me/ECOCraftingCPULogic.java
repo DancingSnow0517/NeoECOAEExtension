@@ -94,6 +94,8 @@ public class ECOCraftingCPULogic {
     private boolean batchedFullStatusChange = false;
     private boolean deliveringBufferedFinalOutput = false;
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
+    @Nullable
+    private SlowPathPushBudget tickSlowPathPushBudget;
 
     public ECOCraftingCPULogic(ECOCraftingCPU cpu) {
         this.cpu = cpu;
@@ -184,17 +186,22 @@ public class ECOCraftingCPULogic {
         }
 
         var remainingOperations = getOperationLimit();
+        tickSlowPathPushBudget = new SlowPathPushBudget(NEConfig.ecoCpuSlowPathPushTickLimit);
 
-        if (remainingOperations > 0) {
-            do {
-                var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel());
+        try {
+            if (remainingOperations > 0) {
+                do {
+                    var pushedPatterns = executeCrafting(remainingOperations, cc, eg, cpu.getLevel());
 
-                if (pushedPatterns > 0) {
-                    remainingOperations -= pushedPatterns;
-                } else {
-                    break;
-                }
-            } while (remainingOperations > 0);
+                    if (pushedPatterns > 0) {
+                        remainingOperations -= pushedPatterns;
+                    } else {
+                        break;
+                    }
+                } while (remainingOperations > 0);
+            }
+        } finally {
+            tickSlowPathPushBudget = null;
         }
     }
 
@@ -277,6 +284,9 @@ public class ECOCraftingCPULogic {
      */
     public int executeCrafting(
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
+        SlowPathPushBudget slowPathPushBudget = tickSlowPathPushBudget != null
+            ? tickSlowPathPushBudget
+            : new SlowPathPushBudget(NEConfig.ecoCpuSlowPathPushTickLimit);
         var job = this.job;
         if (job == null)
             return 0;
@@ -409,6 +419,13 @@ public class ECOCraftingCPULogic {
 
                     boolean pushed = false;
                     for (ICraftingProvider provider : providers) {
+                        // Batch-capable providers were already offered both ECO and AE2LT batch paths above.
+                        // Do not let a high CPU parallelism turn the synchronous fallback into thousands of
+                        // third-party inventory insertions in a single server tick.
+                        if (!slowPathPushBudget.canPush()) {
+                            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+                            break taskLoop;
+                        }
                         if (provider.isBusy() || ae2ltBatchBridge.shouldSkip(provider, details)) {
                             continue;
                         }
@@ -419,9 +436,12 @@ public class ECOCraftingCPULogic {
                         }
 
                         try {
-                            pushed = provider instanceof ECOCraftingPatternBusBlockEntity patternBus
-                                    ? patternBus.pushPattern(execution, job.link.getCraftingID())
-                                    : provider.pushPattern(details, craftingContainer);
+                            if (provider instanceof ECOCraftingPatternBusBlockEntity patternBus) {
+                                pushed = patternBus.pushPattern(execution, job.link.getCraftingID());
+                            } else {
+                                // AE2LT wraps this exact interface invocation to register overload outputs.
+                                pushed = provider.pushPattern(details, craftingContainer);
+                            }
                         } catch (RuntimeException e) {
                             LOGGER.error(
                                 "Crafting provider rejected a pattern with an exception; CPU inputs remain owned locally",
@@ -436,6 +456,7 @@ public class ECOCraftingCPULogic {
                         }
 
                         chargeAcceptedPatternEnergy(energyService, patternPower);
+                        slowPathPushBudget.recordPush();
                         pushedPatterns++;
                         if (this.job != job) {
                             break taskLoop;
@@ -468,6 +489,23 @@ public class ECOCraftingCPULogic {
         }
 
         return pushedPatterns;
+    }
+
+    private static final class SlowPathPushBudget {
+        private final int limit;
+        private int pushed;
+
+        private SlowPathPushBudget(int configuredLimit) {
+            this.limit = Math.max(0, configuredLimit);
+        }
+
+        private boolean canPush() {
+            return pushed < limit;
+        }
+
+        private void recordPush() {
+            pushed++;
+        }
     }
 
     private void chargeAcceptedPatternEnergy(IEnergyService energyService, double requiredPower) {

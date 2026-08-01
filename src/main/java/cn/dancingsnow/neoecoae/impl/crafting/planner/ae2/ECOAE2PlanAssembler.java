@@ -94,7 +94,7 @@ public final class ECOAE2PlanAssembler {
         KeyCounter missingItems = toCounter(missing);
         KeyCounter emittedItems = new KeyCounter();
         long bytes = estimateBytes(snapshot, candidate);
-        return Optional.of(new CraftingPlan(
+        CraftingPlan plan = new CraftingPlan(
             new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
             bytes,
             !missing.isEmpty(),
@@ -103,7 +103,25 @@ public final class ECOAE2PlanAssembler {
             emittedItems,
             missingItems,
             candidate.executions()
-        ));
+        );
+        registerSelectedInputs(plan, snapshot.selectedInputs(), schedule.steps());
+        return Optional.of(plan);
+    }
+
+    static void registerSelectedInputs(
+        CraftingPlan plan,
+        Map<IPatternDetails, java.util.List<ECOAE2InputSelection>> selectedInputs,
+        java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<IPatternDetails>> steps
+    ) {
+        var selectedSteps = steps.stream()
+            .filter(step -> selectedInputs.containsKey(step.operation()))
+            .map(step -> new cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<>(
+                new ECOAE2PatternVariant(step.operation(), 0, selectedInputs.get(step.operation())),
+                step.batches()))
+            .toList();
+        if (!selectedSteps.isEmpty()) {
+            ECOPlannedInputs.register(plan, selectedSteps);
+        }
     }
 
     private static Map<AEKey, Long> findMissingSources(
@@ -171,20 +189,44 @@ public final class ECOAE2PlanAssembler {
             for (var step : steps) {
                 var operation = byReference.get(step.operation());
                 if (operation == null || step.batches() > candidate.executions().getOrDefault(step.operation(), 0L)) {
+                    logUsedItemsFailure(
+                        problem,
+                        "invalid_scheduled_step operation=" + step.operation()
+                            + " batches=" + step.batches()
+                            + " planned=" + candidate.executions().getOrDefault(step.operation(), 0L)
+                    );
                     return Optional.empty();
                 }
                 for (var input : operation.inputs().entrySet()) {
                     long needed = Math.multiplyExact(input.getValue(), step.batches());
+                    long outputPerBatch = operation.outputs().getOrDefault(input.getKey(), 0L);
+                    // A self-sustaining input can be reused between sequential executions in this step.
+                    long requiredBeforeStep = outputPerBatch >= input.getValue() ? input.getValue() : needed;
                     long available = current.getOrDefault(input.getKey(), 0L);
-                    if (available < needed) {
-                        long supplied = Math.min(needed - available, syntheticRemaining.getOrDefault(input.getKey(), 0L));
+                    if (available < requiredBeforeStep) {
+                        long supplied = Math.min(
+                            requiredBeforeStep - available,
+                            syntheticRemaining.getOrDefault(input.getKey(), 0L)
+                        );
                         if (supplied > 0) {
                             current.merge(input.getKey(), supplied, Math::addExact);
                             syntheticRemaining.merge(input.getKey(), -supplied, Math::addExact);
                             available += supplied;
                         }
                     }
-                    if (available < needed) {
+                    if (available < requiredBeforeStep) {
+                        logUsedItemsFailure(
+                            problem,
+                            "insufficient_step_input operation=" + step.operation()
+                                + " material=" + input.getKey()
+                                + " batches=" + step.batches()
+                                + " inputPerBatch=" + input.getValue()
+                                + " outputPerBatch=" + outputPerBatch
+                                + " requiredBeforeStep=" + requiredBeforeStep
+                                + " totalConsumed=" + needed
+                                + " available=" + available
+                                + " syntheticRemaining=" + syntheticRemaining.getOrDefault(input.getKey(), 0L)
+                        );
                         return Optional.empty();
                     }
                     current.merge(input.getKey(), -needed, Math::addExact);
@@ -200,9 +242,24 @@ public final class ECOAE2PlanAssembler {
                 }
             }
             return Optional.of(requiredExtract);
-        } catch (ArithmeticException ignored) {
+        } catch (ArithmeticException overflow) {
+            logUsedItemsFailure(problem, "arithmetic_overflow exception=" + overflow.getMessage());
             return Optional.empty();
         }
+    }
+
+    private static void logUsedItemsFailure(
+        ECOPlanningProblem<AEKey, IPatternDetails> problem,
+        String context
+    ) {
+        ECOPlanningFailureDiagnostics.logFailure(
+            ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+            ECOPlannerFallbackReason.ASSEMBLY_REJECTED,
+            problem.requested().keySet().stream().findFirst().orElse(null),
+            problem.requested().values().stream().findFirst().orElse(0L),
+            "used_items",
+            context
+        );
     }
 
     private static long estimateBytes(
