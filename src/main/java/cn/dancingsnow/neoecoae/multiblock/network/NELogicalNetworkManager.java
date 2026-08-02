@@ -1,7 +1,7 @@
 package cn.dancingsnow.neoecoae.multiblock.network;
 
 import appeng.api.networking.IGrid;
-import appeng.api.networking.IGridNode;
+import appeng.api.networking.IManagedGridNode;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationCluster;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NEComputationNetworkCluster;
@@ -300,7 +300,7 @@ public final class NELogicalNetworkManager {
     }
 
     @Nullable
-    private static IGrid safeGrid(@Nullable IGridNode node) {
+    private static IGrid safeGrid(@Nullable IManagedGridNode node) {
         if (node == null) {
             return null;
         }
