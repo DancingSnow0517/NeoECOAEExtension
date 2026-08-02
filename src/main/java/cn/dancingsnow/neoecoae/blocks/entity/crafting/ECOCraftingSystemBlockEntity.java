@@ -617,6 +617,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return getLocalLaneBatchCapacities().stream().mapToInt(Integer::intValue).max().orElse(0);
     }
 
+    /** Highest-tier exchange executes one whole recipe task as virtual ledger work. */
+    public boolean isVirtualCraftingMode() {
+        return cluster != null
+                && cluster.getNetworkCluster() != null
+                && cluster.getNetworkMultiplier() >= 8;
+    }
+
     private LaneOccupancy collectLaneOccupancy(int laneCount) {
         Set<Integer> occupied = new HashSet<>();
         int unassignedBusy = 0;
@@ -640,11 +647,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return List.of();
         }
         int multiplier = Math.max(1, cluster.getNetworkMultiplier());
-        int capacity = calculateWorkerBatchCapacity(
-                NEConfig.getCraftingWorkerBaseCrafts(),
-                getTier().getOverclockedCrafterQueueMultiply(),
-                overclocked,
-                multiplier);
+        int capacity = isVirtualCraftingMode()
+                ? Integer.MAX_VALUE
+                : calculateWorkerBatchCapacity(
+                        NEConfig.getCraftingWorkerBaseCrafts(),
+                        getTier().getOverclockedCrafterQueueMultiply(),
+                        overclocked,
+                        multiplier);
         List<Integer> capacities = new ArrayList<>();
         cluster.getWorkers().stream()
                 .sorted(Comparator.comparing(worker -> worker.getBlockPos().asLong()))

@@ -592,8 +592,8 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        // Ask providers for the full remaining task. The selected F-series host and worker cap the
-        // offer to their live thread capacity; inventory, energy and coolant apply further bounds.
+        // Ask providers for the full remaining task. Lower exchange tiers apply their normal lane,
+        // energy and coolant bounds; x8 exchange is powered continuously and accepts the whole task.
         int requested = calculateBatchRequestSize(taskRemaining);
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
@@ -626,30 +626,40 @@ public class ECOCraftingCPULogic {
         if (controller == null) {
             return 0;
         }
-
-        int offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
-        int energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, offeredBatchSize);
-        if (energyBatchSize <= 1) {
-            selectedOffer.worker().getFastPathCache().recordCoolantReject();
-            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
-                ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
-                TickHandler.instance().getCurrentTick(),
-                "requested=" + requested + " offered=" + offeredBatchSize
-                    + " affordable=" + energyBatchSize + " patternPower=" + patternPower);
+        ECOCraftingSystemBlockEntity workerController = selectedOffer.worker().getCluster() == null
+            ? null
+            : selectedOffer.worker().getCluster().getController();
+        if (workerController == null) {
             return 0;
         }
-        int coolantBatchSize = controller.getCraftingCoolantCraftLimit(
-            5, controller.getCoolingRequirementForCurrentNetwork(), energyBatchSize
-        );
-        int batchSize = Math.min(energyBatchSize, coolantBatchSize);
-        if (coolantBatchSize <= 1) {
-            selectedOffer.worker().getFastPathCache().recordCoolantReject();
-            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.COOLANT_LIMIT,
-                ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
-                TickHandler.instance().getCurrentTick(),
-                "requested=" + requested + " offered=" + offeredBatchSize
-                    + " energyLimit=" + energyBatchSize + " coolantLimit=" + coolantBatchSize);
-            return 0;
+
+        int offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
+        boolean virtualCrafting = workerController.isVirtualCraftingMode();
+        int batchSize = offeredBatchSize;
+        if (!virtualCrafting) {
+            int energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, offeredBatchSize);
+            if (energyBatchSize <= 1) {
+                selectedOffer.worker().getFastPathCache().recordCoolantReject();
+                ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
+                    ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "requested=" + requested + " offered=" + offeredBatchSize
+                        + " affordable=" + energyBatchSize + " patternPower=" + patternPower);
+                return 0;
+            }
+            int coolantBatchSize = workerController.getCraftingCoolantCraftLimit(
+                5, workerController.getCoolingRequirementForCurrentNetwork(), energyBatchSize
+            );
+            batchSize = Math.min(energyBatchSize, coolantBatchSize);
+            if (coolantBatchSize <= 1) {
+                selectedOffer.worker().getFastPathCache().recordCoolantReject();
+                ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.COOLANT_LIMIT,
+                    ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
+                    TickHandler.instance().getCurrentTick(),
+                    "requested=" + requested + " offered=" + offeredBatchSize
+                        + " energyLimit=" + energyBatchSize + " coolantLimit=" + coolantBatchSize);
+                return 0;
+            }
         }
         if (batchSize <= 1) {
             return 0;
@@ -672,8 +682,8 @@ public class ECOCraftingCPULogic {
         boolean extraInputsExtracted = false;
         boolean ownershipTransferred = false;
         try {
-            double requiredPower = patternPower * batchSize;
-            if (!Double.isFinite(requiredPower)) {
+            double requiredPower = virtualCrafting ? 0.0D : patternPower * batchSize;
+            if (!virtualCrafting && !Double.isFinite(requiredPower)) {
                 ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
                     ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
                     TickHandler.instance().getCurrentTick(),
@@ -709,28 +719,31 @@ public class ECOCraftingCPULogic {
             }
             // The worker owns every input from this point onward. Never reinject them into the CPU.
             ownershipTransferred = true;
-            try {
-                double chargedPower = energyService.extractAEPower(
-                    requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG
-                );
-                if (Double.isNaN(chargedPower) || chargedPower < requiredPower - 0.01D) {
+            if (!virtualCrafting) {
+                try {
+                    double chargedPower = energyService.extractAEPower(
+                        requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG
+                    );
+                    if (Double.isNaN(chargedPower) || chargedPower < requiredPower - 0.01D) {
+                        selectedOffer.worker().getFastPathCache().recordException();
+                        ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ENERGY_LIMIT,
+                            ECOFastPathStage.ENERGY_CHARGE, selectedOffer.worker().getBlockPos(),
+                            TickHandler.instance().getCurrentTick(),
+                            "charged=" + chargedPower + " required=" + requiredPower);
+                        LOGGER.error(
+                            "ECO batch was accepted, but only {} of {} crafting energy was charged",
+                            chargedPower,
+                            requiredPower
+                        );
+                    }
+                } catch (RuntimeException e) {
                     selectedOffer.worker().getFastPathCache().recordException();
-                    ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ENERGY_LIMIT,
+                    ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ACCOUNTING_FAILED,
                         ECOFastPathStage.ENERGY_CHARGE, selectedOffer.worker().getBlockPos(),
                         TickHandler.instance().getCurrentTick(),
-                        "charged=" + chargedPower + " required=" + requiredPower);
-                    LOGGER.error(
-                        "ECO batch was accepted, but only {} of {} crafting energy was charged",
-                        chargedPower,
-                        requiredPower
-                    );
+                        "energy_service_exception=" + e.getMessage());
+                    LOGGER.error("ECO batch was accepted, but its crafting energy could not be charged", e);
                 }
-            } catch (RuntimeException e) {
-                selectedOffer.worker().getFastPathCache().recordException();
-                ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ACCOUNTING_FAILED,
-                    ECOFastPathStage.ENERGY_CHARGE, selectedOffer.worker().getBlockPos(),
-                    TickHandler.instance().getCurrentTick(), "energy_service_exception=" + e.getMessage());
-                LOGGER.error("ECO batch was accepted, but its crafting energy could not be charged", e);
             }
             try {
                 if (this.job == job) {
