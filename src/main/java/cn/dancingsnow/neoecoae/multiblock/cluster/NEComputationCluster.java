@@ -549,13 +549,26 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public ICraftingSubmitResult submitLocalJob(
             IGrid grid, ICraftingPlan job, IActionSource src, ICraftingRequester requestingMachine) {
+        return submitLocalJob(grid, job, src, requestingMachine, false);
+    }
+
+    /**
+     * A linked computation network owns byte capacity collectively, while the
+     * selected local threading core owns the CPU instance that executes the job.
+     */
+    public ICraftingSubmitResult submitLocalJob(
+            IGrid grid,
+            ICraftingPlan job,
+            IActionSource src,
+            ICraftingRequester requestingMachine,
+            boolean useAggregateNetworkCapacity) {
         if (!this.isLocallyActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }
         if (!this.hasLocalFreeThread()) {
             return CraftingSubmitResult.CPU_BUSY;
         }
-        if (this.availableStorage < job.bytes()) {
+        if (!hasSufficientSubmissionCapacity(useAggregateNetworkCapacity, this.availableStorage, job.bytes())) {
             return CraftingSubmitResult.CPU_TOO_SMALL;
         }
         ECOCraftingCPU cpu = null;
@@ -586,6 +599,11 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         return result;
     }
 
+    static boolean hasSufficientSubmissionCapacity(
+            boolean useAggregateNetworkCapacity, long localAvailableStorage, long requiredStorage) {
+        return useAggregateNetworkCapacity || localAvailableStorage >= requiredStorage;
+    }
+
     public void recalculateRemainingStorage() {
         long oldAvailableStorage = this.availableStorage;
         long baseStorage = LongMath.saturatedAdd(collectStorage(upperDrives), collectStorage(lowerDrives));
@@ -606,7 +624,14 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         }
         this.activeCpuCount = this.activeCpus.size();
 
-        this.availableStorage = this.totalStorageBytes - this.activeJobBytes;
+        long remainingStorage = this.totalStorageBytes - this.activeJobBytes;
+        if (networkCluster != null) {
+            // A linked network owns capacity collectively. This host may be locally overcommitted
+            // while the aggregate still has room, so do not evict its active CPUs here.
+            this.availableStorage = Math.max(0L, remainingStorage);
+            return;
+        }
+        this.availableStorage = remainingStorage;
         if (this.availableStorage < 0) {
             // Do NOT kill CPUs that are still in NBT-restore grace period.
             // They may have been loaded before drives finished initializing;

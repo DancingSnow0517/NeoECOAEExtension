@@ -196,16 +196,14 @@ public final class NEComputationNetworkCluster {
         for (int offset = 0; offset < members.size(); offset++) {
             int index = (start + offset) % members.size();
             NEComputationCluster member = members.get(index);
-            if (!member.isLocallyActive()
-                    || !member.hasLocalFreeThread()
-                    || member.getLocalAvailableStorage() < job.bytes()) {
+            if (!member.isLocallyActive() || !member.hasLocalFreeThread()) {
                 continue;
             }
             IGridNode node = member.getNode();
             if (grid != null && (node == null || node.getGrid() != grid)) {
                 continue;
             }
-            ICraftingSubmitResult result = member.submitLocalJob(grid, job, source, requester);
+            ICraftingSubmitResult result = member.submitLocalJob(grid, job, source, requester, true);
             if (result.successful()) {
                 nextHostIndex = (index + 1) % members.size();
                 return result;

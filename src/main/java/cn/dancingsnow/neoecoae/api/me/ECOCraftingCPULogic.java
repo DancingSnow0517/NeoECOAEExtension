@@ -554,8 +554,9 @@ public class ECOCraftingCPULogic {
             }
 
             if (NEConfig.isEcoAggressiveFastPathEnabled() && canAttemptAggressiveFastPath(attempt.execution())) {
-                @Nullable ECOCraftingSystemBlockEntity aggressiveController = firstCraftingController(providers.batchBuses());
-                if (aggressiveController != null) {
+                @Nullable ECOCraftingSystemBlockEntity aggressiveController =
+                        largestAvailableCraftingController(providers.batchBuses());
+                if (aggressiveController != null && !aggressiveController.isVirtualCraftingMode()) {
                     PushResult pushResult = tryScheduleAggressiveSimulatedCraft(
                             progress, aggressiveController, attempt, executionProgress);
                     if (!pushResult.pushed()) {
@@ -632,7 +633,7 @@ public class ECOCraftingCPULogic {
                 Math.min(progress.value, executionProgress.totalBudgetRemaining()),
                 Math.min(effectiveFastPathBatchLimit(controller), executionProgress.batchBudgetRemaining()));
         requested = Math.min(requested, maxCraftsNeededForFinalOutput(attempt.execution()));
-        requested = Math.min(requested, controller.getCurrentBatchSlots());
+        requested = Math.min(requested, controller.getLargestAvailableCraftingBatchSize());
         requested = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), requested);
         if (requested <= 0) {
             reinjectExtractedInputs(attempt);
@@ -683,8 +684,9 @@ public class ECOCraftingCPULogic {
                     inputTotal,
                     accounting.expectedOutputs(),
                     accounting.expectedContainerItems(),
-                    Math.max(1, batchSize),
+                    1,
                     0,
+                    Math.max(1, controller.getNetworkMultiplier()),
                     false));
             syncAggressivePoolSlots();
             recordPushedPattern(accounting);
@@ -718,14 +720,23 @@ public class ECOCraftingCPULogic {
         return ECOFastPathStacks.copyCounters(attempt.craftingContainer());
     }
 
-    @Nullable private ECOCraftingSystemBlockEntity firstCraftingController(List<ECOCraftingPatternBusBlockEntity> patternBuses) {
+    @Nullable
+    private ECOCraftingSystemBlockEntity largestAvailableCraftingController(
+            List<ECOCraftingPatternBusBlockEntity> patternBuses) {
+        ECOCraftingSystemBlockEntity selected = null;
+        int largestBatch = 0;
         for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
             ECOCraftingSystemBlockEntity controller = patternBus.getCraftingController();
-            if (controller != null) {
-                return controller;
+            if (controller == null) {
+                continue;
+            }
+            int availableBatch = controller.getLargestAvailableCraftingBatchSize();
+            if (availableBatch > largestBatch) {
+                largestBatch = availableBatch;
+                selected = controller;
             }
         }
-        return null;
+        return selected;
     }
 
     private PushResult tryPushFastPathOrFallback(
@@ -919,13 +930,20 @@ public class ECOCraftingCPULogic {
         if (controller == null) {
             return 0;
         }
+        ECOCraftingSystemBlockEntity workerController = selectedOffer.worker().getCluster() == null
+                ? null
+                : selectedOffer.worker().getCluster().getController();
+        if (workerController == null) {
+            return 0;
+        }
 
-        requested = Math.min(requested, effectiveFastPathBatchLimit(controller));
         int batchSize = Math.min(requested, selectedOffer.maxBatchSize());
-        batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
-        batchSize = controller.getCraftingCoolantCraftLimit(5, controller.getEffectiveOverclockTimes(), batchSize);
-        int controllerBatchSlots = controller.getCurrentBatchSlots();
-        batchSize = Math.min(batchSize, controllerBatchSlots);
+        boolean virtualCrafting = workerController.isVirtualCraftingMode();
+        if (!virtualCrafting) {
+            batchSize = Math.min(batchSize, maxBatchSizeFromEnergy(energyService, patternPower, batchSize));
+            batchSize = workerController.getCraftingCoolantCraftLimit(
+                    5, workerController.getEffectiveOverclockTimes(), batchSize);
+        }
         if (batchSize <= 1) {
             return 0;
         }
@@ -954,14 +972,16 @@ public class ECOCraftingCPULogic {
             if (!ECOBatchCraftingHelper.canExtractExact(inventory, extraInputs)) {
                 return 0;
             }
-            double requiredPower = patternPower * batchSize;
-            if (!Double.isFinite(requiredPower)) {
+            double requiredPower = virtualCrafting ? 0.0D : patternPower * batchSize;
+            if (!virtualCrafting && !Double.isFinite(requiredPower)) {
                 return 0;
             }
-            double simulatedPower =
-                    energyService.extractAEPower(requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-            if (Double.isNaN(simulatedPower) || simulatedPower < requiredPower - 0.01D) {
-                return 0;
+            if (!virtualCrafting) {
+                double simulatedPower =
+                        energyService.extractAEPower(requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+                if (Double.isNaN(simulatedPower) || simulatedPower < requiredPower - 0.01D) {
+                    return 0;
+                }
             }
             ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
             extraInputsExtracted = true;
@@ -978,27 +998,38 @@ public class ECOCraftingCPULogic {
                 return 0;
             }
             ownershipTransferred = true;
-            AcceptedBatchCompletion completion = completeAcceptedBatch(
-                    requiredPower,
-                    () -> energyService.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG),
-                    () -> recordPushedPattern(accounting));
-            if (!completion.energyChargeComplete()) {
-                selectedOffer.worker().getFastPathCache().recordException();
-                if (completion.energyFailure() != null) {
-                    LOGGER.error(
-                            "ECO batch was accepted, but its crafting energy could not be charged",
-                            completion.energyFailure());
-                } else {
-                    LOGGER.error(
-                            "ECO batch was accepted, but only {} of {} crafting energy was charged",
-                            completion.chargedPower(),
-                            requiredPower);
+            if (virtualCrafting) {
+                try {
+                    recordPushedPattern(accounting);
+                } catch (RuntimeException e) {
+                    selectedOffer.worker().getFastPathCache().recordException();
+                    LOGGER.error("ECO virtual batch was accepted, but its CPU accounting update failed", e);
                 }
-            }
-            if (completion.accountingFailure() != null) {
-                selectedOffer.worker().getFastPathCache().recordException();
-                LOGGER.error(
-                        "ECO batch was accepted, but its CPU accounting update failed", completion.accountingFailure());
+            } else {
+                AcceptedBatchCompletion completion = completeAcceptedBatch(
+                        requiredPower,
+                        () -> energyService.extractAEPower(
+                                requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG),
+                        () -> recordPushedPattern(accounting));
+                if (!completion.energyChargeComplete()) {
+                    selectedOffer.worker().getFastPathCache().recordException();
+                    if (completion.energyFailure() != null) {
+                        LOGGER.error(
+                                "ECO batch was accepted, but its crafting energy could not be charged",
+                                completion.energyFailure());
+                    } else {
+                        LOGGER.error(
+                                "ECO batch was accepted, but only {} of {} crafting energy was charged",
+                                completion.chargedPower(),
+                                requiredPower);
+                    }
+                }
+                if (completion.accountingFailure() != null) {
+                    selectedOffer.worker().getFastPathCache().recordException();
+                    LOGGER.error(
+                            "ECO batch was accepted, but its CPU accounting update failed",
+                            completion.accountingFailure());
+                }
             }
             return batchSize;
         } catch (RuntimeException e) {
@@ -1373,6 +1404,7 @@ public class ECOCraftingCPULogic {
         private List<GenericStack> outputStacks;
         private List<GenericStack> remainingStacks;
         private final int occupiedSlots;
+        private final int networkCoolingMultiplier;
         private int progress;
         private boolean outputsReady;
 
@@ -1384,6 +1416,7 @@ public class ECOCraftingCPULogic {
                 List<GenericStack> remainingStacks,
                 int occupiedSlots,
                 int progress,
+                int networkCoolingMultiplier,
                 boolean outputsReady) {
             this.controllerPos = controllerPos;
             this.reservationOwner = reservationOwner;
@@ -1391,6 +1424,9 @@ public class ECOCraftingCPULogic {
             this.outputStacks = copyStacks(outputStacks);
             this.remainingStacks = copyStacks(remainingStacks);
             this.occupiedSlots = Math.max(1, occupiedSlots);
+            this.networkCoolingMultiplier = networkCoolingMultiplier == 2 || networkCoolingMultiplier == 8
+                    ? networkCoolingMultiplier
+                    : 1;
             this.progress = Math.max(0, progress);
             this.outputsReady = outputsReady;
         }
@@ -1410,6 +1446,10 @@ public class ECOCraftingCPULogic {
 
         private void tick(ECOCraftingSystemBlockEntity controller, double powerRatio) {
             if (outputsReady) {
+                return;
+            }
+            if (networkCoolingMultiplier > 1
+                    && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, 1)) {
                 return;
             }
             double slotScaledTax = controller.getCraftingPowerMultiplier() * (double) occupiedSlots;
@@ -1463,6 +1503,9 @@ public class ECOCraftingCPULogic {
             tag.put("remaining", ECOFastPathStacks.writeGenericStacks(remainingStacks));
             tag.putInt("occupiedSlots", occupiedSlots);
             tag.putInt("progress", progress);
+            if (networkCoolingMultiplier > 1) {
+                tag.putInt("networkCoolingMultiplier", networkCoolingMultiplier);
+            }
             tag.putBoolean("outputsReady", outputsReady);
             return tag;
         }
@@ -1476,6 +1519,9 @@ public class ECOCraftingCPULogic {
                     ECOFastPathStacks.readGenericStacks(tag.getList("remaining", Tag.TAG_COMPOUND)),
                     tag.getInt("occupiedSlots"),
                     tag.getInt("progress"),
+                    tag.contains("networkCoolingMultiplier")
+                            ? tag.getInt("networkCoolingMultiplier")
+                            : 1,
                     tag.getBoolean("outputsReady"));
         }
 

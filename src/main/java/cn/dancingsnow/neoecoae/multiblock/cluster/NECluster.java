@@ -60,7 +60,15 @@ public abstract class NECluster<T extends NECluster<T>> implements IAECluster {
         this.mirrored = mirrored;
     }
 
+    public int getConfiguredNetworkMultiplier() {
+        return 1;
+    }
+
     public int getNetworkMultiplier() {
+        return getConfiguredNetworkMultiplier();
+    }
+
+    public int getNetworkPowerMultiplier() {
         return 1;
     }
 

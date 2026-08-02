@@ -77,7 +77,6 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
         networkFrequencyButton.setTextColors(
                 NELDLibStyle.DARK_TEXT_PRIMARY, NELDLibStyle.DARK_TEXT_SUCCESS, NELDLibStyle.DARK_TEXT_MUTED);
-        networkFrequencyButton.setLabelOffset(1, 1);
         addWidget(networkFrequencyButton);
         addToolbarButton(0, click -> {
             if (!click.isRemote) {

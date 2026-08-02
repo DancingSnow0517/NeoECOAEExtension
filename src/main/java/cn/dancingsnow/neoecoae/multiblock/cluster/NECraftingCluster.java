@@ -103,11 +103,20 @@ public class NECraftingCluster extends NECluster<NECraftingCluster> {
     }
 
     @Override
-    public int getNetworkMultiplier() {
+    public int getConfiguredNetworkMultiplier() {
         if (networkCluster == null || networkCluster.getMemberCount() <= 1) {
             return 1;
         }
         return isHighEnergyNetworkMode() ? 8 : isNetworkMode() ? 2 : 1;
+    }
+
+    @Override
+    public int getNetworkMultiplier() {
+        int configuredMultiplier = getConfiguredNetworkMultiplier();
+        if (configuredMultiplier <= 1 || networkCluster == null) {
+            return 1;
+        }
+        return networkCluster.hasCoolingForNetworkMultiplier(configuredMultiplier) ? configuredMultiplier : 1;
     }
 
     /** Network batch capacity scales linearly; energy and coolant have a higher operating cost. */

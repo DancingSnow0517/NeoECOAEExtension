@@ -17,8 +17,8 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
-import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathLimits;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
@@ -132,8 +132,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
-            fastPathCache.recordNoThreadReject();
+        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(1);
+        if (lane == null || getRunningThreads() >= controller.getThreadCountPerWorker()) {
+            getFastPathCache().recordNoThreadReject();
             return false;
         }
 
@@ -146,7 +147,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (!thread.isFree()) {
                     continue;
                 }
-                if (thread.pushPattern(execution, controller, craftingJobId)) {
+                if (thread.pushPattern(execution, controller, craftingJobId, lane.index())) {
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                     return true;
                 }
@@ -163,18 +164,36 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
         setChanged();
         markForUpdate();
-        return thread.pushPattern(execution, controller, craftingJobId);
+        return thread.pushPattern(execution, controller, craftingJobId, lane.index());
     }
 
     public boolean pushBatch(ECOBatchCraftingRequest request) {
+        ECOFastPathResult verifiedResult = request.key() == null
+                ? null
+                : getFastPathCache().get(request.key(), appeng.hooks.ticking.TickHandler.instance().getCurrentTick());
+        return pushBatch(request, verifiedResult);
+    }
+
+    public boolean pushBatch(ECOBatchCraftingRequest request, ECOFastPathResult verifiedResult) {
+        if (!NEConfig.isEcoAe2FastPathEnabled()) {
+            getFastPathCache().recordDisabled();
+            return false;
+        }
         if (cluster == null || cluster.getController() == null) {
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        int controllerAvailableSlots = controller.getCurrentBatchSlots();
-        if (!ECOFastPathLimits.canAcceptBatch(
-                request.batchSize(), getAvailableThreadSlots(), controllerAvailableSlots)) {
-            fastPathCache.recordNoThreadReject();
+        if (!isControlledBy(controller)) {
+            getFastPathCache().recordNoThreadReject();
+            return false;
+        }
+        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(request.batchSize());
+        int controllerAvailableSlots = Math.max(0, controller.getLocalThreadCount() - controller.getLocalRunningThreadCount());
+        if (lane == null
+                || getAvailableThreadSlots() <= 0
+                || controllerAvailableSlots <= 0
+                || controller.getCurrentBatchSlots() <= 0) {
+            getFastPathCache().recordNoThreadReject();
             return false;
         }
 
@@ -187,7 +206,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 if (!thread.isFree()) {
                     continue;
                 }
-                if (thread.pushBatch(request, controller)) {
+                if (thread.pushBatch(request, controller, verifiedResult, lane.index())) {
                     nextFreeThreadIndex = (index + 1) % Math.max(1, craftingThreads.size());
                     return true;
                 }
@@ -204,26 +223,31 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         nextFreeThreadIndex = craftingThreads.size() % Math.max(1, controller.getThreadCountPerWorker());
         setChanged();
         markForUpdate();
-        return thread.pushBatch(request, controller);
+        return thread.pushBatch(request, controller, verifiedResult, lane.index());
+    }
+
+    public boolean isControlledBy(ECOCraftingSystemBlockEntity controller) {
+        return cluster != null && cluster.getController() == controller;
     }
 
     public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
         var key = execution.key();
+        ECOCraftingFastPathCache cache = getFastPathCache();
         if (key == null) {
-            fastPathCache.recordKeyBuildFailed();
+            cache.recordKeyBuildFailed();
             return null;
         }
         long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
-        ECOFastPathResult result = fastPathCache.get(key, tick);
+        ECOFastPathResult result = cache.get(key, tick);
         if (result == null) {
             return null;
         }
         if (result.isNegative()) {
-            fastPathCache.recordFallbackSlowPath();
+            cache.recordFallbackSlowPath();
             return null;
         }
         if (!result.matchesExecution(execution)) {
-            fastPathCache.recordExpectedMismatch();
+            cache.recordExpectedMismatch();
             return null;
         }
         return result;
@@ -242,8 +266,48 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return 0;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        long capacity = (long) controller.getThreadCountPerWorker() * controller.getNetworkMultiplier();
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, capacity - getRunningThreads()));
+        // Network multipliers enlarge each lane's batch capacity. They do not create
+        // additional logical task threads on this worker.
+        return availableThreadSlots(controller.getThreadCountPerWorker(), getRunningThreads());
+    }
+
+    static int availableThreadSlots(int logicalThreadCapacity, int runningThreads) {
+        long available = (long) Math.max(0, logicalThreadCapacity) - Math.max(0, runningThreads);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, available));
+    }
+
+    public int getBatchOccupiedThreadSlots(int craftCount) {
+        return craftCount > 0 ? 1 : 0;
+    }
+
+    public List<Integer> getAssignedLaneIndices() {
+        List<Integer> indices = new ArrayList<>();
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree() && thread.getAssignedLaneIndex() >= 0) {
+                indices.add(thread.getAssignedLaneIndex());
+            }
+        }
+        return List.copyOf(indices);
+    }
+
+    public int getUnassignedBusyTaskCount() {
+        int count = 0;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree() && thread.getAssignedLaneIndex() < 0) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int getRunningTaskCount() {
+        int count = 0;
+        for (ECOCraftingThread thread : craftingThreads) {
+            if (!thread.isFree()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public List<ECOCraftingThread.Snapshot> getThreadSnapshots() {

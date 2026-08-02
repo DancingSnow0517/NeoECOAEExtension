@@ -80,7 +80,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
      */
     public static final int MAX_COOLANT = 1_000_000;
 
+    private static final int BASE_CRAFTS_PER_WORKER = 32;
     private static final int COOLANT_PER_CRAFT = 5;
+    private static final int NETWORK_COOLANT_PER_SLOT_TICK = 4;
+    private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 16;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
@@ -350,16 +353,43 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         structureStatsDirty = false;
     }
 
+    /** Refreshes the logical exchange lane count when network cooling capability changes. */
+    public void refreshExchangeThreadCount() {
+        int nextThreadCountPerWorker = cluster == null
+                || cluster.getParallelCores().isEmpty()
+                || cluster.getWorkers().isEmpty()
+                ? 0
+                : getExchangeHostCount();
+        if (threadCountPerWorker == nextThreadCountPerWorker) {
+            return;
+        }
+        updateThreadCount();
+        updateOverlockTimes();
+        setChanged();
+        markUiStateDirty();
+        markForUpdate();
+    }
+
     private void updateThreadCount() {
-        if (cluster != null && parallelCount > 0) {
+        if (cluster != null && parallelCount > 0 && workerCount > 0) {
             int perCore = tier.getCrafterParallel();
-            if (overclocked) {
-                perCore += tier.getOverclockedCrafterParallel();
-                threadCountPerWorker = 32 * getTier().getOverclockedCrafterQueueMultiply();
+            if (cluster.getNetworkCluster() != null) {
+                // Network exchange exposes one logical lane per participating host. The
+                // x2/x8 multiplier belongs to the batch capacity of that lane, not to the
+                // number of logical tasks a worker may run.
+                threadCountPerWorker = getExchangeHostCount();
+                threadCount = (int) Math.min(
+                        Integer.MAX_VALUE,
+                        saturatingMultiply(threadCountPerWorker, workerCount));
             } else {
-                threadCountPerWorker = 32;
+                if (overclocked) {
+                    perCore += tier.getOverclockedCrafterParallel();
+                    threadCountPerWorker = 32 * getTier().getOverclockedCrafterQueueMultiply();
+                } else {
+                    threadCountPerWorker = 32;
+                }
+                threadCount = parallelCount * perCore;
             }
-            threadCount = parallelCount * perCore;
             recalculateRunningThreadCountFromWorkers();
         } else {
             threadCount = 0;
@@ -392,25 +422,57 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     private void updateOverlockTimes() {
-        int overflow = Math.max(0, threadCount - threadCountPerWorker * workerCount);
-        if (overflow <= 0 || threadCount <= 0) {
+        if (cluster == null || parallelCount <= 0 || workerCount <= 0) {
             overlockTimes = 0;
             return;
         }
-        float radio = (float) threadCount / overflow;
-        overlockTimes = net.minecraft.util.Mth.clamp(Math.round(radio / 0.05f), 0, 9);
+        int perCore = tier.getCrafterParallel();
+        if (overclocked) {
+            perCore += tier.getOverclockedCrafterParallel();
+        }
+        long parallelCapacity = saturatingMultiply(parallelCount, perCore);
+        long workerCapacity = saturatingMultiply(threadCountPerWorker, workerCount);
+        overlockTimes = calculateOverclockTimes(parallelCapacity, workerCapacity);
+    }
+
+    static int calculateOverclockTimes(long threadCount, long availableThreads) {
+        long overflow = threadCount - availableThreads;
+        if (threadCount <= 0L || overflow <= 0L) {
+            return 0;
+        }
+        double overflowRatio = (double) overflow / (double) threadCount;
+        return Mth.clamp((int) Math.round(overflowRatio / 0.05D), 0, 9);
     }
 
     public boolean tryConsumeCoolant(int amount, int requiredOverclock) {
         if (!activeCooling) {
             return true;
         }
-        int scaledAmount = scaleNetworkCoolantAmount(amount);
         var network = cluster == null ? null : cluster.getNetworkCluster();
         if (network != null) {
-            return network.tryConsumeCoolant(scaledAmount, requiredOverclock);
+            // Network exchange coolant is charged continuously per active task thread.
+            if (getNetworkMultiplier() > 1) {
+                return true;
+            }
+            return network.tryConsumeCoolant(amount, requiredOverclock);
         }
-        return tryConsumeLocalCoolant(scaledAmount, requiredOverclock);
+        return tryConsumeLocalCoolant(amount, requiredOverclock);
+    }
+
+    public boolean tryConsumeNetworkCoolantTick(int ticksSinceLastCall) {
+        return tryConsumeNetworkCoolantTick(getNetworkMultiplier(), ticksSinceLastCall);
+    }
+
+    public boolean tryConsumeNetworkCoolantTick(int multiplier, int ticksSinceLastCall) {
+        var network = cluster == null ? null : cluster.getNetworkCluster();
+        if (!activeCooling || network == null || multiplier <= 1) {
+            return true;
+        }
+        int ticks = Math.max(1, ticksSinceLastCall);
+        int rate = getNetworkCoolantPerSlotTick(multiplier);
+        int amount = (int) Math.min(Integer.MAX_VALUE, (long) rate * ticks);
+        int requiredOverclock = Math.max(getEffectiveOverclockTimes(), multiplier >= 8 ? 9 : 0);
+        return network.tryConsumeCoolant(amount, requiredOverclock);
     }
 
     public boolean tryConsumeLocalCoolant(int amount, int requiredOverclock) {
@@ -433,6 +495,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             coolantFluidId = null;
         }
         markCoolantConsumed();
+        if (coolant == 0 && cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().onCoolingAvailabilityChanged();
+        }
         return true;
     }
 
@@ -440,12 +505,25 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (!activeCooling || requestedCrafts <= 0) {
             return Math.max(0, requestedCrafts);
         }
-        int scaledCoolantPerCraft = scaleNetworkCoolantAmount(coolantPerCraft);
         var network = cluster == null ? null : cluster.getNetworkCluster();
         if (network != null) {
-            return network.getCraftingCoolantCraftLimit(scaledCoolantPerCraft, requiredOverclock, requestedCrafts);
+            int multiplier = getNetworkMultiplier();
+            if (multiplier > 1) {
+                int rate = getNetworkCoolantPerSlotTick(multiplier);
+                int networkRequirement = Math.max(getEffectiveOverclockTimes(), multiplier >= 8 ? 9 : 0);
+                return network.getCraftingCoolantCraftLimit(1, networkRequirement, rate) >= rate
+                        ? requestedCrafts
+                        : 0;
+            }
+            return network.getCraftingCoolantCraftLimit(coolantPerCraft, requiredOverclock, requestedCrafts);
         }
-        return getLocalCraftingCoolantCraftLimit(scaledCoolantPerCraft, requiredOverclock, requestedCrafts);
+        return getLocalCraftingCoolantCraftLimit(coolantPerCraft, requiredOverclock, requestedCrafts);
+    }
+
+    private static int getNetworkCoolantPerSlotTick(int multiplier) {
+        return multiplier >= 8
+                ? HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK
+                : NETWORK_COOLANT_PER_SLOT_TICK;
     }
 
     public int getLocalCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
@@ -459,13 +537,6 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return 0;
         }
         return Math.min(requestedCrafts, coolant / coolantPerCraft);
-    }
-
-    private int scaleNetworkCoolantAmount(int amount) {
-        if (amount <= 0 || cluster == null) {
-            return Math.max(0, amount);
-        }
-        return (int) Math.min(Integer.MAX_VALUE, (long) amount * cluster.getNetworkPowerMultiplier());
     }
 
     private void markCoolantConsumed() {
@@ -568,6 +639,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return;
         }
         activeCooling = value;
+        markStructureStatsDirty();
         setChanged();
         markUiStateDirty();
     }
@@ -578,6 +650,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getNetworkPowerMultiplier() {
         return cluster == null ? 1 : cluster.getNetworkPowerMultiplier();
+    }
+
+    /** Returns whether this host can sustain the requested network cooling tier. */
+    public boolean hasLocalCoolingForNetworkMultiplier(int multiplier) {
+        return activeCooling && getCurrentCoolingMaxOverclock() >= (multiplier >= 8 ? 9 : 0);
     }
 
     public int getLocalCoolingMaxOverclock() {
@@ -601,7 +678,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getAvailableThreads() {
         ensureCraftingStatsCurrent();
-        return threadCountPerWorker * workerCount;
+        return (int) Math.min(
+                Integer.MAX_VALUE,
+                saturatingMultiply(threadCountPerWorker, workerCount));
     }
 
     public int getRunningThreadCount() {
@@ -623,12 +702,172 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     /**
+     * Selects the smallest currently free FastPath lane that can hold the requested batch.
+     *
+     * <p>The lane index is stable for the lifetime of a running task and lets a batch offer
+     * account for other workers before dispatching. A batch occupies one logical thread; its
+     * craft count is bounded by the selected lane capacity.
+     */
+    public CraftingLane findAvailableCraftingLane(int requiredBatchSize) {
+        if (getCurrentBatchSlots() <= 0) {
+            return null;
+        }
+        List<Integer> capacities = getLocalLaneBatchCapacities();
+        if (capacities.isEmpty()) {
+            return null;
+        }
+
+        LaneOccupancy laneOccupancy = collectLaneOccupancy(capacities.size());
+        Set<Integer> occupied = laneOccupancy.occupied();
+        int unassignedBusy = laneOccupancy.unassignedBusy();
+        for (int index = 0; index < capacities.size() && unassignedBusy > 0; index++) {
+            if (occupied.add(index)) {
+                unassignedBusy--;
+            }
+        }
+
+        int required = Math.max(1, requiredBatchSize);
+        CraftingLane selected = null;
+        for (int index = 0; index < capacities.size(); index++) {
+            int capacity = capacities.get(index);
+            if (occupied.contains(index) || capacity < required) {
+                continue;
+            }
+            if (selected == null || capacity < selected.batchCapacity()) {
+                selected = new CraftingLane(index, capacity);
+            }
+        }
+        return selected;
+    }
+
+    /** Returns the largest batch that can be accepted by one currently free lane. */
+    public int getLargestAvailableCraftingBatchSize() {
+        if (getCurrentBatchSlots() <= 0) {
+            return 0;
+        }
+        List<Integer> capacities = getLocalLaneBatchCapacities();
+        if (capacities.isEmpty()) {
+            return 0;
+        }
+
+        LaneOccupancy laneOccupancy = collectLaneOccupancy(capacities.size());
+        Set<Integer> occupied = laneOccupancy.occupied();
+        int unassignedBusy = laneOccupancy.unassignedBusy();
+        for (int index = 0; index < capacities.size() && unassignedBusy > 0; index++) {
+            if (occupied.add(index)) {
+                unassignedBusy--;
+            }
+        }
+
+        int largest = 0;
+        for (int index = 0; index < capacities.size(); index++) {
+            if (!occupied.contains(index)) {
+                largest = Math.max(largest, capacities.get(index));
+            }
+        }
+        return largest;
+    }
+
+    public int getLocalMaxBatchPerThread() {
+        int largest = 0;
+        for (int capacity : getLocalLaneBatchCapacities()) {
+            largest = Math.max(largest, capacity);
+        }
+        return largest;
+    }
+
+    /** Highest-tier exchange executes one whole recipe task as virtual ledger work. */
+    public boolean isVirtualCraftingMode() {
+        return cluster != null
+                && cluster.getNetworkCluster() != null
+                && cluster.getNetworkMultiplier() >= 8;
+    }
+
+    private LaneOccupancy collectLaneOccupancy(int laneCount) {
+        Set<Integer> occupied = new HashSet<>();
+        int unassignedBusy = simulatedPoolThreadCount;
+        if (cluster != null) {
+            for (ECOCraftingWorkerBlockEntity worker : cluster.getWorkers()) {
+                for (int index : worker.getAssignedLaneIndices()) {
+                    if (index >= 0 && index < laneCount) {
+                        occupied.add(index);
+                    } else {
+                        unassignedBusy++;
+                    }
+                }
+                unassignedBusy += worker.getUnassignedBusyTaskCount();
+            }
+        }
+        return new LaneOccupancy(occupied, Math.max(0, unassignedBusy));
+    }
+
+    private List<Integer> getLocalLaneBatchCapacities() {
+        if (cluster == null || threadCountPerWorker <= 0 || cluster.getWorkers().isEmpty()) {
+            return List.of();
+        }
+
+        // In the 1.20.1 controller, threadCountPerWorker already includes the overclock queue
+        // multiplier. Keep that expansion in the lane count and apply only the network switch
+        // multiplier to each lane, avoiding a second queue multiplication.
+        boolean networkMode = cluster.getNetworkCluster() != null;
+        int capacity = isVirtualCraftingMode()
+                ? Integer.MAX_VALUE
+                : calculateWorkerBatchCapacity(
+                        BASE_CRAFTS_PER_WORKER,
+                        networkMode ? getTier().getOverclockedCrafterQueueMultiply() : 1,
+                        networkMode && overclocked,
+                        Math.max(1, getNetworkMultiplier()));
+        List<Integer> capacities = new ArrayList<>();
+        cluster.getWorkers().stream()
+                .sorted(Comparator.comparing(worker -> worker.getBlockPos().asLong()))
+                .forEach(worker -> {
+                    for (int lane = 0; lane < threadCountPerWorker; lane++) {
+                        capacities.add(capacity);
+                    }
+                });
+        return List.copyOf(capacities);
+    }
+
+    private int getExchangeHostCount() {
+        if (cluster == null || cluster.getNetworkCluster() == null || getNetworkMultiplier() <= 1) {
+            return 1;
+        }
+        return Math.max(1, cluster.getNetworkCluster().getMemberCount());
+    }
+
+    static int calculateWorkerBatchCapacity(
+            int baseCrafts, int overclockMultiplier, boolean overclocked, int networkMultiplier) {
+        long capacity = Math.max(0L, baseCrafts);
+        if (overclocked) {
+            capacity = saturatingMultiply(capacity, Math.max(1, overclockMultiplier));
+        }
+        capacity = saturatingMultiply(capacity, Math.max(1, networkMultiplier));
+        return (int) Math.min(Integer.MAX_VALUE, capacity);
+    }
+
+    public record CraftingLane(int index, int batchCapacity) {}
+
+    private record LaneOccupancy(Set<Integer> occupied, int unassignedBusy) {}
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
+    }
+
+    /**
      * Maximum pattern executions that may be in flight at once.
      * The formed structure length is the number of worker segments, while the
      * parallel cores may impose a lower thread limit.
      */
     public int getMaxInFlightCrafts() {
         ensureCraftingStatsCurrent();
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            // Exchange lanes already carry the x2/x8 batch multiplier. Keep this
+            // count in logical tasks so the multiplier is not applied twice.
+            return Math.max(0, threadCount);
+        }
         int localCapacity =
                 ECOCraftingCapacity.maxInFlightCrafts(threadCount, getStructureBuildLength(), threadCountPerWorker);
         return (int) Math.min(Integer.MAX_VALUE, (long) localCapacity * getNetworkMultiplier());
@@ -1394,6 +1633,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         coolantFluidId = inputFluidId;
         setChanged();
         markUiStateDirty();
+        if (cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().onCoolingAvailabilityChanged();
+        }
         return coolantGain;
     }
 
