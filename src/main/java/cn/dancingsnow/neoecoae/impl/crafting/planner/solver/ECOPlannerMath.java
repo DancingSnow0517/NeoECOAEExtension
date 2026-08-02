@@ -91,7 +91,7 @@ final class ECOPlannerMath {
             long balance = entry.getValue();
             if (balance < 0) {
                 long missing = balance == Long.MIN_VALUE ? Long.MAX_VALUE : -balance;
-                if (requested.containsKey(entry.getKey())) {
+                if (requested.containsKey(entry.getKey()) && expandableMaterials.contains(entry.getKey())) {
                     requestedShortfall = saturatedAdd(requestedShortfall, missing);
                 } else if (expandableMaterials.contains(entry.getKey())) {
                     dependencyShortfall = saturatedAdd(dependencyShortfall, missing);

@@ -93,7 +93,7 @@ public final class ECOPlanningSolver {
         var component = ECOComponentDemandSolver.trySolve(problem, graph, componentDeadline);
         if (component.isPresent()
             && !ECOSolveBudget.shouldStop(componentDeadline)
-            && component.get().status() != ECOHyperflowResult.Status.NO_ROUTE) {
+            && component.get().status() == ECOHyperflowResult.Status.COMPLETE) {
             return component.get();
         }
         ECOPlanningFailureDiagnostics.logFailure(
@@ -104,7 +104,9 @@ public final class ECOPlanningSolver {
             problem.requested().keySet().stream().findFirst().orElse(null),
             problem.requested().values().stream().findFirst().orElse(0L),
             "solver",
-            component.isEmpty() ? "component_no_result_or_limit; switch_to_integer" : "component_no_usable_route; switch_to_integer"
+            component.isEmpty()
+                ? "component_no_result_or_limit; switch_to_integer"
+                : "component_status=" + component.get().status() + "; switch_to_integer"
         );
         return ECOIntegerHyperflowSolver.solve(problem, graph, budget, deadlineNanos);
     }

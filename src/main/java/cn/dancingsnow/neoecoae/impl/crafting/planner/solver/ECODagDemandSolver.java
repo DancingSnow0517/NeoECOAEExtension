@@ -95,13 +95,19 @@ public final class ECODagDemandSolver {
         for (var entry : balances.entrySet()) {
             if (entry.getValue() < 0) {
                 long missing = -entry.getValue();
-                if (problem.requested().containsKey(entry.getKey())) {
+                boolean requested = problem.requested().containsKey(entry.getKey());
+                List<ECOPlanningOperation<K, R>> positiveProducers = graph.producersOf(entry.getKey()).stream()
+                    .filter(operation -> ECOPlannerMath.positiveNet(operation, entry.getKey()) > 0L)
+                    .toList();
+                if (requested && !positiveProducers.isEmpty()) {
                     requestedShortfall = Math.addExact(requestedShortfall, missing);
                 }
-                if (graph.producersOf(entry.getKey()).isEmpty()) {
+                if (positiveProducers.isEmpty()) {
                     sourceShortfall = Math.addExact(sourceShortfall, missing);
                 } else {
-                    dependencyShortfall = Math.addExact(dependencyShortfall, missing);
+                    if (!requested) {
+                        dependencyShortfall = Math.addExact(dependencyShortfall, missing);
+                    }
                 }
             } else {
                 surplus = ECOPlannerMath.saturatedAdd(surplus, entry.getValue());

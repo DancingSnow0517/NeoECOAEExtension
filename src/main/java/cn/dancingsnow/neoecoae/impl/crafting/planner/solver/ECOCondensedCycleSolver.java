@@ -284,12 +284,21 @@ public final class ECOCondensedCycleSolver {
                 expression.set(deficit, BigDecimal.ONE);
             }
         }
-        if (operations.stream().noneMatch(operation -> canStart(operation, initialInventory))) {
+        for (K material : component) {
+            long available = Math.max(0L, initialInventory.getOrDefault(material, 0L));
+            boolean needsSeed = operations.stream().anyMatch(operation ->
+                operation.inputAmount(material) > 0L
+                    && operation.outputAmount(material) > operation.inputAmount(material)
+                    && available < operation.inputAmount(material));
+            if (!needsSeed) {
+                continue;
+            }
             List<ECOPlanningOperation<K, R>> inboundStarters = operations.stream()
-                .filter(operation -> operation.inputs().keySet().stream().anyMatch(key -> !component.contains(key)))
+                .filter(operation -> operation.inputAmount(material) == 0L)
+                .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
                 .toList();
             if (!inboundStarters.isEmpty()) {
-                Expression bootstrap = model.addExpression("external_bootstrap").lower(BigDecimal.ONE);
+                Expression bootstrap = model.addExpression("external_bootstrap_" + material).lower(BigDecimal.ONE);
                 inboundStarters.forEach(operation -> bootstrap.set(variables.get(operation), BigDecimal.ONE));
             }
         }
@@ -350,6 +359,15 @@ public final class ECOCondensedCycleSolver {
         Map<K, Long> initialInventory
     ) {
         if (component.size() != 1) {
+            return null;
+        }
+        // If another operation can create the seed without consuming it, the
+        // self-cycle shortcut must leave that upstream route to the SCC model.
+        // Otherwise the shortcut reports a source deficit before the seed
+        // producer has a chance to be scheduled.
+        if (operations.stream().anyMatch(operation ->
+            operation.inputAmount(deficientMaterial) == 0L
+                && ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0L)) {
             return null;
         }
         List<ECOPlanningOperation<K, R>> producers = operations.stream()
