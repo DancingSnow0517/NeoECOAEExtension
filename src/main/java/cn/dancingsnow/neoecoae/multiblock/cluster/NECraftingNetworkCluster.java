@@ -251,6 +251,37 @@ public final class NECraftingNetworkCluster {
         return Math.max(0, getThreadCount() - getRunningThreadCount());
     }
 
+    /** Largest batch that can run in a single thread on the requested grid. */
+    public int getMaxBatchPerThread(@Nullable IGrid grid) {
+        int maxBatch = 0;
+        for (NECraftingCluster member : members) {
+            if (grid != null
+                    && member.getWorkers().stream()
+                            .noneMatch(worker -> worker.getMainNode().getGrid() == grid)) {
+                continue;
+            }
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            maxBatch = Math.max(maxBatch, controller.getLocalMaxBatchPerThread());
+        }
+        return maxBatch;
+    }
+
+    /** Runtime per-host batch data for the crafting host statistics tooltip. */
+    public List<HostBatchInfo> getHostBatchInfos() {
+        List<HostBatchInfo> result = new ArrayList<>(members.size());
+        for (NECraftingCluster member : members) {
+            ECOCraftingSystemBlockEntity controller = member.getController();
+            result.add(new HostBatchInfo(
+                    member.isHighEnergyNetworkMode(),
+                    controller.getLocalThreadCount(),
+                    controller.isVirtualCraftingMode() ? Long.MAX_VALUE : controller.getLocalMaxBatchPerThread()));
+        }
+        return List.copyOf(result);
+    }
+
+    /** Per-host runtime values shown in the host UI tooltip. */
+    public record HostBatchInfo(boolean highEnergy, int threadCount, long maxBatchPerThread) {}
+
     /** Batch capacity includes the x2/x8 switch multiplier; task lanes do not. */
     private int getAvailableBatchSlots(@Nullable IGrid grid) {
         int total = 0;

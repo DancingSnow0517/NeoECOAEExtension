@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.gui.ldlib.support;
 
 import appeng.api.config.CpuSelectionMode;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NEComputationUiState;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingHostBatchInfo;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
@@ -18,6 +19,7 @@ public final class NELDLibStateCodecs {
     private static final int MAX_WORKER_OUTPUTS = 128;
     private static final int MAX_PARALLEL_CORE_TIERS = 128;
     private static final int MAX_CRAFTING_MODULE_CELLS = 384;
+    private static final int MAX_CRAFTING_HOST_BATCH_INFOS = 8;
     private static final int MAX_STRUCTURE_TERMINAL_MATERIALS = 512;
 
     public static void writeStorageInterface(FriendlyByteBuf buf, NEStorageInterfaceUiState state) {
@@ -176,6 +178,18 @@ public final class NELDLibStateCodecs {
         buf.writeVarInt(state.maxRecipeSlots());
         buf.writeVarInt(state.occupiedRecipeSlots());
         buf.writeVarInt(state.batchParallel());
+        buf.writeVarLong(Math.max(0L, state.maxBatchPerThread()));
+        List<NECraftingHostBatchInfo> hostBatchInfos = state.hostBatchInfos();
+        buf.writeVarInt(Math.min(hostBatchInfos.size(), MAX_CRAFTING_HOST_BATCH_INFOS));
+        int writtenHostBatchInfos = 0;
+        for (NECraftingHostBatchInfo info : hostBatchInfos) {
+            if (writtenHostBatchInfos++ >= MAX_CRAFTING_HOST_BATCH_INFOS) {
+                break;
+            }
+            buf.writeBoolean(info.highEnergy());
+            buf.writeVarInt(Math.max(0, info.threadCount()));
+            buf.writeVarLong(Math.max(0L, info.maxBatchPerThread()));
+        }
         buf.writeVarInt(Math.max(0, state.overflowThreads()));
         buf.writeVarLong(Math.max(0L, state.performanceAverageNanos()));
 
@@ -265,6 +279,16 @@ public final class NELDLibStateCodecs {
         int maxRecipeSlots = buf.readVarInt();
         int occupiedRecipeSlots = buf.readVarInt();
         int batchParallel = buf.readVarInt();
+        long maxBatchPerThread = buf.readVarLong();
+        int hostBatchInfoCount = buf.readVarInt();
+        if (hostBatchInfoCount > MAX_CRAFTING_HOST_BATCH_INFOS) {
+            throw new IllegalArgumentException(
+                    "Crafting host batch info count exceeds protocol limit: " + hostBatchInfoCount);
+        }
+        List<NECraftingHostBatchInfo> hostBatchInfos = new ArrayList<>(hostBatchInfoCount);
+        for (int i = 0; i < hostBatchInfoCount; i++) {
+            hostBatchInfos.add(new NECraftingHostBatchInfo(buf.readBoolean(), buf.readVarInt(), buf.readVarLong()));
+        }
         int overflowThreads = buf.readVarInt();
         long performanceAverageNanos = buf.readVarLong();
 
@@ -351,6 +375,8 @@ public final class NELDLibStateCodecs {
                 maxRecipeSlots,
                 occupiedRecipeSlots,
                 batchParallel,
+                maxBatchPerThread,
+                hostBatchInfos,
                 overflowThreads,
                 performanceAverageNanos,
                 recipes,

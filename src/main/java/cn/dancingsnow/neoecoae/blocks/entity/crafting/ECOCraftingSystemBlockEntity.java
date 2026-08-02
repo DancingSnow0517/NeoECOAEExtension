@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
 import cn.dancingsnow.neoecoae.blocks.NEBlock;
 import cn.dancingsnow.neoecoae.blocks.crafting.ECOCraftingSystem;
 import cn.dancingsnow.neoecoae.gui.ldlib.NELDLibUis;
+import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingHostBatchInfo;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingModuleCell;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingRecipeUiEntry;
 import cn.dancingsnow.neoecoae.gui.ldlib.state.NECraftingUiState;
@@ -773,6 +774,31 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return largest;
     }
 
+    public int getMaxBatchPerThread() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster()
+                    .getMaxBatchPerThread(getMainNode().getGrid());
+        }
+        return getLocalMaxBatchPerThread();
+    }
+
+    /** Per-host runtime batch values for the crafting statistics tooltip. */
+    public List<NECraftingHostBatchInfo> getHostBatchInfos() {
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getHostBatchInfos().stream()
+                    .map(info -> new NECraftingHostBatchInfo(
+                            info.highEnergy(), info.threadCount(), info.maxBatchPerThread()))
+                    .toList();
+        }
+        if (!formed) {
+            return List.of();
+        }
+        return List.of(new NECraftingHostBatchInfo(
+                cluster != null && cluster.isHighEnergyNetworkMode(),
+                getLocalThreadCount(),
+                isVirtualCraftingMode() ? Long.MAX_VALUE : getLocalMaxBatchPerThread()));
+    }
+
     /** A complete eight-host x8 exchange executes one whole recipe task as virtual ledger work. */
     public boolean isVirtualCraftingMode() {
         return cluster != null
@@ -1130,6 +1156,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         int maxRecipeSlots = Math.max(0, availThreads);
         int occupiedRecipeSlots = Math.min(maxRecipeSlots, Math.max(0, totalRunningThreads));
         int batchParallel = Math.max(0, effParallel);
+        int maxBatchPerThread = getMaxBatchPerThread();
+        List<NECraftingHostBatchInfo> hostBatchInfos = getHostBatchInfos();
         List<NECraftingRecipeUiEntry> recipeEntries = new ArrayList<>();
 
         // Collect active craft outputs from each worker
@@ -1215,6 +1243,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 maxRecipeSlots,
                 occupiedRecipeSlots,
                 batchParallel,
+                maxBatchPerThread,
+                hostBatchInfos,
                 getOverflowThreads(),
                 performanceAverageNanos,
                 recipeEntries,

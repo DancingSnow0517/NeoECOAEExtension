@@ -31,13 +31,16 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/1.20.1' }}
+          cache-disabled: true
+
+      - name: Clean Gradle state
+        run: rm -rf .gradle build .ci-gradle-home
 
       - name: Copy Guide Book
-        run: ./gradlew copyGuidebook
+        run: ./gradlew copyGuidebook --no-daemon --stacktrace --no-parallel --gradle-user-home .ci-gradle-home
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon
+        run: ./gradlew build --no-daemon --stacktrace --no-parallel --gradle-user-home .ci-gradle-home
 
       - name: Read Properties
         id: 'properties'

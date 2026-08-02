@@ -49,14 +49,19 @@ public final class NECraftingStatsPanel {
         drawPair(context, state, x, STATS_AREA_Y + 19, rightX - x);
         drawValue(
                 context,
-                Component.translatable("gui.neoecoae.crafting.batch_parallel").getString() + ": ",
-                state.batchParallel(),
+                Component.translatable("gui.neoecoae.crafting.ui.batch_per_thread")
+                                .getString() + ": ",
+                state.maxBatchPerThread(),
                 x,
                 STATS_AREA_Y + 44);
         drawOverflow(context, state, x, STATS_AREA_Y + 55);
     }
 
     public boolean drawTooltip(NECraftingRenderContext context, NECraftingUiState state, int mouseX, int mouseY) {
+        if (isBatchPerThreadHovered(context, mouseX, mouseY)) {
+            drawBatchPerThreadTooltip(context, state, mouseX, mouseY);
+            return true;
+        }
         if (!contains(context, mouseX, mouseY)) {
             return false;
         }
@@ -68,12 +73,67 @@ public final class NECraftingStatsPanel {
         lines.add(Component.translatable("gui.neoecoae.crafting.recipe_slots")
                 .append(": ")
                 .append(Component.literal(NELDLibText.usedTotal(state.occupiedRecipeSlots(), state.maxRecipeSlots()))));
-        lines.add(Component.translatable("gui.neoecoae.crafting.batch_parallel")
+        lines.add(Component.translatable("gui.neoecoae.crafting.ui.batch_per_thread")
                 .append(": ")
-                .append(Component.literal(NELDLibText.number(state.batchParallel()))));
+                .append(Component.literal(NELDLibText.number(state.maxBatchPerThread()))));
         lines.add(Component.literal(formatPerformanceLine(state.performanceAverageNanos())));
         context.graphics().renderTooltip(context.font(), lines, Optional.empty(), mouseX, mouseY);
         return true;
+    }
+
+    private void drawBatchPerThreadTooltip(
+            NECraftingRenderContext context, NECraftingUiState state, int mouseX, int mouseY) {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("gui.neoecoae.crafting.ui.batch_per_thread.detail")
+                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED)));
+        long totalBatchEfficiency = 0L;
+        for (var host : state.hostBatchInfos()) {
+            lines.add(hostBatchLine(host.highEnergy(), host.threadCount(), host.maxBatchPerThread()));
+            totalBatchEfficiency =
+                    saturatingBatchTotal(totalBatchEfficiency, host.threadCount(), host.maxBatchPerThread());
+        }
+        if (!state.hostBatchInfos().isEmpty()) {
+            lines.add(Component.translatable(
+                            "gui.neoecoae.crafting.ui.batch_per_thread.total",
+                            amountText(totalBatchEfficiency, NELDLibStyle.DARK_TEXT_VALUE))
+                    .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED)));
+        }
+        context.graphics().renderComponentTooltip(context.font(), lines, mouseX, mouseY);
+    }
+
+    private static Component hostBatchLine(boolean highEnergy, int threadCount, long maxBatchPerThread) {
+        int hostColor = highEnergy ? NELDLibStyle.DARK_TEXT_ORANGE : NELDLibStyle.DARK_TEXT_SUCCESS;
+        Component hostType = Component.translatable(
+                        highEnergy
+                                ? "gui.neoecoae.host.crafting.host_type.high_energy"
+                                : "gui.neoecoae.host.crafting.host_type.normal")
+                .withStyle(style -> style.withColor(hostColor));
+        return Component.translatable(
+                        "gui.neoecoae.host.crafting.host_line",
+                        hostType,
+                        amountText(threadCount, NELDLibStyle.DARK_TEXT_ORANGE),
+                        amountText(maxBatchPerThread, NELDLibStyle.DARK_TEXT_VALUE))
+                .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED));
+    }
+
+    private static Component amountText(long amount, int color) {
+        Component value = amount == Long.MAX_VALUE
+                ? Component.translatable("gui.neoecoae.storage.infinite_value")
+                : Component.literal(NELDLibText.number(Math.max(0L, amount)));
+        return value.copy().withStyle(style -> style.withColor(color));
+    }
+
+    private static long saturatingBatchTotal(long total, int threads, long batch) {
+        if (total == Long.MAX_VALUE || batch == Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+        if (threads <= 0 || batch <= 0L) {
+            return total;
+        }
+        long contribution = batch > Long.MAX_VALUE / threads ? Long.MAX_VALUE : batch * threads;
+        return contribution == Long.MAX_VALUE || total > Long.MAX_VALUE - contribution
+                ? Long.MAX_VALUE
+                : total + contribution;
     }
 
     private void drawUsageBar(NECraftingRenderContext context, long current, long max) {
@@ -139,6 +199,12 @@ public final class NECraftingStatsPanel {
         int x = context.x(STATS_AREA_X);
         int y = context.y(STATS_AREA_Y);
         return mouseX >= x && mouseX < x + STATS_AREA_W && mouseY >= y && mouseY < y + STATS_AREA_H;
+    }
+
+    private boolean isBatchPerThreadHovered(NECraftingRenderContext context, int mouseX, int mouseY) {
+        int x = context.x(STATS_AREA_X);
+        int y = context.y(STATS_AREA_Y + 42);
+        return mouseX >= x && mouseX < x + STATS_AREA_W && mouseY >= y && mouseY < y + 12;
     }
 
     private static int ratioWidth(long current, long max, int width) {
