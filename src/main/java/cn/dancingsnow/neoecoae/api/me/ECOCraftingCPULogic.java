@@ -926,6 +926,24 @@ public class ECOCraftingCPULogic {
             if (batches <= 0L) {
                 continue;
             }
+            var plannedBatches = job.plannedInputs.get(task.getKey());
+            if (plannedBatches != null && !plannedBatches.isEmpty()) {
+                for (var plannedBatch : plannedBatches) {
+                    long perBatch = 0L;
+                    for (var selection : plannedBatch.selectedInputs()) {
+                        for (var alternative : selection.alternatives()) {
+                            GenericStack selected = alternative.template();
+                            if (what.equals(selected.what())) {
+                                perBatch = Math.addExact(perBatch,
+                                    Math.multiplyExact(selected.amount(), alternative.multiplier()));
+                            }
+                        }
+                    }
+                    total = Math.addExact(total,
+                        Math.multiplyExact(perBatch, plannedBatch.remaining()));
+                }
+                continue;
+            }
             long perBatch = 0L;
             for (var input : task.getKey().getInputs()) {
                 long selectedAmount = 0L;
@@ -1006,6 +1024,10 @@ public class ECOCraftingCPULogic {
         this.job = null;
         JOB_OUTPUT_ROUTES.remove(craftingJobId, this);
 
+        if (success) {
+            releaseInflightWorkerOutputs(craftingJobId);
+        }
+
         // 存储所有剩余物品。
         this.storeItems();
     }
@@ -1056,6 +1078,16 @@ public class ECOCraftingCPULogic {
         var storage = grid.getStorageService().getInventory();
         for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
             patternBus.recoverJobToNetwork(craftingJobId, storage);
+        }
+    }
+
+    private void releaseInflightWorkerOutputs(UUID craftingJobId) {
+        IGrid grid = cpu.getGrid();
+        if (grid == null) {
+            return;
+        }
+        for (ECOCraftingPatternBusBlockEntity patternBus : grid.getMachines(ECOCraftingPatternBusBlockEntity.class)) {
+            patternBus.releaseJobOutputsToNetwork(craftingJobId);
         }
     }
 

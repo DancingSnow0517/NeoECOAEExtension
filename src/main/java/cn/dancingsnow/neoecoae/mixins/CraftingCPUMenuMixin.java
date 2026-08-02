@@ -40,6 +40,8 @@ public class CraftingCPUMenuMixin extends AEBaseMenu {
     private IncrementalUpdateHelper incrementalUpdateHelper;
     @Shadow
     private CraftingCPUCluster cpu;
+    @Shadow
+    private boolean cachedSuspend;
     @Unique
     private ECOCraftingCPU neoecoae$cpu = null;
     @Final
@@ -63,6 +65,7 @@ public class CraftingCPUMenuMixin extends AEBaseMenu {
         cancellable = true
     )
     private void onSetCPU(ICraftingCPU c, CallbackInfo ci) {
+        boolean hadEcoCpu = this.neoecoae$cpu != null;
         if (this.neoecoae$cpu != null) {
             this.neoecoae$cpu.getLogic().removeListener(this.cpuChangeListener);
         }
@@ -73,6 +76,8 @@ public class CraftingCPUMenuMixin extends AEBaseMenu {
             }
 
             this.incrementalUpdateHelper.reset();
+            this.cachedSuspend = false;
+            this.cpu = null;
             this.neoecoae$cpu = ecoCPU;
             KeyCounter allItems = new KeyCounter();
             this.neoecoae$cpu.getLogic().getAllItems(allItems);
@@ -85,6 +90,12 @@ public class CraftingCPUMenuMixin extends AEBaseMenu {
             ci.cancel();
         } else {
             this.neoecoae$cpu = null;
+            if (hadEcoCpu && c == null) {
+                this.incrementalUpdateHelper.reset();
+                this.cachedSuspend = false;
+                this.sendPacketToClient(new CraftingStatusPacket(containerId, CraftingStatus.EMPTY));
+                ci.cancel();
+            }
         }
 
     }
@@ -119,9 +130,11 @@ public class CraftingCPUMenuMixin extends AEBaseMenu {
         if (this.isServerSide() && this.neoecoae$cpu != null) {
             this.schedulingMode = this.neoecoae$cpu.getSelectionMode();
             this.cantStoreItems = this.neoecoae$cpu.getLogic().isCantStoreItems();
-            if (this.incrementalUpdateHelper.hasChanges()) {
+            if (this.incrementalUpdateHelper.hasChanges()
+                || this.cachedSuspend != this.neoecoae$cpu.getLogic().isJobSuspended()) {
                 CraftingStatus status = neoecoae$create(this.incrementalUpdateHelper, this.neoecoae$cpu.getLogic());
                 this.incrementalUpdateHelper.commitChanges();
+                this.cachedSuspend = status.isSuspended();
                 this.sendPacketToClient(new CraftingStatusPacket(containerId, status));
             }
         }

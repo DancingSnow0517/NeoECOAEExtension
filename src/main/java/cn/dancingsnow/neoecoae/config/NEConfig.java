@@ -20,7 +20,7 @@ public class NEConfig {
     private static final int DEBUG_OVERDRIVE_CAPACITY_POWER = 15;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
     public static final int ECO_CPU_PUSH_TICK_LIMIT_MAX = 393_216;
-    public static final int ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT = 650;
+    public static final int ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT = 4096;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 

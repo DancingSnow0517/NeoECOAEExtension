@@ -396,15 +396,12 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             return null;
         }
         ECOCraftingCPULogic logic = cpu.getLogic();
-        GenericStack finalOutput = logic.getFinalJobOutput();
-        if (finalOutput == null && cpu.getPlan() != null) {
-            finalOutput = cpu.getPlan().finalOutput();
+        if (!logic.hasJob()) {
+            return null;
         }
+        GenericStack finalOutput = logic.getFinalJobOutput();
         long requestedAmount = finalOutput != null ? finalOutput.amount() : 0L;
         long remainingAmount = logic.getRemainingJobOutputAmount();
-        if (remainingAmount <= 0L && finalOutput != null) {
-            remainingAmount = requestedAmount;
-        }
         if (finalOutput == null || remainingAmount <= 0L || !(finalOutput.what() instanceof AEItemKey itemKey)) {
             return null;
         }
@@ -415,7 +412,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
         ElapsedTimeTracker tracker = logic.getElapsedTimeTracker();
         long total = Math.max(1L, tracker.getSyntheticStartItemCount());
         long remaining = Math.max(0L, Math.min(total, tracker.getSyntheticRemainingItemCount()));
-        ComputationTaskEntry.Status status = !logic.hasJob() || logic.isCantStoreItems() || logic.isJobSuspended()
+        ComputationTaskEntry.Status status = logic.isCantStoreItems() || logic.isJobSuspended()
                 ? ComputationTaskEntry.Status.WAITING_OUTPUT
                 : ComputationTaskEntry.Status.RUNNING;
         return new ComputationTaskEntry(

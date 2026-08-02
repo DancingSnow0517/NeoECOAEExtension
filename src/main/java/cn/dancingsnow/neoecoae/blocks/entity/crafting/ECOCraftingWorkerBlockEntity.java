@@ -424,6 +424,13 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         return recoveredAll;
     }
 
+    public void releaseJobOutputsToNetwork(UUID craftingJobId) {
+        for (ECOCraftingThread thread : craftingThreads) {
+            thread.releaseJobOutputsToNetwork(craftingJobId);
+        }
+        wakeTickingDevice();
+    }
+
     private void wakeTickingDevice() {
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
     }

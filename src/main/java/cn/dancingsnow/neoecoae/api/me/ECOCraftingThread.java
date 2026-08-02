@@ -84,6 +84,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     @Nullable
     private UUID craftingJobId = null;
+    private boolean releaseJobOutputsToNetwork = false;
 
     private int progress = 0;
     private double progressRemainder = 0.0D;
@@ -824,7 +825,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             AEKey key = entry.what();
             long remaining = entry.amount();
             long insertedIntoCpus;
-            if (craftingJobId != null) {
+            if (craftingJobId != null && !releaseJobOutputsToNetwork) {
                 // A forming/reforming computation host can be absent from CraftingService's transient CPU list.
                 // Keep this worker-owned output until its exact CPU is registered again instead of losing the
                 // completion signal by falling back to network storage.
@@ -921,6 +922,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
 
     public boolean belongsToJob(UUID jobId) {
         return this.isBusy && Objects.equals(jobId, this.craftingJobId);
+    }
+
+    public void releaseJobOutputsToNetwork(UUID jobId) {
+        if (belongsToJob(jobId) && !releaseJobOutputsToNetwork) {
+            releaseJobOutputsToNetwork = true;
+            setChanged();
+        }
     }
 
     public boolean recoverInputsToNetwork(MEStorage storage) {
@@ -1058,6 +1066,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         craftingInv.clearContent();
         craftingEventOutput = ItemStack.EMPTY;
         craftingJobId = null;
+        releaseJobOutputsToNetwork = false;
         isBusy = false;
         reboot = true;
         progress = 0;
@@ -1268,6 +1277,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         if (craftingJobId != null) {
             tag.putUUID("craftingJobId", craftingJobId);
         }
+        tag.putBoolean("releaseJobOutputsToNetwork", releaseJobOutputsToNetwork);
         if (!craftingEventOutput.isEmpty()) {
             tag.put("craftingEventOutput", saveSerializableStack(craftingEventOutput, provider));
         }
@@ -1367,6 +1377,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         }
         this.outputsReady = nbt.getBoolean("outputsReady");
         this.craftingJobId = nbt.hasUUID("craftingJobId") ? nbt.getUUID("craftingJobId") : null;
+        this.releaseJobOutputsToNetwork = nbt.getBoolean("releaseJobOutputsToNetwork");
         this.recoveryState = this.isBusy ? RecoveryState.ACTIVE : RecoveryState.CLEARED;
         if (nbt.contains("recoveryState", Tag.TAG_STRING)) {
             try {

@@ -276,6 +276,18 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return recoveredAll;
     }
 
+    public void releaseJobOutputsToNetwork(UUID craftingJobId) {
+        if (cluster == null) {
+            return;
+        }
+        List<ECOCraftingWorkerBlockEntity> workers = cluster.getNetworkCluster() != null
+            ? cluster.getNetworkCluster().getWorkers()
+            : cluster.getWorkers();
+        for (ECOCraftingWorkerBlockEntity worker : workers) {
+            worker.releaseJobOutputsToNetwork(craftingJobId);
+        }
+    }
+
     public record BatchFastPathOffer(ECOCraftingWorkerBlockEntity worker, ECOFastPathResult result, int maxBatchSize) {}
 
     static int calculateBatchOfferSize(int requestedBatchSize, int workerAvailableSlots, int hostAvailableSlots) {
