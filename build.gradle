@@ -23,6 +23,22 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 jarJar.enable()
 
 repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'BMCLAPI Mojang Mirror'
+                url = 'https://bmclapi2.bangbang93.com/maven/'
+                metadataSources {
+                    mavenPom()
+                    artifact()
+                }
+            }
+        }
+        filter {
+            includeGroup 'com.mojang'
+        }
+    }
+
     mavenLocal()
     mavenCentral()
     maven { url = 'https://maven.minecraftforge.net' }

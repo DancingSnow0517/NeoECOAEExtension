@@ -46,3 +46,5 @@ src/main/java/cn/dancingsnow/neoecoae.zip
 CHANGELOG.md
 docs/
 REFACTORING_SUMMARY.md
+.ci-gradle-home-local/
+.ci-gradle-home-bmcl/
