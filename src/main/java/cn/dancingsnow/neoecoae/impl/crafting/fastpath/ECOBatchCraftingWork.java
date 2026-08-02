@@ -6,7 +6,7 @@ import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 public record ECOBatchCraftingWork(
-        int batchSize,
+        long batchSize,
         List<GenericStack> inputTotal,
         List<GenericStack> outputTotal,
         List<GenericStack> remainingTotal,
@@ -14,7 +14,7 @@ public record ECOBatchCraftingWork(
         int progress,
         int occupiedThreadSlots) {
     public ECOBatchCraftingWork {
-        if (batchSize <= 0 || batchSize > ECOBatchCraftingHelper.MAX_BATCH_SIZE) {
+        if (batchSize <= 0) {
             throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
         }
         if (occupiedThreadSlots <= 0 || occupiedThreadSlots > batchSize) {

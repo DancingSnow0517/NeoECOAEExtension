@@ -90,4 +90,21 @@ public final class NETextFormat {
         }
         return ONE_DECIMAL.get().format(value) + UNITS[unitIndex];
     }
+
+    /** Formats long item quantities with 1000-based compact units without overflowing to infinity. */
+    public static String formatItemAmount(long amount) {
+        if (amount <= 0L) {
+            return "0";
+        }
+        String[] units = {"", "K", "M", "G", "T", "P", "E"};
+        double value = amount;
+        int unitIndex = 0;
+        while (value >= 1000.0D && unitIndex < units.length - 1) {
+            value /= 1000.0D;
+            unitIndex++;
+        }
+        return value == (long) value
+                ? (long) value + units[unitIndex]
+                : ONE_DECIMAL.get().format(value) + units[unitIndex];
+    }
 }

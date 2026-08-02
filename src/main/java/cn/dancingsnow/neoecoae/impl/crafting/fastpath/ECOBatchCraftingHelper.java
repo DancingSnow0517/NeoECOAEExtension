@@ -14,11 +14,15 @@ import net.minecraft.world.item.ItemStack;
 public final class ECOBatchCraftingHelper {
     public static final int MAX_BATCH_SIZE = 65_536;
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
-    public static final long MAX_BATCH_STACK_AMOUNT = (long) Integer.MAX_VALUE * MAX_BATCH_SIZE;
+    public static final long MAX_BATCH_STACK_AMOUNT = Long.MAX_VALUE;
 
     private ECOBatchCraftingHelper() {}
 
     public static List<GenericStack> multiply(List<GenericStack> stacks, int multiplier) {
+        return multiply(stacks, (long) multiplier);
+    }
+
+    public static List<GenericStack> multiply(List<GenericStack> stacks, long multiplier) {
         if (multiplier <= 0 || stacks.isEmpty()) {
             return List.of();
         }
@@ -32,7 +36,12 @@ public final class ECOBatchCraftingHelper {
 
     public static int maxCraftsFromInventory(
             ListCraftingInventory inventory, List<GenericStack> perCraft, int requested) {
-        int max = requested;
+        return Math.toIntExact(maxCraftsFromInventory(inventory, perCraft, (long) requested));
+    }
+
+    public static long maxCraftsFromInventory(
+            ListCraftingInventory inventory, List<GenericStack> perCraft, long requested) {
+        long max = requested;
         for (GenericStack stack : perCraft) {
             if (stack.amount() <= 0) {
                 return 0;
@@ -40,7 +49,7 @@ public final class ECOBatchCraftingHelper {
             // The CPU inventory is already an in-memory KeyCounter. Avoid a simulated extraction for every
             // ingredient while retaining the same concrete-input accounting.
             long available = inventory.list.get(stack.what());
-            max = Math.min(max, (int) Math.min(Integer.MAX_VALUE, available / stack.amount()));
+            max = Math.min(max, available / stack.amount());
             if (max <= 0) {
                 return 0;
             }
@@ -138,9 +147,9 @@ public final class ECOBatchCraftingHelper {
         }
     }
 
-    private static long multiplyExact(long amount, int multiplier) {
+    private static long multiplyExact(long amount, long multiplier) {
         try {
-            return Math.multiplyExact(amount, (long) multiplier);
+            return Math.multiplyExact(amount, multiplier);
         } catch (ArithmeticException e) {
             throw new IllegalArgumentException("Batch fast path amount overflow", e);
         }

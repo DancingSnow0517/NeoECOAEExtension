@@ -19,6 +19,7 @@
   ],
   "client": [
     "CraftingCPUScreenMixin",
+    "CraftingStatusTableRendererMixin",
     "CPUSelectionListMixin",
     "EmiScreenBaseAccessor",
     "EmiScreenBaseMixin",

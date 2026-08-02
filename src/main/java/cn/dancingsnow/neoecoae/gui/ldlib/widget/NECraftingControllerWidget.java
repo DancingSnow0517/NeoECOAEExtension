@@ -179,8 +179,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                     x, TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
                 continue;
             }
-            graphics.renderComponentTooltip(
-                    font(), toolbarTooltipLines(state, index), mouseX, mouseY);
+            graphics.renderComponentTooltip(font(), toolbarTooltipLines(state, index), mouseX, mouseY);
             return true;
         }
         return false;
@@ -239,17 +238,17 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private static List<Component> toolbarTooltipLines(NECraftingUiState state, int index) {
         boolean enabled = toolbarEnabled(state, index);
-        int titleColor = switch (index) {
-            case 0 -> NELDLibStyle.DARK_TEXT_ORANGE;
-            case 1 -> NELDLibStyle.DARK_TEXT_BLUE;
-            default -> NELDLibStyle.DARK_TEXT_WARNING;
-        };
+        int titleColor =
+                switch (index) {
+                    case 0 -> NELDLibStyle.DARK_TEXT_ORANGE;
+                    case 1 -> NELDLibStyle.DARK_TEXT_BLUE;
+                    default -> NELDLibStyle.DARK_TEXT_WARNING;
+                };
         int actionColor = index == 2
                 ? enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR
                 : enabled ? NELDLibStyle.DARK_TEXT_WARNING : NELDLibStyle.DARK_TEXT_SUCCESS;
         return List.of(
-                Component.translatable(toolbarTitleKey(index))
-                        .withStyle(style -> style.withColor(rgb(titleColor))),
+                Component.translatable(toolbarTitleKey(index)).withStyle(style -> style.withColor(rgb(titleColor))),
                 Component.translatable(toolbarTooltipKey(state, index))
                         .withStyle(style -> style.withColor(rgb(actionColor))));
     }

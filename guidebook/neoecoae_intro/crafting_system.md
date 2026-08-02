@@ -139,7 +139,7 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 | Worker threads | One thread per participating F host on each FX Worker | One thread per participating F host on each FX Worker |
 | Power draw | **x4** | **x16** |
 | Cooling requirement | The shared pool must provide valid coolant | The shared pool must provide the highest-tier coolant, supporting overclock 9 |
-| Tick cooling | **4** coolant per active task thread per tick | **16** coolant per active task thread per tick |
+| Tick cooling | **4** coolant per active task thread per tick | **16** coolant per active task thread per tick, except for complete virtual exchange below |
 
 #### Shared Exchange Rules
 
@@ -153,6 +153,12 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 | Coolant fallback | If the relevant shared pool cannot supply the required coolant, the exchange multiplier falls back to **x1**. |
 | Tick cost basis | Only active exchange tasks use tick-based cooling; batch size does not affect this cost. |
 | Task pause | When the shared pool cannot pay the tick cost, the exchange task pauses and resumes from the same progress after coolant is restored. |
+
+#### Complete Eight-Host Virtual Exchange
+
+When exactly **8** linked F9 hosts form an active **x8** high-energy exchange, eligible fast-path tasks use virtual crafting. The whole available task amount is accepted as a `long` quantity in one submission: input is consumed and the matching output amount is produced without the ordinary per-slot batch cap.
+
+Each active virtual task consumes a fixed **10,000 mB** from the shared coolant pool per tick. This cost is per task thread, not per item or batch size. An x8 exchange with fewer than 8 hosts keeps normal x8 behavior, including its ordinary per-slot limit and **16** coolant per active task thread per tick.
 
 ## Building the Structure
 
@@ -188,7 +194,7 @@ Enable overclocking to increase batch capacity per task slot at the cost of high
 Enable active cooling to further enhance performance and eliminate extra energy costs from overclocking.
 - Requires coolant fluids in the input hatch
 - Coolant recipes can be viewed in JEI
-- The system stores coolant as a buffer. At x1 it is charged per craft when work starts; active x2/x8 exchange tasks are charged per active slot per tick.
+- The system stores coolant as a buffer. At x1 it is charged per craft when work starts; active x2/x8 exchange tasks are charged per active slot per tick. Complete eight-host virtual x8 tasks use 10,000 mB per active task thread per tick.
 - If the output hatch is full, coolant cannot be converted and the buffer cannot be replenished
 
 ### Cooling and Effective Overclock

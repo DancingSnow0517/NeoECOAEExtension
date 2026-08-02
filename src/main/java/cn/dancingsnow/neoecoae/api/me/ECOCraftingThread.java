@@ -99,9 +99,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return TickRateModulation.URGENT;
         }
         ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
-        ECOCraftingSystemBlockEntity controller = worker.getCluster() == null
-                ? null
-                : worker.getCluster().getController();
+        ECOCraftingSystemBlockEntity controller =
+                worker.getCluster() == null ? null : worker.getCluster().getController();
         if (networkCoolingMultiplier > 1
                 && controller != null
                 && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, ticksSinceLastCall)) {
@@ -156,9 +155,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return TickRateModulation.URGENT;
         }
         ticksSinceLastCall = consumeEffectiveTicks(ticksSinceLastCall);
-        ECOCraftingSystemBlockEntity controller = worker.getCluster() == null
-                ? null
-                : worker.getCluster().getController();
+        ECOCraftingSystemBlockEntity controller =
+                worker.getCluster() == null ? null : worker.getCluster().getController();
         if (networkCoolingMultiplier > 1
                 && controller != null
                 && !controller.tryConsumeNetworkCoolantTick(networkCoolingMultiplier, ticksSinceLastCall)) {
@@ -270,7 +268,8 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ECOBatchCraftingRequest request,
             ECOCraftingSystemBlockEntity controller,
             ECOFastPathResult verifiedResult) {
-        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(request.batchSize());
+        int requiredLaneCapacity = controller.isVirtualCraftingMode() ? 1 : Math.toIntExact(request.batchSize());
+        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(requiredLaneCapacity);
         return lane != null && pushBatch(request, controller, verifiedResult, lane.index());
     }
 
@@ -292,13 +291,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
                 : ECOBatchCraftingHelper.multiply(verifiedResult.inputEntries(), request.batchSize());
         var remainingTotal = ECOBatchCraftingHelper.multiply(verifiedResult.remainingEntries(), request.batchSize());
         var work = new ECOBatchCraftingWork(
-                request.batchSize(),
-                inputTotal,
-                outputTotal,
-                remainingTotal,
-                request.craftingJobId(),
-                0,
-                1);
+                request.batchSize(), inputTotal, outputTotal, remainingTotal, request.craftingJobId(), 0, 1);
         return acceptBatch(work, controller, laneIndex, virtualCrafting);
     }
 
@@ -307,7 +300,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             ECOCraftingSystemBlockEntity controller,
             int laneIndex,
             boolean virtualCrafting) {
-        if (!consumeCraftingCoolant(controller, work.batchSize())) {
+        if (!consumeCraftingCoolant(controller, virtualCrafting ? 1 : Math.toIntExact(work.batchSize()))) {
             worker.getFastPathCache().recordCoolantReject();
             return false;
         }
@@ -453,9 +446,7 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return true;
         }
         if (controller.getNetworkMultiplier() > 1) {
-            return controller.getCraftingCoolantCraftLimit(
-                            1, controller.getEffectiveOverclockTimes(), 1)
-                    > 0;
+            return controller.getCraftingCoolantCraftLimit(1, controller.getEffectiveOverclockTimes(), 1) > 0;
         }
         return controller.tryConsumeCoolant(
                 ECOCraftingCPULogic.coolantAmountForCrafts(craftCount), controller.getEffectiveOverclockTimes());
@@ -881,12 +872,9 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             assignedLaneIndex = -1;
             invalidPersistedState = true;
         }
-        this.networkCoolingMultiplier = nbt.contains("networkCoolingMultiplier")
-                ? nbt.getInt("networkCoolingMultiplier")
-                : 1;
-        if (networkCoolingMultiplier != 1
-                && networkCoolingMultiplier != 2
-                && networkCoolingMultiplier != 8) {
+        this.networkCoolingMultiplier =
+                nbt.contains("networkCoolingMultiplier") ? nbt.getInt("networkCoolingMultiplier") : 1;
+        if (networkCoolingMultiplier != 1 && networkCoolingMultiplier != 2 && networkCoolingMultiplier != 8) {
             networkCoolingMultiplier = 1;
             invalidPersistedState = true;
         }

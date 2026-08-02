@@ -292,8 +292,8 @@ public final class NECraftingNetworkCluster {
     }
 
     public boolean tryPushBatch(@Nullable IGrid grid, ECOBatchCraftingRequest request) {
-        ECOCraftingPatternBusBlockEntity.BatchFastPathOffer offer = findBatchFastPathOffer(
-                grid, request.key(), null, request, request.batchSize());
+        ECOCraftingPatternBusBlockEntity.BatchFastPathOffer offer =
+                findBatchFastPathOffer(grid, request.key(), null, request, request.batchSize());
         return tryPushBatch(grid, request, offer);
     }
 
@@ -316,7 +316,8 @@ public final class NECraftingNetworkCluster {
         if (controller != null
                 && offer.maxBatchSize() >= request.batchSize()
                 && controller.getCurrentBatchSlots() > 0
-                && controller.getLargestAvailableCraftingBatchSize() >= request.batchSize()
+                && (controller.isVirtualCraftingMode()
+                        || controller.getLargestAvailableCraftingBatchSize() >= request.batchSize())
                 && worker.getAvailableThreadSlots() > 0
                 && worker.pushBatch(request, offer.result())) {
             int memberIndex = members.indexOf(member);
@@ -328,13 +329,12 @@ public final class NECraftingNetworkCluster {
         return false;
     }
 
-    @Nullable
-    public ECOCraftingPatternBusBlockEntity.BatchFastPathOffer findBatchFastPathOffer(
+    @Nullable public ECOCraftingPatternBusBlockEntity.BatchFastPathOffer findBatchFastPathOffer(
             @Nullable IGrid grid,
             ECOFastPathKey key,
             @Nullable ECOExtractedPatternExecution execution,
             @Nullable ECOBatchCraftingRequest request,
-            int requestedBatchSize) {
+            long requestedBatchSize) {
         if (requestedBatchSize <= 0 || members.isEmpty() || getAvailableThreads() <= 0) {
             return null;
         }
@@ -353,7 +353,9 @@ public final class NECraftingNetworkCluster {
             if (controller.getCurrentBatchSlots() <= 0) {
                 continue;
             }
-            int availableBatchSize = controller.getLargestAvailableCraftingBatchSize();
+            long availableBatchSize = controller.isVirtualCraftingMode()
+                    ? Long.MAX_VALUE
+                    : controller.getLargestAvailableCraftingBatchSize();
             if (availableBatchSize <= 0) {
                 continue;
             }
@@ -376,11 +378,9 @@ public final class NECraftingNetworkCluster {
                     worker.getFastPathCache().recordExpectedMismatch();
                     continue;
                 }
-                int maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
-                if (maxBatchSize > 0
-                        && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
-                    bestOffer = new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(
-                            worker, result, maxBatchSize);
+                long maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
+                if (maxBatchSize > 0 && (bestOffer == null || maxBatchSize > bestOffer.maxBatchSize())) {
+                    bestOffer = new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(worker, result, maxBatchSize);
                     if (maxBatchSize >= requestedBatchSize) {
                         return bestOffer;
                     }

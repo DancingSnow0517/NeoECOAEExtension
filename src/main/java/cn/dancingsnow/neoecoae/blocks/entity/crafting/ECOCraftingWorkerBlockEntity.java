@@ -14,11 +14,11 @@ import appeng.api.storage.MEStorage;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingThread;
+import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
-import cn.dancingsnow.neoecoae.config.NEConfig;
 import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
@@ -170,7 +170,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public boolean pushBatch(ECOBatchCraftingRequest request) {
         ECOFastPathResult verifiedResult = request.key() == null
                 ? null
-                : getFastPathCache().get(request.key(), appeng.hooks.ticking.TickHandler.instance().getCurrentTick());
+                : getFastPathCache()
+                        .get(
+                                request.key(),
+                                appeng.hooks.ticking.TickHandler.instance().getCurrentTick());
         return pushBatch(request, verifiedResult);
     }
 
@@ -187,8 +190,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             getFastPathCache().recordNoThreadReject();
             return false;
         }
-        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(request.batchSize());
-        int controllerAvailableSlots = Math.max(0, controller.getLocalThreadCount() - controller.getLocalRunningThreadCount());
+        int requiredLaneCapacity = controller.isVirtualCraftingMode() ? 1 : Math.toIntExact(request.batchSize());
+        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(requiredLaneCapacity);
+        int controllerAvailableSlots =
+                Math.max(0, controller.getLocalThreadCount() - controller.getLocalRunningThreadCount());
         if (lane == null
                 || getAvailableThreadSlots() <= 0
                 || controllerAvailableSlots <= 0

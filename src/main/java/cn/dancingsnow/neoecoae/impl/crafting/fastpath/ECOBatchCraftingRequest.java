@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 public record ECOBatchCraftingRequest(
         IPatternDetails details,
         ECOFastPathKey key,
-        int batchSize,
+        long batchSize,
         List<GenericStack> inputsPerCraft,
         List<GenericStack> outputsPerCraft,
         List<GenericStack> remainingPerCraft,
@@ -18,7 +18,7 @@ public record ECOBatchCraftingRequest(
     public ECOBatchCraftingRequest {
         Objects.requireNonNull(details, "details");
         Objects.requireNonNull(key, "key");
-        if (batchSize <= 0 || batchSize > ECOBatchCraftingHelper.MAX_BATCH_SIZE) {
+        if (batchSize <= 0) {
             throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
         }
         inputsPerCraft = List.copyOf(inputsPerCraft);

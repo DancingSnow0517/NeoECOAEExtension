@@ -84,6 +84,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final int COOLANT_PER_CRAFT = 5;
     private static final int NETWORK_COOLANT_PER_SLOT_TICK = 4;
     private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 16;
+    public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
+    public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 10_000;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
@@ -356,8 +358,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     /** Refreshes the logical exchange lane count when network cooling capability changes. */
     public void refreshExchangeThreadCount() {
         int nextThreadCountPerWorker = cluster == null
-                || cluster.getParallelCores().isEmpty()
-                || cluster.getWorkers().isEmpty()
+                        || cluster.getParallelCores().isEmpty()
+                        || cluster.getWorkers().isEmpty()
                 ? 0
                 : getExchangeHostCount();
         if (threadCountPerWorker == nextThreadCountPerWorker) {
@@ -378,9 +380,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 // x2/x8 multiplier belongs to the batch capacity of that lane, not to the
                 // number of logical tasks a worker may run.
                 threadCountPerWorker = getExchangeHostCount();
-                threadCount = (int) Math.min(
-                        Integer.MAX_VALUE,
-                        saturatingMultiply(threadCountPerWorker, workerCount));
+                threadCount = (int) Math.min(Integer.MAX_VALUE, saturatingMultiply(threadCountPerWorker, workerCount));
             } else {
                 if (overclocked) {
                     perCore += tier.getOverclockedCrafterParallel();
@@ -511,19 +511,18 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             if (multiplier > 1) {
                 int rate = getNetworkCoolantPerSlotTick(multiplier);
                 int networkRequirement = Math.max(getEffectiveOverclockTimes(), multiplier >= 8 ? 9 : 0);
-                return network.getCraftingCoolantCraftLimit(1, networkRequirement, rate) >= rate
-                        ? requestedCrafts
-                        : 0;
+                return network.getCraftingCoolantCraftLimit(1, networkRequirement, rate) >= rate ? requestedCrafts : 0;
             }
             return network.getCraftingCoolantCraftLimit(coolantPerCraft, requiredOverclock, requestedCrafts);
         }
         return getLocalCraftingCoolantCraftLimit(coolantPerCraft, requiredOverclock, requestedCrafts);
     }
 
-    private static int getNetworkCoolantPerSlotTick(int multiplier) {
-        return multiplier >= 8
-                ? HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK
-                : NETWORK_COOLANT_PER_SLOT_TICK;
+    private int getNetworkCoolantPerSlotTick(int multiplier) {
+        if (isVirtualCraftingMode()) {
+            return VIRTUAL_CRAFTING_COOLANT_PER_TICK;
+        }
+        return multiplier >= 8 ? HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK : NETWORK_COOLANT_PER_SLOT_TICK;
     }
 
     public int getLocalCraftingCoolantCraftLimit(int coolantPerCraft, int requiredOverclock, int requestedCrafts) {
@@ -678,9 +677,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public int getAvailableThreads() {
         ensureCraftingStatsCurrent();
-        return (int) Math.min(
-                Integer.MAX_VALUE,
-                saturatingMultiply(threadCountPerWorker, workerCount));
+        return (int) Math.min(Integer.MAX_VALUE, saturatingMultiply(threadCountPerWorker, workerCount));
     }
 
     public int getRunningThreadCount() {
@@ -776,10 +773,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return largest;
     }
 
-    /** Highest-tier exchange executes one whole recipe task as virtual ledger work. */
+    /** A complete eight-host x8 exchange executes one whole recipe task as virtual ledger work. */
     public boolean isVirtualCraftingMode() {
         return cluster != null
                 && cluster.getNetworkCluster() != null
+                && cluster.getNetworkCluster().getMemberCount() == VIRTUAL_CRAFTING_REQUIRED_HOSTS
                 && cluster.getNetworkMultiplier() >= 8;
     }
 
