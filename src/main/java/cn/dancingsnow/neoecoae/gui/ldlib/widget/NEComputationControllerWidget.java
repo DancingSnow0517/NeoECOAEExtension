@@ -84,7 +84,8 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 NETWORK_FREQUENCY_BUTTON_Y,
                 NETWORK_FREQUENCY_BUTTON_W,
                 NETWORK_FREQUENCY_BUTTON_H,
-                () -> Component.literal(Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
+                () -> Component.literal(
+                        Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
                 click -> {
                     if (!click.isRemote) {
                         computation.cycleNetworkFrequency();
@@ -94,9 +95,7 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 () -> currentState().networkMemberCount() > 1,
                 NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
         networkFrequencyButton.setTextColors(
-                NELDLibStyle.DARK_TEXT_PRIMARY,
-                NELDLibStyle.DARK_TEXT_SUCCESS,
-                NELDLibStyle.DARK_TEXT_MUTED);
+                NELDLibStyle.DARK_TEXT_PRIMARY, NELDLibStyle.DARK_TEXT_SUCCESS, NELDLibStyle.DARK_TEXT_MUTED);
         addWidget(networkFrequencyButton);
         cpuModeButton = new NEAe2IconButtonWidget(
                 mainX(CPU_BUTTON_X), CPU_BUTTON_Y, CPU_BUTTON_W, CPU_BUTTON_H, cpuModeIcon(), click -> {

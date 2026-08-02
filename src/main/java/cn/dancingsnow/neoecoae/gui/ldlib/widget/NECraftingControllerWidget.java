@@ -26,6 +26,8 @@ import net.minecraft.world.entity.player.Player;
 public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraftingUiState> {
     public static final int UI_WIDTH = cn.dancingsnow.neoecoae.gui.ldlib.crafting.NECraftingLayout.UI_WIDTH;
     public static final int UI_HEIGHT = cn.dancingsnow.neoecoae.gui.ldlib.crafting.NECraftingLayout.UI_HEIGHT;
+    private static final int TOOLBAR_BUTTON_OFFSET_X = -5;
+    private static final int TOOLBAR_BUTTON_OFFSET_Y = 3;
 
     private final ECOCraftingSystemBlockEntity crafting;
     private final Inventory playerInventory;
@@ -59,11 +61,12 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
     @Override
     protected void initLdWidgets() {
         networkFrequencyButton = new NEAe2TextButtonWidget(
-                TOOLBAR_X,
-                TOOLBAR_Y,
+                TOOLBAR_X + TOOLBAR_BUTTON_OFFSET_X,
+                TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y,
                 TOOLBAR_BUTTON_SIZE,
                 TOOLBAR_BUTTON_SIZE,
-                () -> Component.literal(Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
+                () -> Component.literal(
+                        Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
                 click -> {
                     if (!click.isRemote) {
                         crafting.cycleNetworkFrequency();
@@ -73,9 +76,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 () -> currentState().networkMemberCount() > 1,
                 NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
         networkFrequencyButton.setTextColors(
-                NELDLibStyle.DARK_TEXT_PRIMARY,
-                NELDLibStyle.DARK_TEXT_SUCCESS,
-                NELDLibStyle.DARK_TEXT_MUTED);
+                NELDLibStyle.DARK_TEXT_PRIMARY, NELDLibStyle.DARK_TEXT_SUCCESS, NELDLibStyle.DARK_TEXT_MUTED);
+        networkFrequencyButton.setLabelOffset(1, 1);
         addWidget(networkFrequencyButton);
         addToolbarButton(0, click -> {
             if (!click.isRemote) {
@@ -154,8 +156,8 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private void addToolbarButton(int index, Consumer<ClickData> action) {
         toolbarButtons[index] = new NEAe2IconButtonWidget(
-                TOOLBAR_X + TOOLBAR_BUTTON_STRIDE + index * TOOLBAR_BUTTON_STRIDE,
-                TOOLBAR_Y,
+                TOOLBAR_X + TOOLBAR_BUTTON_OFFSET_X + TOOLBAR_BUTTON_STRIDE + index * TOOLBAR_BUTTON_STRIDE,
+                TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y,
                 TOOLBAR_BUTTON_SIZE,
                 TOOLBAR_BUTTON_SIZE,
                 toolbarIcon(currentState(), index),
@@ -173,28 +175,38 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
 
     private boolean drawToolbarTooltip(GuiGraphics graphics, NECraftingUiState state, int mouseX, int mouseY) {
         for (int index = 0; index < toolbarButtons.length; index++) {
-            int x = TOOLBAR_X + TOOLBAR_BUTTON_STRIDE + index * TOOLBAR_BUTTON_STRIDE;
-            if (!isMouseIn(x, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
+            int x = TOOLBAR_X + TOOLBAR_BUTTON_OFFSET_X + TOOLBAR_BUTTON_STRIDE + index * TOOLBAR_BUTTON_STRIDE;
+            if (!isMouseIn(
+                    x, TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
                 continue;
             }
             graphics.renderComponentTooltip(
-                    font(), List.of(Component.translatable(toolbarTooltipKey(state, index))), mouseX, mouseY);
+                    font(), toolbarTooltipLines(state, index), mouseX, mouseY);
             return true;
         }
         return false;
     }
 
-    private boolean drawNetworkFrequencyTooltip(
-            GuiGraphics graphics, NECraftingUiState state, int mouseX, int mouseY) {
-        if (!isMouseIn(TOOLBAR_X, TOOLBAR_Y, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE, mouseX, mouseY)) {
+    private boolean drawNetworkFrequencyTooltip(GuiGraphics graphics, NECraftingUiState state, int mouseX, int mouseY) {
+        if (!isMouseIn(
+                TOOLBAR_X + TOOLBAR_BUTTON_OFFSET_X,
+                TOOLBAR_Y + TOOLBAR_BUTTON_OFFSET_Y,
+                TOOLBAR_BUTTON_SIZE,
+                TOOLBAR_BUTTON_SIZE,
+                mouseX,
+                mouseY)) {
             return false;
         }
         int frequency = Math.max(0, state.networkFrequency()) + 1;
         graphics.renderComponentTooltip(
                 font(),
                 List.of(
-                        Component.translatable("gui.neoecoae.host.network.frequency", frequency),
-                        Component.translatable("gui.neoecoae.host.network.frequency.tooltip")),
+                        Component.translatable(
+                                        "gui.neoecoae.host.network.frequency",
+                                        coloredText(Integer.toString(frequency), NELDLibStyle.DARK_TEXT_VALUE))
+                                .withStyle(style -> style.withColor(rgb(NELDLibStyle.DARK_TEXT_MUTED))),
+                        Component.translatable("gui.neoecoae.host.network.frequency.tooltip")
+                                .withStyle(style -> style.withColor(rgb(NELDLibStyle.DARK_TEXT_MUTED)))),
                 mouseX,
                 mouseY);
         return true;
@@ -224,5 +236,46 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                     ? "gui.neoecoae.crafting.auto_clear_coolant.on"
                     : "gui.neoecoae.crafting.auto_clear_coolant.off";
         };
+    }
+
+    private static List<Component> toolbarTooltipLines(NECraftingUiState state, int index) {
+        boolean enabled = toolbarEnabled(state, index);
+        int titleColor = switch (index) {
+            case 0 -> NELDLibStyle.DARK_TEXT_ORANGE;
+            case 1 -> NELDLibStyle.DARK_TEXT_BLUE;
+            default -> NELDLibStyle.DARK_TEXT_WARNING;
+        };
+        int actionColor = index == 2
+                ? enabled ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR
+                : enabled ? NELDLibStyle.DARK_TEXT_WARNING : NELDLibStyle.DARK_TEXT_SUCCESS;
+        return List.of(
+                Component.translatable(toolbarTitleKey(index))
+                        .withStyle(style -> style.withColor(rgb(titleColor))),
+                Component.translatable(toolbarTooltipKey(state, index))
+                        .withStyle(style -> style.withColor(rgb(actionColor))));
+    }
+
+    private static String toolbarTitleKey(int index) {
+        return switch (index) {
+            case 0 -> "gui.neoecoae.crafting.overclock";
+            case 1 -> "gui.neoecoae.crafting.active_cooling";
+            default -> "gui.neoecoae.crafting.auto_clear_coolant";
+        };
+    }
+
+    private static boolean toolbarEnabled(NECraftingUiState state, int index) {
+        return switch (index) {
+            case 0 -> state.overclocked();
+            case 1 -> state.activeCooling();
+            default -> state.autoClearCoolingWaste();
+        };
+    }
+
+    private static Component coloredText(String text, int color) {
+        return Component.literal(text).withStyle(style -> style.withColor(rgb(color)));
+    }
+
+    private static int rgb(int color) {
+        return color & 0x00FFFFFF;
     }
 }

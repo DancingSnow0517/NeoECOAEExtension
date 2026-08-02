@@ -156,7 +156,8 @@ public final class NELogicalNetworkManager {
         Map<NetworkGroupKey, List<NECraftingCluster>> groups = new HashMap<>();
         for (NECraftingCluster cluster : state.crafting) {
             cluster.setNetworkCluster(null);
-            groups.computeIfAbsent(craftingNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
+            groups.computeIfAbsent(craftingNetworkKey(cluster), ignored -> new ArrayList<>())
+                    .add(cluster);
         }
 
         Set<CraftingNetworkPartitionKey> activeKeys = new HashSet<>();
@@ -166,10 +167,10 @@ public final class NELogicalNetworkManager {
                 int partition = start / CRAFTING_NETWORK_HOST_LIMIT;
                 CraftingNetworkPartitionKey key = new CraftingNetworkPartitionKey(entry.getKey(), partition);
                 activeKeys.add(key);
-                NECraftingNetworkCluster network = state.craftingNetworks.computeIfAbsent(
-                        key, ignored -> new NECraftingNetworkCluster());
-                List<NECraftingCluster> members = clusters.subList(
-                        start, Math.min(start + CRAFTING_NETWORK_HOST_LIMIT, clusters.size()));
+                NECraftingNetworkCluster network =
+                        state.craftingNetworks.computeIfAbsent(key, ignored -> new NECraftingNetworkCluster());
+                List<NECraftingCluster> members =
+                        clusters.subList(start, Math.min(start + CRAFTING_NETWORK_HOST_LIMIT, clusters.size()));
                 for (NECraftingCluster member : members) {
                     member.setNetworkCluster(network);
                 }
@@ -203,7 +204,8 @@ public final class NELogicalNetworkManager {
         Map<NetworkGroupKey, List<NEComputationCluster>> groups = new HashMap<>();
         for (NEComputationCluster cluster : state.computation) {
             cluster.setNetworkCluster(null);
-            groups.computeIfAbsent(computationNetworkKey(cluster), ignored -> new ArrayList<>()).add(cluster);
+            groups.computeIfAbsent(computationNetworkKey(cluster), ignored -> new ArrayList<>())
+                    .add(cluster);
         }
 
         Set<NetworkGroupKey> activeKeys = new HashSet<>();
@@ -225,8 +227,7 @@ public final class NELogicalNetworkManager {
         });
     }
 
-    private static void assignCraftingFrequencyIfNeeded(
-            NECraftingCluster cluster, Set<NECraftingCluster> clusters) {
+    private static void assignCraftingFrequencyIfNeeded(NECraftingCluster cluster, Set<NECraftingCluster> clusters) {
         var controller = cluster.getController();
         if (controller == null || controller.hasNetworkFrequency()) {
             return;
@@ -286,8 +287,7 @@ public final class NELogicalNetworkManager {
         return new NetworkGroupKey(network == null ? cluster : network, frequency);
     }
 
-    @Nullable
-    private static Object networkObject(NECluster<?> cluster) {
+    @Nullable private static Object networkObject(NECluster<?> cluster) {
         if (cluster instanceof NECraftingCluster craftingCluster) {
             var controller = craftingCluster.getController();
             return controller == null ? null : safeGrid(controller.getMainNode());
@@ -299,8 +299,7 @@ public final class NELogicalNetworkManager {
         return null;
     }
 
-    @Nullable
-    private static IGrid safeGrid(@Nullable IManagedGridNode node) {
+    @Nullable private static IGrid safeGrid(@Nullable IManagedGridNode node) {
         if (node == null) {
             return null;
         }
@@ -314,8 +313,7 @@ public final class NELogicalNetworkManager {
         }
     }
 
-    @Nullable
-    private static Level getLevel(NECluster<?> cluster) {
+    @Nullable private static Level getLevel(NECluster<?> cluster) {
         if (cluster instanceof NECraftingCluster craftingCluster && craftingCluster.getController() != null) {
             return craftingCluster.getController().getLevel();
         }
@@ -358,9 +356,7 @@ public final class NELogicalNetworkManager {
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof NetworkGroupKey key
-                    && network == key.network
-                    && frequency == key.frequency;
+            return other instanceof NetworkGroupKey key && network == key.network && frequency == key.frequency;
         }
 
         @Override

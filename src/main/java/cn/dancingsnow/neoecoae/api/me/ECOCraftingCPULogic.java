@@ -271,27 +271,27 @@ public class ECOCraftingCPULogic {
             return;
         }
         AEKey key = currentJob.finalOutput.what();
-        long deliverable = Math.min(buffered, currentJob.remainingAmount);
-        final long accepted;
+        final ECOFinalOutputBuffer.Delivery delivery;
         try {
             deliveringBufferedFinalOutput = true;
-            accepted = validateInsertionAmount(
-                    deliverFinalOutput(key, deliverable, Actionable.MODULATE), deliverable, "final-output requester");
+            delivery = currentJob.bufferedFinalOutput.attemptDelivery(
+                    currentJob.remainingAmount,
+                    deliverable -> deliverFinalOutput(key, deliverable, Actionable.MODULATE));
         } catch (RuntimeException e) {
             logFinalOutputDeliveryFailure(e);
             return;
         } finally {
             deliveringBufferedFinalOutput = false;
         }
-        if (accepted <= 0L) {
+        if (delivery.delivered() <= 0L) {
             return;
         }
         if (job != currentJob) {
-            LOGGER.error("Crafting job changed after accepting {} buffered final-output items", accepted);
+            LOGGER.error("Crafting job changed after accepting {} buffered final-output items", delivery.delivered());
             return;
         }
-        currentJob.bufferedFinalOutput.removeDelivered(accepted);
-        currentJob.remainingAmount = Math.max(0L, currentJob.remainingAmount - accepted);
+        currentJob.bufferedFinalOutput.completeDelivery(delivery);
+        currentJob.remainingAmount = delivery.remainingAmount();
         postChange(key);
         cpu.markDirty();
         if (currentJob.remainingAmount <= 0L) {
@@ -311,14 +311,6 @@ public class ECOCraftingCPULogic {
             return 0L;
         }
         return grid.getStorageService().getInventory().insert(key, amount, mode, cpu.getActionSource());
-    }
-
-    private static long validateInsertionAmount(long inserted, long requested, String target) {
-        if (inserted < 0L || inserted > requested) {
-            throw new IllegalStateException(
-                    "Invalid insertion result from " + target + ": " + inserted + " for " + requested);
-        }
-        return inserted;
     }
 
     private void logFinalOutputDeliveryFailure(RuntimeException e) {

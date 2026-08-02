@@ -65,10 +65,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         Direction down = orientation.down();
         Direction left = orientation.left();
         Direction right = orientation.right();
-        if (!validateCasing(level, controllerPos, top, down, left)) {
-            return false;
-        }
-        if (!validateCasingOrNetworkSwitch(level, controllerPos, tier, top, down, right)) {
+        if (!validateNetworkSwitchSides(level, controllerPos, tier, top, down, left, right)) {
             return false;
         }
         if (!validateCasing(level, controllerPos, top, down, back)) {
@@ -157,7 +154,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
                 return false;
             }
         }
-        applyNetworkMode(level.getBlockState(controllerPos.relative(right)));
+        applyNetworkMode(
+                level.getBlockState(controllerPos.relative(left)), level.getBlockState(controllerPos.relative(right)));
         return true;
     }
 
@@ -189,9 +187,34 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         return false;
     }
 
-    private void applyNetworkMode(BlockState switchState) {
-        highEnergyNetworkMode = switchState.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get());
-        networkMode = highEnergyNetworkMode || switchState.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get());
+    private void applyNetworkMode(BlockState firstSide, BlockState secondSide) {
+        highEnergyNetworkMode = firstSide.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get())
+                || secondSide.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get());
+        networkMode = highEnergyNetworkMode
+                || firstSide.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get())
+                || secondSide.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get());
+    }
+
+    private boolean validateNetworkSwitchSides(
+            ServerLevel level,
+            BlockPos controllerPos,
+            IECOTier tier,
+            Direction top,
+            Direction down,
+            Direction firstSide,
+            Direction secondSide) {
+        BlockState firstState = level.getBlockState(controllerPos.relative(firstSide));
+        BlockState secondState = level.getBlockState(controllerPos.relative(secondSide));
+        if (isNetworkSwitch(firstState) && isNetworkSwitch(secondState)) {
+            return false;
+        }
+        return validateCasingOrNetworkSwitch(level, controllerPos, tier, top, down, firstSide)
+                && validateCasingOrNetworkSwitch(level, controllerPos, tier, top, down, secondSide);
+    }
+
+    private static boolean isNetworkSwitch(BlockState state) {
+        return state.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get())
+                || state.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get());
     }
 
     private boolean validateCasingOrNetworkSwitch(
@@ -203,8 +226,7 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
             Direction direction) {
         BlockPos center = controllerPos.relative(direction);
         BlockState state = level.getBlockState(center);
-        boolean switchBlock = state.is(NEBlocks.COMPUTATION_NETWORK_SWITCH.get())
-                || state.is(NEBlocks.COMPUTATION_HIGH_ENERGY_NETWORK_SWITCH.get());
+        boolean switchBlock = isNetworkSwitch(state);
         if (!state.is(NEBlocks.COMPUTATION_CASING.get()) && !switchBlock) {
             return false;
         }

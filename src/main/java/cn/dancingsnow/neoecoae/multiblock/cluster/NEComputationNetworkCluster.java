@@ -90,8 +90,7 @@ public final class NEComputationNetworkCluster {
         long total = 0;
         long used = 0;
         for (NEComputationCluster member : members) {
-            total = saturatingAdd(
-                    total, multiplied(member.getLocalTotalStorageBytes(), member.getNetworkMultiplier()));
+            total = saturatingAdd(total, multiplied(member.getLocalTotalStorageBytes(), member.getNetworkMultiplier()));
             used = saturatingAdd(used, Math.max(0L, member.getLocalActiveJobBytes()));
         }
         return total <= used ? 0L : total - used;

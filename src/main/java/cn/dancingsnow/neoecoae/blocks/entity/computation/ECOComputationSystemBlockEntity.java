@@ -130,7 +130,7 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
             }
             if (level instanceof ServerLevel serverLevel) {
                 if (formed && cluster != null && cluster.isNetworkMode()) {
-                    NENetworkSwitchUtil.syncFormed(serverLevel, worldPosition, getBlockState(), cluster.isMirrored());
+                    NENetworkSwitchUtil.syncFormed(serverLevel, worldPosition, getBlockState());
                 } else {
                     NENetworkSwitchUtil.clearFormed(serverLevel, worldPosition, getBlockState());
                 }

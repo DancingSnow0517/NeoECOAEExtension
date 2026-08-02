@@ -59,7 +59,17 @@ jobs:
           name: "${{ steps.properties.outputs.mod_name }} ${{ steps.var.outputs.version }}"
           path: build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}.jar
 
+      - name: Upload pre-release jar to GitHub Release
+        if: ${{ github.event.release.prerelease }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release upload "${{ github.event.release.tag_name }}"
+          "build/libs/${{ steps.properties.outputs.mod_id }}-${{ steps.var.outputs.version }}.jar"
+          --clobber
+
       - name: Publish Mod
+        if: ${{ !github.event.release.prerelease }}
         uses: Kir-Antipov/mc-publish@v3.3.0
         with:
           name: "${{ steps.properties.outputs.mod_name }} v${{ steps.var.outputs.version }}"

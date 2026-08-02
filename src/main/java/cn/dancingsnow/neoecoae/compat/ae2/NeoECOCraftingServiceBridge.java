@@ -195,8 +195,7 @@ public final class NeoECOCraftingServiceBridge {
         // member. Keep one representative per logical network so AE2 does not
         // tick the same CPU multiple times or display duplicate allocation
         // proxies. Standalone hosts remain one entry each.
-        Set<NEComputationNetworkCluster> seenNetworks =
-                Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<NEComputationNetworkCluster> seenNetworks = Collections.newSetFromMap(new IdentityHashMap<>());
         List<NEComputationCluster> result = new ArrayList<>(discovered.size());
         for (NEComputationCluster cluster : discovered) {
             NEComputationNetworkCluster network = cluster.getNetworkCluster();
@@ -213,7 +212,8 @@ public final class NeoECOCraftingServiceBridge {
             return;
         }
         try {
-            if (!blockEntity.getMainNode().isOnline() || blockEntity.getMainNode().getGrid() != grid) {
+            if (!blockEntity.getMainNode().isOnline()
+                    || blockEntity.getMainNode().getGrid() != grid) {
                 return;
             }
         } catch (RuntimeException ignored) {

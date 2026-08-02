@@ -33,15 +33,18 @@ public final class NENetworkSwitchUtil {
         return tier.getTier() == ECOTier.L9.getTier();
     }
 
-    public static void syncFormed(
-            ServerLevel level, BlockPos controllerPos, BlockState controllerState, boolean mirrored) {
-        setFormed(level, switchPosition(controllerPos, controllerState, false), !mirrored);
-        setFormed(level, switchPosition(controllerPos, controllerState, true), mirrored);
+    public static void syncFormed(ServerLevel level, BlockPos controllerPos, BlockState controllerState) {
+        syncInstalledSwitch(level, switchPosition(controllerPos, controllerState, false));
+        syncInstalledSwitch(level, switchPosition(controllerPos, controllerState, true));
     }
 
     public static void clearFormed(ServerLevel level, BlockPos controllerPos, BlockState controllerState) {
         setFormed(level, switchPosition(controllerPos, controllerState, false), false);
         setFormed(level, switchPosition(controllerPos, controllerState, true), false);
+    }
+
+    private static void syncInstalledSwitch(ServerLevel level, BlockPos switchPos) {
+        setFormed(level, switchPos, level.getBlockState(switchPos).hasProperty(NENetworkSwitchBlock.FORMED));
     }
 
     private static void setFormed(ServerLevel level, BlockPos switchPos, boolean formed) {

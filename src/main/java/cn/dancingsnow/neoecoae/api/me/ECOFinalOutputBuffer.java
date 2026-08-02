@@ -1,6 +1,7 @@
 package cn.dancingsnow.neoecoae.api.me;
 
 import appeng.api.config.Actionable;
+import java.util.function.LongUnaryOperator;
 
 /** Owns final crafting output between worker return and requester/network delivery. */
 final class ECOFinalOutputBuffer {
@@ -36,4 +37,25 @@ final class ECOFinalOutputBuffer {
         }
         amount -= delivered;
     }
+
+    Delivery attemptDelivery(long remainingAmount, LongUnaryOperator target) {
+        long deliverable = Math.min(amount, Math.max(0L, remainingAmount));
+        if (deliverable <= 0L) {
+            return new Delivery(0L, Math.max(0L, remainingAmount));
+        }
+
+        long delivered = target.applyAsLong(deliverable);
+        if (delivered < 0L || delivered > deliverable) {
+            throw new IllegalStateException(
+                    "Invalid final-output insertion result: " + delivered + " for " + deliverable);
+        }
+
+        return new Delivery(delivered, Math.max(0L, remainingAmount - delivered));
+    }
+
+    void completeDelivery(Delivery delivery) {
+        removeDelivered(delivery.delivered());
+    }
+
+    record Delivery(long delivered, long remainingAmount) {}
 }
