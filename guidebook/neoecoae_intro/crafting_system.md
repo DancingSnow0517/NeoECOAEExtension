@@ -154,6 +154,16 @@ The <ItemLink id="neoecoae:crafting_casing" /> blocks form the frame of the mult
 | Tick cost basis | Only active exchange tasks use tick-based cooling; batch size does not affect this cost. |
 | Task pause | When the shared pool cannot pay the tick cost, the exchange task pauses and resumes from the same progress after coolant is restored. |
 
+#### Complete Eight-host Virtual Crafting
+
+When one logical crafting exchange contains **8 F9 hosts** and active cooling is enabled, the network enters virtual crafting mode. This condition is based on the actual host count, not the x2/x8 exchange multiplier. Networks with fewer than eight hosts keep the normal crafting behavior.
+
+- One FX Worker task thread carries one recipe task and accepts its complete remaining craft count.
+- Inputs and outputs are aggregated as item keys with 64-bit quantities instead of being expanded into physical item stacks inside the FX Worker.
+- The virtual task completes and returns its aggregated outputs on its first worker tick.
+- Each active virtual task thread consumes a fixed **10000 mB of coolant per tick** from the shared pool. If the pool cannot pay the full amount, the task waits.
+- The supported quantity follows the signed 64-bit range. A saturated `Long.MAX_VALUE` capacity is displayed as **infinite** in Crafting Status tooltips.
+
 ## Building the Structure
 
 1. Place the **Controller** facing outward

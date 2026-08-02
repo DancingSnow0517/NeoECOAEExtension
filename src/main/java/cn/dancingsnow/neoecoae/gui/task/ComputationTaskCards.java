@@ -101,7 +101,10 @@ public final class ComputationTaskCards {
 
         GenericStack currentJob = currentJob(entry);
         if (currentJob != null) {
-            lines.add(ButtonToolTips.CpuStatusCrafting.text(Tooltips.ofAmount(currentJob))
+            Component amount = currentJob.amount() == Long.MAX_VALUE
+                ? Component.translatable("gui.neoecoae.storage.infinite_value")
+                : Tooltips.ofAmount(currentJob);
+            lines.add(ButtonToolTips.CpuStatusCrafting.text(amount)
                 .append(" ")
                 .append(currentJob.what().getDisplayName()));
             lines.add(ButtonToolTips.CpuStatusCraftedIn.text(

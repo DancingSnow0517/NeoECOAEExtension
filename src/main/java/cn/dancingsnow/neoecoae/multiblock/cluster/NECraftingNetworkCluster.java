@@ -401,14 +401,16 @@ public final class NECraftingNetworkCluster {
                 result.add(new HostBatchInfo(
                         physicalCluster.isHighEnergyNetworkMode(),
                         controller.getLocalThreadCount(),
-                        controller.getLocalMaxBatchPerThread()));
+                        controller.isVirtualCraftingMode()
+                                ? Long.MAX_VALUE
+                                : controller.getLocalMaxBatchPerThread()));
             }
         }
         return List.copyOf(result);
     }
 
     /** Per-host runtime values shown in the host UI tooltip. */
-    public record HostBatchInfo(boolean highEnergy, int threadCount, int maxBatchPerThread) {
+    public record HostBatchInfo(boolean highEnergy, int threadCount, long maxBatchPerThread) {
     }
 
     private static boolean hasMatchingWorker(NECraftingCluster physicalCluster, @Nullable IGrid grid) {
@@ -536,7 +538,7 @@ public final class NECraftingNetworkCluster {
             ECOFastPathKey key,
             @Nullable ECOExtractedPatternExecution execution,
             @Nullable ECOBatchCraftingRequest request,
-            int requestedBatchSize) {
+            long requestedBatchSize) {
         if (requestedBatchSize <= 0 || workers.isEmpty()) {
             return null;
         }
@@ -551,7 +553,9 @@ public final class NECraftingNetworkCluster {
             if (controller == null || getAvailableLogicalSlots(physical) <= 0 || localWorkers.isEmpty()) {
                 continue;
             }
-            int availableBatchSize = controller.getLargestAvailableCraftingBatchSize();
+            long availableBatchSize = controller.isVirtualCraftingMode()
+                    ? Long.MAX_VALUE
+                    : controller.getLargestAvailableCraftingBatchSize();
             if (availableBatchSize <= 0) {
                 continue;
             }
@@ -573,7 +577,7 @@ public final class NECraftingNetworkCluster {
                     worker.getFastPathCache().recordExpectedMismatch();
                     continue;
                 }
-                int maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
+                long maxBatchSize = Math.min(requestedBatchSize, availableBatchSize);
                 bestOffer = new ECOCraftingPatternBusBlockEntity.BatchFastPathOffer(worker, result, maxBatchSize);
                 break;
             }

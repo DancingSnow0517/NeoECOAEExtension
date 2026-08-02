@@ -280,7 +280,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         ECOCraftingSystemBlockEntity controller,
         ECOFastPathResult verifiedResult
     ) {
-        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(request.batchSize());
+        int requiredLaneCapacity = controller.isVirtualCraftingMode()
+            ? 1
+            : Math.toIntExact(request.batchSize());
+        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(requiredLaneCapacity);
         return lane != null && pushBatch(request, controller, verifiedResult, lane.index());
     }
 
@@ -337,7 +340,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             worker.getFastPathCache().recordNonItemKey();
             return false;
         }
-        int coolingMultiplier = prepareCraftingCooling(controller, work.batchSize());
+        int coolingMultiplier = prepareCraftingCooling(
+            controller,
+            virtualCrafting ? 1 : Math.toIntExact(work.batchSize())
+        );
         if (coolingMultiplier < 0) {
             worker.getFastPathCache().recordCoolantReject();
             return false;
@@ -566,6 +572,10 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return 1;
         }
         int networkMultiplier = controller.getActiveNetworkCoolingMultiplier();
+        if (controller.isVirtualCraftingMode()) {
+            int virtualCoolingMode = Math.max(2, networkMultiplier);
+            return controller.canStartNetworkCooledTask(virtualCoolingMode) ? virtualCoolingMode : -1;
+        }
         if (networkMultiplier > 1) {
             return controller.canStartNetworkCooledTask(networkMultiplier) ? networkMultiplier : -1;
         }
@@ -1256,15 +1266,21 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         long amount = 0;
         for (ItemStack stack : outputItems) {
             if (!stack.isEmpty()) {
-                amount += stack.getCount();
+                amount = saturatingOutputAmount(amount, stack.getCount());
             }
         }
         for (GenericStack stack : batchOutputItems) {
             if (stack != null && stack.amount() > 0) {
-                amount += stack.amount();
+                amount = saturatingOutputAmount(amount, stack.amount());
             }
         }
         return Math.max(1L, amount);
+    }
+
+    private static long saturatingOutputAmount(long current, long added) {
+        return added > 0L && current > Long.MAX_VALUE - added
+            ? Long.MAX_VALUE
+            : current + Math.max(0L, added);
     }
 
     public int getOccupiedThreadSlots() {

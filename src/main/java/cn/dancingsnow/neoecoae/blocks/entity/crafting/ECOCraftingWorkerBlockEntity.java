@@ -179,7 +179,10 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             return false;
         }
         ECOCraftingSystemBlockEntity controller = cluster.getController();
-        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(request.batchSize());
+        int requiredLaneCapacity = controller.isVirtualCraftingMode()
+            ? 1
+            : Math.toIntExact(request.batchSize());
+        ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(requiredLaneCapacity);
         if (lane == null || getAvailableThreadSlots() <= 0 || getControllerAvailableThreadSlots(controller) <= 0) {
             fastPathCache.recordNoThreadReject();
             ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.NO_THREAD_SLOT,

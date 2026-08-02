@@ -584,12 +584,11 @@ public final class CraftingHostPanelUI {
                         .toArray(Component[]::new));
                 long totalPerTick = 0L;
                 for (HostBatchData host : hosts) {
-                    totalPerTick = Math.min(Long.MAX_VALUE,
-                            totalPerTick + (long) host.threads() * host.batch());
+                    totalPerTick = saturatingBatchTotal(totalPerTick, host.threads(), host.batch());
                 }
                 tooltips = tooltips.append(Component.translatable(
                         "gui.neoecoae.crafting.ui.batch_per_thread.total",
-                        Tooltips.ofNumber(totalPerTick).copy().withColor(PANEL_VALUE))
+                        infiniteAwareAmount(totalPerTick).copy().withColor(PANEL_VALUE))
                         .withColor(PANEL_MUTED));
             }
             event.hoverTooltips = tooltips;
@@ -621,7 +620,7 @@ public final class CraftingHostPanelUI {
     }
 
     /** Parsed per-host runtime data decoded from the synced component. */
-    private record HostBatchData(boolean highEnergy, int threads, int batch) {
+    private record HostBatchData(boolean highEnergy, int threads, long batch) {
     }
 
     /** Decodes the synced per-host data into structured host values. */
@@ -641,7 +640,7 @@ public final class CraftingHostPanelUI {
             try {
                 boolean highEnergy = parts[0].length() == 1 && parts[0].charAt(0) == '1';
                 int threads = Integer.parseInt(parts[1]);
-                int batch = Integer.parseInt(parts[2]);
+                long batch = Long.parseLong(parts[2]);
                 hosts.add(new HostBatchData(highEnergy, threads, batch));
             } catch (NumberFormatException ignored) {
                 // skip malformed lines
@@ -650,7 +649,7 @@ public final class CraftingHostPanelUI {
         return hosts;
     }
 
-    private static Component hostBatchLine(boolean highEnergy, int threadCount, int maxBatch) {
+    private static Component hostBatchLine(boolean highEnergy, int threadCount, long maxBatch) {
         int color = highEnergy ? PANEL_HOST_HIGH_ENERGY : PANEL_HOST_NORMAL;
         return Component.translatable(
                 "gui.neoecoae.host.crafting.host_line",
@@ -658,7 +657,25 @@ public final class CraftingHostPanelUI {
                         ? "gui.neoecoae.host.crafting.host_type.high_energy"
                         : "gui.neoecoae.host.crafting.host_type.normal").withColor(color),
                 threadCount,
-                maxBatch).withColor(color);
+                infiniteAwareAmount(maxBatch)).withColor(color);
+    }
+
+    private static Component infiniteAwareAmount(long amount) {
+        return amount == Long.MAX_VALUE
+            ? Component.translatable("gui.neoecoae.storage.infinite_value")
+            : Tooltips.ofNumber(amount);
+    }
+
+    private static long saturatingBatchTotal(long total, int threads, long batch) {
+        if (total == Long.MAX_VALUE || batch == Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+        long contribution = threads <= 0 || batch <= 0L
+            ? 0L
+            : batch > Long.MAX_VALUE / threads ? Long.MAX_VALUE : batch * threads;
+        return contribution == Long.MAX_VALUE || total > Long.MAX_VALUE - contribution
+            ? Long.MAX_VALUE
+            : total + contribution;
     }
 
     private static void compactTextStyle(TextElement.TextStyle style) {

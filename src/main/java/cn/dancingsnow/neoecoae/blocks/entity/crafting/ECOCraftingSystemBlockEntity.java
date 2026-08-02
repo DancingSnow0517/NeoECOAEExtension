@@ -617,11 +617,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return getLocalLaneBatchCapacities().stream().mapToInt(Integer::intValue).max().orElse(0);
     }
 
-    /** Highest-tier exchange executes one whole recipe task as virtual ledger work. */
+    public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
+    public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 10_000;
+
+    /** A complete eight-host exchange executes one whole recipe task as virtual ledger work. */
     public boolean isVirtualCraftingMode() {
         return cluster != null
                 && cluster.getNetworkCluster() != null
-                && cluster.getNetworkMultiplier() >= 8;
+                && cluster.getNetworkCluster().isActiveCooling()
+                && cluster.getNetworkCluster().getMemberCount() >= VIRTUAL_CRAFTING_REQUIRED_HOSTS;
     }
 
     private LaneOccupancy collectLaneOccupancy(int laneCount) {
@@ -736,9 +740,9 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return true;
         }
         int requiredOverclock = Math.max(getEffectiveOverclockTimesForLocalTasks(), multiplier >= 8 ? 9 : 0);
+        int rate = getNetworkCoolantPerSlotTick(multiplier);
         return cluster.getNetworkCluster().getCraftingCoolantCraftLimit(
-                1, requiredOverclock,
-                getNetworkCoolantPerSlotTick(multiplier)) >= getNetworkCoolantPerSlotTick(multiplier);
+                1, requiredOverclock, rate) >= rate;
     }
 
     public boolean tryConsumeNetworkCoolantTick(int multiplier, int ticksSinceLastCall) {
@@ -752,7 +756,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return cluster.getNetworkCluster().tryConsumeCoolant(amount, requiredOverclock);
     }
 
-    private static int getNetworkCoolantPerSlotTick(int multiplier) {
+    private int getNetworkCoolantPerSlotTick(int multiplier) {
+        if (isVirtualCraftingMode()) {
+            return VIRTUAL_CRAFTING_COOLANT_PER_TICK;
+        }
         return multiplier >= 8
                 ? HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK
                 : NETWORK_COOLANT_PER_SLOT_TICK;
@@ -1443,7 +1450,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             int slots = Math.max(1, snapshot.occupiedThreadSlots());
             int maxProgress = Math.max(1, snapshot.maxProgress());
             int progress = Mth.clamp(snapshot.progress(), 0, maxProgress);
-            outputAmount += Math.max(1L, snapshot.outputAmount());
+            outputAmount = saturatingAdd(outputAmount, Math.max(1L, snapshot.outputAmount()));
             craftCount += slots;
             totalProgress += (long) maxProgress * slots;
             remainingProgress += (long) Math.max(0, maxProgress - progress) * slots;

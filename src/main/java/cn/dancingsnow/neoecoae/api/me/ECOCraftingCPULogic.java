@@ -346,7 +346,7 @@ public class ECOCraftingCPULogic {
 
                     var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer)
                         * cpu.getCluster().getNetworkPowerMultiplier();
-                    int batchResult = tryPushVerifiedFastPathBatch(
+                    long batchResult = tryPushVerifiedFastPathBatch(
                         job,
                         details,
                         execution,
@@ -559,7 +559,7 @@ public class ECOCraftingCPULogic {
         return false;
     }
 
-    private int tryPushVerifiedFastPathBatch(
+    private long tryPushVerifiedFastPathBatch(
             ExecutingCraftingJob job,
             IPatternDetails details,
             ECOExtractedPatternExecution execution,
@@ -593,8 +593,8 @@ public class ECOCraftingCPULogic {
         }
 
         // Ask providers for the full remaining task. Lower exchange tiers apply their normal lane,
-        // energy and coolant bounds; x8 exchange is powered continuously and accepts the whole task.
-        int requested = calculateBatchRequestSize(taskRemaining);
+        // energy and coolant bounds; a complete eight-host exchange accepts the whole long-sized task.
+        long requested = calculateBatchRequestSize(taskRemaining);
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
@@ -633,11 +633,13 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        int offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
+        long offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
         boolean virtualCrafting = workerController.isVirtualCraftingMode();
-        int batchSize = offeredBatchSize;
+        long batchSize = offeredBatchSize;
         if (!virtualCrafting) {
-            int energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, offeredBatchSize);
+            int normalOfferedBatchSize = (int) Math.min(Integer.MAX_VALUE, offeredBatchSize);
+            batchSize = normalOfferedBatchSize;
+            int energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, normalOfferedBatchSize);
             if (energyBatchSize <= 1) {
                 selectedOffer.worker().getFastPathCache().recordCoolantReject();
                 ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
@@ -665,10 +667,10 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        int extraCrafts = batchSize - 1;
-        int availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(),
+        long extraCrafts = batchSize - 1L;
+        long availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(),
                 extraCrafts);
-        batchSize = Math.min(batchSize, availableExtraCrafts + 1);
+        batchSize = Math.min(batchSize, Math.addExact(availableExtraCrafts, 1L));
         if (batchSize <= 1) {
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.INVENTORY_LIMIT,
                 ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
@@ -781,8 +783,8 @@ public class ECOCraftingCPULogic {
         }
     }
 
-    static int calculateBatchRequestSize(long taskRemaining) {
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, taskRemaining));
+    static long calculateBatchRequestSize(long taskRemaining) {
+        return Math.max(0L, taskRemaining);
     }
 
     private void rollbackBatchInputs(
@@ -818,7 +820,7 @@ public class ECOCraftingCPULogic {
     }
 
     private void recordPushedPattern(
-            ExecutingCraftingJob job, ECOExtractedPatternExecution execution, int craftCount) {
+            ExecutingCraftingJob job, ECOExtractedPatternExecution execution, long craftCount) {
         for (var expectedOutput : execution.expectedOutputs()) {
             job.waitingFor.insert(
                     expectedOutput.what(),
@@ -842,13 +844,13 @@ public class ECOCraftingCPULogic {
      *
      * <p>饱和而非溢出：负的 waitingFor 记账会让 CPU 误以为产物已经交付，从而丢失产出。
      */
-    static long scaledPatternAmount(long perCraftAmount, int craftCount) {
+    static long scaledPatternAmount(long perCraftAmount, long craftCount) {
         if (perCraftAmount <= 0L) {
             return 0L;
         }
-        int multiplier = Math.max(1, craftCount);
+        long multiplier = Math.max(1L, craftCount);
         try {
-            return Math.multiplyExact(perCraftAmount, (long) multiplier);
+            return Math.multiplyExact(perCraftAmount, multiplier);
         } catch (ArithmeticException e) {
             return Long.MAX_VALUE;
         }
