@@ -201,7 +201,8 @@ public class NECraftingClusterCalculator extends NEClusterCalculator<NECraftingC
         if (switchBlock && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) {
             return false;
         }
-        return validateCasing(level, center, top, down);
+        return validateBlock(level, center.relative(top), BlockState::is, NEBlocks.CRAFTING_CASING.get())
+                && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.CRAFTING_CASING.get());
     }
 
     private boolean validateHatchAndInterface(

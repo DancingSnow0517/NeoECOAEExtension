@@ -211,7 +211,8 @@ public class NEComputationClusterCalculator extends NEClusterCalculator<NEComput
         if (switchBlock && !NENetworkSwitchUtil.canUseNetworkSwitch(tier)) {
             return false;
         }
-        return validateCasing(level, center, top, down);
+        return validateBlock(level, center.relative(top), BlockState::is, NEBlocks.COMPUTATION_CASING.get())
+                && validateBlock(level, center.relative(down), BlockState::is, NEBlocks.COMPUTATION_CASING.get());
     }
 
     private boolean validateCasing(
