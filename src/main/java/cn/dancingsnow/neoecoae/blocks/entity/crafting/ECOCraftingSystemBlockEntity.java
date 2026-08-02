@@ -499,6 +499,24 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return network == null ? getCurrentCoolingMaxOverclock() : network.getCoolingMaxOverclock();
     }
 
+    public int getRunStatus() {
+        if (!isActiveCooling()) {
+            return 0;
+        }
+        ensureCraftingStatsCurrent();
+        int coolantMax = getDisplayedCoolingMaxOverclock();
+        if (getNetworkMultiplier() >= 8 && coolantMax >= 0 && coolantMax < 9) {
+            return 4;
+        }
+        int requiredOverclock = isOverclocked() ? overlockTimes : 0;
+        if (requiredOverclock > 0 && coolantMax >= 0 && coolantMax < requiredOverclock) {
+            return 3;
+        }
+        var network = cluster == null ? null : cluster.getNetworkCluster();
+        int displayedCoolant = network == null ? coolant : network.getCoolantAmount();
+        return displayedCoolant <= 0 ? 1 : 0;
+    }
+
     public void clearCoolant() {
         var network = cluster == null ? null : cluster.getNetworkCluster();
         if (network != null) {
@@ -940,6 +958,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 isOverclocked(),
                 isActiveCooling(),
                 isAutoClearCoolingWaste(),
+                getRunStatus(),
                 getSelectedBuildLength(),
                 isBuildInProgress(),
                 getPreviewMissingBlocks(),

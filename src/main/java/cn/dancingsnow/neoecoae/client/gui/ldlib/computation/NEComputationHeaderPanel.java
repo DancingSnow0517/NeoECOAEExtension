@@ -13,7 +13,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
-/** Title, formed/active state, and CPU-selection tooltip for the computation host. */
+/** Two-line title/network status and CPU-selection tooltip for the computation host. */
 public final class NEComputationHeaderPanel {
     public void draw(
             GuiGraphics g,
@@ -22,53 +22,31 @@ public final class NEComputationHeaderPanel {
             NEComputationUiState state,
             IntUnaryOperator screenX,
             IntUnaryOperator screenY) {
-        Component formedLabel =
-                Component.translatable("gui.neoecoae.machine.formed").append(": ");
-        Component formedValue = boolText(state.formed());
-        Component activeLabel = Component.literal("  ")
-                .append(Component.translatable("gui.neoecoae.machine.active"))
-                .append(": ");
-        Component activeValue = boolText(state.active());
-        Component networkLabel = Component.literal("  ")
-                .append(Component.translatable("gui.neoecoae.host.network"))
-                .append(": ");
-        Component networkValue = networkText(state);
-        int statusWidth = font.width(formedLabel)
-                + font.width(formedValue)
-                + font.width(activeLabel)
-                + font.width(activeValue)
-                + font.width(networkLabel)
-                + font.width(networkValue);
-        int statusX = screenX.applyAsInt(HEADER_STATUS_RIGHT - statusWidth);
-        int titleX = screenX.applyAsInt(8);
-        int y = screenY.applyAsInt(8);
-
-        g.enableScissor(titleX, y - 1, Math.max(titleX, statusX - 6), y + font.lineHeight + 1);
-        g.drawString(font, title, titleX, y, 0xFF4A4A4A, false);
+        int titleX = screenX.applyAsInt(HEADER_TITLE_X);
+        int titleY = screenY.applyAsInt(HEADER_TITLE_Y);
+        int titleRight = screenX.applyAsInt(HEADER_STATUS_RIGHT);
+        g.enableScissor(titleX, titleY - 1, titleRight, titleY + font.lineHeight + 1);
+        g.drawString(
+                font,
+                font.plainSubstrByWidth(title.getString(), HEADER_STATUS_RIGHT - HEADER_TITLE_X),
+                titleX,
+                titleY,
+                0xFF4A4A4A,
+                false);
         g.disableScissor();
-        g.drawString(font, formedLabel, statusX, y, 0xFF4A4A4A, false);
-        int cursor = statusX + font.width(formedLabel);
-        g.drawString(
+
+        int statusY = screenY.applyAsInt(HEADER_STATUS_Y);
+        int modeX = screenX.applyAsInt(HEADER_TITLE_X);
+        drawFitted(g, font, networkModeText(state), modeX, statusY, HEADER_MODE_W, networkModeColor(state));
+        int connectionX = screenX.applyAsInt(HEADER_TITLE_X + HEADER_MODE_W + HEADER_GAP);
+        drawFitted(
+                g,
                 font,
-                formedValue,
-                cursor,
-                y,
-                state.formed() ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR,
-                false);
-        cursor += font.width(formedValue);
-        g.drawString(font, activeLabel, cursor, y, 0xFF4A4A4A, false);
-        cursor += font.width(activeLabel);
-        g.drawString(
-                font,
-                activeValue,
-                cursor,
-                y,
-                state.active() ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_MUTED,
-                false);
-        cursor += font.width(activeValue);
-        g.drawString(font, networkLabel, cursor, y, 0xFF4A4A4A, false);
-        cursor += font.width(networkLabel);
-        g.drawString(font, networkValue, cursor, y, networkColor(state), false);
+                networkConnectionText(state),
+                connectionX,
+                statusY,
+                HEADER_CONNECTION_W,
+                state.networkConnected() ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR);
     }
 
     public boolean drawTooltip(
@@ -108,27 +86,29 @@ public final class NEComputationHeaderPanel {
         };
     }
 
-    private static Component boolText(boolean value) {
-        return Component.translatable(value ? "gui.neoecoae.common.yes" : "gui.neoecoae.common.no");
-    }
-
-    private static Component networkText(NEComputationUiState state) {
-        if (state.networkMemberCount() <= 1) {
-            return Component.translatable("gui.neoecoae.host.network.mode.local");
-        }
-        if (!state.networkConnected()) {
-            return Component.translatable("gui.neoecoae.host.network.disconnected");
-        }
+    private static Component networkModeText(NEComputationUiState state) {
         String key = state.networkMultiplier() >= 8
                 ? "gui.neoecoae.host.network.mode.high_energy"
-                : "gui.neoecoae.host.network.mode.normal";
+                : state.networkMultiplier() >= 2
+                        ? "gui.neoecoae.host.network.mode.normal"
+                        : "gui.neoecoae.host.network.mode.local";
         return Component.translatable(key);
     }
 
-    private static int networkColor(NEComputationUiState state) {
-        if (state.networkMemberCount() <= 1) {
-            return NELDLibStyle.DARK_TEXT_MUTED;
-        }
-        return state.networkConnected() ? NELDLibStyle.DARK_TEXT_SUCCESS : NELDLibStyle.DARK_TEXT_ERROR;
+    private static Component networkConnectionText(NEComputationUiState state) {
+        return Component.translatable(
+                state.networkConnected()
+                        ? "gui.neoecoae.host.network.connected"
+                        : "gui.neoecoae.host.network.disconnected");
+    }
+
+    private static int networkModeColor(NEComputationUiState state) {
+        return state.networkMultiplier() <= 1 ? NELDLibStyle.DARK_TEXT_MUTED : NELDLibStyle.DARK_TEXT_SUCCESS;
+    }
+
+    private static void drawFitted(GuiGraphics g, Font font, Component text, int x, int y, int maxWidth, int color) {
+        g.enableScissor(x, y - 1, x + maxWidth, y + font.lineHeight + 1);
+        g.drawString(font, font.plainSubstrByWidth(text.getString(), maxWidth), x, y, color, false);
+        g.disableScissor();
     }
 }

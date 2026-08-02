@@ -156,6 +156,7 @@ public final class NELDLibStateCodecs {
         buf.writeBoolean(state.overclocked());
         buf.writeBoolean(state.activeCooling());
         buf.writeBoolean(state.autoClearCoolingWaste());
+        buf.writeVarInt(state.runStatus());
         buf.writeInt(state.selectedBuildLength());
         buf.writeBoolean(state.buildInProgress());
         buf.writeInt(state.previewMissingBlocks());
@@ -244,6 +245,7 @@ public final class NELDLibStateCodecs {
         boolean overclocked = buf.readBoolean();
         boolean activeCooling = buf.readBoolean();
         boolean autoClearCoolingWaste = buf.readBoolean();
+        int runStatus = buf.readVarInt();
         int selectedBuildLength = buf.readInt();
         boolean buildInProgress = buf.readBoolean();
         int previewMissingBlocks = buf.readInt();
@@ -329,6 +331,7 @@ public final class NELDLibStateCodecs {
                 overclocked,
                 activeCooling,
                 autoClearCoolingWaste,
+                runStatus,
                 selectedBuildLength,
                 buildInProgress,
                 previewMissingBlocks,

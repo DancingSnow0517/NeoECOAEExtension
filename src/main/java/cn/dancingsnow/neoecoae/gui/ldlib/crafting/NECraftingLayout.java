@@ -3,9 +3,15 @@ package cn.dancingsnow.neoecoae.gui.ldlib.crafting;
 /** Canonical geometry for the crafting host UI, matching the 1.21.1 panel arrangement. */
 public final class NECraftingLayout {
     public static final int UI_WIDTH = 304;
-    public static final int UI_HEIGHT = 196;
+    public static final int UI_HEIGHT = 208;
     public static final int PANEL_MARGIN = 6;
-    public static final int MAIN_PANEL_Y = 27;
+    public static final int HEADER_TITLE_X = 8;
+    public static final int HEADER_TITLE_Y = 6;
+    public static final int HEADER_STATUS_Y = 18;
+    public static final int HEADER_MODE_W = 84;
+    public static final int HEADER_CONNECTION_W = 62;
+    public static final int HEADER_GAP = 4;
+    public static final int MAIN_PANEL_Y = 39;
     public static final int MAIN_PANEL_H = 70;
 
     public static final int TOOLBAR_BUTTON_SIZE = 16;
@@ -36,7 +42,7 @@ public final class NECraftingLayout {
 
     public static final int SLOT_SIZE = 18;
     public static final int PLAYER_INV_X = PANEL_MARGIN;
-    public static final int PLAYER_INV_LABEL_Y = 102;
+    public static final int PLAYER_INV_LABEL_Y = 114;
     public static final int PLAYER_INV_Y = PLAYER_INV_LABEL_Y + 11;
     public static final int PLAYER_HOTBAR_Y = PLAYER_INV_Y + SLOT_SIZE * 3 + 2;
 

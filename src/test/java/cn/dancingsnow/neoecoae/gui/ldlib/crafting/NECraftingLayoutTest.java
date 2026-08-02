@@ -10,7 +10,7 @@ class NECraftingLayoutTest {
     @Test
     void ldlib2PanelGeometryMatchesReferenceHost() {
         assertEquals(304, UI_WIDTH);
-        assertEquals(196, UI_HEIGHT);
+        assertEquals(208, UI_HEIGHT);
         assertEquals(70, STATUS_AREA_H);
         assertEquals(70, STATS_AREA_H);
         assertEquals(70, GAUGE_AREA_H);
@@ -18,11 +18,11 @@ class NECraftingLayoutTest {
         assertEquals(114, STATS_AREA_W);
         assertEquals(90, GAUGE_AREA_W);
         assertEquals(6, STATUS_AREA_X);
-        assertEquals(27, STATUS_AREA_Y);
+        assertEquals(39, STATUS_AREA_Y);
         assertEquals(88, STATS_AREA_X);
         assertEquals(208, GAUGE_AREA_X);
         assertEquals(176, TASK_PANEL_X);
-        assertEquals(102, TASK_PANEL_Y);
+        assertEquals(114, TASK_PANEL_Y);
         assertEquals(122, TASK_PANEL_W);
         assertEquals(88, TASK_PANEL_H);
 
@@ -32,6 +32,8 @@ class NECraftingLayoutTest {
         assertTrue(TASK_PANEL_X + TASK_PANEL_W <= UI_WIDTH);
         assertTrue(TASK_PANEL_Y + TASK_PANEL_H <= UI_HEIGHT);
         assertTrue(PLAYER_INV_LABEL_Y >= STATUS_AREA_Y + STATUS_AREA_H);
+        assertTrue(HEADER_STATUS_Y < STATUS_AREA_Y);
+        assertTrue(HEADER_TITLE_X + HEADER_MODE_W + HEADER_GAP + HEADER_CONNECTION_W < TOOLBAR_X);
     }
 
     @Test

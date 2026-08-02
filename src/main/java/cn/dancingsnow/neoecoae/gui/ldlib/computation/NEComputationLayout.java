@@ -2,8 +2,8 @@ package cn.dancingsnow.neoecoae.gui.ldlib.computation;
 
 /** Pixel geometry matching the LDLib2 computation host while rendering through LDLib1. */
 public final class NEComputationLayout {
-    public static final int BASE_UI_WIDTH = 344;
-    public static final int UI_HEIGHT = 232;
+    public static final int BASE_UI_WIDTH = 340;
+    public static final int UI_HEIGHT = 248;
 
     public static final int PARALLEL_PANEL_W = 108;
     public static final int PARALLEL_PANEL_GAP = 4;
@@ -39,7 +39,7 @@ public final class NEComputationLayout {
     public static final int PARALLEL_FIELD_H = 20;
 
     public static final int CAPACITY_PANEL_X = 6;
-    public static final int CAPACITY_PANEL_Y = 24;
+    public static final int CAPACITY_PANEL_Y = 36;
     public static final int CAPACITY_PANEL_W = 162;
     public static final int CAPACITY_PANEL_H = 108;
     public static final int CAPACITY_CONTENT_X = CAPACITY_PANEL_X + 6;
@@ -56,12 +56,12 @@ public final class NEComputationLayout {
     public static final int PROGRESS_VALUE_X = CAPACITY_CONTENT_X + PROGRESS_W + 4;
 
     public static final int PLAYER_INV_X = CAPACITY_PANEL_X;
-    public static final int PLAYER_INV_LABEL_Y = 136;
-    public static final int PLAYER_INV_Y = 147;
-    public static final int PLAYER_HOTBAR_Y = 205;
+    public static final int PLAYER_INV_LABEL_Y = 148;
+    public static final int PLAYER_INV_Y = 159;
+    public static final int PLAYER_HOTBAR_Y = 217;
 
-    public static final int TASK_PANEL_X = 180;
-    public static final int TASK_PANEL_Y = 24;
+    public static final int TASK_PANEL_X = 178;
+    public static final int TASK_PANEL_Y = 36;
     public static final int TASK_PANEL_W = 156;
     public static final int TASK_PANEL_H = 200;
     public static final int TASK_CARD_X = TASK_PANEL_X + 12;
@@ -82,6 +82,12 @@ public final class NEComputationLayout {
     public static final int NETWORK_FREQUENCY_BUTTON_X = CPU_BUTTON_X - 6 - NETWORK_FREQUENCY_BUTTON_W;
     public static final int NETWORK_FREQUENCY_BUTTON_Y = CPU_BUTTON_Y;
     public static final int HEADER_STATUS_RIGHT = NETWORK_FREQUENCY_BUTTON_X - 6;
+    public static final int HEADER_TITLE_X = 8;
+    public static final int HEADER_TITLE_Y = 5;
+    public static final int HEADER_STATUS_Y = 17;
+    public static final int HEADER_MODE_W = 84;
+    public static final int HEADER_CONNECTION_W = 62;
+    public static final int HEADER_GAP = 4;
 
     /** Optional GregTech upgrade slot, inset 7px from the capacity card's bottom-right corner. */
     public static final int COMPUTATION_UPGRADE_SLOT_X = CAPACITY_PANEL_X + CAPACITY_PANEL_W - 18 - 7;

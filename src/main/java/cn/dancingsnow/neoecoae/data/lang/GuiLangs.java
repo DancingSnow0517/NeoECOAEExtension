@@ -298,6 +298,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.ft_cores_short", "FT Cores");
         provider.add("gui.neoecoae.crafting.status", "Status");
         provider.add("gui.neoecoae.crafting.stats", "Crafting Stats");
+        provider.add("gui.neoecoae.crafting.ui.status", "Status");
+        provider.add("gui.neoecoae.crafting.ui.overclock_short", "OC");
+        provider.add("gui.neoecoae.crafting.ui.cooling_short", "Cool");
         provider.add("gui.neoecoae.crafting.coolant", "Coolant");
         provider.add("gui.neoecoae.crafting.energy_short", "Energy");
         provider.add("gui.neoecoae.crafting.cooling_short", "Cooling");
@@ -332,10 +335,19 @@ public class GuiLangs {
         provider.add("gui.neoecoae.host.network.mode.local", "Local x1");
         provider.add("gui.neoecoae.host.network.mode.normal", "Network Exchange x2");
         provider.add("gui.neoecoae.host.network.mode.high_energy", "High-Energy Exchange x8");
-        provider.add("gui.neoecoae.host.network.connected", "Connected");
-        provider.add("gui.neoecoae.host.network.disconnected", "Disconnected");
+        provider.add("gui.neoecoae.host.network.connected", "NETWORK ONLINE");
+        provider.add("gui.neoecoae.host.network.disconnected", "NETWORK OFFLINE");
         provider.add("gui.neoecoae.host.network.frequency", "Network Frequency: %s");
-        provider.add("gui.neoecoae.host.network.frequency.tooltip", "Click to cycle the logical network");
+        provider.add(
+                "gui.neoecoae.host.network.frequency.tooltip",
+                "Hosts with the same frequency join the same logical cluster. Click to cycle.");
+        provider.add("gui.neoecoae.crafting.run_status.normal", "RUNNING NORMALLY");
+        provider.add("gui.neoecoae.crafting.run_status.missing_coolant", "MISSING COOLANT");
+        provider.add("gui.neoecoae.crafting.run_status.missing_energy", "MISSING ENERGY");
+        provider.add("gui.neoecoae.crafting.run_status.overclock_mismatch", "COOLANT / OVERCLOCK MISMATCH");
+        provider.add(
+                "gui.neoecoae.crafting.run_status.network_coolant_incompatible",
+                "COOLANT / NETWORK MODULE INCOMPATIBLE");
         provider.add("gui.neoecoae.crafting.total_parallelism.overflow", "Overflow: %s (%s%%)");
         provider.add("gui.neoecoae.crafting.max_energy_usage", "Max Energy: §b%s AE");
         provider.add(
@@ -347,11 +359,11 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.enable_overlock", "Enable Overlock: ");
         provider.add("gui.neoecoae.crafting.enable_overclock", "Enable Overclock: ");
         provider.add("gui.neoecoae.crafting.overclock", "Overclock");
-        provider.add("gui.neoecoae.crafting.overclock.on", "Overclock: On");
-        provider.add("gui.neoecoae.crafting.overclock.off", "Overclock: Off");
+        provider.add("gui.neoecoae.crafting.overclock.on", "Disable Overclock");
+        provider.add("gui.neoecoae.crafting.overclock.off", "Enable Overclock");
         provider.add("gui.neoecoae.crafting.active_cooling", "Active Cooling");
-        provider.add("gui.neoecoae.crafting.active_cooling.on", "Active Cooling: On");
-        provider.add("gui.neoecoae.crafting.active_cooling.off", "Active Cooling: Off");
+        provider.add("gui.neoecoae.crafting.active_cooling.on", "Disable Active Cooling");
+        provider.add("gui.neoecoae.crafting.active_cooling.off", "Enable Active Cooling");
         provider.add("gui.neoecoae.crafting.auto_clear_coolant", "Auto-clear Waste Fluid");
         provider.add("gui.neoecoae.crafting.auto_clear_coolant.on", "Auto-clear Waste Fluid: On");
         provider.add("gui.neoecoae.crafting.auto_clear_coolant.off", "Auto-clear Waste Fluid: Off");
