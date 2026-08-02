@@ -114,10 +114,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public void pickup(ICraftingPlan plan, ECOCraftingCPU cpu) {
         this.activeCpus.put(plan, cpu);
-        // Restored CPUs are registered after the cluster's initial formed-state capacity calculation.
-        // Recalculate immediately so persisted jobs consume their bytes and jobs restored without enough
-        // computation cells are cancelled before they can intercept items from network storage.
-        this.recalculateRemainingStorage();
+        // updateCluster() restores CPUs before NEClusterCalculator calls updateFormed(true).
+        // Capacity is still zero here, so recalculating would cancel every restored job.
+        // updateFormed() performs the capacity check once all cluster members are attached.
     }
 
     @Override
@@ -379,7 +378,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         long usedStorage = getActiveJobBytes();
 
         this.availableStorage = Math.max(0L, totalStorage - usedStorage);
-        if (networkCluster != null) {
+        // Logical peers are attached after physical cluster formation. Preserve jobs that may
+        // depend on aggregate capacity while that logical network is still being rebuilt.
+        if (networkCluster != null || isNetworkMode()) {
             return;
         }
         long effectiveTotalStorage = saturatingMultiply(totalStorage, getNetworkMultiplier());
