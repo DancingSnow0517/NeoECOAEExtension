@@ -393,7 +393,7 @@
   "neoecoae.configuration.ecoCpuPushTickLimit": "CPU 每刻推送之限",
   "neoecoae.configuration.ecoCpuPushTickLimit.tooltip": "每 CPU 每刻可試推普通合成 pattern 之最大數。\n實數仍受可用協處理器之數所限。",
   "neoecoae.configuration.ecoFastPathCacheSize": "捷徑緩藏之量",
-  "neoecoae.configuration.ecoFastPathCacheSize.tooltip": "每 ECO 捷徑緩藏可存配方條目之最大數。",
+  "neoecoae.configuration.ecoFastPathCacheSize.tooltip": "每物理合成控制器／網絡集群共享之 ECO 捷徑緩藏可存配方條目之最大數。",
   "neoecoae.configuration.enableInfiniteStorage": "啟無限藏",
   "neoecoae.configuration.enableInfiniteStorage.tooltip": "啟 ECO 藏府主機之無限藏玩法。\n須六十四無限組件與十六 L9 藏矩陣；閉之則禁新無限藏遷移，然不刪既有域檔。",
   "neoecoae.configuration.fastPath": "捷徑",

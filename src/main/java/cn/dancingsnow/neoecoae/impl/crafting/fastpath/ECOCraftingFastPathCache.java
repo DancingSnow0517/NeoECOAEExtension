@@ -73,7 +73,6 @@ public final class ECOCraftingFastPathCache {
             missCount++;
             return null;
         }
-        result.touch(tick);
         if (result.isNegative()) {
             negativeHitCount++;
         } else {
@@ -171,11 +170,6 @@ public final class ECOCraftingFastPathCache {
 
     public void recordException() {
         exceptionCount++;
-    }
-
-    public boolean matchesExecution(ECOFastPathKey key, ECOExtractedPatternExecution execution) {
-        ECOFastPathResult result = peek(key);
-        return result != null && result.matchesExecution(execution);
     }
 
     public void maybeLogStats(String owner, long tick) {

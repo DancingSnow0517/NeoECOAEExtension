@@ -440,7 +440,7 @@
   "neoecoae.configuration.ecoCpuSlowPathPushTickLimit": "CPU 慢路径发配 Tick 上限",
   "neoecoae.configuration.ecoCpuSlowPathPushTickLimit.tooltip": "每个 CPU 每 tick 最多向不支持批量推送的样板提供器发配的 pattern 数量。\n仅在最终回退到单次 provider.pushPattern 时计数；ECO 与 AE2LT 的批量快路径不受此限制。\n限制同步外部库存插入，避免大型第三方库存处理器在单个 tick 内被重复扫描。",
   "neoecoae.configuration.ecoFastPathCacheSize": "快速路径缓存大小",
-  "neoecoae.configuration.ecoFastPathCacheSize.tooltip": "每个 ECO 快速路径缓存最多保留的配方条目数量。",
+  "neoecoae.configuration.ecoFastPathCacheSize.tooltip": "每个物理合成控制器/网络集群共享的 ECO 快速路径缓存最多保留的配方条目数量。",
   "neoecoae.configuration.enableInfiniteStorage": "启用无限存储",
   "neoecoae.configuration.enableInfiniteStorage.tooltip": "启用 ECO 存储控制器的无限存储玩法。\n需要 64 个无限组件和 16 个 L9 存储矩阵；关闭后会阻止新的无限存储迁移，但不会删除已有域文件。",
   "neoecoae.configuration.fastPath": "快速路径",

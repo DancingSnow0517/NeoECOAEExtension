@@ -44,6 +44,7 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchEnergyReservation;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
@@ -635,9 +636,16 @@ public class ECOCraftingCPULogic {
 
         long offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
         boolean virtualCrafting = workerController.isVirtualCraftingMode();
-        long batchSize = offeredBatchSize;
+        long batchSize = ECOBatchCraftingHelper.maxSafeBatchSize(
+            execution.inputItems(), execution.expectedOutputs(), execution.expectedContainerItems(), offeredBatchSize);
+        if (batchSize <= 1) {
+            ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.BATCH_AMOUNT_OVERFLOW,
+                ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
+                TickHandler.instance().getCurrentTick(), "offered=" + offeredBatchSize + " safe=" + batchSize);
+            return 0;
+        }
         if (!virtualCrafting) {
-            int normalOfferedBatchSize = (int) Math.min(Integer.MAX_VALUE, offeredBatchSize);
+            int normalOfferedBatchSize = (int) Math.min(Integer.MAX_VALUE, batchSize);
             batchSize = normalOfferedBatchSize;
             int energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, normalOfferedBatchSize);
             if (energyBatchSize <= 1) {
@@ -652,7 +660,7 @@ public class ECOCraftingCPULogic {
             int coolantBatchSize = workerController.getCraftingCoolantCraftLimit(
                 5, workerController.getCoolingRequirementForCurrentNetwork(), energyBatchSize
             );
-            batchSize = Math.min(energyBatchSize, coolantBatchSize);
+            batchSize = Math.min(batchSize, Math.min(energyBatchSize, coolantBatchSize));
             if (coolantBatchSize <= 1) {
                 selectedOffer.worker().getFastPathCache().recordCoolantReject();
                 ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.COOLANT_LIMIT,
@@ -670,7 +678,13 @@ public class ECOCraftingCPULogic {
         long extraCrafts = batchSize - 1L;
         long availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(),
                 extraCrafts);
-        batchSize = Math.min(batchSize, Math.addExact(availableExtraCrafts, 1L));
+        long inventoryBatchSize;
+        try {
+            inventoryBatchSize = Math.addExact(availableExtraCrafts, 1L);
+        } catch (ArithmeticException e) {
+            inventoryBatchSize = Long.MAX_VALUE;
+        }
+        batchSize = Math.min(batchSize, inventoryBatchSize);
         if (batchSize <= 1) {
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.INVENTORY_LIMIT,
                 ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
@@ -683,6 +697,7 @@ public class ECOCraftingCPULogic {
         var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
         boolean extraInputsExtracted = false;
         boolean ownershipTransferred = false;
+        ECOBatchEnergyReservation energyReservation = null;
         try {
             double requiredPower = virtualCrafting ? 0.0D : patternPower * batchSize;
             if (!virtualCrafting && !Double.isFinite(requiredPower)) {
@@ -691,6 +706,26 @@ public class ECOCraftingCPULogic {
                     TickHandler.instance().getCurrentTick(),
                     "requiredPowerNotFinite=" + requiredPower + " batch=" + batchSize);
                 return 0;
+            }
+            if (!virtualCrafting) {
+                try {
+                    energyReservation = ECOBatchEnergyReservation.tryReserve(energyService, requiredPower, false);
+                } catch (RuntimeException e) {
+                    ECOFastPathDiagnostics.logBatchFailure(
+                        new ECOBatchCraftingRequest(details, execution.key(), batchSize, execution.inputItems(),
+                            execution.expectedOutputs(), execution.expectedContainerItems(), job.link.getCraftingID()),
+                        ECOFastPathFallbackReason.ENERGY_LIMIT, ECOFastPathStage.ENERGY_CHARGE,
+                        selectedOffer.worker().getBlockPos(), TickHandler.instance().getCurrentTick(),
+                        "energy_service_exception=" + e.getMessage());
+                    throw e;
+                }
+                if (energyReservation == null) {
+                    ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
+                        ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
+                        TickHandler.instance().getCurrentTick(), "requiredPower=" + requiredPower);
+                    // Keep the first craft's inputs for the normal slow path. No extra inputs were taken.
+                    return 0;
+                }
             }
             try {
                 ECOBatchCraftingHelper.extractExact(inventory, extraInputs);
@@ -716,36 +751,17 @@ public class ECOCraftingCPULogic {
                     TickHandler.instance().getCurrentTick(),
                     "pattern_bus_or_network_cluster_returned_false worker="
                         + selectedOffer.worker().getBlockPos().toShortString());
+                RuntimeException refundFailure = energyReservation == null ? null : energyReservation.refundSafely();
+                if (refundFailure != null) {
+                    LOGGER.error("ECO batch energy refund failed after provider rejection", refundFailure);
+                }
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
                 return -1;
             }
             // The worker owns every input from this point onward. Never reinject them into the CPU.
             ownershipTransferred = true;
-            if (!virtualCrafting) {
-                try {
-                    double chargedPower = energyService.extractAEPower(
-                        requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG
-                    );
-                    if (Double.isNaN(chargedPower) || chargedPower < requiredPower - 0.01D) {
-                        selectedOffer.worker().getFastPathCache().recordException();
-                        ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ENERGY_LIMIT,
-                            ECOFastPathStage.ENERGY_CHARGE, selectedOffer.worker().getBlockPos(),
-                            TickHandler.instance().getCurrentTick(),
-                            "charged=" + chargedPower + " required=" + requiredPower);
-                        LOGGER.error(
-                            "ECO batch was accepted, but only {} of {} crafting energy was charged",
-                            chargedPower,
-                            requiredPower
-                        );
-                    }
-                } catch (RuntimeException e) {
-                    selectedOffer.worker().getFastPathCache().recordException();
-                    ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.ACCOUNTING_FAILED,
-                        ECOFastPathStage.ENERGY_CHARGE, selectedOffer.worker().getBlockPos(),
-                        TickHandler.instance().getCurrentTick(),
-                        "energy_service_exception=" + e.getMessage());
-                    LOGGER.error("ECO batch was accepted, but its crafting energy could not be charged", e);
-                }
+            if (energyReservation != null) {
+                energyReservation.commit();
             }
             try {
                 if (this.job == job) {
@@ -772,11 +788,21 @@ public class ECOCraftingCPULogic {
                 LOGGER.error("ECO batch failed after ownership transfer; accounting it as accepted", e);
                 return batchSize;
             }
+            RuntimeException refundFailure = energyReservation == null ? null : energyReservation.refundSafely();
+            if (refundFailure != null) {
+                LOGGER.error("ECO batch energy refund failed while rolling back a pre-submit failure", refundFailure);
+            }
             rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             return -1;
         } catch (Error e) {
             selectedOffer.worker().getFastPathCache().recordException();
             if (!ownershipTransferred) {
+                if (energyReservation != null) {
+                    RuntimeException refundFailure = energyReservation.refundSafely();
+                    if (refundFailure != null) {
+                        LOGGER.error("ECO batch energy refund failed while rolling back an error", refundFailure);
+                    }
+                }
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, extraInputsExtracted);
             }
             throw e;

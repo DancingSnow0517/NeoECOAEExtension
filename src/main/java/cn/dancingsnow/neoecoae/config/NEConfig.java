@@ -174,7 +174,7 @@ public class NEConfig {
             .comment(
                 "ECO AE2 快速路径缓存与批量合成选项。",
                 "如果整合包遇到配方兼容问题，可以关闭或调低这些值。",
-                "ECO AE2 fast-path cache and batch crafting options.",
+                "ECO AE2 fast-path cache and batch crafting options; the cache is shared by the physical crafting controller/network cluster.",
                 "Disable these options or lower their values if a modpack encounters recipe compatibility issues.")
             .push("fastPath");
     }
@@ -227,8 +227,8 @@ public class NEConfig {
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
         .comment(
-            "每个 ECO 快速路径缓存最多保留的配方条目数量。",
-            "Maximum number of recipe entries retained by each ECO fast-path cache.")
+            "每个物理合成控制器/网络集群共享的 ECO 快速路径缓存最多保留的配方条目数量。",
+            "Maximum number of recipe entries retained by the FastPath cache shared by one physical crafting controller/network cluster.")
         .worldRestart()
         .defineInRange(
             "ecoFastPathCacheSize",

@@ -41,7 +41,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final int MAX_PERSISTED_THREAD_RECORDS = 65_536;
 
     private final List<ECOCraftingThread> craftingThreads = new ArrayList<>();
-    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
+    private final ECOCraftingFastPathCache detachedFastPathCache = new ECOCraftingFastPathCache();
 
     @Getter
     private int runningThreads = 0;
@@ -121,12 +121,12 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         if (cluster != null && cluster.getController() != null) {
             ECOCraftingSystemBlockEntity controller = cluster.getController();
             if (getRunningThreads() >= controller.getThreadCountPerWorker()) {
-                fastPathCache.recordNoThreadReject();
+                getFastPathCache().recordNoThreadReject();
                 return false;
             }
             ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(1);
             if (lane == null) {
-                fastPathCache.recordNoThreadReject();
+                getFastPathCache().recordNoThreadReject();
                 return false;
             }
 
@@ -163,7 +163,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
 
     public boolean pushBatch(ECOBatchCraftingRequest request, ECOFastPathResult verifiedResult) {
         if (!NEConfig.ecoAe2FastPathEnabled || NEConfig.postCraftingEvent) {
-            fastPathCache.recordDisabled();
+            getFastPathCache().recordDisabled();
             ECOFastPathDiagnostics.logBatchFailure(request,
                 NEConfig.postCraftingEvent ? ECOFastPathFallbackReason.POST_CRAFTING_EVENT
                     : ECOFastPathFallbackReason.FAST_PATH_DISABLED,
@@ -184,7 +184,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
             : Math.toIntExact(request.batchSize());
         ECOCraftingSystemBlockEntity.CraftingLane lane = controller.findAvailableCraftingLane(requiredLaneCapacity);
         if (lane == null || getAvailableThreadSlots() <= 0 || getControllerAvailableThreadSlots(controller) <= 0) {
-            fastPathCache.recordNoThreadReject();
+            getFastPathCache().recordNoThreadReject();
             ECOFastPathDiagnostics.logBatchFailure(request, ECOFastPathFallbackReason.NO_THREAD_SLOT,
                 ECOFastPathStage.WORKER_ACCEPT, getBlockPos(), currentTick(),
                 "laneAvailable=" + (lane != null) + " workerSlots=" + getAvailableThreadSlots()
@@ -233,24 +233,24 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     public ECOFastPathResult getVerifiedFastPathResult(ECOExtractedPatternExecution execution) {
         var key = execution.key();
         if (key == null) {
-            fastPathCache.recordKeyBuildFailed();
+            getFastPathCache().recordKeyBuildFailed();
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.KEY_BUILD_FAILED,
                 ECOFastPathStage.CACHE_LOOKUP, getBlockPos(), currentTick(), "execution_key_is_null");
             return null;
         }
         long tick = appeng.hooks.ticking.TickHandler.instance().getCurrentTick();
-        ECOFastPathResult result = fastPathCache.get(key, tick);
+        ECOFastPathResult result = getFastPathCache().get(key, tick);
         if (result == null) {
             return null;
         }
         if (result.isNegative()) {
-            fastPathCache.recordFallbackSlowPath();
+            getFastPathCache().recordFallbackSlowPath();
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.NEGATIVE_CACHE,
                 ECOFastPathStage.CACHE_LOOKUP, getBlockPos(), tick, "negative_cache_result");
             return null;
         }
         if (!result.matchesExecution(execution)) {
-            fastPathCache.recordExpectedMismatch();
+            getFastPathCache().recordExpectedMismatch();
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.CACHE_ENTRY_MISMATCH,
                 ECOFastPathStage.CACHE_VERIFY, getBlockPos(), tick,
                 "cached_result_does_not_match_execution");
@@ -260,7 +260,8 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public ECOCraftingFastPathCache getFastPathCache() {
-        return fastPathCache;
+        ECOCraftingSystemBlockEntity controller = cluster == null ? null : cluster.getController();
+        return controller == null ? detachedFastPathCache : controller.getFastPathCache();
     }
 
     private static long currentTick() {
@@ -454,7 +455,9 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
         super.loadTag(data, registries);
         ListTag threads = data.getList("craftingThreads", Tag.TAG_COMPOUND);
         craftingThreads.clear();
-        fastPathCache.clear();
+        if (cluster == null || cluster.getController() == null) {
+            detachedFastPathCache.clear();
+        }
         if (threads.size() > MAX_PERSISTED_THREAD_RECORDS) {
             LOGGER.error(
                 "ECO worker persisted too many crafting threads; excess records will be ignored: worker={} count={}",

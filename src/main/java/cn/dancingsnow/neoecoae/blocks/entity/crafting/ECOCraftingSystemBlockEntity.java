@@ -19,6 +19,7 @@ import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.gui.crafting.CraftingHostPanelUI;
 import cn.dancingsnow.neoecoae.gui.multiblock.MultiblockBuilderUI;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.gui.theme.NEStyleSheets;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingCluster;
@@ -81,6 +82,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final int NETWORK_COOLANT_PER_SLOT_TICK = 4;
     private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 16;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
+
+    private final ECOCraftingFastPathCache fastPathCache = new ECOCraftingFastPathCache();
 
     @Getter
     private final FieldManagedStorage syncStorage = new FieldManagedStorage(this);
@@ -470,6 +473,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
             return cluster.getWorkers().size();
         }
         return workerCount;
+    }
+
+    public ECOCraftingFastPathCache getFastPathCache() {
+        return fastPathCache;
     }
 
     public int getLocalThreadCount() {

@@ -76,6 +76,21 @@ public final class ECOExtractedPatternExecution {
                 metadataRejection
             );
         }
+        FastPathEligibility patternEligibility = mapEligibility(
+            AE2PatternIntrospection.classifyPatternEligibility(details)
+        );
+        if (patternEligibility != FastPathEligibility.ELIGIBLE) {
+            return new ECOExtractedPatternExecution(
+                details,
+                craftingContainer,
+                ECOFastPathStacks.toGenericStacks(expectedOutputs),
+                ECOFastPathStacks.toGenericStacks(expectedContainerItems),
+                List.of(),
+                null,
+                false,
+                fallbackReasonFor(patternEligibility)
+            );
+        }
         List<GenericStack> outputs = ECOFastPathStacks.copySorted(expectedOutputs);
         List<GenericStack> containers = ECOFastPathStacks.copySorted(expectedContainerItems);
         List<GenericStack> inputs = ECOFastPathStacks.copyCounters(craftingContainer);
@@ -158,6 +173,33 @@ public final class ECOExtractedPatternExecution {
             return ECOFastPathFallbackReason.UNSAFE_INPUT;
         }
         return null;
+    }
+
+    private static FastPathEligibility mapEligibility(
+        AE2PatternIntrospection.PatternEligibility eligibility
+    ) {
+        return switch (eligibility) {
+            case ELIGIBLE -> FastPathEligibility.ELIGIBLE;
+            case UNSUPPORTED_PATTERN_TYPE -> FastPathEligibility.UNSUPPORTED_PATTERN_TYPE;
+            case RECIPE_UNAVAILABLE -> FastPathEligibility.RECIPE_UNAVAILABLE;
+            case SUBSTITUTION_SPECIAL_RECIPE -> FastPathEligibility.SUBSTITUTION_SPECIAL_RECIPE;
+        };
+    }
+
+    private static ECOFastPathFallbackReason fallbackReasonFor(FastPathEligibility eligibility) {
+        return switch (eligibility) {
+            case SUBSTITUTION_SPECIAL_RECIPE -> ECOFastPathFallbackReason.DYNAMIC_SPECIAL;
+            case RECIPE_UNAVAILABLE -> ECOFastPathFallbackReason.INTROSPECTION_UNAVAILABLE;
+            case UNSUPPORTED_PATTERN_TYPE -> ECOFastPathFallbackReason.UNSUPPORTED_PATTERN_TYPE;
+            case ELIGIBLE -> null;
+        };
+    }
+
+    public enum FastPathEligibility {
+        ELIGIBLE,
+        UNSUPPORTED_PATTERN_TYPE,
+        RECIPE_UNAVAILABLE,
+        SUBSTITUTION_SPECIAL_RECIPE
     }
 
     public static ECOExtractedPatternExecution slow(IPatternDetails details, KeyCounter[] craftingContainer) {

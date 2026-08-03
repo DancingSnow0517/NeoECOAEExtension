@@ -12,6 +12,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,26 @@ public final class AE2PatternIntrospection {
 
     public static boolean isKnownSafePatternType(IPatternDetails details) {
         return details instanceof AECraftingPattern;
+    }
+
+    public static PatternEligibility classifyPatternEligibility(IPatternDetails details) {
+        if (!(details instanceof AECraftingPattern pattern)
+                || !(pattern instanceof AECraftingPatternAccessor accessor)) {
+            return PatternEligibility.UNSUPPORTED_PATTERN_TYPE;
+        }
+        try {
+            CraftingRecipe recipe = accessor.neoecoae$getRecipe();
+            if (recipe == null) {
+                return PatternEligibility.RECIPE_UNAVAILABLE;
+            }
+            if (pattern.canSubstitute() && recipe.isSpecial()) {
+                return PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE;
+            }
+            return PatternEligibility.ELIGIBLE;
+        } catch (Throwable e) {
+            disableOnce(e);
+            return PatternEligibility.RECIPE_UNAVAILABLE;
+        }
     }
 
     public static Optional<ECOFastPathKey> buildFastPathKey(
@@ -114,5 +135,12 @@ public final class AE2PatternIntrospection {
                 e
             );
         }
+    }
+
+    public enum PatternEligibility {
+        ELIGIBLE,
+        UNSUPPORTED_PATTERN_TYPE,
+        RECIPE_UNAVAILABLE,
+        SUBSTITUTION_SPECIAL_RECIPE
     }
 }

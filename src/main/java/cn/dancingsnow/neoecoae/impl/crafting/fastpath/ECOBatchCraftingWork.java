@@ -11,18 +11,29 @@ public record ECOBatchCraftingWork(
     List<GenericStack> outputTotal,
     List<GenericStack> remainingTotal,
     @Nullable UUID craftingJobId,
-    int progress,
     int occupiedThreadSlots
 ) {
+    /**
+     * Source-compatible constructor for callers that still pass the removed progress value.
+     */
+    public ECOBatchCraftingWork(
+        long batchSize,
+        List<GenericStack> inputTotal,
+        List<GenericStack> outputTotal,
+        List<GenericStack> remainingTotal,
+        @Nullable UUID craftingJobId,
+        int progress,
+        int occupiedThreadSlots
+    ) {
+        this(batchSize, inputTotal, outputTotal, remainingTotal, craftingJobId, occupiedThreadSlots);
+    }
+
     public ECOBatchCraftingWork {
         if (batchSize <= 0) {
             throw new IllegalArgumentException("batchSize is outside the supported fast-path range");
         }
         if (occupiedThreadSlots <= 0 || occupiedThreadSlots > batchSize) {
             throw new IllegalArgumentException("occupiedThreadSlots must be positive and not exceed batchSize");
-        }
-        if (progress < 0) {
-            throw new IllegalArgumentException("progress must not be negative");
         }
         inputTotal = List.copyOf(inputTotal);
         outputTotal = List.copyOf(outputTotal);

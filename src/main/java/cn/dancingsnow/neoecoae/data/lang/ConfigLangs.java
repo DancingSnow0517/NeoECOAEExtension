@@ -56,7 +56,7 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.fastPath", "Fast Path");
         provider.add(
             "neoecoae.configuration.fastPath.tooltip",
-            "ECO AE2 fast path cache and batch crafting options.\n" +
+            "ECO AE2 fast path cache and batch crafting options. The cache is shared by the physical crafting controller/network cluster.\n" +
                 "Disable or lower these values if a modpack has recipe compatibility issues."
         );
         provider.add("neoecoae.configuration.ecoAe2FastPathEnabled", "Enable ECO AE2 Fast Path");
@@ -100,7 +100,7 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(
             "neoecoae.configuration.ecoFastPathCacheSize.tooltip",
-            "Maximum recipe entries kept in each ECO fast path cache."
+            "Maximum recipe entries kept in the FastPath cache shared by one physical crafting controller/network cluster."
         );
     }
 }

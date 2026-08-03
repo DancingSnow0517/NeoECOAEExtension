@@ -8,7 +8,9 @@ import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.DoubleUnaryOperator;
 import net.minecraft.world.item.ItemStack;
@@ -59,6 +61,24 @@ public final class ECOBatchCraftingHelper {
             }
         }
         return max;
+    }
+
+    /**
+     * Returns the largest batch whose per-key totals can be represented by a long.
+     * Inputs and outputs are bounded independently; output and remaining entries share
+     * one bound because both are materialized by the worker in the same batch.
+     */
+    public static long maxSafeBatchSize(
+            List<GenericStack> inputsPerCraft,
+            List<GenericStack> outputsPerCraft,
+            List<GenericStack> remainingPerCraft,
+            long requested) {
+        if (requested <= 0L) {
+            return 0L;
+        }
+        long inputLimit = maxBatchForAggregates(inputsPerCraft, List.of());
+        long outputLimit = maxBatchForAggregates(outputsPerCraft, remainingPerCraft);
+        return Math.min(requested, Math.min(inputLimit, outputLimit));
     }
 
     public static boolean canExtractExact(ListCraftingInventory inventory, List<GenericStack> stacks) {
@@ -174,6 +194,27 @@ public final class ECOBatchCraftingHelper {
             }
         }
         return List.copyOf(stacks);
+    }
+
+    private static long maxBatchForAggregates(List<GenericStack> first, List<GenericStack> second) {
+        Map<AEKey, Long> totals = new HashMap<>();
+        for (List<GenericStack> stacks : List.of(first, second)) {
+            for (GenericStack stack : stacks) {
+                if (stack == null || stack.amount() <= 0L) {
+                    return 0L;
+                }
+                long old = totals.getOrDefault(stack.what(), 0L);
+                if (old > Long.MAX_VALUE - stack.amount()) {
+                    return 0L;
+                }
+                totals.put(stack.what(), old + stack.amount());
+            }
+        }
+        long limit = Long.MAX_VALUE;
+        for (long total : totals.values()) {
+            limit = Math.min(limit, Long.MAX_VALUE / total);
+        }
+        return limit;
     }
 
     private static long multiplyExact(long amount, long multiplier) {
