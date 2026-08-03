@@ -1231,9 +1231,11 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         // The statistics panel reports FX execution threads, rather than the internal queue
         // capacity used by the crafting scheduler. A local FX core contributes one thread;
         // network exchange changes that contribution to the number of participating hosts.
+        int displayWorkerCount =
+                network == null ? workerCount : network.getWorkers().size();
         int displayThreadsPerWorker = network == null ? 1 : Math.max(1, networkMemberCount);
-        int maxRecipeSlots = (int)
-                Math.min(Integer.MAX_VALUE, saturatingMultiply(Math.max(0, workerCount), displayThreadsPerWorker));
+        int maxRecipeSlots = (int) Math.min(
+                Integer.MAX_VALUE, saturatingMultiply(Math.max(0, displayWorkerCount), displayThreadsPerWorker));
         int occupiedRecipeSlots = Math.min(maxRecipeSlots, Math.max(0, totalRunningThreads));
         int batchParallel = Math.max(0, effParallel);
         int maxBatchPerThread = getMaxBatchPerThread();
@@ -1340,11 +1342,10 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         if (runtimeInfos.isEmpty()) {
             return runtimeInfos;
         }
-        int divisor = network == null ? 1 : Math.max(1, networkMemberCount);
         return runtimeInfos.stream()
                 .map(info -> new NECraftingHostBatchInfo(
                         info.highEnergy(),
-                        network == null ? Math.max(0, workerCount) : Math.max(0, info.threadCount() / divisor),
+                        network == null ? Math.max(0, workerCount) : Math.max(0, info.threadCount()),
                         info.maxBatchPerThread()))
                 .toList();
     }

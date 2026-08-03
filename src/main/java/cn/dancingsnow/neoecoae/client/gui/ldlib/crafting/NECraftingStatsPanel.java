@@ -93,8 +93,8 @@ public final class NECraftingStatsPanel {
         }
         long totalBatchEfficiency = 0L;
         for (var host : state.hostBatchInfos()) {
-            // Local host data still carries the scheduler's internal queue count. Keep the
-            // tooltip aligned with the thread total shown in the statistics panel.
+            // Each network host reports its own aggregated FX threads. Local hosts expose
+            // one logical thread per FX core through the UI snapshot.
             int threadCount = state.networkMemberCount() <= 1 ? state.maxRecipeSlots() : host.threadCount();
             lines.add(hostBatchLine(host.highEnergy(), threadCount, host.maxBatchPerThread()));
             totalBatchEfficiency = saturatingBatchTotal(totalBatchEfficiency, threadCount, host.maxBatchPerThread());

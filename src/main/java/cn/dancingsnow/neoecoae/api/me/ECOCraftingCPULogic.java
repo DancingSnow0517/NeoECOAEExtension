@@ -1125,11 +1125,18 @@ public class ECOCraftingCPULogic {
         }
         int dynamicLimit = aggressiveFastPathCapacity();
         int configuredLimit = NEConfig.getEcoFastPathTickLimit();
-        return dynamicLimit > 0 ? Math.min(dynamicLimit, configuredLimit) : configuredLimit;
+        // The configured value is a per-CPU pacing floor for aggressive mode.
+        // The actual hardware capacity may exceed MAX_BATCH_SIZE because it is
+        // the sum of many independent lanes (for example 44 * 4096).
+        return dynamicLimit > 0 ? Math.max(dynamicLimit, configuredLimit) : configuredLimit;
     }
 
     private int effectiveFastPathBatchLimit(@Nullable ECOCraftingSystemBlockEntity controller) {
-        int dynamicLimit = controller == null ? aggressiveFastPathCapacity() : controller.getMaxInFlightCrafts();
+        // In-flight craft count is a logical lane count (44 in a two-host
+        // exchange), not the number of crafts that one lane can batch. Using
+        // it here truncated a 4096-craft lane to 44 crafts.
+        int dynamicLimit =
+                controller == null ? aggressiveFastPathCapacity() : controller.getLargestAvailableCraftingBatchSize();
         return dynamicLimit > 0
                 ? Math.min(dynamicLimit, ECOBatchCraftingHelper.MAX_BATCH_SIZE)
                 : ECOBatchCraftingHelper.MAX_BATCH_SIZE;
@@ -1147,9 +1154,16 @@ public class ECOCraftingCPULogic {
             if (controller == null || !controllers.add(controller)) {
                 continue;
             }
-            total = saturatedAddInt(total, controller.getMaxInFlightCrafts());
+            int laneCount = controller.getMaxInFlightCrafts();
+            int batchPerLane = controller.getMaxBatchPerThread();
+            total = saturatedAddInt(total, saturatedMultiplyInt(laneCount, batchPerLane));
         }
         return total;
+    }
+
+    private static int saturatedMultiplyInt(int left, int right) {
+        long product = Math.max(0L, (long) left) * Math.max(0L, (long) right);
+        return (int) Math.min(Integer.MAX_VALUE, product);
     }
 
     private static int saturatedAddInt(int left, int right) {
