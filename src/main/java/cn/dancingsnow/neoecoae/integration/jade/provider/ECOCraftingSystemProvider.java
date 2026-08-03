@@ -22,6 +22,9 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
     private static final String KEY_TOTAL_TICKS = "totalTicks";
     private static final String KEY_ENERGY_PER_TICK = "energyPerTick";
     private static final String KEY_TIME_MULTIPLIER = "timeMultiplier";
+    private static final String KEY_EFFECTIVE_CRAFTS_PER_TICK = "effectiveCraftsPerTick";
+    private static final String KEY_NETWORK_HOSTS = "networkHosts";
+    private static final String KEY_NETWORK_MULTIPLIER = "networkMultiplier";
     private static final String KEY_THEORETICAL_OVERCLOCK = "theoreticalOverclock";
     private static final String KEY_EFFECTIVE_OVERCLOCK = "effectiveOverclock";
 
@@ -47,6 +50,15 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
         }
 
         tooltip.add(JadeText.energyLine(data.getLong(KEY_ENERGY_PER_TICK)));
+        if (data.getBoolean(KEY_FORMED)) {
+            int networkMultiplier = Math.max(1, data.getInt(KEY_NETWORK_MULTIPLIER));
+            int networkHosts = Math.max(1, data.getInt(KEY_NETWORK_HOSTS));
+            tooltip.add(JadeText.networkExchangeLine(networkMultiplier, networkHosts));
+            if (networkMultiplier > 1 && networkHosts > 1) {
+                tooltip.add(JadeText.networkExchangeRuleLine(networkMultiplier));
+            }
+            tooltip.add(JadeText.throughputLine(data.getDouble(KEY_EFFECTIVE_CRAFTS_PER_TICK)));
+        }
         tooltip.add(JadeText.timeMultiplierLine(data.getDouble(KEY_TIME_MULTIPLIER)));
         tooltip.add(
                 JadeText.overclockLine(data.getInt(KEY_EFFECTIVE_OVERCLOCK), data.getInt(KEY_THEORETICAL_OVERCLOCK)));
@@ -81,6 +93,9 @@ public enum ECOCraftingSystemProvider implements IBlockComponentProvider, IServe
             tag.putInt(KEY_TOTAL_TICKS, totalTicks);
             tag.putLong(KEY_ENERGY_PER_TICK, Math.max(0L, system.getCurrentEnergyPerTick()));
             tag.putDouble(KEY_TIME_MULTIPLIER, system.getTimeMultiplier());
+            tag.putDouble(KEY_EFFECTIVE_CRAFTS_PER_TICK, system.getEffectiveCraftsPerTick());
+            tag.putInt(KEY_NETWORK_HOSTS, system.getNetworkHostCount());
+            tag.putInt(KEY_NETWORK_MULTIPLIER, system.getNetworkMultiplier());
             tag.putInt(KEY_THEORETICAL_OVERCLOCK, system.getOverlockTimes());
             tag.putInt(KEY_EFFECTIVE_OVERCLOCK, system.getEffectiveOverclockTimes());
         }

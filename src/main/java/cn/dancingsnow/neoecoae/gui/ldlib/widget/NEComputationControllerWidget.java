@@ -27,7 +27,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 
 /** Coordinates computation state, server actions, inventory slots, and focused client-side host panels. */
 public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NEComputationUiState> {
@@ -41,7 +40,6 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
     private final NEComputationTaskPanel taskPanel = new NEComputationTaskPanel();
     private NEAe2TextButtonWidget networkFrequencyButton;
     private NEAe2IconButtonWidget cpuModeButton;
-    private NEGtceuConfiguratorTabWidget parallelConfigurator;
 
     public NEComputationControllerWidget(ECOComputationSystemBlockEntity computation, Player player) {
         super(
@@ -87,15 +85,16 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                 () -> Component.literal(
                         Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
                 click -> {
-                    if (!click.isRemote) {
-                        computation.cycleNetworkFrequency();
+                    if (!click.isRemote && (click.button == 0 || click.button == 1)) {
+                        computation.adjustNetworkFrequency(click.button == 0 ? 1 : -1);
                         syncStateNow();
                     }
                 },
                 () -> currentState().networkMemberCount() > 1,
                 NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
         networkFrequencyButton.setTextColors(
-                NELDLibStyle.DARK_TEXT_PRIMARY, NELDLibStyle.DARK_TEXT_SUCCESS, NELDLibStyle.DARK_TEXT_MUTED);
+                NELDLibStyle.DARK_TEXT_BLUE, NELDLibStyle.DARK_TEXT_BLUE, NELDLibStyle.DARK_TEXT_MUTED);
+        networkFrequencyButton.setTextOffset(1, 1);
         addWidget(networkFrequencyButton);
         cpuModeButton = new NEAe2IconButtonWidget(
                 mainX(CPU_BUTTON_X), CPU_BUTTON_Y, CPU_BUTTON_W, CPU_BUTTON_H, cpuModeIcon(), click -> {
@@ -112,15 +111,6 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
                     }
                 });
         addWidget(cpuModeButton);
-        parallelConfigurator = new NEGtceuConfiguratorTabWidget(
-                PARALLEL_PANEL_X,
-                PARALLEL_PANEL_Y,
-                Component.translatable("gui.neoecoae.computation.parallel_control"),
-                () -> currentState().configuredAccelerators(),
-                this::setParallelAcceleratorsFromWidget,
-                this::parallelAcceleratorLimit);
-        addWidget(parallelConfigurator);
-
         if (hasUpgradeLayout()) {
             addWidget(new SlotWidget(
                             new NEForgeItemTransfer(
@@ -169,9 +159,6 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         if (drawNetworkFrequencyTooltip(graphics, mouseX, mouseY)) {
             return;
         }
-        if (drawParallelTooltip(graphics, mouseX, mouseY)) {
-            return;
-        }
         if (drawUpgradeTooltip(graphics, mouseX, mouseY)) {
             return;
         }
@@ -198,11 +185,17 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
         graphics.renderComponentTooltip(
                 font(),
                 List.of(
-                        Component.translatable("gui.neoecoae.host.network.frequency", frequency),
+                        Component.translatable(
+                                "gui.neoecoae.host.network.frequency",
+                                coloredText(Integer.toString(frequency), NELDLibStyle.DARK_TEXT_BLUE)),
                         Component.translatable("gui.neoecoae.host.network.frequency.tooltip")),
                 mouseX,
                 mouseY);
         return true;
+    }
+
+    private static Component coloredText(String text, int color) {
+        return Component.literal(text).withStyle(style -> style.withColor(color & 0x00FFFFFF));
     }
 
     private boolean drawUpgradeTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -269,59 +262,6 @@ public class NEComputationControllerWidget extends NELDLibSyncedStateWidget<NECo
             return true;
         }
         return super.mouseWheelMove(mouseX, mouseY, wheelDelta);
-    }
-
-    private boolean drawParallelTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (parallelConfigurator == null) {
-            return false;
-        }
-        int limit = parallelAcceleratorLimit();
-        if (parallelConfigurator.isToggleHovered(mouseX, mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(
-                            Component.translatable("gui.neoecoae.computation.parallel_control"),
-                            limit > 0
-                                    ? Component.translatable("gui.neoecoae.computation.parallel_control.enabled")
-                                    : Component.translatable(
-                                            "gui.neoecoae.computation.parallel_control.requires_infinite")),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        if (parallelConfigurator.isInputHovered(mouseX, mouseY)) {
-            graphics.renderComponentTooltip(
-                    font(),
-                    List.of(Component.translatable("gui.neoecoae.computation.parallel_input.tooltip", limit)),
-                    mouseX,
-                    mouseY);
-            return true;
-        }
-        return false;
-    }
-
-    private void setParallelAcceleratorsFromWidget(int value) {
-        Level level = computation.getLevel();
-        if (level == null || level.isClientSide) {
-            // The configured value is owned by the server; the client only mirrors synced state.
-            return;
-        }
-        // Sync either way. On success this publishes the value the cluster applied. On rejection --
-        // which happens when the client clamped against an accelerator limit that has since shrunk --
-        // it overwrites the value the input optimistically displays with the one the server holds,
-        // so the field cannot keep showing a number that was never accepted. The snap-back is the
-        // rejection feedback: the text field fires per keystroke, so a message or flash here would
-        // repeat for every character typed.
-        computation.setParallelAccelerators(value);
-        syncStateNow();
-    }
-
-    private int parallelAcceleratorLimit() {
-        return Math.max(
-                0,
-                Math.min(
-                        NEComputationUpgradeRules.MAX_SAFE_ACCELERATORS,
-                        currentState().acceleratorLimit()));
     }
 
     private int mainX(int localX) {

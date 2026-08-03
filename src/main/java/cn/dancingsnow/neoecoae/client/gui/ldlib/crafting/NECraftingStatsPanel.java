@@ -70,7 +70,7 @@ public final class NECraftingStatsPanel {
         lines.add(Component.literal("FT4: " + countTier(state, 1) + " x " + parallelPerCore(1, state.overclocked())));
         lines.add(Component.literal("FT6: " + countTier(state, 2) + " x " + parallelPerCore(2, state.overclocked())));
         lines.add(Component.literal("FT9: " + countTier(state, 3) + " x " + parallelPerCore(3, state.overclocked())));
-        lines.add(Component.translatable("gui.neoecoae.crafting.recipe_slots")
+        lines.add(Component.translatable("gui.neoecoae.computation.threads")
                 .append(": ")
                 .append(Component.literal(NELDLibText.usedTotal(state.occupiedRecipeSlots(), state.maxRecipeSlots()))));
         lines.add(Component.translatable("gui.neoecoae.crafting.ui.batch_per_thread")
@@ -86,11 +86,18 @@ public final class NECraftingStatsPanel {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable("gui.neoecoae.crafting.ui.batch_per_thread.detail")
                 .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED)));
+        if (state.networkMemberCount() > 1) {
+            lines.add(Component.translatable(
+                            "gui.neoecoae.crafting.ui.batch_per_thread.network_rule", state.networkMultiplier())
+                    .withStyle(style -> style.withColor(NELDLibStyle.DARK_TEXT_MUTED)));
+        }
         long totalBatchEfficiency = 0L;
         for (var host : state.hostBatchInfos()) {
-            lines.add(hostBatchLine(host.highEnergy(), host.threadCount(), host.maxBatchPerThread()));
-            totalBatchEfficiency =
-                    saturatingBatchTotal(totalBatchEfficiency, host.threadCount(), host.maxBatchPerThread());
+            // Local host data still carries the scheduler's internal queue count. Keep the
+            // tooltip aligned with the thread total shown in the statistics panel.
+            int threadCount = state.networkMemberCount() <= 1 ? state.maxRecipeSlots() : host.threadCount();
+            lines.add(hostBatchLine(host.highEnergy(), threadCount, host.maxBatchPerThread()));
+            totalBatchEfficiency = saturatingBatchTotal(totalBatchEfficiency, threadCount, host.maxBatchPerThread());
         }
         if (!state.hostBatchInfos().isEmpty()) {
             lines.add(Component.translatable(
@@ -158,7 +165,7 @@ public final class NECraftingStatsPanel {
 
     private void drawPair(NECraftingRenderContext context, NECraftingUiState state, int x, int y, int maxWidth) {
         String label =
-                Component.translatable("gui.neoecoae.crafting.recipe_slots").getString() + ": ";
+                Component.translatable("gui.neoecoae.computation.threads").getString() + ": ";
         String current = NELDLibText.number(state.occupiedRecipeSlots());
         String max = NELDLibText.number(state.maxRecipeSlots());
         int rawWidth = context.font().width(label)

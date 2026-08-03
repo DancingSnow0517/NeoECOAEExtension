@@ -295,6 +295,12 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.total_parallelism", "Total Parallelism: %s");
         provider.add("gui.neoecoae.crafting.recipe_slots", "Recipe Slots");
         provider.add("gui.neoecoae.crafting.batch_parallel", "Throughput");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread", "Batch per thread");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.detail", "Per-host batch details");
+        provider.add(
+                "gui.neoecoae.crafting.ui.batch_per_thread.network_rule",
+                "Exchange rule: each host adds lanes; x%s multiplies each lane's batch.");
+        provider.add("gui.neoecoae.crafting.ui.batch_per_thread.total", "Maximum crafting throughput: %s");
         provider.add("gui.neoecoae.crafting.ft_cores_short", "FT Cores");
         provider.add("gui.neoecoae.crafting.status", "Status");
         provider.add("gui.neoecoae.crafting.stats", "Crafting Stats");
@@ -327,6 +333,9 @@ public class GuiLangs {
         provider.add("gui.neoecoae.crafting.task.status.queued", "Queued");
         provider.add("gui.neoecoae.crafting.task.status.waiting_output", "Waiting for output");
         provider.add("gui.neoecoae.host.crafting.overflow", "Overflow");
+        provider.add("gui.neoecoae.host.crafting.host_line", "%s - Threads %s - Batch %s");
+        provider.add("gui.neoecoae.host.crafting.host_type.high_energy", "High-energy");
+        provider.add("gui.neoecoae.host.crafting.host_type.normal", "Normal");
         provider.add("gui.neoecoae.host.network", "Network");
         provider.add("gui.neoecoae.host.network.local", "Local");
         provider.add("gui.neoecoae.host.network.offline", "Offline");

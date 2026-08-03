@@ -292,7 +292,15 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public void cycleNetworkFrequency() {
-        setNetworkFrequency(hasNetworkFrequency() ? getNetworkFrequency() + 1 : 0);
+        adjustNetworkFrequency(1);
+    }
+
+    public void adjustNetworkFrequency(int delta) {
+        if (!hasNetworkFrequency() && delta > 0) {
+            setNetworkFrequency(0);
+            return;
+        }
+        setNetworkFrequency((hasNetworkFrequency() ? getNetworkFrequency() : 0) + delta);
     }
 
     public void setNetworkFrequency(int frequency) {

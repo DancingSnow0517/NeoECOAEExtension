@@ -14,6 +14,7 @@ public final class ECOStorageLifecycleEvents {
 
     /** Minecraft loads ordinary and infinite SavedData before cells can be mounted. */
     public static void onServerStarted(ServerStartedEvent event) {
+        NELogicalNetworkManager.onServerStarted();
         ECOCellStorageManager.onServerStarted(event.getServer());
     }
 
@@ -29,6 +30,7 @@ public final class ECOStorageLifecycleEvents {
 
     public static void onServerStopping(ServerStoppingEvent event) {
         try {
+            NELogicalNetworkManager.onServerStopping();
             NELogicalNetworkManager.clearAll();
             ECOCellStorageManager.closeAll();
         } finally {

@@ -18,9 +18,7 @@ import static cn.dancingsnow.neoecoae.gui.ldlib.computation.NEComputationLayout.
 import static cn.dancingsnow.neoecoae.gui.ldlib.computation.NEComputationLayout.PARALLEL_TOGGLE_X;
 import static cn.dancingsnow.neoecoae.gui.ldlib.computation.NEComputationLayout.PARALLEL_TOGGLE_Y;
 
-import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.NEComputationUpgradeRules;
-import cn.dancingsnow.neoecoae.client.gui.ldlib.NELDLibClientStyle;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
@@ -42,7 +40,6 @@ import net.minecraft.network.chat.Component;
 public final class NEGtceuConfiguratorTabWidget extends WidgetGroup {
     private static final IGuiTexture BACKGROUND =
             new ResourceBorderTexture("gtceu:textures/gui/base/background.png", 16, 16, 4, 4);
-    private static final Icon ICON = Icon.WRENCH;
 
     private final Supplier<Integer> valueSupplier;
     private final Consumer<Integer> valueConsumer;
@@ -177,7 +174,7 @@ public final class NEGtceuConfiguratorTabWidget extends WidgetGroup {
 
         int iconX = getPositionX() + toggleButtonX() + 4;
         int iconY = getPositionY() + toggleButtonY() + 4;
-        NELDLibClientStyle.drawAeIcon(graphics, ICON, iconX, iconY, 1.0F);
+        drawParallelChannelsIcon(graphics, iconX, iconY);
     }
 
     @Override
@@ -337,6 +334,27 @@ public final class NEGtceuConfiguratorTabWidget extends WidgetGroup {
 
     private int toggleButtonY() {
         return 0;
+    }
+
+    /**
+     * This tab configures the parallel accelerator count, so it deliberately uses a local glyph
+     * rather than an AE2 atlas icon. AE2's icon texture layout is not a stable GUI contract across
+     * versions and direct UV sampling can render the missing-texture checkerboard in LDLib screens.
+     */
+    private static void drawParallelChannelsIcon(GuiGraphics graphics, int x, int y) {
+        final int shadow = 0xB3000000;
+        final int channel = 0xFFE5B6FF;
+        final int accent = 0xFF9D5CD0;
+
+        // Three independent lanes communicate that this control increases concurrent work.
+        for (int row = 0; row < 3; row++) {
+            int laneY = y + 2 + row * 4;
+            graphics.fill(x + 1, laneY + 1, x + 13, laneY + 3, shadow);
+            graphics.fill(x + 1, laneY, x + 12, laneY + 1, channel);
+            graphics.fill(x + 1, laneY + 1, x + 10, laneY + 2, accent);
+            graphics.fill(x + 11, laneY - 1, x + 14, laneY + 3, channel);
+            graphics.fill(x + 12, laneY, x + 15, laneY + 2, channel);
+        }
     }
 
     private int fieldX() {

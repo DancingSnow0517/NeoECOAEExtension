@@ -11,6 +11,8 @@ import net.minecraft.network.chat.MutableComponent;
 final class JadeText {
     private static final DecimalFormat PERCENT_FORMAT =
             new DecimalFormat("0.##%", DecimalFormatSymbols.getInstance(Locale.ROOT));
+    private static final DecimalFormat THROUGHPUT_FORMAT =
+            new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
             ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
 
@@ -49,6 +51,33 @@ final class JadeText {
     static Component timeMultiplierLine(double multiplier) {
         return label("jade.neoecoae.time_multiplier_label")
                 .append(value(formatPercent(multiplier), ChatFormatting.AQUA));
+    }
+
+    static Component networkExchangeLine(int multiplier, int hosts) {
+        if (hosts <= 1) {
+            return Component.translatable("jade.neoecoae.local_processing").withStyle(ChatFormatting.GRAY);
+        }
+        return Component.translatable("jade.neoecoae.network_exchange", Math.max(1, multiplier), hosts)
+                .withStyle(ChatFormatting.GRAY);
+    }
+
+    static Component networkExchangeRuleLine(int multiplier) {
+        return Component.translatable("jade.neoecoae.network_exchange_rule", Math.max(1, multiplier))
+                .withStyle(ChatFormatting.DARK_GRAY);
+    }
+
+    static Component throughputLine(double craftsPerTick) {
+        if (Double.isInfinite(craftsPerTick) || craftsPerTick >= Double.MAX_VALUE) {
+            return label("jade.neoecoae.effective_throughput_label")
+                    .append(value(
+                            Component.translatable("jade.neoecoae.virtual_throughput")
+                                    .getString(),
+                            ChatFormatting.AQUA));
+        }
+        String formatted = THROUGHPUT_FORMAT.format(Math.max(0.0D, craftsPerTick));
+        return label("jade.neoecoae.effective_throughput_label")
+                .append(Component.translatable("jade.neoecoae.crafts_per_tick", formatted)
+                        .withStyle(ChatFormatting.AQUA));
     }
 
     static Component overclockLine(int effective, int theoretical) {

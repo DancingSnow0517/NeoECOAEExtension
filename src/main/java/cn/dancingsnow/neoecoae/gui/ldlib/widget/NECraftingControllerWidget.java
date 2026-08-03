@@ -68,15 +68,16 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 () -> Component.literal(
                         Integer.toString(Math.max(0, currentState().networkFrequency()) + 1)),
                 click -> {
-                    if (!click.isRemote) {
-                        crafting.cycleNetworkFrequency();
+                    if (!click.isRemote && (click.button == 0 || click.button == 1)) {
+                        crafting.adjustNetworkFrequency(click.button == 0 ? 1 : -1);
                         syncStateNow();
                     }
                 },
                 () -> currentState().networkMemberCount() > 1,
                 NEAe2TextButtonWidget.BackgroundStyle.TOOLBAR);
         networkFrequencyButton.setTextColors(
-                NELDLibStyle.DARK_TEXT_PRIMARY, NELDLibStyle.DARK_TEXT_SUCCESS, NELDLibStyle.DARK_TEXT_MUTED);
+                NELDLibStyle.DARK_TEXT_BLUE, NELDLibStyle.DARK_TEXT_BLUE, NELDLibStyle.DARK_TEXT_MUTED);
+        networkFrequencyButton.setTextOffset(1, 1);
         addWidget(networkFrequencyButton);
         addToolbarButton(0, click -> {
             if (!click.isRemote) {
@@ -201,7 +202,7 @@ public class NECraftingControllerWidget extends NELDLibSyncedStateWidget<NECraft
                 List.of(
                         Component.translatable(
                                         "gui.neoecoae.host.network.frequency",
-                                        coloredText(Integer.toString(frequency), NELDLibStyle.DARK_TEXT_VALUE))
+                                        coloredText(Integer.toString(frequency), NELDLibStyle.DARK_TEXT_BLUE))
                                 .withStyle(style -> style.withColor(rgb(NELDLibStyle.DARK_TEXT_MUTED))),
                         Component.translatable("gui.neoecoae.host.network.frequency.tooltip")
                                 .withStyle(style -> style.withColor(rgb(NELDLibStyle.DARK_TEXT_MUTED)))),

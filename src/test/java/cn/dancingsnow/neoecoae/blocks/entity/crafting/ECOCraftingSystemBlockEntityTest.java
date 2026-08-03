@@ -20,4 +20,11 @@ class ECOCraftingSystemBlockEntityTest {
                         Integer.MAX_VALUE, Integer.MAX_VALUE, true, Integer.MAX_VALUE));
         assertEquals(0, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(-1, 4, true, 2));
     }
+
+    @Test
+    void timeRatioDoesNotIncludeParallelOrNetworkHostCount() {
+        assertEquals(1.0D, ECOCraftingSystemBlockEntity.calculateTimeMultiplier(10), 0.000001D);
+        assertEquals(0.5D, ECOCraftingSystemBlockEntity.calculateTimeMultiplier(5), 0.000001D);
+        assertEquals(1.0D, ECOCraftingSystemBlockEntity.calculateTimeMultiplier(0), 0.000001D);
+    }
 }

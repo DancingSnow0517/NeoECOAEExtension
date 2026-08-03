@@ -29,6 +29,7 @@ import cn.dancingsnow.neoecoae.gui.ldlib.support.NEBlockEntityUIHolder;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingCapacity;
 import cn.dancingsnow.neoecoae.multiblock.BuildPreviewState;
 import cn.dancingsnow.neoecoae.multiblock.INEMultiblockBuildHost;
+import cn.dancingsnow.neoecoae.multiblock.cluster.NECraftingNetworkCluster;
 import cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition;
 import cn.dancingsnow.neoecoae.multiblock.network.NEFrequencyAllocator;
 import cn.dancingsnow.neoecoae.multiblock.network.NELogicalNetworkManager;
@@ -164,7 +165,15 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     }
 
     public void cycleNetworkFrequency() {
-        setNetworkFrequency(hasNetworkFrequency() ? getNetworkFrequency() + 1 : 0);
+        adjustNetworkFrequency(1);
+    }
+
+    public void adjustNetworkFrequency(int delta) {
+        if (!hasNetworkFrequency() && delta > 0) {
+            setNetworkFrequency(0);
+            return;
+        }
+        setNetworkFrequency((hasNetworkFrequency() ? getNetworkFrequency() : 0) + delta);
     }
 
     public void setNetworkFrequency(int frequency) {
@@ -880,6 +889,13 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return left > Long.MAX_VALUE / right ? Long.MAX_VALUE : left * right;
     }
 
+    private static long saturatingAdd(long left, long right) {
+        if (left >= Long.MAX_VALUE - Math.max(0L, right)) {
+            return Long.MAX_VALUE;
+        }
+        return left + Math.max(0L, right);
+    }
+
     /**
      * Maximum pattern executions that may be in flight at once.
      * The formed structure length is the number of worker segments, while the
@@ -930,14 +946,73 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         return getCraftingPowerMultiplier();
     }
 
-    public double getTimeMultiplier() {
+    /** Returns the structural parallel capacity contributed by this physical host. */
+    public long getLocalBaseParallelCapacity() {
         ensureCraftingStatsCurrent();
-        int baseParallel = parallelCount * tier.getCrafterParallel();
-        if (baseParallel <= 0 || threadCount <= 0) {
+        return saturatingMultiply(Math.max(0, parallelCount), Math.max(0, tier.getCrafterParallel()));
+    }
+
+    /** The reference duration for one recipe at the normal 10 progress/tick rate. */
+    public static double getBaseCraftTicks() {
+        return cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / 10.0D;
+    }
+
+    public static double calculateTimeMultiplier(int theoreticalCraftTicks) {
+        if (theoreticalCraftTicks <= 0) {
             return 1.0D;
         }
-        double baseTicks = cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS / 10.0D;
-        return (getTheoreticalCraftTicks() * (double) baseParallel) / (baseTicks * (double) threadCount);
+        return theoreticalCraftTicks / getBaseCraftTicks();
+    }
+
+    /** Per-recipe duration ratio; parallel capacity is reported separately as throughput. */
+    public double getTimeMultiplier() {
+        ensureCraftingStatsCurrent();
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().getTimeMultiplier();
+        }
+        if (threadCount <= 0) {
+            return 1.0D;
+        }
+        return calculateTimeMultiplier(getTheoreticalCraftTicks());
+    }
+
+    /**
+     * Returns the estimated maximum recipe throughput represented by the available lanes.
+     * This is intentionally separate from the legacy time-ratio metric because x2/x8 exchange
+     * multiplies batch capacity, not the duration of one logical recipe.
+     */
+    public double getEffectiveCraftsPerTick() {
+        ensureCraftingStatsCurrent();
+        int progressPerTick = Math.max(0, getProgressPerTick());
+        if (progressPerTick <= 0) {
+            return 0.0D;
+        }
+
+        long batchCapacity = 0L;
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            for (var host : cluster.getNetworkCluster().getHostBatchInfos()) {
+                if (host.maxBatchPerThread() == Long.MAX_VALUE) {
+                    return Double.MAX_VALUE;
+                }
+                long hostCapacity = saturatingMultiply(host.threadCount(), host.maxBatchPerThread());
+                batchCapacity = saturatingAdd(batchCapacity, hostCapacity);
+            }
+        } else {
+            long slots = Math.max(0, getMaxInFlightCrafts());
+            long perThread = Math.max(0, getLocalMaxBatchPerThread());
+            batchCapacity = saturatingMultiply(slots, perThread);
+        }
+        return batchCapacity <= 0
+                ? 0.0D
+                : (batchCapacity * (double) progressPerTick)
+                        / (double) cn.dancingsnow.neoecoae.api.me.ECOCraftingThread.MAX_PROGRESS;
+    }
+
+    /** Number of physical hosts in the active logical exchange, or one for local mode. */
+    public int getNetworkHostCount() {
+        return cluster == null || cluster.getNetworkCluster() == null
+                ? 1
+                : Math.max(1, cluster.getNetworkCluster().getMemberCount());
     }
 
     public ECOCraftingWorkerBlockEntity.ThreadProgressSummary getThreadProgressSummary() {
@@ -1153,11 +1228,16 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         int totalRunningThreads = network == null ? runningThreadCount : network.getRunningThreadCount();
         int availThreads = Math.max(0, totalParallelism - totalRunningThreads);
         int effParallel = Math.min(totalParallelism, availThreads);
-        int maxRecipeSlots = Math.max(0, availThreads);
+        // The statistics panel reports FX execution threads, rather than the internal queue
+        // capacity used by the crafting scheduler. A local FX core contributes one thread;
+        // network exchange changes that contribution to the number of participating hosts.
+        int displayThreadsPerWorker = network == null ? 1 : Math.max(1, networkMemberCount);
+        int maxRecipeSlots = (int)
+                Math.min(Integer.MAX_VALUE, saturatingMultiply(Math.max(0, workerCount), displayThreadsPerWorker));
         int occupiedRecipeSlots = Math.min(maxRecipeSlots, Math.max(0, totalRunningThreads));
         int batchParallel = Math.max(0, effParallel);
         int maxBatchPerThread = getMaxBatchPerThread();
-        List<NECraftingHostBatchInfo> hostBatchInfos = getHostBatchInfos();
+        List<NECraftingHostBatchInfo> hostBatchInfos = getDisplayedHostBatchInfos(network, networkMemberCount);
         List<NECraftingRecipeUiEntry> recipeEntries = new ArrayList<>();
 
         // Collect active craft outputs from each worker
@@ -1251,6 +1331,22 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 craftOutputs,
                 coreTiers,
                 moduleCells);
+    }
+
+    /** Converts scheduler thread capacity to the per-host FX thread count shown in the tooltip. */
+    private List<NECraftingHostBatchInfo> getDisplayedHostBatchInfos(
+            @Nullable NECraftingNetworkCluster network, int networkMemberCount) {
+        List<NECraftingHostBatchInfo> runtimeInfos = getHostBatchInfos();
+        if (runtimeInfos.isEmpty()) {
+            return runtimeInfos;
+        }
+        int divisor = network == null ? 1 : Math.max(1, networkMemberCount);
+        return runtimeInfos.stream()
+                .map(info -> new NECraftingHostBatchInfo(
+                        info.highEnergy(),
+                        network == null ? Math.max(0, workerCount) : Math.max(0, info.threadCount() / divisor),
+                        info.maxBatchPerThread()))
+                .toList();
     }
 
     private boolean isMainNodeConnected() {

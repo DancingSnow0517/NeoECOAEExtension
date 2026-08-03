@@ -17,6 +17,8 @@ item_ids:
   - neoecoae:crafting_vent
   - neoecoae:input_hatch
   - neoecoae:output_hatch
+  - neoecoae:crafting_network_switch
+  - neoecoae:crafting_high_energy_network_switch
 ---
 
 # ECO Crafting System

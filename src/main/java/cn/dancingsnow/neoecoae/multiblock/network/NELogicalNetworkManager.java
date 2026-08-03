@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.RejectedExecutionException;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -27,14 +28,29 @@ import org.jetbrains.annotations.Nullable;
 public final class NELogicalNetworkManager {
     private static final Map<ServerLevel, LevelState> LEVELS = new WeakHashMap<>();
     private static final int CRAFTING_NETWORK_HOST_LIMIT = NEFrequencyAllocator.HOST_LIMIT;
+    private static volatile boolean shuttingDown;
 
     private NELogicalNetworkManager() {}
+
+    /** Opens the logical-network lifecycle for a newly started server. */
+    public static void onServerStarted() {
+        shuttingDown = false;
+    }
+
+    /** Closes the logical-network lifecycle before AE2 starts unloading its nodes. */
+    public static void onServerStopping() {
+        shuttingDown = true;
+    }
 
     public static void attach(NECluster<?> cluster) {
         refresh(cluster);
     }
 
     public static void refresh(NECluster<?> cluster) {
+        if (shuttingDown) {
+            clearAssociation(cluster);
+            return;
+        }
         if (cluster.isDestroyed() || !cluster.isNetworkMode()) {
             detach(cluster);
             return;
@@ -62,7 +78,7 @@ public final class NELogicalNetworkManager {
      * grid after the physical cluster was created.
      */
     public static void refreshAfterGridChange(NECluster<?> cluster) {
-        if (cluster.isDestroyed() || !cluster.isNetworkMode()) {
+        if (shuttingDown || cluster.isDestroyed() || !cluster.isNetworkMode()) {
             return;
         }
         Level level = getLevel(cluster);
@@ -73,15 +89,21 @@ public final class NELogicalNetworkManager {
         if (!state.pendingGridRefresh.add(cluster)) {
             return;
         }
-        serverLevel.getServer().executeIfPossible(() -> {
-            LevelState currentState = LEVELS.get(serverLevel);
-            if (currentState != null) {
-                currentState.pendingGridRefresh.remove(cluster);
-            }
-            if (!cluster.isDestroyed() && cluster.isNetworkMode()) {
-                refresh(cluster);
-            }
-        });
+        try {
+            serverLevel.getServer().executeIfPossible(() -> {
+                LevelState currentState = LEVELS.get(serverLevel);
+                if (currentState != null) {
+                    currentState.pendingGridRefresh.remove(cluster);
+                }
+                if (!shuttingDown && !cluster.isDestroyed() && cluster.isNetworkMode()) {
+                    refresh(cluster);
+                }
+            });
+        } catch (RejectedExecutionException ignored) {
+            // The server can stop between the gate above and task submission.
+            // Treat a late topology refresh as a normal shutdown race.
+            state.pendingGridRefresh.remove(cluster);
+        }
     }
 
     public static void detachBeforeDestroy(NECluster<?> cluster) {
@@ -97,6 +119,7 @@ public final class NELogicalNetworkManager {
     }
 
     public static void clearAll() {
+        shuttingDown = true;
         for (LevelState state : LEVELS.values()) {
             state.craftingNetworks.values().forEach(NECraftingNetworkCluster::clear);
             state.computationNetworks.values().forEach(NEComputationNetworkCluster::clear);

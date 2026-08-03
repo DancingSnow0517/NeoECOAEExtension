@@ -23,6 +23,8 @@ item_ids:
   - neoecoae:eco_computation_cell_l4
   - neoecoae:eco_computation_cell_l6
   - neoecoae:eco_computation_cell_l9
+  - neoecoae:computation_network_switch
+  - neoecoae:computation_high_energy_network_switch
 ---
 
 # ECO Computation System

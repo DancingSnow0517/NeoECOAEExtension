@@ -20,6 +20,8 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
     private int normalColor = NELDLibStyle.DARK_TEXT_PRIMARY;
     private int selectedColor = NELDLibStyle.DARK_TEXT_SUCCESS;
     private int inactiveColor = NELDLibStyle.DARK_TEXT_MUTED;
+    private int textOffsetX;
+    private int textOffsetY;
     private boolean pressed;
 
     public NEAe2TextButtonWidget(
@@ -82,10 +84,16 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
         return this;
     }
 
+    public NEAe2TextButtonWidget setTextOffset(int x, int y) {
+        this.textOffsetX = x;
+        this.textOffsetY = y;
+        return this;
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         boolean handled = super.mouseClicked(mouseX, mouseY, button);
-        if (handled && button == 0) {
+        if (handled && (button == 0 || button == 1)) {
             pressed = true;
         }
         return handled;
@@ -120,8 +128,9 @@ public class NEAe2TextButtonWidget extends ButtonWidget {
     public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
         int color = !isActive() ? inactiveColor : selectedSupplier.getAsBoolean() ? selectedColor : normalColor;
-        int labelY = getPositionY() + (getSizeHeight() - NELDLibClientStyle.fontLineHeight()) / 2;
-        NELDLibClientStyle.drawCenteredClipped(graphics, fittedLabel(), getPositionX(), labelY, getSizeWidth(), color);
+        int labelY = getPositionY() + (getSizeHeight() - NELDLibClientStyle.fontLineHeight()) / 2 + textOffsetY;
+        NELDLibClientStyle.drawCenteredClipped(
+                graphics, fittedLabel(), getPositionX() + textOffsetX, labelY, getSizeWidth(), color);
     }
 
     private Component fittedLabel() {

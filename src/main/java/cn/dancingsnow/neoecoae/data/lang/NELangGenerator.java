@@ -25,7 +25,15 @@ public class NELangGenerator {
         provider.add("jade.neoecoae.thread_label", "Threads: ");
         provider.add("jade.neoecoae.storage_label", "Storage: ");
         provider.add("jade.neoecoae.energy_per_tick_label", "Energy: ");
-        provider.add("jade.neoecoae.time_multiplier_label", "Time multiplier: ");
+        provider.add("jade.neoecoae.time_multiplier_label", "Recipe time ratio (lower is faster): ");
+        provider.add("jade.neoecoae.effective_throughput_label", "Effective throughput: ");
+        provider.add("jade.neoecoae.crafts_per_tick", "%s crafts/t");
+        provider.add("jade.neoecoae.virtual_throughput", "Virtual ledger");
+        provider.add("jade.neoecoae.local_processing", "Local processing: x1 (1 host)");
+        provider.add("jade.neoecoae.network_exchange", "Network exchange: x%s (%s hosts)");
+        provider.add(
+                "jade.neoecoae.network_exchange_rule",
+                "Each host contributes independent lanes; x%s multiplies the batch per lane.");
         provider.add("jade.neoecoae.overclock_multiplier_label", "Overclock multiplier: ");
         provider.add("jade.neoecoae.recipes_per_operation_label", "Recipes per operation: ");
         provider.add("jade.neoecoae.working_crafts_label", "Working crafts: ");

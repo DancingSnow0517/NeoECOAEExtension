@@ -279,6 +279,22 @@ public final class NECraftingNetworkCluster {
         return List.copyOf(result);
     }
 
+    /**
+     * Calculates the per-recipe time ratio for the shared exchange.
+     * Batch capacity and host count are reported separately; neither changes the duration of a
+     * single recipe and must not be folded into a percentage that looks like machine speed.
+     */
+    public double getTimeMultiplier() {
+        if (controllers.isEmpty()) {
+            return 1.0D;
+        }
+        int theoreticalTicks = 0;
+        for (ECOCraftingSystemBlockEntity controller : controllers) {
+            theoreticalTicks = Math.max(theoreticalTicks, controller.getTheoreticalCraftTicks());
+        }
+        return ECOCraftingSystemBlockEntity.calculateTimeMultiplier(theoreticalTicks);
+    }
+
     /** Per-host runtime values shown in the host UI tooltip. */
     public record HostBatchInfo(boolean highEnergy, int threadCount, long maxBatchPerThread) {}
 
