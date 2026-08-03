@@ -13,6 +13,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Debug;
 import org.spongepowered.asm.mixin.Final;
@@ -64,6 +65,17 @@ public class CPUSelectionListMixin {
         if (storage >= 1024 * 1024 * 1024) {
             cir.setReturnValue(ByteAmountFormatter.format(storage));
         }
+    }
+
+    @WrapOperation(
+        method = "getTooltip",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/core/localization/Tooltips;ofBytes(J)Lnet/minecraft/network/chat/MutableComponent;"
+        )
+    )
+    private MutableComponent wrapTooltipStorage(long storage, Operation<MutableComponent> original) {
+        return ByteAmountFormatter.formatComponent(storage);
     }
 
     @WrapOperation(

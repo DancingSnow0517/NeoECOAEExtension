@@ -6,6 +6,7 @@ import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import cn.dancingsnow.neoecoae.gui.common.HostText;
+import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import net.minecraft.ChatFormatting;
@@ -87,7 +88,7 @@ public final class ComputationTaskCards {
                 .withStyle(ChatFormatting.GRAY));
         }
 
-        lines.add(ButtonToolTips.CpuStatusStorage.text(Tooltips.ofBytes(entry.cpuStorage()))
+        lines.add(ButtonToolTips.CpuStatusStorage.text(ByteAmountFormatter.formatComponent(entry.cpuStorage()))
             .withStyle(ChatFormatting.GRAY));
 
         Component modeText = switch (entry.cpuSelectionMode()) {

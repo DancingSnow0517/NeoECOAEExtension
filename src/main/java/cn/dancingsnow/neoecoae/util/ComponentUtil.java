@@ -13,7 +13,11 @@ public class ComponentUtil {
     }
 
     public static Component coloredBytesPair(long used, long total, boolean oneIsGreen) {
-        return coloredPair(Tooltips.getByteAmount(used), Tooltips.getByteAmount(total), used, total, oneIsGreen);
+        float ratio = ratio(used, total);
+        return Component.empty()
+            .append(Component.literal(ByteAmountFormatter.format(used)).withStyle(Tooltips.colorFromRatio(ratio, oneIsGreen)))
+            .append(Component.literal(" / ").withColor(0x696d88))
+            .append(Component.literal(ByteAmountFormatter.format(total)).withStyle(Tooltips.NUMBER_TEXT));
     }
 
     private static Component coloredPair(Tooltips.Amount amount, Tooltips.Amount amount1, long used, long total, boolean oneIsGreen) {

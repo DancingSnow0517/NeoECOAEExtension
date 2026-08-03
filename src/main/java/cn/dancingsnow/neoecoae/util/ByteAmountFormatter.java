@@ -4,6 +4,8 @@ import appeng.core.localization.Tooltips;
 import java.util.Locale;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /** Formats AE2 byte amounts beyond the largest unit supported by AE2 itself. */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -29,5 +31,9 @@ public final class ByteAmountFormatter {
         }
 
         return String.format(Locale.ROOT, "%.3g%s", scaled, LARGE_BYTE_UNITS[unitIndex]);
+    }
+
+    public static MutableComponent formatComponent(long bytes) {
+        return Component.literal(format(bytes)).withStyle(Tooltips.NUMBER_TEXT);
     }
 }
