@@ -425,11 +425,8 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
 
     private void updateThreadCount() {
         if (cluster != null && !cluster.getParallelCores().isEmpty() && !cluster.getWorkers().isEmpty()) {
-            // A standalone FX worker keeps its normal 32-task queue. Network exchange has a
-            // separate slot model, where each worker contributes one slot per participating
-            // host.
             threadCountPerWorker = cluster.getNetworkCluster() == null
-                    ? NEConfig.getCraftingWorkerBaseCrafts()
+                    ? 1
                     : getExchangeHostCount();
             exactThreadCount = saturatingMultiply(getWorkerCount(), threadCountPerWorker);
             exactAvailableThreadCount = exactThreadCount;
