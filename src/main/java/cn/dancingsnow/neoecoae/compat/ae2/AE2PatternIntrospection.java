@@ -11,6 +11,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,10 +19,10 @@ import org.slf4j.LoggerFactory;
 public final class AE2PatternIntrospection {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
 
-    private static boolean selfChecked = false;
-    private static boolean available = false;
-    private static boolean warnedUnavailable = false;
-    private static long reloadGeneration = 0L;
+    private static volatile boolean selfChecked;
+    private static volatile boolean available;
+    private static boolean warnedUnavailable;
+    private static final AtomicLong RELOAD_GENERATION = new AtomicLong();
 
     private AE2PatternIntrospection() {
     }
@@ -33,13 +34,7 @@ public final class AE2PatternIntrospection {
 
     public static Object getStablePatternIdentity(IPatternDetails details) {
         try {
-            if (details instanceof AECraftingPatternAccessor accessor) {
-                AEItemKey definition = accessor.neoecoae$getDefinitionKey();
-                if (definition != null) {
-                    return definition;
-                }
-            }
-            AEItemKey definition = details.getDefinition();
+            AEItemKey definition = readDefinition(details);
             return definition != null ? definition : details;
         } catch (Throwable e) {
             disableOnce(e);
@@ -60,11 +55,16 @@ public final class AE2PatternIntrospection {
             return Optional.empty();
         }
         try {
-            Optional<Object> identity = getFastPathPatternIdentity(details);
-            if (identity.isEmpty()) {
+            AEItemKey definition = readDefinition(details);
+            if (definition == null) {
                 return Optional.empty();
             }
-            return ECOFastPathKey.of(identity.get(), craftingContainer, level, reloadGeneration);
+            return ECOFastPathKey.of(
+                definition,
+                craftingContainer,
+                level,
+                RELOAD_GENERATION.get()
+            );
         } catch (Throwable e) {
             disableOnce(e);
             return Optional.empty();
@@ -72,32 +72,26 @@ public final class AE2PatternIntrospection {
     }
 
     public static void onRecipeReloadOrServerReload() {
-        reloadGeneration++;
+        RELOAD_GENERATION.incrementAndGet();
         ECOCraftingFastPathCache.clearAllCaches();
         ECOFastPathDiagnostics.clear();
     }
 
     public static long getReloadGeneration() {
-        return reloadGeneration;
+        return RELOAD_GENERATION.get();
     }
 
-    private static Optional<Object> getFastPathPatternIdentity(IPatternDetails details) {
-        try {
-            if (details instanceof AECraftingPatternAccessor accessor) {
-                AEItemKey definition = accessor.neoecoae$getDefinitionKey();
-                if (definition != null) {
-                    return Optional.of(definition);
-                }
+    private static AEItemKey readDefinition(IPatternDetails details) {
+        if (details instanceof AECraftingPatternAccessor accessor) {
+            AEItemKey definition = accessor.neoecoae$getDefinitionKey();
+            if (definition != null) {
+                return definition;
             }
-            AEItemKey definition = details.getDefinition();
-            return definition != null ? Optional.of(definition) : Optional.empty();
-        } catch (Throwable e) {
-            disableOnce(e);
-            return Optional.empty();
         }
+        return details.getDefinition();
     }
 
-    private static void selfCheck() {
+    private static synchronized void selfCheck() {
         if (selfChecked) {
             return;
         }
@@ -111,7 +105,7 @@ public final class AE2PatternIntrospection {
         }
     }
 
-    private static void disableOnce(Throwable e) {
+    private static synchronized void disableOnce(Throwable e) {
         available = false;
         if (!warnedUnavailable) {
             warnedUnavailable = true;
