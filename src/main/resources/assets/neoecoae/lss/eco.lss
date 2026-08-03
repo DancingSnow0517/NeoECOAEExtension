@@ -72,9 +72,6 @@ fluid-slot {
 
 .eco-host-card {
   background: built-in(ui-eco:HOST_PANEL_BORDER);
-}
-
-.eco-host-card {
   padding-all: 6;
   gap-all: 3;
 }

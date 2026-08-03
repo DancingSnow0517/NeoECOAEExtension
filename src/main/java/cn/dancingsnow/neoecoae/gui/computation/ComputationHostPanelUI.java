@@ -14,17 +14,11 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
-import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.gui.Font;
@@ -78,7 +72,7 @@ public final class ComputationHostPanelUI {
     }
 
     public static UIElement createLeftCapacityPanel(Config config) {
-        UIElement panel = hostCard(LEFT_PANEL_WIDTH, LEFT_CAPACITY_HEIGHT);
+        UIElement panel = HostElements.hostCard(LEFT_PANEL_WIDTH, LEFT_CAPACITY_HEIGHT);
         panel.addClass("eco-computation-capacity");
         panel.addChild(HostElements.localizedTextSegment(
                 "gui.neoecoae.host.computation.capacity",
@@ -119,17 +113,15 @@ public final class ComputationHostPanelUI {
         button.addChild(icon);
         button.setOnServerClick(event -> config.cycleCpuSelectionMode.run());
 
-        BindableValue<Integer> syncedMode = new BindableValue<>(config.cpuSelectionMode.get().ordinal());
-        syncedMode.bind(DataBindingBuilder.intValS2C(() -> config.cpuSelectionMode.get().ordinal()).build());
+        var syncedMode = HostElements.syncedInt(() -> config.cpuSelectionMode.get().ordinal());
         syncedMode.registerValueListener(value -> icon
                 .style(style -> style.backgroundTexture(cpuSelectionModeIcon(cpuSelectionModeFromOrdinal(value)))));
-        syncedMode.setDisplay(false);
         button.addChild(syncedMode);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+        HostElements.tooltips(button, () -> {
             CpuSelectionMode mode = cpuSelectionModeFromOrdinal(syncedMode.getValue());
-            event.hoverTooltips = new HoverTooltips(List.of(
+            return List.of(
                     ButtonToolTips.CpuSelectionMode.text(),
-                    cpuSelectionModeTooltip(mode)), null, null, null);
+                    cpuSelectionModeTooltip(mode));
         });
         return button;
     }
@@ -144,20 +136,17 @@ public final class ComputationHostPanelUI {
                 .style(style -> style.backgroundTexture(fastPlanningIcon(config.fastPlanningEnabled.getAsBoolean())));
         button.addChild(icon);
 
-        BindableValue<Boolean> syncedEnabled = new BindableValue<>(config.fastPlanningEnabled.getAsBoolean());
-        syncedEnabled.bind(DataBindingBuilder.boolS2C(config.fastPlanningEnabled::getAsBoolean).build());
+        var syncedEnabled = HostElements.syncedBoolean(config.fastPlanningEnabled::getAsBoolean);
         syncedEnabled.registerValueListener(
                 value -> icon.style(style -> style.backgroundTexture(fastPlanningIcon(Boolean.TRUE.equals(value)))));
-        syncedEnabled.setDisplay(false);
         button.addChild(syncedEnabled);
-        button.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+        HostElements.tooltips(button, () -> {
             boolean enabled = Boolean.TRUE.equals(syncedEnabled.getValue());
-            event.hoverTooltips = new HoverTooltips(List.of(
+            return List.of(
                     Component.translatable("gui.neoecoae.host.computation.fast_planning"),
                     Component.translatable(enabled
                             ? "gui.neoecoae.host.computation.fast_planning.enabled"
-                            : "gui.neoecoae.host.computation.fast_planning.disabled")),
-                    null, null, null);
+                            : "gui.neoecoae.host.computation.fast_planning.disabled"));
         });
         return button;
     }
@@ -207,17 +196,10 @@ public final class ComputationHostPanelUI {
     }
 
     public static UIElement createInventoryPanel() {
-        UIElement panel = new UIElement()
-                .addClass("eco-host-inventory")
-                .layout(layout -> layout
-                        .width(LEFT_PANEL_WIDTH)
-                        .height(LEFT_INVENTORY_HEIGHT)
-                        .flexDirection(FlexDirection.COLUMN));
-        panel.addChild(new TextElement()
+        UIElement title = new TextElement()
                 .setText("container.inventory", true)
-                .textStyle(ComputationHostPanelUI::inventoryTitleTextStyle));
-        panel.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
-        return panel;
+                .textStyle(ComputationHostPanelUI::inventoryTitleTextStyle);
+        return HostElements.inventoryPanel(title, LEFT_PANEL_WIDTH, LEFT_INVENTORY_HEIGHT);
     }
 
     private static void inventoryTitleTextStyle(TextElement.TextStyle style) {
@@ -256,12 +238,6 @@ public final class ComputationHostPanelUI {
         return panel;
     }
 
-    private static UIElement hostCard(int width, int height) {
-        return new UIElement()
-                .addClass("eco-host-card")
-                .layout(layout -> layout.width(width).height(height).flexDirection(FlexDirection.COLUMN));
-    }
-
     private static UIElement usageProgressBlock(
             String labelKey,
             Supplier<HostText.UsedTotal> text,
@@ -298,17 +274,12 @@ public final class ComputationHostPanelUI {
         progressBar.addClass("eco-host-progress");
         progressBar.layout(layout -> layout.width(PROGRESS_ROW_BAR_WIDTH).height(4));
         if (tooltipKey != null) {
-            BindableValue<Long> syncedUsed = new BindableValue<>(used.getAsLong());
-            BindableValue<Long> syncedMax = new BindableValue<>(max.getAsLong());
-            syncedUsed.bind(DataBindingBuilder.longValS2C(used::getAsLong).build());
-            syncedMax.bind(DataBindingBuilder.longValS2C(max::getAsLong).build());
-            syncedUsed.setDisplay(false);
-            syncedMax.setDisplay(false);
+            var syncedUsed = HostElements.syncedLong(used::getAsLong);
+            var syncedMax = HostElements.syncedLong(max::getAsLong);
             progressBar.addChildren(syncedUsed, syncedMax);
-            progressBar.addEventListener(UIEvents.HOVER_TOOLTIPS,
-                    event -> event.hoverTooltips = HoverTooltips.empty().append(Component.translatable(tooltipKey)
-                            .append(": ")
-                            .append(HostText.fullByteProgress(syncedUsed.getValue(), syncedMax.getValue()))));
+            HostElements.tooltips(progressBar, () -> List.of(Component.translatable(tooltipKey)
+                    .append(": ")
+                    .append(HostText.fullByteProgress(syncedUsed.getValue(), syncedMax.getValue()))));
         }
         return progressBar;
     }

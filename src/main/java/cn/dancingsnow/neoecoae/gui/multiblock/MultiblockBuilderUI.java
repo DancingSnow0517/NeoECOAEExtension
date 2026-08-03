@@ -4,8 +4,6 @@ import appeng.client.gui.Icon;
 import cn.dancingsnow.neoecoae.gui.theme.AETextures;
 import cn.dancingsnow.neoecoae.gui.theme.NETextures;
 import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementPlan;
-import cn.dancingsnow.neoecoae.multiblock.placement.MultiBlockPlacementService;
-import cn.dancingsnow.neoecoae.multiblock.placement.RequiredItem;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IBindable;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
@@ -97,8 +95,13 @@ public final class MultiblockBuilderUI {
             layout.flexDirection(FlexDirection.ROW);
             layout.gapAll(4);
         });
-        body.addChild(createControlPanel(config));
-        body.addChild(createMaterialPanel(config));
+        MultiblockPreviewSync previewSync = new MultiblockPreviewSync(config.player(), () ->
+            MultiblockPreviewSnapshot.capture(config.player(), config.formed(), config.buildInProgress(), config.previewPlan()));
+        window.addChild(previewSync);
+        PreviewElements previewElements = new PreviewElements();
+        body.addChild(createControlPanel(config, previewElements));
+        body.addChild(createMaterialPanel(previewElements));
+        previewSync.subscribe(previewElements::update);
         window.addChild(body);
         return window;
     }
@@ -133,7 +136,7 @@ public final class MultiblockBuilderUI {
         return button;
     }
 
-    private static UIElement createControlPanel(Config config) {
+    private static UIElement createControlPanel(Config config, PreviewElements previewElements) {
         UIElement panel = new UIElement().layout(layout -> {
             layout.width(116);
             layout.paddingAll(3);
@@ -191,12 +194,11 @@ public final class MultiblockBuilderUI {
             ));
 
         panel.addChild(sectionTitle("gui.neoecoae.multiblock.live_result"));
-        panel.addChild(statLine("gui.neoecoae.multiblock.missing", () -> getMissingBlockCount(config)));
-        panel.addChild(statLine("gui.neoecoae.multiblock.conflicts", () -> getConflictBlockCount(config)));
-        panel.addChild(statLine("gui.neoecoae.multiblock.reused", () -> getReusedBlockCount(config)));
-        panel.addChild(statLine("gui.neoecoae.multiblock.required_items", () -> getRequiredItemCount(config)));
-        panel.addChild(syncedLabel(() -> buildStatusComponent(config))
-            .textStyle(MultiblockBuilderUI::darkTextStyle));
+        panel.addChild(previewElements.missingLabel);
+        panel.addChild(previewElements.conflictsLabel);
+        panel.addChild(previewElements.reusedLabel);
+        panel.addChild(previewElements.requiredItemsLabel);
+        panel.addChild(previewElements.statusLabel);
 
         panel.addChild(sectionTitle("gui.neoecoae.multiblock.actions"));
         panel.addChild(new Button()
@@ -209,7 +211,7 @@ public final class MultiblockBuilderUI {
         return panel;
     }
 
-    private static UIElement createMaterialPanel(Config config) {
+    private static UIElement createMaterialPanel(PreviewElements previewElements) {
         UIElement panel = new UIElement().layout(layout -> {
             layout.width(152);
             layout.paddingAll(3);
@@ -234,12 +236,8 @@ public final class MultiblockBuilderUI {
             });
             for (int columnIndex = 0; columnIndex < 8; columnIndex++) {
                 int index = rowIndex * 8 + columnIndex;
-                RequiredItemSlot slot = new RequiredItemSlot(
-                        () -> hasRequiredItem(config, index),
-                        () -> getRequiredItem(config, index).count()
-                    );
-                slot.setValue(getRequiredItemStack(config, index));
-                slot.bind(DataBindingBuilder.itemStackS2C(() -> getRequiredItemStack(config, index)).build());
+                RequiredItemSlot slot = new RequiredItemSlot();
+                previewElements.materialSlots[index] = slot;
                 row.addChild(slot.layout(layout -> layout.width(18).height(18)));
             }
             grid.addChild(row);
@@ -248,115 +246,33 @@ public final class MultiblockBuilderUI {
         panel.addChild(materialBox);
 
         panel.addChild(sectionTitle("gui.neoecoae.multiblock.conflict_preview"));
-        Label conflictLabel = new Label();
-        Supplier<Component> conflictText = () -> Component.translatable(
-                "gui.neoecoae.multiblock.conflicts",
-                getConflictBlockCount(config)
-            );
-        conflictLabel.setText(conflictText.get());
-        conflictLabel.bind(DataBindingBuilder.componentS2C(conflictText).build());
-        conflictLabel.textStyle(MultiblockBuilderUI::darkTextStyle);
-        Component[] syncedConflictTooltip = {buildConflictTooltipComponent(getConflictPositions(config))};
-        conflictLabel.addChild(new SyncReceiver<>(syncedConflictTooltip[0], value ->
-            syncedConflictTooltip[0] = value == null ? Component.empty() : value)
-            .bind(DataBindingBuilder.componentS2C(() ->
-                buildConflictTooltipComponent(getConflictPositions(config))).build()));
-        conflictLabel
-            .addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
-                List.of(syncedConflictTooltip[0]),
-                null,
-                null,
-                null
-            ));
-        panel.addChild(conflictLabel);
+        panel.addChild(previewElements.conflictLabel);
 
         return panel;
     }
 
-    private static Component buildStatusComponent(Config config) {
-        if (config.formed().getAsBoolean()) {
+    private static Component buildStatusComponent(MultiblockPreviewSnapshot snapshot) {
+        if (snapshot.status() == MultiblockPreviewSnapshot.Status.CONTROLLER_FORMED) {
             return Component.translatable("gui.neoecoae.multiblock.status.controller_formed");
         }
-        if (config.buildInProgress().getAsBoolean()) {
+        if (snapshot.status() == MultiblockPreviewSnapshot.Status.BUILD_IN_PROGRESS) {
             return Component.translatable("gui.neoecoae.multiblock.status.build_in_progress");
         }
-        MultiBlockPlacementPlan plan = config.previewPlan().get();
-        if (plan == null) {
+        if (snapshot.status() == MultiblockPreviewSnapshot.Status.NO_DEFINITION) {
             return Component.translatable("gui.neoecoae.multiblock.status.no_definition");
         }
-        if (!plan.getConflictPositions().isEmpty()) {
+        if (snapshot.status() == MultiblockPreviewSnapshot.Status.CONFLICTS_DETECTED) {
             return Component.translatable("gui.neoecoae.multiblock.status.conflicts_detected");
         }
-        if (plan.getMissingBlocks().isEmpty()) {
+        if (snapshot.status() == MultiblockPreviewSnapshot.Status.STRUCTURE_READY) {
             return Component.translatable("gui.neoecoae.multiblock.status.structure_ready");
         }
-        return hasRequiredItems(config)
+        return snapshot.status() == MultiblockPreviewSnapshot.Status.READY_TO_BUILD
             ? Component.translatable("gui.neoecoae.multiblock.status.ready_to_build")
             : Component.translatable("gui.neoecoae.multiblock.status.not_enough_items");
     }
 
-    private static int getMissingBlockCount(Config config) {
-        MultiBlockPlacementPlan plan = config.previewPlan().get();
-        return plan == null ? 0 : plan.getMissingBlocks().size();
-    }
-
-    private static int getConflictBlockCount(Config config) {
-        return getConflictPositions(config).size();
-    }
-
-    private static int getReusedBlockCount(Config config) {
-        MultiBlockPlacementPlan plan = config.previewPlan().get();
-        return plan == null ? 0 : plan.getReusedBlockCount();
-    }
-
-    private static int getRequiredItemCount(Config config) {
-        MultiBlockPlacementPlan plan = config.previewPlan().get();
-        return plan == null ? 0 : plan.getRequiredItemCount();
-    }
-
-    private static RequiredItem getRequiredItem(Config config, int index) {
-        List<RequiredItem> requiredItems = getRequiredItems(config);
-        if (index < 0 || index >= requiredItems.size()) {
-            return new RequiredItem(ItemStack.EMPTY, 0);
-        }
-        return requiredItems.get(index);
-    }
-
-    private static ItemStack getRequiredItemStack(Config config, int index) {
-        return getRequiredItem(config, index).stack();
-    }
-
-    private static boolean hasRequiredItem(Config config, int index) {
-        RequiredItem requiredItem = getRequiredItem(config, index);
-        if (requiredItem.isEmpty() || config.player().isCreative()) {
-            return true;
-        }
-        return MultiBlockPlacementService.countMatchingItems(config.player(), requiredItem.stack()) >= requiredItem.count();
-    }
-
-    private static boolean hasRequiredItems(Config config) {
-        if (config.player().isCreative()) {
-            return true;
-        }
-        for (RequiredItem requiredItem : getRequiredItems(config)) {
-            if (MultiBlockPlacementService.countMatchingItems(config.player(), requiredItem.stack()) < requiredItem.count()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static List<RequiredItem> getRequiredItems(Config config) {
-        MultiBlockPlacementPlan plan = config.previewPlan().get();
-        return plan == null ? List.of() : plan.getRequiredItems();
-    }
-
-    private static List<BlockPos> getConflictPositions(Config config) {
-        MultiBlockPlacementPlan plan = config.previewPlan().get();
-        return plan == null ? List.of() : plan.getConflictPositions();
-    }
-
-    private static List<Component> buildConflictTooltip(List<BlockPos> positions) {
+    private static List<Component> buildConflictTooltip(List<BlockPos> positions, int totalCount) {
         List<Component> lines = new ArrayList<>();
         if (positions.isEmpty()) {
             lines.add(Component.translatable("gui.neoecoae.multiblock.no_conflicts"));
@@ -368,14 +284,14 @@ public final class MultiblockBuilderUI {
             BlockPos pos = positions.get(i);
             lines.add(Component.literal(pos.getX() + ", " + pos.getY() + ", " + pos.getZ()));
         }
-        if (positions.size() > limit) {
-            lines.add(Component.translatable("gui.neoecoae.multiblock.more_conflicts", positions.size() - limit));
+        if (totalCount > limit) {
+            lines.add(Component.translatable("gui.neoecoae.multiblock.more_conflicts", totalCount - limit));
         }
         return lines;
     }
 
-    private static Component buildConflictTooltipComponent(List<BlockPos> positions) {
-        List<Component> lines = buildConflictTooltip(positions);
+    private static Component buildConflictTooltipComponent(List<BlockPos> positions, int totalCount) {
+        List<Component> lines = buildConflictTooltip(positions, totalCount);
         var result = Component.empty();
         for (int i = 0; i < lines.size(); i++) {
             if (i > 0) {
@@ -390,12 +306,6 @@ public final class MultiblockBuilderUI {
         return new TextElement()
             .setText(Component.translatable(key))
             .textStyle(MultiblockBuilderUI::sectionTextStyle);
-    }
-
-    private static Label statLine(String key, IntSupplier value) {
-        Label label = syncedLabel(() -> Component.translatable(key, value.getAsInt()));
-        label.textStyle(MultiblockBuilderUI::darkTextStyle);
-        return label;
     }
 
     private static Label syncedLabel(Supplier<Component> text) {
@@ -415,6 +325,44 @@ public final class MultiblockBuilderUI {
 
     private static void sectionTextStyle(TextElement.TextStyle style) {
         style.adaptiveHeight(true).adaptiveWidth(true).textWrap(TextWrap.HOVER_ROLL).textColor(0x236f80).textShadow(false);
+    }
+
+    private static final class PreviewElements {
+        private final Label missingLabel = previewLabel();
+        private final Label conflictsLabel = previewLabel();
+        private final Label reusedLabel = previewLabel();
+        private final Label requiredItemsLabel = previewLabel();
+        private final Label statusLabel = previewLabel();
+        private final RequiredItemSlot[] materialSlots = new RequiredItemSlot[MultiblockPreviewSnapshot.MAX_MATERIALS];
+        private final Label conflictLabel = previewLabel();
+        private Component conflictTooltip = buildConflictTooltipComponent(List.of(), 0);
+
+        private PreviewElements() {
+            conflictLabel.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> event.hoverTooltips = new HoverTooltips(
+                List.of(conflictTooltip), null, null, null));
+        }
+
+        private void update(MultiblockPreviewSnapshot snapshot) {
+            missingLabel.setText(Component.translatable("gui.neoecoae.multiblock.missing", snapshot.missing()));
+            conflictsLabel.setText(Component.translatable("gui.neoecoae.multiblock.conflicts", snapshot.conflictCount()));
+            reusedLabel.setText(Component.translatable("gui.neoecoae.multiblock.reused", snapshot.reused()));
+            requiredItemsLabel.setText(Component.translatable("gui.neoecoae.multiblock.required_items", snapshot.requiredCount()));
+            statusLabel.setText(buildStatusComponent(snapshot));
+            conflictLabel.setText(Component.translatable("gui.neoecoae.multiblock.conflicts", snapshot.conflictCount()));
+            conflictTooltip = buildConflictTooltipComponent(snapshot.conflicts(), snapshot.conflictCount());
+            for (int index = 0; index < materialSlots.length; index++) {
+                RequiredItemSlot slot = materialSlots[index];
+                if (slot != null) {
+                    slot.update(index < snapshot.materials().size() ? snapshot.materials().get(index) : null);
+                }
+            }
+        }
+
+        private static Label previewLabel() {
+            Label label = new Label();
+            label.textStyle(MultiblockBuilderUI::darkTextStyle);
+            return label;
+        }
     }
 
     private static final class SegmentedBooleanControl extends UIElement implements IBindable<Boolean> {
@@ -493,31 +441,32 @@ public final class MultiblockBuilderUI {
     }
 
     private static final class RequiredItemSlot extends ItemSlot {
-        private boolean syncedHasRequiredItem;
-        private int syncedCount;
+        private boolean enough = true;
+        private int required;
 
-        private RequiredItemSlot(BooleanSupplier hasRequiredItem, IntSupplier count) {
-            syncedHasRequiredItem = hasRequiredItem.getAsBoolean();
-            syncedCount = count.getAsInt();
+        private RequiredItemSlot() {
             getStyle().backgroundTexture(NETextures.ITEM_SLOT);
-            addChild(new SyncReceiver<>(syncedHasRequiredItem, value -> syncedHasRequiredItem = Boolean.TRUE.equals(value))
-                .bind(DataBindingBuilder.boolS2C(hasRequiredItem::getAsBoolean).build()));
-            addChild(new SyncReceiver<>(syncedCount, value -> syncedCount = value == null ? 0 : value)
-                .bind(DataBindingBuilder.intValS2C(count::getAsInt).build()));
             addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
                 ItemStack stack = getValue();
                 if (stack.isEmpty()) {
                     return;
                 }
-                Component state = syncedHasRequiredItem
+                Component state = enough
                     ? Component.translatable("gui.neoecoae.multiblock.material_enough")
                     : Component.translatable("gui.neoecoae.multiblock.material_missing");
                 event.hoverTooltips = new HoverTooltips(
                     List.of(stack.getHoverName(),
-                        Component.translatable("gui.neoecoae.multiblock.item_required", syncedCount), state),
+                        Component.translatable("gui.neoecoae.multiblock.item_required", required), state),
                     null, null, null
                 );
             });
+        }
+
+        private void update(@Nullable MultiblockPreviewSnapshot.Material material) {
+            ItemStack stack = material == null ? ItemStack.EMPTY : material.stack();
+            setValue(stack);
+            required = material == null ? 0 : material.required();
+            enough = material == null || material.enough();
         }
 
         @Override
@@ -526,34 +475,12 @@ public final class MultiblockBuilderUI {
                 return;
             }
             DrawerHelper.drawItemStack(guiContext.graphics, itemStack.copyWithCount(1), 0, 0, -1, null);
-            int color = syncedHasRequiredItem ? MATERIAL_COUNT_ENOUGH_COLOR : MATERIAL_COUNT_MISSING_COLOR;
+            int color = enough ? MATERIAL_COUNT_ENOUGH_COLOR : MATERIAL_COUNT_MISSING_COLOR;
             guiContext.graphics.pose().pushPose();
             guiContext.graphics.pose().translate(0, 0, 240);
-            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(syncedCount), 17, 17, color, true, 0.8f);
+            DrawerHelper.drawStringFixedCorner(guiContext.graphics, String.valueOf(required), 17, 17, color, true, 0.8f);
             guiContext.graphics.pose().popPose();
         }
     }
 
-    private static final class SyncReceiver<T> extends UIElement implements IBindable<T> {
-        private T value;
-        private final Consumer<T> consumer;
-
-        private SyncReceiver(T value, Consumer<T> consumer) {
-            this.value = value;
-            this.consumer = consumer;
-            layout(layout -> layout.width(0).height(0));
-        }
-
-        @Override
-        public T getValue() {
-            return value;
-        }
-
-        @Override
-        public IDataSource<T> setValue(@Nullable T value) {
-            this.value = value;
-            consumer.accept(value);
-            return this;
-        }
-    }
 }

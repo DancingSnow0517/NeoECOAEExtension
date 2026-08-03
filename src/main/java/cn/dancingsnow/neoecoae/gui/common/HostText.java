@@ -25,17 +25,11 @@ public final class HostText {
     public static final int ERROR = 0xFF6A75;
 
     private static final int BYTES_IN_K = 1024;
-    private static final long BYTES_IN_M = BYTES_IN_K * 1024L;
-    private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
-    private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
-    private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
     private static final BigInteger BIG_BYTES_IN_K = BigInteger.valueOf(BYTES_IN_K);
     private static final int TOOLTIP_BYTE_DIGITS = 4;
     private static final String[] EXPANDED_BYTE_UNITS = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
     private static final ThreadLocal<NumberFormat> NUMBER_FORMAT =
         ThreadLocal.withInitial(() -> NumberFormat.getNumberInstance(Locale.US));
-    private static final ThreadLocal<DecimalFormat> COMPACT_DECIMAL =
-        ThreadLocal.withInitial(() -> new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PRECISE_HUGE_DECIMAL =
         ThreadLocal.withInitial(() -> new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)));
     private static final ThreadLocal<DecimalFormat> PERCENT_DECIMAL =

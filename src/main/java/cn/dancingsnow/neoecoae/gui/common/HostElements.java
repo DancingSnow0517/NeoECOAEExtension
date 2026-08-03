@@ -8,6 +8,10 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.BindableValue;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -16,6 +20,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
+import java.util.function.LongSupplier;
+import java.util.List;
 import java.util.function.Supplier;
 
 public final class HostElements {
@@ -50,6 +56,69 @@ public final class HostElements {
         label.bind(DataBindingBuilder.componentS2C(styledText).build());
         label.textStyle(HostElements::lineTextStyle);
         return label;
+    }
+
+    public static BindableValue<Boolean> syncedBoolean(BooleanSupplier value) {
+        BindableValue<Boolean> synced = new BindableValue<>(value.getAsBoolean());
+        synced.bind(DataBindingBuilder.boolS2C(value::getAsBoolean).build());
+        synced.setDisplay(false);
+        return synced;
+    }
+
+    public static BindableValue<Integer> syncedInt(IntSupplier value) {
+        BindableValue<Integer> synced = new BindableValue<>(value.getAsInt());
+        synced.bind(DataBindingBuilder.intValS2C(value::getAsInt).build());
+        synced.setDisplay(false);
+        return synced;
+    }
+
+    public static BindableValue<Long> syncedLong(LongSupplier value) {
+        BindableValue<Long> synced = new BindableValue<>(value.getAsLong());
+        synced.bind(DataBindingBuilder.longValS2C(value::getAsLong).build());
+        synced.setDisplay(false);
+        return synced;
+    }
+
+    public static BindableValue<Component> syncedComponent(Supplier<Component> value) {
+        BindableValue<Component> synced = new BindableValue<>(value.get());
+        synced.bind(DataBindingBuilder.componentS2C(value).build());
+        synced.setDisplay(false);
+        return synced;
+    }
+
+    public static <T extends UIElement> T tooltips(T element, Supplier<List<Component>> lines) {
+        element.addEventListener(UIEvents.HOVER_TOOLTIPS, event -> {
+            List<Component> values = lines.get();
+            event.hoverTooltips = HoverTooltips.empty().append(values.toArray(Component[]::new));
+        });
+        return element;
+    }
+
+    public static <T extends UIElement> T tooltips(T element, Component... lines) {
+        return tooltips(element, () -> List.of(lines));
+    }
+
+    public static UIElement hostCard(int width, int height) {
+        return new UIElement()
+            .addClass("eco-host-card")
+            .layout(layout -> layout.width(width).height(height).flexDirection(FlexDirection.COLUMN));
+    }
+
+    public static UIElement inventoryPanel(UIElement title, int width, int height) {
+        UIElement panel = new UIElement()
+            .addClass("eco-host-inventory")
+            .layout(layout -> layout.width(width).height(height).flexDirection(FlexDirection.COLUMN));
+        panel.addChild(title);
+        panel.addChild(new InventorySlots().layout(layout -> layout.marginTop(2)));
+        return panel;
+    }
+
+    public static UIElement inventoryPanel(int width, int height, UIElement title) {
+        return inventoryPanel(title, width, height);
+    }
+
+    public static UIElement inventoryPanel(UIElement title) {
+        return inventoryPanel(title, 162, 88);
     }
 
     public static Label localizedTextSegment(String translationKey, IntSupplier color) {

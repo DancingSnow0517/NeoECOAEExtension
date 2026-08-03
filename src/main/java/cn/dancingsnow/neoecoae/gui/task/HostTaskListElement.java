@@ -14,29 +14,14 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 
 public abstract class HostTaskListElement extends UIElement implements IBindable<CompoundTag> {
-    private static final String NBT_SEQUENCE = "seq";
-    private static final String NBT_UPDATES = "updates";
-    private static final String NBT_REMOVED = "removed";
-    private static final String NBT_ORDER = "order";
-    private static final String NBT_TOTAL = "total";
-
-    private static final int MAX_SYNCED_TASKS = 96;
-    private static final int MAX_SYNCED_TASK_BYTES = 128_000;
-
-    private final Supplier<HolderLookup.Provider> registries;
     private final Supplier<List<ComputationTaskEntry>> tasks;
     private final int panelWidth;
     private final int panelHeight;
@@ -47,14 +32,10 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
     private final int cardStride;
     private final int listBottomY;
     private final int scrollbarWidth;
+    private final HostTaskListSyncState syncState;
 
     private List<ComputationTaskEntry> syncedTasks = List.of();
     private int syncedTotalTasks;
-    private Map<String, ComputationTaskEntry> lastServerTasks = Map.of();
-    private List<String> lastServerOrder = List.of();
-    private CompoundTag lastSyncPayload = new CompoundTag();
-    private long syncSequence;
-    private int lastServerTotalTasks;
     private int scrollOffset;
 
     public HostTaskListElement(
@@ -70,7 +51,6 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
         int listBottomY,
         int scrollbarWidth
     ) {
-        this.registries = registries;
         this.tasks = tasks;
         this.panelWidth = panelWidth;
         this.panelHeight = panelHeight;
@@ -81,8 +61,9 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
         this.cardStride = cardStride;
         this.listBottomY = listBottomY;
         this.scrollbarWidth = scrollbarWidth;
+        this.syncState = new HostTaskListSyncState(registries);
         bind(DataBindingBuilder.create(
-            () -> createTaskDelta(registries.get(), this.tasks.get()),
+            () -> syncState.createDelta(this.tasks.get()),
             ignored -> {
             }).syncType(CompoundTag.class).c2sStrategy(SyncStrategy.NONE).build());
         addEventListener(UIEvents.MOUSE_WHEEL, event -> {
@@ -216,136 +197,17 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
 
     @Override
     public CompoundTag getValue() {
-        return lastSyncPayload.copy();
+        return syncState.payload();
     }
 
     @Override
     public IDataSource<CompoundTag> setValue(@Nullable CompoundTag value) {
-        lastSyncPayload = value == null ? new CompoundTag() : value.copy();
-        applyTaskDelta(registries.get(), lastSyncPayload);
+        syncState.setPayload(value);
+        syncedTasks = syncState.tasks();
+        syncedTotalTasks = syncState.totalTasks();
         return this;
     }
 
-    private CompoundTag createTaskDelta(HolderLookup.Provider registries, List<ComputationTaskEntry> entries) {
-        PreparedTasks current = prepareTasks(registries, entries);
-        Map<String, ComputationTaskEntry> currentById = current.byId();
-        List<String> currentOrder = current.order();
-
-        ListTag updates = new ListTag();
-        for (Map.Entry<String, ComputationTaskEntry> entry : currentById.entrySet()) {
-            ComputationTaskEntry previous = lastServerTasks.get(entry.getKey());
-            if (!entry.getValue().equals(previous)) {
-                updates.add(current.tagsById().get(entry.getKey()));
-            }
-        }
-
-        ListTag removed = new ListTag();
-        for (String previousId : lastServerTasks.keySet()) {
-            if (!currentById.containsKey(previousId)) {
-                removed.add(StringTag.valueOf(previousId));
-            }
-        }
-
-        boolean orderChanged = !currentOrder.equals(lastServerOrder);
-        boolean totalChanged = current.totalTasks() != lastServerTotalTasks;
-        if (updates.isEmpty() && removed.isEmpty() && !orderChanged && !totalChanged) {
-            return lastSyncPayload;
-        }
-
-        CompoundTag payload = new CompoundTag();
-        payload.putLong(NBT_SEQUENCE, ++syncSequence);
-        payload.putInt(NBT_TOTAL, current.totalTasks());
-        if (!updates.isEmpty()) {
-            payload.put(NBT_UPDATES, updates);
-        }
-        if (!removed.isEmpty()) {
-            payload.put(NBT_REMOVED, removed);
-        }
-        payload.put(NBT_ORDER, writeOrder(currentOrder));
-
-        lastServerTasks = Map.copyOf(currentById);
-        lastServerOrder = List.copyOf(currentOrder);
-        lastServerTotalTasks = current.totalTasks();
-        lastSyncPayload = payload;
-        return payload;
-    }
-
-    private PreparedTasks prepareTasks(HolderLookup.Provider registries, List<ComputationTaskEntry> entries) {
-        List<ComputationTaskEntry> source = entries == null ? List.of() : entries;
-        Map<String, ComputationTaskEntry> byId = new LinkedHashMap<>();
-        Map<String, CompoundTag> tagsById = new LinkedHashMap<>();
-        List<String> order = new ArrayList<>();
-        int remainingBudget = MAX_SYNCED_TASK_BYTES;
-        for (ComputationTaskEntry entry : source) {
-            if (byId.size() >= MAX_SYNCED_TASKS || byId.containsKey(entry.id())) {
-                continue;
-            }
-            CompoundTag tag = entry.writeToNBT(registries);
-            int estimatedSize = Math.toIntExact(Math.min(Integer.MAX_VALUE, tag.sizeInBytes()));
-            if (estimatedSize > remainingBudget) {
-                break;
-            }
-            byId.put(entry.id(), entry);
-            tagsById.put(entry.id(), tag);
-            order.add(entry.id());
-            remainingBudget -= estimatedSize;
-        }
-        return new PreparedTasks(byId, tagsById, order, source.size());
-    }
-
-    private void applyTaskDelta(HolderLookup.Provider registries, CompoundTag payload) {
-        if (payload.isEmpty() && !payload.contains(NBT_SEQUENCE)) {
-            return;
-        }
-
-        Map<String, ComputationTaskEntry> entriesById = new LinkedHashMap<>();
-        for (ComputationTaskEntry entry : syncedTasks) {
-            entriesById.put(entry.id(), entry);
-        }
-
-        if (payload.contains(NBT_REMOVED, Tag.TAG_LIST)) {
-            ListTag removed = payload.getList(NBT_REMOVED, Tag.TAG_STRING);
-            for (int i = 0; i < removed.size(); i++) {
-                entriesById.remove(removed.getString(i));
-            }
-        }
-
-        if (payload.contains(NBT_UPDATES, Tag.TAG_LIST)) {
-            ListTag updates = payload.getList(NBT_UPDATES, Tag.TAG_COMPOUND);
-            for (int i = 0; i < updates.size(); i++) {
-                ComputationTaskEntry entry = ComputationTaskEntry.readFromNBT(registries, updates.getCompound(i));
-                entriesById.put(entry.id(), entry);
-            }
-        }
-
-        if (payload.contains(NBT_ORDER, Tag.TAG_LIST)) {
-            syncedTasks = orderTasks(entriesById, payload.getList(NBT_ORDER, Tag.TAG_STRING));
-        } else {
-            syncedTasks = List.copyOf(entriesById.values());
-        }
-        syncedTotalTasks = payload.contains(NBT_TOTAL, Tag.TAG_INT) ? payload.getInt(NBT_TOTAL) : syncedTasks.size();
-        scrollOffset = clampTaskScrollOffset(scrollOffset, syncedTasks.size());
-    }
-
-    private static ListTag writeOrder(List<String> order) {
-        ListTag orderTag = new ListTag();
-        for (String id : order) {
-            orderTag.add(StringTag.valueOf(id));
-        }
-        return orderTag;
-    }
-
-    private static List<ComputationTaskEntry> orderTasks(Map<String, ComputationTaskEntry> entriesById, ListTag order) {
-        List<ComputationTaskEntry> ordered = new ArrayList<>(entriesById.size());
-        for (int i = 0; i < order.size(); i++) {
-            ComputationTaskEntry entry = entriesById.remove(order.getString(i));
-            if (entry != null) {
-                ordered.add(entry);
-            }
-        }
-        ordered.addAll(entriesById.values());
-        return List.copyOf(ordered);
-    }
 
     private String taskCountText() {
         if (syncedTotalTasks > syncedTasks.size()) {
@@ -377,11 +239,4 @@ public abstract class HostTaskListElement extends UIElement implements IBindable
         return Math.clamp(value, 0, Math.max(0, total - visibleTaskCardCount()));
     }
 
-    private record PreparedTasks(
-        Map<String, ComputationTaskEntry> byId,
-        Map<String, CompoundTag> tagsById,
-        List<String> order,
-        int totalTasks
-    ) {
-    }
 }
