@@ -26,8 +26,7 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         ECOMachineInterfaceBlockEntity<C> blockEntity = getBlockEntity(level, pos);
-        if (blockEntity == null || !blockEntity.supportsStorageInterfaceUi()
-            || !blockEntity.isInfiniteTransferAvailable()) {
+        if (blockEntity == null || !blockEntity.supportsStorageInterfaceUi()) {
             return InteractionResult.PASS;
         }
         if (player instanceof ServerPlayer serverPlayer) {
@@ -49,8 +48,7 @@ public class ECOMachineInterface<C extends NECluster<C>> extends NEBlock<ECOMach
     public boolean stillValid(BlockUIMenuType.BlockUIHolder holder) {
         return BlockUIMenuType.BlockUI.super.stillValid(holder)
             && holder.player.level().getBlockEntity(holder.pos) instanceof ECOMachineInterfaceBlockEntity<?> be
-            && be.supportsStorageInterfaceUi()
-            && be.isInfiniteTransferAvailable();
+            && be.supportsStorageInterfaceUi();
     }
 
     @Override
