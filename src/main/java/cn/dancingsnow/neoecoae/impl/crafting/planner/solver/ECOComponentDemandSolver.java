@@ -65,6 +65,7 @@ public final class ECOComponentDemandSolver {
         problem.requested().keySet().forEach(key -> enqueueIfDeficient(key, balances, graph, queue, queued));
 
         long expansions = 0;
+        boolean arithmeticSaturated = false;
         long maxExpansions = Math.min(1_000_000L,
             Math.max(64L, (long) graph.materials().size() * 8L + graph.operations().size() * 4L));
         try {
@@ -97,24 +98,27 @@ public final class ECOComponentDemandSolver {
                 }
                 K material = queue.removeFirst();
                 queued.remove(material);
-                long deficit = -balances.getOrDefault(material, 0L);
+                long deficit = ECOPlannerMath.saturatedNegate(
+                    balances.getOrDefault(material, 0L)
+                );
                 if (deficit <= 0) {
                     continue;
                 }
                 List<ECOPlanningOperation<K, R>> producers = graph.producersOf(material);
-                ECOPlanningOperation<K, R> producer = chooseProducer(
+                ProducerChoice<K, R> choice = chooseProducer(
                     material,
                     deficit,
                     producers,
                     balances,
                     problem.requested(),
+                    graph,
                     expandableMaterials,
                     deadlineNanos
                 );
                 if (ECOSolveBudget.shouldStop(deadlineNanos)) {
                     return Optional.empty();
                 }
-                if (producer == null) {
+                if (choice == null) {
                     ECOPlanningFailureDiagnostics.logFailure(
                         ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
                         ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
@@ -126,6 +130,7 @@ public final class ECOComponentDemandSolver {
                     );
                     continue;
                 }
+                ECOPlanningOperation<K, R> producer = choice.operation();
                 long net = producer.netOutput(material);
                 if (net <= 0) {
                     ECOPlanningFailureDiagnostics.logFailure(
@@ -143,15 +148,52 @@ public final class ECOComponentDemandSolver {
                 );
                 long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
                 long batches = ECOPlannerMath.ceilDiv(demand, net);
-                executions.merge(producer.reference(), batches, Math::addExact);
-                producer.inputs().forEach((key, amount) -> {
-                    balances.merge(key, Math.multiplyExact(amount, -batches), Math::addExact);
+                long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(producer, balances);
+                if (!producer.stateTransitionInputs().isEmpty()) {
+                    if (stateCapacity > 0L) {
+                        batches = Math.min(batches, stateCapacity);
+                    } else if (!canExposeStateDependency(producer, balances, graph)) {
+                        continue;
+                    } else {
+                        // One batch makes the missing state visible to the queue. A second batch
+                        // would incorrectly assume that the next state already exists.
+                        batches = 1L;
+                    }
+                } else if (choice.inventoryBackedCapacity() > 0L
+                    && choice.inventoryBackedCapacity() != Long.MAX_VALUE) {
+                    // Commit only the part this route can currently support. The remaining
+                    // material deficit is requeued so another producer can consume its own
+                    // finite source inventory without invoking integer search.
+                    batches = Math.min(batches, choice.inventoryBackedCapacity());
+                }
+                if (batches <= 0L) {
+                    continue;
+                }
+                long plannedBatches = batches;
+                long previousExecutions = executions.getOrDefault(producer.reference(), 0L);
+                long updatedExecutions = ECOPlannerMath.saturatedAdd(previousExecutions, plannedBatches);
+                arithmeticSaturated |= updatedExecutions == Long.MAX_VALUE
+                    && previousExecutions != Long.MAX_VALUE
+                    && plannedBatches != Long.MAX_VALUE;
+                executions.put(producer.reference(), updatedExecutions);
+                for (var input : producer.inputs().entrySet()) {
+                    K key = input.getKey();
+                    long delta = ECOPlannerMath.saturatedMultiply(input.getValue(), -plannedBatches);
+                    long previous = balances.getOrDefault(key, 0L);
+                    long updated = ECOPlannerMath.saturatedAdd(previous, delta);
+                    arithmeticSaturated |= delta == Long.MIN_VALUE || updated == Long.MIN_VALUE;
+                    balances.put(key, updated);
                     enqueueIfDeficient(key, balances, graph, queue, queued);
-                });
-                producer.outputs().forEach((key, amount) -> {
-                    balances.merge(key, Math.multiplyExact(amount, batches), Math::addExact);
+                }
+                for (var output : producer.outputs().entrySet()) {
+                    K key = output.getKey();
+                    long delta = ECOPlannerMath.saturatedMultiply(output.getValue(), plannedBatches);
+                    long previous = balances.getOrDefault(key, 0L);
+                    long updated = ECOPlannerMath.saturatedAdd(previous, delta);
+                    arithmeticSaturated |= delta == Long.MAX_VALUE || updated == Long.MAX_VALUE;
+                    balances.put(key, updated);
                     enqueueIfDeficient(key, balances, graph, queue, queued);
-                });
+                }
             }
         } catch (ArithmeticException overflow) {
             ECOPlanningFailureDiagnostics.logFailure(
@@ -178,34 +220,55 @@ public final class ECOComponentDemandSolver {
             return Optional.empty();
         }
 
-        return Optional.of(ECOPlannerMath.buildResult(
+        ECOHyperflowResult<R> result = ECOPlannerMath.buildResult(
             balances,
             executions,
             problem.requested(),
             expandableMaterials,
             graph.materials(),
             expansions
-        ));
+        );
+        if (arithmeticSaturated && result.status() == ECOHyperflowResult.Status.COMPLETE) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                ECOPlannerFallbackReason.PLANNING_FAILURE,
+                materialKey(problem),
+                0L,
+                "component",
+                "complete_result_after_arithmetic_saturation expansions=" + expansions
+            );
+            return Optional.empty();
+        }
+        return Optional.of(result);
     }
 
-    private static <K, R> ECOPlanningOperation<K, R> chooseProducer(
+    private static <K, R> ProducerChoice<K, R> chooseProducer(
         K material,
         long deficit,
         List<ECOPlanningOperation<K, R>> producers,
         Map<K, Long> balances,
         Map<K, Long> requested,
+        ECOPlanningGraph<K, R> graph,
         Set<K> expandableMaterials,
         long deadlineNanos
     ) {
         // bootstrapDeficit does not depend on the current producer — compute once outside the loop.
         long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(material, producers, balances, requested);
         ECOPlanningOperation<K, R> best = null;
+        long bestInventoryCapacity = 0L;
         long bestScore = Long.MAX_VALUE;
+        int bestPriority = Integer.MAX_VALUE;
         for (var operation : producers) {
             if (ECOSolveBudget.shouldStop(deadlineNanos)) {
                 return null;
             }
             if (!ECOCycleBootstrap.canPotentiallyStart(operation, balances, requested)) {
+                continue;
+            }
+            long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(operation, balances);
+            if (!operation.stateTransitionInputs().isEmpty()
+                && stateCapacity <= 0L
+                && !canExposeStateDependency(operation, balances, graph)) {
                 continue;
             }
             long net = ECOPlannerMath.positiveNet(operation, material);
@@ -214,6 +277,14 @@ public final class ECOComponentDemandSolver {
             }
             long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
             long batches = ECOPlannerMath.ceilDiv(demand, net);
+            long inventoryCapacity = inventoryBackedOperationCapacity(
+                operation, balances, graph, new HashSet<>(), 0
+            );
+            if (!operation.stateTransitionInputs().isEmpty()) {
+                batches = stateCapacity > 0L ? Math.min(batches, stateCapacity) : 1L;
+            } else if (inventoryCapacity > 0L && inventoryCapacity != Long.MAX_VALUE) {
+                batches = Math.min(batches, inventoryCapacity);
+            }
             long score = 0;
             for (var input : operation.inputs().entrySet()) {
                 long available = Math.max(0L, balances.getOrDefault(input.getKey(), 0L));
@@ -248,12 +319,110 @@ public final class ECOComponentDemandSolver {
             score = ECOPlannerMath.saturatedAdd(score, operation.inputs().size() * 16L);
             score = ECOPlannerMath.saturatedAdd(score, Math.max(0L, 1_000L / Math.min(net, 1_000L)));
             score = ECOPlannerMath.saturatedAdd(score, Math.max(0L, batches - 1L));
-            if (score < bestScore) {
+            int priority = operation.stateTransitionInputs().isEmpty()
+                ? inventoryCapacity > 0L ? 0 : 2
+                : stateCapacity > 0L ? 0 : 1;
+            if (priority < bestPriority || (priority == bestPriority && score < bestScore)) {
                 best = operation;
                 bestScore = score;
+                bestPriority = priority;
+                bestInventoryCapacity = inventoryCapacity;
             }
         }
-        return best;
+        return best == null ? null : new ProducerChoice<>(best, bestInventoryCapacity);
+    }
+
+    /**
+     * Conservative capacity of an operation from the balances currently left in the network.
+     * For alternative producers we use the best single route, not their sum, so shared terminal
+     * sources are never counted twice. Requeuing exposes the next route after this capacity is
+     * committed.
+     */
+    private static <K, R> long inventoryBackedOperationCapacity(
+        ECOPlanningOperation<K, R> operation,
+        Map<K, Long> balances,
+        ECOPlanningGraph<K, R> graph,
+        Set<K> visiting,
+        int depth
+    ) {
+        if (operation.inputs().isEmpty()) {
+            return Long.MAX_VALUE;
+        }
+        long capacity = Long.MAX_VALUE;
+        boolean constrained = false;
+        for (var input : operation.inputs().entrySet()) {
+            if (operation.outputs().getOrDefault(input.getKey(), 0L) >= input.getValue()) {
+                continue;
+            }
+            long available = inventoryBackedMaterialAmount(
+                input.getKey(), balances, graph, visiting, depth + 1
+            );
+            if (available == Long.MAX_VALUE) {
+                continue;
+            }
+            constrained = true;
+            capacity = Math.min(capacity, available / input.getValue());
+        }
+        return constrained ? capacity : Long.MAX_VALUE;
+    }
+
+    private static <K, R> long inventoryBackedMaterialAmount(
+        K material,
+        Map<K, Long> balances,
+        ECOPlanningGraph<K, R> graph,
+        Set<K> visiting,
+        int depth
+    ) {
+        long balance = balances.getOrDefault(material, 0L);
+        if (depth > graph.materials().size() || !visiting.add(material)) {
+            return Math.max(0L, balance);
+        }
+        long bestProduced = 0L;
+        try {
+            for (var producer : graph.producersOf(material)) {
+                long net = ECOPlannerMath.positiveNet(producer, material);
+                if (net <= 0L) {
+                    continue;
+                }
+                long batches = inventoryBackedOperationCapacity(
+                    producer, balances, graph, visiting, depth + 1
+                );
+                if (batches == Long.MAX_VALUE) {
+                    return Long.MAX_VALUE;
+                }
+                bestProduced = Math.max(
+                    bestProduced,
+                    ECOPlannerMath.saturatedMultiply(net, batches)
+                );
+            }
+        } finally {
+            visiting.remove(material);
+        }
+        return Math.max(0L, ECOPlannerMath.saturatedAdd(balance, bestProduced));
+    }
+
+    private record ProducerChoice<K, R>(
+        ECOPlanningOperation<K, R> operation,
+        long inventoryBackedCapacity
+    ) {
+    }
+
+    private static <K, R> boolean canExposeStateDependency(
+        ECOPlanningOperation<K, R> operation,
+        Map<K, Long> balances,
+        ECOPlanningGraph<K, R> graph
+    ) {
+        for (K key : operation.stateTransitionInputs()) {
+            long required = operation.inputAmount(key);
+            long available = balances.getOrDefault(key, 0L);
+            if (available >= required) {
+                continue;
+            }
+            if (available < 0L && graph.producersOf(key).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static <K, R> void enqueueIfDeficient(

@@ -32,7 +32,7 @@ final class ECOPlannerMath {
         try {
             return Math.multiplyExact(left, right);
         } catch (ArithmeticException ignored) {
-            return Long.MAX_VALUE;
+            return (left < 0L) ^ (right < 0L) ? Long.MIN_VALUE : Long.MAX_VALUE;
         }
     }
 
@@ -48,6 +48,29 @@ final class ECOPlannerMath {
         } catch (ArithmeticException ignored) {
             return Long.MAX_VALUE;
         }
+    }
+
+    /**
+     * Returns how many batches of a state-transition operation can start from the current
+     * balances. Ordinary operations are not capacity-limited by this helper.
+     */
+    static <K, R> long immediatelySupportedStateBatches(
+        ECOPlanningOperation<K, R> operation,
+        Map<K, Long> balances
+    ) {
+        if (operation.stateTransitionInputs().isEmpty()) {
+            return Long.MAX_VALUE;
+        }
+        long capacity = Long.MAX_VALUE;
+        for (K key : operation.stateTransitionInputs()) {
+            long amount = operation.inputAmount(key);
+            if (amount <= 0L) {
+                return 0L;
+            }
+            long available = Math.max(0L, balances.getOrDefault(key, 0L));
+            capacity = Math.min(capacity, available / amount);
+        }
+        return capacity;
     }
 
     /** Sums a collection of longs with saturation. */

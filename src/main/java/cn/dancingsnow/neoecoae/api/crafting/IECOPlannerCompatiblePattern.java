@@ -7,7 +7,9 @@ package cn.dancingsnow.neoecoae.api.crafting;
  * must stay semantically stable from snapshot capture through CPU execution and job reload.
  * Outputs must be deterministic and completely described by {@code getOutputs()}; input validity
  * must not depend on the provider that executes the pattern. Hidden cross-slot constraints,
- * provider-scoped behavior and mutable runtime semantics must use AE2's native planner.</p>
+ * provider-scoped behavior and mutable runtime semantics must use AE2's native planner. A
+ * different non-null remaining key is supported only as a finite, deterministic state transition
+ * and must be valid for the same input slot.</p>
  *
  * <p>Opting in does not guarantee ECO planning. Finite expansion, graph and solver limits remain
  * compatibility boundaries and cause an explicit AE2 fallback when exceeded.</p>

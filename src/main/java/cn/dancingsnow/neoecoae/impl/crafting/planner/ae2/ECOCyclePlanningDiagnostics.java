@@ -1,6 +1,5 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
-import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
@@ -29,7 +28,7 @@ public record ECOCyclePlanningDiagnostics(
 
     public static ECOCyclePlanningDiagnostics from(
         ECOAE2PlanningSnapshot snapshot,
-        ECOHyperflowResult<IPatternDetails> result
+        ECOHyperflowResult<ECOAE2PatternVariant> result
     ) {
         var trace = result.cycleTrace();
         if (trace.isEmpty()) {
@@ -82,9 +81,10 @@ public record ECOCyclePlanningDiagnostics(
 
     private static Set<AEKey> tracedCycleMaterials(
         ECOAE2PlanningSnapshot snapshot,
-        Set<IPatternDetails> tracedOperations
+        Set<ECOAE2PatternVariant> tracedOperations
     ) {
-        ECOPlanningGraph<AEKey, IPatternDetails> graph = new ECOPlanningGraph<>(snapshot.problem().operations());
+        ECOPlanningGraph<AEKey, ECOAE2PatternVariant> graph =
+            new ECOPlanningGraph<>(snapshot.problem().operations());
         Set<AEKey> materials = new java.util.LinkedHashSet<>();
         ECOStrongComponents.find(graph).stream()
             .filter(component -> component.size() > 1 || graph.operations().stream().anyMatch(operation ->

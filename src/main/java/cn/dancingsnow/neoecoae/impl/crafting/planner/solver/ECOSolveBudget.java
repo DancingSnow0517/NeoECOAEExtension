@@ -7,6 +7,7 @@ public record ECOSolveBudget(
     long maxDurationNanos
 ) {
     private static final long DEFAULT_MAX_DURATION_NANOS = 4_000_000_000L;
+    private static final long DEBUG_MAX_DURATION_NANOS = 30_000_000_000L;
     public static final ECOSolveBudget DEFAULT = new ECOSolveBudget(50_000, 256, 2);
 
     public ECOSolveBudget(long maxExpandedStates, int maxDepth, int extraBatchChoices) {
@@ -23,6 +24,20 @@ public record ECOSolveBudget(
         long now = System.nanoTime();
         long deadline = now + maxDurationNanos;
         return deadline < now ? Long.MAX_VALUE : deadline;
+    }
+
+    /** Expands diagnostic runs without changing normal server planning limits. */
+    public ECOSolveBudget forDebug() {
+        return new ECOSolveBudget(
+            Math.max(maxExpandedStates, 5_000_000L),
+            Math.max(maxDepth, 1_024),
+            Math.max(extraBatchChoices, 16),
+            Math.max(maxDurationNanos, DEBUG_MAX_DURATION_NANOS)
+        );
+    }
+
+    public boolean extendedForDebug() {
+        return maxDurationNanos > DEFAULT_MAX_DURATION_NANOS;
     }
 
     public static boolean shouldStop(long deadlineNanos) {

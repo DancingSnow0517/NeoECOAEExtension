@@ -9,6 +9,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOInventorySchedu
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.HashSet;
@@ -25,6 +26,7 @@ import org.ojalgo.optimisation.Variable;
 
 /** Demand propagation over the SCC condensation DAG with local integer solves for cyclic components. */
 public final class ECOCondensedCycleSolver {
+    private static final BigDecimal INTEGER_TOLERANCE = new BigDecimal("0.000001");
     private static final int MAX_COMPONENT_MATERIALS = 32;
     private static final int MAX_COMPONENT_OPERATIONS = 64;
     private static final long MAX_COMPONENT_SOLVE_MILLIS = 2_000L;
@@ -307,16 +309,38 @@ public final class ECOCondensedCycleSolver {
         if (!solved.getState().isFeasible() || ECOSolveBudget.shouldStop(deadlineNanos)) {
             return null;
         }
+        Map<ECOPlanningOperation<K, R>, BigInteger> exactCounts = new LinkedHashMap<>();
+        for (var entry : variables.entrySet()) {
+            BigInteger count = exactInteger(solved.get(model.indexOf(entry.getValue())));
+            if (count == null || count.signum() < 0) {
+                return null;
+            }
+            exactCounts.put(entry.getKey(), count);
+        }
+        Map<K, BigInteger> exactBoundaryDeficits = new LinkedHashMap<>();
+        for (var entry : boundaryDeficits.entrySet()) {
+            BigInteger deficit = exactInteger(solved.get(model.indexOf(entry.getValue())));
+            if (deficit == null || deficit.signum() < 0) {
+                return null;
+            }
+            exactBoundaryDeficits.put(entry.getKey(), deficit);
+        }
+        if (!satisfiesExactComponentConstraints(
+            component, operations, exactCounts, exactBoundaryDeficits,
+            deficientMaterial, balances, initialInventory
+        )) {
+            return null;
+        }
         Map<R, Long> executions = new LinkedHashMap<>();
-        for (int i = 0; i < operations.size(); i++) {
+        for (var operation : operations) {
             long count;
             try {
-                count = solved.get(i).setScale(0, RoundingMode.HALF_UP).longValueExact();
+                count = exactCounts.get(operation).longValueExact();
             } catch (ArithmeticException invalid) {
                 return null;
             }
             if (count > 0L) {
-                executions.put(operations.get(i).reference(), count);
+                executions.put(operation.reference(), count);
             }
         }
         ECOPlanningOperation<K, R> starter = operations.stream()
@@ -335,12 +359,10 @@ public final class ECOCondensedCycleSolver {
         Set<R> references = new LinkedHashSet<>();
         operations.forEach(operation -> references.add(operation.reference()));
         Map<K, Long> usedBoundaryDeficits = new LinkedHashMap<>();
-        for (var entry : boundaryDeficits.entrySet()) {
-            int index = model.indexOf(entry.getValue());
-            if (index >= 0 && solved.get(index).signum() > 0) {
+        for (var entry : exactBoundaryDeficits.entrySet()) {
+            if (entry.getValue().signum() > 0) {
                 try {
-                    usedBoundaryDeficits.put(
-                        entry.getKey(), solved.get(index).setScale(0, RoundingMode.CEILING).longValueExact());
+                    usedBoundaryDeficits.put(entry.getKey(), entry.getValue().longValueExact());
                 } catch (ArithmeticException invalid) {
                     return null;
                 }
@@ -348,6 +370,67 @@ public final class ECOCondensedCycleSolver {
         }
         return new LocalSolution<>(executions, Set.copyOf(references), starter,
             Map.copyOf(missingSeedAmounts), Map.copyOf(usedBoundaryDeficits));
+    }
+
+    private static BigInteger exactInteger(BigDecimal value) {
+        if (value == null) {
+            return null;
+        }
+        BigDecimal nearest = value.setScale(0, RoundingMode.HALF_EVEN);
+        return value.subtract(nearest).abs().compareTo(INTEGER_TOLERANCE) <= 0
+            ? nearest.toBigIntegerExact()
+            : null;
+    }
+
+    private static <K, R> boolean satisfiesExactComponentConstraints(
+        Set<K> component,
+        List<ECOPlanningOperation<K, R>> operations,
+        Map<ECOPlanningOperation<K, R>, BigInteger> counts,
+        Map<K, BigInteger> boundaryDeficits,
+        K deficientMaterial,
+        Map<K, Long> balances,
+        Map<K, Long> initialInventory
+    ) {
+        for (K material : component) {
+            BigInteger net = BigInteger.ZERO;
+            for (var operation : operations) {
+                long coefficient = Math.subtractExact(
+                    operation.outputAmount(material), operation.inputAmount(material));
+                if (coefficient != 0L) {
+                    net = net.add(counts.get(operation).multiply(BigInteger.valueOf(coefficient)));
+                }
+            }
+            if (!material.equals(deficientMaterial)) {
+                net = net.add(boundaryDeficits.getOrDefault(material, BigInteger.ZERO));
+            }
+            BigInteger minimum = BigInteger.valueOf(balances.getOrDefault(material, 0L)).negate();
+            if (net.compareTo(minimum) < 0) {
+                return false;
+            }
+        }
+
+        for (K material : component) {
+            long available = Math.max(0L, initialInventory.getOrDefault(material, 0L));
+            boolean needsSeed = operations.stream().anyMatch(operation ->
+                operation.inputAmount(material) > 0L
+                    && operation.outputAmount(material) > operation.inputAmount(material)
+                    && available < operation.inputAmount(material));
+            if (!needsSeed) {
+                continue;
+            }
+            BigInteger starters = operations.stream()
+                .filter(operation -> operation.inputAmount(material) == 0L)
+                .filter(operation -> ECOPlannerMath.positiveNet(operation, material) > 0L)
+                .map(counts::get)
+                .reduce(BigInteger.ZERO, BigInteger::add);
+            boolean hasInboundStarter = operations.stream().anyMatch(operation ->
+                operation.inputAmount(material) == 0L
+                    && ECOPlannerMath.positiveNet(operation, material) > 0L);
+            if (hasInboundStarter && starters.signum() <= 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Handles A + external inputs -> nA without paying the MILP setup cost. */

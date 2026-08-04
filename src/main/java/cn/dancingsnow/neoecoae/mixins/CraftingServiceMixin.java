@@ -147,7 +147,8 @@ public abstract class CraftingServiceMixin {
             what,
             amount,
             strategy,
-            this.lastProcessedCraftableChangeTick
+            this.lastProcessedCraftableChangeTick,
+            level
         );
         if (snapshot.isEmpty()) {
             ECOPlanningFailureDiagnostics.logFailure(

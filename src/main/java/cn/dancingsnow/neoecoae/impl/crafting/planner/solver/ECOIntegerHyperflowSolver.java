@@ -10,7 +10,6 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackR
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -193,9 +192,19 @@ public final class ECOIntegerHyperflowSolver {
             }
 
             List<ECOPlanningOperation<K, R>> producers = new ArrayList<>(graph.producersOf(deficiency.material));
-            producers.sort(Comparator.comparingLong(
-                operation -> -ECOPlannerMath.positiveNet(operation, deficiency.material)
-            ));
+            producers.sort((left, right) -> {
+                int priority = Integer.compare(
+                    statePriority(left, evaluation.balances),
+                    statePriority(right, evaluation.balances)
+                );
+                if (priority != 0) {
+                    return priority;
+                }
+                return Long.compare(
+                    -ECOPlannerMath.positiveNet(left, deficiency.material),
+                    -ECOPlannerMath.positiveNet(right, deficiency.material)
+                );
+            });
             long bootstrapDeficit = ECOCycleBootstrap.bootstrapDeficit(
                 deficiency.material, producers, evaluation.bootstrapSupply, Map.of()
             );
@@ -205,7 +214,11 @@ public final class ECOIntegerHyperflowSolver {
                     long net = ECOPlannerMath.positiveNet(producer, deficiency.material);
                     if (net > 0L) {
                         long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficiency.amount;
-                        long increment = ECOPlannerMath.ceilDiv(demand, net);
+                        long increment = stateAwareMinimum(
+                            producer,
+                            ECOPlannerMath.ceilDiv(demand, net),
+                            evaluation.balances
+                        );
                         int index = operationIndices.get(producer);
                         long[] branch = counts.clone();
                         try {
@@ -240,7 +253,11 @@ public final class ECOIntegerHyperflowSolver {
                     continue;
                 }
                 long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficiency.amount;
-                long minimum = ECOPlannerMath.ceilDiv(demand, net);
+                long minimum = stateAwareMinimum(
+                    producer,
+                    ECOPlannerMath.ceilDiv(demand, net),
+                    evaluation.balances
+                );
                 int index = operationIndices.get(producer);
                 long[] branch = counts.clone();
                 try {
@@ -269,7 +286,11 @@ public final class ECOIntegerHyperflowSolver {
                     continue;
                 }
                 long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficiency.amount;
-                long minimum = ECOPlannerMath.ceilDiv(demand, net);
+                long minimum = stateAwareMinimum(
+                    producer,
+                    ECOPlannerMath.ceilDiv(demand, net),
+                    evaluation.balances
+                );
                 int index = operationIndices.get(producer);
                 for (long increment : branchIncrements(
                     producer, minimum, producers.size(), evaluation.bootstrapSupply)) {
@@ -453,6 +474,13 @@ public final class ECOIntegerHyperflowSolver {
         ) {
             Set<Long> increments = new java.util.LinkedHashSet<>();
             increments.add(minimum);
+            long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(
+                producer,
+                bootstrapSupply
+            );
+            if (stateCapacity > 0L && stateCapacity < Long.MAX_VALUE) {
+                increments.add(Math.min(minimum, stateCapacity));
+            }
             long immediate = immediatelyExecutable(producer, bootstrapSupply);
             if (immediate > 0L) {
                 increments.add(Math.min(minimum, immediate));
@@ -481,12 +509,38 @@ public final class ECOIntegerHyperflowSolver {
             ECOPlanningOperation<K, R> operation,
             Map<K, Long> bootstrapSupply
         ) {
+            long stateCapacity = ECOPlannerMath.immediatelySupportedStateBatches(operation, bootstrapSupply);
+            if (stateCapacity != Long.MAX_VALUE) {
+                return stateCapacity;
+            }
             long result = Long.MAX_VALUE;
             for (var input : operation.inputs().entrySet()) {
                 result = Math.min(result,
                     bootstrapSupply.getOrDefault(input.getKey(), 0L) / input.getValue());
             }
             return operation.inputs().isEmpty() ? Long.MAX_VALUE : result;
+        }
+
+        private long stateAwareMinimum(
+            ECOPlanningOperation<K, R> operation,
+            long minimum,
+            Map<K, Long> balances
+        ) {
+            long capacity = ECOPlannerMath.immediatelySupportedStateBatches(operation, balances);
+            if (capacity == Long.MAX_VALUE) {
+                return minimum;
+            }
+            return capacity > 0L ? Math.min(minimum, capacity) : 1L;
+        }
+
+        private int statePriority(
+            ECOPlanningOperation<K, R> operation,
+            Map<K, Long> balances
+        ) {
+            if (operation.stateTransitionInputs().isEmpty()) {
+                return 2;
+            }
+            return ECOPlannerMath.immediatelySupportedStateBatches(operation, balances) > 0L ? 0 : 1;
         }
 
         private Map<K, Long> buildBootstrapSupply(long[] counts) {

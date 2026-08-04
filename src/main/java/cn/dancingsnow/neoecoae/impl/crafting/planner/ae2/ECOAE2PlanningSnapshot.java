@@ -1,18 +1,18 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
-import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.Map;
 import java.util.Objects;
 
 public record ECOAE2PlanningSnapshot(
-    ECOPlanningProblem<AEKey, IPatternDetails> problem,
+    ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
     AEKey requestedKey,
     long requestedAmount,
     boolean multiplePaths,
-    Map<IPatternDetails, Integer> inputSlotCounts,
-    Map<IPatternDetails, java.util.List<ECOAE2InputSelection>> selectedInputs
+    Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+    boolean truncatedStateExpansion,
+    boolean excludedDynamicPaths
 ) {
     public ECOAE2PlanningSnapshot {
         Objects.requireNonNull(problem, "problem");
@@ -21,7 +21,6 @@ public record ECOAE2PlanningSnapshot(
             throw new IllegalArgumentException("requestedAmount must be positive");
         }
         inputSlotCounts = Map.copyOf(Objects.requireNonNull(inputSlotCounts, "inputSlotCounts"));
-        selectedInputs = Map.copyOf(Objects.requireNonNull(selectedInputs, "selectedInputs"));
     }
 
     public ECOAE2PlanningSnapshot forAmount(long amount) {
@@ -38,7 +37,8 @@ public record ECOAE2PlanningSnapshot(
             amount,
             multiplePaths,
             inputSlotCounts,
-            selectedInputs
+            truncatedStateExpansion,
+            excludedDynamicPaths
         );
     }
 }

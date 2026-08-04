@@ -14,6 +14,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackR
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -25,7 +26,7 @@ public final class ECOAE2PlanAssembler {
 
     public static Optional<CraftingPlan> assemble(
         ECOAE2PlanningSnapshot snapshot,
-        ECOHyperflowResult<IPatternDetails> result
+        ECOHyperflowResult<ECOAE2PatternVariant> result
     ) {
         if (result.status() != ECOHyperflowResult.Status.COMPLETE
             && result.status() != ECOHyperflowResult.Status.MISSING_SOURCES) {
@@ -42,19 +43,54 @@ public final class ECOAE2PlanAssembler {
             );
             return Optional.empty();
         }
+        if ((snapshot.truncatedStateExpansion() || snapshot.excludedDynamicPaths())
+            && result.status() != ECOHyperflowResult.Status.COMPLETE) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+                ECOPlannerFallbackReason.ASSEMBLY_REJECTED,
+                snapshot.requestedKey(),
+                snapshot.requestedAmount(),
+                "assembler",
+                (snapshot.truncatedStateExpansion()
+                    ? "truncated_state_inconclusive"
+                    : "excluded_dynamic_path_inconclusive")
+                    + " status=" + result.status()
+            );
+            return Optional.empty();
+        }
 
         var problem = snapshot.problem();
         var candidate = result.candidate();
         Map<AEKey, Long> missing = findMissingSources(problem, result);
         addMissingCycleSeed(problem, result, missing);
+        if (result.status() == ECOHyperflowResult.Status.MISSING_SOURCES
+            && hasSaturatedCounts(candidate)) {
+            CraftingPlan plan = missingOnlyPlan(snapshot, missing);
+            ECOPlanningFailureDiagnostics.logTrace(
+                snapshot.requestedKey(),
+                snapshot.requestedAmount(),
+                "assembler",
+                "saturated_missing_report missingKeys=" + missing.size()
+            );
+            return Optional.of(plan);
+        }
         Map<AEKey, Long> schedulableInventory = new LinkedHashMap<>(problem.inventory());
-        missing.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
+        if (!snapshot.truncatedStateExpansion() && !snapshot.excludedDynamicPaths()) {
+            missing.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
+        }
         var schedulableProblem = new ECOPlanningProblem<>(
             problem.operations(),
             schedulableInventory,
             problem.requested()
         );
+        long schedulerStarted = System.nanoTime();
         var schedule = ECOInventoryScheduler.schedule(schedulableProblem, candidate);
+        ECOPlanningFailureDiagnostics.logTiming(
+            ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
+            snapshot.requestedKey(), snapshot.requestedAmount(), "scheduler",
+            "inventory_schedule", schedulerStarted,
+            "executable=" + schedule.executable() + " steps=" + schedule.steps().size()
+        );
         if (!schedule.executable()) {
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
@@ -102,16 +138,17 @@ public final class ECOAE2PlanAssembler {
             usedItems.get(),
             emittedItems,
             missingItems,
-            candidate.executions()
+            aggregatePatternExecutions(candidate)
         );
-        registerSelectedInputs(plan, snapshot.selectedInputs(), schedule.steps());
+        ECOPlannedInputs.register(plan, schedule.steps());
         return Optional.of(plan);
     }
 
+    /** Compatibility helper retained for the old input-selection execution tests. */
     static void registerSelectedInputs(
         CraftingPlan plan,
-        Map<IPatternDetails, java.util.List<ECOAE2InputSelection>> selectedInputs,
-        java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<IPatternDetails>> steps
+        Map<IPatternDetails, List<ECOAE2InputSelection>> selectedInputs,
+        List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<IPatternDetails>> steps
     ) {
         var selectedSteps = steps.stream()
             .filter(step -> selectedInputs.containsKey(step.operation()))
@@ -124,20 +161,32 @@ public final class ECOAE2PlanAssembler {
         }
     }
 
-    private static Map<AEKey, Long> findMissingSources(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        ECOHyperflowResult<IPatternDetails> result
+    private static Map<IPatternDetails, Long> aggregatePatternExecutions(
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
     ) {
-        ECOPlanCandidate<IPatternDetails> candidate = result.candidate();
+        Map<IPatternDetails, Long> result = new LinkedHashMap<>();
+        candidate.executions().forEach((variant, count) -> result.merge(
+            variant.pattern(), count, Math::addExact
+        ));
+        return Map.copyOf(result);
+    }
+
+    private static Map<AEKey, Long> findMissingSources(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOHyperflowResult<ECOAE2PatternVariant> result
+    ) {
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate = result.candidate();
         Map<AEKey, Long> balances = new LinkedHashMap<>(problem.inventory());
         Map<AEKey, Boolean> craftable = new HashMap<>();
         for (var operation : problem.operations()) {
             operation.selectableOutputs().forEach(key -> craftable.put(key, true));
             long count = candidate.executions().getOrDefault(operation.reference(), 0L);
-            operation.inputs().forEach((key, amount) -> mergeScaled(balances, key, amount, -count));
-            operation.outputs().forEach((key, amount) -> mergeScaled(balances, key, amount, count));
+            operation.inputs().forEach((key, amount) -> mergeScaledSaturated(balances, key, amount, -count));
+            operation.outputs().forEach((key, amount) -> mergeScaledSaturated(balances, key, amount, count));
         }
-        problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
+        problem.requested().forEach((key, amount) -> balances.merge(
+            key, -amount, ECOAE2PlanAssembler::saturatedAdd
+        ));
 
         Map<AEKey, Long> missing = new LinkedHashMap<>();
         for (var balance : balances.entrySet()) {
@@ -146,18 +195,18 @@ public final class ECOAE2PlanAssembler {
                 && candidate.dependencyShortfall() == 0L;
             if (balance.getValue() < 0
                 && (solverClassifiedAsSource || !craftable.containsKey(balance.getKey()))) {
-                missing.put(balance.getKey(), Math.negateExact(balance.getValue()));
+                missing.put(balance.getKey(), saturatedNegate(balance.getValue()));
             }
         }
         return missing;
     }
 
     private static void addMissingCycleSeed(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        ECOHyperflowResult<IPatternDetails> result,
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOHyperflowResult<ECOAE2PatternVariant> result,
         Map<AEKey, Long> missing
     ) {
-        Set<IPatternDetails> starters = result.cycleTrace()
+        Set<ECOAE2PatternVariant> starters = result.cycleTrace()
             .map(trace -> trace.missingSeedStarters())
             .orElse(Set.of());
         if (starters.isEmpty()) {
@@ -174,12 +223,12 @@ public final class ECOAE2PlanAssembler {
     }
 
     private static Optional<KeyCounter> calculateUsedItems(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        ECOPlanCandidate<IPatternDetails> candidate,
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate,
         Map<AEKey, Long> missing,
-        java.util.List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<IPatternDetails>> steps
+        List<cn.dancingsnow.neoecoae.impl.crafting.planner.schedule.ECOScheduledStep<ECOAE2PatternVariant>> steps
     ) {
-        Map<IPatternDetails, ECOPlanningOperation<AEKey, IPatternDetails>> byReference = new HashMap<>();
+        Map<ECOAE2PatternVariant, ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> byReference = new HashMap<>();
         problem.operations().forEach(operation -> byReference.put(operation.reference(), operation));
         Map<AEKey, Long> current = new LinkedHashMap<>(problem.inventory());
         Map<AEKey, Long> syntheticRemaining = new LinkedHashMap<>(missing);
@@ -189,26 +238,24 @@ public final class ECOAE2PlanAssembler {
             for (var step : steps) {
                 var operation = byReference.get(step.operation());
                 if (operation == null || step.batches() > candidate.executions().getOrDefault(step.operation(), 0L)) {
-                    logUsedItemsFailure(
-                        problem,
-                        "invalid_scheduled_step operation=" + step.operation()
-                            + " batches=" + step.batches()
-                            + " planned=" + candidate.executions().getOrDefault(step.operation(), 0L)
-                    );
+                    logUsedItemsFailure(problem, "invalid_scheduled_step operation=" + step.operation());
                     return Optional.empty();
                 }
                 for (var input : operation.inputs().entrySet()) {
                     long needed = Math.multiplyExact(input.getValue(), step.batches());
                     long outputPerBatch = operation.outputs().getOrDefault(input.getKey(), 0L);
-                    // A self-sustaining input can be reused between sequential executions in this step.
-                    long requiredBeforeStep = outputPerBatch >= input.getValue() ? input.getValue() : needed;
+                    // Exact self-returning catalysts can be reused within a consecutive step.
+                    long requiredBeforeStep = !operation.stateTransitionInputs().contains(input.getKey())
+                        && outputPerBatch >= input.getValue()
+                        ? input.getValue()
+                        : needed;
                     long available = current.getOrDefault(input.getKey(), 0L);
                     if (available < requiredBeforeStep) {
                         long supplied = Math.min(
                             requiredBeforeStep - available,
                             syntheticRemaining.getOrDefault(input.getKey(), 0L)
                         );
-                        if (supplied > 0) {
+                        if (supplied > 0L) {
                             current.merge(input.getKey(), supplied, Math::addExact);
                             syntheticRemaining.merge(input.getKey(), -supplied, Math::addExact);
                             available += supplied;
@@ -220,18 +267,16 @@ public final class ECOAE2PlanAssembler {
                             "insufficient_step_input operation=" + step.operation()
                                 + " material=" + input.getKey()
                                 + " batches=" + step.batches()
-                                + " inputPerBatch=" + input.getValue()
-                                + " outputPerBatch=" + outputPerBatch
                                 + " requiredBeforeStep=" + requiredBeforeStep
-                                + " totalConsumed=" + needed
-                                + " available=" + available
-                                + " syntheticRemaining=" + syntheticRemaining.getOrDefault(input.getKey(), 0L)
                         );
                         return Optional.empty();
                     }
                     current.merge(input.getKey(), -needed, Math::addExact);
                     long baseline = problem.inventory().getOrDefault(input.getKey(), 0L);
-                    long extracted = Math.min(baseline, Math.max(0, baseline - current.get(input.getKey())));
+                    long extracted = Math.min(
+                        baseline,
+                        Math.max(0L, baseline - current.getOrDefault(input.getKey(), 0L))
+                    );
                     if (extracted > requiredExtract.get(input.getKey())) {
                         requiredExtract.set(input.getKey(), extracted);
                     }
@@ -249,7 +294,7 @@ public final class ECOAE2PlanAssembler {
     }
 
     private static void logUsedItemsFailure(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
         String context
     ) {
         ECOPlanningFailureDiagnostics.logFailure(
@@ -264,18 +309,20 @@ public final class ECOAE2PlanAssembler {
 
     private static long estimateBytes(
         ECOAE2PlanningSnapshot snapshot,
-        ECOPlanCandidate<IPatternDetails> candidate
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
     ) {
         double bytes = 8.0 * snapshot.requestedAmount()
             / snapshot.requestedKey().getType().getAmountPerByte();
-        long graphNodes = 1;
+        long graphNodes = 1L;
         for (var operation : snapshot.problem().operations()) {
             long count = candidate.executions().getOrDefault(operation.reference(), 0L);
-            if (count <= 0) continue;
+            if (count <= 0L) {
+                continue;
+            }
             bytes += count;
             graphNodes += 1L + snapshot.inputSlotCounts().getOrDefault(
                 operation.reference(),
-                operation.inputs().size()
+                operation.reference().selectedInputs().size()
             );
             for (var input : operation.inputs().entrySet()) {
                 bytes += 8.0 * input.getValue() * count / input.getKey().getType().getAmountPerByte();
@@ -294,7 +341,63 @@ public final class ECOAE2PlanAssembler {
         return result;
     }
 
+    private static boolean hasSaturatedCounts(ECOPlanCandidate<ECOAE2PatternVariant> candidate) {
+        return candidate.sourceShortfall() == Long.MAX_VALUE
+            || candidate.dependencyShortfall() == Long.MAX_VALUE
+            || candidate.requestedShortfall() == Long.MAX_VALUE
+            || candidate.executions().containsValue(Long.MAX_VALUE);
+    }
+
+    private static CraftingPlan missingOnlyPlan(
+        ECOAE2PlanningSnapshot snapshot,
+        Map<AEKey, Long> missing
+    ) {
+        return new CraftingPlan(
+            new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
+            1L,
+            true,
+            snapshot.multiplePaths(),
+            new KeyCounter(),
+            new KeyCounter(),
+            toCounter(missing),
+            Map.of()
+        );
+    }
+
     private static void mergeScaled(Map<AEKey, Long> balances, AEKey key, long amount, long count) {
         balances.merge(key, Math.multiplyExact(amount, count), Math::addExact);
+    }
+
+    private static void mergeScaledSaturated(
+        Map<AEKey, Long> balances,
+        AEKey key,
+        long amount,
+        long count
+    ) {
+        balances.merge(
+            key,
+            saturatedMultiply(amount, count),
+            ECOAE2PlanAssembler::saturatedAdd
+        );
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        try {
+            return Math.addExact(left, right);
+        } catch (ArithmeticException ignored) {
+            return right < 0L ? Long.MIN_VALUE : Long.MAX_VALUE;
+        }
+    }
+
+    private static long saturatedMultiply(long left, long right) {
+        try {
+            return Math.multiplyExact(left, right);
+        } catch (ArithmeticException ignored) {
+            return (left < 0L) ^ (right < 0L) ? Long.MIN_VALUE : Long.MAX_VALUE;
+        }
+    }
+
+    private static long saturatedNegate(long value) {
+        return value == Long.MIN_VALUE ? Long.MAX_VALUE : -value;
     }
 }

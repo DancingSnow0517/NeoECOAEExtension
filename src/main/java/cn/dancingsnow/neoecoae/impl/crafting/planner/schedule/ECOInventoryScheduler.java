@@ -187,7 +187,7 @@ public final class ECOInventoryScheduler {
         for (var input : operation.inputs().entrySet()) {
             long available = inventory.getOrDefault(input.getKey(), 0L);
             long output = operation.outputs().getOrDefault(input.getKey(), 0L);
-            if (output >= input.getValue()) {
+            if (!operation.stateTransitionInputs().contains(input.getKey()) && output >= input.getValue()) {
                 if (available < input.getValue()) {
                     return 0L;
                 }

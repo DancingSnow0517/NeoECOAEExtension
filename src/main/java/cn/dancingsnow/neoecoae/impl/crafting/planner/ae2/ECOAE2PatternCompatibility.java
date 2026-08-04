@@ -8,6 +8,7 @@ import appeng.crafting.pattern.AEProcessingPattern;
 import appeng.crafting.pattern.AESmithingTablePattern;
 import appeng.crafting.pattern.AEStonecuttingPattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
+import cn.dancingsnow.neoecoae.compat.ae2.AE2PatternIntrospection;
 import java.util.Objects;
 import net.minecraft.world.level.Level;
 
@@ -41,27 +42,44 @@ final class ECOAE2PatternCompatibility {
             return Assessment.rejected("pattern returned null inputs");
         }
         if (ECOAE2NbtTearCompatibility.isProviderScoped(details, craftingService)) {
-            return Assessment.rejected("provider-scoped NBT Tear input matching");
+            return Assessment.rejected("provider_scoped_nbt");
+        }
+
+        try {
+            if (details instanceof AESmithingTablePattern smithing && smithing.canSubstitute()) {
+                return Assessment.rejected("dynamic_smithing_output");
+            }
+            if (details instanceof AECraftingPattern crafting
+                && crafting.canSubstitute()
+                && AE2PatternIntrospection.classifyPatternEligibility(details)
+                    == AE2PatternIntrospection.PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE) {
+                return Assessment.rejected("substitution_special_recipe");
+            }
+        } catch (RuntimeException | LinkageError failure) {
+            return Assessment.rejected("pattern_compatibility_exception");
         }
 
         IECOPlannerCompatiblePattern.InputSemantics semantics;
         if (details instanceof IECOPlannerCompatiblePattern compatible) {
-            semantics = compatible.getECOPlannerInputSemantics();
-            return Assessment.accepted(
-                Objects.requireNonNull(semantics, "ECO input semantics"), false, false
-            );
+            try {
+                semantics = compatible.getECOPlannerInputSemantics();
+            } catch (RuntimeException | LinkageError failure) {
+                return Assessment.rejected("ECO input semantics could not be read");
+            }
+            if (semantics == null) {
+                return Assessment.rejected("ECO input semantics returned null");
+            }
+            return Assessment.accepted(semantics, false, true);
         } else if (details.getClass() == AEProcessingPattern.class) {
             return Assessment.accepted(
-                IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, false
+                IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, true
             );
-        } else if (details.getClass() == AECraftingPattern.class
-            || details.getClass() == AESmithingTablePattern.class
-            || details.getClass() == AEStonecuttingPattern.class) {
-            return assessBuiltInAlternatives(inputs);
+        } else if (isKnownBuiltIn(details)) {
+            return assessBuiltInAlternatives(details, inputs);
         } else if (hasOnlyCanonicalInputs(inputs, level)) {
-            // The base IPatternDetails contract is sufficient for a fixed one-template slot.
+            // A third-party pattern may be accepted only while it remains a fixed strict pattern.
             return Assessment.accepted(
-                IECOPlannerCompatiblePattern.InputSemantics.UNIFORM_ALTERNATIVES, true, true
+                IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY, false, false
             );
         } else {
             return Assessment.rejected(
@@ -72,30 +90,57 @@ final class ECOAE2PatternCompatibility {
     }
 
     static Assessment assessBuiltInAlternatives(IPatternDetails details) {
-        return assessBuiltInAlternatives(details.getInputs());
+        try {
+            return assessBuiltInAlternatives(details, details.getInputs());
+        } catch (RuntimeException | LinkageError failure) {
+            return Assessment.rejected("built-in input metadata could not be read");
+        }
+    }
+
+    static boolean isKnownBuiltIn(IPatternDetails details) {
+        return details.getClass() == AEProcessingPattern.class
+            || details.getClass() == AECraftingPattern.class
+            || details.getClass() == AESmithingTablePattern.class
+            || details.getClass() == AEStonecuttingPattern.class;
     }
 
     private static Assessment assessBuiltInAlternatives(IPatternDetails.IInput[] inputs) {
+        return assessBuiltInAlternatives(null, inputs);
+    }
+
+    private static Assessment assessBuiltInAlternatives(
+        IPatternDetails details,
+        IPatternDetails.IInput[] inputs
+    ) {
         boolean hasSubstitutes = false;
-        for (IPatternDetails.IInput input : inputs) {
-            if (input == null) {
-                return Assessment.rejected("pattern has a null input slot");
+        try {
+            for (IPatternDetails.IInput input : inputs) {
+                if (input == null) {
+                    return Assessment.rejected("pattern has a null input slot");
+                }
+                GenericStack[] possible = input.getPossibleInputs();
+                if (possible == null) {
+                    return Assessment.rejected("pattern input returned null alternatives");
+                }
+                if (possible.length <= 1) {
+                    continue;
+                }
+                hasSubstitutes = true;
             }
-            GenericStack[] possible = input.getPossibleInputs();
-            if (possible == null) {
-                return Assessment.rejected("pattern input returned null alternatives");
+            if (details instanceof AECraftingPattern crafting && crafting.canSubstitute()) {
+                hasSubstitutes = true;
+            } else if (details instanceof AEStonecuttingPattern stonecutting && stonecutting.canSubstitute()) {
+                hasSubstitutes = true;
             }
-            if (possible.length <= 1) {
-                continue;
-            }
-            hasSubstitutes = true;
+        } catch (RuntimeException | LinkageError failure) {
+            return Assessment.rejected("built-in input alternatives could not be read");
         }
         return Assessment.accepted(
             hasSubstitutes
                 ? IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES
                 : IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
             hasSubstitutes,
-            false
+            true
         );
     }
 
@@ -121,20 +166,21 @@ final class ECOAE2PatternCompatibility {
         IECOPlannerCompatiblePattern.InputSemantics inputSemantics,
         boolean includeFuzzyInventory,
         boolean requireUnitMultiplierForAlternatives,
+        boolean stateExpansionAllowed,
         String rejection
     ) {
         private static Assessment accepted(
             IECOPlannerCompatiblePattern.InputSemantics semantics,
             boolean includeFuzzyInventory,
-            boolean requireUnitMultiplierForAlternatives
+            boolean stateExpansionAllowed
         ) {
             return new Assessment(
-                true, semantics, includeFuzzyInventory, requireUnitMultiplierForAlternatives, ""
+                true, semantics, includeFuzzyInventory, false, stateExpansionAllowed, ""
             );
         }
 
         private static Assessment rejected(String rejection) {
-            return new Assessment(false, null, false, false, rejection);
+            return new Assessment(false, null, false, false, false, rejection);
         }
     }
 }

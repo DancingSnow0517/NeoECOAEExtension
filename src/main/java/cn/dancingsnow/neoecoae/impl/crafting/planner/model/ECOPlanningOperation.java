@@ -10,10 +10,20 @@ public record ECOPlanningOperation<K, R>(
     R reference,
     Map<K, Long> inputs,
     Map<K, Long> outputs,
-    Set<K> selectableOutputs
+    Set<K> selectableOutputs,
+    Set<K> stateTransitionInputs
 ) {
     public ECOPlanningOperation(R reference, Map<K, Long> inputs, Map<K, Long> outputs) {
-        this(reference, inputs, outputs, outputs.keySet());
+        this(reference, inputs, outputs, outputs.keySet(), Set.of());
+    }
+
+    public ECOPlanningOperation(
+        R reference,
+        Map<K, Long> inputs,
+        Map<K, Long> outputs,
+        Set<K> selectableOutputs
+    ) {
+        this(reference, inputs, outputs, selectableOutputs, Set.of());
     }
 
     public ECOPlanningOperation {
@@ -26,6 +36,12 @@ public record ECOPlanningOperation<K, R>(
         selectableOutputs = Set.copyOf(Objects.requireNonNull(selectableOutputs, "selectableOutputs"));
         if (selectableOutputs.isEmpty() || !outputs.keySet().containsAll(selectableOutputs)) {
             throw new IllegalArgumentException("Selectable outputs must be a non-empty subset of outputs");
+        }
+        stateTransitionInputs = Set.copyOf(
+            Objects.requireNonNull(stateTransitionInputs, "stateTransitionInputs")
+        );
+        if (!inputs.keySet().containsAll(stateTransitionInputs)) {
+            throw new IllegalArgumentException("State transition inputs must be a subset of inputs");
         }
     }
 

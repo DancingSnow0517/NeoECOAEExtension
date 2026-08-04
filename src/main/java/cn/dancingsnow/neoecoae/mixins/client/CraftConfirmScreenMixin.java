@@ -5,11 +5,13 @@ import appeng.client.gui.me.crafting.CraftConfirmScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AmountFormat;
+import appeng.client.gui.style.WidgetStyle;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -70,11 +72,20 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
             "gui.neoecoae.planning.cycle_missing_seed",
             items
         ).withStyle(ChatFormatting.YELLOW);
-        var lines = font.split(warning, 222);
-        int lineCount = Math.min(2, lines.size());
+
+        Rect2i bounds = new Rect2i(0, 0, imageWidth, imageHeight);
+        WidgetStyle selectCpu = style.getWidget("selectCpu");
+        WidgetStyle cancel = style.getWidget("cancel");
+        int warningTop = selectCpu.resolve(bounds).getY() + selectCpu.getHeight() + 4;
+        int warningBottom = cancel.resolve(bounds).getY() - 4;
+        int warningHeight = Math.max(font.lineHeight, warningBottom - warningTop);
+        var lines = font.split(warning, imageWidth - 16);
+        int lineCount = Math.min(warningHeight / font.lineHeight, lines.size());
+        int firstLineY = warningTop + Math.max(0, (warningHeight - lineCount * font.lineHeight) / 2);
         for (int i = 0; i < lineCount; i++) {
             var line = lines.get(i);
-            guiGraphics.drawString(font, line, 8, 184 + i * font.lineHeight, 0xFFE5C95A, false);
+            int x = Math.max(8, (imageWidth - font.width(line)) / 2);
+            guiGraphics.drawString(font, line, x, firstLineY + i * font.lineHeight, 0xFFE5C95A, false);
         }
     }
 }
