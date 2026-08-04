@@ -88,7 +88,6 @@ public abstract class CraftingServiceMixin {
     @Unique
     private final Set<NEComputationCluster> neoecoae$computationClusters = new HashSet<>();
 
-    // Run before AE2-VM's order=100 injection so ECO owns routing for its computation hosts.
     @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, order = 50)
     private void neoecoae$beginPlanningOnECOHost(
         Level level,
@@ -102,6 +101,39 @@ public abstract class CraftingServiceMixin {
             return;
         }
         var noticeTarget = ECOPlannerNoticeDispatcher.targetFor(simRequester);
+
+        if (AE2VMPlanningBridge.isEnabled()
+            && ECOPlanningHostLease.hasAvailable(this.neoecoae$computationClusters)) {
+            CraftingCalculation fallback;
+            try {
+                fallback = new CraftingCalculation(
+                    level,
+                    this.grid,
+                    simRequester,
+                    new GenericStack(what, amount),
+                    strategy
+                );
+            } catch (RuntimeException | LinkageError failure) {
+                ECOPlanningFailureDiagnostics.logFailure(
+                    ECOPlanningFailureDiagnostics.Stage.FALLBACK,
+                    ECOPlannerFallbackReason.FALLBACK_SETUP_FAILED,
+                    what,
+                    amount,
+                    strategy,
+                    "ae2_fallback_constructor_failed",
+                    failure
+                );
+                ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FALLBACK_SETUP_FAILED);
+                return;
+            }
+            var nativePlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () ->
+                java.util.concurrent.CompletableFuture.supplyAsync(fallback::run);
+            cir.setReturnValue(AE2VMPlanningBridge.planVMOrNative(
+                this.grid, simRequester, what, amount, strategy, nativePlanning));
+            cir.cancel();
+            return;
+        }
+
         var lease = ECOPlanningHostLease.tryAcquire(this.neoecoae$computationClusters);
         if (lease.isEmpty()) {
             ECOPlanningFailureDiagnostics.logFailure(
@@ -117,7 +149,7 @@ public abstract class CraftingServiceMixin {
         }
         // AE2 constructs its calculation on the server thread because the constructor
         // snapshots mutable network state. Keep that object ready before dispatching
-        // either optional planner worker.
+        // the ECO planner worker.
         CraftingCalculation fallback;
         try {
             fallback = new CraftingCalculation(
@@ -159,11 +191,6 @@ public abstract class CraftingServiceMixin {
                 strategy,
                 "snapshot_factory_returned_empty"
             );
-            if (!AE2VMPlanningBridge.isEnabled()) {
-                lease.get().close();
-                ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
-                return;
-            }
             var nativePlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () ->
                 java.util.concurrent.CompletableFuture.supplyAsync(() -> {
                     try {
@@ -172,14 +199,15 @@ public abstract class CraftingServiceMixin {
                         lease.get().close();
                     }
                 });
-            cir.setReturnValue(AE2VMPlanningBridge.planOrFallback(
-                this.grid, simRequester, what, amount, strategy, lease.get(), nativePlanning));
+            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
+            cir.setReturnValue(nativePlanning.get());
+            cir.cancel();
             return;
         }
         var ecoPlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () -> ECOPlanningService.submit(
             snapshot.get(), strategy, lease.get(), noticeTarget, fallback::run);
-        cir.setReturnValue(AE2VMPlanningBridge.planOrFallback(
-            this.grid, simRequester, what, amount, strategy, lease.get(), ecoPlanning));
+        cir.setReturnValue(ecoPlanning.get());
+        cir.cancel();
     }
 
     @Inject(

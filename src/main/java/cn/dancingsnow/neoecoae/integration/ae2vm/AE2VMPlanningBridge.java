@@ -7,7 +7,6 @@ import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.config.NEConfig;
-import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningHostLease;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
@@ -32,48 +31,45 @@ public final class AE2VMPlanningBridge {
         return NEConfig.useAE2VMPlanning && ModList.get().isLoaded("ae2vm");
     }
 
-    public static Future<ICraftingPlan> planOrFallback(
+    public static Future<ICraftingPlan> planVMOrNative(
         IGrid grid,
         ICraftingSimulationRequester requester,
         AEKey what,
         long amount,
         CalculationStrategy strategy,
-        ECOPlanningHostLease lease,
-        Supplier<Future<ICraftingPlan>> ecoFallback
+        Supplier<Future<ICraftingPlan>> nativeFallback
     ) {
         if (!isEnabled()) {
-            return ecoFallback.get();
+            return nativeFallback.get();
         }
 
         CompletableFuture<ICraftingPlan> vmPlan;
         try {
             vmPlan = invoke(grid, requester, what, amount, strategy);
-        } catch (ReflectiveOperationException | LinkageError failure) {
-            LOGGER.warn("AE2-VM planning integration could not start; using the ECO planner", failure);
-            return ecoFallback.get();
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+            LOGGER.warn("AE2-VM planning integration could not start; using native AE2 planning", failure);
+            return nativeFallback.get();
         }
 
-        RoutingFuture result = new RoutingFuture(lease);
+        RoutingFuture result = new RoutingFuture();
         result.activeTask.set(vmPlan);
         vmPlan.whenComplete((plan, failure) -> {
             if (result.isCancelled()) {
                 return;
             }
             if (failure == null && plan != null) {
-                lease.close();
                 result.complete(plan);
                 return;
             }
             if (failure != null) {
-                LOGGER.warn("AE2-VM planning failed; using the ECO planner", unwrap(failure));
+                LOGGER.warn("AE2-VM planning failed; using native AE2 planning", unwrap(failure));
             } else {
-                LOGGER.warn("AE2-VM returned no crafting plan; using the ECO planner");
+                LOGGER.warn("AE2-VM returned no crafting plan; using native AE2 planning");
             }
             Future<ICraftingPlan> fallback;
             try {
-                fallback = ecoFallback.get();
+                fallback = nativeFallback.get();
             } catch (RuntimeException fallbackFailure) {
-                lease.close();
                 result.completeExceptionally(fallbackFailure);
                 return;
             }
@@ -143,11 +139,9 @@ public final class AE2VMPlanningBridge {
     }
 
     private static final class RoutingFuture extends CompletableFuture<ICraftingPlan> {
-        private final ECOPlanningHostLease lease;
         private final AtomicReference<Future<?>> activeTask = new AtomicReference<>();
 
-        private RoutingFuture(ECOPlanningHostLease lease) {
-            this.lease = lease;
+        private RoutingFuture() {
         }
 
         private boolean activate(Future<?> task) {
@@ -166,7 +160,6 @@ public final class AE2VMPlanningBridge {
             if (task != null) {
                 task.cancel(mayInterruptIfRunning);
             }
-            lease.close();
             return cancelled;
         }
     }

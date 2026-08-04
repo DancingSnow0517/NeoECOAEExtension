@@ -35,6 +35,7 @@ public final class ECOAE2SnapshotFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final int MAX_MATERIALS = 16_384;
     private static final int MAX_OPERATIONS = 8_192;
+    private static final int MAX_INVENTORY_DEPENDENT_GRAPHS = 64;
     private static final long NO_GENERATION = Long.MIN_VALUE;
     private static final Map<ICraftingService, CachedGraphs> GRAPH_CACHE = new WeakHashMap<>();
 
@@ -248,7 +249,11 @@ public final class ECOAE2SnapshotFactory {
         synchronized (GRAPH_CACHE) {
             CachedGraphs cached = GRAPH_CACHE.get(craftingService);
             if (cached == null || cached.generation() != craftableGeneration) {
-                cached = new CachedGraphs(craftableGeneration, new LinkedHashMap<>());
+                cached = new CachedGraphs(
+                    craftableGeneration,
+                    new LinkedHashMap<>(),
+                    newInventoryDependentGraphCache()
+                );
                 GRAPH_CACHE.put(craftingService, cached);
             }
             PatternGraph graph = cached.graphs().get(requestedKey);
@@ -263,14 +268,45 @@ public final class ECOAE2SnapshotFactory {
                 );
                 return graph;
             }
+            InventoryGraphKey inventoryKey = new InventoryGraphKey(
+                requestedKey,
+                Set.copyOf(inventory.keySet())
+            );
+            graph = cached.inventoryDependentGraphs().get(inventoryKey);
+            if (graph != null) {
+                trace(
+                    requestedKey,
+                    requestedAmount,
+                    strategy,
+                    "inventory_graph_cache_hit generation=" + craftableGeneration
+                        + " operations=" + graph.operations().size()
+                        + " materials=" + graph.materialCount()
+                        + " inventoryKeys=" + inventoryKey.availableKeys().size()
+                );
+                return graph;
+            }
             graph = buildGraph(
                 craftingService, requestedKey, inventory, level, requestedAmount, strategy
             );
             if (graph.cacheable()) {
                 cached.graphs().put(requestedKey, graph);
+            } else if (graph.inventoryDependent()
+                && graph.inventoryCacheable()
+                && !graph.stateful()
+                && !graph.excludedDynamicPaths()) {
+                cached.inventoryDependentGraphs().put(inventoryKey, graph);
             }
             return graph;
         }
+    }
+
+    private static Map<InventoryGraphKey, PatternGraph> newInventoryDependentGraphCache() {
+        return new LinkedHashMap<>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<InventoryGraphKey, PatternGraph> eldest) {
+                return size() > MAX_INVENTORY_DEPENDENT_GRAPHS;
+            }
+        };
     }
 
     private static PatternGraph buildGraph(
@@ -290,6 +326,9 @@ public final class ECOAE2SnapshotFactory {
         boolean multiplePaths = false;
         boolean truncatedStateExpansion = false;
         boolean excludedDynamicPaths = false;
+        boolean inventoryDependent = false;
+        boolean inventoryCacheable = true;
+        boolean stateful = false;
         boolean cacheable = true;
         pending.add(requestedKey);
 
@@ -424,6 +463,9 @@ public final class ECOAE2SnapshotFactory {
                         );
                     }
                     cacheable &= cacheablePattern(details, duplicateExpansion);
+                    inventoryDependent |= duplicateExpansion.inventoryDependent();
+                    inventoryCacheable &= inventoryCacheablePattern(details, duplicateExpansion);
+                    stateful |= duplicateExpansion.stateful();
                     retainedProducer = true;
                     continue;
                 }
@@ -487,6 +529,9 @@ public final class ECOAE2SnapshotFactory {
                 pending.addAll(expansion.dependencyKeys());
                 multiplePaths |= expansion.operations().size() > 1;
                 truncatedStateExpansion |= expansion.truncatedStateExpansion();
+                inventoryDependent |= expansion.inventoryDependent();
+                inventoryCacheable &= inventoryCacheablePattern(details, expansion);
+                stateful |= expansion.stateful();
                 cacheable &= cacheablePattern(details, expansion);
                 retainedProducer = true;
                 trace(
@@ -523,6 +568,9 @@ public final class ECOAE2SnapshotFactory {
             truncatedStateExpansion,
             excludedDynamicPaths,
             cacheable,
+            inventoryDependent,
+            inventoryCacheable,
+            stateful,
             visitedMaterials.size(),
             unresolvedMaterials,
             !unresolvedMaterials.contains(requestedKey)
@@ -662,6 +710,15 @@ public final class ECOAE2SnapshotFactory {
             && !expansion.stateful();
     }
 
+    private static boolean inventoryCacheablePattern(
+        IPatternDetails details,
+        ECOAE2PatternMaterializer.PatternExpansion expansion
+    ) {
+        return (details instanceof IECOPlannerCompatiblePattern
+                || ECOAE2PatternCompatibility.isKnownBuiltIn(details))
+            && !expansion.stateful();
+    }
+
     private static String patternContext(
         AEKey material,
         int producerIndex,
@@ -742,6 +799,9 @@ public final class ECOAE2SnapshotFactory {
         boolean truncatedStateExpansion,
         boolean excludedDynamicPaths,
         boolean cacheable,
+        boolean inventoryDependent,
+        boolean inventoryCacheable,
+        boolean stateful,
         int materialCount,
         Set<AEKey> unresolvedMaterials,
         boolean targetHasProducer
@@ -750,6 +810,12 @@ public final class ECOAE2SnapshotFactory {
             operations = List.copyOf(operations);
             inputSlotCounts = Map.copyOf(inputSlotCounts);
             unresolvedMaterials = Set.copyOf(unresolvedMaterials);
+        }
+    }
+
+    private record InventoryGraphKey(AEKey requestedKey, Set<AEKey> availableKeys) {
+        private InventoryGraphKey {
+            availableKeys = Set.copyOf(availableKeys);
         }
     }
 
@@ -779,6 +845,10 @@ public final class ECOAE2SnapshotFactory {
         }
     }
 
-    private record CachedGraphs(long generation, Map<AEKey, PatternGraph> graphs) {
+    private record CachedGraphs(
+        long generation,
+        Map<AEKey, PatternGraph> graphs,
+        Map<InventoryGraphKey, PatternGraph> inventoryDependentGraphs
+    ) {
     }
 }

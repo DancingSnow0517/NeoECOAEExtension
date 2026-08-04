@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -105,6 +106,7 @@ public final class ECOComponentDemandSolver {
                     continue;
                 }
                 List<ECOPlanningOperation<K, R>> producers = graph.producersOf(material);
+                boolean hasPositiveBalance = balances.values().stream().anyMatch(amount -> amount > 0L);
                 ProducerChoice<K, R> choice = chooseProducer(
                     material,
                     deficit,
@@ -113,6 +115,7 @@ public final class ECOComponentDemandSolver {
                     problem.requested(),
                     graph,
                     expandableMaterials,
+                    hasPositiveBalance,
                     deadlineNanos
                 );
                 if (ECOSolveBudget.shouldStop(deadlineNanos)) {
@@ -250,6 +253,7 @@ public final class ECOComponentDemandSolver {
         Map<K, Long> requested,
         ECOPlanningGraph<K, R> graph,
         Set<K> expandableMaterials,
+        boolean hasPositiveBalance,
         long deadlineNanos
     ) {
         // bootstrapDeficit does not depend on the current producer — compute once outside the loop.
@@ -258,6 +262,8 @@ public final class ECOComponentDemandSolver {
         long bestInventoryCapacity = 0L;
         long bestScore = Long.MAX_VALUE;
         int bestPriority = Integer.MAX_VALUE;
+        Map<K, Long> materialCapacityMemo = new HashMap<>();
+        Map<ECOPlanningOperation<K, R>, Long> operationCapacityMemo = new HashMap<>();
         for (var operation : producers) {
             if (ECOSolveBudget.shouldStop(deadlineNanos)) {
                 return null;
@@ -277,9 +283,18 @@ public final class ECOComponentDemandSolver {
             }
             long demand = bootstrapDeficit > 0L ? bootstrapDeficit : deficit;
             long batches = ECOPlannerMath.ceilDiv(demand, net);
-            long inventoryCapacity = inventoryBackedOperationCapacity(
-                operation, balances, graph, new HashSet<>(), 0
-            );
+            long inventoryCapacity = !hasPositiveBalance
+                ? 0L
+                : inventoryBackedOperationCapacity(
+                    operation,
+                    balances,
+                    graph,
+                    new HashSet<>(),
+                    materialCapacityMemo,
+                    operationCapacityMemo,
+                    0,
+                    deadlineNanos
+                );
             if (!operation.stateTransitionInputs().isEmpty()) {
                 batches = stateCapacity > 0L ? Math.min(batches, stateCapacity) : 1L;
             } else if (inventoryCapacity > 0L && inventoryCapacity != Long.MAX_VALUE) {
@@ -343,8 +358,21 @@ public final class ECOComponentDemandSolver {
         Map<K, Long> balances,
         ECOPlanningGraph<K, R> graph,
         Set<K> visiting,
-        int depth
+        Map<K, Long> materialCapacityMemo,
+        Map<ECOPlanningOperation<K, R>, Long> operationCapacityMemo,
+        int depth,
+        long deadlineNanos
     ) {
+        if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+            return 0L;
+        }
+        if (!operation.stateTransitionInputs().isEmpty()) {
+            return Long.MAX_VALUE;
+        }
+        Long memoized = operationCapacityMemo.get(operation);
+        if (memoized != null) {
+            return memoized;
+        }
         if (operation.inputs().isEmpty()) {
             return Long.MAX_VALUE;
         }
@@ -355,7 +383,14 @@ public final class ECOComponentDemandSolver {
                 continue;
             }
             long available = inventoryBackedMaterialAmount(
-                input.getKey(), balances, graph, visiting, depth + 1
+                input.getKey(),
+                balances,
+                graph,
+                visiting,
+                materialCapacityMemo,
+                operationCapacityMemo,
+                depth + 1,
+                deadlineNanos
             );
             if (available == Long.MAX_VALUE) {
                 continue;
@@ -363,7 +398,9 @@ public final class ECOComponentDemandSolver {
             constrained = true;
             capacity = Math.min(capacity, available / input.getValue());
         }
-        return constrained ? capacity : Long.MAX_VALUE;
+        long result = constrained ? capacity : Long.MAX_VALUE;
+        operationCapacityMemo.put(operation, result);
+        return result;
     }
 
     private static <K, R> long inventoryBackedMaterialAmount(
@@ -371,9 +408,19 @@ public final class ECOComponentDemandSolver {
         Map<K, Long> balances,
         ECOPlanningGraph<K, R> graph,
         Set<K> visiting,
-        int depth
+        Map<K, Long> materialCapacityMemo,
+        Map<ECOPlanningOperation<K, R>, Long> operationCapacityMemo,
+        int depth,
+        long deadlineNanos
     ) {
+        if (ECOSolveBudget.shouldStop(deadlineNanos)) {
+            return 0L;
+        }
         long balance = balances.getOrDefault(material, 0L);
+        Long memoized = materialCapacityMemo.get(material);
+        if (memoized != null) {
+            return memoized;
+        }
         if (depth > graph.materials().size() || !visiting.add(material)) {
             return Math.max(0L, balance);
         }
@@ -385,9 +432,17 @@ public final class ECOComponentDemandSolver {
                     continue;
                 }
                 long batches = inventoryBackedOperationCapacity(
-                    producer, balances, graph, visiting, depth + 1
+                    producer,
+                    balances,
+                    graph,
+                    visiting,
+                    materialCapacityMemo,
+                    operationCapacityMemo,
+                    depth + 1,
+                    deadlineNanos
                 );
                 if (batches == Long.MAX_VALUE) {
+                    materialCapacityMemo.put(material, Long.MAX_VALUE);
                     return Long.MAX_VALUE;
                 }
                 bestProduced = Math.max(
@@ -398,7 +453,9 @@ public final class ECOComponentDemandSolver {
         } finally {
             visiting.remove(material);
         }
-        return Math.max(0L, ECOPlannerMath.saturatedAdd(balance, bestProduced));
+        long result = Math.max(0L, ECOPlannerMath.saturatedAdd(balance, bestProduced));
+        materialCapacityMemo.put(material, result);
+        return result;
     }
 
     private record ProducerChoice<K, R>(

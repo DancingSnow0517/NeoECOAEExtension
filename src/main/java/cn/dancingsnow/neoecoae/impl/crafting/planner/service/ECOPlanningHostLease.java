@@ -28,6 +28,17 @@ public final class ECOPlanningHostLease implements AutoCloseable {
         this.budget = new ECOSolveBudget(maxStates, maxDepth, alternatives);
     }
 
+    public static boolean hasAvailable(Collection<NEComputationCluster> candidates) {
+        synchronized (ACTIVE_JOBS) {
+            for (NEComputationCluster candidate : candidates) {
+                if (isAvailable(candidate)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public static Optional<ECOPlanningHostLease> tryAcquire(Collection<NEComputationCluster> candidates) {
         var ordered = new ArrayList<>(candidates);
         ordered.sort(Comparator.comparingInt(NEComputationCluster::getCPUAccelerators)
@@ -36,22 +47,24 @@ public final class ECOPlanningHostLease implements AutoCloseable {
             .thenComparing(Comparator.comparingLong(NEComputationCluster::getAvailableStorage).reversed()));
         synchronized (ACTIVE_JOBS) {
             for (NEComputationCluster candidate : ordered) {
-                if (candidate == null
-                    || !candidate.isActive()
-                    || !candidate.isFastPlanningEnabled()
-                    || candidate.getMaxThreads() <= 0
-                    || candidate.getAvailableStorage() <= 0) {
+                if (!isAvailable(candidate)) {
                     continue;
                 }
                 int active = ACTIVE_JOBS.getOrDefault(candidate, 0);
-                if (active >= candidate.getMaxThreads()) {
-                    continue;
-                }
                 ACTIVE_JOBS.put(candidate, active + 1);
                 return Optional.of(new ECOPlanningHostLease(candidate));
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean isAvailable(NEComputationCluster candidate) {
+        return candidate != null
+            && candidate.isActive()
+            && candidate.isFastPlanningEnabled()
+            && candidate.getMaxThreads() > 0
+            && candidate.getAvailableStorage() > 0
+            && ACTIVE_JOBS.getOrDefault(candidate, 0) < candidate.getMaxThreads();
     }
 
     public ECOSolveBudget budget() {
