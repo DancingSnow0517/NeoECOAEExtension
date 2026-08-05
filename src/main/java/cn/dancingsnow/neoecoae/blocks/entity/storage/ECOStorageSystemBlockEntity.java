@@ -832,8 +832,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private long transferStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
-        if (!isFormedInfiniteMode() || !storageInterface.isStorageTransferMode()) {
-            if (storageInterface.isStorageTransferMode()) storageInterface.setStorageInterfaceMode(cn.dancingsnow.neoecoae.impl.storage.ECOStorageInterfaceMode.STORAGE);
+        if (!storageInterface.isStorageTransferMode() || !isFormedInfiniteMode()) {
             return 0L;
         }
         if (!storageInterface.isTargetOnline()) return 0L;
