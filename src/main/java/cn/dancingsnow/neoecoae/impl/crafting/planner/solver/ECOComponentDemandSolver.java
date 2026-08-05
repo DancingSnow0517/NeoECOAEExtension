@@ -69,6 +69,18 @@ public final class ECOComponentDemandSolver {
         boolean arithmeticSaturated = false;
         long maxExpansions = Math.min(1_000_000L,
             Math.max(64L, (long) graph.materials().size() * 8L + graph.operations().size() * 4L));
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+            "component_start materials=" + graph.materials().size()
+                + " operations=" + graph.operations().size()
+                + " initialQueue=" + queue.size()
+                + " requested=" + ECOPlanningFailureDiagnostics.describeMap(problem.requested())
+                + " initialPositiveBalances=" + balances.values().stream().filter(value -> value > 0L).count()
+            );
+        }
         try {
             while (!queue.isEmpty()) {
                 if (ECOSolveBudget.shouldStop(deadlineNanos)) {
@@ -172,6 +184,25 @@ public final class ECOComponentDemandSolver {
                 if (batches <= 0L) {
                     continue;
                 }
+                if (ECOPlanningFailureDiagnostics.canLogDetail(
+                    ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER
+                )) {
+                    ECOPlanningFailureDiagnostics.logDetail(
+                        ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                        "component_choice expansion=" + expansions
+                            + " material=" + material
+                            + " deficit=" + deficit
+                            + " producerCount=" + producers.size()
+                            + " selected=" + producer.reference()
+                            + " netOutput=" + net
+                            + " batches=" + batches
+                            + " stateCapacity=" + stateCapacity
+                            + " inventoryCapacity=" + choice.inventoryBackedCapacity()
+                            + " inputs=" + ECOPlanningFailureDiagnostics.describeMap(producer.inputs())
+                            + " outputs=" + ECOPlanningFailureDiagnostics.describeMap(producer.outputs())
+                            + " transitionInputs=" + producer.stateTransitionInputs()
+                    );
+                }
                 long plannedBatches = batches;
                 long previousExecutions = executions.getOrDefault(producer.reference(), 0L);
                 long updatedExecutions = ECOPlannerMath.saturatedAdd(previousExecutions, plannedBatches);
@@ -231,6 +262,17 @@ public final class ECOComponentDemandSolver {
             graph.materials(),
             expansions
         );
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+            "component_result status=" + result.status()
+                + " expansions=" + expansions
+                + " executions=" + ECOPlanningFailureDiagnostics.describeMap(executions)
+                + " finalBalances=" + ECOPlanningFailureDiagnostics.describeMap(balances)
+            );
+        }
         if (arithmeticSaturated && result.status() == ECOHyperflowResult.Status.COMPLETE) {
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,

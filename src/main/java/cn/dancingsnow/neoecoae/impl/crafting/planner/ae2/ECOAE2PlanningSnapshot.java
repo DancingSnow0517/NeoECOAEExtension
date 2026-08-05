@@ -12,7 +12,8 @@ public record ECOAE2PlanningSnapshot(
     boolean multiplePaths,
     Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
     boolean truncatedStateExpansion,
-    boolean excludedDynamicPaths
+    boolean excludedDynamicPaths,
+    String diagnosticRequestId
 ) {
     public ECOAE2PlanningSnapshot {
         Objects.requireNonNull(problem, "problem");
@@ -21,6 +22,22 @@ public record ECOAE2PlanningSnapshot(
             throw new IllegalArgumentException("requestedAmount must be positive");
         }
         inputSlotCounts = Map.copyOf(Objects.requireNonNull(inputSlotCounts, "inputSlotCounts"));
+        diagnosticRequestId = Objects.requireNonNullElse(diagnosticRequestId, "unscoped");
+    }
+
+    public ECOAE2PlanningSnapshot(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        AEKey requestedKey,
+        long requestedAmount,
+        boolean multiplePaths,
+        Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+        boolean truncatedStateExpansion,
+        boolean excludedDynamicPaths
+    ) {
+        this(
+            problem, requestedKey, requestedAmount, multiplePaths, inputSlotCounts,
+            truncatedStateExpansion, excludedDynamicPaths, "unscoped"
+        );
     }
 
     public ECOAE2PlanningSnapshot forAmount(long amount) {
@@ -38,7 +55,8 @@ public record ECOAE2PlanningSnapshot(
             multiplePaths,
             inputSlotCounts,
             truncatedStateExpansion,
-            excludedDynamicPaths
+            excludedDynamicPaths,
+            diagnosticRequestId
         );
     }
 }

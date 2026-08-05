@@ -19,7 +19,10 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
@@ -31,10 +34,16 @@ public final class ECOPlanningFailureDiagnostics {
     private static final int MAX_RETAINED_ENTRIES = 4_096;
     private static final int MAX_FAILURE_LOGS_PER_SECOND = 64;
     private static final int MAX_TRACE_LOGS_PER_SECOND = 256;
+    private static final int MAX_DETAIL_EVENTS_PER_REQUEST = 2_048;
+    private static final int MAX_RENDERED_ENTRIES = 12;
+    private static final int MAX_RENDERED_CHARS = 8_192;
     private static final DateTimeFormatter FILE_TIMESTAMP = DateTimeFormatter
         .ofPattern("yyyyMMdd-HHmmss-SSS")
         .withZone(ZoneOffset.UTC);
     private static final Set<DiagnosticKey> LOGGED = new LinkedHashSet<>();
+    private static final AtomicLong REQUEST_IDS = new AtomicLong();
+    private static final ThreadLocal<String> CURRENT_REQUEST = new ThreadLocal<>();
+    private static final Map<String, AtomicLong> REQUEST_DETAIL_COUNTS = new ConcurrentHashMap<>();
     private static final Object FILE_LOCK = new Object();
     private static long budgetSecond = Long.MIN_VALUE;
     private static int failureLogsThisSecond;
@@ -59,6 +68,113 @@ public final class ECOPlanningFailureDiagnostics {
         SCHEDULER,
         ASSEMBLER,
         FALLBACK
+    }
+
+    /** Starts one player-visible crafting calculation and binds it to the current thread. */
+    public static String beginRequest(Object requestedKey, long requestedAmount, Object strategy) {
+        if (!NEConfig.debugECOPlanner) {
+            return "disabled";
+        }
+        String requestId = Long.toUnsignedString(System.currentTimeMillis(), 36)
+            + "-" + Long.toUnsignedString(REQUEST_IDS.incrementAndGet(), 36);
+        try (RequestScope ignored = bindRequest(requestId)) {
+            writeDiagnostic(
+                "request_start",
+                "requestedKey=" + describe(requestedKey)
+                    + " requestedAmount=" + requestedAmount
+                    + " strategy=" + (strategy == null ? "unknown" : strategy),
+                null
+            );
+        }
+        return requestId;
+    }
+
+    /** Temporarily associates work on another thread with an existing request. */
+    public static RequestScope bindRequest(String requestId) {
+        String previous = CURRENT_REQUEST.get();
+        if (requestId == null || requestId.isBlank() || "disabled".equals(requestId)) {
+            CURRENT_REQUEST.remove();
+        } else {
+            CURRENT_REQUEST.set(requestId);
+        }
+        return new RequestScope(previous);
+    }
+
+    public static String currentRequestId() {
+        String requestId = CURRENT_REQUEST.get();
+        return requestId == null ? "unscoped" : requestId;
+    }
+
+    public static void endRequest(String requestId, String result) {
+        if (!NEConfig.debugECOPlanner || requestId == null || "disabled".equals(requestId)) {
+            return;
+        }
+        try (RequestScope ignored = bindRequest(requestId)) {
+            String counterPrefix = requestId + "\0";
+            long detailEvents = REQUEST_DETAIL_COUNTS.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(counterPrefix))
+                .mapToLong(entry -> entry.getValue().get())
+                .sum();
+            writeDiagnostic(
+                "request_end",
+                "result=" + sanitize(result) + " detailEvents=" + detailEvents,
+                null
+            );
+        } finally {
+            String counterPrefix = requestId + "\0";
+            REQUEST_DETAIL_COUNTS.keySet().removeIf(key -> key.startsWith(counterPrefix));
+        }
+    }
+
+    /** Writes request-scoped structured detail that does not imply a fallback. */
+    public static boolean canLogDetail(Stage stage) {
+        if (!NEConfig.debugECOPlanner) {
+            return false;
+        }
+        AtomicLong count = REQUEST_DETAIL_COUNTS.get(detailCounterKey(currentRequestId(), stage));
+        return count == null || count.get() <= MAX_DETAIL_EVENTS_PER_REQUEST;
+    }
+
+    public static void logDetail(Stage stage, String context) {
+        if (!NEConfig.debugECOPlanner) {
+            return;
+        }
+        String requestId = currentRequestId();
+        AtomicLong count = REQUEST_DETAIL_COUNTS.computeIfAbsent(
+            detailCounterKey(requestId, stage), ignored -> new AtomicLong()
+        );
+        long ordinal = count.incrementAndGet();
+        if (ordinal > MAX_DETAIL_EVENTS_PER_REQUEST) {
+            if (ordinal == MAX_DETAIL_EVENTS_PER_REQUEST + 1L) {
+                writeDiagnostic(
+                    "detail_limit",
+                    "stage=" + stage.name().toLowerCase()
+                        + " limit=" + MAX_DETAIL_EVENTS_PER_REQUEST,
+                    null
+                );
+            }
+            return;
+        }
+        writeDiagnostic(
+            "detail",
+            "stage=" + stage.name().toLowerCase() + " ordinal=" + ordinal
+                + " context=" + sanitize(context),
+            null
+        );
+    }
+
+    public static String describeMap(Map<?, ?> values) {
+        if (values == null) {
+            return "null";
+        }
+        return describeEntries(values.entrySet(), values.size());
+    }
+
+    public static String describeIterable(Iterable<?> values, int total) {
+        if (values == null) {
+            return "null";
+        }
+        return describeEntries(values, total);
     }
 
     public static void logFailure(
@@ -89,7 +205,9 @@ public final class ECOPlanningFailureDiagnostics {
             ? "none"
             : sanitize(failure.getMessage());
         String safeContext = sanitize(context);
-        DiagnosticKey key = new DiagnosticKey(stage, reason, describe(requestedKey), safeContext, exceptionClass);
+        DiagnosticKey key = new DiagnosticKey(
+            currentRequestId(), stage, reason, describe(requestedKey), safeContext, exceptionClass
+        );
         if (!reserve(key, false)) {
             return;
         }
@@ -122,6 +240,7 @@ public final class ECOPlanningFailureDiagnostics {
         }
         String safeContext = sanitize(context);
         DiagnosticKey key = new DiagnosticKey(
+            currentRequestId(),
             Stage.SNAPSHOT,
             ECOPlannerFallbackReason.FAST_PATH,
             describe(requestedKey),
@@ -203,6 +322,7 @@ public final class ECOPlanningFailureDiagnostics {
     public static void clear() {
         synchronized (LOGGED) {
             LOGGED.clear();
+            REQUEST_DETAIL_COUNTS.clear();
             budgetSecond = Long.MIN_VALUE;
             failureLogsThisSecond = 0;
             traceLogsThisSecond = 0;
@@ -269,6 +389,9 @@ public final class ECOPlanningFailureDiagnostics {
                 writer.write(" [");
                 writer.write(Thread.currentThread().getName());
                 writer.write("] ");
+                writer.write("requestId=");
+                writer.write(currentRequestId());
+                writer.write(' ');
                 writer.write(event);
                 writer.write(' ');
                 writer.write(message);
@@ -335,7 +458,34 @@ public final class ECOPlanningFailureDiagnostics {
         if (value == null || value.isBlank()) {
             return "none";
         }
-        return value.replace('\n', ' ').replace('\r', ' ');
+        String sanitized = value.replace('\n', ' ').replace('\r', ' ');
+        return sanitized.length() <= MAX_RENDERED_CHARS
+            ? sanitized
+            : sanitized.substring(0, MAX_RENDERED_CHARS) + "...<truncated_chars>";
+    }
+
+    private static String describeEntries(Iterable<?> values, int total) {
+        StringBuilder result = new StringBuilder("[");
+        int shown = 0;
+        for (Object value : values) {
+            if (shown >= MAX_RENDERED_ENTRIES || result.length() >= MAX_RENDERED_CHARS) {
+                break;
+            }
+            if (shown > 0) {
+                result.append(", ");
+            }
+            result.append(describe(value));
+            shown++;
+        }
+        result.append("] shown=").append(shown).append(" total=").append(Math.max(total, shown));
+        if (shown < total) {
+            result.append(" truncated=true");
+        }
+        return sanitize(result.toString());
+    }
+
+    private static String detailCounterKey(String requestId, Stage stage) {
+        return requestId + "\0" + stage.name();
     }
 
     private static void trimRetainedEntries() {
@@ -347,7 +497,29 @@ public final class ECOPlanningFailureDiagnostics {
         iterator.remove();
     }
 
-    private record DiagnosticKey(Stage stage, ECOPlannerFallbackReason reason, String requestedKey,
+    public static final class RequestScope implements AutoCloseable {
+        private final String previous;
+        private boolean closed;
+
+        private RequestScope(String previous) {
+            this.previous = previous;
+        }
+
+        @Override
+        public void close() {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (previous == null) {
+                CURRENT_REQUEST.remove();
+            } else {
+                CURRENT_REQUEST.set(previous);
+            }
+        }
+    }
+
+    private record DiagnosticKey(String requestId, Stage stage, ECOPlannerFallbackReason reason, String requestedKey,
                                  String context, String exceptionClass) {
     }
 }

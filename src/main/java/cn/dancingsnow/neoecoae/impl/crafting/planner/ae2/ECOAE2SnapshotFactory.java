@@ -180,8 +180,22 @@ public final class ECOAE2SnapshotFactory {
                 graph.multiplePaths(),
                 graph.inputSlotCounts(),
                 graph.truncatedStateExpansion(),
-                graph.excludedDynamicPaths()
+                graph.excludedDynamicPaths(),
+                ECOPlanningFailureDiagnostics.currentRequestId()
             ));
+            if (ECOPlanningFailureDiagnostics.canLogDetail(
+                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT
+            )) {
+                ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                "snapshot_ready operations=" + operations.size()
+                    + " inventory=" + ECOPlanningFailureDiagnostics.describeMap(inventory)
+                    + " unresolved=" + summarizeKeys(graph.unresolvedMaterials())
+                    + " multiplePaths=" + graph.multiplePaths()
+                    + " truncatedStateExpansion=" + graph.truncatedStateExpansion()
+                    + " excludedDynamicPaths=" + graph.excludedDynamicPaths()
+                );
+            }
             ECOPlanningFailureDiagnostics.logTiming(
                 ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
                 requestedKey, requestedAmount, strategy,

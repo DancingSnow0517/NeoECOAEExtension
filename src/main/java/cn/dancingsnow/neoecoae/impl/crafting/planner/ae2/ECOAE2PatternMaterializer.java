@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerInputPolicy;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -115,17 +116,44 @@ final class ECOAE2PatternMaterializer {
                 statefulSlots++;
             }
             slots.add(new SlotMaterialization(input, multiplier, candidates, visited));
+            if (ECOPlanningFailureDiagnostics.canLogDetail(
+                ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION
+            )) {
+                ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION,
+                "slot_base patternClass=" + details.getClass().getName()
+                    + " slot=" + slot
+                    + " matchMode=" + matchMode
+                    + " multiplier=" + multiplier
+                    + " candidates=" + describeCandidates(candidates)
+                );
+            }
         }
 
         long baseCombinationCount = 1L;
+        boolean useBoundedMixableBasis = false;
         for (SlotMaterialization slot : slots) {
             baseCombinationCount = saturatedMultiply(
                 baseCombinationCount,
                 selectionCount(slot.candidates().size(), slot.multiplier(), assessment.inputSemantics())
             );
             if (baseCombinationCount > MAX_VARIANTS_PER_PATTERN) {
-                throw limit("variant_limit ordinary_combinations=" + baseCombinationCount);
+                if (assessment.inputSemantics()
+                    == IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES) {
+                    useBoundedMixableBasis = true;
+                } else {
+                    throw limit("variant_limit ordinary_combinations=" + baseCombinationCount);
+                }
             }
+        }
+        if (useBoundedMixableBasis && ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION,
+                "bounded_mixable_basis theoreticalCombinations=" + baseCombinationCount
+                    + " slots=" + slots.size()
+            );
         }
 
         boolean truncated = false;
@@ -184,6 +212,18 @@ final class ECOAE2PatternMaterializer {
                 nextCandidate.remainingKey().ifPresent(dependencyKeys::add);
                 pending.addLast(nextCandidate);
             }
+            if (ECOPlanningFailureDiagnostics.canLogDetail(
+                ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION
+            )) {
+                ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION,
+                "slot_state_closure patternClass=" + details.getClass().getName()
+                    + " slot=" + slotIndex
+                    + " candidateCount=" + slot.candidates().size()
+                    + " truncated=" + truncated
+                    + " candidates=" + describeCandidates(slot.candidates())
+                );
+            }
         }
 
         List<List<ECOAE2InputSelection>> selections = new ArrayList<>(slots.size());
@@ -193,7 +233,13 @@ final class ECOAE2PatternMaterializer {
                 && slot.candidates().size() > 1) {
                 throw reject("alternative_unit_multiplier slot=" + selections.size());
             }
-            selections.add(selectionChoices(slot.candidates(), slot.multiplier(), assessment.inputSemantics()));
+            selections.add(selectionChoices(
+                slot.candidates(),
+                slot.multiplier(),
+                assessment.inputSemantics(),
+                inventory,
+                useBoundedMixableBasis
+            ));
         }
 
         long variantCount = 1L;
@@ -242,6 +288,20 @@ final class ECOAE2PatternMaterializer {
             }
             truncated = true;
             operations = new ArrayList<>(operations.subList(0, MAX_VARIANTS_PER_PATTERN));
+        }
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.OPERATION_MATERIALIZATION,
+            "pattern_expansion patternClass=" + details.getClass().getName()
+                + " slots=" + slots.size()
+                + " variants=" + operations.size()
+                + " inventoryDependent=" + inventoryDependent
+                + " stateful=" + stateful
+                + " truncated=" + truncated
+                + " sampleOperations=" + describeOperations(operations)
+            );
         }
         return new PatternExpansion(
             List.copyOf(operations),
@@ -577,16 +637,58 @@ final class ECOAE2PatternMaterializer {
     private static List<ECOAE2InputSelection> selectionChoices(
         List<Candidate> candidates,
         long multiplier,
-        IECOPlannerCompatiblePattern.InputSemantics semantics
+        IECOPlannerCompatiblePattern.InputSemantics semantics,
+        Map<AEKey, Long> inventory,
+        boolean useBoundedMixableBasis
     ) {
         if (semantics != IECOPlannerCompatiblePattern.InputSemantics.MIXABLE_ALTERNATIVES) {
             return candidates.stream()
                 .map(candidate -> ECOAE2InputSelection.single(candidate.template(), multiplier))
                 .toList();
         }
+        if (useBoundedMixableBasis) {
+            return boundedMixableBasis(candidates, multiplier, inventory);
+        }
         List<GenericStack> templates = candidates.stream().map(Candidate::template).toList();
         List<ECOAE2InputSelection> result = new ArrayList<>();
         enumerateMixedSelections(templates, 0, multiplier, new ArrayList<>(), result);
+        return List.copyOf(result);
+    }
+
+    /**
+     * A bounded exact basis for a mixable slot whose theoretical integer allocations exceed the
+     * variant limit. Uniform selections retain every source/craftable route. Additional selections
+     * pack the current inventory remainders, which is the only case that requires mixing within a
+     * single execution; full groups are already executable through the uniform selections.
+     */
+    private static List<ECOAE2InputSelection> boundedMixableBasis(
+        List<Candidate> candidates,
+        long multiplier,
+        Map<AEKey, Long> inventory
+    ) {
+        Set<ECOAE2InputSelection> result = new LinkedHashSet<>();
+        for (Candidate candidate : candidates) {
+            result.add(ECOAE2InputSelection.single(candidate.template(), multiplier));
+        }
+
+        List<ECOAE2InputSelection.Alternative> packed = new ArrayList<>();
+        long needed = multiplier;
+        for (Candidate candidate : candidates) {
+            GenericStack template = candidate.template();
+            long availableUnits = inventory.getOrDefault(template.what(), 0L) / template.amount();
+            long remainder = availableUnits % multiplier;
+            while (remainder > 0L) {
+                long selected = Math.min(remainder, needed);
+                packed.add(new ECOAE2InputSelection.Alternative(template, selected));
+                remainder -= selected;
+                needed -= selected;
+                if (needed == 0L) {
+                    result.add(new ECOAE2InputSelection(packed));
+                    packed = new ArrayList<>();
+                    needed = multiplier;
+                }
+            }
+        }
         return List.copyOf(result);
     }
 
@@ -712,6 +814,34 @@ final class ECOAE2PatternMaterializer {
         } catch (ArithmeticException ignored) {
             return Long.MAX_VALUE;
         }
+    }
+
+    private static String describeCandidates(List<Candidate> candidates) {
+        List<String> descriptions = new ArrayList<>(Math.min(candidates.size(), 12));
+        for (Candidate candidate : candidates) {
+            descriptions.add(
+                "{key=" + candidate.template().what()
+                    + ",amount=" + candidate.template().amount()
+                    + ",remaining=" + candidate.remainingKey().map(Object::toString).orElse("consumed")
+                    + ",transition=" + candidate.hasStateTransition() + "}"
+            );
+        }
+        return ECOPlanningFailureDiagnostics.describeIterable(descriptions, candidates.size());
+    }
+
+    private static String describeOperations(
+        List<ECOPlanningOperation<AEKey, ECOAE2PatternVariant>> operations
+    ) {
+        List<String> descriptions = new ArrayList<>(Math.min(operations.size(), 12));
+        for (var operation : operations) {
+            descriptions.add(
+                "{ordinal=" + operation.reference().ordinal()
+                    + ",inputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.inputs())
+                    + ",outputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.outputs())
+                    + ",stateTransitionInputs=" + operation.stateTransitionInputs() + "}"
+            );
+        }
+        return ECOPlanningFailureDiagnostics.describeIterable(descriptions, operations.size());
     }
 
     private static PatternRejection limit(String context) {

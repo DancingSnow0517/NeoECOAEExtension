@@ -104,6 +104,20 @@ public final class ECOInventoryScheduler {
                 "blockedBy=" + blockedBy
                     + " steps=" + steps.size()
                     + " pendingOperations=" + remaining.values().stream().filter(value -> value > 0).count()
+                    + " pendingDetail=" + describePending(problem, remaining, inventory)
+                    + " blockedProducers=" + describeBlockedProducers(problem, blockedBy)
+            );
+        }
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.SCHEDULER
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
+            "scheduler_result executable=" + executable
+                + " steps=" + steps.size()
+                + " stepSample=" + ECOPlanningFailureDiagnostics.describeIterable(steps, steps.size())
+                + " blockedBy=" + ECOPlanningFailureDiagnostics.describeMap(blockedBy)
+                + " remainingInventory=" + ECOPlanningFailureDiagnostics.describeMap(inventory)
             );
         }
         return new ECOInventorySchedule<>(executable, steps, inventory, blockedBy);
@@ -196,6 +210,62 @@ public final class ECOInventoryScheduler {
             result = Math.min(result, available / input.getValue());
         }
         return result;
+    }
+
+    private static <K, R> String describePending(
+        ECOPlanningProblem<K, R> problem,
+        Map<R, Long> remaining,
+        Map<K, Long> inventory
+    ) {
+        List<String> details = new ArrayList<>();
+        int total = 0;
+        for (var operation : problem.operations()) {
+            long batches = remaining.getOrDefault(operation.reference(), 0L);
+            if (batches <= 0L) {
+                continue;
+            }
+            total++;
+            if (details.size() < 12) {
+                Map<K, Long> availableInputs = new LinkedHashMap<>();
+                operation.inputs().keySet().forEach(key ->
+                    availableInputs.put(key, inventory.getOrDefault(key, 0L))
+                );
+                details.add(
+                    "{operation=" + operation.reference()
+                        + ",pending=" + batches
+                        + ",inputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.inputs())
+                        + ",available=" + ECOPlanningFailureDiagnostics.describeMap(availableInputs)
+                        + ",outputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.outputs())
+                        + ",transitionInputs=" + operation.stateTransitionInputs() + "}"
+                );
+            }
+        }
+        return ECOPlanningFailureDiagnostics.describeIterable(details, total);
+    }
+
+    private static <K, R> String describeBlockedProducers(
+        ECOPlanningProblem<K, R> problem,
+        Map<K, Long> blockedBy
+    ) {
+        List<String> details = new ArrayList<>();
+        int total = 0;
+        for (K material : blockedBy.keySet()) {
+            for (var operation : problem.operations()) {
+                if (!operation.selectableOutputs().contains(material)) {
+                    continue;
+                }
+                total++;
+                if (details.size() < 12) {
+                    details.add(
+                        "{material=" + material
+                            + ",operation=" + operation.reference()
+                            + ",inputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.inputs())
+                            + ",outputs=" + ECOPlanningFailureDiagnostics.describeMap(operation.outputs()) + "}"
+                    );
+                }
+            }
+        }
+        return ECOPlanningFailureDiagnostics.describeIterable(details, total);
     }
 
     private static <K> void apply(

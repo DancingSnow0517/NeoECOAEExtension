@@ -63,6 +63,18 @@ public final class ECOAE2PlanAssembler {
         var candidate = result.candidate();
         Map<AEKey, Long> missing = findMissingSources(problem, result);
         addMissingCycleSeed(problem, result, missing);
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.ASSEMBLER
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+            "assembler_candidate status=" + result.status()
+                + " executions=" + ECOPlanningFailureDiagnostics.describeMap(candidate.executions())
+                + " missing=" + ECOPlanningFailureDiagnostics.describeMap(missing)
+                + " truncatedStateExpansion=" + snapshot.truncatedStateExpansion()
+                + " excludedDynamicPaths=" + snapshot.excludedDynamicPaths()
+            );
+        }
         if (result.status() == ECOHyperflowResult.Status.MISSING_SOURCES
             && hasSaturatedCounts(candidate)) {
             CraftingPlan plan = missingOnlyPlan(snapshot, missing);
@@ -141,6 +153,20 @@ public final class ECOAE2PlanAssembler {
             aggregatePatternExecutions(candidate)
         );
         ECOPlannedInputs.register(plan, schedule.steps());
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.ASSEMBLER
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+            "assembler_success bytes=" + bytes
+                + " simulation=" + !missing.isEmpty()
+                + " patternTimes=" + ECOPlanningFailureDiagnostics.describeMap(
+                    aggregatePatternExecutions(candidate)
+                )
+                + " usedItems=" + usedItems.get()
+                + " scheduledSteps=" + schedule.steps().size()
+            );
+        }
         return Optional.of(plan);
     }
 

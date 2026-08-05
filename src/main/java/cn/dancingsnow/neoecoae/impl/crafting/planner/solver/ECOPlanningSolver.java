@@ -58,6 +58,19 @@ public final class ECOPlanningSolver {
         ECOSolveBudget budget,
         long deadlineNanos
     ) {
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+            "solver_start materials=" + graph.materials().size()
+                + " operations=" + graph.operations().size()
+                + " inventory=" + ECOPlanningFailureDiagnostics.describeMap(problem.inventory())
+                + " requested=" + ECOPlanningFailureDiagnostics.describeMap(problem.requested())
+                + " statefulOperations=" + graph.operations().stream()
+                    .filter(operation -> !operation.stateTransitionInputs().isEmpty()).count()
+            );
+        }
         // A DAG can be balanced algebraically while still over-consuming a finite state prefix.
         // Route stateful variants through the capacity-aware component solver instead.
         long phaseStarted = System.nanoTime();
@@ -68,6 +81,7 @@ public final class ECOPlanningSolver {
             : ECODagDemandSolver.trySolve(problem, graph);
         logPhase(problem, "dag", phaseStarted, "result=" + (dag.isPresent() ? dag.get().status() : "empty"));
         if (dag.isPresent() && !ECOSolveBudget.shouldStop(deadlineNanos)) {
+            logSelected(problem, "dag", dag.get());
             return dag.get();
         }
         ECOPlanningFailureDiagnostics.logFailure(
@@ -117,6 +131,7 @@ public final class ECOPlanningSolver {
         logPhase(problem, "scc_cycle", phaseStarted,
             "result=" + (cycle.isPresent() ? cycle.get().status() : "empty"));
         if (cycle.isPresent()) {
+            logSelected(problem, "scc_cycle", cycle.get());
             return cycle.get();
         }
         long componentDeadline = ECOSolveBudget.phaseDeadline(
@@ -162,6 +177,7 @@ public final class ECOPlanningSolver {
             && !ECOSolveBudget.shouldStop(componentDeadline)
             && (component.get().status() == ECOHyperflowResult.Status.COMPLETE
                 || componentMissingIsConclusive)) {
+            logSelected(problem, "component", component.get());
             return component.get();
         }
         ECOPlanningFailureDiagnostics.logFailure(
@@ -182,7 +198,31 @@ public final class ECOPlanningSolver {
         );
         logPhase(problem, "integer", phaseStarted,
             "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
+        logSelected(problem, "integer", integer);
         return integer;
+    }
+
+    private static <K, R> void logSelected(
+        ECOPlanningProblem<K, R> problem,
+        String solver,
+        ECOHyperflowResult<R> result
+    ) {
+        if (ECOPlanningFailureDiagnostics.canLogDetail(
+            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION
+        )) {
+            ECOPlanningFailureDiagnostics.logDetail(
+            ECOPlanningFailureDiagnostics.Stage.SOLVER_SELECTION,
+            "solver_selected=" + solver
+                + " status=" + result.status()
+                + " expandedStates=" + result.expandedStates()
+                + " executions=" + ECOPlanningFailureDiagnostics.describeMap(
+                    result.candidate().executions()
+                )
+                + " requestedShortfall=" + result.candidate().requestedShortfall()
+                + " dependencyShortfall=" + result.candidate().dependencyShortfall()
+                + " sourceShortfall=" + result.candidate().sourceShortfall()
+            );
+        }
     }
 
     private static <K, R> ECOPlanningProblem<K, R> residualProblem(

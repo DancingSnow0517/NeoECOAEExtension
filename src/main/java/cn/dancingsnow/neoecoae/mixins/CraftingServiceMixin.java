@@ -100,7 +100,9 @@ public abstract class CraftingServiceMixin {
         if (level == null || simRequester == null) {
             return;
         }
-        var noticeTarget = ECOPlannerNoticeDispatcher.targetFor(simRequester);
+        String diagnosticRequestId = ECOPlanningFailureDiagnostics.beginRequest(what, amount, strategy);
+        try (var diagnosticScope = ECOPlanningFailureDiagnostics.bindRequest(diagnosticRequestId)) {
+            var noticeTarget = ECOPlannerNoticeDispatcher.targetFor(simRequester);
 
         if (AE2VMPlanningBridge.isEnabled()
             && ECOPlanningHostLease.hasAvailable(this.neoecoae$computationClusters)) {
@@ -124,6 +126,7 @@ public abstract class CraftingServiceMixin {
                     failure
                 );
                 ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FALLBACK_SETUP_FAILED);
+                ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "fallback_setup_failed");
                 return;
             }
             var nativePlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () ->
@@ -131,6 +134,7 @@ public abstract class CraftingServiceMixin {
             cir.setReturnValue(AE2VMPlanningBridge.planVMOrNative(
                 this.grid, simRequester, what, amount, strategy, nativePlanning));
             cir.cancel();
+            ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "delegated_ae2vm_or_native");
             return;
         }
 
@@ -145,6 +149,7 @@ public abstract class CraftingServiceMixin {
                 "no_available_eco_host"
             );
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.NO_ECO_HOST);
+            ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "no_eco_host");
             return;
         }
         // AE2 constructs its calculation on the server thread because the constructor
@@ -171,6 +176,7 @@ public abstract class CraftingServiceMixin {
                 failure
             );
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FALLBACK_SETUP_FAILED);
+            ECOPlanningFailureDiagnostics.endRequest(diagnosticRequestId, "fallback_setup_failed");
             return;
         }
         var snapshot = ECOAE2SnapshotFactory.capture(
@@ -193,10 +199,15 @@ public abstract class CraftingServiceMixin {
             );
             var nativePlanning = (java.util.function.Supplier<Future<ICraftingPlan>>) () ->
                 java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-                    try {
-                        return fallback.run();
-                    } finally {
-                        lease.get().close();
+                    try (var ignored = ECOPlanningFailureDiagnostics.bindRequest(diagnosticRequestId)) {
+                        try {
+                            return fallback.run();
+                        } finally {
+                            lease.get().close();
+                            ECOPlanningFailureDiagnostics.endRequest(
+                                diagnosticRequestId, "snapshot_rejected_ae2_fallback_complete"
+                            );
+                        }
                     }
                 });
             ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.SNAPSHOT_REJECTED);
@@ -208,6 +219,7 @@ public abstract class CraftingServiceMixin {
             snapshot.get(), strategy, lease.get(), noticeTarget, fallback::run);
         cir.setReturnValue(ecoPlanning.get());
         cir.cancel();
+        }
     }
 
     @Inject(

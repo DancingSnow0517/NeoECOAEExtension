@@ -52,6 +52,10 @@ public final class ECOPlanningService {
     ) {
         AtomicBoolean cancellationRequested = new AtomicBoolean();
         FutureTask<ICraftingPlan> task = new FutureTask<>(() -> {
+            try (var diagnosticScope = ECOPlanningFailureDiagnostics.bindRequest(
+                snapshot.diagnosticRequestId()
+            )) {
+            String diagnosticResult = "started";
             if (cancellationRequested.get()) {
                 throw new CancellationException("ECO crafting planning was cancelled before execution");
             }
@@ -124,6 +128,7 @@ public final class ECOPlanningService {
                         "eco_attempt_total", planningStarted, "result=success"
                     );
                     ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
+                    diagnosticResult = "eco_success";
                     return ecoPlan.get();
                 }
                 ECOPlanningFailureDiagnostics.logTiming(
@@ -142,6 +147,7 @@ public final class ECOPlanningService {
                     "no_executable_eco_plan_ae2_fallback"
                 );
                 LOGGER.debug("ECO planning produced no executable plan; using AE2 crafting calculation");
+                diagnosticResult = "ae2_fallback reason=" + FAILURE_REASON.get();
                 if (cancellationRequested.get() || Thread.currentThread().isInterrupted()) {
                     throw new CancellationException("ECO crafting planning was cancelled before AE2 fallback");
                 }
@@ -153,6 +159,7 @@ public final class ECOPlanningService {
                         snapshot.requestedKey(), snapshot.requestedAmount(), strategy,
                         "ae2_fallback", fallbackStarted, "result=success"
                     );
+                    diagnosticResult = "ae2_fallback_success reason=" + FAILURE_REASON.get();
                     return fallbackPlan;
                 } catch (StackOverflowError overflow) {
                     ECOPlanningFailureDiagnostics.logFailure(
@@ -164,6 +171,7 @@ public final class ECOPlanningService {
                         "ae2_fallback_stack_overflow_returning_missing_plan",
                         overflow
                     );
+                    diagnosticResult = "ae2_fallback_stack_overflow_missing_plan";
                     return missingTargetPlan(snapshot);
                 }
             } finally {
@@ -177,7 +185,12 @@ public final class ECOPlanningService {
                     "failureReason=" + FAILURE_REASON.get()
                 );
                 lease.close();
+                ECOPlanningFailureDiagnostics.endRequest(
+                    snapshot.diagnosticRequestId(),
+                    diagnosticResult
+                );
                 FAILURE_REASON.remove();
+            }
             }
         }) {
             @Override
