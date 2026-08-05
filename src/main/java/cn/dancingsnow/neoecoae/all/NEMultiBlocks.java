@@ -237,18 +237,23 @@ public class NEMultiBlocks {
             (level, formed) -> {
                 BlockPos switchPos = pos(2, 1, 0);
                 BlockState currentSwitch = level.getBlockState(switchPos);
-                level.setBlockAndUpdate(
-                    switchPos,
-                    currentSwitch.setValue(NENetworkSwitchBlock.FORMED, formed)
-                );
+                if (currentSwitch.hasProperty(NENetworkSwitchBlock.FORMED)) {
+                    level.setBlockAndUpdate(
+                        switchPos,
+                        currentSwitch.setValue(NENetworkSwitchBlock.FORMED, formed)
+                    );
+                }
                 BlockPos controllerPos = pos(1, 1, 0);
                 BlockState controller = level.getBlockState(controllerPos);
-                level.setBlockAndUpdate(
-                    controllerPos,
-                    controller
-                        .setValue(ECOCraftingSystem.NETWORK_SWITCH, formed && !highEnergy)
-                        .setValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, formed && highEnergy)
-                );
+                if (controller.hasProperty(ECOCraftingSystem.NETWORK_SWITCH)
+                    && controller.hasProperty(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH)) {
+                    level.setBlockAndUpdate(
+                        controllerPos,
+                        controller
+                            .setValue(ECOCraftingSystem.NETWORK_SWITCH, formed && !highEnergy)
+                            .setValue(ECOCraftingSystem.HIGH_ENERGY_NETWORK_SWITCH, formed && highEnergy)
+                    );
+                }
             }
         );
     }
@@ -264,18 +269,23 @@ public class NEMultiBlocks {
             (level, formed) -> {
                 BlockPos switchPos = pos(2, 1, 0);
                 BlockState currentSwitch = level.getBlockState(switchPos);
-                level.setBlockAndUpdate(
-                    switchPos,
-                    currentSwitch.setValue(NENetworkSwitchBlock.FORMED, formed)
-                );
+                if (currentSwitch.hasProperty(NENetworkSwitchBlock.FORMED)) {
+                    level.setBlockAndUpdate(
+                        switchPos,
+                        currentSwitch.setValue(NENetworkSwitchBlock.FORMED, formed)
+                    );
+                }
                 BlockPos controllerPos = pos(1, 1, 0);
                 BlockState controller = level.getBlockState(controllerPos);
-                level.setBlockAndUpdate(
-                    controllerPos,
-                    controller
-                        .setValue(ECOComputationSystem.NETWORK_SWITCH, formed && !highEnergy)
-                        .setValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, formed && highEnergy)
-                );
+                if (controller.hasProperty(ECOComputationSystem.NETWORK_SWITCH)
+                    && controller.hasProperty(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH)) {
+                    level.setBlockAndUpdate(
+                        controllerPos,
+                        controller
+                            .setValue(ECOComputationSystem.NETWORK_SWITCH, formed && !highEnergy)
+                            .setValue(ECOComputationSystem.HIGH_ENERGY_NETWORK_SWITCH, formed && highEnergy)
+                    );
+                }
             }
         );
     }

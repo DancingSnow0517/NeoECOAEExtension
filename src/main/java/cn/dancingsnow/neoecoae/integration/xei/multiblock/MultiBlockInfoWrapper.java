@@ -252,6 +252,9 @@ public class MultiBlockInfoWrapper {
     }
 
     private void createScene() {
+        // The scene filters world reads to the currently rendered layer. Disable the
+        // previous layer filter while rebuilding so preview state updates see all blocks.
+        world.setBlockFilter(null);
         world.clear();
         MultiBlockDefinition.PreviewVariant previewVariant = definition.getPreviewVariant(variant);
         MultiBlockContext.DummyDelegated context = MultiBlockContext.dummyDelegated(
@@ -265,6 +268,7 @@ public class MultiBlockInfoWrapper {
         layer = Math.clamp(layer, -1, layerMax);
         if (layer == -1) {
             scene.setRenderedCore(context.allBlocks());
+            world.setBlockFilter(context.allBlocks()::contains);
         } else {
             List<BlockPos> rendered = new ArrayList<>();
             for (BlockPos pos : context.allBlocks()) {
@@ -273,6 +277,7 @@ public class MultiBlockInfoWrapper {
                 }
             }
             scene.setRenderedCore(rendered);
+            world.setBlockFilter(rendered::contains);
         }
         requiredItems.viewContainer.clearAllChildren();
         for (RequiredItem requiredItem : context.getRequiredItems()) {

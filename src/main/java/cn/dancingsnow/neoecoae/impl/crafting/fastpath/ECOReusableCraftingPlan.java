@@ -11,7 +11,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Splits exact input/remaining matches from ingredients that are consumed by every craft. */
+/**
+ * Splits exact input/remaining matches from ingredients that are consumed by every craft.
+ * Reusable inputs remain leased by the CPU and are therefore excluded from worker batch totals.
+ */
 public record ECOReusableCraftingPlan(
     List<GenericStack> consumedInputsPerCraft,
     List<GenericStack> reusableInputs,
@@ -49,11 +52,11 @@ public record ECOReusableCraftingPlan(
     }
 
     public List<GenericStack> batchInputs(long batchSize) {
-        return combine(ECOBatchCraftingHelper.multiply(consumedInputsPerCraft, batchSize), reusableInputs);
+        return ECOBatchCraftingHelper.multiply(consumedInputsPerCraft, batchSize);
     }
 
     public List<GenericStack> batchRemaining(long batchSize) {
-        return combine(ECOBatchCraftingHelper.multiply(ordinaryRemainingPerCraft, batchSize), reusableInputs);
+        return ECOBatchCraftingHelper.multiply(ordinaryRemainingPerCraft, batchSize);
     }
 
     private static Map<AEKey, Long> aggregate(List<GenericStack> stacks) {
@@ -72,17 +75,6 @@ public record ECOReusableCraftingPlan(
             if (selected.contains(entry.getKey()) == include) {
                 counter.add(entry.getKey(), entry.getValue());
             }
-        }
-        return copyCounter(counter);
-    }
-
-    private static List<GenericStack> combine(List<GenericStack> first, List<GenericStack> second) {
-        KeyCounter counter = new KeyCounter();
-        for (GenericStack stack : first) {
-            counter.add(stack.what(), stack.amount());
-        }
-        for (GenericStack stack : second) {
-            counter.add(stack.what(), stack.amount());
         }
         return copyCounter(counter);
     }

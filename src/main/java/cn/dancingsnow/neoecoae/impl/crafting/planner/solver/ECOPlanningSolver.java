@@ -3,6 +3,7 @@ package cn.dancingsnow.neoecoae.impl.crafting.planner.solver;
 import cn.dancingsnow.neoecoae.config.NEConfig;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
@@ -109,6 +110,25 @@ public final class ECOPlanningSolver {
                 "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
             return integer;
         }
+        // Reversible packing recipes frequently add a back-edge to an otherwise ordinary
+        // production chain (for example ingot <-> nugget). Try the acyclic projection before
+        // invoking MILP; the original graph remains authoritative for real cycles and shortages.
+        ECOPlanningGraph<K, R> acyclicProjection = acyclicProjection(problem, graph);
+        if (acyclicProjection.operations().size() < graph.operations().size()) {
+            phaseStarted = System.nanoTime();
+            var projected = ECOComponentDemandSolver.trySolve(
+                problem, acyclicProjection, componentDeadline(deadlineNanos)
+            );
+            logPhase(problem, "component_acyclic_projection", phaseStarted,
+                "result=" + (projected.isPresent() ? projected.get().status() : "empty")
+                    + " originalOperations=" + graph.operations().size()
+                    + " projectedOperations=" + acyclicProjection.operations().size());
+            if (projected.isPresent()
+                && projected.get().status() == ECOHyperflowResult.Status.COMPLETE) {
+                logSelected(problem, "component_acyclic_projection", projected.get());
+                return projected.get();
+            }
+        }
         long cycleDeadline = ECOSolveBudget.phaseDeadline(
             deadlineNanos, NEConfig.debugECOPlanner ? DEBUG_CYCLE_PHASE_NANOS : CYCLE_PHASE_NANOS
         );
@@ -139,7 +159,22 @@ public final class ECOPlanningSolver {
             NEConfig.debugECOPlanner ? DEBUG_COMPONENT_PHASE_NANOS : COMPONENT_PHASE_NANOS
         );
         phaseStarted = System.nanoTime();
-        var component = ECOComponentDemandSolver.trySolve(problem, graph, componentDeadline);
+        Optional<ECOHyperflowResult<R>> component;
+        try {
+            component = ECOComponentDemandSolver.trySolve(problem, graph, componentDeadline);
+        } catch (StackOverflowError overflow) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.COMPONENT_SOLVER,
+                ECOPlannerFallbackReason.PLANNING_FAILURE,
+                problem.requested().keySet().stream().findFirst().orElse(null),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "component",
+                "stack_overflow_fallback_to_integer graphMaterials=" + graph.materials().size()
+                    + " graphOperations=" + graph.operations().size(),
+                overflow
+            );
+            component = Optional.empty();
+        }
         logPhase(problem, "component", phaseStarted,
             "result=" + (component.isPresent() ? component.get().status() : "empty"));
         long integerGateStarted = System.nanoTime();
@@ -204,6 +239,68 @@ public final class ECOPlanningSolver {
             "result=" + integer.status() + " expandedStates=" + integer.expandedStates());
         logSelected(problem, "integer", integer);
         return integer;
+    }
+
+    private static long componentDeadline(long deadlineNanos) {
+        return ECOSolveBudget.phaseDeadline(
+            deadlineNanos,
+            NEConfig.debugECOPlanner ? DEBUG_COMPONENT_PHASE_NANOS : COMPONENT_PHASE_NANOS
+        );
+    }
+
+    private static <K, R> ECOPlanningGraph<K, R> acyclicProjection(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph
+    ) {
+        List<ECOPlanningOperation<K, R>> selected = new ArrayList<>();
+        Set<K> expanded = new HashSet<>();
+        Set<K> active = new HashSet<>();
+        for (K requested : problem.requested().keySet()) {
+            collectAcyclic(requested, graph, active, expanded, selected);
+        }
+        if (selected.size() == graph.operations().size()
+            || containsCycle(new ECOPlanningGraph<>(selected))) {
+            return graph;
+        }
+        return new ECOPlanningGraph<>(selected);
+    }
+
+    private static <K, R> void collectAcyclic(
+        K material,
+        ECOPlanningGraph<K, R> graph,
+        Set<K> active,
+        Set<K> expanded,
+        List<ECOPlanningOperation<K, R>> selected
+    ) {
+        if (!active.add(material)) {
+            return;
+        }
+        if (!expanded.add(material)) {
+            active.remove(material);
+            return;
+        }
+        for (var operation : graph.producersOf(material)) {
+            boolean backEdge = operation.inputs().keySet().stream().anyMatch(active::contains)
+                || operation.selectableOutputs().stream().anyMatch(
+                    output -> !output.equals(material) && active.contains(output)
+                );
+            if (backEdge) {
+                continue;
+            }
+            operation.inputs().keySet().forEach(
+                input -> collectAcyclic(input, graph, active, expanded, selected)
+            );
+            if (!selected.contains(operation)) {
+                selected.add(operation);
+            }
+        }
+        active.remove(material);
+    }
+
+    private static <K, R> boolean containsCycle(ECOPlanningGraph<K, R> graph) {
+        return ECOStrongComponents.find(graph).stream().anyMatch(scc -> scc.size() > 1)
+            || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
+                .anyMatch(operation.outputs()::containsKey));
     }
 
     private static <K, R> void logSelected(

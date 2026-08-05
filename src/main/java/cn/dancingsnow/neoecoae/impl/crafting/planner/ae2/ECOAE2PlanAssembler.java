@@ -138,6 +138,20 @@ public final class ECOAE2PlanAssembler {
                 + " steps=" + schedule.steps().size()
         );
         if (!schedule.executable()) {
+            // A missing-source result is a report, not an executable plan. The scheduler is
+            // still required as a consistency check, but a large deficient graph may not have a
+            // complete topological schedule after synthetic source injection. Do not turn that
+            // report into an AE2 fallback or expose a partially executable plan.
+            if (simulation) {
+                ECOPlanningFailureDiagnostics.logTrace(
+                    snapshot.requestedKey(),
+                    snapshot.requestedAmount(),
+                    "assembler",
+                    "simulation_schedule_incomplete_missing_only blockedBy=" + schedule.blockedBy()
+                        + " steps=" + schedule.steps().size()
+                );
+                return Optional.of(missingOnlyPlan(snapshot, missing));
+            }
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
                 ECOPlannerFallbackReason.ASSEMBLY_REJECTED,

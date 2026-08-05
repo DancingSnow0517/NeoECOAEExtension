@@ -306,7 +306,7 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
 
     public boolean isFastPlanningEnabled() {
         return networkCluster == null
-            ? controller != null && controller.isFastPlanningEnabled()
+            ? controller != null && controller.isLocalFastPlanningEnabled()
             : networkCluster.isFastPlanningEnabled();
     }
 

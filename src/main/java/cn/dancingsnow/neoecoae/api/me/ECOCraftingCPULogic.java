@@ -590,13 +590,33 @@ public class ECOCraftingCPULogic {
                     + " keyPresent=" + (execution.key() != null));
             return 0;
         }
-        if (taskRemaining <= 1) {
+        if (taskRemaining <= 0) {
             return 0;
         }
 
-        // Ask providers for the full remaining task. Lower exchange tiers apply their normal lane,
-        // energy and coolant bounds; a complete eight-host exchange accepts the whole long-sized task.
+        var reusablePlan = ECOReusableCraftingPlan.of(
+            execution.inputItems(), execution.expectedContainerItems());
+        boolean reusableLease = !reusablePlan.reusableInputs().isEmpty();
+        long minimumBatchSize = reusableLease ? 1L : 2L;
+        if (taskRemaining < minimumBatchSize) {
+            return 0;
+        }
+        // Spread immutable-catalyst work across the free FX threads. The accepted batch returns
+        // the catalyst lease to the CPU immediately, allowing the next scheduler iteration to
+        // dispatch another share without creating additional catalyst items.
         long requested = calculateBatchRequestSize(taskRemaining);
+        if (reusableLease) {
+            int availableSlots = 0;
+            boolean virtualCraftingAvailable = false;
+            for (ECOCraftingPatternBusBlockEntity patternBus : patternBuses) {
+                availableSlots = Math.max(availableSlots, patternBus.getAvailableThreadSlots());
+                ECOCraftingSystemBlockEntity candidateController = patternBus.getCraftingController();
+                virtualCraftingAvailable |= candidateController != null && candidateController.isVirtualCraftingMode();
+            }
+            if (!virtualCraftingAvailable) {
+                requested = calculateReusableBatchShare(requested, availableSlots);
+            }
+        }
         ECOCraftingPatternBusBlockEntity selectedPatternBus = null;
         ECOCraftingPatternBusBlockEntity.BatchFastPathOffer selectedOffer = null;
         Set<ECOCraftingSystemBlockEntity> visitedControllers = new HashSet<>();
@@ -606,7 +626,7 @@ public class ECOCraftingCPULogic {
                 continue;
             }
             var offer = patternBus.findBatchFastPathOffer(execution, requested);
-            if (offer != null && offer.maxBatchSize() > 1
+            if (offer != null && offer.maxBatchSize() >= minimumBatchSize
                     && (selectedOffer == null || offer.maxBatchSize() > selectedOffer.maxBatchSize())) {
                 selectedPatternBus = patternBus;
                 selectedOffer = offer;
@@ -637,12 +657,10 @@ public class ECOCraftingCPULogic {
 
         long offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
         boolean virtualCrafting = workerController.isVirtualCraftingMode();
-        var reusablePlan = ECOReusableCraftingPlan.of(
-            execution.inputItems(), execution.expectedContainerItems());
         long batchSize = ECOBatchCraftingHelper.maxSafeBatchSize(
             reusablePlan.consumedInputsPerCraft(), execution.expectedOutputs(),
             reusablePlan.ordinaryRemainingPerCraft(), offeredBatchSize);
-        if (batchSize <= 1) {
+        if (batchSize < minimumBatchSize) {
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.BATCH_AMOUNT_OVERFLOW,
                 ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
                 TickHandler.instance().getCurrentTick(), "offered=" + offeredBatchSize + " safe=" + batchSize);
@@ -652,7 +670,7 @@ public class ECOCraftingCPULogic {
             int normalOfferedBatchSize = (int) Math.min(Integer.MAX_VALUE, batchSize);
             batchSize = normalOfferedBatchSize;
             int energyBatchSize = maxBatchSizeFromEnergy(energyService, patternPower, normalOfferedBatchSize);
-            if (energyBatchSize <= 1) {
+            if (energyBatchSize < minimumBatchSize) {
                 selectedOffer.worker().getFastPathCache().recordCoolantReject();
                 ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.ENERGY_LIMIT,
                     ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
@@ -665,7 +683,7 @@ public class ECOCraftingCPULogic {
                 5, workerController.getCoolingRequirementForCurrentNetwork(), energyBatchSize
             );
             batchSize = Math.min(batchSize, Math.min(energyBatchSize, coolantBatchSize));
-            if (coolantBatchSize <= 1) {
+            if (coolantBatchSize < minimumBatchSize) {
                 selectedOffer.worker().getFastPathCache().recordCoolantReject();
                 ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.COOLANT_LIMIT,
                     ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
@@ -675,7 +693,7 @@ public class ECOCraftingCPULogic {
                 return 0;
             }
         }
-        if (batchSize <= 1) {
+        if (batchSize < minimumBatchSize) {
             return 0;
         }
 
@@ -689,7 +707,7 @@ public class ECOCraftingCPULogic {
             inventoryBatchSize = Long.MAX_VALUE;
         }
         batchSize = Math.min(batchSize, inventoryBatchSize);
-        if (batchSize <= 1) {
+        if (batchSize < minimumBatchSize) {
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.INVENTORY_LIMIT,
                 ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
                 TickHandler.instance().getCurrentTick(),
@@ -762,8 +780,11 @@ public class ECOCraftingCPULogic {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
                 return -1;
             }
-            // The worker owns every input from this point onward. Never reinject them into the CPU.
+            // The worker owns consumed inputs from this point onward. Exact reusable catalysts
+            // never enter the worker ledger, so return their single reserved copy to the CPU. This
+            // lets the scheduler lease the same immutable catalyst to other free FX workers.
             ownershipTransferred = true;
+            ECOBatchCraftingHelper.insertAll(inventory, reusablePlan.reusableInputs());
             if (energyReservation != null) {
                 energyReservation.commit();
             }
@@ -815,6 +836,14 @@ public class ECOCraftingCPULogic {
 
     static long calculateBatchRequestSize(long taskRemaining) {
         return Math.max(0L, taskRemaining);
+    }
+
+    static long calculateReusableBatchShare(long taskRemaining, int availableSlots) {
+        long requested = calculateBatchRequestSize(taskRemaining);
+        if (requested <= 1L || availableSlots <= 1) {
+            return requested;
+        }
+        return 1L + (requested - 1L) / availableSlots;
     }
 
     private void rollbackBatchInputs(
