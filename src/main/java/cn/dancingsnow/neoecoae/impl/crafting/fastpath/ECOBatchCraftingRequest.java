@@ -25,9 +25,10 @@ public record ECOBatchCraftingRequest(
         inputsPerCraft = List.copyOf(inputsPerCraft);
         outputsPerCraft = List.copyOf(outputsPerCraft);
         remainingPerCraft = List.copyOf(remainingPerCraft);
-        if (!ECOBatchCraftingHelper.areValidItemStacks(inputsPerCraft, Integer.MAX_VALUE, false)
-            || !ECOBatchCraftingHelper.areValidItemStacks(outputsPerCraft, Integer.MAX_VALUE, true)
-            || !ECOBatchCraftingHelper.areValidItemStacks(remainingPerCraft, Integer.MAX_VALUE, false)) {
+        if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(inputsPerCraft, Integer.MAX_VALUE, false)
+            || !ECOBatchCraftingHelper.areValidPersistedItemStacks(outputsPerCraft, Integer.MAX_VALUE, true)
+            || !ECOBatchCraftingHelper.areValidPersistedItemStacks(remainingPerCraft, Integer.MAX_VALUE, false)
+            || !ECOFastPathStacks.isSafeForFastPath(outputsPerCraft, remainingPerCraft, inputsPerCraft)) {
             throw new IllegalArgumentException("Fast-path request contains invalid item stacks");
         }
     }

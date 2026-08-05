@@ -166,10 +166,14 @@ public final class ECOExtractedPatternExecution {
         if (!ECOFastPathStacks.isSafeForFastPath(outputs, false)) {
             return ECOFastPathFallbackReason.UNSAFE_EXPECTED_OUTPUT;
         }
-        if (!ECOFastPathStacks.isSafeForFastPath(containers, false)) {
+        ECOReusableCraftingPlan plan = ECOReusableCraftingPlan.of(inputs, containers);
+        if (!ECOFastPathStacks.isSafeForFastPath(plan.ordinaryRemainingPerCraft(), false)) {
             return ECOFastPathFallbackReason.UNSAFE_CONTAINER_ITEM;
         }
-        if (!ECOFastPathStacks.isSafeForFastPath(inputs, true)) {
+        if (!ECOFastPathStacks.isSafeForFastPath(plan.consumedInputsPerCraft(), true)) {
+            return ECOFastPathFallbackReason.UNSAFE_INPUT;
+        }
+        if (!ECOFastPathStacks.isSafeReusableCatalysts(plan.reusableInputs())) {
             return ECOFastPathFallbackReason.UNSAFE_INPUT;
         }
         return null;

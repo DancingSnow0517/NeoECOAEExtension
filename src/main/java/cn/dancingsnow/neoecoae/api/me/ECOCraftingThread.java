@@ -26,6 +26,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingSystemBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingWorkerBlockEntity;
 import cn.dancingsnow.neoecoae.config.NEConfig;
@@ -311,11 +312,13 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             return false;
         }
         boolean virtualCrafting = controller.isVirtualCraftingMode();
+        var reusablePlan = ECOReusableCraftingPlan.of(
+            verifiedResult.inputEntries(), verifiedResult.remainingEntries());
         var outputTotal = ECOBatchCraftingHelper.multiply(verifiedResult.outputEntries(), request.batchSize());
         var inputTotal = virtualCrafting
             ? List.<GenericStack>of()
-            : ECOBatchCraftingHelper.multiply(verifiedResult.inputEntries(), request.batchSize());
-        var remainingTotal = ECOBatchCraftingHelper.multiply(verifiedResult.remainingEntries(), request.batchSize());
+            : reusablePlan.batchInputs(request.batchSize());
+        var remainingTotal = reusablePlan.batchRemaining(request.batchSize());
         var work = new ECOBatchCraftingWork(
             request.batchSize(),
             inputTotal,

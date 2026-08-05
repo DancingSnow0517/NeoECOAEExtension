@@ -102,6 +102,29 @@ public final class ECOFastPathStacks {
         return true;
     }
 
+    public static boolean isSafeForFastPath(
+        List<GenericStack> outputs,
+        List<GenericStack> remaining,
+        List<GenericStack> inputs
+    ) {
+        ECOReusableCraftingPlan plan = ECOReusableCraftingPlan.of(inputs, remaining);
+        return isSafeForFastPath(outputs, false)
+            && isSafeForFastPath(plan.ordinaryRemainingPerCraft(), false)
+            && isSafeForFastPath(plan.consumedInputsPerCraft(), true)
+            && isSafeReusableCatalysts(plan.reusableInputs());
+    }
+
+    public static boolean isSafeReusableCatalysts(List<GenericStack> stacks) {
+        for (GenericStack stack : stacks) {
+            if (stack.amount() <= 0L || stack.amount() > Integer.MAX_VALUE
+                || !(stack.what() instanceof AEItemKey itemKey)
+                || itemKey.toStack(1).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static boolean isSafeForFastPath(GenericStack stack, boolean input) {
         if (stack.amount() <= 0 || stack.amount() > Integer.MAX_VALUE) {
             return false;

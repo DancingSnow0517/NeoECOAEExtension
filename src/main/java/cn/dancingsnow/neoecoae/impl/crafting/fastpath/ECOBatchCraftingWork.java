@@ -38,11 +38,11 @@ public record ECOBatchCraftingWork(
         inputTotal = List.copyOf(inputTotal);
         outputTotal = List.copyOf(outputTotal);
         remainingTotal = List.copyOf(remainingTotal);
-        if (!ECOBatchCraftingHelper.areValidItemStacks(
+        if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(
                 inputTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, false)
-            || !ECOBatchCraftingHelper.areValidItemStacks(
+            || !ECOBatchCraftingHelper.areValidPersistedItemStacks(
                 outputTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, true)
-            || !ECOBatchCraftingHelper.areValidItemStacks(
+            || !ECOBatchCraftingHelper.areValidPersistedItemStacks(
                 remainingTotal, ECOBatchCraftingHelper.MAX_BATCH_STACK_AMOUNT, false)) {
             throw new IllegalArgumentException("Fast-path batch work contains invalid item stacks");
         }

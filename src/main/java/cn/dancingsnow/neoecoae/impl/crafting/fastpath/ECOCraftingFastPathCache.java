@@ -93,12 +93,10 @@ public final class ECOCraftingFastPathCache {
         List<GenericStack> inputs,
         long tick
     ) {
-        if (!ECOBatchCraftingHelper.areValidItemStacks(outputs, Integer.MAX_VALUE, true)
-            || !ECOBatchCraftingHelper.areValidItemStacks(remaining, Integer.MAX_VALUE, false)
-            || !ECOBatchCraftingHelper.areValidItemStacks(inputs, Integer.MAX_VALUE, false)
-            || !ECOFastPathStacks.isSafeForFastPath(outputs, false)
-            || !ECOFastPathStacks.isSafeForFastPath(remaining, false)
-            || !ECOFastPathStacks.isSafeForFastPath(inputs, true)) {
+        if (!ECOBatchCraftingHelper.areValidPersistedItemStacks(outputs, Integer.MAX_VALUE, true)
+            || !ECOBatchCraftingHelper.areValidPersistedItemStacks(remaining, Integer.MAX_VALUE, false)
+            || !ECOBatchCraftingHelper.areValidPersistedItemStacks(inputs, Integer.MAX_VALUE, false)
+            || !ECOFastPathStacks.isSafeForFastPath(outputs, remaining, inputs)) {
             putNegative(key, tick);
             return false;
         }

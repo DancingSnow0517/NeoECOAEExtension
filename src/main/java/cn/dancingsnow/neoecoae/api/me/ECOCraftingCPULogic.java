@@ -49,6 +49,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecuti
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathDiagnostics;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathFallbackReason;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStage;
+import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOReusableCraftingPlan;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2InputSelection;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOSelectedInputPatternDetails;
 import cn.dancingsnow.neoecoae.integration.ae2lt.AE2LTBatchCraftingBridge;
@@ -636,8 +637,11 @@ public class ECOCraftingCPULogic {
 
         long offeredBatchSize = Math.min(requested, selectedOffer.maxBatchSize());
         boolean virtualCrafting = workerController.isVirtualCraftingMode();
+        var reusablePlan = ECOReusableCraftingPlan.of(
+            execution.inputItems(), execution.expectedContainerItems());
         long batchSize = ECOBatchCraftingHelper.maxSafeBatchSize(
-            execution.inputItems(), execution.expectedOutputs(), execution.expectedContainerItems(), offeredBatchSize);
+            reusablePlan.consumedInputsPerCraft(), execution.expectedOutputs(),
+            reusablePlan.ordinaryRemainingPerCraft(), offeredBatchSize);
         if (batchSize <= 1) {
             ECOFastPathDiagnostics.logFailure(execution, ECOFastPathFallbackReason.BATCH_AMOUNT_OVERFLOW,
                 ECOFastPathStage.RESOURCE_LIMIT, selectedOffer.worker().getBlockPos(),
@@ -676,8 +680,8 @@ public class ECOCraftingCPULogic {
         }
 
         long extraCrafts = batchSize - 1L;
-        long availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(inventory, execution.inputItems(),
-                extraCrafts);
+        long availableExtraCrafts = ECOBatchCraftingHelper.maxCraftsFromInventory(
+            inventory, reusablePlan.consumedInputsPerCraft(), extraCrafts);
         long inventoryBatchSize;
         try {
             inventoryBatchSize = Math.addExact(availableExtraCrafts, 1L);
@@ -694,7 +698,7 @@ public class ECOCraftingCPULogic {
             return 0;
         }
 
-        var extraInputs = ECOBatchCraftingHelper.multiply(execution.inputItems(), batchSize - 1);
+        var extraInputs = reusablePlan.extraInputs(batchSize - 1);
         boolean extraInputsExtracted = false;
         boolean ownershipTransferred = false;
         ECOBatchEnergyReservation energyReservation = null;
@@ -765,7 +769,7 @@ public class ECOCraftingCPULogic {
             }
             try {
                 if (this.job == job) {
-                    recordPushedPattern(job, execution, batchSize);
+                    recordPushedPattern(job, execution, batchSize, true);
                 }
             } catch (RuntimeException e) {
                 selectedOffer.worker().getFastPathCache().recordException();
@@ -847,6 +851,14 @@ public class ECOCraftingCPULogic {
 
     private void recordPushedPattern(
             ExecutingCraftingJob job, ECOExtractedPatternExecution execution, long craftCount) {
+        recordPushedPattern(job, execution, craftCount, false);
+    }
+
+    private void recordPushedPattern(
+            ExecutingCraftingJob job,
+            ECOExtractedPatternExecution execution,
+            long craftCount,
+            boolean retainReusableInputsOnce) {
         for (var expectedOutput : execution.expectedOutputs()) {
             job.waitingFor.insert(
                     expectedOutput.what(),
@@ -855,12 +867,19 @@ public class ECOCraftingCPULogic {
         }
         postGenericStackKeysChange(execution.expectedOutputs());
 
-        for (var expectedContainerItem : execution.expectedContainerItems()) {
-            long scaled = scaledPatternAmount(expectedContainerItem.amount(), craftCount);
-            job.waitingFor.insert(expectedContainerItem.what(), scaled, Actionable.MODULATE);
-            job.timeTracker.addMaxItems(scaled, expectedContainerItem.what().getType());
+        List<GenericStack> expectedContainerItems = retainReusableInputsOnce
+            ? ECOReusableCraftingPlan.of(execution.inputItems(), execution.expectedContainerItems())
+                .batchRemaining(craftCount)
+            : execution.expectedContainerItems();
+        for (var expectedContainerItem : expectedContainerItems) {
+            long amount = retainReusableInputsOnce
+                ? expectedContainerItem.amount()
+                : scaledPatternAmount(expectedContainerItem.amount(), craftCount);
+            job.waitingFor.insert(
+                expectedContainerItem.what(), amount, Actionable.MODULATE);
+            job.timeTracker.addMaxItems(amount, expectedContainerItem.what().getType());
         }
-        postGenericStackKeysChange(execution.expectedContainerItems());
+        postGenericStackKeysChange(expectedContainerItems);
 
         cpu.markDirty();
     }
