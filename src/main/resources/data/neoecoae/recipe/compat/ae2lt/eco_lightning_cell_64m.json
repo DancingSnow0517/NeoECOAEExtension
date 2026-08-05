@@ -24,32 +24,26 @@
       "ingredient": {
         "item": "ae2lt:lightning_cell_component_v"
       },
-      "count": 16
+      "count": 2
     },
     {
       "ingredient": {
         "item": "ae2lt:overload_alloy_plate"
       },
-      "count": 16
+      "count": 2
     },
     {
       "ingredient": {
         "item": "ae2lt:overload_singularity"
       },
-      "count": 4
-    },
-    {
-      "ingredient": {
-        "item": "ae2lt:lightning_collapse_matrix"
-      },
-      "count": 4
+      "count": 1
     }
   ],
   "result": {
     "id": "neoecoae:eco_lightning_cell_64m",
     "count": 1
   },
-  "totalEnergy": 32000000,
-  "lightningCost": 256,
+  "totalEnergy": 4000000,
+  "lightningCost": 64,
   "lightningTier": "extreme_high_voltage"
 }

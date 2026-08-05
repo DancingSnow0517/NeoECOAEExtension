@@ -24,42 +24,42 @@
       "ingredient": {
         "item": "ae2lt:lightning_cell_component_v"
       },
-      "count": 64
+      "count": 4
     },
     {
       "ingredient": {
         "item": "ae2lt:ultimate_overload_core"
       },
-      "count": 16
+      "count": 2
     },
     {
       "ingredient": {
         "item": "ae2lt:firmament_alloy_ingot"
       },
-      "count": 16
+      "count": 2
     },
     {
       "ingredient": {
         "item": "ae2lt:overload_alloy_plate"
       },
-      "count": 64
+      "count": 4
     },
     {
       "ingredient": {
         "item": "neoecoae:superconducting_processor"
       },
-      "count": 64
+      "count": 4
     },
     {
       "ingredient": {
         "item": "ae2lt:lightning_collapse_matrix"
       },
-      "count": 16
+      "count": 1
     }
   ],
   "inputFluid": {
     "id": "neoecoae:cryotheum_solution",
-    "amount": 64000
+    "amount": 16000
   },
   "results": [
     {
@@ -67,7 +67,7 @@
       "count": 1
     }
   ],
-  "totalEnergy": 128000000,
-  "lightningCost": 1024,
+  "totalEnergy": 16000000,
+  "lightningCost": 128,
   "lightningTier": "extreme_high_voltage"
 }

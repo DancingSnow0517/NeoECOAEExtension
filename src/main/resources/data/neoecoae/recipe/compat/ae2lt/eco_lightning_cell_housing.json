@@ -19,9 +19,9 @@
     }
   },
   "pattern": [
-    "ABA",
-    "B B",
-    "CCC"
+    " A ",
+    " B ",
+    "CC "
   ],
   "result": {
     "count": 1,

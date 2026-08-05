@@ -113,14 +113,14 @@ Lightning matrices store the High Voltage and Extreme High Voltage lightning key
 
 ### LE4 Processing
 
-The Lightning Simulation Room processes one housing, one 16M ECO storage component, and four Lightning Cell Components V. Processing consumes 8,000,000 FE and 256 High Voltage lightning.
+The Lightning Simulation Room processes one housing, one 16M ECO storage component, and one Lightning Cell Component V. Processing consumes 1,000,000 FE and 32 High Voltage lightning.
 
 ### LE6 Processing
 
-The Lightning Assembly Chamber processes one housing, one 64M ECO storage component, 16 Lightning Cell Components V, 16 Overload Alloy Plates, four Overload Singularities, and four Lightning Collapse Matrices. Processing consumes 32,000,000 FE and 256 Extreme High Voltage lightning.
+The Lightning Assembly Chamber processes one housing, one 64M ECO storage component, two Lightning Cell Components V, two Overload Alloy Plates, and one Overload Singularity. Processing consumes 4,000,000 FE and 64 Extreme High Voltage lightning.
 
 ### LE9 Processing
 
-The Overload Processing Factory processes one housing, one 256M ECO storage component, 64 Lightning Cell Components V, 16 Ultimate Overload Cores, 16 Firmament Alloy Ingots, 64 Overload Alloy Plates, 64 Superconducting Processors, 16 Lightning Collapse Matrices, and 64,000 mB of Cryotheum Solution. Processing consumes 128,000,000 FE and 1,024 Extreme High Voltage lightning.
+The Overload Processing Factory processes one housing, one 256M ECO storage component, four Lightning Cell Components V, two Ultimate Overload Cores, two Firmament Alloy Ingots, four Overload Alloy Plates, four Superconducting Processors, one Lightning Collapse Matrix, and 16,000 mB of Cryotheum Solution. Processing consumes 16,000,000 FE and 128 Extreme High Voltage lightning.
 
 Empty Lightning matrices can be disassembled with alternate-use. The housing, ECO storage component, and all Lightning Cell Components V are recovered; auxiliary processing materials are consumed.

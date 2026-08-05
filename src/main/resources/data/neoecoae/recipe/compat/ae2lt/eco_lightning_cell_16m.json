@@ -24,14 +24,14 @@
       "ingredient": {
         "item": "ae2lt:lightning_cell_component_v"
       },
-      "count": 4
+      "count": 1
     }
   ],
   "result": {
     "id": "neoecoae:eco_lightning_cell_16m",
     "count": 1
   },
-  "totalEnergy": 8000000,
-  "lightningCost": 256,
+  "totalEnergy": 1000000,
+  "lightningCost": 32,
   "lightningTier": "high_voltage"
 }
