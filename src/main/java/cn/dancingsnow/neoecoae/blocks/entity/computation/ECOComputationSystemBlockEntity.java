@@ -7,6 +7,7 @@ import cn.dancingsnow.neoecoae.all.NEMultiBlocks;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic;
+import cn.dancingsnow.neoecoae.api.me.ECOFastPlanningControl;
 import cn.dancingsnow.neoecoae.api.me.ElapsedTimeTracker;
 import cn.dancingsnow.neoecoae.gui.task.ComputationTaskEntry;
 import cn.dancingsnow.neoecoae.blocks.computation.ECOComputationSystem;
@@ -347,13 +348,50 @@ public class ECOComputationSystemBlockEntity extends AbstractComputationBlockEnt
     }
 
     public boolean isFastPlanningEnabled() {
+        ECOFastPlanningControl control = getFastPlanningControl();
+        if (control != null) {
+            return control.isFastPlanningEnabled();
+        }
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            return cluster.getNetworkCluster().isFastPlanningEnabled();
+        }
+        return isLocalFastPlanningEnabled();
+    }
+
+    public boolean isLocalFastPlanningEnabled() {
         return fastPlanningEnabled;
     }
 
     public void toggleFastPlanning() {
-        fastPlanningEnabled = !fastPlanningEnabled;
+        boolean enabled = !isFastPlanningEnabled();
+        ECOFastPlanningControl control = getFastPlanningControl();
+        if (control != null) {
+            control.setFastPlanningEnabled(enabled);
+            return;
+        }
+        if (cluster != null && cluster.getNetworkCluster() != null) {
+            cluster.getNetworkCluster().setFastPlanningEnabled(enabled);
+            return;
+        }
+        setLocalFastPlanningEnabled(enabled);
+    }
+
+    public void setLocalFastPlanningEnabled(boolean enabled) {
+        if (fastPlanningEnabled == enabled) {
+            return;
+        }
+        fastPlanningEnabled = enabled;
         setChanged();
         markForUpdate();
+    }
+
+    private @Nullable ECOFastPlanningControl getFastPlanningControl() {
+        var node = getActionableNode();
+        if (node != null && node.getGrid() != null
+            && node.getGrid().getCraftingService() instanceof ECOFastPlanningControl control) {
+            return control;
+        }
+        return null;
     }
 
     private static CpuSelectionMode nextCpuSelectionMode(CpuSelectionMode mode) {

@@ -65,6 +65,18 @@ public final class ECOAE2PlanAssembler {
         addMissingCycleSeed(problem, result, missing);
         Map<AEKey, Long> negativeBalances = findNegativeBalances(problem, candidate);
         boolean simulation = result.status() == ECOHyperflowResult.Status.MISSING_SOURCES;
+        if (simulation || !missing.isEmpty() || !negativeBalances.isEmpty()) {
+            ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+                "material_shortfall status=" + result.status()
+                    + " missing=" + ECOPlanningFailureDiagnostics.describeMap(missing)
+                    + " available=" + ECOPlanningFailureDiagnostics.describeMap(
+                        availableFor(problem.inventory(), missing.keySet(), negativeBalances.keySet())
+                    )
+                    + " negativeBalances="
+                    + ECOPlanningFailureDiagnostics.describeMap(negativeBalances)
+            );
+        }
         if (simulation && (missing.isEmpty() || !coversNegativeBalances(missing, negativeBalances))) {
             logInvariantFailure(
                 snapshot,
@@ -292,6 +304,17 @@ public final class ECOAE2PlanAssembler {
             "assembler_invariant",
             context
         );
+    }
+
+    private static Map<AEKey, Long> availableFor(
+        Map<AEKey, Long> inventory,
+        Set<AEKey> missingKeys,
+        Set<AEKey> negativeBalanceKeys
+    ) {
+        Map<AEKey, Long> available = new LinkedHashMap<>();
+        missingKeys.forEach(key -> available.put(key, inventory.getOrDefault(key, 0L)));
+        negativeBalanceKeys.forEach(key -> available.putIfAbsent(key, inventory.getOrDefault(key, 0L)));
+        return available;
     }
 
     private static void addMissingCycleSeed(

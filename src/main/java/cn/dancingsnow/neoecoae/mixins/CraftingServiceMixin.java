@@ -19,6 +19,7 @@ import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingLink;
 import appeng.me.service.CraftingService;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
+import cn.dancingsnow.neoecoae.api.me.ECOFastPlanningControl;
 import cn.dancingsnow.neoecoae.blocks.entity.NEBlockEntity;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2SnapshotFactory;
@@ -57,7 +58,7 @@ import java.util.concurrent.Future;
 
 @Debug(export = true)
 @Mixin(CraftingService.class)
-public abstract class CraftingServiceMixin {
+public abstract class CraftingServiceMixin implements ECOFastPlanningControl {
     @Unique
     private static final Comparator<NEComputationCluster> NE_FAST_FIRST_COMPARATOR = Comparator.comparingInt(
             NEComputationCluster::getCPUAccelerators)
@@ -88,6 +89,25 @@ public abstract class CraftingServiceMixin {
     @Unique
     private final Set<NEComputationCluster> neoecoae$computationClusters = new HashSet<>();
 
+    @Override
+    public boolean isFastPlanningEnabled() {
+        return ECOPlanningHostLease.isPlanningEnabled(this.neoecoae$computationClusters);
+    }
+
+    @Override
+    public void setFastPlanningEnabled(boolean enabled) {
+        for (NEComputationCluster cluster : this.neoecoae$computationClusters) {
+            if (cluster == null) {
+                continue;
+            }
+            if (cluster.getNetworkCluster() != null) {
+                cluster.getNetworkCluster().setFastPlanningEnabled(enabled);
+            } else if (cluster.getController() != null) {
+                cluster.getController().setLocalFastPlanningEnabled(enabled);
+            }
+        }
+    }
+
     @Inject(method = "beginCraftingCalculation", at = @At("HEAD"), cancellable = true, order = 50)
     private void neoecoae$beginPlanningOnECOHost(
         Level level,
@@ -98,6 +118,12 @@ public abstract class CraftingServiceMixin {
         CallbackInfoReturnable<Future<ICraftingPlan>> cir
     ) {
         if (level == null || simRequester == null) {
+            return;
+        }
+        // The host button is a network-wide master switch. Returning before diagnostics,
+        // notices, snapshot capture, AE2-VM delegation, or worker submission makes the
+        // disabled state a completely silent pass-through to AE2's native planner.
+        if (!ECOPlanningHostLease.isPlanningEnabled(this.neoecoae$computationClusters)) {
             return;
         }
         String diagnosticRequestId = ECOPlanningFailureDiagnostics.beginRequest(what, amount, strategy);

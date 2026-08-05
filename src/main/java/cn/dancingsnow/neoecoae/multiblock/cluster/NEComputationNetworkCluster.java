@@ -45,6 +45,7 @@ public final class NEComputationNetworkCluster {
     private List<NEComputationCluster> physicalClusters = List.of();
     private List<ECOComputationSystemBlockEntity> controllers = List.of();
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
+    private boolean fastPlanningEnabled = true;
     /** Synthetic CPUs must retain object identity between AE2 service refreshes. */
     private final Map<IGrid, ECOCraftingCPU> fakeCpus = new IdentityHashMap<>();
     private long revision;
@@ -73,8 +74,11 @@ public final class NEComputationNetworkCluster {
         selectionMode = controllers.isEmpty()
             ? CpuSelectionMode.ANY
             : controllers.getFirst().getLocalSelectionMode();
+        fastPlanningEnabled = controllers.stream()
+            .allMatch(ECOComputationSystemBlockEntity::isLocalFastPlanningEnabled);
         for (ECOComputationSystemBlockEntity controller : controllers) {
             controller.setLocalSelectionMode(selectionMode);
+            controller.setLocalFastPlanningEnabled(fastPlanningEnabled);
             controller.onNetworkStateChanged();
         }
         changedGrids.putAll(collectGridNodes(physicalClusters));
@@ -90,6 +94,7 @@ public final class NEComputationNetworkCluster {
         physicalClusters = List.of();
         controllers = List.of();
         selectionMode = CpuSelectionMode.ANY;
+        fastPlanningEnabled = true;
         fakeCpus.clear();
         postCpuChange(changedGrids);
         revision++;
@@ -108,8 +113,14 @@ public final class NEComputationNetworkCluster {
     }
 
     public boolean isFastPlanningEnabled() {
-        return !controllers.isEmpty() && controllers.stream()
-            .allMatch(ECOComputationSystemBlockEntity::isFastPlanningEnabled);
+        return !controllers.isEmpty() && fastPlanningEnabled;
+    }
+
+    public void setFastPlanningEnabled(boolean enabled) {
+        fastPlanningEnabled = enabled;
+        for (ECOComputationSystemBlockEntity controller : controllers) {
+            controller.setLocalFastPlanningEnabled(enabled);
+        }
     }
 
     /** Each host contributes its local capacity multiplied by its switch tier. */

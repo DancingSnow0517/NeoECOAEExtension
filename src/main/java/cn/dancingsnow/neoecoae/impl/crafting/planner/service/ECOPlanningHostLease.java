@@ -28,6 +28,22 @@ public final class ECOPlanningHostLease implements AutoCloseable {
         this.budget = new ECOSolveBudget(maxStates, maxDepth, alternatives);
     }
 
+    /**
+     * Fast planning is a network-wide option. A disabled computation host must not be
+     * bypassed by selecting another host on the same ME network.
+     */
+    public static boolean isPlanningEnabled(Collection<NEComputationCluster> candidates) {
+        if (candidates.isEmpty()) {
+            return false;
+        }
+        for (NEComputationCluster candidate : candidates) {
+            if (candidate == null || !candidate.isFastPlanningEnabled()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static boolean hasAvailable(Collection<NEComputationCluster> candidates) {
         synchronized (ACTIVE_JOBS) {
             for (NEComputationCluster candidate : candidates) {

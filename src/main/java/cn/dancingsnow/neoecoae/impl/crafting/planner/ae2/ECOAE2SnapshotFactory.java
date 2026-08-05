@@ -33,6 +33,8 @@ import org.slf4j.LoggerFactory;
 /** Captures the immutable AE2 input view consumed by the ECO planning worker. */
 public final class ECOAE2SnapshotFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
+    /** Leaves headroom when third-party infinite cells expose infinity as Long.MAX_VALUE. */
+    private static final long INFINITE_STORAGE_PLANNING_AMOUNT = Long.MAX_VALUE / 4L;
     private static final int MAX_MATERIALS = 16_384;
     private static final int MAX_OPERATIONS = 8_192;
     private static final int MAX_INVENTORY_DEPENDENT_GRAPHS = 64;
@@ -664,10 +666,24 @@ public final class ECOAE2SnapshotFactory {
             source = grid.getStorageService().getCachedInventory();
         }
         Map<AEKey, Long> inventory = new LinkedHashMap<>();
+        Map<AEKey, Long> infiniteStorageKeys = new LinkedHashMap<>();
         for (var entry : source) {
             if (entry.getLongValue() > 0) {
-                inventory.put(entry.getKey(), entry.getLongValue());
+                long amount = entry.getLongValue();
+                if (amount == Long.MAX_VALUE) {
+                    infiniteStorageKeys.put(entry.getKey(), amount);
+                    amount = INFINITE_STORAGE_PLANNING_AMOUNT;
+                }
+                inventory.put(entry.getKey(), amount);
             }
+        }
+        if (!infiniteStorageKeys.isEmpty()) {
+            ECOPlanningFailureDiagnostics.logDetail(
+                ECOPlanningFailureDiagnostics.Stage.SNAPSHOT,
+                "infinite_storage_sentinel keys="
+                    + ECOPlanningFailureDiagnostics.describeMap(infiniteStorageKeys)
+                    + " planningAmount=" + INFINITE_STORAGE_PLANNING_AMOUNT
+            );
         }
         return inventory;
     }
