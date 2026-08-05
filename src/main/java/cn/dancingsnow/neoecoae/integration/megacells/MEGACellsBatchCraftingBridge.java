@@ -5,12 +5,14 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.energy.IEnergyService;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathStacks;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.IdentityHashMap;
@@ -25,7 +27,7 @@ import org.slf4j.LoggerFactory;
 public final class MEGACellsBatchCraftingBridge {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final String MEGACELLS_PACKAGE_PREFIX = "gripe._90.megacells.";
-    private static final BatchMethods UNSUPPORTED = new BatchMethods(null, null);
+    private static final BatchMethods UNSUPPORTED = new BatchMethods(null, null, null);
     private static final Set<String> LOGGED_CONTRACT_FAILURES = ConcurrentHashMap.newKeySet();
 
     private static final ClassValue<BatchMethods> BATCH_METHODS = new ClassValue<>() {
@@ -42,9 +44,18 @@ public final class MEGACellsBatchCraftingBridge {
                 if (!isLongReturnType(capacity) || !isLongReturnType(push)) {
                     return UNSUPPORTED;
                 }
-                return new BatchMethods(capacity, push);
+                return new BatchMethods(capacity, push, null);
             } catch (ReflectiveOperationException | LinkageError ignored) {
-                return UNSUPPORTED;
+                try {
+                    Field outputQueue = findField(type, "patternOutputs");
+                    if (!Map.class.isAssignableFrom(outputQueue.getType())) {
+                        return UNSUPPORTED;
+                    }
+                    outputQueue.setAccessible(true);
+                    return new BatchMethods(null, null, outputQueue);
+                } catch (ReflectiveOperationException | LinkageError | SecurityException ignoredFallback) {
+                    return UNSUPPORTED;
+                }
             }
         }
     };
@@ -85,6 +96,9 @@ public final class MEGACellsBatchCraftingBridge {
 
             BatchMethods methods = BATCH_METHODS.get(provider.getClass());
             if (!methods.isSupported()) {
+                continue;
+            }
+            if (methods.usesOutputQueueFallback() && !isDecompressionPattern(details)) {
                 continue;
             }
 
@@ -224,12 +238,37 @@ public final class MEGACellsBatchCraftingBridge {
         }
     }
 
-    private record BatchMethods(Method capacity, Method push) {
+    private static Field findField(Class<?> type, String name) throws NoSuchFieldException {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                // Continue through the provider's class hierarchy.
+            }
+        }
+        throw new NoSuchFieldException(name);
+    }
+
+    private static boolean isDecompressionPattern(IPatternDetails details) {
+        return details != null
+            && details.getClass().getName().equals(
+                MEGACELLS_PACKAGE_PREFIX + "misc.DecompressionPattern"
+            );
+    }
+
+    private record BatchMethods(Method capacity, Method push, Field outputQueue) {
         boolean isSupported() {
-            return capacity != null && push != null;
+            return (capacity != null && push != null) || outputQueue != null;
+        }
+
+        boolean usesOutputQueueFallback() {
+            return outputQueue != null;
         }
 
         long getCapacity(ICraftingProvider provider, IPatternDetails details) {
+            if (usesOutputQueueFallback()) {
+                return isDecompressionPattern(details) ? Long.MAX_VALUE : 0L;
+            }
             return invokeLong(capacity, provider, details);
         }
 
@@ -239,6 +278,24 @@ public final class MEGACellsBatchCraftingBridge {
             KeyCounter[] oneCopyTemplate,
             long maxCrafts
         ) {
+            if (usesOutputQueueFallback()) {
+                try {
+                    GenericStack output = details.getPrimaryOutput();
+                    long amount = Math.multiplyExact(output.amount(), maxCrafts);
+                    Object value = outputQueue.get(provider);
+                    if (!(value instanceof Map<?, ?> rawMap)) {
+                        throw new IllegalStateException("MEGACells output queue is not a map");
+                    }
+                    @SuppressWarnings("unchecked")
+                    Map<AEKey, Long> queue = (Map<AEKey, Long>) rawMap;
+                    queue.merge(output.what(), amount, Math::addExact);
+                    return 0L;
+                } catch (IllegalAccessException | ArithmeticException exception) {
+                    throw new IllegalStateException(
+                        "MEGACells output queue batch dispatch failed", exception
+                    );
+                }
+            }
             return invokeLong(push, provider, details, oneCopyTemplate, maxCrafts);
         }
 
