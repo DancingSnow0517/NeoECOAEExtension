@@ -112,8 +112,8 @@ public final class ECOInventoryScheduler {
             ECOPlanningFailureDiagnostics.Stage.SCHEDULER
         )) {
             ECOPlanningFailureDiagnostics.logDetail(
-            ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
-            "scheduler_result executable=" + executable
+                ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
+            "scheduler_result sequenceSchedulable=" + executable
                 + " steps=" + steps.size()
                 + " stepSample=" + ECOPlanningFailureDiagnostics.describeIterable(steps, steps.size())
                 + " blockedBy=" + ECOPlanningFailureDiagnostics.describeMap(blockedBy)

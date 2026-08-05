@@ -156,7 +156,10 @@ public final class ECOPlanningSolver {
         }
         boolean componentMissingIsConclusive = component.isPresent()
             && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES
-            && (problem.inventory().isEmpty() || inventoryRoute == null || !inventoryRoute.reachesTarget());
+            && (problem.inventory().isEmpty()
+                || inventoryRoute == null
+                || !inventoryRoute.reachesTarget()
+                || optimisticCapacityProvesShortage(problem, graph));
         if (component.isPresent()
             && component.get().status() == ECOHyperflowResult.Status.MISSING_SOURCES) {
             logPhase(
@@ -167,14 +170,15 @@ public final class ECOPlanningSolver {
                     + " reason=" + (problem.inventory().isEmpty()
                         ? "empty_inventory"
                         : componentMissingIsConclusive
-                            ? "requested_output_not_inventory_reachable"
+                            ? inventoryRoute == null || !inventoryRoute.reachesTarget()
+                                ? "requested_output_not_inventory_reachable"
+                                : "optimistic_capacity_below_request"
                             : "residual_inventory_reachable_alternative")
                     + " originalOperations=" + graph.operations().size()
                     + " retainedOperations=" + integerGraph.operations().size()
             );
         }
         if (component.isPresent()
-            && !ECOSolveBudget.shouldStop(componentDeadline)
             && (component.get().status() == ECOHyperflowResult.Status.COMPLETE
                 || componentMissingIsConclusive)) {
             logSelected(problem, "component", component.get());
@@ -254,6 +258,74 @@ public final class ECOPlanningSolver {
             }
         });
         return new ECOPlanningProblem<>(graph.operations(), residualInventory, problem.requested());
+    }
+
+    /**
+     * Proves a shortage using a deliberately optimistic capacity bound. Shared inputs may be
+     * counted once per producer and cycles are treated as unbounded, so this can only overestimate
+     * what is craftable. A bound below the request is therefore a safe reason to skip integer DFS.
+     */
+    private static <K, R> boolean optimisticCapacityProvesShortage(
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph
+    ) {
+        Map<K, Long> memo = new HashMap<>();
+        Set<K> visiting = new HashSet<>();
+        for (var requested : problem.requested().entrySet()) {
+            long capacity = optimisticMaterialCapacity(
+                requested.getKey(), problem, graph, memo, visiting
+            );
+            if (capacity < requested.getValue()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static <K, R> long optimisticMaterialCapacity(
+        K material,
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph,
+        Map<K, Long> memo,
+        Set<K> visiting
+    ) {
+        Long cached = memo.get(material);
+        if (cached != null) {
+            return cached;
+        }
+        if (!visiting.add(material)) {
+            return Long.MAX_VALUE;
+        }
+        long capacity = problem.requested().containsKey(material)
+            ? 0L
+            : Math.max(0L, problem.inventory().getOrDefault(material, 0L));
+        for (var producer : graph.producersOf(material)) {
+            long netOutput = ECOPlannerMath.positiveNet(producer, material);
+            if (netOutput <= 0L) {
+                continue;
+            }
+            long batches = Long.MAX_VALUE;
+            boolean constrained = false;
+            for (var input : producer.inputs().entrySet()) {
+                long returned = producer.outputs().getOrDefault(input.getKey(), 0L);
+                if (!producer.stateTransitionInputs().contains(input.getKey())
+                    && returned >= input.getValue()) {
+                    continue;
+                }
+                constrained = true;
+                long inputCapacity = optimisticMaterialCapacity(
+                    input.getKey(), problem, graph, memo, visiting
+                );
+                batches = Math.min(batches, inputCapacity / input.getValue());
+            }
+            long produced = constrained
+                ? ECOPlannerMath.saturatedMultiply(batches, netOutput)
+                : Long.MAX_VALUE;
+            capacity = ECOPlannerMath.saturatedAdd(capacity, produced);
+        }
+        visiting.remove(material);
+        memo.put(material, capacity);
+        return capacity;
     }
 
     /**

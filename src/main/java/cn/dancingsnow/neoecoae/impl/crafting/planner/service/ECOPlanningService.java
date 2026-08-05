@@ -122,13 +122,17 @@ public final class ECOPlanningService {
                     throw new CancellationException("ECO crafting planning was cancelled");
                 }
                 if (ecoPlan.isPresent()) {
+                    boolean simulation = ecoPlan.get().simulation();
                     ECOPlanningFailureDiagnostics.logTiming(
                         ECOPlanningFailureDiagnostics.Stage.ENTRY,
                         snapshot.requestedKey(), snapshot.requestedAmount(), strategy,
-                        "eco_attempt_total", planningStarted, "result=success"
+                        "eco_attempt_total", planningStarted,
+                        simulation ? "result=missing_simulation" : "result=executable_plan"
                     );
                     ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
-                    diagnosticResult = "eco_success";
+                    diagnosticResult = simulation
+                        ? "eco_missing_sources_simulation"
+                        : "eco_executable_plan";
                     return ecoPlan.get();
                 }
                 ECOPlanningFailureDiagnostics.logTiming(

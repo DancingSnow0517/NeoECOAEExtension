@@ -316,6 +316,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         IActionSource src,
         ICraftingRequester requestingMachine
     ) {
+        if (job.simulation()) {
+            return CraftingSubmitResult.INCOMPLETE_PLAN;
+        }
         if (networkCluster != null) {
             return networkCluster.submitJob(grid, job, src, requestingMachine);
         }
@@ -342,6 +345,9 @@ public class NEComputationCluster extends NECluster<NEComputationCluster> {
         ICraftingRequester requestingMachine,
         boolean useAggregateNetworkCapacity
     ) {
+        if (job.simulation()) {
+            return CraftingSubmitResult.INCOMPLETE_PLAN;
+        }
         if (!this.isLocallyActive()) {
             return CraftingSubmitResult.CPU_OFFLINE;
         }

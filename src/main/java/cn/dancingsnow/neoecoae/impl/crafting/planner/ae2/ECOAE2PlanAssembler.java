@@ -63,6 +63,24 @@ public final class ECOAE2PlanAssembler {
         var candidate = result.candidate();
         Map<AEKey, Long> missing = findMissingSources(problem, result);
         addMissingCycleSeed(problem, result, missing);
+        Map<AEKey, Long> negativeBalances = findNegativeBalances(problem, candidate);
+        boolean simulation = result.status() == ECOHyperflowResult.Status.MISSING_SOURCES;
+        if (simulation && (missing.isEmpty() || !coversNegativeBalances(missing, negativeBalances))) {
+            logInvariantFailure(
+                snapshot,
+                "missing_sources_without_complete_deficit_report missing=" + missing
+                    + " negativeBalances=" + negativeBalances
+            );
+            return Optional.empty();
+        }
+        if (!simulation && (!missing.isEmpty() || !negativeBalances.isEmpty())) {
+            logInvariantFailure(
+                snapshot,
+                "non_simulation_with_negative_balance missing=" + missing
+                    + " negativeBalances=" + negativeBalances
+            );
+            return Optional.empty();
+        }
         if (ECOPlanningFailureDiagnostics.canLogDetail(
             ECOPlanningFailureDiagnostics.Stage.ASSEMBLER
         )) {
@@ -71,6 +89,8 @@ public final class ECOAE2PlanAssembler {
             "assembler_candidate status=" + result.status()
                 + " executions=" + ECOPlanningFailureDiagnostics.describeMap(candidate.executions())
                 + " missing=" + ECOPlanningFailureDiagnostics.describeMap(missing)
+                + " negativeBalances=" + ECOPlanningFailureDiagnostics.describeMap(negativeBalances)
+                + " simulation=" + simulation
                 + " truncatedStateExpansion=" + snapshot.truncatedStateExpansion()
                 + " excludedDynamicPaths=" + snapshot.excludedDynamicPaths()
             );
@@ -87,7 +107,7 @@ public final class ECOAE2PlanAssembler {
             return Optional.of(plan);
         }
         Map<AEKey, Long> schedulableInventory = new LinkedHashMap<>(problem.inventory());
-        if (!snapshot.truncatedStateExpansion() && !snapshot.excludedDynamicPaths()) {
+        if (simulation && !snapshot.truncatedStateExpansion() && !snapshot.excludedDynamicPaths()) {
             missing.forEach((key, amount) -> schedulableInventory.merge(key, amount, Math::addExact));
         }
         var schedulableProblem = new ECOPlanningProblem<>(
@@ -100,8 +120,10 @@ public final class ECOAE2PlanAssembler {
         ECOPlanningFailureDiagnostics.logTiming(
             ECOPlanningFailureDiagnostics.Stage.SCHEDULER,
             snapshot.requestedKey(), snapshot.requestedAmount(), "scheduler",
-            "inventory_schedule", schedulerStarted,
-            "executable=" + schedule.executable() + " steps=" + schedule.steps().size()
+            simulation ? "synthetic_missing_schedule" : "real_inventory_schedule", schedulerStarted,
+            "schedulable=" + schedule.executable()
+                + " simulation=" + simulation
+                + " steps=" + schedule.steps().size()
         );
         if (!schedule.executable()) {
             ECOPlanningFailureDiagnostics.logFailure(
@@ -145,21 +167,24 @@ public final class ECOAE2PlanAssembler {
         CraftingPlan plan = new CraftingPlan(
             new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
             bytes,
-            !missing.isEmpty(),
+            simulation,
             snapshot.multiplePaths(),
             usedItems.get(),
             emittedItems,
             missingItems,
             aggregatePatternExecutions(candidate)
         );
-        ECOPlannedInputs.register(plan, schedule.steps());
+        if (!simulation) {
+            ECOPlannedInputs.register(plan, schedule.steps());
+        }
         if (ECOPlanningFailureDiagnostics.canLogDetail(
             ECOPlanningFailureDiagnostics.Stage.ASSEMBLER
         )) {
             ECOPlanningFailureDiagnostics.logDetail(
             ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
-            "assembler_success bytes=" + bytes
-                + " simulation=" + !missing.isEmpty()
+                (simulation ? "assembler_missing_simulation" : "assembler_executable_plan")
+                + " bytes=" + bytes
+                + " simulation=" + simulation
                 + " patternTimes=" + ECOPlanningFailureDiagnostics.describeMap(
                     aggregatePatternExecutions(candidate)
                 )
@@ -225,6 +250,48 @@ public final class ECOAE2PlanAssembler {
             }
         }
         return missing;
+    }
+
+    private static Map<AEKey, Long> findNegativeBalances(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        ECOPlanCandidate<ECOAE2PatternVariant> candidate
+    ) {
+        Map<AEKey, Long> balances = new LinkedHashMap<>(problem.inventory());
+        for (var operation : problem.operations()) {
+            long count = candidate.executions().getOrDefault(operation.reference(), 0L);
+            operation.inputs().forEach((key, amount) -> mergeScaledSaturated(balances, key, amount, -count));
+            operation.outputs().forEach((key, amount) -> mergeScaledSaturated(balances, key, amount, count));
+        }
+        problem.requested().forEach((key, amount) -> balances.merge(
+            key, -amount, ECOAE2PlanAssembler::saturatedAdd
+        ));
+        Map<AEKey, Long> negative = new LinkedHashMap<>();
+        balances.forEach((key, amount) -> {
+            if (amount < 0L) {
+                negative.put(key, saturatedNegate(amount));
+            }
+        });
+        return negative;
+    }
+
+    private static boolean coversNegativeBalances(
+        Map<AEKey, Long> missing,
+        Map<AEKey, Long> negativeBalances
+    ) {
+        return negativeBalances.entrySet().stream().allMatch(entry ->
+            missing.getOrDefault(entry.getKey(), 0L) >= entry.getValue()
+        );
+    }
+
+    private static void logInvariantFailure(ECOAE2PlanningSnapshot snapshot, String context) {
+        ECOPlanningFailureDiagnostics.logFailure(
+            ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+            ECOPlannerFallbackReason.ASSEMBLY_REJECTED,
+            snapshot.requestedKey(),
+            snapshot.requestedAmount(),
+            "assembler_invariant",
+            context
+        );
     }
 
     private static void addMissingCycleSeed(

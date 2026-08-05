@@ -7,6 +7,7 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
+import appeng.crafting.execution.CraftingSubmitResult;
 import cn.dancingsnow.neoecoae.api.ECOTier;
 import cn.dancingsnow.neoecoae.api.me.ECOCraftingCPU;
 import cn.dancingsnow.neoecoae.blocks.entity.computation.ECOComputationSystemBlockEntity;
@@ -273,6 +274,9 @@ public final class NEComputationNetworkCluster {
         IActionSource source,
         ICraftingRequester requestingMachine
     ) {
+        if (job.simulation()) {
+            return CraftingSubmitResult.INCOMPLETE_PLAN;
+        }
         long aggregateAvailableBytes = getAvailableStorageForGrid(grid);
         boolean aggregateCapacitySufficient = aggregateAvailableBytes >= job.bytes();
         NEComputationCluster selected = null;
