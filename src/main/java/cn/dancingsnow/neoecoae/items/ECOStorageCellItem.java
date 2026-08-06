@@ -261,7 +261,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             : InteractionResult.PASS;
     }
 
-    private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
+    protected boolean disassembleDrive(ItemStack stack, Level level, Player player) {
         if (!InteractionUtil.isInAlternateUseMode(player)) {
             return false;
         }
@@ -281,8 +281,7 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
             return false;
         }
 
-        ECOStorageCell cellInventory = getCellInventory(stack);
-        if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
+        if (hasStoredContents(stack)) {
             player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }
@@ -298,6 +297,11 @@ public class ECOStorageCellItem extends Item implements IBasicECOCellItem {
         getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
 
         return true;
+    }
+
+    protected boolean hasStoredContents(ItemStack stack) {
+        ECOStorageCell cellInventory = getCellInventory(stack);
+        return cellInventory != null && !cellInventory.getAvailableStacks().isEmpty();
     }
 
     public static class Handler implements IECOCellHandler {

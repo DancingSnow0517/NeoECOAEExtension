@@ -3,8 +3,11 @@ package cn.dancingsnow.neoecoae.integration.ae2omnicells.item;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.core.localization.GuiText;
+import appeng.core.localization.PlayerMessages;
 import appeng.core.localization.Tooltips;
+import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.InteractionUtil;
+import cn.dancingsnow.neoecoae.integration.ae2omnicells.ECOUniversalCellHandler;
 import cn.dancingsnow.neoecoae.api.IECOTier;
 import cn.dancingsnow.neoecoae.api.storage.ECOCellType;
 import cn.dancingsnow.neoecoae.api.storage.IECOStorageCellItem;
@@ -18,6 +21,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -98,6 +102,10 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
             player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
             return InteractionResultHolder.fail(stack);
         }
+        if (InteractionUtil.isInAlternateUseMode(player)) {
+            disassembleDrive(stack, level, player);
+            return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), stack);
+        }
         return super.use(level, player, hand);
     }
 
@@ -108,6 +116,42 @@ public class ECOUniversalStorageCellItem extends AEUniversalCellItem implements 
             player.displayClientMessage(Component.translatable("tooltip.neoecoae.storage.infinite_member"), true);
             return InteractionResult.FAIL;
         }
+        if (player != null && InteractionUtil.isInAlternateUseMode(player)) {
+            return disassembleDrive(stack, context.getLevel(), player)
+                ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
+                : InteractionResult.PASS;
+        }
         return super.onItemUseFirst(stack, context);
+    }
+
+    private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
+        if (!InteractionUtil.isInAlternateUseMode(player)) {
+            return false;
+        }
+
+        List<ItemStack> disassembledStacks = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
+        if (disassembledStacks.isEmpty()) {
+            return false;
+        }
+
+        Inventory playerInventory = player.getInventory();
+        if (playerInventory.getSelected() != stack) {
+            return false;
+        }
+
+        var cellInventory = ECOUniversalCellHandler.INSTANCE.getCellInventory(stack, null);
+        if (cellInventory != null && !cellInventory.getAvailableStacks().isEmpty()) {
+            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            return false;
+        }
+
+        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
+
+        for (var disassembledStack : disassembledStacks) {
+            playerInventory.placeItemBackInInventory(disassembledStack.copy());
+        }
+
+        getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
+        return true;
     }
 }
