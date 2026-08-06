@@ -5,13 +5,13 @@ import appeng.client.gui.me.crafting.CraftConfirmScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AmountFormat;
-import appeng.client.gui.style.WidgetStyle;
 import appeng.menu.me.crafting.CraftConfirmMenu;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
+import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
+import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,17 +34,48 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
     @Inject(method = "updateBeforeRender", at = @At("TAIL"))
     private void neoecoae$showPlannerFallback(CallbackInfo ci) {
         CraftConfirmMenu menu = getMenu();
-        ECOPlannerNoticePayload.getClientNotice(menu.containerId).ifPresent(reason -> setTextContent(
-            "dialog_title",
+        ECOPlannerNoticePayload.getClientNoticeData(menu.containerId).ifPresent(notice -> {
+            var reason = notice.reason();
+            if (notice.elapsedNanos() > 0L
+                && menu.getPlan() != null) {
+                String elapsed = String.format(Locale.ROOT, "%.2f", notice.elapsedNanos() / 1_000_000.0D);
+                Component title = Component.translatable("gui.neoecoae.planning.title")
+                    .append(Component.translatable("gui.neoecoae.planning.eco_fast_suffix", elapsed)
+                        .withColor(0x8377FF))
+                    .append(Component.literal(" · " + ByteAmountFormatter.format(menu.getPlan().getUsedBytes())));
+                setTextContent("dialog_title", title);
+            } else if (reason != cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason.FAST_PATH) {
+                setTextContent(
+                    "dialog_title",
+                    reason == cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason.DYNAMIC_SMITHING
+                        ? Component.translatable(reason.translationKey()).withStyle(ChatFormatting.GOLD)
+                        : Component.translatable(
+                            "gui.neoecoae.planning.ae2_fallback_title",
+                            Component.translatable(reason.translationKey())
+                        ).withStyle(ChatFormatting.GOLD)
+                );
+            }
+        });
+    }
+
+    @Inject(method = "updateBeforeRender", at = @At("TAIL"))
+    private void neoecoae$showMissingCycleSeed(CallbackInfo ci) {
+        var diagnostics = ECOCycleDiagnosticsPayload.getClientDiagnostics(getMenu().containerId).orElse(null);
+        if (diagnostics == null || diagnostics.missingSeeds().isEmpty()) {
+            return;
+        }
+        setTextContent(
+            "cpu_status",
             Component.translatable(
-                "gui.neoecoae.planning.ae2_fallback_title",
-                Component.translatable(reason.translationKey())
-            ).withStyle(ChatFormatting.GOLD)
-        ));
+                "gui.neoecoae.planning.partial_plan_cycle",
+                Component.translatable("gui.neoecoae.planning.partial_plan_cycle.warning")
+                    .withStyle(style -> style.withColor(0xFF8080))
+            )
+        );
     }
 
     @Inject(method = "drawFG", at = @At("TAIL"))
-    private void neoecoae$showMissingCycleSeed(
+    private void neoecoae$showMissingCycleSeedTooltip(
         GuiGraphics guiGraphics,
         int offsetX,
         int offsetY,
@@ -68,24 +99,25 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
                 .append(Component.literal(" x" + missing.getKey().formatAmount(
                     missing.getValue(), AmountFormat.SLOT)));
         }
-        Component warning = Component.translatable(
-            "gui.neoecoae.planning.cycle_missing_seed",
-            items
-        ).withStyle(ChatFormatting.YELLOW);
+        var tooltip = new java.util.ArrayList<Component>();
+        tooltip.add(Component.translatable("gui.neoecoae.planning.cycle_missing_seed", items)
+            .withStyle(ChatFormatting.YELLOW));
 
-        Rect2i bounds = new Rect2i(0, 0, imageWidth, imageHeight);
-        WidgetStyle selectCpu = style.getWidget("selectCpu");
-        WidgetStyle cancel = style.getWidget("cancel");
-        int warningTop = selectCpu.resolve(bounds).getY() + selectCpu.getHeight() + 4;
-        int warningBottom = cancel.resolve(bounds).getY() - 4;
-        int warningHeight = Math.max(font.lineHeight, warningBottom - warningTop);
-        var lines = font.split(warning, imageWidth - 16);
-        int lineCount = Math.min(warningHeight / font.lineHeight, lines.size());
-        int firstLineY = warningTop + Math.max(0, (warningHeight - lineCount * font.lineHeight) / 2);
-        for (int i = 0; i < lineCount; i++) {
-            var line = lines.get(i);
-            int x = Math.max(8, (imageWidth - font.width(line)) / 2);
-            guiGraphics.drawString(font, line, x, firstLineY + i * font.lineHeight, 0xFFE5C95A, false);
+        var statusText = Component.translatable(
+            "gui.neoecoae.planning.partial_plan_cycle",
+            Component.translatable("gui.neoecoae.planning.partial_plan_cycle.warning")
+                .withStyle(style -> style.withColor(0xFF8080))
+        );
+        var statusStyle = style.getText().get("cpu_status");
+        if (statusStyle != null && statusStyle.getPosition() != null) {
+            var point = statusStyle.getPosition().resolve(new net.minecraft.client.renderer.Rect2i(0, 0, imageWidth, imageHeight));
+            int width = font.width(statusText);
+            int localX = mouseX;
+            int localY = mouseY;
+            if (localX >= point.getX() - width / 2 && localX <= point.getX() + width / 2
+                && localY >= point.getY() - font.lineHeight && localY <= point.getY() + font.lineHeight) {
+                drawTooltip(guiGraphics, getGuiLeft() + localX, getGuiTop() + localY, tooltip);
+            }
         }
     }
 }

@@ -62,6 +62,9 @@ public final class ECOPlanningService {
             FAILURE_REASON.set(ECOPlannerFallbackReason.PLANNING_FAILURE);
             long planningStarted = System.nanoTime();
             ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, ECOCyclePlanningDiagnostics.EMPTY);
+            if (snapshot.dynamicSmithing()) {
+                ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.DYNAMIC_SMITHING);
+            }
             ECOPlanningFailureDiagnostics.logFailure(
                 ECOPlanningFailureDiagnostics.Stage.ENTRY,
                 ECOPlannerFallbackReason.PLANNING_FAILURE,
@@ -129,7 +132,13 @@ public final class ECOPlanningService {
                         "eco_attempt_total", planningStarted,
                         simulation ? "result=missing_simulation" : "result=executable_plan"
                     );
-                    ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
+                    ECOPlannerNoticeDispatcher.send(
+                        noticeTarget,
+                        snapshot.dynamicSmithing()
+                            ? ECOPlannerFallbackReason.DYNAMIC_SMITHING
+                            : ECOPlannerFallbackReason.FAST_PATH,
+                        System.nanoTime() - planningStarted
+                    );
                     diagnosticResult = simulation
                         ? "eco_missing_sources_simulation"
                         : "eco_executable_plan";

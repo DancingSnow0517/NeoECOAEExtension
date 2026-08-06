@@ -1,4 +1,6 @@
 {
+  "gui.neoecoae.planning.title": "Crafting Plan",
+  "gui.neoecoae.planning.eco_fast_suffix": " · ECO Fast Craft · %s ms",
   "block.neoecoae.aluminum_alloy_block": "Aluminum Alloy Block",
   "block.neoecoae.aluminum_alloy_casing": "Aluminum Alloy Casing",
   "block.neoecoae.aluminum_block": "Aluminum Block",
@@ -237,6 +239,8 @@
   "gui.neoecoae.multiblock.status.ready_to_build": "Ready to build",
   "gui.neoecoae.multiblock.status.structure_ready": "Structure ready",
   "gui.neoecoae.planning.ae2_fallback_title": "Crafting Plan - Using AE2 (%s)",
+  "gui.neoecoae.planning.partial_plan_cycle": "Partial Plan (Missing Ingredients%s)",
+  "gui.neoecoae.planning.partial_plan_cycle.warning": "·Cycle present·Insufficient seed items",
   "gui.neoecoae.planning.reason.assembly_rejected": "The result could not be scheduled as a crafting plan",
   "gui.neoecoae.planning.reason.craft_less_no_craftable": "No amount can currently be crafted",
   "gui.neoecoae.planning.reason.differential_mismatch": "The ECO result differed from AE2 verification",

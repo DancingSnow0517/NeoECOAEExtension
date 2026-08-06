@@ -1,5 +1,9 @@
 {
+  "gui.neoecoae.planning.title": "\u5408\u6210\u8ba1\u5212",
+  "gui.neoecoae.planning.eco_fast_suffix": " \u00b7 ECO\u5feb\u901f\u5408\u6210 \u00b7 %s ms",
   "gui.neoecoae.planning.ae2_fallback_title": "合成计划 - 正在使用 AE2（%s）",
+  "gui.neoecoae.planning.partial_plan_cycle": "残缺的合成计划（材料不足%s）",
+  "gui.neoecoae.planning.partial_plan_cycle.warning": "·存在循环·启动种子不足",
   "chat.neoecoae.planning.ae2_fallback": "ECO 快速计算未使用，已改由 AE2 计算：%s",
   "gui.neoecoae.planning.cycle_missing_seed": "缺少循环启动种子：%s",
   "gui.neoecoae.planning.cycle_tooltip.header": "ECO 环计算",
@@ -7,6 +11,7 @@
   "gui.neoecoae.planning.cycle_tooltip.consumed": "环内消耗：%s",
   "gui.neoecoae.planning.cycle_tooltip.produced": "环内产出：%s",
   "gui.neoecoae.planning.cycle_tooltip.remaining": "计划后数量：%s",
+  "gui.neoecoae.planning.reason.dynamic_smithing": "合成计划 · 存在替换样板",
   "gui.neoecoae.planning.reason.no_eco_host": "没有可用的 ECO 计算主机",
   "gui.neoecoae.planning.reason.snapshot_rejected": "无法读取该请求的配方图",
   "gui.neoecoae.planning.reason.pattern_incompatible": "该样板需要 AE2 原生规划语义",

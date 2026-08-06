@@ -9,6 +9,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.crafting.pattern.AESmithingTablePattern;
 import cn.dancingsnow.neoecoae.NeoECOAE;
 import cn.dancingsnow.neoecoae.api.crafting.IECOPlannerCompatiblePattern;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
@@ -183,6 +184,7 @@ public final class ECOAE2SnapshotFactory {
                 graph.inputSlotCounts(),
                 graph.truncatedStateExpansion(),
                 graph.excludedDynamicPaths(),
+                graph.dynamicSmithing(),
                 ECOPlanningFailureDiagnostics.currentRequestId()
             ));
             if (ECOPlanningFailureDiagnostics.canLogDetail(
@@ -345,6 +347,7 @@ public final class ECOAE2SnapshotFactory {
         boolean inventoryDependent = false;
         boolean inventoryCacheable = true;
         boolean stateful = false;
+        boolean dynamicSmithing = false;
         boolean cacheable = true;
         pending.add(requestedKey);
 
@@ -506,6 +509,7 @@ public final class ECOAE2SnapshotFactory {
                             + " context=" + assessment.rejection()
                     );
                 }
+                dynamicSmithing |= dynamicSmithingPattern(details);
                 trace(
                     requestedKey,
                     requestedAmount,
@@ -521,7 +525,18 @@ public final class ECOAE2SnapshotFactory {
                         details, assessment, inventory, craftingService, level
                     );
                 } catch (ECOAE2PatternMaterializer.PatternRejection rejection) {
-                    throw rejection.withContext(patternContext + " phase=materialization");
+                    if (dynamicSmithingPattern(details)
+                        && rejection.reason() == ECOPlannerFallbackReason.SNAPSHOT_LIMIT_EXCEEDED) {
+                        expansion = ECOAE2PatternMaterializer.expand(
+                            details,
+                            canonicalAssessment(assessment),
+                            inventory,
+                            craftingService,
+                            level
+                        );
+                    } else {
+                        throw rejection.withContext(patternContext + " phase=materialization");
+                    }
                 }
                 if (expansion.operations().isEmpty()) {
                     throw reject(
@@ -589,7 +604,25 @@ public final class ECOAE2SnapshotFactory {
             stateful,
             visitedMaterials.size(),
             unresolvedMaterials,
-            !unresolvedMaterials.contains(requestedKey)
+            !unresolvedMaterials.contains(requestedKey),
+            dynamicSmithing
+        );
+    }
+
+    private static boolean dynamicSmithingPattern(IPatternDetails details) {
+        return details instanceof AESmithingTablePattern smithing && smithing.canSubstitute();
+    }
+
+    private static ECOAE2PatternCompatibility.Assessment canonicalAssessment(
+        ECOAE2PatternCompatibility.Assessment assessment
+    ) {
+        return new ECOAE2PatternCompatibility.Assessment(
+            true,
+            IECOPlannerCompatiblePattern.InputSemantics.CANONICAL_ONLY,
+            false,
+            false,
+            true,
+            ""
         );
     }
 
@@ -834,7 +867,8 @@ public final class ECOAE2SnapshotFactory {
         boolean stateful,
         int materialCount,
         Set<AEKey> unresolvedMaterials,
-        boolean targetHasProducer
+        boolean targetHasProducer,
+        boolean dynamicSmithing
     ) {
         private PatternGraph {
             operations = List.copyOf(operations);

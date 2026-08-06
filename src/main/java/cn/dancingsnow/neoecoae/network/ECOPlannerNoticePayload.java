@@ -14,16 +14,18 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /** Synchronizes the fallback marker only to the player currently viewing the affected crafting menu. */
-public record ECOPlannerNoticePayload(int containerId, String reasonId) implements CustomPacketPayload {
+public record ECOPlannerNoticePayload(int containerId, String reasonId, long elapsedNanos) implements CustomPacketPayload {
     public static final Type<ECOPlannerNoticePayload> TYPE = new Type<>(NeoECOAE.id("planner_notice"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ECOPlannerNoticePayload> STREAM_CODEC = StreamCodec.composite(
         ByteBufCodecs.VAR_INT,
         ECOPlannerNoticePayload::containerId,
         ByteBufCodecs.STRING_UTF8,
         ECOPlannerNoticePayload::reasonId,
+        ByteBufCodecs.VAR_LONG,
+        ECOPlannerNoticePayload::elapsedNanos,
         ECOPlannerNoticePayload::new
     );
-    private static final Map<Integer, ECOPlannerFallbackReason> CLIENT_NOTICES = new ConcurrentHashMap<>();
+    private static final Map<Integer, ClientNotice> CLIENT_NOTICES = new ConcurrentHashMap<>();
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
@@ -35,6 +37,10 @@ public record ECOPlannerNoticePayload(int containerId, String reasonId) implemen
     }
 
     public static Optional<ECOPlannerFallbackReason> getClientNotice(int containerId) {
+        return Optional.ofNullable(CLIENT_NOTICES.get(containerId)).map(ClientNotice::reason);
+    }
+
+    public static Optional<ClientNotice> getClientNoticeData(int containerId) {
         return Optional.ofNullable(CLIENT_NOTICES.get(containerId));
     }
 
@@ -48,11 +54,10 @@ public record ECOPlannerNoticePayload(int containerId, String reasonId) implemen
                 return;
             }
             ECOPlannerFallbackReason reason = ECOPlannerFallbackReason.fromId(payload.reasonId());
+            CLIENT_NOTICES.put(payload.containerId(), new ClientNotice(reason, payload.elapsedNanos()));
             if (reason == ECOPlannerFallbackReason.FAST_PATH) {
-                clearClientNotice(payload.containerId());
                 return;
             }
-            CLIENT_NOTICES.put(payload.containerId(), reason);
             context.player().displayClientMessage(
                 Component.translatable(
                     "chat.neoecoae.planning.ae2_fallback",
@@ -61,5 +66,8 @@ public record ECOPlannerNoticePayload(int containerId, String reasonId) implemen
                 false
             );
         });
+    }
+
+    public record ClientNotice(ECOPlannerFallbackReason reason, long elapsedNanos) {
     }
 }

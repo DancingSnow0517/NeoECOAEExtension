@@ -5,6 +5,7 @@ import java.util.Arrays;
 /** The server-authoritative reason an AE2 plan did not use ECO's planner. */
 public enum ECOPlannerFallbackReason {
     FAST_PATH("fast_path"),
+    DYNAMIC_SMITHING("dynamic_smithing"),
     NO_ECO_HOST("no_eco_host"),
     SNAPSHOT_REJECTED("snapshot_rejected"),
     PATTERN_INCOMPATIBLE("pattern_incompatible"),

@@ -1,5 +1,7 @@
 {
   "gui.neoecoae.planning.ae2_fallback_title": "合成計劃 - 正在使用 AE2（%s）",
+  "gui.neoecoae.planning.partial_plan_cycle": "殘缺的合成計劃（材料不足%s）",
+  "gui.neoecoae.planning.partial_plan_cycle.warning": "·存在循環·啟動種子不足",
   "chat.neoecoae.planning.ae2_fallback": "ECO 快速計算未使用，已改由 AE2 計算：%s",
   "gui.neoecoae.planning.cycle_missing_seed": "缺少循環啟動種子：%s",
   "gui.neoecoae.planning.cycle_tooltip.header": "ECO 環計算",

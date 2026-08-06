@@ -27,6 +27,10 @@ public final class ECOPlannerNoticeDispatcher {
     }
 
     public static void send(@Nullable Target target, ECOPlannerFallbackReason reason) {
+        send(target, reason, 0L);
+    }
+
+    public static void send(@Nullable Target target, ECOPlannerFallbackReason reason, long elapsedNanos) {
         if (target == null) {
             return;
         }
@@ -39,7 +43,10 @@ public final class ECOPlannerNoticeDispatcher {
             if (player.getServer() != server || player.containerMenu.containerId != target.containerId()) {
                 return;
             }
-            PacketDistributor.sendToPlayer(player, new ECOPlannerNoticePayload(target.containerId(), reason.id()));
+            PacketDistributor.sendToPlayer(
+                player,
+                new ECOPlannerNoticePayload(target.containerId(), reason.id(), Math.max(0L, elapsedNanos))
+            );
         });
     }
 

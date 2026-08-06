@@ -13,6 +13,7 @@ public record ECOAE2PlanningSnapshot(
     Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
     boolean truncatedStateExpansion,
     boolean excludedDynamicPaths,
+    boolean dynamicSmithing,
     String diagnosticRequestId
 ) {
     public ECOAE2PlanningSnapshot {
@@ -36,7 +37,7 @@ public record ECOAE2PlanningSnapshot(
     ) {
         this(
             problem, requestedKey, requestedAmount, multiplePaths, inputSlotCounts,
-            truncatedStateExpansion, excludedDynamicPaths, "unscoped"
+            truncatedStateExpansion, excludedDynamicPaths, false, "unscoped"
         );
     }
 
@@ -56,6 +57,7 @@ public record ECOAE2PlanningSnapshot(
             inputSlotCounts,
             truncatedStateExpansion,
             excludedDynamicPaths,
+            dynamicSmithing,
             diagnosticRequestId
         );
     }

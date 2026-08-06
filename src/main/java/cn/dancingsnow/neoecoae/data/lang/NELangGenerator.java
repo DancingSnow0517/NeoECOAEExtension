@@ -8,7 +8,12 @@ public class NELangGenerator {
         ConfigLangs.accept(provider);
 
         provider.add("gui.neoecoae.planning.ae2_fallback_title", "Crafting Plan - Using AE2 (%s)");
+        provider.add("gui.neoecoae.planning.title", "Crafting Plan");
+        provider.add("gui.neoecoae.planning.eco_fast_suffix", " · ECO Fast Craft · %s ms");
+        provider.add("gui.neoecoae.planning.partial_plan_cycle", "Partial Plan (Missing Ingredients%s)");
+        provider.add("gui.neoecoae.planning.partial_plan_cycle.warning", "·Cycle present·Insufficient seed items");
         provider.add("chat.neoecoae.planning.ae2_fallback", "ECO fast planning was not used; calculating with AE2: %s");
+        provider.add("gui.neoecoae.planning.reason.dynamic_smithing", "Crafting Plan · Substitution patterns present");
         provider.add("gui.neoecoae.planning.reason.no_eco_host", "No available ECO computation host");
         provider.add("gui.neoecoae.planning.reason.snapshot_rejected", "The recipe graph could not be captured (invalid or unsupported pattern)");
         provider.add("gui.neoecoae.planning.reason.pattern_incompatible", "The pattern requires AE2-specific planning semantics");

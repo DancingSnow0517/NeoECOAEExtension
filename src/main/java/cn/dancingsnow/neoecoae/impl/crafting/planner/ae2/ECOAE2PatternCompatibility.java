@@ -46,9 +46,6 @@ final class ECOAE2PatternCompatibility {
         }
 
         try {
-            if (details instanceof AESmithingTablePattern smithing && smithing.canSubstitute()) {
-                return Assessment.rejected("dynamic_smithing_output");
-            }
             if (details instanceof AECraftingPattern crafting
                 && crafting.canSubstitute()
                 && AE2PatternIntrospection.classifyPatternEligibility(details)
