@@ -63,6 +63,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @DescSynced
     private CellState cellState = CellState.ABSENT;
 
+    // The OmniCells handler performs persistent-data lookup when creating an inventory.
+    // Keep the wrapper while the same stack is installed; cell contents mutate in place.
+    @Nullable
+    private ItemStack cachedCellStack;
+    @Nullable
+    private IECOStorageCell cachedCellInventory;
+
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
         BlockPos pos,
@@ -82,6 +89,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             return;
         }
         this.cellStack = cellStack;
+        invalidateCellInventoryCache();
         if (getLevel() != null && !isServerStopping()) {
             BlockState state = getBlockState();
             BlockState newState = state.setValue(ECODriveBlock.HAS_CELL, cellStack != null);
@@ -150,10 +158,20 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Nullable
     public IECOStorageCell getCellInventory() {
-        if (cellStack != null) {
-            return ECOStorageCells.getCellInventory(cellStack, this);
+        if (cellStack == null || cellStack.isEmpty()) {
+            invalidateCellInventoryCache();
+            return null;
         }
-        return null;
+        if (cachedCellStack != cellStack) {
+            cachedCellStack = cellStack;
+            cachedCellInventory = ECOStorageCells.getCellInventory(cellStack, this);
+        }
+        return cachedCellInventory;
+    }
+
+    private void invalidateCellInventoryCache() {
+        cachedCellStack = null;
+        cachedCellInventory = null;
     }
 
     @Override
@@ -197,9 +215,12 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+                CellState previousState = cellState;
                 updateCellState();
                 setChanged();
-                markForUpdate();
+                if (cellState != previousState) {
+                    markForUpdate();
+                }
             });
         }
     }
@@ -214,6 +235,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void saveChanges() {
+        // The storage cell can call this from a mutation path; mark the BE dirty immediately.
+        setChanged();
         notifyPersistence();
     }
 
