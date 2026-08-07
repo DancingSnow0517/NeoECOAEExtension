@@ -89,7 +89,7 @@ Quantum Omni matrices have no type limit and provide four times the capacity of 
 | <ItemLink id="neoecoae:eco_quantum_omni_cell_64m" /> | 256 MB | Unlimited | 19,683 AE/t |
 | <ItemLink id="neoecoae:eco_quantum_omni_cell_256m" /> | 1,024 MB | Unlimited | 59,049 AE/t |
 
-The <ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> requires a Multidimensional Expansion Processor. A Quantum Omni matrix is assembled in the Integrated Working Station from one housing and four matching Quantum Omni Cell Components.
+The <ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> requires a Multidimensional Expansion Processor. A Quantum Omni matrix is assembled in the Integrated Working Station from one housing, three matching Quantum Omni Cell Components, 16 Redstone Dust, 8 Nether Quartz, and 4 Fluix Crystals. Disassembly returns the housing and three components.
 
 <RecipeFor id="neoecoae:eco_quantum_omni_cell_housing" />
 

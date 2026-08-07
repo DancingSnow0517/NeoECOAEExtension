@@ -11,13 +11,12 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.ECOExternalCpuFas
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.ModList;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(value = CraftingCpuLogic.class, remap = false)
+@Mixin(value = CraftingCpuLogic.class, remap = false, priority = 2000)
 public abstract class CraftingCpuLogicFastPathMixin {
     @Shadow
     private ExecutingCraftingJob job;
@@ -44,7 +43,6 @@ public abstract class CraftingCpuLogicFastPathMixin {
             Level level,
             Operation<Integer> original) {
         if (job != null
-                && !ModList.get().isLoaded("thunderbolt")
                 && ECOExternalCpuFastPathExecutor.dispatchOne(
                         craftingService,
                         energyService,

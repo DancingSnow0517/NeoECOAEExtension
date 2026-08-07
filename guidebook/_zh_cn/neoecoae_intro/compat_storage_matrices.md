@@ -89,7 +89,7 @@ item_ids:
 | <ItemLink id="neoecoae:eco_quantum_omni_cell_64m" /> | 256 MB | 无限 | 19,683 AE/t |
 | <ItemLink id="neoecoae:eco_quantum_omni_cell_256m" /> | 1,024 MB | 无限 | 59,049 AE/t |
 
-<ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> 需要多维扩展处理器。量子全能矩阵需要在集成工作站中使用一个外壳和四个对应等级的量子全能存储元件合成。
+<ItemLink id="neoecoae:eco_quantum_omni_cell_housing" /> 需要多维扩展处理器。量子全能矩阵需要在集成工作站中使用一个外壳、三个对应等级的量子全能存储元件、16 个红石粉、8 个下界石英和 4 个福鲁伊克斯水晶合成；拆解时返还外壳和三个存储元件。
 
 <RecipeFor id="neoecoae:eco_quantum_omni_cell_housing" />
 

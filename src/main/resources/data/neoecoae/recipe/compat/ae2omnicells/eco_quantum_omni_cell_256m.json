@@ -13,8 +13,20 @@
       "item": "neoecoae:eco_quantum_omni_cell_housing"
     },
     {
-      "count": 4,
+      "count": 3,
       "item": "ae2omnicells:quantum_omni_cell_component_256m"
+    },
+    {
+      "count": 16,
+      "item": "minecraft:redstone"
+    },
+    {
+      "count": 8,
+      "item": "minecraft:quartz"
+    },
+    {
+      "count": 4,
+      "item": "ae2:fluix_crystal"
     }
   ],
   "itemOutput": {

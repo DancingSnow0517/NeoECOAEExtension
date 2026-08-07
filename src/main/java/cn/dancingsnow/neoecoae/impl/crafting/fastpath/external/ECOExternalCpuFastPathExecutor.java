@@ -70,7 +70,43 @@ public final class ECOExternalCpuFastPathExecutor {
 
                 var selection = selectOffer(patternBuses, execution, taskRemaining);
                 if (selection == null) {
-                    continue;
+                    double bootstrapPower = CraftingCpuHelper.calculatePatternPower(firstInputs);
+                    energyReservation = ECOBatchEnergyReservation.tryReserve(
+                            energyService, bootstrapPower, false);
+                    if (energyReservation == null) {
+                        continue;
+                    }
+
+                    boolean accepted = false;
+                    for (var patternBus : patternBuses) {
+                        if (patternBus.pushPattern(execution, job.craftingId())) {
+                            accepted = true;
+                            break;
+                        }
+                    }
+                    if (!accepted) {
+                        continue;
+                    }
+
+                    providerAccepted = true;
+                    firstInputsOwned = false;
+                    energyReservation.commit();
+                    energyReservation = null;
+
+                    long remaining = taskRemaining - 1L;
+                    task.remaining(remaining);
+                    if (remaining <= 0L) {
+                        taskIterator.remove();
+                    }
+                    try {
+                        recordSingleExpectedOutputs(job, execution);
+                    } catch (RuntimeException accountingFailure) {
+                        AELog.warn("NeoECO external CPU accepted a FastPath cache-warmup craft but output "
+                                + "accounting failed. %s", accountingFailure);
+                    } finally {
+                        job.markDirty();
+                    }
+                    return true;
                 }
 
                 var reusablePlan = ECOReusableCraftingPlan.of(
@@ -226,6 +262,18 @@ public final class ECOExternalCpuFastPathExecutor {
                     output.what(), saturatedMultiply(output.amount(), batchSize), Actionable.MODULATE);
         }
         for (GenericStack remaining : reusablePlan.batchRemaining(batchSize)) {
+            job.waitingFor().insert(remaining.what(), remaining.amount(), Actionable.MODULATE);
+            job.addContainerMaxItems(remaining.amount(), remaining.what().getType());
+        }
+    }
+
+    private static void recordSingleExpectedOutputs(
+            ECOExternalCpuJobView job,
+            ECOExtractedPatternExecution execution) {
+        for (GenericStack output : execution.expectedOutputs()) {
+            job.waitingFor().insert(output.what(), output.amount(), Actionable.MODULATE);
+        }
+        for (GenericStack remaining : execution.expectedContainerItems()) {
             job.waitingFor().insert(remaining.what(), remaining.amount(), Actionable.MODULATE);
             job.addContainerMaxItems(remaining.amount(), remaining.what().getType());
         }
