@@ -20,7 +20,9 @@ public class NEConfig {
     private static final int DEBUG_OVERDRIVE_CAPACITY_POWER = 15;
     public static final int CRAFTING_WORKER_BASE_CRAFTS = 32;
     public static final int ECO_CPU_PUSH_TICK_LIMIT_MAX = 393_216;
-    public static final int ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT = 4096;
+    public static final int ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT = ECO_CPU_PUSH_TICK_LIMIT_MAX;
+    public static final int ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_DEFAULT = 10_000;
+    public static final int ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_MAX = 50_000;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
@@ -215,14 +217,24 @@ public class NEConfig {
             "每个 CPU 每 tick 最多向不支持批量推送的样板提供器发配的 pattern 数量。",
             "仅在最终回退到单次 provider.pushPattern 时计数；ECO 与 AE2LT 的批量快路径不受此限制。",
             "限制同步外部库存插入，避免大型第三方库存处理器在单个 tick 内被重复扫描。",
-            "Maximum patterns each CPU dispatches per tick to providers without a batch push path.",
-            "Only final single provider.pushPattern calls count; ECO and AE2LT batch fast paths do not.",
-            "Limits synchronous external-inventory insertion to avoid repeatedly scanning large third-party inventories in one tick.")
+            "Hard limit for non-batch provider calls across one AE2 network per server tick.",
+            "Every attempt counts, including rejection and exceptions. Batch fast paths do not.")
         .defineInRange(
             "ecoCpuSlowPathPushTickLimit",
             ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT,
             1,
             ECO_CPU_PUSH_TICK_LIMIT_MAX
+        );
+
+    private static final ModConfigSpec.IntValue ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS = BUILDER
+        .comment(
+            "Shared wall-clock budget per AE2 network and server tick for non-batch provider dispatch.",
+            "The hard attempt limit still applies. Set to 0 to disable the time budget.")
+        .defineInRange(
+            "ecoCpuSlowPathTimeBudgetMicros",
+            ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_DEFAULT,
+            0,
+            ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_MAX
         );
 
     private static final ModConfigSpec.IntValue ECO_FAST_PATH_CACHE_SIZE = BUILDER
@@ -257,6 +269,7 @@ public class NEConfig {
     public static boolean debugECOPlanner;
     public static int ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT_MAX;
     public static int ecoCpuSlowPathPushTickLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT;
+    public static int ecoCpuSlowPathTimeBudgetMicros = ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS_DEFAULT;
     public static int ecoFastPathCacheSize = 512;
 
     @SubscribeEvent
@@ -294,7 +307,14 @@ public class NEConfig {
             ECOFastPathDiagnostics.clear();
         }
         ecoCpuPushTickLimit = ECO_CPU_PUSH_TICK_LIMIT.get();
-        ecoCpuSlowPathPushTickLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT.get();
+        int slowPathAttemptLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT.get();
+        if (slowPathAttemptLimit == 4_096) {
+            // Migrate the old default so existing server configs receive the new adaptive budget.
+            slowPathAttemptLimit = ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT_DEFAULT;
+            ECO_CPU_SLOW_PATH_PUSH_TICK_LIMIT.set(slowPathAttemptLimit);
+        }
+        ecoCpuSlowPathPushTickLimit = slowPathAttemptLimit;
+        ecoCpuSlowPathTimeBudgetMicros = ECO_CPU_SLOW_PATH_TIME_BUDGET_MICROS.get();
         ecoFastPathCacheSize = ECO_FAST_PATH_CACHE_SIZE.get();
     }
 

@@ -93,9 +93,14 @@ public class ConfigLangs {
         provider.add("neoecoae.configuration.ecoCpuSlowPathPushTickLimit", "CPU Slow-Path Push Tick Limit");
         provider.add(
             "neoecoae.configuration.ecoCpuSlowPathPushTickLimit.tooltip",
-            "Maximum patterns each CPU dispatches per tick to providers without a batch push path.\n" +
-                "Only final single provider.pushPattern calls count; ECO and AE2LT batch fast paths do not.\n" +
-                "Limits synchronous external-inventory insertion to avoid repeatedly scanning large third-party inventories in one tick."
+            "Hard limit for non-batch provider calls across one AE2 network per tick.\n" +
+                "Every attempt counts, including rejection and exceptions; batch fast paths do not."
+        );
+        provider.add("neoecoae.configuration.ecoCpuSlowPathTimeBudgetMicros", "CPU Slow-Path Time Budget");
+        provider.add(
+            "neoecoae.configuration.ecoCpuSlowPathTimeBudgetMicros.tooltip",
+            "Shared time budget in microseconds per AE2 network and tick for non-batch provider dispatch.\n" +
+                "Set to 0 to use only the hard attempt limit."
         );
         provider.add("neoecoae.configuration.ecoFastPathCacheSize", "Fast Path Cache Size");
         provider.add(

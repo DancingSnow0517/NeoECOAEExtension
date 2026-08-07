@@ -3,9 +3,12 @@ package cn.dancingsnow.neoecoae.api.me;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -64,6 +67,8 @@ import org.slf4j.LoggerFactory;
 public class ECOCraftingCPULogic {
     private static final Logger LOGGER = LoggerFactory.getLogger(NeoECOAE.MOD_ID);
     private static final Map<UUID, ECOCraftingCPULogic> JOB_OUTPUT_ROUTES = new ConcurrentHashMap<>();
+    private static final Map<CraftingService, SlowPathNetworkBudget> SLOW_PATH_NETWORK_BUDGETS =
+        Collections.synchronizedMap(new WeakHashMap<>());
 
     final ECOCraftingCPU cpu;
     private final AE2LTBatchCraftingBridge ae2ltBatchBridge = new AE2LTBatchCraftingBridge();
@@ -98,6 +103,9 @@ public class ECOCraftingCPULogic {
     private boolean batchedFullStatusChange = false;
     private boolean deliveringBufferedFinalOutput = false;
     private long lastFinalOutputDeliveryFailureLogTick = Long.MIN_VALUE;
+    private final IdentityHashMap<IPatternDetails, IdentityHashMap<ICraftingProvider, Boolean>>
+        slowPathDeferredProviders = new IdentityHashMap<>();
+    private long slowPathDeferredProvidersTick = Long.MIN_VALUE;
     @Nullable
     private SlowPathPushBudget tickSlowPathPushBudget;
 
@@ -190,7 +198,7 @@ public class ECOCraftingCPULogic {
         }
 
         var remainingOperations = getOperationLimit();
-        tickSlowPathPushBudget = new SlowPathPushBudget(NEConfig.ecoCpuSlowPathPushTickLimit);
+        tickSlowPathPushBudget = new SlowPathPushBudget(cc);
 
         try {
             if (remainingOperations > 0) {
@@ -290,13 +298,15 @@ public class ECOCraftingCPULogic {
             int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level) {
         SlowPathPushBudget slowPathPushBudget = tickSlowPathPushBudget != null
             ? tickSlowPathPushBudget
-            : new SlowPathPushBudget(NEConfig.ecoCpuSlowPathPushTickLimit);
+            : new SlowPathPushBudget(craftingService);
         var job = this.job;
         if (job == null)
             return 0;
 
-        ae2ltBatchBridge.beginTick(TickHandler.instance().getCurrentTick());
-        megacellsBatchBridge.beginTick(TickHandler.instance().getCurrentTick());
+        long currentTick = TickHandler.instance().getCurrentTick();
+        ae2ltBatchBridge.beginTick(currentTick);
+        megacellsBatchBridge.beginTick(currentTick);
+        beginSlowPathProviderTick(currentTick);
         var pushedPatterns = 0;
 
         beginStatusChangeBatch();
@@ -465,11 +475,8 @@ public class ECOCraftingCPULogic {
                         // Batch-capable providers were already offered both ECO and AE2LT batch paths above.
                         // Do not let a high CPU parallelism turn the synchronous fallback into thousands of
                         // third-party inventory insertions in a single server tick.
-                        if (!slowPathPushBudget.canPush()) {
-                            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
-                            break taskLoop;
-                        }
                         if (provider.isBusy()
+                            || shouldSkipSlowPathProvider(provider, details)
                             || ae2ltBatchBridge.shouldSkip(provider, details)
                             || megacellsBatchBridge.shouldSkip(provider, details)) {
                             continue;
@@ -478,6 +485,11 @@ public class ECOCraftingCPULogic {
                         if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
                                 PowerMultiplier.CONFIG) < patternPower - 0.01) {
                             break;
+                        }
+
+                        if (!slowPathPushBudget.tryAcquire()) {
+                            CraftingCpuHelper.reinjectPatternInputs(inventory, craftingContainer);
+                            break taskLoop;
                         }
 
                         try {
@@ -496,13 +508,13 @@ public class ECOCraftingCPULogic {
                         }
 
                         if (!pushed) {
+                            deferSlowPathProvider(provider, details);
                             ae2ltBatchBridge.recordFailedSinglePush(provider, details);
                             megacellsBatchBridge.recordFailedSinglePush(provider, details);
                             continue;
                         }
 
                         chargeAcceptedPatternEnergy(energyService, patternPower);
-                        slowPathPushBudget.recordPush();
                         pushedPatterns++;
                         if (this.job != job) {
                             break taskLoop;
@@ -538,19 +550,58 @@ public class ECOCraftingCPULogic {
     }
 
     private static final class SlowPathPushBudget {
-        private final int limit;
-        private int pushed;
+        private final SlowPathNetworkBudget networkBudget;
 
-        private SlowPathPushBudget(int configuredLimit) {
-            this.limit = Math.max(0, configuredLimit);
+        private SlowPathPushBudget(CraftingService craftingService) {
+            synchronized (SLOW_PATH_NETWORK_BUDGETS) {
+                this.networkBudget = SLOW_PATH_NETWORK_BUDGETS.computeIfAbsent(
+                    craftingService, ignored -> new SlowPathNetworkBudget()
+                );
+            }
         }
 
-        private boolean canPush() {
-            return pushed < limit;
+        private boolean tryAcquire() {
+            return networkBudget.tryAcquire(
+                TickHandler.instance().getCurrentTick(),
+                NEConfig.ecoCpuSlowPathPushTickLimit,
+                NEConfig.ecoCpuSlowPathTimeBudgetMicros
+            );
         }
+    }
 
-        private void recordPush() {
-            pushed++;
+    private static final class SlowPathNetworkBudget {
+        private static final int TIME_CHECK_INTERVAL = 16;
+
+        private long tick = Long.MIN_VALUE;
+        private int attempts;
+        private long deadlineNanos = Long.MAX_VALUE;
+
+        private boolean tryAcquire(long currentTick, int configuredLimit, int timeBudgetMicros) {
+            if (tick != currentTick) {
+                tick = currentTick;
+                attempts = 0;
+                if (timeBudgetMicros <= 0) {
+                    deadlineNanos = Long.MAX_VALUE;
+                } else {
+                    long budgetNanos = (long) timeBudgetMicros * 1_000L;
+                    long now = System.nanoTime();
+                    deadlineNanos = now >= Long.MAX_VALUE - budgetNanos
+                        ? Long.MAX_VALUE
+                        : now + budgetNanos;
+                }
+            }
+
+            int limit = Math.max(0, configuredLimit);
+            if (attempts >= limit) {
+                return false;
+            }
+            if (deadlineNanos != Long.MAX_VALUE
+                && attempts % TIME_CHECK_INTERVAL == 0
+                && System.nanoTime() >= deadlineNanos) {
+                return false;
+            }
+            attempts++;
+            return true;
         }
     }
 
@@ -591,12 +642,31 @@ public class ECOCraftingCPULogic {
         List<ICraftingProvider> providers = new ArrayList<>();
         for (ICraftingProvider provider : craftingService.getProviders(details)) {
             if (!provider.isBusy()
+                && !shouldSkipSlowPathProvider(provider, details)
                 && !ae2ltBatchBridge.shouldSkip(provider, details)
                 && !megacellsBatchBridge.shouldSkip(provider, details)) {
                 providers.add(provider);
             }
         }
         return providers;
+    }
+
+    private void beginSlowPathProviderTick(long tick) {
+        if (slowPathDeferredProvidersTick != tick) {
+            slowPathDeferredProvidersTick = tick;
+            slowPathDeferredProviders.clear();
+        }
+    }
+
+    private boolean shouldSkipSlowPathProvider(ICraftingProvider provider, IPatternDetails details) {
+        IdentityHashMap<ICraftingProvider, Boolean> providers = slowPathDeferredProviders.get(details);
+        return providers != null && providers.containsKey(provider);
+    }
+
+    private void deferSlowPathProvider(ICraftingProvider provider, IPatternDetails details) {
+        slowPathDeferredProviders
+            .computeIfAbsent(details, ignored -> new IdentityHashMap<>())
+            .put(provider, Boolean.TRUE);
     }
 
     private static List<ECOCraftingPatternBusBlockEntity> collectPatternBuses(List<ICraftingProvider> providers) {
@@ -615,6 +685,7 @@ public class ECOCraftingCPULogic {
     private boolean hasReadyProvider(List<ICraftingProvider> providers, IPatternDetails details) {
         for (ICraftingProvider provider : providers) {
             if (!provider.isBusy()
+                && !shouldSkipSlowPathProvider(provider, details)
                 && !ae2ltBatchBridge.shouldSkip(provider, details)
                 && !megacellsBatchBridge.shouldSkip(provider, details)) {
                 return true;
