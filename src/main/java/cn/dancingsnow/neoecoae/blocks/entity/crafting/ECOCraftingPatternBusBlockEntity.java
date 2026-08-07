@@ -194,6 +194,12 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
         return findBatchFastPathOffer(execution.key(), execution, null, requestedBatchSize);
     }
 
+    /** Compatibility overload used by Thunderbolt Core's optional NeoECO bridge. */
+    @Nullable
+    public BatchFastPathOffer findBatchFastPathOffer(ECOExtractedPatternExecution execution, int requestedBatchSize) {
+        return findBatchFastPathOffer(execution, (long) requestedBatchSize);
+    }
+
     @Nullable
     private BatchFastPathOffer findBatchFastPathOffer(
         ECOFastPathKey key,

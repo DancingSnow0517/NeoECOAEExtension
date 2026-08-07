@@ -16,6 +16,27 @@ public record ECOBatchCraftingRequest(
     List<GenericStack> remainingPerCraft,
     @Nullable UUID craftingJobId
 ) {
+    /** Compatibility constructor used by Thunderbolt Core's optional NeoECO bridge. */
+    public ECOBatchCraftingRequest(
+        IPatternDetails details,
+        ECOFastPathKey key,
+        int batchSize,
+        List<GenericStack> inputsPerCraft,
+        List<GenericStack> outputsPerCraft,
+        List<GenericStack> remainingPerCraft,
+        @Nullable UUID craftingJobId
+    ) {
+        this(
+            details,
+            key,
+            (long) batchSize,
+            inputsPerCraft,
+            outputsPerCraft,
+            remainingPerCraft,
+            craftingJobId
+        );
+    }
+
     public ECOBatchCraftingRequest {
         Objects.requireNonNull(details, "details");
         Objects.requireNonNull(key, "key");

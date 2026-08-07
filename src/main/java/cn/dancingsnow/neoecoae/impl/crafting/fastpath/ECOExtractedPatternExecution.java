@@ -102,6 +102,17 @@ public final class ECOExtractedPatternExecution {
         );
     }
 
+    /** Compatibility entry point used by Thunderbolt Core's optional NeoECO bridge. */
+    public static ECOExtractedPatternExecution create(
+        IPatternDetails details,
+        KeyCounter[] craftingContainer,
+        KeyCounter expectedOutputs,
+        KeyCounter expectedContainerItems,
+        Level level
+    ) {
+        return create(details, craftingContainer, expectedOutputs, expectedContainerItems, level, true);
+    }
+
     /**
      * Cheap O(1) eligibility gate evaluated before any FastPath metadata (snapshots, canonical
      * sorting, key construction, hashing) is built. Patterns that can never use the FastPath -
