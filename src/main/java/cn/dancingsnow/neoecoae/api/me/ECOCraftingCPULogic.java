@@ -554,6 +554,20 @@ public class ECOCraftingCPULogic {
         }
     }
 
+    private enum BatchDispatchState {
+        PREPARED,
+        RESOURCES_RESERVED,
+        PROVIDER_ACCEPTED,
+        INPUT_OWNERSHIP_TRANSFERRED,
+        ACCOUNTING_APPLIED;
+
+        private boolean providerOwnsInputs() {
+            return this == PROVIDER_ACCEPTED
+                || this == INPUT_OWNERSHIP_TRANSFERRED
+                || this == ACCOUNTING_APPLIED;
+        }
+    }
+
     private void chargeAcceptedPatternEnergy(IEnergyService energyService, double requiredPower) {
         try {
             double charged = energyService.extractAEPower(
@@ -766,7 +780,7 @@ public class ECOCraftingCPULogic {
 
         var extraInputs = reusablePlan.extraInputs(batchSize - 1);
         boolean extraInputsExtracted = false;
-        boolean ownershipTransferred = false;
+        BatchDispatchState dispatchState = BatchDispatchState.PREPARED;
         ECOBatchEnergyReservation energyReservation = null;
         try {
             double requiredPower = virtualCrafting ? 0.0D : patternPower * batchSize;
@@ -807,6 +821,7 @@ public class ECOCraftingCPULogic {
                 throw e;
             }
             extraInputsExtracted = true;
+            dispatchState = BatchDispatchState.RESOURCES_RESERVED;
             var request = new ECOBatchCraftingRequest(
                     details,
                     execution.key(),
@@ -828,10 +843,11 @@ public class ECOCraftingCPULogic {
                 rollbackBatchInputs(inventory, firstCraftingContainer, extraInputs, true, true);
                 return -1;
             }
+            dispatchState = BatchDispatchState.PROVIDER_ACCEPTED;
             // The worker owns consumed inputs from this point onward. Exact reusable catalysts
             // never enter the worker ledger, so return their single reserved copy to the CPU. This
             // lets the scheduler lease the same immutable catalyst to other free FX workers.
-            ownershipTransferred = true;
+            dispatchState = BatchDispatchState.INPUT_OWNERSHIP_TRANSFERRED;
             ECOBatchCraftingHelper.insertAll(inventory, reusablePlan.reusableInputs());
             if (energyReservation != null) {
                 energyReservation.commit();
@@ -839,6 +855,7 @@ public class ECOCraftingCPULogic {
             try {
                 if (this.job == job) {
                     recordPushedPattern(job, execution, batchSize, true);
+                    dispatchState = BatchDispatchState.ACCOUNTING_APPLIED;
                 }
             } catch (RuntimeException e) {
                 selectedOffer.worker().getFastPathCache().recordException();
@@ -850,14 +867,15 @@ public class ECOCraftingCPULogic {
             return batchSize;
         } catch (RuntimeException e) {
             selectedOffer.worker().getFastPathCache().recordException();
+            boolean providerOwnsInputs = dispatchState.providerOwnsInputs();
             ECOFastPathDiagnostics.logFailure(execution,
-                ownershipTransferred ? ECOFastPathFallbackReason.ACCOUNTING_FAILED
+                providerOwnsInputs ? ECOFastPathFallbackReason.ACCOUNTING_FAILED
                     : ECOFastPathFallbackReason.PROVIDER_REJECTED,
-                ownershipTransferred ? ECOFastPathStage.ACCOUNTING : ECOFastPathStage.PROVIDER_DISPATCH,
+                providerOwnsInputs ? ECOFastPathStage.ACCOUNTING : ECOFastPathStage.PROVIDER_DISPATCH,
                 selectedOffer.worker().getBlockPos(), TickHandler.instance().getCurrentTick(),
-                "batch=" + batchSize + " ownershipTransferred=" + ownershipTransferred
+                "batch=" + batchSize + " dispatchState=" + dispatchState
                     + " error=" + e.getMessage());
-            if (ownershipTransferred) {
+            if (providerOwnsInputs) {
                 LOGGER.error("ECO batch failed after ownership transfer; accounting it as accepted", e);
                 return batchSize;
             }
@@ -869,7 +887,7 @@ public class ECOCraftingCPULogic {
             return -1;
         } catch (Error e) {
             selectedOffer.worker().getFastPathCache().recordException();
-            if (!ownershipTransferred) {
+            if (!dispatchState.providerOwnsInputs()) {
                 if (energyReservation != null) {
                     RuntimeException refundFailure = energyReservation.refundSafely();
                     if (refundFailure != null) {

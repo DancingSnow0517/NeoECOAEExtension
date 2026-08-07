@@ -852,43 +852,37 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
         // Persist a shrinking pending ledger so completed external inserts are never retried.
         stacks.removeZeros();
         retainRemainderForRetry(stacks, RecoveryState.ACTIVE);
-        boolean routedToOwningCpu = false;
         for (GenericStack entry : pendingEntries) {
             AEKey key = entry.what();
             long remaining = entry.amount();
-            long insertedIntoCpus;
             if (craftingJobId != null && !releaseJobOutputsToNetwork) {
                 // A forming/reforming computation host can be absent from CraftingService's transient CPU list.
-                // Keep this worker-owned output until its exact CPU is registered again instead of losing the
-                // completion signal by falling back to network storage.
+                // Until the owning job explicitly releases its outputs, never let a partial delivery change
+                // the route of later entries to another CPU or network storage.
                 ECOCraftingCPULogic.JobOutputDelivery delivery = ECOCraftingCPULogic.deliverJobOutput(
                     craftingJobId, key, remaining, Actionable.MODULATE
                 );
                 if (!delivery.routeAvailable()) {
-                    if (!routedToOwningCpu) {
-                        return stacks;
-                    }
-                    insertedIntoCpus = validateInsertionAmount(
-                        craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE),
-                        remaining,
-                        "crafting CPUs"
-                    );
-                } else {
-                    routedToOwningCpu = true;
-                    insertedIntoCpus = validateInsertionAmount(delivery.inserted(), remaining, "owning crafting CPU");
+                    return stacks;
                 }
-            } else {
-                insertedIntoCpus = validateInsertionAmount(
-                    craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE),
-                    remaining,
-                    "crafting CPUs"
+                long delivered = validateInsertionAmount(
+                    delivery.inserted(), remaining, "owning crafting CPU"
                 );
+                if (delivered > 0L) {
+                    removePendingOutput(stacks, key, delivered);
+                }
+                continue;
             }
+
+            long insertedIntoCpus = validateInsertionAmount(
+                craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE),
+                remaining,
+                "crafting CPUs"
+            );
             if (insertedIntoCpus > 0L) {
                 remaining -= insertedIntoCpus;
                 removePendingOutput(stacks, key, insertedIntoCpus);
             }
-
             if (remaining > 0L) {
                 long insertedIntoStorage = validateInsertionAmount(
                     storage.insert(key, remaining, Actionable.MODULATE, actionSource),
