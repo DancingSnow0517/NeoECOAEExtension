@@ -1,4 +1,5 @@
 {
+  "gui.neoecoae.planning.overflow_title": "\u6ea2\u51fa \u00b7 ECO\u5feb\u901f\u5408\u6210 \u00b7 %s ms \u00b7 %s",
   "gui.neoecoae.planning.title": "\u5408\u6210\u8ba1\u5212",
   "gui.neoecoae.planning.eco_fast_suffix": " \u00b7 ECO\u5feb\u901f\u5408\u6210 \u00b7 %s ms",
   "gui.neoecoae.planning.ae2_fallback_title": "合成计划 - 正在使用 AE2（%s）",

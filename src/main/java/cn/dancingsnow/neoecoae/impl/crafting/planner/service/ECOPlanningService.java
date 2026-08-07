@@ -12,12 +12,14 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanAssembler;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PlanningSnapshot;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOAE2PatternVariant;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOOversizedPlanEstimator;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOGraphPruner;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOPlanningGraph;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOSolveBudget;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOHyperflowResult;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.solver.ECOPlanningSolver;
 import java.util.Optional;
+import java.math.BigInteger;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -61,6 +63,7 @@ public final class ECOPlanningService {
             }
             FAILURE_REASON.set(ECOPlannerFallbackReason.PLANNING_FAILURE);
             long planningStarted = System.nanoTime();
+            ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.FAST_PATH);
             ECOPlannerNoticeDispatcher.sendCycleDiagnostics(noticeTarget, ECOCyclePlanningDiagnostics.EMPTY);
             if (snapshot.dynamicSmithing()) {
                 ECOPlannerNoticeDispatcher.send(noticeTarget, ECOPlannerFallbackReason.DYNAMIC_SMITHING);
@@ -90,10 +93,10 @@ public final class ECOPlanningService {
                         + " maxDepth=" + budget.maxDepth()
                         + " extraBatchChoices=" + budget.extraBatchChoices()
                 );
-                Optional<CraftingPlan> ecoPlan = Optional.empty();
+                PlanningAttempt attempt = PlanningAttempt.empty();
                 try {
-                    ecoPlan = strategy == CalculationStrategy.CRAFT_LESS
-                        ? solveCraftLess(snapshot, budget, deadlineNanos, noticeTarget)
+                    attempt = strategy == CalculationStrategy.CRAFT_LESS
+                        ? PlanningAttempt.plan(solveCraftLess(snapshot, budget, deadlineNanos, noticeTarget))
                         : solve(snapshot, budget, deadlineNanos, noticeTarget);
                 } catch (CancellationException cancelled) {
                     throw cancelled;
@@ -124,6 +127,23 @@ public final class ECOPlanningService {
                 if (cancellationRequested.get() || Thread.currentThread().isInterrupted()) {
                     throw new CancellationException("ECO crafting planning was cancelled");
                 }
+                if (attempt.overflowBytes() != null) {
+                    long elapsedNanos = System.nanoTime() - planningStarted;
+                    ECOPlanningFailureDiagnostics.logTiming(
+                        ECOPlanningFailureDiagnostics.Stage.ENTRY,
+                        snapshot.requestedKey(), snapshot.requestedAmount(), strategy,
+                        "eco_attempt_total", planningStarted,
+                        "result=overflow_preview bytes=" + attempt.overflowBytes()
+                    );
+                    ECOPlannerNoticeDispatcher.sendOverflow(
+                        noticeTarget,
+                        elapsedNanos,
+                        attempt.overflowBytes()
+                    );
+                    diagnosticResult = "eco_overflow_preview";
+                    return missingTargetPlan(snapshot, Long.MAX_VALUE);
+                }
+                Optional<CraftingPlan> ecoPlan = attempt.plan();
                 if (ecoPlan.isPresent()) {
                     boolean simulation = ecoPlan.get().simulation();
                     ECOPlanningFailureDiagnostics.logTiming(
@@ -218,7 +238,7 @@ public final class ECOPlanningService {
         return task;
     }
 
-    private static Optional<CraftingPlan> solve(
+    private static PlanningAttempt solve(
         ECOAE2PlanningSnapshot snapshot,
         ECOSolveBudget budget,
         long deadlineNanos,
@@ -271,9 +291,35 @@ public final class ECOPlanningService {
                 && result.status() != ECOHyperflowResult.Status.BUDGET_EXHAUSTED) {
                 markFailure(ECOPlannerFallbackReason.ASSEMBLY_REJECTED);
             }
-            return plan;
+            return PlanningAttempt.plan(plan);
         } catch (CancellationException cancelled) {
             throw cancelled;
+        } catch (ArithmeticException overflow) {
+            Optional<BigInteger> exactBytes = ECOOversizedPlanEstimator.estimateBytes(snapshot);
+            if (exactBytes.isPresent()) {
+                markFailure(ECOPlannerFallbackReason.OVERFLOW);
+                ECOPlanningFailureDiagnostics.logFailure(
+                    ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+                    ECOPlannerFallbackReason.OVERFLOW,
+                    snapshot.requestedKey(),
+                    snapshot.requestedAmount(),
+                    "overflow_preview",
+                    "long_range_exceeded exactBytes=" + exactBytes.get(),
+                    overflow
+                );
+                return PlanningAttempt.overflow(exactBytes.get());
+            }
+            markFailure(ECOPlannerFallbackReason.PLANNING_FAILURE);
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.ASSEMBLER,
+                ECOPlannerFallbackReason.PLANNING_FAILURE,
+                snapshot.requestedKey(),
+                snapshot.requestedAmount(),
+                "assembler",
+                "overflow_preview_recalculation_failed",
+                overflow
+            );
+            return PlanningAttempt.empty();
         } catch (RuntimeException | LinkageError failure) {
             markFailure(ECOPlannerFallbackReason.PLANNING_FAILURE);
             ECOPlanningFailureDiagnostics.logFailure(
@@ -286,7 +332,7 @@ public final class ECOPlanningService {
                 failure
             );
             LOGGER.debug("ECO plan assembly failed; using AE2 crafting calculation", failure);
-            return Optional.empty();
+            return PlanningAttempt.empty();
         }
     }
 
@@ -366,11 +412,15 @@ public final class ECOPlanningService {
     }
 
     private static CraftingPlan missingTargetPlan(ECOAE2PlanningSnapshot snapshot) {
+        return missingTargetPlan(snapshot, 1L);
+    }
+
+    private static CraftingPlan missingTargetPlan(ECOAE2PlanningSnapshot snapshot, long bytes) {
         KeyCounter missing = new KeyCounter();
         missing.add(snapshot.requestedKey(), snapshot.requestedAmount());
         return new CraftingPlan(
             new GenericStack(snapshot.requestedKey(), snapshot.requestedAmount()),
-            1L,
+            bytes,
             true,
             snapshot.multiplePaths(),
             new KeyCounter(),
@@ -378,5 +428,19 @@ public final class ECOPlanningService {
             missing,
             java.util.Map.of()
         );
+    }
+
+    private record PlanningAttempt(Optional<CraftingPlan> plan, BigInteger overflowBytes) {
+        static PlanningAttempt empty() {
+            return new PlanningAttempt(Optional.empty(), null);
+        }
+
+        static PlanningAttempt plan(Optional<CraftingPlan> plan) {
+            return new PlanningAttempt(plan, null);
+        }
+
+        static PlanningAttempt overflow(BigInteger exactBytes) {
+            return new PlanningAttempt(Optional.empty(), exactBytes);
+        }
     }
 }

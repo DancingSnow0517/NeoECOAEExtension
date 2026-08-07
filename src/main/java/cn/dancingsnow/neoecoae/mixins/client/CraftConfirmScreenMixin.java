@@ -36,7 +36,15 @@ public abstract class CraftConfirmScreenMixin extends AEBaseScreen<CraftConfirmM
         CraftConfirmMenu menu = getMenu();
         ECOPlannerNoticePayload.getClientNoticeData(menu.containerId).ifPresent(notice -> {
             var reason = notice.reason();
-            if (notice.elapsedNanos() > 0L
+            if (notice.overflow()) {
+                String elapsed = String.format(Locale.ROOT, "%.2f", notice.elapsedNanos() / 1_000_000.0D);
+                Component title = Component.translatable(
+                    "gui.neoecoae.planning.overflow_title",
+                    elapsed,
+                    notice.formattedBytes()
+                ).withColor(0xFF8080);
+                setTextContent("dialog_title", title);
+            } else if (notice.elapsedNanos() > 0L
                 && menu.getPlan() != null) {
                 String elapsed = String.format(Locale.ROOT, "%.2f", notice.elapsedNanos() / 1_000_000.0D);
                 Component title = Component.translatable("gui.neoecoae.planning.title")

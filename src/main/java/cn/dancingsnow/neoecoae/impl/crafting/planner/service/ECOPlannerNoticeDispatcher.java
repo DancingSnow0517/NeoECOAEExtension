@@ -4,6 +4,7 @@ import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import cn.dancingsnow.neoecoae.network.ECOPlannerNoticePayload;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.ae2.ECOCyclePlanningDiagnostics;
 import cn.dancingsnow.neoecoae.network.ECOCycleDiagnosticsPayload;
+import cn.dancingsnow.neoecoae.util.ByteAmountFormatter;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -31,6 +32,23 @@ public final class ECOPlannerNoticeDispatcher {
     }
 
     public static void send(@Nullable Target target, ECOPlannerFallbackReason reason, long elapsedNanos) {
+        send(target, reason, elapsedNanos, "");
+    }
+
+    public static void sendOverflow(
+        @Nullable Target target,
+        long elapsedNanos,
+        java.math.BigInteger exactBytes
+    ) {
+        send(target, ECOPlannerFallbackReason.OVERFLOW, elapsedNanos, ByteAmountFormatter.format(exactBytes));
+    }
+
+    private static void send(
+        @Nullable Target target,
+        ECOPlannerFallbackReason reason,
+        long elapsedNanos,
+        String formattedBytes
+    ) {
         if (target == null) {
             return;
         }
@@ -45,7 +63,12 @@ public final class ECOPlannerNoticeDispatcher {
             }
             PacketDistributor.sendToPlayer(
                 player,
-                new ECOPlannerNoticePayload(target.containerId(), reason.id(), Math.max(0L, elapsedNanos))
+                new ECOPlannerNoticePayload(
+                    target.containerId(),
+                    reason.id(),
+                    Math.max(0L, elapsedNanos),
+                    formattedBytes
+                )
             );
         });
     }

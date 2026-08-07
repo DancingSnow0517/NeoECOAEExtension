@@ -1469,13 +1469,15 @@ public class ECOCraftingCPULogic {
      */
     public static JobOutputDelivery deliverJobOutput(UUID craftingJobId, AEKey what, long amount, Actionable type) {
         ECOCraftingCPULogic logic = JOB_OUTPUT_ROUTES.get(craftingJobId);
-        if (logic == null || logic.job == null || !craftingJobId.equals(logic.job.link.getCraftingID())) {
-            if (logic != null) {
-                JOB_OUTPUT_ROUTES.remove(craftingJobId, logic);
-            }
-            return JobOutputDelivery.UNAVAILABLE;
+        if (logic != null && logic.job != null && craftingJobId.equals(logic.job.link.getCraftingID())) {
+            return new JobOutputDelivery(true, logic.insert(what, amount, type));
         }
-        return new JobOutputDelivery(true, logic.insert(what, amount, type));
+        if (logic != null) {
+            JOB_OUTPUT_ROUTES.remove(craftingJobId, logic);
+        }
+        var external = cn.dancingsnow.neoecoae.impl.crafting.fastpath.external.ECOExternalCpuOutputRoutes.deliver(
+                craftingJobId, what, amount, type);
+        return new JobOutputDelivery(external.routeAvailable(), external.inserted());
     }
 
     private void registerJobOutputRoute() {

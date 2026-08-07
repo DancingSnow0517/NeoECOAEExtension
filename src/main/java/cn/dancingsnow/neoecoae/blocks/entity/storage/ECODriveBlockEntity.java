@@ -69,6 +69,8 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private ItemStack cachedCellStack;
     @Nullable
     private IECOStorageCell cachedCellInventory;
+    private boolean persistenceSyncQueued;
+    private boolean cellContentsChangedForSync;
 
     public ECODriveBlockEntity(
         BlockEntityType<ECODriveBlockEntity> type,
@@ -215,11 +217,17 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     @Override
     public void notifyPersistence() {
         if (level instanceof ServerLevel serverLevel) {
+            if (persistenceSyncQueued) {
+                return;
+            }
+            persistenceSyncQueued = true;
             ServerTaskUtil.executeIfServerRunning(serverLevel, () -> {
+                persistenceSyncQueued = false;
                 CellState previousState = cellState;
                 updateCellState();
                 setChanged();
-                if (cellState != previousState) {
+                if (cellContentsChangedForSync || cellState != previousState) {
+                    cellContentsChangedForSync = false;
                     markForUpdate();
                 }
             });
@@ -236,7 +244,13 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
 
     @Override
     public void saveChanges() {
-        // The storage cell can call this from a mutation path; mark the BE dirty immediately.
+        // OmniCells keeps live counts in its delegate and only updates the stack tooltip cache on persist().
+        // Flush synchronously so extracting the cell in the same tick cannot return stale display data.
+        if (cachedCellInventory != null && cellStack != null && !cellStack.isEmpty()) {
+            ItemStack previousStack = cellStack.copy();
+            cachedCellInventory.persist();
+            cellContentsChangedForSync |= !ItemStack.isSameItemSameComponents(previousStack, cellStack);
+        }
         setChanged();
         notifyPersistence();
     }

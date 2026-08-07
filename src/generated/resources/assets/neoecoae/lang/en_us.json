@@ -1,4 +1,5 @@
 {
+  "gui.neoecoae.planning.overflow_title": "Overflow · ECO Fast Craft · %s ms · %s",
   "gui.neoecoae.planning.title": "Crafting Plan",
   "gui.neoecoae.planning.eco_fast_suffix": " · ECO Fast Craft · %s ms",
   "block.neoecoae.aluminum_alloy_block": "Aluminum Alloy Block",

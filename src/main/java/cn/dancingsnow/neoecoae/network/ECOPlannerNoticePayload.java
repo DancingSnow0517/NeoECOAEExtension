@@ -13,8 +13,13 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/** Synchronizes the fallback marker only to the player currently viewing the affected crafting menu. */
-public record ECOPlannerNoticePayload(int containerId, String reasonId, long elapsedNanos) implements CustomPacketPayload {
+/** Synchronizes planner status only to the player currently viewing the affected crafting menu. */
+public record ECOPlannerNoticePayload(
+    int containerId,
+    String reasonId,
+    long elapsedNanos,
+    String formattedBytes
+) implements CustomPacketPayload {
     public static final Type<ECOPlannerNoticePayload> TYPE = new Type<>(NeoECOAE.id("planner_notice"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ECOPlannerNoticePayload> STREAM_CODEC = StreamCodec.composite(
         ByteBufCodecs.VAR_INT,
@@ -23,6 +28,8 @@ public record ECOPlannerNoticePayload(int containerId, String reasonId, long ela
         ECOPlannerNoticePayload::reasonId,
         ByteBufCodecs.VAR_LONG,
         ECOPlannerNoticePayload::elapsedNanos,
+        ByteBufCodecs.STRING_UTF8,
+        ECOPlannerNoticePayload::formattedBytes,
         ECOPlannerNoticePayload::new
     );
     private static final Map<Integer, ClientNotice> CLIENT_NOTICES = new ConcurrentHashMap<>();
@@ -54,8 +61,12 @@ public record ECOPlannerNoticePayload(int containerId, String reasonId, long ela
                 return;
             }
             ECOPlannerFallbackReason reason = ECOPlannerFallbackReason.fromId(payload.reasonId());
-            CLIENT_NOTICES.put(payload.containerId(), new ClientNotice(reason, payload.elapsedNanos()));
-            if (reason == ECOPlannerFallbackReason.FAST_PATH) {
+            CLIENT_NOTICES.put(payload.containerId(), new ClientNotice(
+                reason,
+                payload.elapsedNanos(),
+                payload.formattedBytes()
+            ));
+            if (reason == ECOPlannerFallbackReason.FAST_PATH || reason == ECOPlannerFallbackReason.OVERFLOW) {
                 return;
             }
             context.player().displayClientMessage(
@@ -68,6 +79,9 @@ public record ECOPlannerNoticePayload(int containerId, String reasonId, long ela
         });
     }
 
-    public record ClientNotice(ECOPlannerFallbackReason reason, long elapsedNanos) {
+    public record ClientNotice(ECOPlannerFallbackReason reason, long elapsedNanos, String formattedBytes) {
+        public boolean overflow() {
+            return reason == ECOPlannerFallbackReason.OVERFLOW && !formattedBytes.isEmpty();
+        }
     }
 }

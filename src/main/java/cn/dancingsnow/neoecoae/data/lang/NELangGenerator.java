@@ -10,6 +10,7 @@ public class NELangGenerator {
         provider.add("gui.neoecoae.planning.ae2_fallback_title", "Crafting Plan - Using AE2 (%s)");
         provider.add("gui.neoecoae.planning.title", "Crafting Plan");
         provider.add("gui.neoecoae.planning.eco_fast_suffix", " · ECO Fast Craft · %s ms");
+        provider.add("gui.neoecoae.planning.overflow_title", "Overflow · ECO Fast Craft · %s ms · %s");
         provider.add("gui.neoecoae.planning.partial_plan_cycle", "Partial Plan (Missing Ingredients%s)");
         provider.add("gui.neoecoae.planning.partial_plan_cycle.warning", "·Cycle present·Insufficient seed items");
         provider.add("chat.neoecoae.planning.ae2_fallback", "ECO fast planning was not used; calculating with AE2: %s");

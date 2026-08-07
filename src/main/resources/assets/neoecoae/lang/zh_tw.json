@@ -1,4 +1,5 @@
 {
+  "gui.neoecoae.planning.overflow_title": "\u6ea2\u51fa \u00b7 ECO\u5feb\u901f\u5408\u6210 \u00b7 %s ms \u00b7 %s",
   "gui.neoecoae.planning.ae2_fallback_title": "合成計劃 - 正在使用 AE2（%s）",
   "gui.neoecoae.planning.partial_plan_cycle": "殘缺的合成計劃（材料不足%s）",
   "gui.neoecoae.planning.partial_plan_cycle.warning": "·存在循環·啟動種子不足",

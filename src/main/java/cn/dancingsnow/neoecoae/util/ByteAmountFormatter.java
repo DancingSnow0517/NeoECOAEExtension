@@ -1,6 +1,10 @@
 package cn.dancingsnow.neoecoae.util;
 
 import appeng.core.localization.Tooltips;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.Locale;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -11,7 +15,7 @@ import net.minecraft.network.chat.MutableComponent;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ByteAmountFormatter {
     private static final long AE2_BYTE_FORMAT_OVERFLOW_THRESHOLD = 1_000_000_000_000L;
-    private static final String[] LARGE_BYTE_UNITS = { "TB", "PB", "EB" };
+    private static final String[] LARGE_BYTE_UNITS = { "TB", "PB", "EB", "ZB", "YB", "RB", "QB" };
 
     public static String format(long bytes) {
         if (bytes < AE2_BYTE_FORMAT_OVERFLOW_THRESHOLD) {
@@ -35,5 +39,30 @@ public final class ByteAmountFormatter {
 
     public static MutableComponent formatComponent(long bytes) {
         return Component.literal(format(bytes)).withStyle(Tooltips.NUMBER_TEXT);
+    }
+
+    public static String format(BigInteger bytes) {
+        if (bytes.signum() < 0) {
+            throw new IllegalArgumentException("Byte amount cannot be negative");
+        }
+        if (bytes.bitLength() < Long.SIZE
+            && bytes.longValue() < AE2_BYTE_FORMAT_OVERFLOW_THRESHOLD) {
+            return format(bytes.longValue());
+        }
+
+        BigDecimal scaled = new BigDecimal(bytes).movePointLeft(12);
+        int unitIndex = 0;
+        while (scaled.compareTo(BigDecimal.valueOf(1_000L)) >= 0
+            && unitIndex < LARGE_BYTE_UNITS.length - 1) {
+            scaled = scaled.movePointLeft(3);
+            unitIndex++;
+        }
+        BigDecimal rounded = scaled.round(new MathContext(3, RoundingMode.HALF_UP));
+        if (rounded.compareTo(BigDecimal.valueOf(1_000L)) >= 0
+            && unitIndex < LARGE_BYTE_UNITS.length - 1) {
+            rounded = rounded.movePointLeft(3).round(new MathContext(3, RoundingMode.HALF_UP));
+            unitIndex++;
+        }
+        return rounded.stripTrailingZeros().toPlainString() + LARGE_BYTE_UNITS[unitIndex];
     }
 }
