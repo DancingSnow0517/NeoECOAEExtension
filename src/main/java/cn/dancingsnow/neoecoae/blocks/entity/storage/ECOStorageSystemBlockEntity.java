@@ -46,6 +46,7 @@ import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import appeng.api.config.Actionable;
+import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -53,6 +54,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
+import appeng.api.storage.StorageHelper;
 import appeng.hooks.ticking.TickHandler;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
@@ -96,6 +98,7 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     private static final int INFINITE_COMPONENT_REQUIRED = 64;
     private static final int INFINITE_MEMBER_REQUIRED = 16;
     private static final int STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK = 64;
+    private static final long STORAGE_INTERFACE_TRANSFER_LIMIT = Integer.MAX_VALUE;
     private static volatile Map<AEKeyType, Integer> registeredCellTypesByKeyType;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
     private static final long INFINITE_RESTORE_MARGIN_NUMERATOR = 95L;
@@ -816,14 +819,14 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
 
     public void onStorageInterfaceModeChanged() {
         if (level == null || level.isClientSide) return;
-        IStorageProvider.requestUpdate(getMainNode());
+        refreshDriveStorageProviders();
         setChanged();
         markForUpdate();
     }
 
-    private boolean isStorageInterfaceTransferMode() {
+    boolean isStorageInterfaceTransferMode() {
         ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface = getStorageInterface();
-        return isFormedInfiniteMode() && storageInterface != null && storageInterface.isStorageTransferMode();
+        return formed && storageInterface != null && storageInterface.isStorageTransferMode();
     }
 
     @Nullable
@@ -832,19 +835,31 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
     }
 
     private long transferStorageInterfaceContents(ECOMachineInterfaceBlockEntity<NEStorageCluster> storageInterface) {
-        if (!storageInterface.isStorageTransferMode() || !isFormedInfiniteMode()) {
+        if (!storageInterface.isStorageTransferMode() || !storageInterface.isTargetOnline()) {
             return 0L;
         }
-        if (!storageInterface.isTargetOnline()) return 0L;
         var grid = storageInterface.getMainNode().getGrid();
-        ECOInfiniteStorageEngine engine = getInfiniteEngine();
-        if (grid == null || engine == null) return 0L;
+        if (grid == null) return 0L;
         MEStorage network = grid.getStorageService().getInventory();
-        MEStorage domain = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
         IActionSource source = IActionSource.ofMachine(storageInterface);
-        long moved = storageInterface.isStorageInputMode()
-            ? transferLimited(network, domain, source)
-            : transferLimited(domain, network, source);
+        long moved;
+        if (hostMode == ECOStorageHostMode.FORMED_INFINITE) {
+            ECOInfiniteStorageEngine engine = getInfiniteEngine();
+            if (engine == null) return 0L;
+            MEStorage domain = new ECOInfiniteStorage(engine, getBlockState().getBlock().getName());
+            moved = storageInterface.isStorageInputMode()
+                ? transferLimited(network, domain, source)
+                : transferLimited(domain, network, source);
+        } else if (hostMode == ECOStorageHostMode.FORMED_NORMAL) {
+            moved = transferFiniteStorageContents(
+                network,
+                grid.getEnergyService(),
+                source,
+                storageInterface.isStorageInputMode()
+            );
+        } else {
+            return 0L;
+        }
         if (moved > 0L) {
             storageUiSnapshotGameTime = Long.MIN_VALUE;
             setChanged();
@@ -853,14 +868,108 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
         return moved;
     }
 
+    private long transferFiniteStorageContents(
+        MEStorage network,
+        IEnergySource energy,
+        IActionSource source,
+        boolean inputMode
+    ) {
+        List<IECOStorageCell> cells = getFiniteStorageInterfaceCells();
+        if (cells.isEmpty()) return 0L;
+        return inputMode
+            ? transferNetworkToFiniteCells(network, cells, energy, source)
+            : transferFiniteCellsToNetwork(cells, network, energy, source);
+    }
+
+    private List<IECOStorageCell> getFiniteStorageInterfaceCells() {
+        if (cluster == null) return List.of();
+        List<IECOStorageCell> cells = new ArrayList<>();
+        for (ECODriveBlockEntity drive : cluster.getDrives()) {
+            IECOStorageCell cell = drive.getCellInventory();
+            if (cell != null
+                && tier.compareTo(cell.getTier()) >= 0
+                && !isInfiniteMemberCell(drive.getCellStack())) {
+                cells.add(cell);
+            }
+        }
+        return cells;
+    }
+
+    private static long transferNetworkToFiniteCells(
+        MEStorage network,
+        List<IECOStorageCell> cells,
+        IEnergySource energy,
+        IActionSource source
+    ) {
+        KeyCounter available = new KeyCounter();
+        network.getAvailableStacks(available);
+        long remaining = STORAGE_INTERFACE_TRANSFER_LIMIT;
+        int visited = 0;
+        for (Object2LongMap.Entry<AEKey> entry : available) {
+            if (remaining <= 0L || visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
+            long keyRemaining = Math.min(entry.getLongValue(), remaining);
+            if (keyRemaining <= 0L) continue;
+            for (IECOStorageCell cell : cells) {
+                long moved = transferPowered(network, cell, entry.getKey(), keyRemaining, energy, source);
+                remaining -= moved;
+                keyRemaining -= moved;
+                if (remaining <= 0L || keyRemaining <= 0L) break;
+            }
+        }
+        return STORAGE_INTERFACE_TRANSFER_LIMIT - remaining;
+    }
+
+    private static long transferFiniteCellsToNetwork(
+        List<IECOStorageCell> cells,
+        MEStorage network,
+        IEnergySource energy,
+        IActionSource source
+    ) {
+        long remaining = STORAGE_INTERFACE_TRANSFER_LIMIT;
+        int visited = 0;
+        for (IECOStorageCell cell : cells) {
+            KeyCounter available = new KeyCounter();
+            cell.getAvailableStacks(available);
+            for (Object2LongMap.Entry<AEKey> entry : available) {
+                if (remaining <= 0L || visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) {
+                    return STORAGE_INTERFACE_TRANSFER_LIMIT - remaining;
+                }
+                long requested = Math.min(entry.getLongValue(), remaining);
+                if (requested <= 0L) continue;
+                remaining -= transferPowered(cell, network, entry.getKey(), requested, energy, source);
+            }
+        }
+        return STORAGE_INTERFACE_TRANSFER_LIMIT - remaining;
+    }
+
+    private static long transferPowered(
+        MEStorage from,
+        MEStorage to,
+        AEKey key,
+        long amount,
+        IEnergySource energy,
+        IActionSource source
+    ) {
+        long extractable = from.extract(key, amount, Actionable.SIMULATE, source);
+        if (extractable <= 0L) return 0L;
+        long accepted = to.insert(key, extractable, Actionable.SIMULATE, source);
+        if (accepted <= 0L) return 0L;
+        long extracted = from.extract(key, accepted, Actionable.MODULATE, source);
+        long inserted = StorageHelper.poweredInsert(energy, to, key, extracted, source);
+        if (inserted < extracted) {
+            from.insert(key, extracted - inserted, Actionable.MODULATE, source);
+        }
+        return inserted;
+    }
+
     private static long transferLimited(MEStorage from, MEStorage to, IActionSource source) {
         KeyCounter available = new KeyCounter();
         from.getAvailableStacks(available);
-        long total = 0L;
+        long remaining = STORAGE_INTERFACE_TRANSFER_LIMIT;
         int visited = 0;
         for (Object2LongMap.Entry<AEKey> entry : available) {
-            if (visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
-            long amount = entry.getLongValue();
+            if (remaining <= 0L || visited++ >= STORAGE_INTERFACE_TRANSFER_KEYS_PER_TICK) break;
+            long amount = Math.min(entry.getLongValue(), remaining);
             if (amount <= 0L) continue;
             AEKey key = entry.getKey();
             long extractable = from.extract(key, amount, Actionable.SIMULATE, source);
@@ -869,9 +978,9 @@ public class ECOStorageSystemBlockEntity extends AbstractStorageBlockEntity<ECOS
             long extracted = from.extract(key, accepted, Actionable.MODULATE, source);
             long inserted = to.insert(key, extracted, Actionable.MODULATE, source);
             if (inserted < extracted) from.insert(key, extracted - inserted, Actionable.MODULATE, source);
-            total = total > Long.MAX_VALUE - inserted ? Long.MAX_VALUE : total + inserted;
+            remaining -= inserted;
         }
-        return total;
+        return STORAGE_INTERFACE_TRANSFER_LIMIT - remaining;
     }
 
     private void updateInfiniteStorageMode() {
