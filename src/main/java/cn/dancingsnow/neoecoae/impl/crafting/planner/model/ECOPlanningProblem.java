@@ -7,7 +7,10 @@ import java.util.Objects;
 
 /** Immutable input captured before an ECO planning task leaves the server thread. */
 public record ECOPlanningProblem<K, R>(
-        List<ECOPlanningOperation<K, R>> operations, Map<K, Long> inventory, Map<K, Long> requested) {
+    List<ECOPlanningOperation<K, R>> operations,
+    Map<K, Long> inventory,
+    Map<K, Long> requested
+) {
     public ECOPlanningProblem {
         operations = List.copyOf(Objects.requireNonNull(operations, "operations"));
         inventory = copyNonNegative(inventory, "inventory");
@@ -34,6 +37,7 @@ public record ECOPlanningProblem<K, R>(
     }
 
     private static <K> Map<K, Long> copyPositive(Map<K, Long> source, String name) {
+        // copyNonNegative already omits zero-amount entries, so no further filtering is needed.
         return copyNonNegative(source, name);
     }
 }

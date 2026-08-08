@@ -142,6 +142,7 @@ public class NEConfig {
     public static boolean postCraftingEvent;
     public static boolean enableEcoAe2FastPath;
     public static boolean debugEcoFastPath;
+    public static boolean debugECOPlanner;
     public static int ecoCpuPushTickLimit = Integer.MAX_VALUE;
     public static int ecoBatchFastPathTickLimit = 256;
     public static boolean enableEcoAggressiveFastPath = true;
@@ -180,6 +181,7 @@ public class NEConfig {
         postCraftingEvent = POST_CRAFTING_EVENT.get();
         enableEcoAe2FastPath = ENABLE_ECO_AE2_FAST_PATH.get();
         debugEcoFastPath = getBooleanProperty("neoecoae.debugEcoFastPath", DEBUG_ECO_FAST_PATH.get());
+        debugECOPlanner = getBooleanProperty("neoecoae.debugECOPlanner", false);
         ecoCpuPushTickLimit = getPositiveIntProperty("neoecoae.ecoCpuPushTickLimit", ECO_CPU_PUSH_TICK_LIMIT.get());
         ecoBatchFastPathTickLimit = boundedFastPathValue(
                 getPositiveIntProperty("neoecoae.ecoBatchFastPathTickLimit", ECO_BATCH_FAST_PATH_TICK_LIMIT.get()));

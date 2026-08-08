@@ -10,6 +10,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOCraftingFastPathCache;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathKey;
 import cn.dancingsnow.neoecoae.mixins.ae2.AECraftingPatternAccessor;
 import java.util.Optional;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +56,28 @@ public final class AE2PatternIntrospection {
         } catch (RuntimeException | LinkageError e) {
             disableOnce(e);
             return false;
+        }
+    }
+
+    public static PatternEligibility classifyPatternEligibility(IPatternDetails details) {
+        if (!(details instanceof AECraftingPattern pattern)) {
+            return PatternEligibility.UNSUPPORTED_PATTERN_TYPE;
+        }
+        if (!(pattern instanceof AECraftingPatternAccessor accessor)) {
+            return PatternEligibility.RECIPE_UNAVAILABLE;
+        }
+        try {
+            CraftingRecipe recipe = accessor.neoecoae$getRecipe();
+            if (recipe == null) {
+                return PatternEligibility.RECIPE_UNAVAILABLE;
+            }
+            if (pattern.canSubstitute() && recipe.isSpecial()) {
+                return PatternEligibility.SUBSTITUTION_SPECIAL_RECIPE;
+            }
+            return PatternEligibility.ELIGIBLE;
+        } catch (RuntimeException | LinkageError failure) {
+            disableOnce(failure);
+            return PatternEligibility.RECIPE_UNAVAILABLE;
         }
     }
 
@@ -114,5 +137,12 @@ public final class AE2PatternIntrospection {
             warnedUnavailable = true;
             LOGGER.warn("ECO AE2 fast path disabled: incompatible AE2 internals or accessor failure", e);
         }
+    }
+
+    public enum PatternEligibility {
+        ELIGIBLE,
+        UNSUPPORTED_PATTERN_TYPE,
+        RECIPE_UNAVAILABLE,
+        SUBSTITUTION_SPECIAL_RECIPE
     }
 }

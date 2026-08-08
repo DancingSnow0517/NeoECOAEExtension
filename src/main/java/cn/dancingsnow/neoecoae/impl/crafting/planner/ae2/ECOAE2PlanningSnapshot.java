@@ -1,17 +1,21 @@
 package cn.dancingsnow.neoecoae.impl.crafting.planner.ae2;
 
-import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.AEKey;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
 import java.util.Map;
 import java.util.Objects;
 
 public record ECOAE2PlanningSnapshot(
-        ECOPlanningProblem<AEKey, IPatternDetails> problem,
-        AEKey requestedKey,
-        long requestedAmount,
-        boolean multiplePaths,
-        Map<IPatternDetails, Integer> inputSlotCounts) {
+    ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+    AEKey requestedKey,
+    long requestedAmount,
+    boolean multiplePaths,
+    Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+    boolean truncatedStateExpansion,
+    boolean excludedDynamicPaths,
+    boolean dynamicSmithing,
+    String diagnosticRequestId
+) {
     public ECOAE2PlanningSnapshot {
         Objects.requireNonNull(problem, "problem");
         Objects.requireNonNull(requestedKey, "requestedKey");
@@ -19,6 +23,22 @@ public record ECOAE2PlanningSnapshot(
             throw new IllegalArgumentException("requestedAmount must be positive");
         }
         inputSlotCounts = Map.copyOf(Objects.requireNonNull(inputSlotCounts, "inputSlotCounts"));
+        diagnosticRequestId = Objects.requireNonNullElse(diagnosticRequestId, "unscoped");
+    }
+
+    public ECOAE2PlanningSnapshot(
+        ECOPlanningProblem<AEKey, ECOAE2PatternVariant> problem,
+        AEKey requestedKey,
+        long requestedAmount,
+        boolean multiplePaths,
+        Map<ECOAE2PatternVariant, Integer> inputSlotCounts,
+        boolean truncatedStateExpansion,
+        boolean excludedDynamicPaths
+    ) {
+        this(
+            problem, requestedKey, requestedAmount, multiplePaths, inputSlotCounts,
+            truncatedStateExpansion, excludedDynamicPaths, false, "unscoped"
+        );
     }
 
     public ECOAE2PlanningSnapshot forAmount(long amount) {
@@ -26,10 +46,19 @@ public record ECOAE2PlanningSnapshot(
             throw new IllegalArgumentException("amount must be positive");
         }
         return new ECOAE2PlanningSnapshot(
-                new ECOPlanningProblem<>(problem.operations(), problem.inventory(), Map.of(requestedKey, amount)),
-                requestedKey,
-                amount,
-                multiplePaths,
-                inputSlotCounts);
+            new ECOPlanningProblem<>(
+                problem.operations(),
+                problem.inventory(),
+                Map.of(requestedKey, amount)
+            ),
+            requestedKey,
+            amount,
+            multiplePaths,
+            inputSlotCounts,
+            truncatedStateExpansion,
+            excludedDynamicPaths,
+            dynamicSmithing,
+            diagnosticRequestId
+        );
     }
 }

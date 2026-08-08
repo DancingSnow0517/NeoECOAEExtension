@@ -31,28 +31,28 @@ public final class ECOPlanningHostLease implements AutoCloseable {
     public static Optional<ECOPlanningHostLease> tryAcquire(Collection<NEComputationCluster> candidates) {
         var ordered = new ArrayList<>(candidates);
         ordered.sort(Comparator.comparingInt(NEComputationCluster::getCPUAccelerators)
-                .reversed()
-                .thenComparing(Comparator.comparingInt(NEComputationCluster::getMaxThreads)
-                        .reversed())
-                .thenComparing(Comparator.comparingLong(NEComputationCluster::getAvailableStorage)
-                        .reversed()));
+            .reversed()
+            .thenComparing(Comparator.comparingInt(NEComputationCluster::getMaxThreads).reversed())
+            .thenComparing(Comparator.comparingLong(NEComputationCluster::getAvailableStorage).reversed()));
         synchronized (ACTIVE_JOBS) {
             for (NEComputationCluster candidate : ordered) {
-                if (candidate == null
-                        || !candidate.isActive()
-                        || candidate.getMaxThreads() <= 0
-                        || candidate.getAvailableStorage() <= 0) {
+                if (!isAvailable(candidate)) {
                     continue;
                 }
                 int active = ACTIVE_JOBS.getOrDefault(candidate, 0);
-                if (active >= candidate.getMaxThreads()) {
-                    continue;
-                }
                 ACTIVE_JOBS.put(candidate, active + 1);
                 return Optional.of(new ECOPlanningHostLease(candidate));
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean isAvailable(NEComputationCluster candidate) {
+        return candidate != null
+            && candidate.isActive()
+            && candidate.getMaxThreads() > 0
+            && candidate.getAvailableStorage() > 0
+            && ACTIVE_JOBS.getOrDefault(candidate, 0) < candidate.getMaxThreads();
     }
 
     public ECOSolveBudget budget() {

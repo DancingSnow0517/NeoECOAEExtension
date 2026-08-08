@@ -6,6 +6,8 @@ import cn.dancingsnow.neoecoae.impl.crafting.planner.graph.ECOStrongComponents;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanCandidate;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningOperation;
 import cn.dancingsnow.neoecoae.impl.crafting.planner.model.ECOPlanningProblem;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlannerFallbackReason;
+import cn.dancingsnow.neoecoae.impl.crafting.planner.service.ECOPlanningFailureDiagnostics;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -16,20 +18,31 @@ import java.util.Set;
 
 /** Linear-time batch propagation for acyclic target slices with one producer per demanded material. */
 public final class ECODagDemandSolver {
-    private ECODagDemandSolver() {}
+    private ECODagDemandSolver() {
+    }
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(ECOPlanningProblem<K, R> problem) {
         return trySolve(problem, ECOGraphPruner.targetReachable(problem));
     }
 
     public static <K, R> Optional<ECOHyperflowResult<R>> trySolve(
-            ECOPlanningProblem<K, R> problem, ECOPlanningGraph<K, R> graph) {
+        ECOPlanningProblem<K, R> problem,
+        ECOPlanningGraph<K, R> graph
+    ) {
         if (containsCycle(graph)) {
+            ECOPlanningFailureDiagnostics.logFailure(
+                ECOPlanningFailureDiagnostics.Stage.DAG_SOLVER,
+                ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
+                problem.requested().keySet().stream().findFirst().orElse(null),
+                problem.requested().values().stream().findFirst().orElse(0L),
+                "dag",
+                "cycle_detected graphMaterials=" + graph.materials().size()
+                    + " graphOperations=" + graph.operations().size()
+            );
             return Optional.empty();
         }
 
-        Map<K, Long> balances = new LinkedHashMap<>(problem.inventory());
-        problem.requested().forEach((key, amount) -> balances.merge(key, -amount, Math::addExact));
+        Map<K, Long> balances = ECOPlannerMath.initialBalances(problem);
         Map<R, Long> executions = new LinkedHashMap<>();
         ArrayDeque<K> deficientMaterials = new ArrayDeque<>();
         Set<K> queued = new HashSet<>();
@@ -45,9 +58,19 @@ public final class ECODagDemandSolver {
                 continue;
             }
             List<ECOPlanningOperation<K, R>> producers = graph.producersOf(deficientMaterial).stream()
-                    .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0)
-                    .toList();
+                .filter(operation -> ECOPlannerMath.positiveNet(operation, deficientMaterial) > 0)
+                .toList();
             if (producers.size() != 1) {
+                ECOPlanningFailureDiagnostics.logFailure(
+                    ECOPlanningFailureDiagnostics.Stage.DAG_SOLVER,
+                    ECOPlannerFallbackReason.SOLVER_NO_ROUTE,
+                    deficientMaterial,
+                    -balances.getOrDefault(deficientMaterial, 0L),
+                    "dag",
+                    "producer_count=" + producers.size()
+                        + " graphMaterials=" + graph.materials().size()
+                        + " graphOperations=" + graph.operations().size()
+                );
                 return Optional.empty();
             }
             ECOPlanningOperation<K, R> operation = producers.get(0);
@@ -72,41 +95,55 @@ public final class ECODagDemandSolver {
         for (var entry : balances.entrySet()) {
             if (entry.getValue() < 0) {
                 long missing = -entry.getValue();
-                if (problem.requested().containsKey(entry.getKey())) {
+                boolean requested = problem.requested().containsKey(entry.getKey());
+                List<ECOPlanningOperation<K, R>> positiveProducers = graph.producersOf(entry.getKey()).stream()
+                    .filter(operation -> ECOPlannerMath.positiveNet(operation, entry.getKey()) > 0L)
+                    .toList();
+                if (requested && !positiveProducers.isEmpty()) {
                     requestedShortfall = Math.addExact(requestedShortfall, missing);
                 }
-                if (graph.producersOf(entry.getKey()).isEmpty()) {
+                if (positiveProducers.isEmpty()) {
                     sourceShortfall = Math.addExact(sourceShortfall, missing);
                 } else {
-                    dependencyShortfall = Math.addExact(dependencyShortfall, missing);
+                    if (!requested) {
+                        dependencyShortfall = Math.addExact(dependencyShortfall, missing);
+                    }
                 }
             } else {
-                surplus = Math.addExact(surplus, entry.getValue());
+                surplus = ECOPlannerMath.saturatedAdd(surplus, entry.getValue());
             }
         }
-        ECOPlanCandidate<R> candidate =
-                new ECOPlanCandidate<>(executions, requestedShortfall, dependencyShortfall, sourceShortfall, surplus);
+        ECOPlanCandidate<R> candidate = new ECOPlanCandidate<>(
+            executions,
+            requestedShortfall,
+            dependencyShortfall,
+            sourceShortfall,
+            surplus
+        );
         ECOHyperflowResult.Status status = requestedShortfall > 0 || dependencyShortfall > 0
-                ? ECOHyperflowResult.Status.NO_ROUTE
-                : sourceShortfall > 0 ? ECOHyperflowResult.Status.MISSING_SOURCES : ECOHyperflowResult.Status.COMPLETE;
+            ? ECOHyperflowResult.Status.NO_ROUTE
+            : sourceShortfall > 0
+                ? ECOHyperflowResult.Status.MISSING_SOURCES
+                : ECOHyperflowResult.Status.COMPLETE;
         return Optional.of(new ECOHyperflowResult<>(status, candidate, expansions));
     }
 
     private static <K, R> boolean containsCycle(ECOPlanningGraph<K, R> graph) {
         return ECOStrongComponents.find(graph).stream().anyMatch(scc -> scc.size() > 1)
-                || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
-                        .anyMatch(operation.outputs()::containsKey));
+            || graph.operations().stream().anyMatch(operation -> operation.inputs().keySet().stream()
+                .anyMatch(operation.outputs()::containsKey));
     }
 
     private static <K, R> void enqueueIfDeficient(
-            K material,
-            Map<K, Long> balances,
-            ECOPlanningGraph<K, R> graph,
-            ArrayDeque<K> deficientMaterials,
-            Set<K> queued) {
+        K material,
+        Map<K, Long> balances,
+        ECOPlanningGraph<K, R> graph,
+        ArrayDeque<K> deficientMaterials,
+        Set<K> queued
+    ) {
         if (balances.getOrDefault(material, 0L) < 0
-                && !graph.producersOf(material).isEmpty()
-                && queued.add(material)) {
+            && !graph.producersOf(material).isEmpty()
+            && queued.add(material)) {
             deficientMaterials.addLast(material);
         }
     }
