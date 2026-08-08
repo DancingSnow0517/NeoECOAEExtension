@@ -209,7 +209,9 @@ dependencies {
     }
     implementation fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
     implementation("org.ojalgo:ojalgo:57.1.0")
-    jarJar("org.ojalgo:ojalgo:57.1.0")
+    jarJar("org.ojalgo:ojalgo:57.1.0") {
+        jarJar.ranged(it, "[57.1.0,57.1.1)")
+    }
 
     compileOnly fg.deobf("curse.maven:omni-cells-1359517:8050975")
     runtimeOnly fg.deobf("curse.maven:omni-cells-1359517:8050975")

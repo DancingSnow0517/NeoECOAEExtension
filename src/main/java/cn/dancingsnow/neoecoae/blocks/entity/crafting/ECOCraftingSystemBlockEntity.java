@@ -87,7 +87,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
     private static final int NETWORK_COOLANT_PER_SLOT_TICK = 4;
     private static final int HIGH_ENERGY_NETWORK_COOLANT_PER_SLOT_TICK = 16;
     public static final int VIRTUAL_CRAFTING_REQUIRED_HOSTS = 8;
-    public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 10_000;
+    public static final int VIRTUAL_CRAFTING_COOLANT_PER_TICK = 1_000;
     private static final long PERFORMANCE_SAMPLE_WINDOW_TICKS = 20L * 3L;
 
     @Getter
@@ -806,7 +806,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
                 cluster != null && cluster.isHighEnergyNetworkMode(),
                 getLocalThreadCount(),
                 isVirtualCraftingMode()
-                        ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_BATCH_SIZE
+                        ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE
                         : getLocalMaxBatchPerThread()));
     }
 
@@ -846,7 +846,7 @@ public class ECOCraftingSystemBlockEntity extends AbstractCraftingBlockEntity<EC
         // multiplier to each lane, avoiding a second queue multiplication.
         boolean networkMode = cluster.getNetworkCluster() != null;
         int capacity = isVirtualCraftingMode()
-                ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_BATCH_SIZE
+                ? 1
                 : calculateWorkerBatchCapacity(
                         BASE_CRAFTS_PER_WORKER,
                         networkMode ? getTier().getOverclockedCrafterQueueMultiply() : 1,

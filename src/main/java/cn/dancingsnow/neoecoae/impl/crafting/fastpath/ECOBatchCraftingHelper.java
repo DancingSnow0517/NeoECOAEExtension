@@ -2,17 +2,21 @@ package cn.dancingsnow.neoecoae.impl.crafting.fastpath;
 
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ListCraftingInventory;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.DoubleUnaryOperator;
 import net.minecraft.world.item.ItemStack;
 
 public final class ECOBatchCraftingHelper {
     public static final int MAX_BATCH_SIZE = 65_536;
+    public static final long MAX_VIRTUAL_BATCH_SIZE = Long.MAX_VALUE;
     public static final int MAX_BATCH_STACK_ENTRIES = 64;
     public static final long MAX_BATCH_STACK_AMOUNT = Long.MAX_VALUE;
 
@@ -32,6 +36,34 @@ public final class ECOBatchCraftingHelper {
             counter.add(stack.what(), amount);
         }
         return ECOFastPathStacks.copyCounterUnsorted(counter);
+    }
+
+    /** Largest multiplier whose per-list totals remain representable by AE2's long counters. */
+    @SafeVarargs
+    public static long maxSafeMultiplier(long requested, List<GenericStack>... stacksPerCraft) {
+        long maximum = Math.max(0L, requested);
+        for (List<GenericStack> stacks : stacksPerCraft) {
+            Map<AEKey, Long> totals = new HashMap<>();
+            for (GenericStack stack : stacks) {
+                if (stack == null || stack.amount() <= 0L) {
+                    return 0L;
+                }
+                long current = totals.getOrDefault(stack.what(), 0L);
+                long amount = stack.amount();
+                if (current > Long.MAX_VALUE - amount) {
+                    return 0L;
+                }
+                totals.put(stack.what(), current + amount);
+            }
+            for (long amount : totals.values()) {
+                maximum = limitSafeMultiplier(maximum, amount);
+            }
+        }
+        return maximum;
+    }
+
+    static long limitSafeMultiplier(long requested, long amountPerCraft) {
+        return requested <= 0L || amountPerCraft <= 0L ? 0L : Math.min(requested, Long.MAX_VALUE / amountPerCraft);
     }
 
     public static int maxCraftsFromInventory(

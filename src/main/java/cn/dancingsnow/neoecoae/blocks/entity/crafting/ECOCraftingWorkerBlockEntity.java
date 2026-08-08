@@ -21,6 +21,7 @@ import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecuti
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOFastPathResult;
 import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -515,7 +516,7 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                     fairShare = threadAmount;
                 } else {
                     // Proportional: threadAmount * acceptedForKey / totalForKey (floor)
-                    fairShare = threadAmount * acceptedForKey / totalForKey;
+                    fairShare = proportionalShare(threadAmount, acceptedForKey, totalForKey);
                 }
 
                 // Clamp to remaining accepted for this key (handles rounding leftovers)
@@ -552,6 +553,19 @@ public class ECOCraftingWorkerBlockEntity extends AbstractCraftingBlockEntity<EC
                 }
             }
         }
+    }
+
+    static long proportionalShare(long amount, long accepted, long total) {
+        if (amount <= 0L || accepted <= 0L || total <= 0L) {
+            return 0L;
+        }
+        if (amount <= Long.MAX_VALUE / accepted) {
+            return amount * accepted / total;
+        }
+        return BigInteger.valueOf(amount)
+                .multiply(BigInteger.valueOf(accepted))
+                .divide(BigInteger.valueOf(total))
+                .longValueExact();
     }
 
     @Override

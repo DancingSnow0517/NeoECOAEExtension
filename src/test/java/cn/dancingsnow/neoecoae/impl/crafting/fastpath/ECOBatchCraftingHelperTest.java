@@ -56,6 +56,13 @@ class ECOBatchCraftingHelperTest {
     }
 
     @Test
+    void virtualBatchUsesTheWholeLongRangeWithoutOverflowingStackTotals() {
+        assertEquals(Long.MAX_VALUE, ECOBatchCraftingHelper.limitSafeMultiplier(Long.MAX_VALUE, 1L));
+        assertEquals(Long.MAX_VALUE / 3L, ECOBatchCraftingHelper.limitSafeMultiplier(Long.MAX_VALUE, 3L));
+        assertEquals(0L, ECOBatchCraftingHelper.limitSafeMultiplier(Long.MAX_VALUE, 0L));
+    }
+
+    @Test
     void rejectsInvalidBatchRequestBoundariesBeforeDispatch() {
         IPatternDetails details = (IPatternDetails) Proxy.newProxyInstance(
                 IPatternDetails.class.getClassLoader(),

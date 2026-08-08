@@ -6,6 +6,11 @@ import org.junit.jupiter.api.Test;
 
 class ECOCraftingSystemBlockEntityTest {
     @Test
+    void virtualExchangeUsesOneTenthOfThePreviousCoolantRate() {
+        assertEquals(1_000, ECOCraftingSystemBlockEntity.VIRTUAL_CRAFTING_COOLANT_PER_TICK);
+    }
+
+    @Test
     void laneCapacityScalesBatchSizeWithoutChangingLogicalSlotCount() {
         assertEquals(32, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, false, 1));
         assertEquals(64, ECOCraftingSystemBlockEntity.calculateWorkerBatchCapacity(32, 4, false, 2));

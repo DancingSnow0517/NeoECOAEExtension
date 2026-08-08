@@ -16,6 +16,8 @@ public final class NELDLibText {
     private static final long BYTES_IN_G = BYTES_IN_M * 1024L;
     private static final long BYTES_IN_T = BYTES_IN_G * 1024L;
     private static final long BYTES_IN_P = BYTES_IN_T * 1024L;
+    private static final long DECIMAL_K = 1_000L;
+    private static final String[] DECIMAL_BYTE_SUFFIXES = {"", "K", "M", "G", "T", "P", "E"};
     private static final BigInteger BIG_1024 = BigInteger.valueOf(1024L);
     private static final String[] HUGE_SUFFIXES = {"", "K", "M", "G", "T", "P", "E", "Z", "Y"};
 
@@ -104,6 +106,18 @@ public final class NELDLibText {
             suffix = "M";
         }
         return COMPACT_DECIMAL.get().format((double) safe / (double) unit) + suffix;
+    }
+
+    /** Decimal byte units used by computation capacity, where Long.MAX_VALUE is 9.22E. */
+    public static String computationBytesCompact(long value) {
+        long safe = Math.max(0L, value);
+        double scaled = safe;
+        int unitIndex = 0;
+        while (scaled >= DECIMAL_K && unitIndex < DECIMAL_BYTE_SUFFIXES.length - 1) {
+            scaled /= DECIMAL_K;
+            unitIndex++;
+        }
+        return COMPACT_DECIMAL.get().format(scaled) + DECIMAL_BYTE_SUFFIXES[unitIndex];
     }
 
     public static String hugeAmount(String decimalAmount) {

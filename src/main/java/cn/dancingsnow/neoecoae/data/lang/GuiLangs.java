@@ -43,6 +43,43 @@ public class GuiLangs {
         provider.add("gui.neoecoae.pattern_bus.next_page", "Next page");
         provider.add("gui.neoecoae.pattern_bus.page", "Page %s / %s");
 
+        // crafting planner status and fallback messages
+        provider.add("gui.neoecoae.planning.overflow_title", "Overflow - ECO fast crafting - %s ms - %s");
+        provider.add("gui.neoecoae.planning.title", "Crafting Plan");
+        provider.add("gui.neoecoae.planning.eco_fast_suffix", " - ECO fast crafting - %s ms");
+        provider.add("gui.neoecoae.planning.partial_plan_cycle", "Partial crafting plan (insufficient materials%s)");
+        provider.add(
+                "gui.neoecoae.planning.partial_plan_cycle.warning", "- cycle detected - insufficient starting seed");
+        provider.add("gui.neoecoae.planning.cycle_missing_seed", "Missing cycle seed: %s");
+        provider.add("gui.neoecoae.planning.cycle_tooltip.header", "ECO cycle calculation");
+        provider.add("gui.neoecoae.planning.cycle_tooltip.initial", "Initial: %s");
+        provider.add("gui.neoecoae.planning.cycle_tooltip.consumed", "Consumed in cycle: %s");
+        provider.add("gui.neoecoae.planning.cycle_tooltip.produced", "Produced in cycle: %s");
+        provider.add("gui.neoecoae.planning.cycle_tooltip.remaining", "After planning: %s");
+        provider.add("gui.neoecoae.planning.reason.dynamic_smithing", "Crafting Plan - dynamic replacement pattern");
+        provider.add("gui.neoecoae.planning.reason.no_eco_host", "No ECO crafting host available");
+        provider.add("gui.neoecoae.planning.reason.snapshot_rejected", "The request's recipe graph could not be read");
+        provider.add(
+                "gui.neoecoae.planning.reason.pattern_incompatible",
+                "This pattern requires AE2 native planning semantics");
+        provider.add(
+                "gui.neoecoae.planning.reason.snapshot_limit_exceeded",
+                "The pattern graph exceeds ECO planning limits");
+        provider.add(
+                "gui.neoecoae.planning.reason.fallback_setup_failed", "Could not initialize AE2 fallback planning");
+        provider.add("gui.neoecoae.planning.reason.solver_no_route", "No executable crafting route found");
+        provider.add("gui.neoecoae.planning.reason.solver_budget_exhausted", "Planning budget exhausted");
+        provider.add(
+                "gui.neoecoae.planning.reason.assembly_rejected",
+                "The result could not be assembled into an executable plan");
+        provider.add("gui.neoecoae.planning.reason.craft_less_no_craftable", "No craftable quantity available");
+        provider.add("gui.neoecoae.planning.reason.precise_path_failed", "Precise substitute-input planning failed");
+        provider.add("gui.neoecoae.planning.reason.differential_mismatch", "The result did not match AE2 validation");
+        provider.add("gui.neoecoae.planning.reason.planning_failure", "ECO planning failed unexpectedly");
+        provider.add("gui.neoecoae.planning.ae2_fallback_title", "Crafting Plan - using AE2 (%s)");
+        provider.add(
+                "chat.neoecoae.planning.ae2_fallback", "ECO fast planning was not used; AE2 planning selected: %s");
+
         // short controller titles for the compact three-zone layout
         provider.add("gui.neoecoae.ui.storage_system.short", "ECO - %s Storage System");
         provider.add("gui.neoecoae.ui.computation_system.short", "ECO - %s Computation System");

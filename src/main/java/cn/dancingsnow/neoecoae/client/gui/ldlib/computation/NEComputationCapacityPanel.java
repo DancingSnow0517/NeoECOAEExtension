@@ -141,8 +141,8 @@ public final class NEComputationCapacityPanel {
     }
 
     private static void drawStoragePair(GuiGraphics g, Font font, int x, int y, long used, long max) {
-        String usedText = NELDLibText.storageBytesCompact(used);
-        String maxText = NELDLibText.storageBytesCompact(max);
+        String usedText = NELDLibText.computationBytesCompact(used);
+        String maxText = NELDLibText.computationBytesCompact(max);
         drawPair(g, font, x, y, usedText, maxText, used, max);
     }
 
@@ -181,7 +181,7 @@ public final class NEComputationCapacityPanel {
             GuiGraphics g, Font font, IntUnaryOperator screenX, IntUnaryOperator screenY, long availableStorage) {
         Component label = Component.translatable("gui.neoecoae.computation.available_storage")
                 .append(": ");
-        String value = NELDLibText.storageBytesCompact(availableStorage);
+        String value = NELDLibText.computationBytesCompact(availableStorage);
         int labelWidth = font.width(label);
         int fullWidth = labelWidth + font.width(value);
         float scale = Math.min(1.0F, (float) CAPACITY_CONTENT_W / Math.max(1, fullWidth));

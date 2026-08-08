@@ -16,4 +16,11 @@ class ECOCraftingWorkerBlockEntityTest {
     void logicalThreadAvailabilityClampsInvalidState() {
         assertEquals(0, ECOCraftingWorkerBlockEntity.availableThreadSlots(-1, -4));
     }
+
+    @Test
+    void proportionalOutputAllocationDoesNotOverflowLongCounters() {
+        assertEquals(
+                Long.MAX_VALUE / 2L,
+                ECOCraftingWorkerBlockEntity.proportionalShare(Long.MAX_VALUE, Long.MAX_VALUE / 2L, Long.MAX_VALUE));
+    }
 }

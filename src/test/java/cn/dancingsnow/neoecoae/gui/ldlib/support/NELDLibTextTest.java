@@ -21,4 +21,9 @@ class NELDLibTextTest {
         assertEquals("14.49%", NELDLibText.precisePercentOrNA(14_490L, 100_000L));
         assertEquals("N/A", NELDLibText.precisePercentOrNA(0L, 0L));
     }
+
+    @Test
+    void computationCapacityDisplaysTheSaturatedLongRangeInDecimalExabytes() {
+        assertEquals("9.22E", NELDLibText.computationBytesCompact(Long.MAX_VALUE));
+    }
 }

@@ -275,7 +275,8 @@ public final class NECraftingNetworkCluster {
                     member.isHighEnergyNetworkMode(),
                     controller.getLocalThreadCount(),
                     controller.isVirtualCraftingMode()
-                            ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_BATCH_SIZE
+                            ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper
+                                    .MAX_VIRTUAL_BATCH_SIZE
                             : controller.getLocalMaxBatchPerThread()));
         }
         return List.copyOf(result);
@@ -403,7 +404,7 @@ public final class NECraftingNetworkCluster {
                 continue;
             }
             long availableBatchSize = controller.isVirtualCraftingMode()
-                    ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_BATCH_SIZE
+                    ? cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingHelper.MAX_VIRTUAL_BATCH_SIZE
                     : controller.getLargestAvailableCraftingBatchSize();
             if (availableBatchSize <= 0) {
                 continue;
