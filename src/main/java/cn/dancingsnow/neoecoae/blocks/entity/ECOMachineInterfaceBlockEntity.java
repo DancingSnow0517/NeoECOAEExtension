@@ -97,7 +97,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
     private List<PatternPreviewEntry> patternPreviewEntries = new ArrayList<>();
     @Nullable
     private PatternPreviewTask patternPreviewTask;
-    private boolean patternPreviewRefreshRequested;
+    private boolean patternPreviewInitialized;
+    private boolean patternPreviewCacheReady;
     private long lastPatternPreviewSyncTick = Long.MIN_VALUE;
     private final IItemHandlerModifiable patternPreviewItemHandler = new PatternPreviewItemHandler();
     public ECOMachineInterfaceBlockEntity(
@@ -206,6 +207,15 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         }
     }
 
+    public void ensurePatternPreview() {
+        // The preview is an intentionally explicit cache: reopening the terminal
+        // must not start another full network scan. The refresh button is the
+        // opt-in way to rebuild it.
+        if (level instanceof ServerLevel serverLevel && !patternPreviewCacheReady && patternPreviewTask == null) {
+            beginPatternPreviewScan(serverLevel);
+        }
+    }
+
     public void scrollPatternPreview(int rowDelta) {
         int nextRow = Math.clamp(patternPreviewScrollRow + rowDelta, 0, getPatternPreviewMaxScrollRow());
         if (nextRow == patternPreviewScrollRow) {
@@ -237,26 +247,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         );
     }
 
-    public int getPatternPreviewEntryCount() {
-        return patternPreviewEntryCount;
-    }
-
-    public float getPatternPreviewScrollPosition() {
-        int maxScrollRow = getPatternPreviewMaxScrollRow();
-        return maxScrollRow == 0 ? 0F : patternPreviewScrollRow / (float) maxScrollRow;
-    }
-
-    public void setPatternPreviewScrollPosition(float position) {
-        int maxScrollRow = getPatternPreviewMaxScrollRow();
-        int targetRow = Math.round(Math.clamp(position, 0F, 1F) * maxScrollRow);
-        if (targetRow == patternPreviewScrollRow) {
-            return;
-        }
-        patternPreviewScrollRow = targetRow;
-        markForUpdate();
-    }
-
-    public int getPatternPreviewMaxScrollRow() {
+    private int getPatternPreviewMaxScrollRow() {
         int totalRows = (patternPreviewEntryCount + PATTERN_PREVIEW_COLUMNS - 1) / PATTERN_PREVIEW_COLUMNS;
         return Math.max(0, totalRows - PATTERN_PREVIEW_ROWS);
     }
@@ -268,9 +259,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         long deadline = System.nanoTime() + PATTERN_TRANSFER_MAX_NANOS_PER_TICK;
         if (patternTransferTask != null) {
             tickPatternTransfer(serverLevel, deadline);
-        }
-        if (patternPreviewRefreshRequested && patternPreviewTask == null && patternTransferTask == null) {
-            beginPatternPreviewScan(serverLevel);
         }
         if (patternPreviewTask != null && System.nanoTime() < deadline) {
             tickPatternPreview(serverLevel, deadline);
@@ -311,6 +299,12 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
         return sources;
     }
 
+    private List<PatternContainer> getFPatternSources(IGrid grid) {
+        List<PatternContainer> sources = new ArrayList<>();
+        sources.addAll(grid.getActiveMachines(ECOCraftingPatternBusBlockEntity.class));
+        return sources;
+    }
+
     private void tickPatternTransfer(ServerLevel serverLevel, long deadline) {
         PatternTransferTask task = patternTransferTask;
         if (task == null) {
@@ -347,12 +341,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 case INSERTED -> {
                     step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
                     patternTransferInserted++;
-                    queuePatternPreviewRefresh();
                 }
                 case ALREADY_PRESENT -> {
                     step.inventory().setItemDirect(step.slot(), ItemStack.EMPTY);
                     patternTransferAlreadyPresent++;
-                    queuePatternPreviewRefresh();
                 }
                 case NO_SPACE -> patternTransferNoSpace++;
                 case NO_TARGET -> {
@@ -372,7 +364,8 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
 
     private void beginPatternPreviewScan(ServerLevel serverLevel) {
         PatternPreviewTask task = createPatternPreviewTask();
-        patternPreviewRefreshRequested = false;
+        patternPreviewInitialized = task != null;
+        patternPreviewCacheReady = false;
         patternPreviewScannedSlots = 0;
         patternPreviewTotalSlots = task == null ? 0 : task.totalSlots();
         patternPreviewTask = task;
@@ -391,7 +384,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             return null;
         }
         IGrid grid = getMainNode().getGrid();
-        return grid == null ? null : new PatternPreviewTask(grid, getExternalPatternSources(grid));
+        return grid == null ? null : new PatternPreviewTask(grid, getFPatternSources(grid));
     }
 
     private void tickPatternPreview(ServerLevel serverLevel, long deadline) {
@@ -423,6 +416,7 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             patternPreviewEntries = new ArrayList<>(task.entries());
             patternPreviewEntryCount = patternPreviewEntries.size();
             patternPreviewScrollRow = Math.min(patternPreviewScrollRow, getPatternPreviewMaxScrollRow());
+            patternPreviewCacheReady = true;
             finishPatternPreview(serverLevel, false);
         } else {
             syncPatternPreviewState(serverLevel.getGameTime(), false);
@@ -436,12 +430,10 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             patternPreviewEntries = new ArrayList<>();
             patternPreviewEntryCount = 0;
             patternPreviewScrollRow = 0;
+            patternPreviewInitialized = false;
+            patternPreviewCacheReady = false;
         }
         syncPatternPreviewState(level.getGameTime(), true);
-    }
-
-    private void queuePatternPreviewRefresh() {
-        patternPreviewRefreshRequested = true;
     }
 
     private void syncPatternPreviewState(long gameTime, boolean force) {
@@ -631,7 +623,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             ItemStack remaining = inventory.insertItem(entry.sourceSlot(), stack, simulate);
             if (!simulate && remaining.getCount() != stack.getCount()) {
                 updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
-                queuePatternPreviewRefresh();
             }
             return remaining;
         }
@@ -649,7 +640,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             ItemStack extracted = inventory.extractItem(entry.sourceSlot(), amount, simulate);
             if (!simulate && !extracted.isEmpty()) {
                 updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
-                queuePatternPreviewRefresh();
             }
             return extracted;
         }
@@ -691,7 +681,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
             if (stack.isEmpty()) {
                 if (!current.isEmpty()) {
                     inventory.extractItem(entry.sourceSlot(), current.getCount(), false);
-                    queuePatternPreviewRefresh();
                 }
                 return;
             }
@@ -707,7 +696,6 @@ public class ECOMachineInterfaceBlockEntity<C extends NECluster<C>> extends NEBl
                 return;
             }
             updatePreviewEntryFingerprint(visualSlot, inventory.getStackInSlot(entry.sourceSlot()));
-            queuePatternPreviewRefresh();
         }
 
         private boolean isPreviewSlotValidForInsert(int visualSlot, ItemStack stack) {
