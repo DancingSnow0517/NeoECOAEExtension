@@ -9,4 +9,8 @@ public interface IECOCellHandler {
     boolean isCell(ItemStack stack);
 
     @Nullable IECOStorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host);
+
+    default void releaseCellInventory(@Nullable ItemStack stack, @Nullable ISaveProvider host) {}
+
+    default void clearRuntimeState() {}
 }

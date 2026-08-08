@@ -2,6 +2,7 @@ package cn.dancingsnow.neoecoae.grid;
 
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridServiceProvider;
+import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorageService;
 import net.minecraft.nbt.CompoundTag;
@@ -30,17 +31,28 @@ public class PatternStorage implements IECOPatternStorageService, IGridServicePr
         patternStorages.remove(gridNode);
     }
 
-    public boolean tryInsertPattern(ItemStack patternItem) {
+    public ECOPatternInsertionResult tryInsertPattern(ItemStack patternItem) {
         if (patternItem.isEmpty()) {
-            return false;
+            return ECOPatternInsertionResult.INCOMPATIBLE;
         }
 
+        boolean alreadyPresent = false;
+        boolean noSpace = false;
         for (IECOPatternStorage value : patternStorages.values()) {
-            if (value.insertPattern(patternItem)) {
-                return true;
+            switch (value.insertPattern(patternItem)) {
+                case INSERTED -> {
+                    return ECOPatternInsertionResult.INSERTED;
+                }
+                case ALREADY_PRESENT -> alreadyPresent = true;
+                case NO_SPACE -> noSpace = true;
+                default -> {
+                }
             }
         }
-        return false;
+        if (alreadyPresent) {
+            return ECOPatternInsertionResult.ALREADY_PRESENT;
+        }
+        return noSpace ? ECOPatternInsertionResult.NO_SPACE : ECOPatternInsertionResult.NO_TARGET;
     }
 
     @Override

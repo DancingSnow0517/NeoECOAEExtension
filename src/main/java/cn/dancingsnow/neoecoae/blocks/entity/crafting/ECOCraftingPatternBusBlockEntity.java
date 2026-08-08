@@ -15,6 +15,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import cn.dancingsnow.neoecoae.all.NEBlocks;
+import cn.dancingsnow.neoecoae.api.ECOPatternInsertionResult;
 import cn.dancingsnow.neoecoae.api.IECOPatternStorage;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOBatchCraftingRequest;
 import cn.dancingsnow.neoecoae.impl.crafting.fastpath.ECOExtractedPatternExecution;
@@ -378,17 +379,19 @@ public class ECOCraftingPatternBusBlockEntity extends AbstractCraftingBlockEntit
     }
 
     @Override
-    public boolean insertPattern(ItemStack itemStack) {
+    public ECOPatternInsertionResult insertPattern(ItemStack itemStack) {
         // ECO Workers only execute molecular-assembler crafting patterns. Reject processing patterns before they can
         // be advertised to a crafting CPU, which would otherwise extract and later reinject their inputs.
         if (!isExecutablePattern(itemStack)) {
-            return false;
+            return ECOPatternInsertionResult.INCOMPATIBLE;
         }
         if (containsPatternInCluster(itemStack)) {
-            return false;
+            return ECOPatternInsertionResult.ALREADY_PRESENT;
         }
         ItemStack result = effectiveInventory.addItems(itemStack.copy());
-        return result.isEmpty();
+        return result.isEmpty()
+                ? ECOPatternInsertionResult.INSERTED
+                : ECOPatternInsertionResult.NO_SPACE;
     }
 
     private boolean containsPatternInCluster(ItemStack pattern) {

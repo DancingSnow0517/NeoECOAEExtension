@@ -122,4 +122,5 @@ final class CraftingHeaderUI {
                 Boolean.TRUE.equals(syncedEnabled.getValue()) ? enabledTooltipKey : disabledTooltipKey)));
         return button;
     }
+
 }

@@ -857,31 +857,32 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             long remaining = entry.amount();
             if (craftingJobId != null && !releaseJobOutputsToNetwork) {
                 // A forming/reforming computation host can be absent from CraftingService's transient CPU list.
-                // Until the owning job explicitly releases its outputs, never let a partial delivery change
-                // the route of later entries to another CPU or network storage.
+                // Prefer the exact owning CPU, then retain AE2's normal CPU/storage fallback for any remainder.
+                // The AE2 CPU insert contract checks its own waitingFor inventory, so this cannot route an
+                // output to an unrelated CPU.
                 ECOCraftingCPULogic.JobOutputDelivery delivery = ECOCraftingCPULogic.deliverJobOutput(
                     craftingJobId, key, remaining, Actionable.MODULATE
                 );
-                if (!delivery.routeAvailable()) {
-                    return stacks;
-                }
-                long delivered = validateInsertionAmount(
-                    delivery.inserted(), remaining, "owning crafting CPU"
+                long remainingAfterOwner = remainingAfterOwnerDelivery(
+                    delivery.routeAvailable(), remaining, delivery.inserted()
                 );
+                long delivered = remaining - remainingAfterOwner;
                 if (delivered > 0L) {
+                    remaining = remainingAfterOwner;
                     removePendingOutput(stacks, key, delivered);
                 }
-                continue;
             }
 
-            long insertedIntoCpus = validateInsertionAmount(
-                craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE),
-                remaining,
-                "crafting CPUs"
-            );
-            if (insertedIntoCpus > 0L) {
-                remaining -= insertedIntoCpus;
-                removePendingOutput(stacks, key, insertedIntoCpus);
+            if (remaining > 0L) {
+                long insertedIntoCpus = validateInsertionAmount(
+                    craftingService.insertIntoCpus(key, remaining, Actionable.MODULATE),
+                    remaining,
+                    "crafting CPUs"
+                );
+                if (insertedIntoCpus > 0L) {
+                    remaining -= insertedIntoCpus;
+                    removePendingOutput(stacks, key, insertedIntoCpus);
+                }
             }
             if (remaining > 0L) {
                 long insertedIntoStorage = validateInsertionAmount(
@@ -910,6 +911,17 @@ public class ECOCraftingThread implements INBTSerializable<CompoundTag> {
             );
         }
         return inserted;
+    }
+
+    /** Returns the amount that must continue through the normal AE2 fallback route. */
+    static long remainingAfterOwnerDelivery(boolean routeAvailable, long requested, long inserted) {
+        if (requested < 0L) {
+            throw new IllegalArgumentException("requested output amount must be non-negative");
+        }
+        if (!routeAvailable) {
+            return requested;
+        }
+        return requested - validateInsertionAmount(inserted, requested, "owning crafting CPU");
     }
 
     private KeyCounter insertAllAndCollectRemainder(

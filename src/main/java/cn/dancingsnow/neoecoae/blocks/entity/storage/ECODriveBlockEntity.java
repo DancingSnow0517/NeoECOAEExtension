@@ -90,6 +90,7 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
             && !ECOInfiniteStorageMember.isMember(cellStack)) {
             return;
         }
+        ECOStorageCells.releaseCellInventory(this.cellStack, this);
         this.cellStack = cellStack;
         invalidateCellInventoryCache();
         if (getLevel() != null && !isServerStopping()) {
@@ -174,6 +175,18 @@ public class ECODriveBlockEntity extends AbstractStorageBlockEntity<ECODriveBloc
     private void invalidateCellInventoryCache() {
         cachedCellStack = null;
         cachedCellInventory = null;
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        ECOStorageCells.releaseCellInventory(cellStack, this);
+        super.onChunkUnloaded();
+    }
+
+    @Override
+    public void setRemoved() {
+        ECOStorageCells.releaseCellInventory(cellStack, this);
+        super.setRemoved();
     }
 
     @Override
